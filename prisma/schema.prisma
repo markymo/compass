@@ -1,0 +1,181 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// 1. Identity & Access Management
+// ------------------------------
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+  
+  // Relations
+  orgRoles  UserOrganizationRole[]
+}
+
+model Organization {
+  id        String   @id @default(uuid())
+  name      String
+  type      OrgType  // CLIENT | FI
+  
+  // Relations
+  members   UserOrganizationRole[]
+  
+  // If type == CLIENT
+  clientLEs ClientLE[] // The Legal Entities this Client owns
+
+  // If type == FI
+  fiSchemas FISchema[] // The specific requirements this FI has defined
+  engagements FIEngagement[] // Engagements this FI has with Client LEs
+}
+
+enum OrgType {
+  CLIENT
+  FI
+  SYSTEM // Super-admin
+}
+
+model UserOrganizationRole {
+  id        String   @id @default(uuid())
+  userId    String
+  orgId     String
+  role      String   // ADMIN, USER, READ_ONLY
+  
+  user      User         @relation(fields: [userId], references: [id])
+  org       Organization @relation(fields: [orgId], references: [id])
+
+  @@unique([userId, orgId]) // One role per org per user (simplify for v1)
+}
+
+// 2. The Core Data Engine (Hybrid Relations + JSON)
+// ------------------------------------------------
+
+// The "Master Question Bank" - governed by System Admin
+model MasterSchema {
+  id          String   @id @default(uuid())
+  version     Int      // Incrementing version
+  isActive    Boolean  @default(false)
+  
+  // THE KEY: All field definitions (labels, types, validation) live here
+  // Structure: { fields: [ { key: "turnover", label: "Annual Turnover", type: "currency" } ] }
+  definition  Json     
+
+  createdAt   DateTime @default(now())
+
+  // Relations
+  records     ClientLERecord[]
+  fiSchemas   FISchema[]
+}
+
+// An FI's specific "view" or "overlay" on the Master Schema
+model FISchema {
+  id             String @id @default(uuid())
+  fiOrgId        String // The FI who owns this view
+  masterSchemaId String // Based on which master version?
+
+  // Rules: Which fields are Required? Hidden? Renamed?
+  // Structure: { rules: { "turnover": { required: true }, "employee_count": { hidden: true } } }
+  overlayDefinition Json 
+
+  fi             Organization @relation(fields: [fiOrgId], references: [id])
+  masterSchema   MasterSchema @relation(fields: [masterSchemaId], references: [id])
+}
+
+// 3. Client Data & Entities
+// -------------------------
+
+model ClientLE {
+  id           String @id @default(uuid())
+  clientOrgId  String // Required: LE must belong to an Org
+  name         String
+  jurisdiction String?
+  
+  status       String       @default("ACTIVE")
+
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  
+  clientOrg    Organization @relation(fields: [clientOrgId], references: [id])
+  
+  records      ClientLERecord[]
+  engagements  FIEngagement[]
+}
+
+// The actual "Answers" provided by the Client
+model ClientLERecord {
+  id             String @id @default(uuid())
+  clientLEId     String
+  masterSchemaId String
+  
+  // THE DATA: Key-value map of answers
+  // Structure: { "turnover": "1000000", "ceo_name": "Jane Doe" }
+  data           Json   
+  
+  status         RecordStatus // DRAFT, PUBLISHED
+  updatedAt      DateTime     @updatedAt
+  
+  clientLE       ClientLE     @relation(fields: [clientLEId], references: [id])
+  masterSchema   MasterSchema @relation(fields: [masterSchemaId], references: [id])
+}
+
+enum RecordStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+// 4. Workflow & Deal Management
+// -----------------------------
+
+// Access Control: An FI has access to a ClientLE through an "Engagement"
+model FIEngagement {
+  id          String @id @default(uuid())
+  fiOrgId     String
+  clientLEId  String
+  status      EngagementStatus // PENDING, ACTION_REQUIRED, SIGNED_OFF
+  
+  org         Organization @relation(fields: [fiOrgId], references: [id])
+  clientLE    ClientLE     @relation(fields: [clientLEId], references: [id])
+  
+  queries     Query[]
+
+  @@unique([fiOrgId, clientLEId])
+}
+
+enum EngagementStatus {
+  PENDING
+  REVIEWING
+  QUERIES_OPEN
+  SIGNED_OFF
+}
+
+// Communication: "Sticky notes" on specific fields
+model Query {
+  id              String   @id @default(uuid())
+  fiEngagementId  String
+  fieldKey        String   // Which field is this about? e.g. "turnover"
+  
+  question        String
+  answer          String?
+  status          QueryStatus // OPEN, RESOLVED
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  engagement      FIEngagement @relation(fields: [fiEngagementId], references: [id])
+}
+
+enum QueryStatus {
+  OPEN
+  RESOLVED
+}
