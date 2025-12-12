@@ -190,12 +190,12 @@ export default function MapperPage() {
                     <Card>
                         <CardHeader>
                             <CardTitle>2. Upload Document</CardTitle>
-                            <CardDescription>PDF or Text file of the questionnaire</CardDescription>
+                            <CardDescription>PDF, Word (.docx), Image, or Text file</CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <Input
                                 type="file"
-                                accept=".pdf,.txt"
+                                accept=".pdf,.txt,.png,.jpg,.jpeg,.webp,.docx"
                                 onChange={e => setFile(e.target.files?.[0] || null)}
                             />
                             <Button
@@ -231,7 +231,9 @@ export default function MapperPage() {
                             <TableBody>
                                 {suggestions.map((suggestion, idx) => (
                                     <TableRow key={idx}>
-                                        <TableCell>{suggestion.originalText}</TableCell>
+                                        <TableCell className="break-words whitespace-pre-wrap max-w-sm">
+                                            {suggestion.originalText}
+                                        </TableCell>
                                         <TableCell>
                                             <Select
                                                 value={suggestion.suggestedKey}

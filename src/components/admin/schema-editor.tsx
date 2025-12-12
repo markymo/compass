@@ -54,8 +54,8 @@ export function SchemaEditor({ initialSchema }: SchemaEditorProps) {
         setNewDescription("");
     }
 
-    function removeField(id: string) {
-        setFields(fields.filter((f) => f.id !== id));
+    function removeField(key: string) {
+        setFields(fields.filter((f) => f.key !== key));
     }
 
     async function handleSave() {
@@ -66,7 +66,6 @@ export function SchemaEditor({ initialSchema }: SchemaEditorProps) {
         alert("Saved!");
         router.refresh();
     }
-
     async function handlePublish() {
         if (!schema) return;
         if (!confirm("Are you sure? This will be the live schema.")) return;
@@ -169,14 +168,14 @@ export function SchemaEditor({ initialSchema }: SchemaEditorProps) {
                         </TableHeader>
                         <TableBody>
                             {fields.map((field) => (
-                                <TableRow key={field.id}>
+                                <TableRow key={field.key}>
                                     <TableCell>{field.label}</TableCell>
                                     <TableCell className="font-mono text-xs">{field.key}</TableCell>
                                     <TableCell className="text-muted-foreground text-sm">{field.description}</TableCell>
                                     <TableCell>{field.type}</TableCell>
                                     <TableCell>
                                         {!schema.isActive && (
-                                            <Button variant="ghost" size="sm" onClick={() => removeField(field.id)} className="text-red-500">
+                                            <Button variant="ghost" size="sm" onClick={() => removeField(field.key)} className="text-red-500">
                                                 Remove
                                             </Button>
                                         )}

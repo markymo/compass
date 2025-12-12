@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -10,10 +10,18 @@ import { useRouter } from "next/navigation";
 
 export function CreateLEDialog() {
     const router = useRouter();
+    const [mounted, setMounted] = useState(false);
     const [open, setOpen] = useState(false);
+
     const [name, setName] = useState("");
     const [jurisdiction, setJurisdiction] = useState("");
     const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
+    if (!mounted) return <Button>Add Legal Entity</Button>; // Show skeleton/static button during SSR to match
 
     async function handleCreate() {
         if (!name || !jurisdiction) return;

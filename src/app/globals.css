@@ -44,6 +44,9 @@
 
   --border: #e2e8f0;
   /* Slate 200 */
+
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
 }
 
 /* Dark mode overrides (if needed later, but focusing on Light Mode) */
@@ -55,6 +58,8 @@
   --secondary: #1e293b;
   --accent: #d97706;
   --border: #1e293b;
+  --popover: #020617;
+  --popover-foreground: #f8fafc;
 }
 
 body {

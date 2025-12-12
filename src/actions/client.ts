@@ -7,23 +7,47 @@ import { revalidatePath } from "next/cache";
 // Helper to get or create the user's Client Organization
 // Helper to get or create the user's Client Organization
 export async function ensureUserOrg(userId: string, userEmail: string = "") {
-    // 1. Check if user has an org role
-    const role = await prisma.userOrganizationRole.findFirst({
+    // 0. Fallback: If email is missing (failed session claim), fetch from Clerk directly
+    if (!userEmail || userEmail === "unknown@demo.com") {
+        const clerkUser = await currentUser();
+        if (clerkUser?.emailAddresses?.[0]) {
+            userEmail = clerkUser.emailAddresses[0].emailAddress;
+        }
+    }
+
+    // 1. Self-Heal Email (if we have a better one now)
+    if (userEmail && userEmail !== "unknown@demo.com") {
+        const currentUser = await prisma.user.findUnique({ where: { id: userId } });
+        if (currentUser && currentUser.email === "unknown@demo.com") {
+            console.log(`[ensureUserOrg] Healing user email for ${userId} to ${userEmail}`);
+            await prisma.user.update({
+                where: { id: userId },
+                data: { email: userEmail }
+            });
+        }
+    }
+
+    // 1. Check all roles
+    const roles = await prisma.userOrganizationRole.findMany({
         where: { userId },
         include: { org: true }
     });
 
-    // Valid existing Org (Client or FI)
-    if (role && role.org) {
-        return role.org;
+    // console.log(`[ensureUserOrg] Found ${roles.length} roles for ${userId}`);
+
+    if (roles.length > 0) {
+        // Priority 1: System Admin
+        const systemRole = roles.find(r => r.org.type === "SYSTEM");
+        if (systemRole) return systemRole.org;
+
+        // Priority 2: Any other (e.g. Client)
+        return roles[0].org;
     }
 
     // 2. If not, AUTO-CREATE one (for this demo/v1)
-    // Create User record if not exists (Clerk sync might be delayed)
-    // Actually, for simplicity, let's just assume we can create the Org and Role.
-    // We need to ensure the User exists in our DB first? 
-    // The Schema has a User model. We should probably sync it, but let's do a quick upsert.
+    console.log(`[ensureUserOrg] No roles found for ${userId}. Auto-creating Client Org.`);
 
+    // Ensure User exists
     await prisma.user.upsert({
         where: { id: userId },
         create: { id: userId, email: userEmail || "unknown@demo.com" },

@@ -1,9 +1,11 @@
-import { getClientLEs } from "@/actions/client";
+import { getClientLEs, createClientLE } from "@/actions/client";
 import { CreateLEDialog } from "@/components/client/create-le-dialog";
+import { auth } from "@clerk/nextjs/server";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
 
 export default async function DashboardPage() {
+    const { userId } = await auth();
     const les = await getClientLEs();
 
     return (
