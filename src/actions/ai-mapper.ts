@@ -29,7 +29,7 @@ export async function parseDocument(formData: FormData): Promise<string> {
     const buffer = Buffer.from(arrayBuffer);
 
     return new Promise((resolve, reject) => {
-        const parser = new PDFParser(null, 1); // 1 = Text content only
+        const parser = new PDFParser(null, true); // 1 = Text content only
 
         parser.on("pdfParser_dataError", (errData: any) => {
             console.error("PDF Parser Error:", errData.parserError);
