@@ -7,7 +7,7 @@ export default async function SchemaPage() {
     return (
         <div className="max-w-4xl mx-auto space-y-8">
             <div>
-                <h1 className="text-3xl font-bold tracking-tight">Schema Engine</h1>
+                <h1 className="text-3xl font-bold tracking-tight">Master Schema</h1>
                 <p className="text-muted-foreground">Manage the Master Question Bank.</p>
             </div>
 

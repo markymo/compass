@@ -6,6 +6,7 @@ import { openai } from '@ai-sdk/openai';
 import { z } from 'zod';
 
 import mammoth from 'mammoth';
+import PDFParser from 'pdf2json';
 
 export interface MappingSuggestion {
     originalText: string;
@@ -17,6 +18,14 @@ export interface MappingSuggestion {
         type: string;
         description?: string;
     };
+}
+
+export interface ExtractedItem {
+    type: "QUESTION" | "SECTION" | "INSTRUCTION" | "NOTE";
+    originalText: string;
+    neutralText?: string;
+    masterKey?: string;
+    confidence: number;
 }
 
 // 1. Process Document: Convert to Base64 (Images/PDF) or Text (Docx/Txt)
@@ -31,8 +40,12 @@ export async function parseDocument(formData: FormData): Promise<{ content: stri
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
+    return processDocumentBuffer(buffer, file.type, file.name);
+}
+
+export async function processDocumentBuffer(buffer: Buffer, mimeType: string, fileName: string): Promise<{ content: string, type: "image" | "text", mime: string }> {
     // DOCX Handling
-    if (file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || file.name.endsWith(".docx")) {
+    if (mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || fileName.endsWith(".docx")) {
         console.log("[AI Mapper] Parsing DOCX via Mammoth");
         const result = await mammoth.extractRawText({ buffer });
         return {
@@ -43,7 +56,7 @@ export async function parseDocument(formData: FormData): Promise<{ content: stri
     }
 
     // TEXT Handling
-    if (file.type === "text/plain" || file.name.endsWith(".txt")) {
+    if (mimeType === "text/plain" || fileName.endsWith(".txt")) {
         return {
             content: buffer.toString('utf-8'),
             type: "text",
@@ -51,12 +64,33 @@ export async function parseDocument(formData: FormData): Promise<{ content: stri
         };
     }
 
-    // IMAGE / PDF Handling (Vision API)
+    // PDF Handling
+    if (mimeType === "application/pdf" || fileName.endsWith(".pdf")) {
+        console.log("[AI Mapper] Parsing PDF via pdf2json");
+        try {
+            // @ts-ignore
+            const pdfParser = new PDFParser(null, 1);
+            const text = await new Promise<string>((resolve, reject) => {
+                pdfParser.on("pdfParser_dataError", (errData: any) => reject(errData.parserError));
+                pdfParser.on("pdfParser_dataReady", () => {
+                    resolve(pdfParser.getRawTextContent());
+                });
+                pdfParser.parseBuffer(buffer);
+            });
+            return { content: text, type: "text", mime: "text/plain" };
+        } catch (e) {
+            console.error("[AI Mapper] PDF text extraction failed:", e);
+            // Fall through to image handling? Or just fail?
+            // Let's try image handling as fallback if it was a scanned PDF
+        }
+    }
+
+    // IMAGE Handling (Vision API) - fallback for Scanned PDFs or actual Images
     const base64 = buffer.toString('base64');
     return {
         content: base64,
         type: "image",
-        mime: file.type
+        mime: mimeType
     };
 }
 
@@ -139,6 +173,72 @@ export async function generateMappingSuggestions(input: { content: string, type:
 
     } catch (e) {
         console.error("[AI Mapper] LLM Error:", e);
+        return [];
+    }
+}
+
+// 3. Granular Extraction (Columns 1, 2, 3)
+export async function extractQuestionnaireItems(input: { content: string, type: "image" | "text", mime: string }): Promise<ExtractedItem[]> {
+    const { content, type, mime } = input;
+
+    // A. Fetch Master Schema
+    const masterSchema = await prisma.masterSchema.findFirst({
+        where: { isActive: true },
+    });
+    const fields = (masterSchema?.definition as any)?.fields || [];
+    const schemaDesc = fields.map((f: any) => `${f.key} (${f.label})`).join('\n');
+
+    // B. Construct Message
+    const userContent: any[] = [
+        {
+            type: "text",
+            text: `Analyze this financial questionnaire document and extract EVERY structural element.
+            
+            OUTPUT COLUMNS:
+            1. Type: "QUESTION" (requires answer), "SECTION" (Header/Title), "INSTRUCTION" (Context/Help), "NOTE" (Disclaimer/Footer).
+            2. Original Text: Exact text from document.
+            3. Neutral Text (Questions Only): The question re-phrased to be generic (remove "Please provide...", remove numbering "1.2", remove specific formatting).
+            4. Master Key (Questions Only): Best guess match from the provided Master Schema list.
+
+            MASTER SCHEMA FIELDS:
+            ${schemaDesc}
+            `
+        }
+    ];
+
+    if (type === "text") {
+        userContent.push({
+            type: "text",
+            text: `DOCUMENT CONTENT:\n\n${content}`
+        });
+    } else {
+        userContent.push({
+            type: "image",
+            // @ts-ignore
+            image: `data:${mime};base64,${content}`
+        });
+    }
+
+    try {
+        console.log(`[AI Mapper] Extracting Items (${type} mode)`);
+
+        const { object } = await generateObject({
+            model: openai('gpt-4o'),
+            schema: z.object({
+                items: z.array(z.object({
+                    type: z.enum(["QUESTION", "SECTION", "INSTRUCTION", "NOTE"]),
+                    originalText: z.string(),
+                    neutralText: z.string().optional(),
+                    masterKey: z.string().optional(),
+                    confidence: z.number()
+                }))
+            }),
+            messages: [{ role: "user", content: userContent }]
+        });
+
+        return object.items;
+    } catch (e) {
+        console.error("[AI Mapper] Extraction Error:", e);
         return [];
     }
 }

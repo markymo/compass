@@ -19,6 +19,17 @@ export default async function AdminLayout({
                 <span className="font-bold">SYSTEM ADMIN AREA</span>
                 <span className="opacity-75">- Exercise caution. Changes affect all tenants.</span>
             </div>
+
+            <div className="border-b pb-2 mb-4">
+                <nav className="flex items-center gap-6 text-sm">
+                    <a href="/app/admin" className="font-medium hover:text-primary transition-colors">Admin Home</a>
+                    <a href="/app/admin/organizations" className="font-medium hover:text-primary transition-colors">Organizations</a>
+                    <a href="/app/admin/users" className="font-medium hover:text-primary transition-colors">Users</a>
+                    <a href="/app/admin/schema" className="font-medium hover:text-primary transition-colors">Master Schema</a>
+                    <a href="/app/admin/mapper" className="font-medium hover:text-primary transition-colors">AI Mapper</a>
+                </nav>
+            </div>
+
             {children}
         </div>
     );

@@ -27,12 +27,17 @@ export default async function PlatformLayout({
             <header className="border-b bg-card px-6 py-3 flex justify-between items-center sticky top-0 z-50">
                 <div className="flex items-center gap-4">
                     <div className="font-semibold text-lg">Compass Platform</div>
-                    <nav className="text-sm text-muted-foreground space-x-4 flex items-center">
-                        <a href="/app" className="hover:text-foreground">Dashboard</a>
-                        <a href="/app/admin/organizations" className="hover:text-foreground">Organizations</a>
-                        <a href="/app/admin/users" className="hover:text-foreground">Users</a>
-                        <a href="/app/admin/schema" className="hover:text-foreground">Schema Engine</a>
-                        <a href="/app/admin/mapper" className="hover:text-foreground">AI Mapper</a>
+                    <nav className="text-sm text-muted-foreground space-x-6 flex items-center ml-4">
+                        <a href="/app" className="hover:text-foreground font-medium transition-colors">Dashboard</a>
+                        {/* TODO: Role based visibility */}
+                        {orgType === "CLIENT" && (
+                            <a href="/app/client" className="hover:text-foreground font-medium transition-colors">Client Area</a>
+                        )}
+                        {orgType === "FI" && (
+                            <a href="/app/fi" className="hover:text-foreground font-medium transition-colors">FI Area</a>
+                        )}
+                        {/* System Admin Link - For now visible to all until we have strict System Admin checks */}
+                        <a href="/app/admin" className="hover:text-foreground font-medium transition-colors text-amber-600 dark:text-amber-500">System Admin</a>
                     </nav>
                 </div>
                 <div className="flex items-center gap-4">

@@ -14,7 +14,16 @@ import { appendFieldsToActiveSchema } from "@/actions/schema"; // Import append 
 import { getMasterSchemaFields as getFields } from "@/actions/schema-utils"; // Distinction
 import { Loader2, Check, AlertCircle, Plus } from "lucide-react";
 
+// ... (imports)
+import Link from "next/link";
+import { useSearchParams, useRouter } from "next/navigation";
+import { analyzeQuestionnaire, saveQuestionnaireChanges } from "@/actions/questionnaire";
+
 export default function MapperPage() {
+    const searchParams = useSearchParams();
+    const router = useRouter();
+    const questionnaireId = searchParams.get("questionnaireId");
+
     const [fis, setFis] = useState<any[]>([]);
     const [selectedFi, setSelectedFi] = useState("");
     const [newFiName, setNewFiName] = useState("");
@@ -26,9 +35,19 @@ export default function MapperPage() {
     const [masterFields, setMasterFields] = useState<any[]>([]);
     const [suggestions, setSuggestions] = useState<MappingSuggestion[]>([]);
 
+    // Questionnaire Context
+    const [qContext, setQContext] = useState<{ name: string } | null>(null);
+
     useEffect(() => {
         loadData();
     }, []);
+
+    // Auto-analyze if questionnaireId is present
+    useEffect(() => {
+        if (questionnaireId && masterFields.length > 0) {
+            handleAnalyzeQuestionnaire(questionnaireId);
+        }
+    }, [questionnaireId, masterFields]);
 
     async function loadData() {
         const [fiList, schemaFields] = await Promise.all([
@@ -39,38 +58,48 @@ export default function MapperPage() {
         setMasterFields(schemaFields);
     }
 
-    async function handleCreateFI() {
-        if (!newFiName) return;
-        const res = await createFI(newFiName);
-        if (res.success) {
-            setFis([...fis, res.data]);
-            setSelectedFi(res.data?.id || "");
-            setNewFiName("");
-        }
-    }
+    // ... (handleCreateFI unchanged)
 
-    async function handleAnalyze() {
-        if (!file || !selectedFi) return;
+    async function handleAnalyzeQuestionnaire(id: string) {
         setLoading(true);
         try {
-            const formData = new FormData();
-            formData.append("file", file);
+            const res = await analyzeQuestionnaire(id);
+            setQContext({ name: res.questionnaireName });
+            setSelectedFi(res.fiOrgId); // Set context
 
-            // 1. Text Extraction
-            const text = await parseDocument(formData);
-
-            // 2. AI Analysis
-            const results = await generateMappingSuggestions(text);
-
-            // Post-process: specificy default selection
-            const processed = results.map(s => {
-                // If it has a new proposal and NO suggested existing key, select the new proposal
+            // Process suggestions
+            const processed = res.suggestions.map(s => {
                 if (s.newFieldProposal && !s.suggestedKey) {
                     return { ...s, suggestedKey: "CREATE_NEW:" + s.newFieldProposal.key };
                 }
                 return s;
             });
 
+            setSuggestions(processed);
+            setStep(2);
+        } catch (e) {
+            alert("Failed to load questionnaire analysis");
+            console.error(e);
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    async function handleAnalyze() {
+        // ... (Unchanged logic for File Upload mode)
+        if (!file || !selectedFi) return;
+        setLoading(true);
+        try {
+            const formData = new FormData();
+            formData.append("file", file);
+            const text = await parseDocument(formData);
+            const results = await generateMappingSuggestions(text);
+            const processed = results.map(s => {
+                if (s.newFieldProposal && !s.suggestedKey) {
+                    return { ...s, suggestedKey: "CREATE_NEW:" + s.newFieldProposal.key };
+                }
+                return s;
+            });
             setSuggestions(processed);
             setStep(2);
         } catch (e) {
@@ -84,11 +113,10 @@ export default function MapperPage() {
     async function handleSave() {
         setLoading(true);
         try {
-            // 1. Identify New Fields to Create
+            // 1. Identify New Fields (Shared logic)
             const fieldsToCreate: any[] = [];
-
             suggestions.forEach(s => {
-                if (s.suggestedKey.startsWith("CREATE_NEW:") && s.newFieldProposal) {
+                if (s.suggestedKey?.startsWith("CREATE_NEW:") && s.newFieldProposal) {
                     fieldsToCreate.push({
                         key: s.newFieldProposal.key,
                         label: s.newFieldProposal.label,
@@ -101,13 +129,10 @@ export default function MapperPage() {
             // 2. Append to Master Schema
             if (fieldsToCreate.length > 0) {
                 const appendRes = await appendFieldsToActiveSchema(fieldsToCreate);
-                if (!appendRes.success) {
-                    throw new Error("Failed to append new fields");
-                }
+                if (!appendRes.success) throw new Error("Failed to append new fields");
             }
 
-            // 3. Save FI Mapping
-            // We need to map the "CREATE_NEW:key" values back to just "key"
+            // 3. Prepare Mapping JSON
             const mapping = suggestions
                 .filter(s => s.suggestedKey && s.suggestedKey !== "IGNORE_SKIP")
                 .map(s => {
@@ -121,16 +146,19 @@ export default function MapperPage() {
                     };
                 });
 
-            await saveFIMapping(selectedFi, mapping);
-
-            alert(`Saved! ${mapping.length} mappings confirmed. ${fieldsToCreate.length} new fields created.`);
-
-            // Reset
-            setStep(1);
-            setSuggestions([]);
-            setFile(null);
-            // Refresh schema fields for next time
-            loadData();
+            // 4. SAVE (Branch Logic)
+            if (questionnaireId) {
+                await saveQuestionnaireChanges(questionnaireId, [], mapping);
+                alert("Questionnaire Mappings Saved!");
+                router.push(`/app/admin/organizations/${selectedFi}`); // Return to org page
+            } else {
+                await saveFIMapping(selectedFi, mapping);
+                alert(`Saved! ${mapping.length} mappings confirmed.`);
+                setStep(1);
+                setSuggestions([]);
+                setFile(null);
+                loadData();
+            }
 
         } catch (e) {
             alert("Failed to save");
@@ -146,14 +174,38 @@ export default function MapperPage() {
         setSuggestions(newSuggestions);
     }
 
+    async function handleCreateFI() {
+        if (!newFiName) return;
+        const res = await createFI(newFiName);
+        if (res.success) {
+            setFis([...fis, res.data]);
+            setSelectedFi(res.data?.id || "");
+            setNewFiName("");
+        }
+    }
+
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
-                <h1 className="text-3xl font-bold tracking-tight">AI Schema Mapper</h1>
+                <h1 className="text-3xl font-bold tracking-tight">
+                    {questionnaireId ? `Mapping: ${qContext?.name || "Loading..."}` : "AI Schema Mapper"}
+                </h1>
+                {questionnaireId && (
+                    <Link href={`/app/admin/organizations/${selectedFi}`}>
+                        <Button variant="ghost">Exit</Button>
+                    </Link>
+                )}
             </div>
 
-            {/* STEP 1: UPLOAD */}
-            {step === 1 && (
+            {loading && step === 1 && questionnaireId && (
+                <div className="flex flex-col items-center justify-center p-12 space-y-4">
+                    <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                    <p className="text-muted-foreground">Analyzing questionnaire document...</p>
+                </div>
+            )}
+
+            {/* STEP 1: UPLOAD (Only if NOT in questionnaire context) */}
+            {step === 1 && !questionnaireId && (
                 <div className="grid gap-6 md:grid-cols-2">
                     <Card>
                         <CardHeader>
@@ -287,7 +339,7 @@ export default function MapperPage() {
                         </Table>
 
                         <div className="flex justify-end gap-2 mt-6">
-                            <Button variant="outline" onClick={() => setStep(1)}>Back</Button>
+                            {!questionnaireId && <Button variant="outline" onClick={() => setStep(1)}>Back</Button>}
                             <Button onClick={handleSave} disabled={loading}>
                                 {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Save Mapping"}
                             </Button>

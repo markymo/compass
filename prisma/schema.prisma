@@ -37,6 +37,7 @@ model Organization {
   // If type == FI
   fiSchemas FISchema[] // The specific requirements this FI has defined
   engagements FIEngagement[] // Engagements this FI has with Client LEs
+  questionnaires Questionnaire[] // Questionnaires defined by this FI
 }
 
 enum OrgType {
@@ -178,4 +179,28 @@ model Query {
 enum QueryStatus {
   OPEN
   RESOLVED
+}
+
+// 5. Electronic Questionnaire Management
+// --------------------------------------
+
+model Questionnaire {
+  id             String   @id @default(uuid())
+  fiOrgId        String
+  name           String
+  status         String   @default("DRAFT") // DRAFT, ACTIVE, ARCHIVED
+
+  // File Storage (Simple Blob for MVP)
+  fileName       String
+  fileType       String
+  fileContent    Bytes?   // The original PDF/Docx
+
+  // AI Extraction & Mapping
+  extractedContent   Json?   // The detailed list of all document parts (questions, notes, etc)
+  mappings           Json?   // The final active mapping configuration
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  fiOrg          Organization @relation(fields: [fiOrgId], references: [id])
 }
