@@ -21,13 +21,12 @@ export async function ensureSchemaCategories() {
     // If categories already exist, maybe update them? For now, if empty/missing, seed.
     if (!definition.categories || definition.categories.length === 0) {
 
-        // Transform the static data to the SchemaCategory type (strip fields string array if needed or keep it)
+        // Transform the static data to the SchemaCategory type
         const categoriesToSeed = MASTER_SCHEMA_CATEGORIES.map(c => ({
             id: c.id,
             title: c.title,
-            description: c.description
-            // We don't store the static 'fields' bullet points in the live schema definition usually, 
-            // but we can for reference.
+            description: c.description,
+            examples: c.fields // Use the static bullet points as "examples"
         }));
 
         const newDefinition = {
@@ -76,7 +75,7 @@ export async function proposeCategoryForField(fieldId: string) {
     Field Key: "${field.key}"
 
     Available Categories:
-    ${categories.map(c => `- ID: ${c.id} | Title: ${c.title} | Desc: ${c.description}`).join('\n')}
+    ${categories.map(c => `- ID: ${c.id} | Title: ${c.title} | Desc: ${c.description} | Examples: ${c.examples?.join(', ') || ''}`).join('\n')}
 
     Return ONLY the ID of the best matching category. If unsure, return "1" (Entity Identity).
     `;

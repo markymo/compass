@@ -123,75 +123,21 @@ export function SchemaManager({ fields, categories, onSeed }: SchemaManagerProps
     return (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
 
-            {/* Left Column: Categories & Mapped Fields */}
+            {/* Left Column: Uncategorized Fields (Main Work Area) */}
             <div className="lg:col-span-2 space-y-6">
                 <div className="flex items-center justify-between">
-                    <h2 className="text-xl font-bold font-serif text-slate-800 dark:text-slate-100">Master Compliance Categories</h2>
-                    <Badge variant="outline" className="bg-slate-100">{categories.length} Categories</Badge>
-                </div>
-
-                <Accordion type="single" collapsible className="w-full space-y-4">
-                    {categories.map((category) => {
-                        const schemaFields = categorizedFields[category.id] || [];
-                        return (
-                            <AccordionItem
-                                key={category.id}
-                                value={category.id}
-                                className="bg-white dark:bg-card border border-slate-200 dark:border-slate-800 rounded-lg px-4 shadow-sm"
-                            >
-                                <AccordionTrigger className="hover:no-underline py-4">
-                                    <div className="flex flex-col items-start gap-1 text-left w-full pr-4">
-                                        <div className="flex items-center justify-between w-full">
-                                            <span className="font-semibold text-base text-slate-900 dark:text-slate-200">
-                                                {category.title}
-                                            </span>
-                                            {schemaFields.length > 0 && (
-                                                <Badge variant="secondary" className="ml-2 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
-                                                    {schemaFields.length}
-                                                </Badge>
-                                            )}
-                                        </div>
-                                        <span className="text-xs font-normal text-slate-500 line-clamp-1">
-                                            {category.description}
-                                        </span>
-                                    </div>
-                                </AccordionTrigger>
-                                <AccordionContent className="pb-4 pt-2">
-                                    {schemaFields.length > 0 ? (
-                                        <div className="space-y-2">
-                                            {schemaFields.map((f, idx) => (
-                                                <div key={f.id || f.key || idx} className="flex items-center justify-between p-2 rounded bg-slate-50 dark:bg-zinc-900 text-sm border border-slate-100 dark:border-zinc-800">
-                                                    <span className="font-medium">{f.label}</span>
-                                                    <code className="text-xs text-muted-foreground">{f.type}</code>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <div className="text-center py-4 text-xs text-muted-foreground italic bg-slate-50 rounded border border-dashed">
-                                            No fields mapped to this category yet.
-                                        </div>
-                                    )}
-                                </AccordionContent>
-                            </AccordionItem>
-                        );
-                    })}
-                </Accordion>
-            </div>
-
-            {/* Right Column: Uncategorized Fields */}
-            <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800 lg:sticky lg:top-24 max-h-[calc(100vh-8rem)] overflow-y-auto">
-                <div className="flex items-center justify-between mb-4">
-                    <h3 className="font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                        <div className="h-2 w-2 rounded-full bg-amber-500" />
+                    <h3 className="text-xl font-bold font-serif text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                        <div className="h-3 w-3 rounded-full bg-amber-500 shadow-sm" />
                         Uncategorized Fields
                     </h3>
-                    <Badge variant="secondary">{uncategorizedFields.length}</Badge>
+                    <Badge variant="secondary" className="text-sm px-3">{uncategorizedFields.length} Pending</Badge>
                 </div>
 
                 {uncategorizedFields.length === 0 ? (
-                    <div className="text-center py-8 text-sm text-muted-foreground">
-                        <Check className="w-8 h-8 mx-auto mb-2 text-green-500 opacity-50" />
-                        All fields are categorized!
+                    <div className="text-center py-12 text-sm text-muted-foreground bg-white dark:bg-card border rounded-xl border-dashed">
+                        <Check className="w-12 h-12 mx-auto mb-3 text-green-500 opacity-50" />
+                        <h3 className="text-lg font-medium text-slate-900 dark:text-slate-100">All caught up!</h3>
+                        <p>All fields have been successfully categorized.</p>
                     </div>
                 ) : (
                     <div className="space-y-3">
@@ -200,6 +146,71 @@ export function SchemaManager({ fields, categories, onSeed }: SchemaManagerProps
                         ))}
                     </div>
                 )}
+            </div>
+
+            {/* Right Column: Categories (Reference Panel) */}
+            <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800 lg:sticky lg:top-24 max-h-[calc(100vh-8rem)] overflow-y-auto w-full">
+                <div className="flex items-center justify-between mb-4">
+                    <h2 className="font-semibold text-slate-900 dark:text-slate-100">Categories</h2>
+                    <Badge variant="outline" className="bg-slate-100 dark:bg-slate-800">{categories.length}</Badge>
+                </div>
+
+                <Accordion type="single" collapsible className="w-full space-y-3">
+                    {categories.map((category) => {
+                        const schemaFields = categorizedFields[category.id] || [];
+                        return (
+                            <AccordionItem
+                                key={category.id}
+                                value={category.id}
+                                className="bg-white dark:bg-card border border-slate-200 dark:border-slate-800 rounded-lg px-3 shadow-sm"
+                            >
+                                <AccordionTrigger className="hover:no-underline py-3 text-sm">
+                                    <div className="flex flex-col items-start gap-1 text-left w-full pr-2">
+                                        <div className="flex items-center justify-between w-full">
+                                            <span className="font-medium text-slate-900 dark:text-slate-200">
+                                                {category.title.split('. ')[1] || category.title}
+                                            </span>
+                                            {schemaFields.length > 0 && (
+                                                <Badge variant="secondary" className="ml-2 h-5 text-[10px] px-1.5 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                                                    {schemaFields.length}
+                                                </Badge>
+                                            )}
+                                        </div>
+                                    </div>
+                                </AccordionTrigger>
+                                <AccordionContent className="pb-3 pt-1">
+                                    {schemaFields.length > 0 ? (
+                                        <div className="space-y-1.5">
+                                            {schemaFields.map((f, idx) => (
+                                                <div key={f.id || f.key || idx} className="flex items-center justify-between p-1.5 rounded bg-slate-50 dark:bg-zinc-900 text-xs border border-slate-100 dark:border-zinc-800">
+                                                    <span className="font-medium truncate max-w-[180px]" title={f.label}>{f.label}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="py-2">
+                                            <span className="text-xs font-normal text-slate-500 line-clamp-2">
+                                                {category.description}
+                                            </span>
+                                            {category.examples && category.examples.length > 0 && (
+                                                <div className="mt-1 flex flex-wrap gap-1">
+                                                    {category.examples.slice(0, 3).map((ex, i) => (
+                                                        <span key={i} className="text-[10px] text-slate-400 bg-slate-100 dark:bg-slate-800 px-1 rounded">
+                                                            {ex}
+                                                        </span>
+                                                    ))}
+                                                    {category.examples.length > 3 && (
+                                                        <span className="text-[10px] text-slate-400">+ more</span>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </AccordionContent>
+                            </AccordionItem>
+                        );
+                    })}
+                </Accordion>
             </div>
         </div>
     );

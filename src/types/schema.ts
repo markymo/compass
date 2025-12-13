@@ -3,11 +3,13 @@ import { z } from "zod";
 export const SchemaFieldType = z.enum(["text", "number", "date", "boolean", "select"]);
 
 // Categories structure
+// Categories structure
 export const SchemaCategorySchema = z.object({
     id: z.string(),
     title: z.string(),
     description: z.string(),
-    fields: z.array(z.string()).optional(), // original bullet points for reference
+    fields: z.array(z.string()).optional(), // original bullet points as reference or 'fields'
+    examples: z.array(z.string()).optional(), // Explicit examples
 });
 
 export const SchemaFieldSchema = z.object({
