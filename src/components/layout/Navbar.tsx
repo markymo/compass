@@ -44,15 +44,19 @@ export function Navbar() {
                         <Link href="/login" className="hidden text-sm font-medium text-slate-900 transition-colors hover:text-slate-700 md:block">
                             Sign In
                         </Link>
+                        <Button asChild variant="premium" size="sm">
+                            <Link href="/login">
+                                Get Started
+                            </Link>
+                        </Button>
                     </SignedOut>
                     <SignedIn>
-                        <Link href="/app" className="hidden text-sm font-medium text-slate-900 transition-colors hover:text-slate-700 md:block">
-                            Go to App
-                        </Link>
+                        <Button asChild variant="premium" size="sm">
+                            <Link href="/app">
+                                Go to App
+                            </Link>
+                        </Button>
                     </SignedIn>
-                    <Button variant="premium" size="sm" className="">
-                        Request Access
-                    </Button>
                 </div>
             </div>
         </header>

@@ -36,30 +36,46 @@ export default function AdminDashboardPage() {
     ];
 
     return (
-        <div className="space-y-6">
-            <div>
-                <h1 className="text-3xl font-bold tracking-tight">System Administration</h1>
-                <p className="text-muted-foreground">
+        <div className="space-y-8">
+            <div className="flex flex-col gap-2">
+                <h1 className="text-3xl font-bold tracking-tight font-serif text-slate-900 dark:text-slate-100">
+                    System Administration
+                </h1>
+                <p className="text-lg text-slate-600 dark:text-slate-400 max-w-2xl">
                     Manage the Compass platform core configuration and tenants.
                 </p>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
                 {cards.map((card) => (
-                    <Link key={card.title} href={card.href}>
-                        <Card className="hover:bg-muted/50 transition-colors cursor-pointer h-full">
-                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                <CardTitle className="text-sm font-medium">
+                    <Link key={card.title} href={card.href} className="group">
+                        <Card className="h-full border-slate-200 shadow-sm transition-all duration-300 hover:shadow-lg hover:-translate-y-1 dark:border-slate-800">
+                            <CardHeader className="flex flex-row items-center justify-between pb-2">
+                                <CardTitle className="text-base font-semibold text-slate-700 dark:text-slate-200">
                                     {card.title}
                                 </CardTitle>
-                                <card.icon className={`h-4 w-4 ${card.color}`} />
+                                <div className={`rounded-full p-2.5 ${card.color.replace('text-', 'bg-').replace('500', '100')} dark:bg-opacity-10`}>
+                                    <card.icon className={`h-5 w-5 ${card.color}`} />
+                                </div>
                             </CardHeader>
                             <CardContent>
-                                <CardDescription>{card.description}</CardDescription>
+                                <div className="text-2xl font-bold text-slate-900 dark:text-white mb-1">
+                                    -
+                                    {/* Placeholder for real stats */}
+                                </div>
+                                <CardDescription className="text-xs font-medium text-slate-500 line-clamp-2">
+                                    {card.description}
+                                </CardDescription>
                             </CardContent>
                         </Card>
                     </Link>
                 ))}
+            </div>
+
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-8 text-center dark:border-slate-800 dark:bg-slate-900/50">
+                <p className="text-sm text-slate-500">
+                    Platform metrics and system health monitoring coming soon.
+                </p>
             </div>
         </div>
     );

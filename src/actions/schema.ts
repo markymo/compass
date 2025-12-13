@@ -3,6 +3,132 @@
 import prisma from "@/lib/prisma";
 import { MasterSchemaDefinition, MasterSchemaDefinitionSchema } from "@/types/schema";
 import { revalidatePath } from "next/cache";
+import { MASTER_SCHEMA_CATEGORIES } from "@/data/master-schema-categories"; // The static source of truth
+import { generateText } from "ai";
+import { openai } from "@ai-sdk/openai";
+
+// --- Seed / Sync Categories ---
+export async function ensureSchemaCategories() {
+    // Target the LATEST schema (Draft or Active) because that's what the UI is editing
+    const targetSchema = await prisma.masterSchema.findFirst({
+        orderBy: { version: 'desc' },
+    });
+
+    if (!targetSchema) return { success: false, error: "No schema found" };
+
+    const definition = targetSchema.definition as any as MasterSchemaDefinition;
+
+    // If categories already exist, maybe update them? For now, if empty/missing, seed.
+    if (!definition.categories || definition.categories.length === 0) {
+
+        // Transform the static data to the SchemaCategory type (strip fields string array if needed or keep it)
+        const categoriesToSeed = MASTER_SCHEMA_CATEGORIES.map(c => ({
+            id: c.id,
+            title: c.title,
+            description: c.description
+            // We don't store the static 'fields' bullet points in the live schema definition usually, 
+            // but we can for reference.
+        }));
+
+        const newDefinition = {
+            ...definition,
+            categories: categoriesToSeed
+        };
+
+        await prisma.masterSchema.update({
+            where: { id: targetSchema.id },
+            data: { definition: newDefinition as any }
+        });
+
+        revalidatePath("/app/admin/schema");
+        return { success: true, seeded: true };
+    }
+
+    return { success: true, seeded: false };
+}
+
+// --- AI Categorization ---
+export async function proposeCategoryForField(fieldId: string) {
+    // Target Latest (Draft)
+    const targetSchema = await prisma.masterSchema.findFirst({
+        orderBy: { version: 'desc' },
+    });
+    if (!targetSchema) return { success: false, error: "No schema definition found" };
+
+    const definition = targetSchema.definition as any as MasterSchemaDefinition;
+    const fieldIndex = definition.fields.findIndex(f => f.id === fieldId);
+
+    if (fieldIndex === -1) return { success: false, error: "Field not found" };
+
+    const field = definition.fields[fieldIndex];
+    const categories = definition.categories || [];
+
+    if (categories.length === 0) return { success: false, error: "No categories defined" };
+
+    // Call AI
+    const prompt = `
+    You are a data classification expert for financial onboarding.
+    
+    Task: Map the following data field to the most appropriate Master Compliance Category.
+    
+    Field Label: "${field.label}"
+    Field Description: "${field.description || ''}"
+    Field Key: "${field.key}"
+
+    Available Categories:
+    ${categories.map(c => `- ID: ${c.id} | Title: ${c.title} | Desc: ${c.description}`).join('\n')}
+
+    Return ONLY the ID of the best matching category. If unsure, return "1" (Entity Identity).
+    `;
+
+    try {
+        const { text } = await generateText({
+            model: openai("gpt-4o"),
+            prompt: prompt,
+        });
+
+        const proposedId = text.trim();
+
+        // Update the field with the proposal
+        definition.fields[fieldIndex].proposedCategoryId = proposedId;
+
+        await prisma.masterSchema.update({
+            where: { id: targetSchema.id },
+            data: { definition: definition as any }
+        });
+
+        revalidatePath("/app/admin/schema");
+        return { success: true, proposedId };
+    } catch (error) {
+        console.error("AI Error:", error);
+        return { success: false, error: "AI processing failed" };
+    }
+}
+
+export async function acceptCategoryProposal(fieldId: string, categoryId: string) {
+    // Target Latest
+    const targetSchema = await prisma.masterSchema.findFirst({
+        orderBy: { version: 'desc' },
+    });
+    if (!targetSchema) return { success: false, error: "No schema definition found" };
+
+    const definition = targetSchema.definition as any as MasterSchemaDefinition;
+    const fieldIndex = definition.fields.findIndex(f => f.id === fieldId);
+
+    if (fieldIndex === -1) return { success: false };
+
+    // Apply the category
+    definition.fields[fieldIndex].categoryId = categoryId;
+
+    await prisma.masterSchema.update({
+        where: { id: targetSchema.id },
+        data: { definition: definition as any }
+    });
+
+    revalidatePath("/app/admin/schema");
+    return { success: true };
+}
+
 
 export async function createMasterSchema() {
     // 1. Get the latest version number

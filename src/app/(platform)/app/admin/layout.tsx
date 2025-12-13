@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { isSystemAdmin } from "@/actions/admin";
+import { ShieldAlert } from "lucide-react";
 
 export default async function AdminLayout({
     children,
@@ -15,19 +16,12 @@ export default async function AdminLayout({
 
     return (
         <div className="flex flex-col gap-6">
-            <div className="bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900 px-4 py-2 rounded-md text-sm text-red-800 dark:text-red-200 flex items-center gap-2">
-                <span className="font-bold">SYSTEM ADMIN AREA</span>
-                <span className="opacity-75">- Exercise caution. Changes affect all tenants.</span>
-            </div>
-
-            <div className="border-b pb-2 mb-4">
-                <nav className="flex items-center gap-6 text-sm">
-                    <a href="/app/admin" className="font-medium hover:text-primary transition-colors">Admin Home</a>
-                    <a href="/app/admin/organizations" className="font-medium hover:text-primary transition-colors">Organizations</a>
-                    <a href="/app/admin/users" className="font-medium hover:text-primary transition-colors">Users</a>
-                    <a href="/app/admin/schema" className="font-medium hover:text-primary transition-colors">Master Schema</a>
-                    <a href="/app/admin/mapper" className="font-medium hover:text-primary transition-colors">AI Mapper</a>
-                </nav>
+            <div className="bg-amber-50 dark:bg-amber-950/30 border-l-4 border-amber-500 p-4 flex items-center gap-3 shadow-sm rounded-r-md">
+                <ShieldAlert className="h-5 w-5 text-amber-600 dark:text-amber-500" />
+                <div className="text-sm text-amber-900 dark:text-amber-200">
+                    <span className="font-semibold block sm:inline">System Admin Area:</span>{" "}
+                    <span className="opacity-90">Exercise caution. Configuration changes will affect all tenants.</span>
+                </div>
             </div>
 
             {children}
