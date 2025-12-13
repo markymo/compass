@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Compass } from "lucide-react";
+import { SignedIn, SignedOut } from "@clerk/nextjs";
 
 export function Navbar() {
     return (
@@ -39,9 +40,16 @@ export function Navbar() {
                 </nav>
 
                 <div className="flex items-center gap-4">
-                    <Link href="/login" className="hidden text-sm font-medium text-slate-900 transition-colors hover:text-slate-700 md:block">
-                        Sign In
-                    </Link>
+                    <SignedOut>
+                        <Link href="/login" className="hidden text-sm font-medium text-slate-900 transition-colors hover:text-slate-700 md:block">
+                            Sign In
+                        </Link>
+                    </SignedOut>
+                    <SignedIn>
+                        <Link href="/app" className="hidden text-sm font-medium text-slate-900 transition-colors hover:text-slate-700 md:block">
+                            Go to App
+                        </Link>
+                    </SignedIn>
                     <Button variant="premium" size="sm" className="">
                         Request Access
                     </Button>

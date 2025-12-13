@@ -3,16 +3,16 @@ import { Footer } from "@/components/layout/Footer";
 
 export default function About() {
     return (
-        <div className="flex min-h-screen flex-col bg-slate-950">
+        <div className="flex min-h-screen flex-col bg-white">
             <Navbar />
             <main className="flex-1 pt-32 pb-16">
                 <div className="container mx-auto px-4 md:px-6">
                     <div className="mx-auto max-w-3xl">
-                        <h1 className="text-4xl font-extrabold tracking-tight text-white md:text-5xl mb-8">
+                        <h1 className="text-4xl font-extrabold tracking-tight text-slate-900 md:text-5xl mb-8">
                             About Compass
                         </h1>
 
-                        <div className="prose prose-invert prose-lg text-slate-400">
+                        <div className="prose prose-lg text-slate-600">
                             <p>
                                 Compass was born from a simple observation: <strong>Complexity in capital markets is often artificial.</strong>
                             </p>
@@ -43,7 +43,7 @@ export default function About() {
                             </div>
 
                             <div>
-                                <h2 className="text-sm font-bold text-amber-700 uppercase tracking-widest mb-2">Leadership</h2>
+                                <h2 className="text-sm font-bold text-amber-600 uppercase tracking-widest mb-2">Leadership</h2>
                                 <h3 className="text-3xl font-bold text-slate-900 font-serif mb-6">Rob Dornton-Duff</h3>
 
                                 <div className="space-y-4 text-slate-600 text-lg leading-relaxed">
