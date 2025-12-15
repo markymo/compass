@@ -18,53 +18,46 @@ export async function ensureSchemaCategories() {
 
     const definition = targetSchema.definition as any as MasterSchemaDefinition;
 
-    // If categories already exist, maybe update them? For now, if empty/missing, seed.
-    if (!definition.categories || definition.categories.length === 0) {
+    // ALWAYS refresh categories from the static source of truth to ensure we have the latest descriptions/examples
+    // Transform the static data to the SchemaCategory type
+    const categoriesToSeed = MASTER_SCHEMA_CATEGORIES.map(c => ({
+        id: c.id,
+        title: c.title,
+        description: c.description,
+        examples: c.fields // Use the static bullet points as "examples"
+    }));
 
-        // Transform the static data to the SchemaCategory type
-        const categoriesToSeed = MASTER_SCHEMA_CATEGORIES.map(c => ({
-            id: c.id,
-            title: c.title,
-            description: c.description,
-            examples: c.fields // Use the static bullet points as "examples"
-        }));
+    const newDefinition = {
+        ...definition,
+        categories: categoriesToSeed
+    };
 
-        const newDefinition = {
-            ...definition,
-            categories: categoriesToSeed
-        };
+    await prisma.masterSchema.update({
+        where: { id: targetSchema.id },
+        data: { definition: newDefinition as any }
+    });
 
-        await prisma.masterSchema.update({
-            where: { id: targetSchema.id },
-            data: { definition: newDefinition as any }
-        });
-
-        revalidatePath("/app/admin/schema");
-        return { success: true, seeded: true };
-    }
-
-    return { success: true, seeded: false };
+    revalidatePath("/app/admin/schema");
+    return { success: true, seeded: true };
 }
 
 // --- AI Categorization ---
 export async function proposeCategoryForField(fieldId: string) {
-    // Target Latest (Draft)
-    const targetSchema = await prisma.masterSchema.findFirst({
-        orderBy: { version: 'desc' },
-    });
+    const targetSchema = await prisma.masterSchema.findFirst({ orderBy: { version: 'desc' }, });
     if (!targetSchema) return { success: false, error: "No schema definition found" };
 
     const definition = targetSchema.definition as any as MasterSchemaDefinition;
-    const fieldIndex = definition.fields.findIndex(f => f.id === fieldId);
+    const fieldIndex = definition.fields.findIndex(f => (f.id && f.id === fieldId) || f.key === fieldId);
 
-    if (fieldIndex === -1) return { success: false, error: "Field not found" };
+    if (fieldIndex === -1) return { success: false, error: `Field not found (ID/Key: ${fieldId})` };
 
     const field = definition.fields[fieldIndex];
-    const categories = definition.categories || [];
+    // Allow re-proposal even if categorized
+    // if (field.categoryId) return { success: false, error: "Already categorized" };
 
+    const categories = definition.categories || [];
     if (categories.length === 0) return { success: false, error: "No categories defined" };
 
-    // Call AI
     const prompt = `
     You are a data classification expert for financial onboarding.
     
@@ -77,7 +70,7 @@ export async function proposeCategoryForField(fieldId: string) {
     Available Categories:
     ${categories.map(c => `- ID: ${c.id} | Title: ${c.title} | Desc: ${c.description} | Examples: ${c.examples?.join(', ') || ''}`).join('\n')}
 
-    Return ONLY the ID of the best matching category. If unsure, return "1" (Entity Identity).
+    Return ONLY the numeric ID (e.g. "1", "10", "5"). Do not include any text, punctuation, or explanations.
     `;
 
     try {
@@ -86,9 +79,16 @@ export async function proposeCategoryForField(fieldId: string) {
             prompt: prompt,
         });
 
-        const proposedId = text.trim();
+        // Robust cleanup: find the first number in the string
+        const match = text.match(/\d+/);
+        const proposedId = match ? match[0] : "1";
 
-        // Update the field with the proposal
+        // Validate it exists
+        if (!categories.find(c => c.id === proposedId)) {
+            console.warn(`AI proposed invalid ID ${proposedId} for field ${field.label}`);
+            return { success: false, error: "Invalid category proposed" };
+        }
+
         definition.fields[fieldIndex].proposedCategoryId = proposedId;
 
         await prisma.masterSchema.update({
@@ -104,6 +104,105 @@ export async function proposeCategoryForField(fieldId: string) {
     }
 }
 
+export async function bulkAutoMapFields() {
+    const targetSchema = await prisma.masterSchema.findFirst({ orderBy: { version: 'desc' }, });
+    if (!targetSchema) return { success: false, error: "No schema definition found" };
+
+    const definition = targetSchema.definition as any as MasterSchemaDefinition;
+    const categories = definition.categories || [];
+
+    // Find unmapped fields
+    const unmappedIndices = definition.fields
+        .map((f, idx) => ({ ...f, idx }))
+        .filter(f => !f.categoryId && !f.proposedCategoryId); // Only map ones without proposals? Or remap all? Let's do ones without proposals to save tokens.
+
+    console.log(`[BulkMap] Found ${unmappedIndices.length} unmapped fields.`);
+
+    if (unmappedIndices.length === 0) return { success: true, count: 0 };
+
+    // Simply loop and call the logic (parallel is fine for < 50 items)
+    // For a larger system, we'd use a single batch prompt.
+    // Let's use a batch prompt here for speed and coherence.
+
+    const prompt = `
+    You are a data classification expert. Map each Field to the best Category ID.
+    
+    Categories:
+    ${categories.map(c => `${c.id}: ${c.title} (${c.examples?.slice(0, 3).join(', ')})`).join('\n')}
+
+    Fields to Map:
+    ${unmappedIndices.map(f => `Key: "${f.key}" | Label: "${f.label}" (Desc: ${f.description || ''})`).join('\n')}
+
+    Return a JSON object where the KEY is the exact "Key" string provided above (e.g. "client_email"), and the VALUE is the Category ID.
+    Example: { "client_email": "1", "registered_address": "5" }
+    JSON ONLY.
+    `;
+
+    try {
+        console.log("[BulkMap] Sending prompt to AI...");
+        const { text } = await generateText({
+            model: openai("gpt-4o"),
+            prompt: prompt,
+        });
+
+        console.log("[BulkMap] AI Response raw:", text);
+
+        // Robust JSON extraction
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) {
+            console.error("[BulkMap] Error: AI did not return a JSON object.");
+            return { success: false, error: "AI output format invalid" };
+        }
+
+        const cleanJson = jsonMatch[0];
+        let mapping: Record<string, string>;
+        try {
+            mapping = JSON.parse(cleanJson);
+            console.log("[BulkMap] Parsed mapping:", mapping);
+        } catch (parseError) {
+            console.error("[BulkMap] Error: JSON parse failed", parseError);
+            return { success: false, error: "Invalid JSON from AI" };
+        }
+
+        let updateCount = 0;
+        unmappedIndices.forEach(f => {
+            // Try to find by key
+            const proposedId = mapping[f.key];
+
+            if (proposedId) {
+                // Check if category exists
+                if (categories.find(c => c.id === String(proposedId))) {
+                    definition.fields[f.idx].proposedCategoryId = String(proposedId);
+                    updateCount++;
+                    console.log(`[BulkMap] Mapped field '${f.key}' to Category ${proposedId}`);
+                } else {
+                    console.warn(`[BulkMap] Invalid category ID '${proposedId}' returned for field '${f.key}'`);
+                }
+            } else {
+                console.log(`[BulkMap] No mapping returned for field '${f.key}'`);
+            }
+        });
+
+        console.log(`[BulkMap] Total updates pending: ${updateCount}`);
+
+        if (updateCount > 0) {
+            await prisma.masterSchema.update({
+                where: { id: targetSchema.id },
+                data: { definition: definition as any }
+            });
+            console.log("[BulkMap] Database updated successfully.");
+        }
+
+        revalidatePath("/app/admin/schema");
+        return { success: true, count: updateCount };
+
+    } catch (e) {
+        console.error("[BulkMap] Unexpected Error:", e);
+        return { success: false, error: "Bulk mapping failed" };
+    }
+}
+
+
 export async function acceptCategoryProposal(fieldId: string, categoryId: string) {
     // Target Latest
     const targetSchema = await prisma.masterSchema.findFirst({
@@ -112,7 +211,7 @@ export async function acceptCategoryProposal(fieldId: string, categoryId: string
     if (!targetSchema) return { success: false, error: "No schema definition found" };
 
     const definition = targetSchema.definition as any as MasterSchemaDefinition;
-    const fieldIndex = definition.fields.findIndex(f => f.id === fieldId);
+    const fieldIndex = definition.fields.findIndex(f => (f.id && f.id === fieldId) || f.key === fieldId);
 
     if (fieldIndex === -1) return { success: false };
 

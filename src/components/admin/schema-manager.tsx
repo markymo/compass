@@ -5,8 +5,8 @@ import { SchemaField, SchemaCategory } from "@/types/schema";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, Plus, Sparkles, Wand2, Check } from "lucide-react";
-import { acceptCategoryProposal, proposeCategoryForField } from "@/actions/schema";
+import { Loader2, Sparkles, Wand2, Check } from "lucide-react";
+import { acceptCategoryProposal, proposeCategoryForField, bulkAutoMapFields } from "@/actions/schema";
 
 interface SchemaManagerProps {
     fields: SchemaField[];
@@ -34,16 +34,32 @@ export function SchemaManager({ fields, categories, onSeed }: SchemaManagerProps
     });
 
     async function handleAutoMap(fieldId: string) {
+        if (!fieldId) return; // safety
         setMappingFieldId(fieldId);
         startTransition(async () => {
             const res = await proposeCategoryForField(fieldId);
             setMappingFieldId(null);
+            if (!res.success) {
+                alert(`Auto-map failed: ${res.error}`);
+            }
         });
     }
 
     async function handleAccept(fieldId: string, categoryId: string) {
+        if (!fieldId) return; // safety
         startTransition(async () => {
             await acceptCategoryProposal(fieldId, categoryId);
+        });
+    }
+
+    async function handleBulkMap() {
+        startTransition(async () => {
+            const res = await bulkAutoMapFields();
+            if (!res.success) {
+                alert(`Bulk map failed: ${res.error}`);
+            } else {
+                // Optional: success toast
+            }
         });
     }
 
@@ -52,9 +68,6 @@ export function SchemaManager({ fields, categories, onSeed }: SchemaManagerProps
         const proposedCategory = field.proposedCategoryId
             ? categories.find(c => c.id === field.proposedCategoryId)
             : null;
-
-        // Ensure we handle cases where categoryId might be set but invalid (hence why it's here)
-        // We fundamentally want to show the actions if this row is being rendered.
 
         return (
             <div className="flex items-center justify-between p-3 bg-white dark:bg-zinc-900 border rounded-lg shadow-sm group hover:border-blue-200 transition-colors">
@@ -80,7 +93,7 @@ export function SchemaManager({ fields, categories, onSeed }: SchemaManagerProps
                                 size="sm"
                                 variant="ghost"
                                 className="h-6 w-6 p-0 hover:bg-amber-200 dark:hover:bg-amber-800 rounded-full"
-                                onClick={() => handleAccept(field.id, proposedCategory.id)}
+                                onClick={() => handleAccept(field.id || field.key, proposedCategory.id)}
                             >
                                 <Check className="w-3.5 h-3.5 text-green-600 dark:text-green-400" />
                             </Button>
@@ -92,10 +105,10 @@ export function SchemaManager({ fields, categories, onSeed }: SchemaManagerProps
                         variant="outline"
                         size="sm"
                         className="h-8 text-xs gap-1.5"
-                        onClick={() => handleAutoMap(field.id)}
-                        disabled={isPending || mappingFieldId === field.id}
+                        onClick={() => handleAutoMap(field.id || field.key)}
+                        disabled={isPending || mappingFieldId === (field.id || field.key)}
                     >
-                        {mappingFieldId === field.id ? (
+                        {mappingFieldId === (field.id || field.key) ? (
                             <Loader2 className="w-3.5 h-3.5 animate-spin" />
                         ) : (
                             <Wand2 className="w-3.5 h-3.5 text-indigo-500" />
@@ -125,12 +138,31 @@ export function SchemaManager({ fields, categories, onSeed }: SchemaManagerProps
 
             {/* Left Column: Uncategorized Fields (Main Work Area) */}
             <div className="lg:col-span-2 space-y-6">
-                <div className="flex items-center justify-between">
-                    <h3 className="text-xl font-bold font-serif text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                        <div className="h-3 w-3 rounded-full bg-amber-500 shadow-sm" />
-                        Uncategorized Fields
-                    </h3>
-                    <Badge variant="secondary" className="text-sm px-3">{uncategorizedFields.length} Pending</Badge>
+                <div className="flex items-center justify-between bg-white dark:bg-card p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                    <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-full bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center">
+                            <Sparkles className="w-5 h-5 text-amber-600 dark:text-amber-500" />
+                        </div>
+                        <div>
+                            <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg">Uncategorized Fields</h3>
+                            <p className="text-sm text-muted-foreground">{uncategorizedFields.length} fields require classification</p>
+                        </div>
+                    </div>
+                    <div className="flex gap-2">
+                        <Button variant="outline" size="sm" onClick={onSeed} title="Refresh Category Definitions">
+                            Refresh Definition
+                        </Button>
+                        {uncategorizedFields.length > 0 && (
+                            <Button
+                                onClick={handleBulkMap}
+                                disabled={isPending}
+                                className="bg-indigo-600 hover:bg-indigo-700"
+                            >
+                                {isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Wand2 className="w-4 h-4 mr-2" />}
+                                Auto-Map All
+                            </Button>
+                        )}
+                    </div>
                 </div>
 
                 {uncategorizedFields.length === 0 ? (
