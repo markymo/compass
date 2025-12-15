@@ -8,12 +8,12 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Search, Loader2, Plus, Building2, FileText } from "lucide-react";
 import { searchFinancialInstitutions, getAvailableQuestionnaires, addRequirement } from "@/actions/requirements";
-import { toast } from "sonner"; // Or alert if sonner not available yet
+// import { toast } from "sonner"; // Or alert if sonner not available yet
 import { useRouter } from "next/navigation";
 
 // Types matching action output
 type FIResult = { id: string; name: string; _count: { questionnaires: number } };
-type QuestionnaireResult = { id: string; name: string };
+type QuestionnaireResult = { id: string; name: string; updatedAt: Date };
 
 export function RequirementSearch({ clientLEId }: { clientLEId: string }) {
     const router = useRouter();
