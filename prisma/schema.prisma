@@ -146,10 +146,12 @@ model FIEngagement {
   clientLEId  String
   status      EngagementStatus // PENDING, ACTION_REQUIRED, SIGNED_OFF
   
+  // Relations
   org         Organization @relation(fields: [fiOrgId], references: [id])
   clientLE    ClientLE     @relation(fields: [clientLEId], references: [id])
   
   queries     Query[]
+  questionnaires Questionnaire[] // Specific questionnaires active for this engagement
 
   @@unique([fiOrgId, clientLEId])
 }
@@ -204,4 +206,5 @@ model Questionnaire {
   updatedAt      DateTime @updatedAt
 
   fiOrg          Organization @relation(fields: [fiOrgId], references: [id])
+  engagements    FIEngagement[]
 }
