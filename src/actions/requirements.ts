@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 // 1. Search for Financial Institutions
 export async function searchFinancialInstitutions(query: string = "") {
     // If empty query, return top 10 recent or alphabetical FIs
-    const whereClause: any = { type: "FI" };
+    const whereClause: any = { types: { has: "FI" } };
 
     if (query && query.length >= 2) {
         whereClause.name = {

@@ -86,7 +86,9 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
                 <div>
                     <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
                         {org.name}
-                        <Badge variant="secondary">{org.type}</Badge>
+                        {org.types.map((t: string) => (
+                            <Badge key={t} variant="secondary">{t}</Badge>
+                        ))}
                     </h1>
                     <p className="text-muted-foreground text-sm">ID: {org.id}</p>
                 </div>
@@ -101,7 +103,7 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
                     >
                         Members
                     </button>
-                    {org.type === "FI" && (
+                    {org.types.includes("FI") && (
                         <button
                             onClick={() => setActiveTab("questionnaires")}
                             className={`text-sm font-medium pb-2 border-b-2 transition-colors ${activeTab === "questionnaires" ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}

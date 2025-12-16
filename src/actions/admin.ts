@@ -14,7 +14,7 @@ export async function isSystemAdmin() {
         where: {
             userId: userId,
             org: {
-                type: "SYSTEM"
+                types: { has: "SYSTEM" }
             }
         },
         include: { org: true }
@@ -46,7 +46,7 @@ export async function getAllUsers() {
         email: r.user.email,
         orgId: r.orgId,
         orgName: r.org.name,
-        orgType: r.org.type,
+        orgType: r.org.types[0], // simplified for list view
         role: r.role
     }));
 }
@@ -83,14 +83,14 @@ export async function updateUserOrg(targetUserId: string, targetOrgId: string, f
 // 4. Create System Org (Bootstrap) - if none exists
 export async function bootstrapSystemOrg() {
     const sysOrg = await prisma.organization.findFirst({
-        where: { type: "SYSTEM" }
+        where: { types: { has: "SYSTEM" } }
     });
 
     if (!sysOrg) {
         return await prisma.organization.create({
             data: {
                 name: "Compass System Admin",
-                type: "SYSTEM"
+                types: ["SYSTEM"]
             }
         });
     }

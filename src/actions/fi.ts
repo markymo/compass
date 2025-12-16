@@ -7,7 +7,7 @@ import { revalidatePath } from "next/cache";
 // 1. Get List of FIs
 export async function getFIs() {
     const fis = await prisma.organization.findMany({
-        where: { type: "FI" },
+        where: { types: { has: "FI" } },
         orderBy: { name: 'asc' }
     });
     return fis;
@@ -21,7 +21,7 @@ export async function createFI(name: string) {
     const fi = await prisma.organization.create({
         data: {
             name,
-            type: "FI",
+            types: ["FI"],
             members: {
                 create: {
                     userId,
@@ -69,7 +69,7 @@ export async function getFIOganization() {
     const role = await prisma.userOrganizationRole.findFirst({
         where: {
             userId: userId,
-            org: { type: "FI" }
+            org: { types: { has: "FI" } }
         },
         include: { org: true }
     });

@@ -12,7 +12,7 @@ export default async function PlatformLayout({
 }) {
     const { userId, sessionClaims } = await auth();
     let orgName = "";
-    let orgType = "";
+    let orgTypes: string[] = [];
 
     if (userId) {
         const email = (sessionClaims?.email as string) || "";
@@ -20,13 +20,13 @@ export default async function PlatformLayout({
         const org = await ensureUserOrg(userId, email);
         if (org) {
             orgName = org.name;
-            orgType = org.type;
+            orgTypes = org.types;
         }
     }
 
     return (
         <div className="flex min-h-screen flex-col bg-gray-50 dark:bg-zinc-900">
-            <PlatformNavbar orgName={orgName} orgType={orgType} />
+            <PlatformNavbar orgName={orgName} orgTypes={orgTypes} />
             <main className="flex-1 container mx-auto p-4 md:p-8">
                 {children}
             </main>

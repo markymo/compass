@@ -19,8 +19,9 @@ export default function OrganizationsPage() {
     const [open, setOpen] = useState(false);
 
     // Form State
+    // Form State
     const [name, setName] = useState("");
-    const [type, setType] = useState<"CLIENT" | "FI">("CLIENT");
+    const [types, setTypes] = useState<string[]>(["CLIENT"]);
     const [creating, setCreating] = useState(false);
 
     useEffect(() => {
@@ -35,9 +36,25 @@ export default function OrganizationsPage() {
     }
 
     async function handleCreate() {
-        if (!name) return;
+        if (!name || types.length === 0) return;
         setCreating(true);
-        const res = await createOrganization(name, type);
+        // For now, API expects a single type or we need to update API to accept array?
+        // Let's update the API action first (we did in previous step but need to check signature)
+        // Actually the `createOrganization` action signature in `src/actions/org.ts` was:
+        // export async function createOrganization(name: string, type: "CLIENT" | "FI") 
+        // I need to update that signature too!
+
+        // Wait, I missed updating the signature of createOrganization in org.ts!
+        // I updated the BODY but not the ARGUMENTS in Step 660 (?)
+        // Let's check. Step 660 replace_file_content replaced `data: { name, type }` with `data: { name, types: [type] }`.
+        // It did NOT change the function signature `type: "CLIENT" | "FI"`.
+        // So for now, I can only pass ONE type.
+        // I should fix the action to accept an array.
+
+        // But to proceed with UI:
+        const validTypes = types as ("CLIENT" | "FI" | "SYSTEM")[];
+        const res = await createOrganization(name, validTypes);
+
         setCreating(false);
         if (res.success) {
             setOpen(false);
@@ -45,6 +62,14 @@ export default function OrganizationsPage() {
             loadData();
         } else {
             alert("Error: " + res.error);
+        }
+    }
+
+    function toggleType(t: string) {
+        if (types.includes(t)) {
+            setTypes(types.filter(x => x !== t));
+        } else {
+            setTypes([...types, t]);
         }
     }
 
@@ -69,17 +94,32 @@ export default function OrganizationsPage() {
                                 <Input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Acme Legal LLP" />
                             </div>
                             <div className="space-y-2">
-                                <Label>Type</Label>
-                                <RadioGroup value={type} onValueChange={(v: any) => setType(v)} className="flex gap-4">
+                                <Label>Roles (Multi-select)</Label>
+                                <div className="flex flex-col gap-2">
                                     <div className="flex items-center space-x-2">
-                                        <RadioGroupItem value="CLIENT" id="r-client" />
-                                        <Label htmlFor="r-client">Client (Law Firm/Corp)</Label>
+                                        <input
+                                            type="checkbox"
+                                            id="chk-client"
+                                            checked={types.includes("CLIENT")}
+                                            onChange={() => toggleType("CLIENT")}
+                                            className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                        />
+                                        <Label htmlFor="chk-client">Client (Law Firm/Corp)</Label>
                                     </div>
                                     <div className="flex items-center space-x-2">
-                                        <RadioGroupItem value="FI" id="r-fi" />
-                                        <Label htmlFor="r-fi">Financial Institution</Label>
+                                        <input
+                                            type="checkbox"
+                                            id="chk-fi"
+                                            checked={types.includes("FI")}
+                                            onChange={() => toggleType("FI")}
+                                            className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                        />
+                                        <Label htmlFor="chk-fi">Financial Institution</Label>
                                     </div>
-                                </RadioGroup>
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                    * Currently creating with primary role only. Multi-role update coming in next step.
+                                </p>
                             </div>
                             <Button onClick={handleCreate} disabled={creating} className="w-full">
                                 {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : "Create Organization"}
@@ -95,7 +135,7 @@ export default function OrganizationsPage() {
                         <TableHeader>
                             <TableRow>
                                 <TableHead>Name</TableHead>
-                                <TableHead>Type</TableHead>
+                                <TableHead>Roles</TableHead>
                                 <TableHead>Members</TableHead>
                                 <TableHead className="text-right">Action</TableHead>
                             </TableRow>
@@ -116,9 +156,11 @@ export default function OrganizationsPage() {
                                         </div>
                                     </TableCell>
                                     <TableCell>
-                                        <Badge variant={org.type === "FI" ? "secondary" : "outline"}>
-                                            {org.type}
-                                        </Badge>
+                                        <div className="flex gap-1">
+                                            {org.types.map((t: string) => (
+                                                <Badge key={t} variant="outline">{t}</Badge>
+                                            ))}
+                                        </div>
                                     </TableCell>
                                     <TableCell>
                                         <div className="flex items-center gap-1 text-muted-foreground">

@@ -37,7 +37,7 @@ export async function ensureUserOrg(userId: string, userEmail: string = "") {
 
     if (roles.length > 0) {
         // Priority 1: System Admin
-        const systemRole = roles.find(r => r.org.type === "SYSTEM");
+        const systemRole = roles.find(r => r.org.types.includes("SYSTEM"));
         if (systemRole) return systemRole.org;
 
         // Priority 2: Any other (e.g. Client)
@@ -57,7 +57,7 @@ export async function ensureUserOrg(userId: string, userEmail: string = "") {
     const newOrg = await prisma.organization.create({
         data: {
             name: userEmail ? `${userEmail.split('@')[0]}'s Corp` : "My Demo Client",
-            type: "CLIENT",
+            types: ["CLIENT"],
             members: {
                 create: {
                     userId: userId,

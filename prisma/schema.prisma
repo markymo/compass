@@ -27,7 +27,7 @@ model User {
 model Organization {
   id        String   @id @default(uuid())
   name      String
-  type      OrgType  // CLIENT | FI
+  types     OrgType[]  // CLIENT, FI, SYSTEM (Can be multiple)
   
   // Relations
   members   UserOrganizationRole[]

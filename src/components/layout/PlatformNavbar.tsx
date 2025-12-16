@@ -6,10 +6,10 @@ import { Badge } from "@/components/ui/badge";
 
 interface PlatformNavbarProps {
     orgName?: string;
-    orgType?: string;
+    orgTypes?: string[];
 }
 
-export function PlatformNavbar({ orgName, orgType }: PlatformNavbarProps) {
+export function PlatformNavbar({ orgName, orgTypes = [] }: PlatformNavbarProps) {
     return (
         <header className="sticky top-0 left-0 right-0 z-50 border-b border-slate-200 bg-white/80 backdrop-blur-xl">
             <div className="container mx-auto flex h-20 items-center justify-between px-4 md:px-6">
@@ -31,7 +31,7 @@ export function PlatformNavbar({ orgName, orgType }: PlatformNavbarProps) {
                             Dashboard
                         </Link>
 
-                        {orgType === "CLIENT" && (
+                        {orgTypes.includes("CLIENT") && (
                             <Link
                                 href="/app/client"
                                 className="text-sm font-medium text-slate-600 transition-colors hover:text-slate-900"
@@ -40,13 +40,13 @@ export function PlatformNavbar({ orgName, orgType }: PlatformNavbarProps) {
                             </Link>
                         )}
 
-                        {orgType === "FI" && (
+                        {orgTypes.includes("FI") && (
                             <>
                                 <Link
                                     href="/app/fi"
                                     className="text-sm font-medium text-slate-600 transition-colors hover:text-slate-900"
                                 >
-                                    Dashboard
+                                    FI Dashboard
                                 </Link>
                                 <Link
                                     href="/app/fi/questionnaires"
@@ -69,7 +69,7 @@ export function PlatformNavbar({ orgName, orgType }: PlatformNavbarProps) {
                 <div className="flex items-center gap-4">
                     {orgName && (
                         <Badge variant="outline" className="text-sm px-3 py-1 bg-white/50">
-                            {orgName} <span className="text-muted-foreground ml-1">({orgType})</span>
+                            {orgName} <span className="text-muted-foreground ml-1">({orgTypes.join(", ")})</span>
                         </Badge>
                     )}
                     <UserButton afterSignOutUrl="/" />
