@@ -44,15 +44,25 @@ export async function parseDocument(formData: FormData): Promise<{ content: stri
 }
 
 export async function processDocumentBuffer(buffer: Buffer, mimeType: string, fileName: string): Promise<{ content: string, type: "image" | "text", mime: string }> {
+    if (!buffer || buffer.length === 0) {
+        throw new Error("Document buffer is empty");
+    }
+
     // DOCX Handling
     if (mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || fileName.endsWith(".docx")) {
-        console.log("[AI Mapper] Parsing DOCX via Mammoth");
-        const result = await mammoth.extractRawText({ buffer });
-        return {
-            content: result.value, // The raw text
-            type: "text",
-            mime: "text/plain"
-        };
+        console.log("[AI Mapper] Parsing DOCX via Mammoth: Start");
+        try {
+            const result = await mammoth.extractRawText({ buffer });
+            console.log("[AI Mapper] DOCX Extraction Complete. Length:", result.value.length);
+            return {
+                content: result.value, // The raw text
+                type: "text",
+                mime: "text/plain"
+            };
+        } catch (e) {
+            console.error("[AI Mapper] DOCX Extraction Failed:", e);
+            throw e; // Re-throw to be caught by caller
+        }
     }
 
     // TEXT Handling
@@ -66,17 +76,29 @@ export async function processDocumentBuffer(buffer: Buffer, mimeType: string, fi
 
     // PDF Handling
     if (mimeType === "application/pdf" || fileName.endsWith(".pdf")) {
-        console.log("[AI Mapper] Parsing PDF via pdf2json");
+        console.log("[AI Mapper] Parsing PDF via pdf2json: Start");
         try {
             // @ts-ignore
             const pdfParser = new PDFParser(null, 1);
+            console.log("[AI Mapper] PDFParser initialized");
+
             const text = await new Promise<string>((resolve, reject) => {
-                pdfParser.on("pdfParser_dataError", (errData: any) => reject(errData.parserError));
-                pdfParser.on("pdfParser_dataReady", () => {
-                    resolve(pdfParser.getRawTextContent());
+                pdfParser.on("pdfParser_dataError", (errData: any) => {
+                    console.error("[AI Mapper] PDFParser Data Error event:", errData);
+                    reject(errData.parserError)
                 });
+                pdfParser.on("pdfParser_dataReady", (pdfData: any) => {
+                    console.log("[AI Mapper] PDFParser Data Ready event");
+                    // getRawTextContent() usually works, but let's check output
+                    const raw = pdfParser.getRawTextContent();
+                    console.log("[AI Mapper] Raw text length:", raw?.length);
+                    resolve(raw);
+                });
+
+                console.log("[AI Mapper] Calling parseBuffer, buffer size:", buffer.length);
                 pdfParser.parseBuffer(buffer);
             });
+            console.log("[AI Mapper] PDF Parsing Complete");
             return { content: text, type: "text", mime: "text/plain" };
         } catch (e) {
             console.error("[AI Mapper] PDF text extraction failed:", e);

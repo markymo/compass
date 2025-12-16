@@ -16,6 +16,10 @@ export async function createQuestionnaire(orgId: string, formData: FormData) {
         const arrayBuffer = await file.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer as any);
 
+        if (buffer.length === 0) {
+            return { success: false, error: "File is empty" };
+        }
+
         const questionnaire = await prisma.questionnaire.create({
             data: {
                 fiOrgId: orgId,
@@ -109,7 +113,38 @@ export async function saveQuestionnaireChanges(id: string, items: any[], mapping
         data: updateData
     });
 
+    revalidatePath(`/app/admin/organizations/${q.fiOrgId}`);
+    return { success: true };
+}
+
+export async function toggleQuestionnaireStatus(id: string, newStatus: "ACTIVE" | "ARCHIVED" | "DRAFT") {
+    const q = await prisma.questionnaire.findUnique({ where: { id } });
+    if (!q) throw new Error("Questionnaire not found");
+
+    await prisma.questionnaire.update({
+        where: { id },
+        data: { status: newStatus }
+    });
+
     revalidatePath(`/app/admin/questionnaires/${id}`);
     revalidatePath(`/app/admin/organizations/${q.fiOrgId}`);
     return { success: true };
+}
+
+export async function deleteQuestionnaire(id: string) {
+    const q = await prisma.questionnaire.findUnique({ where: { id } });
+    if (!q) return { success: false, error: "Questionnaire not found" };
+
+    if (q.status !== "DRAFT") {
+        return { success: false, error: "Only DRAFT questionnaires can be deleted. Please Archive used questionnaires instead." };
+    }
+
+    try {
+        await prisma.questionnaire.delete({ where: { id } });
+        revalidatePath(`/app/admin/organizations/${q.fiOrgId}`);
+        return { success: true };
+    } catch (error) {
+        console.error("Delete failed:", error);
+        return { success: false, error: "Database error during deletion" };
+    }
 }

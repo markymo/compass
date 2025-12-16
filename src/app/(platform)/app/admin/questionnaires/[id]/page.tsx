@@ -8,14 +8,16 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { getQuestionnaireById, extractDetailedContent } from "@/actions/questionnaire";
+import { getQuestionnaireById, extractDetailedContent, toggleQuestionnaireStatus, deleteQuestionnaire } from "@/actions/questionnaire";
 import { getMasterSchemaFields as getFields } from "@/actions/schema-utils";
-import { Loader2, Download, Play, Save, ArrowLeft, FileText, CheckCircle } from "lucide-react";
+import { Loader2, Download, Play, Save, ArrowLeft, FileText, Trash2, Archive, RotateCcw } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ExtractedItem } from "@/actions/ai-mapper";
 
 export default function ManageQuestionnairePage() {
     const params = useParams();
+    const router = useRouter();
     const id = params.id as string;
 
     const [questionnaire, setQuestionnaire] = useState<any>(null);
@@ -65,6 +67,35 @@ export default function ManageQuestionnairePage() {
         }
     }
 
+    async function handleArchive() {
+        if (!confirm("Archive this questionnaire? It will be hidden from active lists but data preserved.")) return;
+        setLoading(true);
+        await toggleQuestionnaireStatus(id, "ARCHIVED");
+        await loadData();
+        setLoading(false);
+    }
+
+    async function handleRestore() {
+        if (!confirm("Restore this questionnaire to Active status?")) return;
+        setLoading(true);
+        await toggleQuestionnaireStatus(id, "ACTIVE");
+        await loadData();
+        setLoading(false);
+    }
+
+    async function handleDelete() {
+        if (!confirm("PERMANENTLY DELETE this questionnaire? This action cannot be undone.")) return;
+        setLoading(true);
+        const res = await deleteQuestionnaire(id);
+        if (res.success) {
+            router.push(`/app/admin/organizations/${questionnaire.fiOrgId}`);
+        } else {
+            alert("Delete failed: " + res.error);
+            setLoading(false);
+        }
+    }
+
+
     function handleItemUpdate(index: number, field: "neutralText" | "masterKey", value: string) {
         const newItems = [...items];
         if (field === "neutralText") {
@@ -99,6 +130,9 @@ export default function ManageQuestionnairePage() {
     if (loading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin" /></div>;
     if (!questionnaire) return <div>Questionnaire not found</div>;
 
+    const isDraft = questionnaire.status === "DRAFT";
+    const isArchived = questionnaire.status === "ARCHIVED";
+
     return (
         <div className="space-y-6 pb-20">
             {/* HEADER */}
@@ -110,7 +144,7 @@ export default function ManageQuestionnairePage() {
                     <div>
                         <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
                             {questionnaire.name}
-                            <Badge>{questionnaire.status}</Badge>
+                            <Badge variant={isArchived ? "destructive" : "default"}>{questionnaire.status}</Badge>
                         </h1>
                         <p className="text-muted-foreground text-sm">
                             {questionnaire.fiOrg.name} • {questionnaire.fileName}
@@ -118,21 +152,49 @@ export default function ManageQuestionnairePage() {
                     </div>
                 </div>
                 <div className="flex gap-2">
+                    {/* Lifecycle Actions */}
+                    {isDraft && (
+                        <Button variant="destructive" onClick={handleDelete} disabled={loading}>
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Delete
+                        </Button>
+                    )}
+
+                    {!isDraft && !isArchived && (
+                        <Button variant="secondary" onClick={handleArchive} disabled={loading}>
+                            <Archive className="w-4 h-4 mr-2" />
+                            Archive
+                        </Button>
+                    )}
+
+                    {isArchived && (
+                        <Button variant="outline" onClick={handleRestore} disabled={loading}>
+                            <RotateCcw className="w-4 h-4 mr-2" />
+                            Restore
+                        </Button>
+                    )}
+
+
                     {/* Download Button */}
                     <a href={`/api/questionnaires/${id}/download`} target="_blank" rel="noopener noreferrer">
                         <Button variant="outline">
                             <Download className="w-4 h-4 mr-2" />
-                            Download Original
+                            Original
                         </Button>
                     </a>
-                    <Button onClick={handleExtract} disabled={extracting}>
-                        {extracting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Play className="w-4 h-4 mr-2" />}
-                        Run Extraction
-                    </Button>
-                    <Button variant="default" onClick={handleSave} disabled={loading}>
-                        <Save className="w-4 h-4 mr-2" />
-                        Save Changes
-                    </Button>
+
+                    {!isArchived && (
+                        <>
+                            <Button onClick={handleExtract} disabled={extracting}>
+                                {extracting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Play className="w-4 h-4 mr-2" />}
+                                Run Extraction
+                            </Button>
+                            <Button variant="default" onClick={handleSave} disabled={loading}>
+                                <Save className="w-4 h-4 mr-2" />
+                                Save
+                            </Button>
+                        </>
+                    )}
                 </div>
             </div>
 

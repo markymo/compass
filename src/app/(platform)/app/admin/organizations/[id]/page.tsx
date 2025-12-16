@@ -23,6 +23,7 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
     // Tab State: "members" | "questionnaires"
     const [activeTab, setActiveTab] = useState("members");
     const [uploading, setUploading] = useState(false);
+    const [showArchived, setShowArchived] = useState(false);
 
     useEffect(() => {
         params.then(setUnwrappedParams);
@@ -43,6 +44,7 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
         setLoading(false);
     }
 
+    // ... (keep handleAddMember and handleUpload unchanged) ...
     async function handleAddMember() {
         if (!inviteEmail || !org) return;
         setInviting(true);
@@ -76,6 +78,9 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
 
     if (!org && loading) return <div className="p-8 flex justify-center"><Loader2 className="animate-spin" /></div>;
     if (!org) return <div>Organization not found</div>;
+
+    // Filter Questionnaires
+    const displayedQuestionnaires = questionnaires.filter(q => showArchived ? true : q.status !== "ARCHIVED");
 
     return (
         <div className="space-y-6">
@@ -181,9 +186,21 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
                 {activeTab === "questionnaires" && (
                     <div className="grid gap-6 md:grid-cols-3">
                         <Card className="md:col-span-2">
-                            <CardHeader>
-                                <CardTitle>Electronic Questionnaires</CardTitle>
-                                <CardDescription>Manage digitized questionnaires for this FI.</CardDescription>
+                            <CardHeader className="flex flex-row items-center justify-between">
+                                <div>
+                                    <CardTitle>Electronic Questionnaires</CardTitle>
+                                    <CardDescription>Manage digitized questionnaires for this FI.</CardDescription>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                    <input
+                                        type="checkbox"
+                                        id="showArchived"
+                                        checked={showArchived}
+                                        onChange={(e) => setShowArchived(e.target.checked)}
+                                        className="h-4 w-4"
+                                    />
+                                    <label htmlFor="showArchived" className="text-sm text-muted-foreground cursor-pointer select-none">Show Archived</label>
+                                </div>
                             </CardHeader>
                             <CardContent>
                                 <Table>
@@ -196,13 +213,15 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {questionnaires.length === 0 && (
+                                        {displayedQuestionnaires.length === 0 && (
                                             <TableRow>
-                                                <TableCell colSpan={4} className="text-center text-muted-foreground">No questionnaires found.</TableCell>
+                                                <TableCell colSpan={4} className="text-center text-muted-foreground">
+                                                    {questionnaires.length > 0 ? "No active questionnaires found." : "No questionnaires found."}
+                                                </TableCell>
                                             </TableRow>
                                         )}
-                                        {questionnaires.map((q: any) => (
-                                            <TableRow key={q.id}>
+                                        {displayedQuestionnaires.map((q: any) => (
+                                            <TableRow key={q.id} className={q.status === "ARCHIVED" ? "opacity-50 bg-muted/50" : ""}>
                                                 <TableCell className="font-medium">
                                                     <div className="flex items-center gap-2">
                                                         <FileText className="w-4 h-4 text-blue-500" />
@@ -210,7 +229,9 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
                                                     </div>
                                                 </TableCell>
                                                 <TableCell>
-                                                    <Badge variant={q.status === "ACTIVE" ? "default" : "secondary"}>{q.status}</Badge>
+                                                    <Badge variant={q.status === "ACTIVE" ? "default" : (q.status === "ARCHIVED" ? "destructive" : "secondary")}>
+                                                        {q.status}
+                                                    </Badge>
                                                 </TableCell>
                                                 <TableCell className="text-muted-foreground text-xs">
                                                     {new Date(q.createdAt).toLocaleDateString()}
