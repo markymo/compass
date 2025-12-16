@@ -2,7 +2,7 @@
 
 import prisma from "@/lib/prisma";
 import { generateObject } from 'ai';
-import { openai } from '@ai-sdk/openai';
+import { createOpenAI } from '@ai-sdk/openai';
 import { z } from 'zod';
 
 import mammoth from 'mammoth';
@@ -22,6 +22,43 @@ function logToFile(msg: string, data?: any) {
         // ignore logging errors
     }
 }
+
+// Ensure API Key is loaded
+let apiKey = process.env.OPENAI_API_KEY;
+
+if (!apiKey) {
+    logToFile("[AI Mapper] OPENAI_API_KEY missing in process.env. Attempting manual load.");
+    const envFiles = ['.env.local', '.env'];
+
+    for (const file of envFiles) {
+        try {
+            const envPath = path.resolve(process.cwd(), file);
+            if (fs.existsSync(envPath)) {
+                logToFile(`[AI Mapper] Found ${file}`);
+                const content = fs.readFileSync(envPath, 'utf-8');
+                const match = content.match(/OPENAI_API_KEY=(.+)/);
+                if (match && match[1]) {
+                    apiKey = match[1].trim().replace(/^["']|["']$/g, '');
+                    process.env.OPENAI_API_KEY = apiKey;
+                    logToFile(`[AI Mapper] Loaded API Key from ${file}`);
+                    break;
+                }
+            }
+        } catch (e) {
+            logToFile(`[AI Mapper] Failed to read ${file}`, e);
+        }
+    }
+}
+
+if (!apiKey) {
+    logToFile("[AI Mapper] CRITICAL: API Key still missing after manual search.");
+} else {
+    logToFile("[AI Mapper] API Key is present (length: " + apiKey.length + ")");
+}
+
+const openai = createOpenAI({
+    apiKey: apiKey,
+});
 
 export interface MappingSuggestion {
     originalText: string;
@@ -258,25 +295,36 @@ export async function extractQuestionnaireItems(input: { content: string, type: 
     }
 
     try {
-        console.log(`[AI Mapper] Extracting Items (${type} mode)`);
+        logToFile(`[AI Mapper] Extracting Items (${type} mode)`);
 
         const { object } = await generateObject({
             model: openai('gpt-4o'),
             schema: z.object({
                 items: z.array(z.object({
-                    type: z.enum(["QUESTION", "SECTION", "INSTRUCTION", "NOTE"]),
-                    originalText: z.string(),
-                    neutralText: z.string().optional(),
-                    masterKey: z.string().optional(),
-                    confidence: z.number()
+                    type: z.enum(["QUESTION", "SECTION", "INSTRUCTION", "NOTE"]).describe("The structural type of the item"),
+                    originalText: z.string().describe("The exact text content"),
+                    neutralText: z.string().nullable().describe("Neutralized question text (optional for non-questions)"),
+                    masterKey: z.string().nullable().describe("Matching master schema key (optional)"),
+                    confidence: z.number().nullable().describe("Confidence score 0-1")
                 }))
             }),
             messages: [{ role: "user", content: userContent }]
         });
 
-        return object.items;
-    } catch (e) {
+        // Post-process: handling nulls if necessary
+        const safeItems = object.items.map(item => ({
+            ...item,
+            neutralText: item.neutralText || undefined,
+            masterKey: item.masterKey || undefined,
+            confidence: item.confidence || 0
+        }));
+
+        logToFile(`[AI Mapper] Extraction Success. Found ${safeItems.length} items.`);
+        return safeItems;
+    } catch (e: any) {
+        logToFile("[AI Mapper] Extraction Error:", e);
         console.error("[AI Mapper] Extraction Error:", e);
-        throw e; // Propagate error so caller knows it failed
+        if (e.cause) logToFile("[AI Mapper] Error Cause:", e.cause);
+        throw e;
     }
 }

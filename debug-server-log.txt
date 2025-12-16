@@ -1,0 +1,1357 @@
+[2025-12-16T17:45:58.720Z] [AI Mapper] API Key is present (length: 164) 
+[2025-12-16T17:46:04.773Z] [AI Mapper] Parsing DOCX via Mammoth: Start 
+[2025-12-16T17:46:05.375Z] [AI Mapper] DOCX Extraction Complete. Length: 4792 
+[2025-12-16T17:53:07.996Z] [AI Mapper] API Key is present (length: 164) 
+[2025-12-16T17:53:43.193Z] [AI Mapper] API Key is present (length: 164) 
+[2025-12-16T17:53:48.671Z] [AI Mapper] Parsing DOCX via Mammoth: Start 
+[2025-12-16T17:53:49.405Z] [AI Mapper] DOCX Extraction Complete. Length: 4792 
+[2025-12-16T17:53:49.428Z] [AI Mapper] Extracting Items (text mode) 
+[2025-12-16T17:54:25.100Z] [AI Mapper] Extraction Error: {
+  "name": "AI_NoObjectGeneratedError",
+  "cause": {
+    "name": "AI_TypeValidationError",
+    "cause": {
+      "name": "ZodError",
+      "message": "[\n  {\n    \"expected\": \"array\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\"\n    ],\n    \"message\": \"Invalid input: expected array, received undefined\"\n  }\n]"
+    },
+    "value": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": [
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "SECTION"
+                  ]
+                },
+                "originalText": {
+                  "type": "string"
+                },
+                "neutralText": {
+                  "type": "string"
+                },
+                "masterKey": {
+                  "type": "string"
+                },
+                "confidence": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "type",
+                "originalText"
+              ],
+              "example": {
+                "type": "SECTION",
+                "originalText": "(Group) Involvement in Ultra High Risk Countries/Regions (UHRCs)"
+              }
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "SECTION"
+                  ]
+                },
+                "originalText": {
+                  "type": "string"
+                },
+                "neutralText": {
+                  "type": "string"
+                },
+                "masterKey": {
+                  "type": "string"
+                },
+                "confidence": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "type",
+                "originalText"
+              ],
+              "example": {
+                "type": "SECTION",
+                "originalText": "About the company / group"
+              }
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "QUESTION"
+                  ]
+                },
+                "originalText": {
+                  "type": "string"
+                },
+                "neutralText": {
+                  "type": "string"
+                },
+                "masterKey": {
+                  "type": "string"
+                },
+                "confidence": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "type",
+                "originalText"
+              ],
+              "example": {
+                "type": "QUESTION",
+                "originalText": "Full legal name of the company",
+                "neutralText": "What is the full legal name of the company?",
+                "masterKey": "entity_name",
+                "confidence": 0.9
+              }
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "QUESTION"
+                  ]
+                },
+                "originalText": {
+                  "type": "string"
+                },
+                "neutralText": {
+                  "type": "string"
+                },
+                "masterKey": {
+                  "type": "string"
+                },
+                "confidence": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "type",
+                "originalText"
+              ],
+              "example": {
+                "type": "QUESTION",
+                "originalText": "Name legal representative",
+                "neutralText": "What is the name of the legal representative?",
+                "masterKey": "",
+                "confidence": 0.5
+              }
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "QUESTION"
+                  ]
+                },
+                "originalText": {
+                  "type": "string"
+                },
+                "neutralText": {
+                  "type": "string"
+                },
+                "masterKey": {
+                  "type": "string"
+                },
+                "confidence": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "type",
+                "originalText"
+              ],
+              "example": {
+                "type": "QUESTION",
+                "originalText": "Title",
+                "neutralText": "What is the title?",
+                "masterKey": "",
+                "confidence": 0.5
+              }
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "QUESTION"
+                  ]
+                },
+                "originalText": {
+                  "type": "string"
+                },
+                "neutralText": {
+                  "type": "string"
+                },
+                "masterKey": {
+                  "type": "string"
+                },
+                "confidence": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "type",
+                "originalText"
+              ],
+              "example": {
+                "type": "QUESTION",
+                "originalText": "Date",
+                "neutralText": "What is the date?",
+                "masterKey": "",
+                "confidence": 0.5
+              }
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "QUESTION"
+                  ]
+                },
+                "originalText": {
+                  "type": "string"
+                },
+                "neutralText": {
+                  "type": "string"
+                },
+                "masterKey": {
+                  "type": "string"
+                },
+                "confidence": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "type",
+                "originalText"
+              ],
+              "example": {
+                "type": "QUESTION",
+                "originalText": "Signature",
+                "neutralText": "What is the signature?",
+                "masterKey": "",
+                "confidence": 0.5
+              }
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "INSTRUCTION"
+                  ]
+                },
+                "originalText": {
+                  "type": "string"
+                },
+                "neutralText": {
+                  "type": "string"
+                },
+                "masterKey": {
+                  "type": "string"
+                },
+                "confidence": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "type",
+                "originalText"
+              ],
+              "example": {
+                "type": "INSTRUCTION",
+                "originalText": "Please complete the questions below for each group company that has been identified as having direct or indirect nexus"
+              }
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "QUESTION"
+                  ]
+                },
+                "originalText": {
+                  "type": "string"
+                },
+                "neutralText": {
+                  "type": "string"
+                },
+                "masterKey": {
+                  "type": "string"
+                },
+                "confidence": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "type",
+                "originalText"
+              ],
+              "example": {
+                "type": "QUESTION",
+                "originalText": "Name _______________________________________________________________________",
+                "neutralText": "What is the name?",
+                "masterKey": "entity_name",
+                "confidence": 0.9
+              }
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "SECTION"
+                  ]
+                },
+                "originalText": {
+                  "type": "string"
+                },
+                "neutralText": {
+                  "type": "string"
+                },
+                "masterKey": {
+                  "type": "string"
+                },
+                "confidence": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "type",
+                "originalText"
+              ],
+              "example": {
+                "type": "SECTION",
+                "originalText": "About the UHRCs involved"
+              }
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "QUESTION"
+                  ]
+                },
+                "originalText": {
+                  "type": "string"
+                },
+                "neutralText": {
+                  "type": "string"
+                },
+                "masterKey": {
+                  "type": "string"
+                },
+                "confidence": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "type",
+                "originalText"
+              ],
+              "example": {
+                "type": "QUESTION",
+                "originalText": "Which UHRCs are the engagements or the company’s presence linked to?",
+                "neutralText": "Which UHRCs are the company or its engagements linked to?",
+                "masterKey": "nwm_derivative_use",
+                "confidence": 0.7
+              }
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "QUESTION"
+                  ]
+                },
+                "originalText": {
+                  "type": "string"
+                },
+                "neutralText": {
+                  "type": "string"
+                },
+                "masterKey": {
+                  "type": "string"
+                },
+                "confidence": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "type",
+                "originalText"
+              ],
+              "example": {
+                "type": "QUESTION",
+                "originalText": "Does the company operate from or is it resident in a UHRC, or does it have its statutory seat or registered office in a UHRC?",
+                "neutralText": "Does the company operate from or have a registered office in a UHRC?",
+                "masterKey": "trading_capacity",
+                "confidence": 0.8
+              }
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "QUESTION"
+                  ]
+                },
+                "originalText": {
+                  "type": "string"
+                },
+                "neutralText": {
+                  "type": "string"
+                },
+                "masterKey": {
+                  "type": "string"
+                },
+                "confidence": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "type",
+                "originalText"
+              ],
+              "example": {
+                "type": "QUESTION",
+                "originalText": "Does the company act on behalf of the government of a UHRC?",
+                "neutralText": "Does the company represent the government of a UHRC?",
+                "masterKey": "emir_reporting_agreement",
+                "confidence": 0.7
+              }
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "QUESTION"
+                  ]
+                },
+                "originalText": {
+                  "type": "string"
+                },
+                "neutralText": {
+                  "type": "string"
+                },
+                "masterKey": {
+                  "type": "string"
+                },
+                "confidence": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "type",
+                "originalText"
+              ],
+              "example": {
+                "type": "QUESTION",
+                "originalText": "Is the company owned or controlled, directly or indirectly, by a UHRC counterparty?",
+                "neutralText": "Is the company owned or controlled by a UHRC counterparty?",
+                "masterKey": "ultimate_beneficiary",
+                "confidence": 0.85
+              }
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "QUESTION"
+                  ]
+                },
+                "originalText": {
+                  "type": "string"
+                },
+                "neutralText": {
+                  "type": "string"
+                },
+                "masterKey": {
+                  "type": "string"
+                },
+                "confidence": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "type",
+                "originalText"
+              ],
+              "example": {
+                "type": "QUESTION",
+                "originalText": "Does the company have a subsidiary, branch, sales office that is established, domiciled or incorporated in a UHRC?",
+                "neutralText": "Does the company have a subsidiary or branch in a UHRC?",
+                "masterKey": "ultimate_beneficiary",
+                "confidence": 0.85
+              }
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "SECTION"
+                  ]
+                },
+                "originalText": {
+                  "type": "string"
+                },
+                "neutralText": {
+                  "type": "string"
+                },
+                "masterKey": {
+                  "type": "string"
+                },
+                "confidence": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "type",
+                "originalText"
+              ],
+              "example": {
+                "type": "SECTION",
+                "originalText": "About engagements"
+              }
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "QUESTION"
+                  ]
+                },
+                "originalText": {
+                  "type": "string"
+                },
+                "neutralText": {
+                  "type": "string"
+                },
+                "masterKey": {
+                  "type": "string"
+                },
+                "confidence": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "type",
+                "originalText"
+              ],
+              "example": {
+                "type": "QUESTION",
+                "originalText": "Does the company make and/or receive transactions to or from a UHRC or from a UHRC counterparty?",
+                "neutralText": "Does the company perform transactions with a UHRC or UHRC counterparty?",
+                "masterKey": "derivative_use",
+                "confidence": 0.7
+              }
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "QUESTION"
+                  ]
+                },
+                "originalText": {
+                  "type": "string"
+                },
+                "neutralText": {
+                  "type": "string"
+                },
+                "masterKey": {
+                  "type": "string"
+                },
+                "confidence": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "type",
+                "originalText"
+              ],
+              "example": {
+                "type": "QUESTION",
+                "originalText": "Are these transactions routed directly or indirectly via an account held with any ING Entities?",
+                "neutralText": "Are transactions routed through an account with any ING Entities?",
+                "masterKey": "",
+                "confidence": 0.6
+              }
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "QUESTION"
+                  ]
+                },
+                "originalText": {
+                  "type": "string"
+                },
+                "neutralText": {
+                  "type": "string"
+                },
+                "masterKey": {
+                  "type": "string"
+                },
+                "confidence": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "type",
+                "originalText"
+              ],
+              "example": {
+                "type": "QUESTION",
+                "originalText": "Does the company export / import / transfer / transport / tranship goods or services directly to / from / via a UHRC?",
+                "neutralText": "Does the company directly export or import goods to or from a UHRC?",
+                "masterKey": "",
+                "confidence": 0.6
+              }
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "QUESTION"
+                  ]
+                },
+                "originalText": {
+                  "type": "string"
+                },
+                "neutralText": {
+                  "type": "string"
+                },
+                "masterKey": {
+                  "type": "string"
+                },
+                "confidence": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "type",
+                "originalText"
+              ],
+              "example": {
+                "type": "QUESTION",
+                "originalText": "Does the company export / import / transfer / transport / tranship goods or services indirectly to / from / via a UHRC?",
+                "neutralText": "Does the company indirectly export or import goods to or from a UHRC?",
+                "masterKey": "",
+                "confidence": 0.6
+              }
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "QUESTION"
+                  ]
+                },
+                "originalText": {
+                  "type": "string"
+                },
+                "neutralText": {
+                  "type": "string"
+                },
+                "masterKey": {
+                  "type": "string"
+                },
+                "confidence": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "type",
+                "originalText"
+              ],
+              "example": {
+                "type": "QUESTION",
+                "originalText": "Do you have actual knowledge that the products and/or services that you procure originate from a UHRC?",
+                "neutralText": "Do you know if the procured products originate from a UHRC?",
+                "masterKey": "",
+                "confidence": 0.7
+              }
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "QUESTION"
+                  ]
+                },
+                "originalText": {
+                  "type": "string"
+                },
+                "neutralText": {
+                  "type": "string"
+                },
+                "masterKey": {
+                  "type": "string"
+                },
+                "confidence": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "type",
+                "originalText"
+              ],
+              "example": {
+                "type": "QUESTION",
+                "originalText": "Do you have actual knowledge that your products and/or services become available in a UHRC?",
+                "neutralText": "Do you know if your products become available in a UHRC?",
+                "masterKey": "",
+                "confidence": 0.7
+              }
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "QUESTION"
+                  ]
+                },
+                "originalText": {
+                  "type": "string"
+                },
+                "neutralText": {
+                  "type": "string"
+                },
+                "masterKey": {
+                  "type": "string"
+                },
+                "confidence": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "type",
+                "originalText"
+              ],
+              "example": {
+                "type": "QUESTION",
+                "originalText": "What goods and services are involved?",
+                "neutralText": "What goods and services are involved?",
+                "masterKey": "trading_capacity",
+                "confidence": 0.7
+              }
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "QUESTION"
+                  ]
+                },
+                "originalText": {
+                  "type": "string"
+                },
+                "neutralText": {
+                  "type": "string"
+                },
+                "masterKey": {
+                  "type": "string"
+                },
+                "confidence": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "type",
+                "originalText"
+              ],
+              "example": {
+                "type": "QUESTION",
+                "originalText": "Are the goods/services involved subject to local, UN, EU and/or US sanctions laws?",
+                "neutralText": "Are the goods subject to sanctions laws?",
+                "masterKey": "regulatory_initial_margin",
+                "confidence": 0.7
+              }
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "QUESTION"
+                  ]
+                },
+                "originalText": {
+                  "type": "string"
+                },
+                "neutralText": {
+                  "type": "string"
+                },
+                "masterKey": {
+                  "type": "string"
+                },
+                "confidence": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "type",
+                "originalText"
+              ],
+              "example": {
+                "type": "QUESTION",
+                "originalText": "If goods/services are subject to sanctions laws, is a government license required for the relevant activities?",
+                "neutralText": "Is a government license required for activities under sanctions laws?",
+                "masterKey": "regulatory_initial_margin",
+                "confidence": 0.7
+              }
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "QUESTION"
+                  ]
+                },
+                "originalText": {
+                  "type": "string"
+                },
+                "neutralText": {
+                  "type": "string"
+                },
+                "masterKey": {
+                  "type": "string"
+                },
+                "confidence": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "type",
+                "originalText"
+              ],
+              "example": {
+                "type": "QUESTION",
+                "originalText": "If required, have you obtained such license?",
+                "neutralText": "Have you obtained the required license?",
+                "masterKey": "regulatory_initial_margin",
+                "confidence": 0.7
+              }
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "SECTION"
+                  ]
+                },
+                "originalText": {
+                  "type": "string"
+                },
+                "neutralText": {
+                  "type": "string"
+                },
+                "masterKey": {
+                  "type": "string"
+                },
+                "confidence": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "type",
+                "originalText"
+              ],
+              "example": {
+                "type": "SECTION",
+                "originalText": "About revenue"
+              }
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "QUESTION"
+                  ]
+                },
+                "originalText": {
+                  "type": "string"
+                },
+                "neutralText": {
+                  "type": "string"
+                },
+                "masterKey": {
+                  "type": "string"
+                },
+                "confidence": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "type",
+                "originalText"
+              ],
+              "example": {
+                "type": "QUESTION",
+                "originalText": "What is the company’s total annual turnover?",
+                "neutralText": "What is the company’s total annual turnover?",
+                "masterKey": "entity_name",
+                "confidence": 0.8
+              }
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "QUESTION"
+                  ]
+                },
+                "originalText": {
+                  "type": "string"
+                },
+                "neutralText": {
+                  "type": "string"
+                },
+                "masterKey": {
+                  "type": "string"
+                },
+                "confidence": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "type",
+                "originalText"
+              ],
+              "example": {
+                "type": "QUESTION",
+                "originalText": "On Group level:",
+                "neutralText": "On Group level, what is the annual turnover?",
+                "masterKey": "",
+                "confidence": 0.6
+              }
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "QUESTION"
+                  ]
+                },
+                "originalText": {
+                  "type": "string"
+                },
+                "neutralText": {
+                  "type": "string"
+                },
+                "masterKey": {
+                  "type": "string"
+                },
+                "confidence": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "type",
+                "originalText"
+              ],
+              "example": {
+                "type": "QUESTION",
+                "originalText": "On level of this particular company:",
+                "neutralText": "On the level of this company, what is the annual turnover?",
+                "masterKey": "",
+                "confidence": 0.6
+              }
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "QUESTION"
+                  ]
+                },
+                "originalText": {
+                  "type": "string"
+                },
+                "neutralText": {
+                  "type": "string"
+                },
+                "masterKey": {
+                  "type": "string"
+                },
+                "confidence": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "type",
+                "originalText"
+              ],
+              "example": {
+                "type": "QUESTION",
+                "originalText": "What percentage of this turnover is derived from business linked (in)directly to a UHRC?",
+                "neutralText": "What percentage of turnover is from business linked to a UHRC?",
+                "masterKey": "nwm_derivative_use",
+                "confidence": 0.8
+              }
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "SECTION"
+                  ]
+                },
+                "originalText": {
+                  "type": "string"
+                },
+                "neutralText": {
+                  "type": "string"
+                },
+                "masterKey": {
+                  "type": "string"
+                },
+                "confidence": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "type",
+                "originalText"
+              ],
+              "example": {
+                "type": "SECTION",
+                "originalText": "About the control framework"
+              }
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "QUESTION"
+                  ]
+                },
+                "originalText": {
+                  "type": "string"
+                },
+                "neutralText": {
+                  "type": "string"
+                },
+                "masterKey": {
+                  "type": "string"
+                },
+                "confidence": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "type",
+                "originalText"
+              ],
+              "example": {
+                "type": "QUESTION",
+                "originalText": "Does the company have an export controls or sanctions compliance program in place?",
+                "neutralText": "Does the company have a sanctions compliance program?",
+                "masterKey": "crs_fatca_w8",
+                "confidence": 0.75
+              }
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "QUESTION"
+                  ]
+                },
+                "originalText": {
+                  "type": "string"
+                },
+                "neutralText": {
+                  "type": "string"
+                },
+                "masterKey": {
+                  "type": "string"
+                },
+                "confidence": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "type",
+                "originalText"
+              ],
+              "example": {
+                "type": "QUESTION",
+                "originalText": "Is there a compliance or legal function responsible for compliance with applicable sanctions laws?",
+                "neutralText": "Is there a compliance function for sanctions laws?",
+                "masterKey": "crs_fatca_w8",
+                "confidence": 0.75
+              }
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "QUESTION"
+                  ]
+                },
+                "originalText": {
+                  "type": "string"
+                },
+                "neutralText": {
+                  "type": "string"
+                },
+                "masterKey": {
+                  "type": "string"
+                },
+                "confidence": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "type",
+                "originalText"
+              ],
+              "example": {
+                "type": "QUESTION",
+                "originalText": "Is compliance with applicable sanctions laws periodically assessed or audited?",
+                "neutralText": "Is compliance with sanctions laws periodically audited?",
+                "masterKey": "crs_fatca_w8",
+                "confidence": 0.75
+              }
+            }
+          ]
+        }
+      }
+    }
+  },
+  "text": "{\"type\":\"object\",\"properties\":{\"items\":{\"type\":\"array\",\"items\":[{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"SECTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"SECTION\",\"originalText\":\"(Group) Involvement in Ultra High Risk Countries/Regions (UHRCs)\"}},{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"SECTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"SECTION\",\"originalText\":\"About the company / group\"}},{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"QUESTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"QUESTION\",\"originalText\":\"Full legal name of the company\",\"neutralText\":\"What is the full legal name of the company?\",\"masterKey\":\"entity_name\",\"confidence\":0.9}},{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"QUESTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"QUESTION\",\"originalText\":\"Name legal representative\",\"neutralText\":\"What is the name of the legal representative?\",\"masterKey\":\"\",\"confidence\":0.5}},{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"QUESTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"QUESTION\",\"originalText\":\"Title\",\"neutralText\":\"What is the title?\",\"masterKey\":\"\",\"confidence\":0.5}},{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"QUESTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"QUESTION\",\"originalText\":\"Date\",\"neutralText\":\"What is the date?\",\"masterKey\":\"\",\"confidence\":0.5}},{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"QUESTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"QUESTION\",\"originalText\":\"Signature\",\"neutralText\":\"What is the signature?\",\"masterKey\":\"\",\"confidence\":0.5}},{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"INSTRUCTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"INSTRUCTION\",\"originalText\":\"Please complete the questions below for each group company that has been identified as having direct or indirect nexus\"}},{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"QUESTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"QUESTION\",\"originalText\":\"Name _______________________________________________________________________\",\"neutralText\":\"What is the name?\",\"masterKey\":\"entity_name\",\"confidence\":0.9}},{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"SECTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"SECTION\",\"originalText\":\"About the UHRCs involved\"}},{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"QUESTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"QUESTION\",\"originalText\":\"Which UHRCs are the engagements or the company’s presence linked to?\",\"neutralText\":\"Which UHRCs are the company or its engagements linked to?\",\"masterKey\":\"nwm_derivative_use\",\"confidence\":0.7}},{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"QUESTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"QUESTION\",\"originalText\":\"Does the company operate from or is it resident in a UHRC, or does it have its statutory seat or registered office in a UHRC?\",\"neutralText\":\"Does the company operate from or have a registered office in a UHRC?\",\"masterKey\":\"trading_capacity\",\"confidence\":0.8}},{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"QUESTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"QUESTION\",\"originalText\":\"Does the company act on behalf of the government of a UHRC?\",\"neutralText\":\"Does the company represent the government of a UHRC?\",\"masterKey\":\"emir_reporting_agreement\",\"confidence\":0.7}},{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"QUESTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"QUESTION\",\"originalText\":\"Is the company owned or controlled, directly or indirectly, by a UHRC counterparty?\",\"neutralText\":\"Is the company owned or controlled by a UHRC counterparty?\",\"masterKey\":\"ultimate_beneficiary\",\"confidence\":0.85}},{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"QUESTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"QUESTION\",\"originalText\":\"Does the company have a subsidiary, branch, sales office that is established, domiciled or incorporated in a UHRC?\",\"neutralText\":\"Does the company have a subsidiary or branch in a UHRC?\",\"masterKey\":\"ultimate_beneficiary\",\"confidence\":0.85}},{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"SECTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"SECTION\",\"originalText\":\"About engagements\"}},{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"QUESTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"QUESTION\",\"originalText\":\"Does the company make and/or receive transactions to or from a UHRC or from a UHRC counterparty?\",\"neutralText\":\"Does the company perform transactions with a UHRC or UHRC counterparty?\",\"masterKey\":\"derivative_use\",\"confidence\":0.7}},{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"QUESTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"QUESTION\",\"originalText\":\"Are these transactions routed directly or indirectly via an account held with any ING Entities?\",\"neutralText\":\"Are transactions routed through an account with any ING Entities?\",\"masterKey\":\"\",\"confidence\":0.6}},{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"QUESTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"QUESTION\",\"originalText\":\"Does the company export / import / transfer / transport / tranship goods or services directly to / from / via a UHRC?\",\"neutralText\":\"Does the company directly export or import goods to or from a UHRC?\",\"masterKey\":\"\",\"confidence\":0.6}},{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"QUESTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"QUESTION\",\"originalText\":\"Does the company export / import / transfer / transport / tranship goods or services indirectly to / from / via a UHRC?\",\"neutralText\":\"Does the company indirectly export or import goods to or from a UHRC?\",\"masterKey\":\"\",\"confidence\":0.6}},{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"QUESTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"QUESTION\",\"originalText\":\"Do you have actual knowledge that the products and/or services that you procure originate from a UHRC?\",\"neutralText\":\"Do you know if the procured products originate from a UHRC?\",\"masterKey\":\"\",\"confidence\":0.7}},{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"QUESTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"QUESTION\",\"originalText\":\"Do you have actual knowledge that your products and/or services become available in a UHRC?\",\"neutralText\":\"Do you know if your products become available in a UHRC?\",\"masterKey\":\"\",\"confidence\":0.7}},{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"QUESTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"QUESTION\",\"originalText\":\"What goods and services are involved?\",\"neutralText\":\"What goods and services are involved?\",\"masterKey\":\"trading_capacity\",\"confidence\":0.7}},{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"QUESTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"QUESTION\",\"originalText\":\"Are the goods/services involved subject to local, UN, EU and/or US sanctions laws?\",\"neutralText\":\"Are the goods subject to sanctions laws?\",\"masterKey\":\"regulatory_initial_margin\",\"confidence\":0.7}},{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"QUESTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"QUESTION\",\"originalText\":\"If goods/services are subject to sanctions laws, is a government license required for the relevant activities?\",\"neutralText\":\"Is a government license required for activities under sanctions laws?\",\"masterKey\":\"regulatory_initial_margin\",\"confidence\":0.7}},{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"QUESTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"QUESTION\",\"originalText\":\"If required, have you obtained such license?\",\"neutralText\":\"Have you obtained the required license?\",\"masterKey\":\"regulatory_initial_margin\",\"confidence\":0.7}},{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"SECTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"SECTION\",\"originalText\":\"About revenue\"}},{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"QUESTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"QUESTION\",\"originalText\":\"What is the company’s total annual turnover?\",\"neutralText\":\"What is the company’s total annual turnover?\",\"masterKey\":\"entity_name\",\"confidence\":0.8}},{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"QUESTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"QUESTION\",\"originalText\":\"On Group level:\",\"neutralText\":\"On Group level, what is the annual turnover?\",\"masterKey\":\"\",\"confidence\":0.6}},{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"QUESTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"QUESTION\",\"originalText\":\"On level of this particular company:\",\"neutralText\":\"On the level of this company, what is the annual turnover?\",\"masterKey\":\"\",\"confidence\":0.6}},{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"QUESTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"QUESTION\",\"originalText\":\"What percentage of this turnover is derived from business linked (in)directly to a UHRC?\",\"neutralText\":\"What percentage of turnover is from business linked to a UHRC?\",\"masterKey\":\"nwm_derivative_use\",\"confidence\":0.8}},{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"SECTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"SECTION\",\"originalText\":\"About the control framework\"}},{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"QUESTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"QUESTION\",\"originalText\":\"Does the company have an export controls or sanctions compliance program in place?\",\"neutralText\":\"Does the company have a sanctions compliance program?\",\"masterKey\":\"crs_fatca_w8\",\"confidence\":0.75}},{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"QUESTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"QUESTION\",\"originalText\":\"Is there a compliance or legal function responsible for compliance with applicable sanctions laws?\",\"neutralText\":\"Is there a compliance function for sanctions laws?\",\"masterKey\":\"crs_fatca_w8\",\"confidence\":0.75}},{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"QUESTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"QUESTION\",\"originalText\":\"Is compliance with applicable sanctions laws periodically assessed or audited?\",\"neutralText\":\"Is compliance with sanctions laws periodically audited?\",\"masterKey\":\"crs_fatca_w8\",\"confidence\":0.75}}]}}}",
+  "response": {
+    "id": "resp_00136a0a947cdde70069419cae0de88193b54c0385b5385d7b",
+    "timestamp": "2025-12-16T17:53:50.000Z",
+    "modelId": "gpt-4o-2024-08-06",
+    "headers": {
+      "alt-svc": "h3=\":443\"; ma=86400",
+      "cf-cache-status": "DYNAMIC",
+      "cf-ray": "9af00adccde4459a-LHR",
+      "connection": "keep-alive",
+      "content-encoding": "br",
+      "content-type": "application/json",
+      "date": "Tue, 16 Dec 2025 17:54:24 GMT",
+      "openai-organization": "user-vrsooq7cta2shxvejg0epzcs",
+      "openai-processing-ms": "34784",
+      "openai-project": "proj_edSfq1tJXX9DG0MZ8R39ReY7",
+      "openai-version": "2020-10-01",
+      "server": "cloudflare",
+      "set-cookie": "_cfuvid=kgL5CZmwpH_FAGVcVLltcJ3Z47bzeuxAt8qi9m4lS.s-1765907664900-0.0.1.1-604800000; path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None",
+      "strict-transport-security": "max-age=31536000; includeSubDomains; preload",
+      "transfer-encoding": "chunked",
+      "x-content-type-options": "nosniff",
+      "x-envoy-upstream-service-time": "34789",
+      "x-ratelimit-limit-requests": "10000",
+      "x-ratelimit-limit-tokens": "30000000",
+      "x-ratelimit-remaining-requests": "9999",
+      "x-ratelimit-remaining-tokens": "29998578",
+      "x-ratelimit-reset-requests": "6ms",
+      "x-ratelimit-reset-tokens": "2ms",
+      "x-request-id": "req_119d734e264f4178988fdd7772b9827e"
+    },
+    "body": {
+      "id": "resp_00136a0a947cdde70069419cae0de88193b54c0385b5385d7b",
+      "object": "response",
+      "created_at": 1765907630,
+      "status": "completed",
+      "background": false,
+      "billing": {
+        "payer": "openai"
+      },
+      "error": null,
+      "incomplete_details": null,
+      "instructions": null,
+      "max_output_tokens": null,
+      "max_tool_calls": null,
+      "model": "gpt-4o-2024-08-06",
+      "output": [
+        {
+          "id": "msg_00136a0a947cdde70069419caf0c248193b549ab831e528b6b",
+          "type": "message",
+          "status": "completed",
+          "content": [
+            {
+              "type": "output_text",
+              "annotations": [],
+              "logprobs": [],
+              "text": "{\"type\":\"object\",\"properties\":{\"items\":{\"type\":\"array\",\"items\":[{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"SECTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"SECTION\",\"originalText\":\"(Group) Involvement in Ultra High Risk Countries/Regions (UHRCs)\"}},{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"SECTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"SECTION\",\"originalText\":\"About the company / group\"}},{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"QUESTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"QUESTION\",\"originalText\":\"Full legal name of the company\",\"neutralText\":\"What is the full legal name of the company?\",\"masterKey\":\"entity_name\",\"confidence\":0.9}},{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"QUESTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"QUESTION\",\"originalText\":\"Name legal representative\",\"neutralText\":\"What is the name of the legal representative?\",\"masterKey\":\"\",\"confidence\":0.5}},{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"QUESTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"QUESTION\",\"originalText\":\"Title\",\"neutralText\":\"What is the title?\",\"masterKey\":\"\",\"confidence\":0.5}},{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"QUESTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"QUESTION\",\"originalText\":\"Date\",\"neutralText\":\"What is the date?\",\"masterKey\":\"\",\"confidence\":0.5}},{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"QUESTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"QUESTION\",\"originalText\":\"Signature\",\"neutralText\":\"What is the signature?\",\"masterKey\":\"\",\"confidence\":0.5}},{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"INSTRUCTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"INSTRUCTION\",\"originalText\":\"Please complete the questions below for each group company that has been identified as having direct or indirect nexus\"}},{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"QUESTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"QUESTION\",\"originalText\":\"Name _______________________________________________________________________\",\"neutralText\":\"What is the name?\",\"masterKey\":\"entity_name\",\"confidence\":0.9}},{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"SECTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"SECTION\",\"originalText\":\"About the UHRCs involved\"}},{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"QUESTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"QUESTION\",\"originalText\":\"Which UHRCs are the engagements or the company’s presence linked to?\",\"neutralText\":\"Which UHRCs are the company or its engagements linked to?\",\"masterKey\":\"nwm_derivative_use\",\"confidence\":0.7}},{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"QUESTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"QUESTION\",\"originalText\":\"Does the company operate from or is it resident in a UHRC, or does it have its statutory seat or registered office in a UHRC?\",\"neutralText\":\"Does the company operate from or have a registered office in a UHRC?\",\"masterKey\":\"trading_capacity\",\"confidence\":0.8}},{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"QUESTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"QUESTION\",\"originalText\":\"Does the company act on behalf of the government of a UHRC?\",\"neutralText\":\"Does the company represent the government of a UHRC?\",\"masterKey\":\"emir_reporting_agreement\",\"confidence\":0.7}},{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"QUESTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"QUESTION\",\"originalText\":\"Is the company owned or controlled, directly or indirectly, by a UHRC counterparty?\",\"neutralText\":\"Is the company owned or controlled by a UHRC counterparty?\",\"masterKey\":\"ultimate_beneficiary\",\"confidence\":0.85}},{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"QUESTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"QUESTION\",\"originalText\":\"Does the company have a subsidiary, branch, sales office that is established, domiciled or incorporated in a UHRC?\",\"neutralText\":\"Does the company have a subsidiary or branch in a UHRC?\",\"masterKey\":\"ultimate_beneficiary\",\"confidence\":0.85}},{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"SECTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"SECTION\",\"originalText\":\"About engagements\"}},{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"QUESTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"QUESTION\",\"originalText\":\"Does the company make and/or receive transactions to or from a UHRC or from a UHRC counterparty?\",\"neutralText\":\"Does the company perform transactions with a UHRC or UHRC counterparty?\",\"masterKey\":\"derivative_use\",\"confidence\":0.7}},{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"QUESTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"QUESTION\",\"originalText\":\"Are these transactions routed directly or indirectly via an account held with any ING Entities?\",\"neutralText\":\"Are transactions routed through an account with any ING Entities?\",\"masterKey\":\"\",\"confidence\":0.6}},{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"QUESTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"QUESTION\",\"originalText\":\"Does the company export / import / transfer / transport / tranship goods or services directly to / from / via a UHRC?\",\"neutralText\":\"Does the company directly export or import goods to or from a UHRC?\",\"masterKey\":\"\",\"confidence\":0.6}},{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"QUESTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"QUESTION\",\"originalText\":\"Does the company export / import / transfer / transport / tranship goods or services indirectly to / from / via a UHRC?\",\"neutralText\":\"Does the company indirectly export or import goods to or from a UHRC?\",\"masterKey\":\"\",\"confidence\":0.6}},{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"QUESTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"QUESTION\",\"originalText\":\"Do you have actual knowledge that the products and/or services that you procure originate from a UHRC?\",\"neutralText\":\"Do you know if the procured products originate from a UHRC?\",\"masterKey\":\"\",\"confidence\":0.7}},{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"QUESTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"QUESTION\",\"originalText\":\"Do you have actual knowledge that your products and/or services become available in a UHRC?\",\"neutralText\":\"Do you know if your products become available in a UHRC?\",\"masterKey\":\"\",\"confidence\":0.7}},{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"QUESTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"QUESTION\",\"originalText\":\"What goods and services are involved?\",\"neutralText\":\"What goods and services are involved?\",\"masterKey\":\"trading_capacity\",\"confidence\":0.7}},{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"QUESTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"QUESTION\",\"originalText\":\"Are the goods/services involved subject to local, UN, EU and/or US sanctions laws?\",\"neutralText\":\"Are the goods subject to sanctions laws?\",\"masterKey\":\"regulatory_initial_margin\",\"confidence\":0.7}},{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"QUESTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"QUESTION\",\"originalText\":\"If goods/services are subject to sanctions laws, is a government license required for the relevant activities?\",\"neutralText\":\"Is a government license required for activities under sanctions laws?\",\"masterKey\":\"regulatory_initial_margin\",\"confidence\":0.7}},{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"QUESTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"QUESTION\",\"originalText\":\"If required, have you obtained such license?\",\"neutralText\":\"Have you obtained the required license?\",\"masterKey\":\"regulatory_initial_margin\",\"confidence\":0.7}},{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"SECTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"SECTION\",\"originalText\":\"About revenue\"}},{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"QUESTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"QUESTION\",\"originalText\":\"What is the company’s total annual turnover?\",\"neutralText\":\"What is the company’s total annual turnover?\",\"masterKey\":\"entity_name\",\"confidence\":0.8}},{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"QUESTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"QUESTION\",\"originalText\":\"On Group level:\",\"neutralText\":\"On Group level, what is the annual turnover?\",\"masterKey\":\"\",\"confidence\":0.6}},{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"QUESTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"QUESTION\",\"originalText\":\"On level of this particular company:\",\"neutralText\":\"On the level of this company, what is the annual turnover?\",\"masterKey\":\"\",\"confidence\":0.6}},{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"QUESTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"QUESTION\",\"originalText\":\"What percentage of this turnover is derived from business linked (in)directly to a UHRC?\",\"neutralText\":\"What percentage of turnover is from business linked to a UHRC?\",\"masterKey\":\"nwm_derivative_use\",\"confidence\":0.8}},{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"SECTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"SECTION\",\"originalText\":\"About the control framework\"}},{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"QUESTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"QUESTION\",\"originalText\":\"Does the company have an export controls or sanctions compliance program in place?\",\"neutralText\":\"Does the company have a sanctions compliance program?\",\"masterKey\":\"crs_fatca_w8\",\"confidence\":0.75}},{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"QUESTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"QUESTION\",\"originalText\":\"Is there a compliance or legal function responsible for compliance with applicable sanctions laws?\",\"neutralText\":\"Is there a compliance function for sanctions laws?\",\"masterKey\":\"crs_fatca_w8\",\"confidence\":0.75}},{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"enum\":[\"QUESTION\"]},\"originalText\":{\"type\":\"string\"},\"neutralText\":{\"type\":\"string\"},\"masterKey\":{\"type\":\"string\"},\"confidence\":{\"type\":\"number\"}},\"required\":[\"type\",\"originalText\"],\"example\":{\"type\":\"QUESTION\",\"originalText\":\"Is compliance with applicable sanctions laws periodically assessed or audited?\",\"neutralText\":\"Is compliance with sanctions laws periodically audited?\",\"masterKey\":\"crs_fatca_w8\",\"confidence\":0.75}}]}}}"
+            }
+          ],
+          "role": "assistant"
+        }
+      ],
+      "parallel_tool_calls": true,
+      "previous_response_id": null,
+      "prompt_cache_key": null,
+      "prompt_cache_retention": null,
+      "reasoning": {
+        "effort": null,
+        "summary": null
+      },
+      "safety_identifier": null,
+      "service_tier": "default",
+      "store": true,
+      "temperature": 1,
+      "text": {
+        "format": {
+          "type": "json_schema",
+          "description": null,
+          "name": "response",
+          "schema": {
+            "type": "object",
+            "properties": {
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "QUESTION",
+                        "SECTION",
+                        "INSTRUCTION",
+                        "NOTE"
+                      ]
+                    },
+                    "originalText": {
+                      "type": "string"
+                    },
+                    "neutralText": {
+                      "type": "string"
+                    },
+                    "masterKey": {
+                      "type": "string"
+                    },
+                    "confidence": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "originalText",
+                    "confidence"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "items"
+            ],
+            "additionalProperties": false
+          },
+          "strict": false
+        },
+        "verbosity": "medium"
+      },
+      "tool_choice": "auto",
+      "tools": [],
+      "top_logprobs": 0,
+      "top_p": 1,
+      "truncation": "disabled",
+      "usage": {
+        "input_tokens": 1403,
+        "input_tokens_details": {
+          "cached_tokens": 0
+        },
+        "output_tokens": 3542,
+        "output_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "total_tokens": 4945
+      },
+      "user": null,
+      "metadata": {}
+    }
+  },
+  "usage": {
+    "inputTokens": 1403,
+    "outputTokens": 3542,
+    "totalTokens": 4945,
+    "reasoningTokens": 0,
+    "cachedInputTokens": 0
+  },
+  "finishReason": "stop"
+}
+[2025-12-16T18:11:28.211Z] [AI Mapper] API Key is present (length: 164) 
+[2025-12-16T18:11:32.949Z] [AI Mapper] Parsing DOCX via Mammoth: Start 
+[2025-12-16T18:11:33.701Z] [AI Mapper] DOCX Extraction Complete. Length: 4792 
+[2025-12-16T18:11:33.735Z] [AI Mapper] Extracting Items (text mode) 
+[2025-12-16T18:11:54.203Z] [AI Mapper] Extraction Success. Found 29 items. 
