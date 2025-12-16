@@ -41,12 +41,20 @@ export function PlatformNavbar({ orgName, orgType }: PlatformNavbarProps) {
                         )}
 
                         {orgType === "FI" && (
-                            <Link
-                                href="/app/fi"
-                                className="text-sm font-medium text-slate-600 transition-colors hover:text-slate-900"
-                            >
-                                FI Area
-                            </Link>
+                            <>
+                                <Link
+                                    href="/app/fi"
+                                    className="text-sm font-medium text-slate-600 transition-colors hover:text-slate-900"
+                                >
+                                    Dashboard
+                                </Link>
+                                <Link
+                                    href="/app/fi/questionnaires"
+                                    className="text-sm font-medium text-slate-600 transition-colors hover:text-slate-900"
+                                >
+                                    Questionnaires
+                                </Link>
+                            </>
                         )}
 
                         <Link

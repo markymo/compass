@@ -1,6 +1,6 @@
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Users, Building2, Database, Wand2 } from "lucide-react";
+import { Users, Building2, Database, Wand2, FileText } from "lucide-react";
 import Link from "next/link";
 
 export default function AdminDashboardPage() {
@@ -32,6 +32,13 @@ export default function AdminDashboardPage() {
             href: "/app/admin/mapper",
             icon: Wand2,
             color: "text-amber-500",
+        },
+        {
+            title: "Questionnaires",
+            description: "Review and map uploaded FI forms",
+            href: "/app/admin/questionnaires",
+            icon: FileText,
+            color: "text-pink-500",
         },
     ];
 

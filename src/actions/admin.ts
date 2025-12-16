@@ -96,3 +96,17 @@ export async function bootstrapSystemOrg() {
     }
     return sysOrg;
 }
+// 5. Get All Questionnaires (Admin)
+export async function getAllQuestionnaires() {
+    const isAdmin = await isSystemAdmin();
+    if (!isAdmin) return [];
+
+    return await prisma.questionnaire.findMany({
+        orderBy: { updatedAt: 'desc' },
+        include: {
+            fiOrg: {
+                select: { name: true }
+            }
+        }
+    });
+}
