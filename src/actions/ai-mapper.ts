@@ -8,6 +8,21 @@ import { z } from 'zod';
 import mammoth from 'mammoth';
 import PDFParser from 'pdf2json';
 
+// Helper for debugging
+import fs from 'fs';
+import path from 'path';
+
+function logToFile(msg: string, data?: any) {
+    try {
+        const logPath = path.resolve(process.cwd(), 'debug-server-log.txt');
+        const timestamp = new Date().toISOString();
+        const content = `[${timestamp}] ${msg} ${data ? JSON.stringify(data, null, 2) : ''}\n`;
+        fs.appendFileSync(logPath, content);
+    } catch (e) {
+        // ignore logging errors
+    }
+}
+
 export interface MappingSuggestion {
     originalText: string;
     suggestedKey: string;
@@ -35,7 +50,7 @@ export async function parseDocument(formData: FormData): Promise<{ content: stri
         throw new Error("No file uploaded");
     }
 
-    console.log(`[AI Mapper] Processing file: ${file.name} (${file.type}, ${file.size} bytes)`);
+    logToFile(`[AI Mapper] Processing file: ${file.name} (${file.type}, ${file.size} bytes)`);
 
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
@@ -50,16 +65,17 @@ export async function processDocumentBuffer(buffer: Buffer, mimeType: string, fi
 
     // DOCX Handling
     if (mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || fileName.endsWith(".docx")) {
-        console.log("[AI Mapper] Parsing DOCX via Mammoth: Start");
+        logToFile("[AI Mapper] Parsing DOCX via Mammoth: Start");
         try {
             const result = await mammoth.extractRawText({ buffer });
-            console.log("[AI Mapper] DOCX Extraction Complete. Length:", result.value.length);
+            logToFile(`[AI Mapper] DOCX Extraction Complete. Length: ${result.value.length}`);
             return {
                 content: result.value, // The raw text
                 type: "text",
                 mime: "text/plain"
             };
         } catch (e) {
+            logToFile("[AI Mapper] DOCX Extraction Failed:", e);
             console.error("[AI Mapper] DOCX Extraction Failed:", e);
             throw e; // Re-throw to be caught by caller
         }
@@ -261,6 +277,6 @@ export async function extractQuestionnaireItems(input: { content: string, type: 
         return object.items;
     } catch (e) {
         console.error("[AI Mapper] Extraction Error:", e);
-        return [];
+        throw e; // Propagate error so caller knows it failed
     }
 }

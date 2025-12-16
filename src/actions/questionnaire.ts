@@ -88,9 +88,9 @@ export async function extractDetailedContent(id: string) {
 
         revalidatePath(`/app/admin/questionnaires/${id}`);
         return { success: true, count: extractedItems.length };
-    } catch (e) {
+    } catch (e: any) {
         console.error("Extraction Failed", e);
-        return { success: false, error: "Extraction Failed" };
+        return { success: false, error: e.message || "Extraction Failed" };
     }
 }
 
