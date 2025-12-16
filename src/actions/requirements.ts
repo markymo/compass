@@ -4,17 +4,19 @@ import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 
 // 1. Search for Financial Institutions
-export async function searchFinancialInstitutions(query: string) {
-    if (!query || query.length < 2) return [];
+export async function searchFinancialInstitutions(query: string = "") {
+    // If empty query, return top 10 recent or alphabetical FIs
+    const whereClause: any = { type: "FI" };
+
+    if (query && query.length >= 2) {
+        whereClause.name = {
+            contains: query,
+            mode: 'insensitive'
+        };
+    }
 
     return await prisma.organization.findMany({
-        where: {
-            type: "FI",
-            name: {
-                contains: query,
-                mode: 'insensitive'
-            }
-        },
+        where: whereClause,
         select: {
             id: true,
             name: true,
@@ -22,6 +24,7 @@ export async function searchFinancialInstitutions(query: string) {
                 select: { questionnaires: { where: { status: "ACTIVE" } } } // Show count of available forms
             }
         },
+        orderBy: { name: 'asc' },
         take: 10
     });
 }

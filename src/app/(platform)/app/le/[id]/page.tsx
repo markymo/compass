@@ -70,7 +70,7 @@ export default async function LEPage({ params }: { params: Promise<{ id: string 
                 <div className="space-y-6">
                     <Card>
                         <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-medium">Your Engagements</CardTitle>
+                            <CardTitle className="text-sm font-medium">Active Questionnaires</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <p className="text-xs text-muted-foreground">
@@ -78,7 +78,7 @@ export default async function LEPage({ params }: { params: Promise<{ id: string 
                             </p>
                             <Link href={`/app/le/${le.id}/requirements`}>
                                 <div className="w-full bg-slate-100 hover:bg-slate-200 text-slate-900 h-9 px-4 py-2 inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors">
-                                    Manage Requirements
+                                    Manage Questionnaires
                                 </div>
                             </Link>
                         </CardContent>
@@ -88,4 +88,3 @@ export default async function LEPage({ params }: { params: Promise<{ id: string 
         </div>
     );
 }
-

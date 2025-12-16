@@ -10,8 +10,13 @@ export default async function AdminLayout({
     const isAdmin = await isSystemAdmin();
 
     if (!isAdmin) {
-        // Security through obscurity: Return 404 instead of 403
-        notFound();
+        // Security through obscurity: Return 404-like UI instead of throwing to avoid Next.js Sync/Async timing bugs
+        return (
+            <div className="flex h-[50vh] flex-col items-center justify-center gap-4 text-center">
+                <h1 className="text-4xl font-bold tracking-tight">404</h1>
+                <p className="text-lg text-muted-foreground">This page could not be found.</p>
+            </div>
+        );
     }
 
     return (

@@ -1,5 +1,5 @@
 import { getActiveEngagements, removeRequirement } from "@/actions/requirements";
-import { RequirementSearch } from "@/components/client/requirement-search";
+import { QuestionnaireSearch } from "@/components/client/requirement-search"; // Updated import name
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -22,7 +22,7 @@ export default async function RequirementsPage({ params }: { params: Promise<{ i
         <div className="max-w-5xl mx-auto space-y-8 pb-20">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Requirement Library</h1>
+                    <h1 className="text-3xl font-bold tracking-tight">Questionnaire Library</h1>
                     <p className="text-muted-foreground">{data.le.name}</p>
                 </div>
                 <Link href={`/app/le/${id}`} className="text-sm text-blue-600 hover:underline">
@@ -36,7 +36,7 @@ export default async function RequirementsPage({ params }: { params: Promise<{ i
                         <CardTitle>Engaged Institutions</CardTitle>
                         <CardDescription>All questionnaires currently active for this entity.</CardDescription>
                     </div>
-                    <RequirementSearch clientLEId={id} />
+                    <QuestionnaireSearch clientLEId={id} />
                 </CardHeader>
                 <CardContent>
                     <div className="space-y-6">
