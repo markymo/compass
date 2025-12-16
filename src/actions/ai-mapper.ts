@@ -151,16 +151,27 @@ export async function processDocumentBuffer(buffer: Buffer, mimeType: string, fi
                 console.log("[AI Mapper] Calling parseBuffer, buffer size:", buffer.length);
                 pdfParser.parseBuffer(buffer);
             });
+            if (!text || text.trim().length < 50) {
+                console.log("[AI Mapper] PDF text is empty or too short. Assuming scanned PDF. Falling back to Vision.");
+                throw new Error("Scanned PDF");
+            }
             console.log("[AI Mapper] PDF Parsing Complete");
             return { content: text, type: "text", mime: "text/plain" };
-        } catch (e) {
+        } catch (e: any) {
             console.error("[AI Mapper] PDF text extraction failed:", e);
-            // Fall through to image handling? Or just fail?
-            // Let's try image handling as fallback if it was a scanned PDF
+            if (e.message === "Scanned PDF") {
+                throw new Error("The PDF appears to be a scanned image. Please provide a text-selectable PDF or a Word document.");
+            }
+            throw new Error("Failed to parse PDF text. Please try converting to Word.");
         }
     }
 
     // IMAGE Handling (Vision API) - fallback for Scanned PDFs or actual Images
+    // Note: OpenAI Vision only supports images (jpg, png), not PDF.
+    if (mimeType === "application/pdf") {
+        throw new Error("The PDF appears to be a scanned image (text extraction failed). Image-based PDFs are not currently supported without OCR.");
+    }
+
     const base64 = buffer.toString('base64');
     return {
         content: base64,
@@ -256,6 +267,11 @@ export async function generateMappingSuggestions(input: { content: string, type:
 export async function extractQuestionnaireItems(input: { content: string, type: "image" | "text", mime: string }): Promise<ExtractedItem[]> {
     const { content, type, mime } = input;
 
+    if (!content || content.trim().length === 0) {
+        throw new Error(`Extraction failed: No text content found in document (MIME: ${mime}). The file might be empty or scanned/image-based without OCR.`);
+    }
+
+
     // A. Fetch Master Schema
     const masterSchema = await prisma.masterSchema.findFirst({
         where: { isActive: true },
@@ -303,9 +319,9 @@ export async function extractQuestionnaireItems(input: { content: string, type: 
                 items: z.array(z.object({
                     type: z.enum(["QUESTION", "SECTION", "INSTRUCTION", "NOTE"]).describe("The structural type of the item"),
                     originalText: z.string().describe("The exact text content"),
-                    neutralText: z.string().nullable().describe("Neutralized question text (optional for non-questions)"),
-                    masterKey: z.string().nullable().describe("Matching master schema key (optional)"),
-                    confidence: z.number().nullable().describe("Confidence score 0-1")
+                    neutralText: z.string().optional().describe("Neutralized question text (optional for non-questions)"),
+                    masterKey: z.string().optional().describe("Matching master schema key (optional)"),
+                    confidence: z.number().optional().describe("Confidence score 0-1")
                 }))
             }),
             messages: [{ role: "user", content: userContent }]
@@ -316,7 +332,7 @@ export async function extractQuestionnaireItems(input: { content: string, type: 
             ...item,
             neutralText: item.neutralText || undefined,
             masterKey: item.masterKey || undefined,
-            confidence: item.confidence || 0
+            confidence: item.confidence ?? 0
         }));
 
         logToFile(`[AI Mapper] Extraction Success. Found ${safeItems.length} items.`);

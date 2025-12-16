@@ -19,9 +19,19 @@ export default async function ClientDashboardPage() {
 
     return (
         <div className="space-y-6">
-            <div>
-                <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-                <p className="text-muted-foreground">Welcome back, {orgName}</p>
+            <div className="flex flex-col gap-6">
+                <div className="bg-blue-50 dark:bg-blue-950/30 border-l-4 border-blue-500 p-4 flex items-center gap-3 shadow-sm rounded-r-md">
+                    <Building2 className="h-5 w-5 text-blue-600 dark:text-blue-500" />
+                    <div className="text-sm text-blue-900 dark:text-blue-200">
+                        <span className="font-semibold block sm:inline">Client Area:</span>{" "}
+                        <span className="opacity-90">Manage your legal entities and document mapping.</span>
+                    </div>
+                </div>
+
+                <div>
+                    <h1 className="text-3xl font-bold tracking-tight">Your Client Dashboard</h1>
+                    <p className="text-muted-foreground">Welcome back, {orgName}</p>
+                </div>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">

@@ -1355,3 +1355,920 @@
 [2025-12-16T18:11:33.701Z] [AI Mapper] DOCX Extraction Complete. Length: 4792 
 [2025-12-16T18:11:33.735Z] [AI Mapper] Extracting Items (text mode) 
 [2025-12-16T18:11:54.203Z] [AI Mapper] Extraction Success. Found 29 items. 
+[2025-12-16T21:14:26.593Z] [AI Mapper] API Key is present (length: 164) 
+[2025-12-16T21:22:38.987Z] [AI Mapper] Extracting Items (text mode) 
+[2025-12-16T21:22:44.861Z] [AI Mapper] Extraction Error: {
+  "name": "AI_NoObjectGeneratedError",
+  "cause": {
+    "name": "AI_TypeValidationError",
+    "cause": {
+      "name": "ZodError",
+      "message": "[\n  {\n    \"expected\": \"array\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\"\n    ],\n    \"message\": \"Invalid input: expected array, received undefined\"\n  }\n]"
+    },
+    "value": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "description": "The structural type of the item",
+                "type": "string",
+                "enum": [
+                  "QUESTION",
+                  "SECTION",
+                  "INSTRUCTION",
+                  "NOTE"
+                ]
+              },
+              "originalText": {
+                "description": "The exact text content",
+                "type": "string"
+              },
+              "neutralText": {
+                "description": "Neutralized question text (optional for non-questions)",
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "masterKey": {
+                "description": "Matching master schema key (optional)",
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "confidence": {
+                "description": "Confidence score 0-1",
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "text": "{\"type\":\"object\",\"properties\":{\"items\":{\"type\":\"array\",\"items\":{\"type\":\"object\",\"properties\":{\"type\":{\"description\":\"The structural type of the item\",\"type\":\"string\",\"enum\":[\"QUESTION\",\"SECTION\",\"INSTRUCTION\",\"NOTE\"]},\"originalText\":{\"description\":\"The exact text content\",\"type\":\"string\"},\"neutralText\":{\"description\":\"Neutralized question text (optional for non-questions)\",\"anyOf\":[{\"type\":\"string\"},{\"type\":\"null\"}]},\"masterKey\":{\"description\":\"Matching master schema key (optional)\",\"anyOf\":[{\"type\":\"string\"},{\"type\":\"null\"}]},\"confidence\":{\"description\":\"Confidence score 0-1\",\"anyOf\":[{\"type\":\"number\"},{\"type\":\"null\"}]}}}}}}",
+  "response": {
+    "id": "resp_0cf6ba498dbe11b5006941cd9f98208196bf2da8a437a44406",
+    "timestamp": "2025-12-16T21:22:39.000Z",
+    "modelId": "gpt-4o-2024-08-06",
+    "headers": {
+      "alt-svc": "h3=\":443\"; ma=86400",
+      "cf-cache-status": "DYNAMIC",
+      "cf-ray": "9af13cc2291bbece-LHR",
+      "connection": "keep-alive",
+      "content-encoding": "br",
+      "content-type": "application/json",
+      "date": "Tue, 16 Dec 2025 21:22:44 GMT",
+      "openai-organization": "user-vrsooq7cta2shxvejg0epzcs",
+      "openai-processing-ms": "5054",
+      "openai-project": "proj_edSfq1tJXX9DG0MZ8R39ReY7",
+      "openai-version": "2020-10-01",
+      "server": "cloudflare",
+      "set-cookie": "_cfuvid=mci9uE2YQs863759fH3oW1qGQIizmsKEYNGNgiBt7KM-1765920164697-0.0.1.1-604800000; path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None",
+      "strict-transport-security": "max-age=31536000; includeSubDomains; preload",
+      "transfer-encoding": "chunked",
+      "x-content-type-options": "nosniff",
+      "x-envoy-upstream-service-time": "5057",
+      "x-ratelimit-limit-requests": "10000",
+      "x-ratelimit-limit-tokens": "30000000",
+      "x-ratelimit-remaining-requests": "9999",
+      "x-ratelimit-remaining-tokens": "29998479",
+      "x-ratelimit-reset-requests": "6ms",
+      "x-ratelimit-reset-tokens": "3ms",
+      "x-request-id": "req_3e8b3370108e9fc7bf55bb7df5a442b1"
+    },
+    "body": {
+      "id": "resp_0cf6ba498dbe11b5006941cd9f98208196bf2da8a437a44406",
+      "object": "response",
+      "created_at": 1765920159,
+      "status": "completed",
+      "background": false,
+      "billing": {
+        "payer": "openai"
+      },
+      "error": null,
+      "incomplete_details": null,
+      "instructions": null,
+      "max_output_tokens": null,
+      "max_tool_calls": null,
+      "model": "gpt-4o-2024-08-06",
+      "output": [
+        {
+          "id": "msg_0cf6ba498dbe11b5006941cda15b848196add9ed580e0ea873",
+          "type": "message",
+          "status": "completed",
+          "content": [
+            {
+              "type": "output_text",
+              "annotations": [],
+              "logprobs": [],
+              "text": "{\"type\":\"object\",\"properties\":{\"items\":{\"type\":\"array\",\"items\":{\"type\":\"object\",\"properties\":{\"type\":{\"description\":\"The structural type of the item\",\"type\":\"string\",\"enum\":[\"QUESTION\",\"SECTION\",\"INSTRUCTION\",\"NOTE\"]},\"originalText\":{\"description\":\"The exact text content\",\"type\":\"string\"},\"neutralText\":{\"description\":\"Neutralized question text (optional for non-questions)\",\"anyOf\":[{\"type\":\"string\"},{\"type\":\"null\"}]},\"masterKey\":{\"description\":\"Matching master schema key (optional)\",\"anyOf\":[{\"type\":\"string\"},{\"type\":\"null\"}]},\"confidence\":{\"description\":\"Confidence score 0-1\",\"anyOf\":[{\"type\":\"number\"},{\"type\":\"null\"}]}}}}}}"
+            }
+          ],
+          "role": "assistant"
+        }
+      ],
+      "parallel_tool_calls": true,
+      "previous_response_id": null,
+      "prompt_cache_key": null,
+      "prompt_cache_retention": null,
+      "reasoning": {
+        "effort": null,
+        "summary": null
+      },
+      "safety_identifier": null,
+      "service_tier": "default",
+      "store": true,
+      "temperature": 1,
+      "text": {
+        "format": {
+          "type": "json_schema",
+          "description": null,
+          "name": "response",
+          "schema": {
+            "type": "object",
+            "properties": {
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "description": "The structural type of the item",
+                      "type": "string",
+                      "enum": [
+                        "QUESTION",
+                        "SECTION",
+                        "INSTRUCTION",
+                        "NOTE"
+                      ]
+                    },
+                    "originalText": {
+                      "description": "The exact text content",
+                      "type": "string"
+                    },
+                    "neutralText": {
+                      "description": "Neutralized question text (optional for non-questions)",
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "masterKey": {
+                      "description": "Matching master schema key (optional)",
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "confidence": {
+                      "description": "Confidence score 0-1",
+                      "anyOf": [
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "originalText",
+                    "neutralText",
+                    "masterKey",
+                    "confidence"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "items"
+            ],
+            "additionalProperties": false
+          },
+          "strict": false
+        },
+        "verbosity": "medium"
+      },
+      "tool_choice": "auto",
+      "tools": [],
+      "top_logprobs": 0,
+      "top_p": 1,
+      "truncation": "disabled",
+      "usage": {
+        "input_tokens": 1502,
+        "input_tokens_details": {
+          "cached_tokens": 0
+        },
+        "output_tokens": 149,
+        "output_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "total_tokens": 1651
+      },
+      "user": null,
+      "metadata": {}
+    }
+  },
+  "usage": {
+    "inputTokens": 1502,
+    "outputTokens": 149,
+    "totalTokens": 1651,
+    "reasoningTokens": 0,
+    "cachedInputTokens": 0
+  },
+  "finishReason": "stop"
+}
+[2025-12-16T21:22:47.649Z] [AI Mapper] Error Cause: {
+  "name": "AI_TypeValidationError",
+  "cause": {
+    "name": "ZodError",
+    "message": "[\n  {\n    \"expected\": \"array\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\"\n    ],\n    \"message\": \"Invalid input: expected array, received undefined\"\n  }\n]"
+  },
+  "value": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "description": "The structural type of the item",
+              "type": "string",
+              "enum": [
+                "QUESTION",
+                "SECTION",
+                "INSTRUCTION",
+                "NOTE"
+              ]
+            },
+            "originalText": {
+              "description": "The exact text content",
+              "type": "string"
+            },
+            "neutralText": {
+              "description": "Neutralized question text (optional for non-questions)",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "masterKey": {
+              "description": "Matching master schema key (optional)",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "confidence": {
+              "description": "Confidence score 0-1",
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}
+[2025-12-16T21:24:45.497Z] [AI Mapper] API Key is present (length: 164) 
+[2025-12-16T21:25:40.442Z] [AI Mapper] Extracting Items (text mode) 
+[2025-12-16T21:25:53.023Z] [AI Mapper] Extraction Error: {
+  "name": "AI_NoObjectGeneratedError",
+  "cause": {
+    "name": "AI_TypeValidationError",
+    "cause": {
+      "name": "ZodError",
+      "message": "[\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      0,\n      \"neutralText\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      0,\n      \"masterKey\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      1,\n      \"neutralText\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      1,\n      \"masterKey\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      2,\n      \"neutralText\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      2,\n      \"masterKey\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      3,\n      \"masterKey\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      4,\n      \"masterKey\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      5,\n      \"masterKey\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      6,\n      \"neutralText\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      6,\n      \"masterKey\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      7,\n      \"masterKey\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      8,\n      \"masterKey\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      9,\n      \"neutralText\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      9,\n      \"masterKey\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      10,\n      \"masterKey\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      11,\n      \"masterKey\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      12,\n      \"neutralText\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      12,\n      \"masterKey\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      13,\n      \"neutralText\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      13,\n      \"masterKey\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      14,\n      \"masterKey\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      15,\n      \"masterKey\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      16,\n      \"neutralText\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      16,\n      \"masterKey\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      17,\n      \"masterKey\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      18,\n      \"masterKey\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      19,\n      \"neutralText\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      19,\n      \"masterKey\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      20,\n      \"masterKey\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      21,\n      \"neutralText\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      21,\n      \"masterKey\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      22,\n      \"masterKey\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      23,\n      \"neutralText\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      23,\n      \"masterKey\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      24,\n      \"masterKey\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      25,\n      \"neutralText\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      25,\n      \"masterKey\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      26,\n      \"masterKey\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      27,\n      \"neutralText\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      27,\n      \"masterKey\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      28,\n      \"masterKey\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  }\n]"
+    },
+    "value": {
+      "items": [
+        {
+          "type": "SECTION",
+          "originalText": "ANTI-CORRUPTION QUESTIONNAIRE",
+          "neutralText": null,
+          "masterKey": null,
+          "confidence": 0.95
+        },
+        {
+          "type": "SECTION",
+          "originalText": "CPL / Financial Security",
+          "neutralText": null,
+          "masterKey": null,
+          "confidence": 0.95
+        },
+        {
+          "type": "SECTION",
+          "originalText": "General questions :",
+          "neutralText": null,
+          "masterKey": null,
+          "confidence": 0.95
+        },
+        {
+          "type": "QUESTION",
+          "originalText": "Do you have an anti-corruption program to prevent, detect and report bribery and corruption ?",
+          "neutralText": "Do you have an anti-corruption program to prevent, detect, and report bribery and corruption?",
+          "masterKey": null,
+          "confidence": 0.95
+        },
+        {
+          "type": "QUESTION",
+          "originalText": "Do you have specific anti-corruption policies and procedures ?",
+          "neutralText": "Do you have specific anti-corruption policies and procedures?",
+          "masterKey": null,
+          "confidence": 0.95
+        },
+        {
+          "type": "QUESTION",
+          "originalText": "Did you appoint a designated officer or officers with sufficient experience to coordinate your anti-corruption program ?",
+          "neutralText": "Have you appointed a designated officer or officers with sufficient experience to coordinate your anti-corruption program?",
+          "masterKey": null,
+          "confidence": 0.95
+        },
+        {
+          "type": "SECTION",
+          "originalText": "Senior Managemet Committment :",
+          "neutralText": null,
+          "masterKey": null,
+          "confidence": 0.95
+        },
+        {
+          "type": "QUESTION",
+          "originalText": "What is the degree of committment of the senior management in the anti-corruption system ?",
+          "neutralText": "What is the degree of commitment of the senior management in the anti-corruption system?",
+          "masterKey": null,
+          "confidence": 0.95
+        },
+        {
+          "type": "QUESTION",
+          "originalText": "How does the senior management ensures that the anti-corruption system is efficient and up to date ?",
+          "neutralText": "How does the senior management ensure that the anti-corruption system is efficient and up to date?",
+          "masterKey": null,
+          "confidence": 0.95
+        },
+        {
+          "type": "SECTION",
+          "originalText": "Risk mapping :",
+          "neutralText": null,
+          "masterKey": null,
+          "confidence": 0.95
+        },
+        {
+          "type": "QUESTION",
+          "originalText": "Do you have an anti-corruption risk map in your organization ?",
+          "neutralText": "Do you have an anti-corruption risk map in your organization?",
+          "masterKey": null,
+          "confidence": 0.95
+        },
+        {
+          "type": "QUESTION",
+          "originalText": "How often is your risk map updated ? If not updated regularly, please explain.",
+          "neutralText": "How often is your risk map updated?",
+          "masterKey": null,
+          "confidence": 0.95
+        },
+        {
+          "type": "SECTION",
+          "originalText": "Risk management :",
+          "neutralText": null,
+          "masterKey": null,
+          "confidence": 0.95
+        },
+        {
+          "type": "SECTION",
+          "originalText": "Code of Conduct",
+          "neutralText": null,
+          "masterKey": null,
+          "confidence": 0.95
+        },
+        {
+          "type": "QUESTION",
+          "originalText": "Do you have a Code of Conduct ?",
+          "neutralText": "Do you have a Code of Conduct?",
+          "masterKey": null,
+          "confidence": 0.95
+        },
+        {
+          "type": "QUESTION",
+          "originalText": "Is the code of conduct accessible to all your employees ?",
+          "neutralText": "Is the Code of Conduct accessible to all your employees?",
+          "masterKey": null,
+          "confidence": 0.95
+        },
+        {
+          "type": "SECTION",
+          "originalText": "Whistleblowing process",
+          "neutralText": null,
+          "masterKey": null,
+          "confidence": 0.95
+        },
+        {
+          "type": "QUESTION",
+          "originalText": "Do you have a whistleblowing system in your organization ?",
+          "neutralText": "Do you have a whistleblowing system in your organization?",
+          "masterKey": null,
+          "confidence": 0.95
+        },
+        {
+          "type": "QUESTION",
+          "originalText": "How does this system work ? (ex: confidentiality, etc.)",
+          "neutralText": "How does the whistleblowing system work?",
+          "masterKey": null,
+          "confidence": 0.95
+        },
+        {
+          "type": "SECTION",
+          "originalText": "Training / Communication",
+          "neutralText": null,
+          "masterKey": null,
+          "confidence": 0.95
+        },
+        {
+          "type": "QUESTION",
+          "originalText": "How do you communicate your anti-corruption program within your organization ?",
+          "neutralText": "How do you communicate your anti-corruption program within your organization?",
+          "masterKey": null,
+          "confidence": 0.95
+        },
+        {
+          "type": "SECTION",
+          "originalText": "Accounting control procedures",
+          "neutralText": null,
+          "masterKey": null,
+          "confidence": 0.95
+        },
+        {
+          "type": "QUESTION",
+          "originalText": "Do you have internal or external accounting control procedures ?",
+          "neutralText": "Do you have internal or external accounting control procedures?",
+          "masterKey": null,
+          "confidence": 0.95
+        },
+        {
+          "type": "SECTION",
+          "originalText": "Disciplinary system",
+          "neutralText": null,
+          "masterKey": null,
+          "confidence": 0.95
+        },
+        {
+          "type": "QUESTION",
+          "originalText": "Do you have a disciplinary system allowing you to sanction the violations of your Code of Conduct and / or any other rule of your organization ?",
+          "neutralText": "Do you have a disciplinary system that allows you to sanction violations of your Code of Conduct and/or other organizational rules?",
+          "masterKey": null,
+          "confidence": 0.95
+        },
+        {
+          "type": "SECTION",
+          "originalText": "Internal control and audit process of the compliance (anti-corruption) procedure",
+          "neutralText": null,
+          "masterKey": null,
+          "confidence": 0.95
+        },
+        {
+          "type": "QUESTION",
+          "originalText": "How do you control the good application of your anti-corruption program (procedures, etc.) ?",
+          "neutralText": "How do you ensure the proper application of your anti-corruption program?",
+          "masterKey": null,
+          "confidence": 0.95
+        },
+        {
+          "type": "SECTION",
+          "originalText": "Third parties assessment system",
+          "neutralText": null,
+          "masterKey": null,
+          "confidence": 0.95
+        },
+        {
+          "type": "QUESTION",
+          "originalText": "Do you have a third parties' corruption risk assessment system ?",
+          "neutralText": "Do you have a third-party corruption risk assessment system?",
+          "masterKey": null,
+          "confidence": 0.95
+        }
+      ]
+    }
+  },
+  "text": "{\"items\":[{\"type\":\"SECTION\",\"originalText\":\"ANTI-CORRUPTION QUESTIONNAIRE\",\"neutralText\":null,\"masterKey\":null,\"confidence\":0.95},{\"type\":\"SECTION\",\"originalText\":\"CPL / Financial Security\",\"neutralText\":null,\"masterKey\":null,\"confidence\":0.95},{\"type\":\"SECTION\",\"originalText\":\"General questions :\",\"neutralText\":null,\"masterKey\":null,\"confidence\":0.95},{\"type\":\"QUESTION\",\"originalText\":\"Do you have an anti-corruption program to prevent, detect and report bribery and corruption ?\",\"neutralText\":\"Do you have an anti-corruption program to prevent, detect, and report bribery and corruption?\",\"masterKey\":null,\"confidence\":0.95},{\"type\":\"QUESTION\",\"originalText\":\"Do you have specific anti-corruption policies and procedures ?\",\"neutralText\":\"Do you have specific anti-corruption policies and procedures?\",\"masterKey\":null,\"confidence\":0.95},{\"type\":\"QUESTION\",\"originalText\":\"Did you appoint a designated officer or officers with sufficient experience to coordinate your anti-corruption program ?\",\"neutralText\":\"Have you appointed a designated officer or officers with sufficient experience to coordinate your anti-corruption program?\",\"masterKey\":null,\"confidence\":0.95},{\"type\":\"SECTION\",\"originalText\":\"Senior Managemet Committment :\",\"neutralText\":null,\"masterKey\":null,\"confidence\":0.95},{\"type\":\"QUESTION\",\"originalText\":\"What is the degree of committment of the senior management in the anti-corruption system ?\",\"neutralText\":\"What is the degree of commitment of the senior management in the anti-corruption system?\",\"masterKey\":null,\"confidence\":0.95},{\"type\":\"QUESTION\",\"originalText\":\"How does the senior management ensures that the anti-corruption system is efficient and up to date ?\",\"neutralText\":\"How does the senior management ensure that the anti-corruption system is efficient and up to date?\",\"masterKey\":null,\"confidence\":0.95},{\"type\":\"SECTION\",\"originalText\":\"Risk mapping :\",\"neutralText\":null,\"masterKey\":null,\"confidence\":0.95},{\"type\":\"QUESTION\",\"originalText\":\"Do you have an anti-corruption risk map in your organization ?\",\"neutralText\":\"Do you have an anti-corruption risk map in your organization?\",\"masterKey\":null,\"confidence\":0.95},{\"type\":\"QUESTION\",\"originalText\":\"How often is your risk map updated ? If not updated regularly, please explain.\",\"neutralText\":\"How often is your risk map updated?\",\"masterKey\":null,\"confidence\":0.95},{\"type\":\"SECTION\",\"originalText\":\"Risk management :\",\"neutralText\":null,\"masterKey\":null,\"confidence\":0.95},{\"type\":\"SECTION\",\"originalText\":\"Code of Conduct\",\"neutralText\":null,\"masterKey\":null,\"confidence\":0.95},{\"type\":\"QUESTION\",\"originalText\":\"Do you have a Code of Conduct ?\",\"neutralText\":\"Do you have a Code of Conduct?\",\"masterKey\":null,\"confidence\":0.95},{\"type\":\"QUESTION\",\"originalText\":\"Is the code of conduct accessible to all your employees ?\",\"neutralText\":\"Is the Code of Conduct accessible to all your employees?\",\"masterKey\":null,\"confidence\":0.95},{\"type\":\"SECTION\",\"originalText\":\"Whistleblowing process\",\"neutralText\":null,\"masterKey\":null,\"confidence\":0.95},{\"type\":\"QUESTION\",\"originalText\":\"Do you have a whistleblowing system in your organization ?\",\"neutralText\":\"Do you have a whistleblowing system in your organization?\",\"masterKey\":null,\"confidence\":0.95},{\"type\":\"QUESTION\",\"originalText\":\"How does this system work ? (ex: confidentiality, etc.)\",\"neutralText\":\"How does the whistleblowing system work?\",\"masterKey\":null,\"confidence\":0.95},{\"type\":\"SECTION\",\"originalText\":\"Training / Communication\",\"neutralText\":null,\"masterKey\":null,\"confidence\":0.95},{\"type\":\"QUESTION\",\"originalText\":\"How do you communicate your anti-corruption program within your organization ?\",\"neutralText\":\"How do you communicate your anti-corruption program within your organization?\",\"masterKey\":null,\"confidence\":0.95},{\"type\":\"SECTION\",\"originalText\":\"Accounting control procedures\",\"neutralText\":null,\"masterKey\":null,\"confidence\":0.95},{\"type\":\"QUESTION\",\"originalText\":\"Do you have internal or external accounting control procedures ?\",\"neutralText\":\"Do you have internal or external accounting control procedures?\",\"masterKey\":null,\"confidence\":0.95},{\"type\":\"SECTION\",\"originalText\":\"Disciplinary system\",\"neutralText\":null,\"masterKey\":null,\"confidence\":0.95},{\"type\":\"QUESTION\",\"originalText\":\"Do you have a disciplinary system allowing you to sanction the violations of your Code of Conduct and / or any other rule of your organization ?\",\"neutralText\":\"Do you have a disciplinary system that allows you to sanction violations of your Code of Conduct and/or other organizational rules?\",\"masterKey\":null,\"confidence\":0.95},{\"type\":\"SECTION\",\"originalText\":\"Internal control and audit process of the compliance (anti-corruption) procedure\",\"neutralText\":null,\"masterKey\":null,\"confidence\":0.95},{\"type\":\"QUESTION\",\"originalText\":\"How do you control the good application of your anti-corruption program (procedures, etc.) ?\",\"neutralText\":\"How do you ensure the proper application of your anti-corruption program?\",\"masterKey\":null,\"confidence\":0.95},{\"type\":\"SECTION\",\"originalText\":\"Third parties assessment system\",\"neutralText\":null,\"masterKey\":null,\"confidence\":0.95},{\"type\":\"QUESTION\",\"originalText\":\"Do you have a third parties' corruption risk assessment system ?\",\"neutralText\":\"Do you have a third-party corruption risk assessment system?\",\"masterKey\":null,\"confidence\":0.95}]}",
+  "response": {
+    "id": "resp_0942492d16f8c224006941ce54f5f081939671e2246c618eb3",
+    "timestamp": "2025-12-16T21:25:40.000Z",
+    "modelId": "gpt-4o-2024-08-06",
+    "headers": {
+      "alt-svc": "h3=\":443\"; ma=86400",
+      "cf-cache-status": "DYNAMIC",
+      "cf-ray": "9af141303b80ecfb-LHR",
+      "connection": "keep-alive",
+      "content-encoding": "br",
+      "content-type": "application/json",
+      "date": "Tue, 16 Dec 2025 21:25:52 GMT",
+      "openai-organization": "user-vrsooq7cta2shxvejg0epzcs",
+      "openai-processing-ms": "11911",
+      "openai-project": "proj_edSfq1tJXX9DG0MZ8R39ReY7",
+      "openai-version": "2020-10-01",
+      "server": "cloudflare",
+      "set-cookie": "_cfuvid=RH8zDwl8LfejBsf0nc3ujDQnD3a4Qjra7MI6FOSip5s-1765920352927-0.0.1.1-604800000; path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None",
+      "strict-transport-security": "max-age=31536000; includeSubDomains; preload",
+      "transfer-encoding": "chunked",
+      "x-content-type-options": "nosniff",
+      "x-envoy-upstream-service-time": "11913",
+      "x-ratelimit-limit-requests": "10000",
+      "x-ratelimit-limit-tokens": "30000000",
+      "x-ratelimit-remaining-requests": "9999",
+      "x-ratelimit-remaining-tokens": "29998507",
+      "x-ratelimit-reset-requests": "6ms",
+      "x-ratelimit-reset-tokens": "2ms",
+      "x-request-id": "req_37e3225923e5430f9443ff77bf7e5fa0"
+    },
+    "body": {
+      "id": "resp_0942492d16f8c224006941ce54f5f081939671e2246c618eb3",
+      "object": "response",
+      "created_at": 1765920340,
+      "status": "completed",
+      "background": false,
+      "billing": {
+        "payer": "openai"
+      },
+      "error": null,
+      "incomplete_details": null,
+      "instructions": null,
+      "max_output_tokens": null,
+      "max_tool_calls": null,
+      "model": "gpt-4o-2024-08-06",
+      "output": [
+        {
+          "id": "msg_0942492d16f8c224006941ce55f49481939ae00b0f13add190",
+          "type": "message",
+          "status": "completed",
+          "content": [
+            {
+              "type": "output_text",
+              "annotations": [],
+              "logprobs": [],
+              "text": "{\"items\":[{\"type\":\"SECTION\",\"originalText\":\"ANTI-CORRUPTION QUESTIONNAIRE\",\"neutralText\":null,\"masterKey\":null,\"confidence\":0.95},{\"type\":\"SECTION\",\"originalText\":\"CPL / Financial Security\",\"neutralText\":null,\"masterKey\":null,\"confidence\":0.95},{\"type\":\"SECTION\",\"originalText\":\"General questions :\",\"neutralText\":null,\"masterKey\":null,\"confidence\":0.95},{\"type\":\"QUESTION\",\"originalText\":\"Do you have an anti-corruption program to prevent, detect and report bribery and corruption ?\",\"neutralText\":\"Do you have an anti-corruption program to prevent, detect, and report bribery and corruption?\",\"masterKey\":null,\"confidence\":0.95},{\"type\":\"QUESTION\",\"originalText\":\"Do you have specific anti-corruption policies and procedures ?\",\"neutralText\":\"Do you have specific anti-corruption policies and procedures?\",\"masterKey\":null,\"confidence\":0.95},{\"type\":\"QUESTION\",\"originalText\":\"Did you appoint a designated officer or officers with sufficient experience to coordinate your anti-corruption program ?\",\"neutralText\":\"Have you appointed a designated officer or officers with sufficient experience to coordinate your anti-corruption program?\",\"masterKey\":null,\"confidence\":0.95},{\"type\":\"SECTION\",\"originalText\":\"Senior Managemet Committment :\",\"neutralText\":null,\"masterKey\":null,\"confidence\":0.95},{\"type\":\"QUESTION\",\"originalText\":\"What is the degree of committment of the senior management in the anti-corruption system ?\",\"neutralText\":\"What is the degree of commitment of the senior management in the anti-corruption system?\",\"masterKey\":null,\"confidence\":0.95},{\"type\":\"QUESTION\",\"originalText\":\"How does the senior management ensures that the anti-corruption system is efficient and up to date ?\",\"neutralText\":\"How does the senior management ensure that the anti-corruption system is efficient and up to date?\",\"masterKey\":null,\"confidence\":0.95},{\"type\":\"SECTION\",\"originalText\":\"Risk mapping :\",\"neutralText\":null,\"masterKey\":null,\"confidence\":0.95},{\"type\":\"QUESTION\",\"originalText\":\"Do you have an anti-corruption risk map in your organization ?\",\"neutralText\":\"Do you have an anti-corruption risk map in your organization?\",\"masterKey\":null,\"confidence\":0.95},{\"type\":\"QUESTION\",\"originalText\":\"How often is your risk map updated ? If not updated regularly, please explain.\",\"neutralText\":\"How often is your risk map updated?\",\"masterKey\":null,\"confidence\":0.95},{\"type\":\"SECTION\",\"originalText\":\"Risk management :\",\"neutralText\":null,\"masterKey\":null,\"confidence\":0.95},{\"type\":\"SECTION\",\"originalText\":\"Code of Conduct\",\"neutralText\":null,\"masterKey\":null,\"confidence\":0.95},{\"type\":\"QUESTION\",\"originalText\":\"Do you have a Code of Conduct ?\",\"neutralText\":\"Do you have a Code of Conduct?\",\"masterKey\":null,\"confidence\":0.95},{\"type\":\"QUESTION\",\"originalText\":\"Is the code of conduct accessible to all your employees ?\",\"neutralText\":\"Is the Code of Conduct accessible to all your employees?\",\"masterKey\":null,\"confidence\":0.95},{\"type\":\"SECTION\",\"originalText\":\"Whistleblowing process\",\"neutralText\":null,\"masterKey\":null,\"confidence\":0.95},{\"type\":\"QUESTION\",\"originalText\":\"Do you have a whistleblowing system in your organization ?\",\"neutralText\":\"Do you have a whistleblowing system in your organization?\",\"masterKey\":null,\"confidence\":0.95},{\"type\":\"QUESTION\",\"originalText\":\"How does this system work ? (ex: confidentiality, etc.)\",\"neutralText\":\"How does the whistleblowing system work?\",\"masterKey\":null,\"confidence\":0.95},{\"type\":\"SECTION\",\"originalText\":\"Training / Communication\",\"neutralText\":null,\"masterKey\":null,\"confidence\":0.95},{\"type\":\"QUESTION\",\"originalText\":\"How do you communicate your anti-corruption program within your organization ?\",\"neutralText\":\"How do you communicate your anti-corruption program within your organization?\",\"masterKey\":null,\"confidence\":0.95},{\"type\":\"SECTION\",\"originalText\":\"Accounting control procedures\",\"neutralText\":null,\"masterKey\":null,\"confidence\":0.95},{\"type\":\"QUESTION\",\"originalText\":\"Do you have internal or external accounting control procedures ?\",\"neutralText\":\"Do you have internal or external accounting control procedures?\",\"masterKey\":null,\"confidence\":0.95},{\"type\":\"SECTION\",\"originalText\":\"Disciplinary system\",\"neutralText\":null,\"masterKey\":null,\"confidence\":0.95},{\"type\":\"QUESTION\",\"originalText\":\"Do you have a disciplinary system allowing you to sanction the violations of your Code of Conduct and / or any other rule of your organization ?\",\"neutralText\":\"Do you have a disciplinary system that allows you to sanction violations of your Code of Conduct and/or other organizational rules?\",\"masterKey\":null,\"confidence\":0.95},{\"type\":\"SECTION\",\"originalText\":\"Internal control and audit process of the compliance (anti-corruption) procedure\",\"neutralText\":null,\"masterKey\":null,\"confidence\":0.95},{\"type\":\"QUESTION\",\"originalText\":\"How do you control the good application of your anti-corruption program (procedures, etc.) ?\",\"neutralText\":\"How do you ensure the proper application of your anti-corruption program?\",\"masterKey\":null,\"confidence\":0.95},{\"type\":\"SECTION\",\"originalText\":\"Third parties assessment system\",\"neutralText\":null,\"masterKey\":null,\"confidence\":0.95},{\"type\":\"QUESTION\",\"originalText\":\"Do you have a third parties' corruption risk assessment system ?\",\"neutralText\":\"Do you have a third-party corruption risk assessment system?\",\"masterKey\":null,\"confidence\":0.95}]}"
+            }
+          ],
+          "role": "assistant"
+        }
+      ],
+      "parallel_tool_calls": true,
+      "previous_response_id": null,
+      "prompt_cache_key": null,
+      "prompt_cache_retention": null,
+      "reasoning": {
+        "effort": null,
+        "summary": null
+      },
+      "safety_identifier": null,
+      "service_tier": "default",
+      "store": true,
+      "temperature": 1,
+      "text": {
+        "format": {
+          "type": "json_schema",
+          "description": null,
+          "name": "response",
+          "schema": {
+            "type": "object",
+            "properties": {
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "description": "The structural type of the item",
+                      "type": "string",
+                      "enum": [
+                        "QUESTION",
+                        "SECTION",
+                        "INSTRUCTION",
+                        "NOTE"
+                      ]
+                    },
+                    "originalText": {
+                      "description": "The exact text content",
+                      "type": "string"
+                    },
+                    "neutralText": {
+                      "description": "Neutralized question text (optional for non-questions)",
+                      "type": "string"
+                    },
+                    "masterKey": {
+                      "description": "Matching master schema key (optional)",
+                      "type": "string"
+                    },
+                    "confidence": {
+                      "description": "Confidence score 0-1",
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "originalText"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "items"
+            ],
+            "additionalProperties": false
+          },
+          "strict": false
+        },
+        "verbosity": "medium"
+      },
+      "tool_choice": "auto",
+      "tools": [],
+      "top_logprobs": 0,
+      "top_p": 1,
+      "truncation": "disabled",
+      "usage": {
+        "input_tokens": 1474,
+        "input_tokens_details": {
+          "cached_tokens": 0
+        },
+        "output_tokens": 1212,
+        "output_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "total_tokens": 2686
+      },
+      "user": null,
+      "metadata": {}
+    }
+  },
+  "usage": {
+    "inputTokens": 1474,
+    "outputTokens": 1212,
+    "totalTokens": 2686,
+    "reasoningTokens": 0,
+    "cachedInputTokens": 0
+  },
+  "finishReason": "stop"
+}
+[2025-12-16T21:25:55.837Z] [AI Mapper] Error Cause: {
+  "name": "AI_TypeValidationError",
+  "cause": {
+    "name": "ZodError",
+    "message": "[\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      0,\n      \"neutralText\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      0,\n      \"masterKey\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      1,\n      \"neutralText\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      1,\n      \"masterKey\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      2,\n      \"neutralText\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      2,\n      \"masterKey\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      3,\n      \"masterKey\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      4,\n      \"masterKey\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      5,\n      \"masterKey\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      6,\n      \"neutralText\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      6,\n      \"masterKey\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      7,\n      \"masterKey\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      8,\n      \"masterKey\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      9,\n      \"neutralText\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      9,\n      \"masterKey\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      10,\n      \"masterKey\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      11,\n      \"masterKey\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      12,\n      \"neutralText\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      12,\n      \"masterKey\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      13,\n      \"neutralText\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      13,\n      \"masterKey\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      14,\n      \"masterKey\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      15,\n      \"masterKey\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      16,\n      \"neutralText\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      16,\n      \"masterKey\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      17,\n      \"masterKey\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      18,\n      \"masterKey\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      19,\n      \"neutralText\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      19,\n      \"masterKey\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      20,\n      \"masterKey\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      21,\n      \"neutralText\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      21,\n      \"masterKey\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      22,\n      \"masterKey\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      23,\n      \"neutralText\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      23,\n      \"masterKey\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      24,\n      \"masterKey\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      25,\n      \"neutralText\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      25,\n      \"masterKey\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      26,\n      \"masterKey\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      27,\n      \"neutralText\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      27,\n      \"masterKey\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  },\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"items\",\n      28,\n      \"masterKey\"\n    ],\n    \"message\": \"Invalid input: expected string, received null\"\n  }\n]"
+  },
+  "value": {
+    "items": [
+      {
+        "type": "SECTION",
+        "originalText": "ANTI-CORRUPTION QUESTIONNAIRE",
+        "neutralText": null,
+        "masterKey": null,
+        "confidence": 0.95
+      },
+      {
+        "type": "SECTION",
+        "originalText": "CPL / Financial Security",
+        "neutralText": null,
+        "masterKey": null,
+        "confidence": 0.95
+      },
+      {
+        "type": "SECTION",
+        "originalText": "General questions :",
+        "neutralText": null,
+        "masterKey": null,
+        "confidence": 0.95
+      },
+      {
+        "type": "QUESTION",
+        "originalText": "Do you have an anti-corruption program to prevent, detect and report bribery and corruption ?",
+        "neutralText": "Do you have an anti-corruption program to prevent, detect, and report bribery and corruption?",
+        "masterKey": null,
+        "confidence": 0.95
+      },
+      {
+        "type": "QUESTION",
+        "originalText": "Do you have specific anti-corruption policies and procedures ?",
+        "neutralText": "Do you have specific anti-corruption policies and procedures?",
+        "masterKey": null,
+        "confidence": 0.95
+      },
+      {
+        "type": "QUESTION",
+        "originalText": "Did you appoint a designated officer or officers with sufficient experience to coordinate your anti-corruption program ?",
+        "neutralText": "Have you appointed a designated officer or officers with sufficient experience to coordinate your anti-corruption program?",
+        "masterKey": null,
+        "confidence": 0.95
+      },
+      {
+        "type": "SECTION",
+        "originalText": "Senior Managemet Committment :",
+        "neutralText": null,
+        "masterKey": null,
+        "confidence": 0.95
+      },
+      {
+        "type": "QUESTION",
+        "originalText": "What is the degree of committment of the senior management in the anti-corruption system ?",
+        "neutralText": "What is the degree of commitment of the senior management in the anti-corruption system?",
+        "masterKey": null,
+        "confidence": 0.95
+      },
+      {
+        "type": "QUESTION",
+        "originalText": "How does the senior management ensures that the anti-corruption system is efficient and up to date ?",
+        "neutralText": "How does the senior management ensure that the anti-corruption system is efficient and up to date?",
+        "masterKey": null,
+        "confidence": 0.95
+      },
+      {
+        "type": "SECTION",
+        "originalText": "Risk mapping :",
+        "neutralText": null,
+        "masterKey": null,
+        "confidence": 0.95
+      },
+      {
+        "type": "QUESTION",
+        "originalText": "Do you have an anti-corruption risk map in your organization ?",
+        "neutralText": "Do you have an anti-corruption risk map in your organization?",
+        "masterKey": null,
+        "confidence": 0.95
+      },
+      {
+        "type": "QUESTION",
+        "originalText": "How often is your risk map updated ? If not updated regularly, please explain.",
+        "neutralText": "How often is your risk map updated?",
+        "masterKey": null,
+        "confidence": 0.95
+      },
+      {
+        "type": "SECTION",
+        "originalText": "Risk management :",
+        "neutralText": null,
+        "masterKey": null,
+        "confidence": 0.95
+      },
+      {
+        "type": "SECTION",
+        "originalText": "Code of Conduct",
+        "neutralText": null,
+        "masterKey": null,
+        "confidence": 0.95
+      },
+      {
+        "type": "QUESTION",
+        "originalText": "Do you have a Code of Conduct ?",
+        "neutralText": "Do you have a Code of Conduct?",
+        "masterKey": null,
+        "confidence": 0.95
+      },
+      {
+        "type": "QUESTION",
+        "originalText": "Is the code of conduct accessible to all your employees ?",
+        "neutralText": "Is the Code of Conduct accessible to all your employees?",
+        "masterKey": null,
+        "confidence": 0.95
+      },
+      {
+        "type": "SECTION",
+        "originalText": "Whistleblowing process",
+        "neutralText": null,
+        "masterKey": null,
+        "confidence": 0.95
+      },
+      {
+        "type": "QUESTION",
+        "originalText": "Do you have a whistleblowing system in your organization ?",
+        "neutralText": "Do you have a whistleblowing system in your organization?",
+        "masterKey": null,
+        "confidence": 0.95
+      },
+      {
+        "type": "QUESTION",
+        "originalText": "How does this system work ? (ex: confidentiality, etc.)",
+        "neutralText": "How does the whistleblowing system work?",
+        "masterKey": null,
+        "confidence": 0.95
+      },
+      {
+        "type": "SECTION",
+        "originalText": "Training / Communication",
+        "neutralText": null,
+        "masterKey": null,
+        "confidence": 0.95
+      },
+      {
+        "type": "QUESTION",
+        "originalText": "How do you communicate your anti-corruption program within your organization ?",
+        "neutralText": "How do you communicate your anti-corruption program within your organization?",
+        "masterKey": null,
+        "confidence": 0.95
+      },
+      {
+        "type": "SECTION",
+        "originalText": "Accounting control procedures",
+        "neutralText": null,
+        "masterKey": null,
+        "confidence": 0.95
+      },
+      {
+        "type": "QUESTION",
+        "originalText": "Do you have internal or external accounting control procedures ?",
+        "neutralText": "Do you have internal or external accounting control procedures?",
+        "masterKey": null,
+        "confidence": 0.95
+      },
+      {
+        "type": "SECTION",
+        "originalText": "Disciplinary system",
+        "neutralText": null,
+        "masterKey": null,
+        "confidence": 0.95
+      },
+      {
+        "type": "QUESTION",
+        "originalText": "Do you have a disciplinary system allowing you to sanction the violations of your Code of Conduct and / or any other rule of your organization ?",
+        "neutralText": "Do you have a disciplinary system that allows you to sanction violations of your Code of Conduct and/or other organizational rules?",
+        "masterKey": null,
+        "confidence": 0.95
+      },
+      {
+        "type": "SECTION",
+        "originalText": "Internal control and audit process of the compliance (anti-corruption) procedure",
+        "neutralText": null,
+        "masterKey": null,
+        "confidence": 0.95
+      },
+      {
+        "type": "QUESTION",
+        "originalText": "How do you control the good application of your anti-corruption program (procedures, etc.) ?",
+        "neutralText": "How do you ensure the proper application of your anti-corruption program?",
+        "masterKey": null,
+        "confidence": 0.95
+      },
+      {
+        "type": "SECTION",
+        "originalText": "Third parties assessment system",
+        "neutralText": null,
+        "masterKey": null,
+        "confidence": 0.95
+      },
+      {
+        "type": "QUESTION",
+        "originalText": "Do you have a third parties' corruption risk assessment system ?",
+        "neutralText": "Do you have a third-party corruption risk assessment system?",
+        "masterKey": null,
+        "confidence": 0.95
+      }
+    ]
+  }
+}
+[2025-12-16T21:26:28.781Z] [AI Mapper] Extracting Items (text mode) 
+[2025-12-16T21:26:41.386Z] [AI Mapper] Extraction Success. Found 27 items. 
+[2025-12-16T21:27:53.949Z] [AI Mapper] API Key is present (length: 164) 

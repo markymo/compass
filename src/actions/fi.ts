@@ -83,21 +83,29 @@ export async function isFIUser() {
 }
 
 // Create a new Questionnaire (Draft)
-export async function uploadQuestionnaire(
-    name: string,
-    fileName: string,
-    fileType: string
-) {
+// Create a new Questionnaire (Draft)
+export async function uploadQuestionnaire(formData: FormData) {
     const org = await getFIOganization();
     if (!org) return { success: false, error: "Unauthorized" };
 
+    const name = formData.get("name") as string;
+    const file = formData.get("file") as File;
+
+    if (!name || !file) {
+        return { success: false, error: "Missing name or file" };
+    }
+
     try {
+        const arrayBuffer = await file.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer as any);
+
         const q = await prisma.questionnaire.create({
             data: {
                 fiOrgId: org.id,
                 name,
-                fileName,
-                fileType,
+                fileName: file.name,
+                fileType: file.type,
+                fileContent: buffer,
                 status: "DRAFT"
             }
         });

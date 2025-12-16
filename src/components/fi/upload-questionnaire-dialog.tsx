@@ -27,24 +27,16 @@ export function UploadQuestionnaireDialog() {
         setLoading(true);
 
         const formData = new FormData(e.currentTarget);
-        const name = formData.get("name") as string;
-        const file = formData.get("file") as File;
 
-        if (!file || !name) {
+        // Ensure file is present
+        const file = formData.get("file") as File;
+        if (!file || file.size === 0) {
             setLoading(false);
+            alert("Please select a file.");
             return;
         }
 
-        // In a real app, we'd upload the file to S3/Blob storage here.
-        // For MVP, we'll just pass the filename to the action and pretend we stored it
-        // Or we could read it as base64 if small enough, but let's stick to metadata for now
-        // as per previous conversation context about "Simple Blob for MVP".
-
-        // For now, we will simulate the file upload by just passing metadata.
-        // The user requirement says "upload questionnaires", so ideally we should handle the file.
-        // However, without a configured blob storage, I'll just save the record.
-
-        const res = await uploadQuestionnaire(name, file.name, file.type);
+        const res = await uploadQuestionnaire(formData);
 
         setLoading(false);
 
@@ -52,7 +44,7 @@ export function UploadQuestionnaireDialog() {
             setOpen(false);
             router.refresh();
         } else {
-            alert("Failed to upload");
+            alert("Failed to upload: " + (res.error || "Unknown error"));
         }
     }
 

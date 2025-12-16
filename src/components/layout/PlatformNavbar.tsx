@@ -1,11 +1,9 @@
-"use client";
 
 import Link from "next/link";
 import { Compass } from "lucide-react";
-import { UserButton } from "@clerk/nextjs";
 import { Badge } from "@/components/ui/badge";
-import { usePathname } from "next/navigation";
-import { cn } from "@/lib/utils";
+import { PlatformNavLinks } from "./PlatformNavLinks";
+import { UserNav } from "./UserNav";
 
 interface PlatformNavbarProps {
     orgName?: string;
@@ -13,15 +11,6 @@ interface PlatformNavbarProps {
 }
 
 export function PlatformNavbar({ orgName, orgTypes = [] }: PlatformNavbarProps) {
-    const pathname = usePathname();
-
-    const isActive = (path: string) => {
-        if (path === "/app") {
-            return pathname === "/app" || pathname.startsWith("/app/le");
-        }
-        return pathname.startsWith(path);
-    };
-
     return (
         <header className="sticky top-0 left-0 right-0 z-50 border-b border-slate-200 bg-white/80 backdrop-blur-xl">
             <div className="container mx-auto flex h-20 items-center justify-between px-4 md:px-6">
@@ -35,42 +24,7 @@ export function PlatformNavbar({ orgName, orgTypes = [] }: PlatformNavbarProps) 
                         </span>
                     </Link>
 
-                    <nav className="hidden gap-6 md:flex">
-                        <Link
-                            href="/app"
-                            className={cn(
-                                "text-sm font-medium transition-colors hover:text-slate-900",
-                                isActive("/app") ? "text-slate-900" : "text-slate-500"
-                            )}
-                        >
-                            Client Dashboard
-                        </Link>
-
-
-                        {orgTypes.includes("FI") && (
-                            <Link
-                                href="/app/fi"
-                                className={cn(
-                                    "text-sm font-medium transition-colors hover:text-slate-900",
-                                    isActive("/app/fi") ? "text-slate-900" : "text-slate-500"
-                                )}
-                            >
-                                FI Dashboard
-                            </Link>
-                        )}
-
-                        {orgTypes.includes("SYSTEM") && (
-                            <Link
-                                href="/app/admin"
-                                className={cn(
-                                    "text-sm font-medium transition-colors hover:text-amber-700",
-                                    isActive("/app/admin") ? "text-amber-600" : "text-amber-600/60"
-                                )}
-                            >
-                                System Admin
-                            </Link>
-                        )}
-                    </nav>
+                    <PlatformNavLinks orgTypes={orgTypes} />
                 </div>
 
                 <div className="flex items-center gap-4">
@@ -79,7 +33,7 @@ export function PlatformNavbar({ orgName, orgTypes = [] }: PlatformNavbarProps) 
                             {orgName} <span className="text-muted-foreground ml-1">({orgTypes.join(", ")})</span>
                         </Badge>
                     )}
-                    <UserButton afterSignOutUrl="/" />
+                    <UserNav />
                 </div>
             </div>
         </header>
