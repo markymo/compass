@@ -106,7 +106,7 @@ export async function createClientLE(data: { name: string; jurisdiction: string 
         },
     });
 
-    revalidatePath("/app");
+    revalidatePath("/app/le");
     return { success: true, data: newLE };
 }
 
