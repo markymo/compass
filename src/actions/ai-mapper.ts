@@ -77,6 +77,7 @@ export interface ExtractedItem {
     originalText: string;
     neutralText?: string;
     masterKey?: string;
+    category?: string;
     confidence: number;
 }
 
@@ -263,6 +264,8 @@ export async function generateMappingSuggestions(input: { content: string, type:
     }
 }
 
+import { STANDARD_CATEGORIES } from "@/lib/constants";
+
 // 3. Granular Extraction (Columns 1, 2, 3)
 export async function extractQuestionnaireItems(input: { content: string, type: "image" | "text", mime: string }): Promise<ExtractedItem[]> {
     const { content, type, mime } = input;
@@ -270,7 +273,6 @@ export async function extractQuestionnaireItems(input: { content: string, type: 
     if (!content || content.trim().length === 0) {
         throw new Error(`Extraction failed: No text content found in document (MIME: ${mime}). The file might be empty or scanned/image-based without OCR.`);
     }
-
 
     // A. Fetch Master Schema
     const masterSchema = await prisma.masterSchema.findFirst({
@@ -290,9 +292,13 @@ export async function extractQuestionnaireItems(input: { content: string, type: 
             2. Original Text: Exact text from document.
             3. Neutral Text (Questions Only): The question re-phrased to be generic (remove "Please provide...", remove numbering "1.2", remove specific formatting).
             4. Master Key (Questions Only): Best guess match from the provided Master Schema list.
+            5. Category (Questions Only): IF no Master Key matches, assign a category from the list below.
 
             MASTER SCHEMA FIELDS:
             ${schemaDesc}
+
+            STANDARD CATEGORIES:
+            ${STANDARD_CATEGORIES.join(', ')}
             `
         }
     ];
@@ -321,6 +327,7 @@ export async function extractQuestionnaireItems(input: { content: string, type: 
                     originalText: z.string().describe("The exact text content"),
                     neutralText: z.string().optional().describe("Neutralized question text (optional for non-questions)"),
                     masterKey: z.string().optional().describe("Matching master schema key (optional)"),
+                    category: z.string().optional().describe("Fallback category if no master key matches"),
                     confidence: z.number().optional().describe("Confidence score 0-1")
                 }))
             }),
@@ -332,6 +339,7 @@ export async function extractQuestionnaireItems(input: { content: string, type: 
             ...item,
             neutralText: item.neutralText || undefined,
             masterKey: item.masterKey || undefined,
+            category: item.category || undefined,
             confidence: item.confidence ?? 0
         }));
 

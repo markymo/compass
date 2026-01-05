@@ -2272,3 +2272,7 @@
 [2025-12-16T21:26:28.781Z] [AI Mapper] Extracting Items (text mode) 
 [2025-12-16T21:26:41.386Z] [AI Mapper] Extraction Success. Found 27 items. 
 [2025-12-16T21:27:53.949Z] [AI Mapper] API Key is present (length: 164) 
+[2025-12-17T00:10:05.404Z] [AI Mapper] API Key is present (length: 164) 
+[2025-12-17T00:11:18.395Z] [AI Mapper] API Key is present (length: 164) 
+[2025-12-17T00:11:49.160Z] [AI Mapper] Processing file: DZ - Gode Wind 3 nBO Form 2023.pdf (application/pdf, 150590 bytes) 
+[2025-12-17T00:15:21.702Z] [AI Mapper] Extracting Items (text mode) 

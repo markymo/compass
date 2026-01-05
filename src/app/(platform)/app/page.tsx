@@ -24,7 +24,7 @@ export default async function ClientDashboardPage() {
                     <Building2 className="h-5 w-5 text-blue-600 dark:text-blue-500" />
                     <div className="text-sm text-blue-900 dark:text-blue-200">
                         <span className="font-semibold block sm:inline">Client Area:</span>{" "}
-                        <span className="opacity-90">Manage your legal entities and document mapping.</span>
+                        <span className="opacity-90">Manage your legal entities and core data.</span>
                     </div>
                 </div>
 
