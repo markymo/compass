@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { LEProjectSummary } from "./le-project-summary";
-import { SmartForm } from "./smart-form";
+import { StandingDataManager } from "./standing-data-manager";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Building2, ArrowUpRight, CheckCircle2, AlertCircle, Clock } from "lucide-react";
@@ -13,11 +13,12 @@ interface LEPortalContainerProps {
     le: any;
     schema: any;
     requirements: any[];
+    standingData: Record<string, any>;
     progress: any;
     engagements: any[];
 }
 
-export function LEPortalContainer({ le, schema, requirements, progress, engagements }: LEPortalContainerProps) {
+export function LEPortalContainer({ le, schema, requirements, standingData, progress, engagements }: LEPortalContainerProps) {
     const [activeTab, setActiveTab] = useState("dashboard");
 
     // Calculate metrics
@@ -115,10 +116,11 @@ export function LEPortalContainer({ le, schema, requirements, progress, engageme
                 </TabsContent>
 
                 <TabsContent active={activeTab === "standing-data"}>
-                    <div className="bg-slate-50/30 dark:bg-slate-900/10 p-4 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-800">
-                        <SmartForm
+                    <div className="bg-slate-50/30 dark:bg-slate-900/10 p-6 rounded-2xl border border-slate-200 dark:border-slate-800">
+                        <StandingDataManager
                             clientLEId={le.id}
                             requirements={requirements}
+                            standingData={standingData}
                         />
                     </div>
                 </TabsContent>

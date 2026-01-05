@@ -15,7 +15,7 @@ export default async function LEPage({ params }: { params: Promise<{ id: string 
     const { le, schema } = data;
 
     // 2. Fetch Requirements (Smart View)
-    const { success, fields, progress } = await getEffectiveRequirements(id);
+    const { success, fields, progress, standingData } = await getEffectiveRequirements(id);
 
     if (!success || !schema) {
         return (
@@ -40,6 +40,7 @@ export default async function LEPage({ params }: { params: Promise<{ id: string 
             le={le}
             schema={schema}
             requirements={fields || []}
+            standingData={standingData || {}}
             progress={progress}
             engagements={engagements || []}
         />

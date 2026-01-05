@@ -155,6 +155,7 @@ export async function getEffectiveRequirements(clientLEId: string) {
     return {
         success: true,
         fields,
+        standingData: answers,
         progress: { total, filled }
     };
 }
@@ -173,5 +174,66 @@ export async function getLEEngagements(clientLEId: string) {
     } catch (error) {
         console.error("Failed to fetch LE engagements:", error);
         return { success: false, error: "Database error" };
+    }
+}
+
+export async function updateStandingDataProperty(clientLEId: string, propertyKey: string, payload: { value: any, status?: string }) {
+    const masterSchema = await prisma.masterSchema.findFirst({ where: { isActive: true } });
+    if (!masterSchema) return { success: false, error: "No active Master Schema" };
+
+    try {
+        let record = await prisma.clientLERecord.findFirst({
+            where: { clientLEId, masterSchemaId: masterSchema.id }
+        });
+
+        const propertyData = {
+            value: payload.value,
+            status: payload.status || "VERIFIED",
+            updatedAt: new Date().toISOString()
+        };
+
+        if (!record) {
+            await prisma.clientLERecord.create({
+                data: {
+                    clientLEId,
+                    masterSchemaId: masterSchema.id,
+                    data: { [propertyKey]: propertyData },
+                    status: "DRAFT"
+                }
+            });
+        } else {
+            const currentData = (record.data as Record<string, any>) || {};
+            const newData = {
+                ...currentData,
+                [propertyKey]: propertyData
+            };
+
+            await prisma.clientLERecord.update({
+                where: { id: record.id },
+                data: { data: newData }
+            });
+        }
+
+        revalidatePath(`/app/le/${clientLEId}`);
+        return { success: true, propertyData };
+    } catch (error) {
+        console.error("Failed to update standing data property:", error);
+        return { success: false, error: "Update failed" };
+    }
+}
+
+export async function getStandingData(clientLEId: string) {
+    const masterSchema = await prisma.masterSchema.findFirst({ where: { isActive: true } });
+    if (!masterSchema) return { success: false, error: "No active Master Schema" };
+
+    try {
+        const record = await prisma.clientLERecord.findFirst({
+            where: { clientLEId, masterSchemaId: masterSchema.id }
+        });
+
+        return { success: true, data: record?.data || {} };
+    } catch (error) {
+        console.error("Failed to fetch standing data:", error);
+        return { success: false, error: "Fetch failed" };
     }
 }
