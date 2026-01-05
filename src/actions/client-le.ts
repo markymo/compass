@@ -137,12 +137,17 @@ export async function getEffectiveRequirements(clientLEId: string) {
     const answers = (record?.data as Record<string, any>) || {};
 
     // 5. Format Output
-    const fields = Array.from(requirements.entries()).map(([key, data]) => ({
-        key,
-        ...data.definition,
-        requiredBy: Array.from(data.requiredBy),
-        currentValue: answers[key] || ""
-    }));
+    // Show ALL fields from Master Schema, annotated with requirement info
+    const fields = allFields.map(fieldDef => {
+        const key = fieldDef.key;
+        const req = requirements.get(key);
+
+        return {
+            ...fieldDef,
+            requiredBy: req ? Array.from(req.requiredBy) : [],
+            currentValue: answers[key] || ""
+        };
+    });
 
     // Start with all requirements, but also include fields that HAVE answers even if not required anymore?
     // For now, let's stick to "Effective Requirements". 
