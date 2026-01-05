@@ -29,8 +29,22 @@ To learn more about Next.js, take a look at the following resources:
 
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
-## Deploy on Vercel
+## Deployment
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+This project is deployed on **Vercel** using a direct GitHub integration.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### How it Works
+1.  **Direct Integration**: Vercel is linked to the GitHub repository [markymo/compass](https://github.com/markymo/compass.git).
+2.  **Auto-Deploy**: Any push to the `main` branch automatically triggers a new deployment.
+3.  **Build Command**: The deployment process runs `npm run build`, which includes:
+    - `prisma generate` (Sets up the database client)
+    - `next build` (Builds the Next.js application)
+
+### Workflow
+* To deploy changes:
+  ```bash
+  git add .
+  git commit -m "your message"
+  git push origin main
+  ```
+* Track build progress in the [Vercel Dashboard](https://vercel.com/marks-projects-3dd0d5e3/compass/deployments).

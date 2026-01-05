@@ -158,3 +158,20 @@ export async function getEffectiveRequirements(clientLEId: string) {
         progress: { total, filled }
     };
 }
+
+export async function getLEEngagements(clientLEId: string) {
+    try {
+        const engagements = await prisma.fIEngagement.findMany({
+            where: { clientLEId },
+            include: {
+                org: true,
+                questionnaires: true
+            }
+        });
+
+        return { success: true, engagements };
+    } catch (error) {
+        console.error("Failed to fetch LE engagements:", error);
+        return { success: false, error: "Database error" };
+    }
+}
