@@ -119,6 +119,7 @@ export async function getClientLEData(leId: string) {
     const le = await prisma.clientLE.findUnique({
         where: { id: leId },
     });
+    console.log(`[getClientLEData] LE Result:`, JSON.stringify(le, null, 2));
     if (!le) return null;
 
     // 2. Get the Active Master Schema
@@ -194,4 +195,28 @@ export async function saveClientLEData(leId: string, schemaId: string, answers: 
 
     revalidatePath(`/app/le/${leId}`);
     return { success: true };
+}
+
+// 5. Update LE Basic Info (e.g. Description)
+export async function updateClientLE(leId: string, data: { description: string }) {
+    const { userId } = await auth();
+    if (!userId) return { success: false, error: "Unauthorized" };
+
+    console.log(`[updateClientLE] Attempting update for ${leId} with description: ${data.description}`);
+    try {
+        const updated = await prisma.clientLE.update({
+            where: { id: leId },
+            data: {
+                description: data.description
+            }
+        });
+        console.log(`[updateClientLE] Update successful:`, JSON.stringify(updated, null, 2));
+
+        revalidatePath(`/app/le/${leId}`);
+        revalidatePath(`/app/le/${leId}/v2`);
+        return { success: true };
+    } catch (error) {
+        console.error("[updateClientLE] Error:", error);
+        return { success: false, error: "Failed to update legal entity" };
+    }
 }

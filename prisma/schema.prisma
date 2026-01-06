@@ -1,7 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-// Trigger Vercel Build
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -11,149 +7,131 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// 1. Identity & Access Management
-// ------------------------------
-
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
+  id        String                 @id @default(uuid())
+  email     String                 @unique
   name      String?
-  createdAt DateTime @default(now())
-  
-  // Relations
+  createdAt DateTime               @default(now())
   orgRoles  UserOrganizationRole[]
 }
 
 model Organization {
-  id        String   @id @default(uuid())
-  name      String
-  types     OrgType[]  // CLIENT, FI, SYSTEM (Can be multiple)
-  
-  // Relations
-  members   UserOrganizationRole[]
-  
-  // If type == CLIENT
-  clientLEs ClientLE[] // The Legal Entities this Client owns
+  id             String                 @id @default(uuid())
+  name           String
+  types          OrgType[]
+  clientLEs      ClientLE[]
+  engagements    FIEngagement[]
+  fiSchemas      FISchema[]
+  questionnaires Questionnaire[]
+  members        UserOrganizationRole[]
+}
 
-  // If type == FI
-  fiSchemas FISchema[] // The specific requirements this FI has defined
-  engagements FIEngagement[] // Engagements this FI has with Client LEs
-  questionnaires Questionnaire[] // Questionnaires defined by this FI
+model UserOrganizationRole {
+  id     String       @id @default(uuid())
+  userId String
+  orgId  String
+  role   String
+  org    Organization @relation(fields: [orgId], references: [id])
+  user   User         @relation(fields: [userId], references: [id])
+
+  @@unique([userId, orgId])
+}
+
+model MasterSchema {
+  id         String           @id @default(uuid())
+  version    Int
+  isActive   Boolean          @default(false)
+  definition Json
+  createdAt  DateTime         @default(now())
+  records    ClientLERecord[]
+  fiSchemas  FISchema[]
+}
+
+model FISchema {
+  id                String       @id @default(uuid())
+  fiOrgId           String
+  masterSchemaId    String
+  overlayDefinition Json
+  fi                Organization @relation(fields: [fiOrgId], references: [id])
+  masterSchema      MasterSchema @relation(fields: [masterSchemaId], references: [id])
+}
+
+model ClientLE {
+  id           String           @id @default(uuid())
+  clientOrgId  String
+  name         String
+  jurisdiction String?
+  status       String           @default("ACTIVE")
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  description  String?
+  clientOrg    Organization     @relation(fields: [clientOrgId], references: [id])
+  records      ClientLERecord[]
+  engagements  FIEngagement[]
+}
+
+model ClientLERecord {
+  id             String       @id @default(uuid())
+  clientLEId     String
+  masterSchemaId String
+  data           Json
+  status         RecordStatus
+  updatedAt      DateTime     @updatedAt
+  clientLE       ClientLE     @relation(fields: [clientLEId], references: [id])
+  masterSchema   MasterSchema @relation(fields: [masterSchemaId], references: [id])
+}
+
+model FIEngagement {
+  id             String           @id @default(uuid())
+  fiOrgId        String
+  clientLEId     String
+  status         EngagementStatus
+  clientLE       ClientLE         @relation(fields: [clientLEId], references: [id])
+  org            Organization     @relation(fields: [fiOrgId], references: [id])
+  queries        Query[]
+  questionnaires Questionnaire[]  @relation("FIEngagementToQuestionnaire")
+
+  @@unique([fiOrgId, clientLEId])
+}
+
+model Query {
+  id             String       @id @default(uuid())
+  fiEngagementId String
+  fieldKey       String
+  question       String
+  answer         String?
+  status         QueryStatus
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  engagement     FIEngagement @relation(fields: [fiEngagementId], references: [id])
+}
+
+model Questionnaire {
+  id               String         @id @default(uuid())
+  fiOrgId          String
+  name             String
+  status           String         @default("DRAFT")
+  fileName         String
+  fileType         String
+  fileContent      Bytes?
+  mappings         Json?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  extractedContent Json?
+  fiOrg            Organization   @relation(fields: [fiOrgId], references: [id])
+  engagements      FIEngagement[] @relation("FIEngagementToQuestionnaire")
 }
 
 enum OrgType {
   CLIENT
   FI
-  SYSTEM // Super-admin
-}
-
-model UserOrganizationRole {
-  id        String   @id @default(uuid())
-  userId    String
-  orgId     String
-  role      String   // ADMIN, USER, READ_ONLY
-  
-  user      User         @relation(fields: [userId], references: [id])
-  org       Organization @relation(fields: [orgId], references: [id])
-
-  @@unique([userId, orgId]) // One role per org per user (simplify for v1)
-}
-
-// 2. The Core Data Engine (Hybrid Relations + JSON)
-// ------------------------------------------------
-
-// The "Master Question Bank" - governed by System Admin
-model MasterSchema {
-  id          String   @id @default(uuid())
-  version     Int      // Incrementing version
-  isActive    Boolean  @default(false)
-  
-  // THE KEY: All field definitions (labels, types, validation) live here
-  // Structure: { fields: [ { key: "turnover", label: "Annual Turnover", type: "currency" } ] }
-  definition  Json     
-
-  createdAt   DateTime @default(now())
-
-  // Relations
-  records     ClientLERecord[]
-  fiSchemas   FISchema[]
-}
-
-// An FI's specific "view" or "overlay" on the Master Schema
-model FISchema {
-  id             String @id @default(uuid())
-  fiOrgId        String // The FI who owns this view
-  masterSchemaId String // Based on which master version?
-
-  // Rules: Which fields are Required? Hidden? Renamed?
-  // Structure: { rules: { "turnover": { required: true }, "employee_count": { hidden: true } } }
-  overlayDefinition Json 
-
-  fi             Organization @relation(fields: [fiOrgId], references: [id])
-  masterSchema   MasterSchema @relation(fields: [masterSchemaId], references: [id])
-}
-
-// 3. Client Data & Entities
-// -------------------------
-
-model ClientLE {
-  id           String @id @default(uuid())
-  clientOrgId  String // Required: LE must belong to an Org
-  name         String
-  jurisdiction String?
-  
-  status       String       @default("ACTIVE")
-
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
-  
-  clientOrg    Organization @relation(fields: [clientOrgId], references: [id])
-  
-  records      ClientLERecord[]
-  engagements  FIEngagement[]
-}
-
-// The actual "Answers" provided by the Client
-model ClientLERecord {
-  id             String @id @default(uuid())
-  clientLEId     String
-  masterSchemaId String
-  
-  // THE DATA: Key-value map of answers
-  // Structure: { "turnover": "1000000", "ceo_name": "Jane Doe" }
-  data           Json   
-  
-  status         RecordStatus // DRAFT, PUBLISHED
-  updatedAt      DateTime     @updatedAt
-  
-  clientLE       ClientLE     @relation(fields: [clientLEId], references: [id])
-  masterSchema   MasterSchema @relation(fields: [masterSchemaId], references: [id])
+  SYSTEM
 }
 
 enum RecordStatus {
   DRAFT
   PUBLISHED
   ARCHIVED
-}
-
-// 4. Workflow & Deal Management
-// -----------------------------
-
-// Access Control: An FI has access to a ClientLE through an "Engagement"
-model FIEngagement {
-  id          String @id @default(uuid())
-  fiOrgId     String
-  clientLEId  String
-  status      EngagementStatus // PENDING, ACTION_REQUIRED, SIGNED_OFF
-  
-  // Relations
-  org         Organization @relation(fields: [fiOrgId], references: [id])
-  clientLE    ClientLE     @relation(fields: [clientLEId], references: [id])
-  
-  queries     Query[]
-  questionnaires Questionnaire[] // Specific questionnaires active for this engagement
-
-  @@unique([fiOrgId, clientLEId])
 }
 
 enum EngagementStatus {
@@ -163,48 +141,7 @@ enum EngagementStatus {
   SIGNED_OFF
 }
 
-// Communication: "Sticky notes" on specific fields
-model Query {
-  id              String   @id @default(uuid())
-  fiEngagementId  String
-  fieldKey        String   // Which field is this about? e.g. "turnover"
-  
-  question        String
-  answer          String?
-  status          QueryStatus // OPEN, RESOLVED
-  
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  
-  engagement      FIEngagement @relation(fields: [fiEngagementId], references: [id])
-}
-
 enum QueryStatus {
   OPEN
   RESOLVED
-}
-
-// 5. Electronic Questionnaire Management
-// --------------------------------------
-
-model Questionnaire {
-  id             String   @id @default(uuid())
-  fiOrgId        String
-  name           String
-  status         String   @default("DRAFT") // DRAFT, ACTIVE, ARCHIVED
-
-  // File Storage (Simple Blob for MVP)
-  fileName       String
-  fileType       String
-  fileContent    Bytes?   // The original PDF/Docx
-
-  // AI Extraction & Mapping
-  extractedContent   Json?   // The detailed list of all document parts (questions, notes, etc)
-  mappings           Json?   // The final active mapping configuration
-
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  fiOrg          Organization @relation(fields: [fiOrgId], references: [id])
-  engagements    FIEngagement[]
 }
