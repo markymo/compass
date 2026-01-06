@@ -79,6 +79,7 @@ export interface ExtractedItem {
     masterKey?: string;
     category?: string;
     confidence: number;
+    answer?: string;
 }
 
 // 1. Process Document: Convert to Base64 (Images/PDF) or Text (Docx/Txt)
