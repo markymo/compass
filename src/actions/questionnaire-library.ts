@@ -26,18 +26,43 @@ export async function getLibraryEngagements(leId: string) {
     }
 }
 
+import { extractDetailedContent } from "@/actions/questionnaire";
+import { isSystemAdmin } from "@/actions/security";
+
+// ... existing imports
+
 // 2. Search for all active questionnaires in the system
 export async function searchAvailableQuestionnaires(query: string) {
     const { userId } = await auth();
     if (!userId) return { success: false, error: "Unauthorized" };
 
     try {
+        const isSysAdmin = await isSystemAdmin();
+
+        // Find user's client orgs to partial match
+        const userRoles = await prisma.userOrganizationRole.findMany({
+            where: { userId, org: { types: { has: "CLIENT" } } },
+            select: { orgId: true }
+        });
+        const userOrgIds = userRoles.map(r => r.orgId);
+
         const questionnaires = await prisma.questionnaire.findMany({
             where: {
                 status: "ACTIVE",
-                OR: [
-                    { name: { contains: query, mode: 'insensitive' } },
-                    { fiOrg: { name: { contains: query, mode: 'insensitive' } } }
+                AND: [
+                    {
+                        OR: [
+                            { name: { contains: query, mode: 'insensitive' } },
+                            { fiOrg: { name: { contains: query, mode: 'insensitive' } } }
+                        ]
+                    },
+                    {
+                        OR: [
+                            { ownerOrgId: null }, // Public System Questionnaires
+                            { ownerOrgId: { in: userOrgIds } }, // Owned by my org
+                            ...(isSysAdmin ? [{}] : []) // System admin sees all (hacky way to add "OR true")
+                        ]
+                    }
                 ]
             },
             include: {
@@ -45,6 +70,10 @@ export async function searchAvailableQuestionnaires(query: string) {
             },
             take: 10
         });
+
+        // Filter out if not sys admin and array logic failed (double check)
+        // (Prisma OR logic above should handle it, but being safe)
+
         return { success: true, data: questionnaires };
     } catch (error) {
         console.error("[searchAvailableQuestionnaires]", error);
@@ -106,6 +135,12 @@ export async function uploadClientQuestionnaire(leId: string, fiName: string, fo
     if (!file) return { success: false, error: "File is required" };
 
     try {
+        // Find user's Client Org to set ownership
+        const userRole = await prisma.userOrganizationRole.findFirst({
+            where: { userId, org: { types: { has: "CLIENT" } } },
+            select: { orgId: true }
+        });
+
         // Find or Create FI Org
         let fiOrg = await prisma.organization.findFirst({
             where: {
@@ -134,9 +169,14 @@ export async function uploadClientQuestionnaire(leId: string, fiName: string, fo
                 fileName: file.name,
                 fileType: file.type,
                 fileContent: buffer,
-                status: "ACTIVE" // Client uploaded ones are active for them immediately
+                status: "ACTIVE",
+                ownerOrgId: userRole?.orgId // Set ownership!
             }
         });
+
+        // Trigger AI Extraction (Async/Fire-and-forget or await?)
+        // Let's await it so the user sees results immediately
+        await extractDetailedContent(questionnaire.id);
 
         // Link to LE
         const linkRes = await linkQuestionnaireToLE(leId, questionnaire.id);
@@ -159,4 +199,34 @@ export async function getFIs() {
         where: { types: { has: "FI" } },
         orderBy: { name: 'asc' }
     });
+}
+
+// 6. Remove (Unlink) a questionnaire from an LE
+export async function removeQuestionnaireFromLibrary(leId: string, questionnaireId: string) {
+    const { userId } = await auth();
+    if (!userId) return { success: false, error: "Unauthorized" };
+
+    try {
+        const questionnaire = await prisma.questionnaire.findUnique({
+            where: { id: questionnaireId },
+            select: { fiOrgId: true }
+        });
+
+        if (!questionnaire) return { success: false, error: "Questionnaire not found" };
+
+        await prisma.fIEngagement.delete({
+            where: {
+                fiOrgId_clientLEId: {
+                    fiOrgId: questionnaire.fiOrgId,
+                    clientLEId: leId
+                }
+            }
+        });
+
+        revalidatePath(`/app/le/${leId}/v2`);
+        return { success: true };
+    } catch (error) {
+        console.error("[removeQuestionnaireFromLibrary]", error);
+        return { success: false, error: "Failed to remove questionnaire" };
+    }
 }

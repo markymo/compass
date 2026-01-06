@@ -6,6 +6,7 @@ import {
     getLibraryEngagements,
     searchAvailableQuestionnaires,
     linkQuestionnaireToLE,
+    removeQuestionnaireFromLibrary,
     uploadClientQuestionnaire,
     getFIs
 } from "@/actions/questionnaire-library";
@@ -28,7 +29,8 @@ import {
     Loader2,
     Clock,
     PlusCircle,
-    ArrowRight
+    ArrowRight,
+    Trash2
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -40,7 +42,7 @@ import {
     DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-// import { toast } from "sonner"; // Assuming sonner is available or just fallback
+import Link from "next/link";
 
 interface QuestionnaireLibraryProps {
     leId: string;
@@ -54,6 +56,7 @@ export function QuestionnaireLibrary({ leId }: QuestionnaireLibraryProps) {
     const [isLoadingLibrary, setIsLoadingLibrary] = useState(true);
     const [isUploading, setIsUploading] = useState(false);
     const [isAdding, setIsAdding] = useState<string | null>(null);
+    const [isRemoving, setIsRemoving] = useState<string | null>(null);
 
     // Upload Form State
     const [fiName, setFiName] = useState("");
@@ -96,12 +99,31 @@ export function QuestionnaireLibrary({ leId }: QuestionnaireLibraryProps) {
         setIsAdding(qId);
         const res = await linkQuestionnaireToLE(leId, qId);
         if (res.success) {
-            // toast?.success("Added to library");
+            // Success
             fetchLibrary();
             setSearchQuery("");
             setSearchResults([]);
+        } else {
+            alert("Failed to add questionnaire");
         }
         setIsAdding(null);
+    };
+
+    const handleRemove = async (qId: string) => {
+        if (!confirm("Are you sure you want to remove this questionnaire from your list?")) return;
+
+        setIsRemoving(qId);
+        const res = await removeQuestionnaireFromLibrary(leId, qId);
+        if (res.success) {
+            // Success
+            setEngagements(prev => prev.map(eng => ({
+                ...eng,
+                questionnaires: eng.questionnaires.filter((q: any) => q.id !== qId)
+            })).filter(eng => eng.questionnaires.length > 0));
+        } else {
+            alert("Failed to remove questionnaire");
+        }
+        setIsRemoving(null);
     };
 
     const handleUpload = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -111,12 +133,12 @@ export function QuestionnaireLibrary({ leId }: QuestionnaireLibraryProps) {
 
         const res = await uploadClientQuestionnaire(leId, fiName, formData);
         if (res.success) {
-            // toast?.success("Questionnaire uploaded and added to library");
+            // Success
             setIsUploadModalOpen(false);
             setFiName("");
             fetchLibrary();
         } else {
-            // toast?.error("Upload failed");
+            alert(res.error || "Upload failed");
         }
         setIsUploading(false);
     };
@@ -142,6 +164,7 @@ export function QuestionnaireLibrary({ leId }: QuestionnaireLibraryProps) {
                                 <DialogTitle>Upload Custom Questionnaire</DialogTitle>
                                 <DialogDescription>
                                     Add a document from a Financial Institution to your private library.
+                                    We will automatically extract its contents.
                                 </DialogDescription>
                             </DialogHeader>
                             <form onSubmit={handleUpload} className="space-y-4 pt-4">
@@ -165,7 +188,7 @@ export function QuestionnaireLibrary({ leId }: QuestionnaireLibraryProps) {
                                 </div>
                                 <Button type="submit" className="w-full" disabled={isUploading}>
                                     {isUploading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Upload className="h-4 w-4 mr-2" />}
-                                    Upload to Library
+                                    {isUploading ? "Processing..." : "Upload & Extract"}
                                 </Button>
                             </form>
                         </DialogContent>
@@ -204,23 +227,49 @@ export function QuestionnaireLibrary({ leId }: QuestionnaireLibraryProps) {
                                     </div>
                                 </CardHeader>
                                 <CardContent className="pt-4 space-y-3">
-                                    {eng.questionnaires.map((q: any) => (
-                                        <div key={q.id} className="flex items-center justify-between text-sm p-2 rounded-lg hover:bg-slate-50 transition-colors group/item">
-                                            <div className="flex items-center gap-3">
-                                                <FileText className="h-4 w-4 text-slate-400" />
-                                                <span className="text-slate-700 font-medium">{q.name}</span>
+                                    {eng.questionnaires.map((q: any) => {
+                                        // "Manage" if user owns it, "View" if they don't?
+                                        // For now, only show Manage if ownerOrgId matches OR logic says so (but frontend doesn't know my ID easily without props)
+                                        // Actually: The logic is simpler. If it's a "Custom" upload (ownerOrgId exists), we can manage it.
+                                        // If it's a System one, we should probably VIEW it.
+                                        // For MVP, lets just call it "Details" or "Manage" but enable the link.
+                                        const canManage = !!q.ownerOrgId;
+
+                                        return (
+                                            <div key={q.id} className="flex items-center justify-between text-sm p-2 rounded-lg hover:bg-slate-50 transition-colors group/item relative">
+                                                <div className="flex items-center gap-3">
+                                                    <FileText className="h-4 w-4 text-slate-400" />
+                                                    <div className="flex flex-col">
+                                                        <span className="text-slate-700 font-medium">{q.name}</span>
+                                                        {canManage && <span className="text-[10px] text-emerald-600 font-medium">Custom Upload</span>}
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex items-center gap-1 opacity-0 group-hover/item:opacity-100 transition-opacity">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-8 w-8 text-slate-400 hover:text-red-600 hover:bg-red-50"
+                                                        onClick={() => handleRemove(q.id)}
+                                                        disabled={isRemoving === q.id}
+                                                    >
+                                                        {isRemoving === q.id ? (
+                                                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                                        ) : (
+                                                            <Trash2 className="h-3.5 w-3.5" />
+                                                        )}
+                                                    </Button>
+
+                                                    <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-slate-600" asChild>
+                                                        <Link href={`/app/le/${leId}/v2/questionnaire/${q.id}`}>
+                                                            {canManage ? "Manage" : "View"}
+                                                            <ArrowRight className="h-3.5 w-3.5" />
+                                                        </Link>
+                                                    </Button>
+                                                </div>
                                             </div>
-                                            <Button variant="ghost" size="sm" className="h-8 gap-2 opacity-0 group-hover/item:opacity-100 transition-opacity" asChild>
-                                                <Link href={`/app/le/${leId}/v2/questionnaire/${q.id}`}>
-                                                    Manage
-                                                    <ArrowRight className="h-3.5 w-3.5" />
-                                                </Link>
-                                            </Button>
-                                        </div>
-                                    ))}
-                                    {eng.questionnaires.length === 0 && (
-                                        <p className="text-xs text-slate-400 italic">No questionnaires linked</p>
-                                    )}
+                                        );
+                                    })}
                                 </CardContent>
                             </Card>
                         ))}
@@ -333,4 +382,4 @@ function Library(props: any) {
     )
 }
 
-import Link from "next/link";
+

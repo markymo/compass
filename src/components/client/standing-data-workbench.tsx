@@ -21,8 +21,13 @@ const CATEGORIES = [
 
 export function StandingDataWorkbench({ leId }: StandingDataWorkbenchProps) {
     const [activeCategory, setActiveCategory] = useState("CORE");
-    const [content, setContent] = useState("");
-    const [sections, setSections] = useState<Record<string, string>>({});
+
+    // Server state (last saved)
+    const [serverSections, setServerSections] = useState<Record<string, string>>({});
+
+    // Local state (current edits)
+    const [drafts, setDrafts] = useState<Record<string, string>>({});
+
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [lastSaved, setLastSaved] = useState<Date | null>(null);
@@ -32,34 +37,52 @@ export function StandingDataWorkbench({ leId }: StandingDataWorkbenchProps) {
         loadSections();
     }, [leId]);
 
-    // Update content when category changes
-    useEffect(() => {
-        setContent(sections[activeCategory] || "");
-    }, [activeCategory, sections]);
-
     const loadSections = async () => {
         setIsLoading(true);
         const res = await getStandingDataSections(leId);
         if (res.success && res.data) {
-            setSections(res.data);
-            setContent(res.data[activeCategory] || "");
+            setServerSections(res.data);
+            setDrafts(res.data);
         }
         setIsLoading(false);
     };
 
+    const [error, setError] = useState<string | null>(null);
+
     const handleSave = async () => {
         setIsSaving(true);
-        const res = await updateStandingDataSection(leId, activeCategory, content);
+        setError(null);
+        const currentContent = drafts[activeCategory] || "";
 
-        if (res.success) {
-            setSections(prev => ({
-                ...prev,
-                [activeCategory]: content
-            }));
-            setLastSaved(new Date());
+        try {
+            const res = await updateStandingDataSection(leId, activeCategory, currentContent);
+
+            if (res.success) {
+                setServerSections(prev => ({
+                    ...prev,
+                    [activeCategory]: currentContent
+                }));
+                setLastSaved(new Date());
+            } else {
+                console.error("Save failed:", res.error);
+                setError(res.error || "Save failed");
+            }
+        } catch (e) {
+            console.error("Save exception:", e);
+            setError("An unexpected error occurred");
         }
         setIsSaving(false);
     };
+
+    const handleContentChange = (newContent: string) => {
+        setDrafts(prev => ({
+            ...prev,
+            [activeCategory]: newContent
+        }));
+    };
+
+    const currentContent = drafts[activeCategory] || "";
+    const hasChanges = currentContent !== (serverSections[activeCategory] || "");
 
     return (
         <div className="grid grid-cols-12 gap-6 h-[600px]">
@@ -85,7 +108,7 @@ export function StandingDataWorkbench({ leId }: StandingDataWorkbenchProps) {
                                 <span className={cn(activeCategory === cat.id ? "text-emerald-900" : "text-slate-900")}>
                                     {cat.label}
                                 </span>
-                                {sections[cat.id] && (
+                                {serverSections[cat.id] && (
                                     <Check className="h-3 w-3 text-emerald-600" />
                                 )}
                             </div>
@@ -109,17 +132,22 @@ export function StandingDataWorkbench({ leId }: StandingDataWorkbenchProps) {
                         </p>
                     </div>
                     <div className="flex items-center gap-3">
-                        {lastSaved && (
+                        {error && (
+                            <span className="text-xs text-red-500 font-medium">
+                                {error}
+                            </span>
+                        )}
+                        {lastSaved && !error && (
                             <span className="text-xs text-slate-400">
                                 Saved {lastSaved.toLocaleTimeString()}
                             </span>
                         )}
                         <Button
                             onClick={handleSave}
-                            disabled={isSaving || content === (sections[activeCategory] || "")}
+                            disabled={isSaving || !hasChanges}
                             className={cn(
                                 "gap-2 transition-all",
-                                isSaving || content === (sections[activeCategory] || "")
+                                isSaving || !hasChanges
                                     ? "bg-slate-100 text-slate-400"
                                     : "bg-emerald-600 hover:bg-emerald-700 text-white"
                             )}
@@ -141,8 +169,8 @@ export function StandingDataWorkbench({ leId }: StandingDataWorkbenchProps) {
                         </div>
                     ) : null}
                     <Textarea
-                        value={content}
-                        onChange={(e) => setContent(e.target.value)}
+                        value={currentContent}
+                        onChange={(e) => handleContentChange(e.target.value)}
                         placeholder={`Enter details for ${CATEGORIES.find(c => c.id === activeCategory)?.label}...`}
                         className="h-full resize-none p-6 text-base leading-relaxed font-mono bg-slate-50 border-slate-200 focus-visible:ring-emerald-500/20"
                     />

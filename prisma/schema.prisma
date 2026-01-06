@@ -22,7 +22,8 @@ model Organization {
   clientLEs      ClientLE[]
   engagements    FIEngagement[]
   fiSchemas      FISchema[]
-  questionnaires Questionnaire[]
+  questionnaires      Questionnaire[] 
+  ownedQuestionnaires Questionnaire[] @relation("OwnedQuestionnaires")
   members        UserOrganizationRole[]
 }
 
@@ -132,6 +133,10 @@ model Questionnaire {
   extractedContent Json?
   fiOrg            Organization   @relation(fields: [fiOrgId], references: [id])
   engagements      FIEngagement[] @relation("FIEngagementToQuestionnaire")
+
+  // Privacy: If set, this questionnaire is only visible to this Org (and System Admins)
+  ownerOrgId       String?
+  ownerOrg         Organization?  @relation("OwnedQuestionnaires", fields: [ownerOrgId], references: [id])
 }
 
 enum OrgType {

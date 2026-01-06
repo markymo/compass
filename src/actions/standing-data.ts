@@ -50,8 +50,8 @@ export async function updateStandingDataSection(leId: string, category: string, 
 
         revalidatePath(`/app/le/${leId}/v2`);
         return { success: true, data: section };
-    } catch (error) {
+    } catch (error: any) {
         console.error("[updateStandingDataSection]", error);
-        return { success: false, error: "Failed to update section" };
+        return { success: false, error: error.message || "Failed to update section" };
     }
 }

@@ -2276,3 +2276,16 @@
 [2025-12-17T00:11:18.395Z] [AI Mapper] API Key is present (length: 164) 
 [2025-12-17T00:11:49.160Z] [AI Mapper] Processing file: DZ - Gode Wind 3 nBO Form 2023.pdf (application/pdf, 150590 bytes) 
 [2025-12-17T00:15:21.702Z] [AI Mapper] Extracting Items (text mode) 
+[2026-01-06T14:00:45.709Z] [AI Mapper] API Key is present (length: 164) 
+[2026-01-06T14:14:19.328Z] [AI Mapper] API Key is present (length: 164) 
+[2026-01-06T14:37:14.197Z] [AI Mapper] API Key is present (length: 164) 
+[2026-01-06T15:01:12.764Z] [AI Mapper] API Key is present (length: 164) 
+[2026-01-06T15:03:50.884Z] [AI Mapper] API Key is present (length: 164) 
+[2026-01-06T15:05:28.134Z] [AI Mapper] API Key is present (length: 164) 
+[2026-01-06T15:06:00.073Z] [AI Mapper] API Key is present (length: 164) 
+[2026-01-06T15:06:17.884Z] [AI Mapper] Extracting Items (text mode) 
+[2026-01-06T15:06:46.050Z] [AI Mapper] Extraction Success. Found 36 items. 
+[2026-01-06T15:12:54.232Z] [AI Mapper] Parsing DOCX via Mammoth: Start 
+[2026-01-06T15:12:54.513Z] [AI Mapper] DOCX Extraction Complete. Length: 4507 
+[2026-01-06T15:12:54.730Z] [AI Mapper] Extracting Items (text mode) 
+[2026-01-06T15:13:17.682Z] [AI Mapper] Extraction Success. Found 24 items. 
