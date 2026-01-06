@@ -135,6 +135,7 @@ enum RecordStatus {
 }
 
 enum EngagementStatus {
+  PREPARATION // Client preparing data privately
   PENDING
   REVIEWING
   QUERIES_OPEN
