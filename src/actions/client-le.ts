@@ -86,12 +86,29 @@ export async function getEffectiveRequirements(clientLEId: string) {
         }
     });
 
-    // 2. Fetch Master Schema to get Field Definitions
-    const masterSchema = await prisma.masterSchema.findFirst({ where: { isActive: true } });
-    if (!masterSchema) return { success: false, error: "No active Master Schema" };
+    const allFields = [
+        // Category 1: Identity
+        { key: "full_legal_name", label: "Full Legal Name", type: "text", categoryId: "1" },
+        { key: "incorp_date", label: "Date of Incorporation", type: "date", categoryId: "1" },
+        { key: "reg_address", label: "Registered Office Address", type: "text", categoryId: "1" },
+        { key: "company_number", label: "Company Registration Number", type: "text", categoryId: "1" },
+        { key: "tax_id", label: "Global Tax ID (TIN/VAT)", type: "text", categoryId: "1" },
 
-    const definition = masterSchema.definition as any as MasterSchemaDefinition;
-    const allFields = definition.fields || [];
+        // Category 2: Governance & Control
+        { key: "entity_type", label: "Legal Entity Type", type: "select", options: ["Limited Company", "Partnership", "Trust", "Statutory Body"], categoryId: "2" },
+        { key: "is_listed", label: "Is the entity Publicly Listed?", type: "boolean", categoryId: "2" },
+        { key: "nature_of_business", label: "Primary Nature of Business", type: "text", categoryId: "5" },
+
+        // Category 3: Financials
+        { key: "fiscal_year_end", label: "Fiscal Year End", type: "text", categoryId: "3" },
+        { key: "annual_turnover", label: "Estimated Annual Turnover (USD)", type: "number", categoryId: "3" },
+        { key: "audited_accounts_available", label: "Are audited accounts available for the last 3 years?", type: "boolean", categoryId: "3" },
+
+        // Category 4: Contacts & Reps
+        { key: "primary_contact_name", label: "Primary KYC Contact Name", type: "text", categoryId: "4" },
+        { key: "primary_contact_email", label: "Primary KYC Contact Email", type: "text", categoryId: "4" },
+        { key: "authorized_signatory", label: "Authorized Signatory Name", type: "text", categoryId: "4" }
+    ];
 
     // 3. Aggregate Requirements
     // Map: Key -> { requiredBy: Set<FIName>, definition: FieldDef }
@@ -121,18 +138,11 @@ export async function getEffectiveRequirements(clientLEId: string) {
         }
     }
 
-    // 4. Fetch Current Answers (with Carry Forward)
-    let record = await prisma.clientLERecord.findFirst({
-        where: { clientLEId, masterSchemaId: masterSchema.id }
+    // 4. Fetch Current Answers
+    const record = await prisma.clientLERecord.findFirst({
+        where: { clientLEId },
+        orderBy: { updatedAt: 'desc' }
     });
-
-    // Fallback: If no record for THIS version, find the most recent one for ANY version
-    if (!record) {
-        record = await prisma.clientLERecord.findFirst({
-            where: { clientLEId },
-            orderBy: { updatedAt: 'desc' }
-        });
-    }
 
     const answers = (record?.data as Record<string, any>) || {};
 
@@ -145,17 +155,17 @@ export async function getEffectiveRequirements(clientLEId: string) {
         return {
             ...fieldDef,
             requiredBy: req ? Array.from(req.requiredBy) : [],
-            currentValue: answers[key] || ""
+            currentValue: (answers[key] as any)?.value || answers[key] || ""
         };
     });
-
-    // Start with all requirements, but also include fields that HAVE answers even if not required anymore?
-    // For now, let's stick to "Effective Requirements". 
-    // If a user answered something that's no longer asked, it might be hidden.
 
     // Calculate generic progress
     const total = fields.length;
     const filled = fields.filter(f => f.currentValue !== undefined && f.currentValue !== "").length;
+
+    // Start with all requirements, but also include fields that HAVE answers even if not required anymore?
+    // For now, let's stick to "Effective Requirements". 
+    // If a user answered something that's no longer asked, it might be hidden.
 
     return {
         success: true,
@@ -183,12 +193,12 @@ export async function getLEEngagements(clientLEId: string) {
 }
 
 export async function updateStandingDataProperty(clientLEId: string, propertyKey: string, payload: { value: any, status?: string }) {
-    const masterSchema = await prisma.masterSchema.findFirst({ where: { isActive: true } });
-    if (!masterSchema) return { success: false, error: "No active Master Schema" };
+    // For Demo: Use a hardcoded schema ID or find the first one
+    const masterSchema = await prisma.masterSchema.findFirst() || { id: "demo-schema-id" };
 
     try {
         let record = await prisma.clientLERecord.findFirst({
-            where: { clientLEId, masterSchemaId: masterSchema.id }
+            where: { clientLEId }
         });
 
         const propertyData = {
