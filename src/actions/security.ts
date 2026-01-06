@@ -61,7 +61,39 @@ export async function canManageQuestionnaire(questionnaireId: string) {
     if (!q) return false;
 
     const role = await getUserOrgRole(q.fiOrgId);
-    return role === "ADMIN";
+    if (role === "ADMIN") return true;
+
+    // 3. Allow if user is an ADMIN of a Client LE that has this questionnaire linked
+    // Find all Client Orgs where user is ADMIN
+    const userClientRoles = await prisma.userOrganizationRole.findMany({
+        where: { userId, role: "ADMIN", org: { types: { has: "CLIENT" } } },
+        select: { orgId: true }
+    });
+
+    if (userClientRoles.length > 0) {
+        const clientOrgIds = userClientRoles.map(r => r.orgId);
+
+        // Find LEs for these Orgs
+        const clientLEs = await prisma.clientLE.findMany({
+            where: { clientOrgId: { in: clientOrgIds } },
+            select: { id: true }
+        });
+        const clientLEIds = clientLEs.map(le => le.id);
+
+        if (clientLEIds.length > 0) {
+            // Check if any of these LEs have an engagement with this questionnaire
+            const engagement = await prisma.fIEngagement.findFirst({
+                where: {
+                    clientLEId: { in: clientLEIds },
+                    questionnaires: { some: { id: questionnaireId } }
+                }
+            });
+
+            if (engagement) return true;
+        }
+    }
+
+    return false;
 }
 
 /**

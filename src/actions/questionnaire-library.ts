@@ -139,7 +139,11 @@ export async function uploadClientQuestionnaire(leId: string, fiName: string, fo
         });
 
         // Link to LE
-        await linkQuestionnaireToLE(leId, questionnaire.id);
+        const linkRes = await linkQuestionnaireToLE(leId, questionnaire.id);
+        if (!linkRes.success) {
+            console.error("Failed to link after upload:", linkRes.error);
+            return { success: false, error: linkRes.error };
+        }
 
         revalidatePath(`/app/le/${leId}/v2`);
         return { success: true };
