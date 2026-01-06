@@ -116,7 +116,8 @@ export async function getClientLEData(leId: string) {
     if (!userId) return null;
 
     // 1. Get the LE
-    const le = await prisma.clientLE.findUnique({
+    console.log(`[getClientLEData] Fetching LE with ID: ${leId}`);
+    const le = await prisma.clientLE.findFirst({
         where: { id: leId },
     });
     if (!le) return null;
