@@ -56,18 +56,30 @@ model FISchema {
   masterSchema      MasterSchema @relation(fields: [masterSchemaId], references: [id])
 }
 
+model StandingDataSection {
+  id        String   @id @default(uuid())
+  clientLEId String
+  clientLE   ClientLE @relation(fields: [clientLEId], references: [id], onDelete: Cascade)
+  category  String   // E.g., "CORE", "STRUCTURE", "GEOGRAPHY", etc.
+  content   String   @db.Text // Markdown content
+  updatedAt DateTime @updatedAt
+  
+  @@unique([clientLEId, category])
+}
+
 model ClientLE {
-  id           String           @id @default(uuid())
+  id           String             @id @default(uuid())
   clientOrgId  String
+  clientOrg    Organization       @relation(fields: [clientOrgId], references: [id])
   name         String
+  description  String?            @db.Text
   jurisdiction String?
-  status       String           @default("ACTIVE")
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
-  description  String?
-  clientOrg    Organization     @relation(fields: [clientOrgId], references: [id])
+  status       String             @default("ACTIVE")
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
   records      ClientLERecord[]
-  engagements  FIEngagement[]
+  fiEngagements FIEngagement[]
+  standingDataSections StandingDataSection[]
 }
 
 model ClientLERecord {
