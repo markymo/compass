@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { QuestionnaireLibrary } from "@/components/client/questionnaire-library";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { StandingDataWorkbench } from "@/components/client/standing-data-workbench";
 
 export default async function LEDashboardV2Page({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
@@ -124,9 +125,7 @@ export default async function LEDashboardV2Page({ params }: { params: Promise<{ 
                         <QuestionnaireLibrary leId={id} />
                     </TabsContent>
 
-                    import {StandingDataWorkbench} from "@/components/client/standing-data-workbench";
 
-                    // ... existing code ...
 
                     <TabsContent value="standing-data" className="mt-0">
                         <div className="bg-white border border-slate-200 rounded-b-xl rounded-tr-xl p-8 min-h-[600px]">
