@@ -52,7 +52,7 @@ export function StandingDataManager({ clientLEId, requirements, standingData }: 
                             </AccordionTrigger>
                             <AccordionContent className="pt-2 pb-6 grid gap-4 md:grid-cols-2">
                                 {fields.map(field => {
-                                    // Parse initial data (handle both string legacy and new object)
+                                    // Parse initial data
                                     let initialData = standingData[field.key] || null;
                                     if (typeof initialData === 'string') {
                                         initialData = {
@@ -81,7 +81,7 @@ export function StandingDataManager({ clientLEId, requirements, standingData }: 
                 {/* Uncategorized */}
                 {uncategorized.length > 0 && (
                     <AccordionItem value="uncategorized" className="border-none">
-                        <AccordionTrigger className="hover:no-underline py-2 px-0">
+                        <AccordionTrigger className="hover:no-underline py-2 px-0 bg-transparent">
                             <div className="flex items-center gap-3">
                                 <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500">Other Information</h3>
                                 <Badge variant="secondary" className="rounded-full h-5 px-2 text-[10px] font-bold">
@@ -96,7 +96,7 @@ export function StandingDataManager({ clientLEId, requirements, standingData }: 
                                     initialData = {
                                         value: initialData,
                                         status: initialData ? "VERIFIED" : "MISSING",
-                                        updatedAt: new Date().toISOString()
+                                        updatedAt: ""
                                     };
                                 }
 
