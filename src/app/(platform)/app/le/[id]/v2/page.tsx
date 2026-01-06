@@ -58,7 +58,7 @@ export default async function LEDashboardV2Page({ params }: { params: Promise<{ 
                         className="gap-2 px-6 py-3 rounded-t-xl border border-b-0 border-slate-200 bg-slate-50 text-slate-500 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:border-slate-200 data-[state=active]:-mb-[1px] data-[state=active]:z-10 transition-all shadow-none"
                     >
                         <Library className="h-4 w-4" />
-                        Questionnaire Library
+                        Selected Questionnaires
                     </TabsTrigger>
                     <TabsTrigger
                         value="standing-data"
@@ -83,7 +83,7 @@ export default async function LEDashboardV2Page({ params }: { params: Promise<{ 
                                 <CardHeader className="pb-3">
                                     <div className="flex items-center gap-2 text-slate-500 mb-1">
                                         <Library className="h-4 w-4" />
-                                        <span className="text-xs font-bold uppercase tracking-wider">Library</span>
+                                        <span className="text-xs font-bold uppercase tracking-wider">Selected Questionnaires</span>
                                     </div>
                                     <CardTitle className="text-xl">Preparation</CardTitle>
                                 </CardHeader>
@@ -93,7 +93,7 @@ export default async function LEDashboardV2Page({ params }: { params: Promise<{ 
                                     </p>
                                     <Button variant="outline" className="w-full" asChild>
                                         <Link href="?tab=library">
-                                            Go to Library
+                                            Go to Selected Questionnaires
                                         </Link>
                                     </Button>
                                 </CardContent>
