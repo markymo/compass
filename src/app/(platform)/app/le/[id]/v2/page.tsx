@@ -1,8 +1,11 @@
 import { getClientLEData } from "@/actions/client";
 import { notFound } from "next/navigation";
+import Link from "next/link";
+import { ChevronRight } from "lucide-react";
 
-export default async function LEDashboardV2Page({ params }: { params: { id: string } }) {
-    const data = await getClientLEData(params.id);
+export default async function LEDashboardV2Page({ params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
+    const data = await getClientLEData(id);
 
     if (!data) {
         return notFound();
@@ -13,12 +16,14 @@ export default async function LEDashboardV2Page({ params }: { params: { id: stri
     return (
         <div className="space-y-6">
             <div className="flex flex-col gap-4">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <span>Client Dashboard</span>
-                    <span>/</span>
-                    <span>{le.name}</span>
-                    <span className="bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full text-[10px] font-bold">V2 PROTOTYPE</span>
-                </div>
+                <nav className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Link href="/app/le" className="hover:text-slate-900 transition-colors">
+                        Client Dashboard
+                    </Link>
+                    <ChevronRight className="h-4 w-4" />
+                    <span className="text-slate-900 font-medium">{le.name}</span>
+                    <span className="bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full text-[10px] font-bold ml-2">V2 PROTOTYPE</span>
+                </nav>
 
                 <h1 className="text-4xl font-bold tracking-tight font-serif text-slate-900 border-b pb-4">
                     {le.name}

@@ -1,0 +1,38 @@
+ALL LE RECORDS: [
+  {
+    "id": "eaee5955-cf72-4b91-8c5f-1ca23fca0837",
+    "clientOrgId": "bfbab979-15a9-4442-acba-6e15df27ea4b",
+    "name": "Wind24",
+    "jurisdiction": "UK",
+    "status": "ACTIVE",
+    "createdAt": "2025-12-12T10:24:37.975Z",
+    "updatedAt": "2025-12-12T10:24:37.975Z"
+  },
+  {
+    "id": "f6fe3493-fb26-4cec-a611-22d04cf1f647",
+    "clientOrgId": "0317603e-4679-4d56-9678-59f586d0b905",
+    "name": "Client1",
+    "jurisdiction": "UK",
+    "status": "ACTIVE",
+    "createdAt": "2025-12-15T22:13:34.553Z",
+    "updatedAt": "2025-12-15T22:13:34.553Z"
+  },
+  {
+    "id": "6260a835-15cc-46bf-b0e7-73fc9dbd928c",
+    "clientOrgId": "0317603e-4679-4d56-9678-59f586d0b905",
+    "name": "Client LE 2",
+    "jurisdiction": "UK",
+    "status": "ACTIVE",
+    "createdAt": "2025-12-15T22:44:47.095Z",
+    "updatedAt": "2025-12-15T22:44:47.095Z"
+  },
+  {
+    "id": "8f522269-ec1a-4fad-a717-1d276fcc0b8d",
+    "clientOrgId": "900bf7eb-06af-4b1e-8962-a662934cb5af",
+    "name": "LE23",
+    "jurisdiction": "UK",
+    "status": "ACTIVE",
+    "createdAt": "2025-12-16T20:51:59.329Z",
+    "updatedAt": "2025-12-16T20:51:59.329Z"
+  }
+]
