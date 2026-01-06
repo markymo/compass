@@ -2,6 +2,7 @@
 
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { canManageQuestionnaire, isSystemAdmin } from "./security";
 
 export async function createQuestionnaire(orgId: string, formData: FormData) {
     const name = formData.get("name") as string;
@@ -57,6 +58,9 @@ export async function getQuestionnaireById(id: string) {
 import { processDocumentBuffer, generateMappingSuggestions, extractQuestionnaireItems } from "./ai-mapper";
 
 export async function analyzeQuestionnaire(id: string) {
+    if (!(await canManageQuestionnaire(id))) {
+        throw new Error("Unauthorized");
+    }
     const q = await prisma.questionnaire.findUnique({ where: { id } });
     if (!q || !q.fileContent) throw new Error("Questionnaire not found or has no file");
 
@@ -74,6 +78,9 @@ export async function analyzeQuestionnaire(id: string) {
 }
 
 export async function extractDetailedContent(id: string) {
+    if (!(await canManageQuestionnaire(id))) {
+        return { success: false, error: "Unauthorized" };
+    }
     const q = await prisma.questionnaire.findUnique({ where: { id } });
     if (!q || !q.fileContent) throw new Error("Questionnaire not found");
 
@@ -96,6 +103,9 @@ export async function extractDetailedContent(id: string) {
 
 // Renaming to generic save function or just updating this one
 export async function saveQuestionnaireChanges(id: string, items: any[], mappings?: any) {
+    if (!(await canManageQuestionnaire(id))) {
+        return { success: false, error: "Unauthorized" };
+    }
     const q = await prisma.questionnaire.findUnique({ where: { id } });
     if (!q) throw new Error("Questionnaire not found");
 
@@ -118,6 +128,9 @@ export async function saveQuestionnaireChanges(id: string, items: any[], mapping
 }
 
 export async function toggleQuestionnaireStatus(id: string, newStatus: "ACTIVE" | "ARCHIVED" | "DRAFT") {
+    if (!(await canManageQuestionnaire(id))) {
+        return { success: false, error: "Unauthorized" };
+    }
     const q = await prisma.questionnaire.findUnique({ where: { id } });
     if (!q) throw new Error("Questionnaire not found");
 
@@ -132,6 +145,9 @@ export async function toggleQuestionnaireStatus(id: string, newStatus: "ACTIVE" 
 }
 
 export async function deleteQuestionnaire(id: string) {
+    if (!(await canManageQuestionnaire(id))) {
+        return { success: false, error: "Unauthorized" };
+    }
     const q = await prisma.questionnaire.findUnique({ where: { id } });
     if (!q) return { success: false, error: "Questionnaire not found" };
 

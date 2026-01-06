@@ -1,9 +1,18 @@
 
+import prisma from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Users, Building2, Database, Wand2, FileText } from "lucide-react";
+import { Users, Building2, Database, Wand2, FileText, AlertCircle } from "lucide-react";
 import Link from "next/link";
+import { Badge } from "@/components/ui/badge";
 
-export default function AdminDashboardPage() {
+export default async function AdminDashboardPage() {
+    // Fetch stats
+    const [userCount, orgCount, draftQCount] = await Promise.all([
+        prisma.user.count(),
+        prisma.organization.count(),
+        prisma.questionnaire.count({ where: { status: "DRAFT" } })
+    ]);
+
     const cards = [
         {
             title: "Organizations",
@@ -11,6 +20,7 @@ export default function AdminDashboardPage() {
             href: "/app/admin/organizations",
             icon: Building2,
             color: "text-blue-500",
+            stat: orgCount
         },
         {
             title: "Users",
@@ -18,6 +28,7 @@ export default function AdminDashboardPage() {
             href: "/app/admin/users",
             icon: Users,
             color: "text-green-500",
+            stat: userCount
         },
         {
             title: "Master Schema",
@@ -39,6 +50,8 @@ export default function AdminDashboardPage() {
             href: "/app/admin/questionnaires",
             icon: FileText,
             color: "text-pink-500",
+            stat: draftQCount,
+            badge: draftQCount > 0 ? "Pending Mapping" : null
         },
     ];
 
@@ -66,9 +79,15 @@ export default function AdminDashboardPage() {
                                 </div>
                             </CardHeader>
                             <CardContent>
-                                <div className="text-2xl font-bold text-slate-900 dark:text-white mb-1">
-                                    -
-                                    {/* Placeholder for real stats */}
+                                <div className="flex items-center justify-between mb-1">
+                                    <div className="text-2xl font-bold text-slate-900 dark:text-white">
+                                        {card.stat !== undefined ? card.stat : "-"}
+                                    </div>
+                                    {card.badge && (
+                                        <Badge variant="outline" className="text-[10px] bg-red-50 text-red-600 border-red-100 animate-pulse">
+                                            {card.badge}
+                                        </Badge>
+                                    )}
                                 </div>
                                 <CardDescription className="text-xs font-medium text-slate-500 line-clamp-2">
                                     {card.description}

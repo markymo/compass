@@ -17,7 +17,7 @@ import { Loader2, Upload } from "lucide-react";
 import { uploadQuestionnaire } from "@/actions/fi";
 import { useRouter } from "next/navigation";
 
-export function UploadQuestionnaireDialog() {
+export function UploadQuestionnaireDialog({ isAdmin }: { isAdmin?: boolean }) {
     const [open, setOpen] = useState(false);
     const [loading, setLoading] = useState(false);
     const router = useRouter();
@@ -42,7 +42,11 @@ export function UploadQuestionnaireDialog() {
 
         if (res.success) {
             setOpen(false);
-            router.refresh();
+            if (isAdmin && res.data?.id) {
+                router.push(`/app/admin/questionnaires/${res.data.id}`);
+            } else {
+                router.refresh();
+            }
         } else {
             alert("Failed to upload: " + (res.error || "Unknown error"));
         }

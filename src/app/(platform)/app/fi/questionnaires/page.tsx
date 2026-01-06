@@ -1,12 +1,17 @@
-import { getFIQuestionnaires } from "@/actions/fi";
+import { getFIQuestionnaires, getFIOganization } from "@/actions/fi";
 import { UploadQuestionnaireDialog } from "@/components/fi/upload-questionnaire-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { FileText, Clock, CheckCircle, AlertCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { FileText, Clock, CheckCircle, ArrowRight } from "lucide-react";
+import { isSystemAdmin, getUserOrgRole } from "@/actions/security";
+import Link from "next/link";
 
 export default async function FIQuestionnairesPage() {
     const questionnaires = await getFIQuestionnaires();
+    const org = await getFIOganization();
+    const isAdmin = (await isSystemAdmin()) || (org ? (await getUserOrgRole(org.id)) === "ADMIN" : false);
 
     return (
         <div className="space-y-6">
@@ -15,7 +20,7 @@ export default async function FIQuestionnairesPage() {
                     <h1 className="text-3xl font-bold tracking-tight">Questionnaires</h1>
                     <p className="text-muted-foreground">Manage your uploaded forms and check mapping status.</p>
                 </div>
-                <UploadQuestionnaireDialog />
+                <UploadQuestionnaireDialog isAdmin={isAdmin} />
             </div>
 
             <Card>
@@ -29,7 +34,7 @@ export default async function FIQuestionnairesPage() {
                                 <TableHead>Name</TableHead>
                                 <TableHead>Status</TableHead>
                                 <TableHead>Mapping Status</TableHead>
-                                <TableHead className="text-right">Uploaded</TableHead>
+                                <TableHead className="text-right">Actions</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -56,7 +61,6 @@ export default async function FIQuestionnairesPage() {
                                         </TableCell>
                                         <TableCell>
                                             <div className="flex items-center gap-2">
-                                                {/* Logic for mapping status: check if mappings json exists */}
                                                 {q.mappings ? (
                                                     <>
                                                         <CheckCircle className="h-4 w-4 text-green-500" />
@@ -71,7 +75,18 @@ export default async function FIQuestionnairesPage() {
                                             </div>
                                         </TableCell>
                                         <TableCell className="text-right">
-                                            {new Date(q.createdAt).toLocaleDateString()}
+                                            <div className="flex justify-end gap-2">
+                                                {isAdmin && (
+                                                    <Link href={`/app/admin/questionnaires/${q.id}`}>
+                                                        <Button size="sm" variant="ghost">
+                                                            Manage <ArrowRight className="ml-2 h-4 w-4" />
+                                                        </Button>
+                                                    </Link>
+                                                )}
+                                                <span className="text-xs text-muted-foreground flex items-center px-3">
+                                                    {new Date(q.createdAt).toLocaleDateString()}
+                                                </span>
+                                            </div>
                                         </TableCell>
                                     </TableRow>
                                 ))

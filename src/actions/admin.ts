@@ -1,27 +1,12 @@
 "use server";
 
 import prisma from "@/lib/prisma";
-import { auth } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
+import { isSystemAdmin } from "./security";
 
-// 1. Check if Current User is System Admin
-export async function isSystemAdmin() {
-    const { userId } = await auth();
-    if (!userId) return false;
-
-    // Check for an active role in a SYSTEM org
-    const adminRole = await prisma.userOrganizationRole.findFirst({
-        where: {
-            userId: userId,
-            org: {
-                types: { has: "SYSTEM" }
-            }
-        },
-        include: { org: true }
-    });
-
-    return !!adminRole;
-}
+// 1. Export re-export or just use local one? 
+// The plan said refactor from admin.ts, so let's import it.
+export { isSystemAdmin };
 
 // 2. Get All Users (for Admin Dashboard)
 export async function getAllUsers() {
