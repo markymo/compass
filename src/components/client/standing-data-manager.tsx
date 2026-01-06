@@ -58,7 +58,7 @@ export function StandingDataManager({ clientLEId, requirements, standingData }: 
                                         initialData = {
                                             value: initialData,
                                             status: initialData ? "VERIFIED" : "MISSING",
-                                            updatedAt: new Date().toISOString()
+                                            updatedAt: ""
                                         };
                                     }
 
