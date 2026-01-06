@@ -293,7 +293,7 @@ export async function extractQuestionnaireItems(input: { content: string, type: 
             2. Original Text: Exact text from document.
             3. Neutral Text (Questions Only): The question re-phrased to be generic (remove "Please provide...", remove numbering "1.2", remove specific formatting).
             4. Master Key (Questions Only): Best guess match from the provided Master Schema list.
-            5. Category (Questions Only): IF no Master Key matches, assign a category from the list below.
+            5. Category (Questions Only): ALWAYS assign a category from the list below, even if a Master Key matches. This is used for grouping.
 
             MASTER SCHEMA FIELDS:
             ${schemaDesc}

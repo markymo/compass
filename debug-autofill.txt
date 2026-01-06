@@ -1,0 +1,828 @@
+[2026-01-06T18:54:44.020Z] [generateAnswers] START for LE 8f522269-ec1a-4fad-a717-1d276fcc0b8d, Q 539fdeee-2129-43bc-8828-7230cce7d64e 
+[2026-01-06T18:54:44.063Z] [generateAnswers] Found 1 sections 
+[2026-01-06T18:54:44.064Z] [generateAnswers] Context Text Preview "SECTION: CORE\nCONTENT:\n- **Name of the Company:** Topco Bravo 6\n"
+[2026-01-06T18:54:44.110Z] [generateAnswers] Found 18 questions 
+[2026-01-06T18:54:44.110Z] [AutoFill] Sending request to AI... 
+[2026-01-06T18:55:00.318Z] [AutoFill] Generated 18 answers. 
+[2026-01-06T18:59:52.051Z] [generateAnswers] START for LE 8f522269-ec1a-4fad-a717-1d276fcc0b8d, Q 539fdeee-2129-43bc-8828-7230cce7d64e 
+[2026-01-06T18:59:52.111Z] [generateAnswers] Found 1 sections 
+[2026-01-06T18:59:52.112Z] [generateAnswers] Context Text Preview "SECTION: CORE\nCONTENT:\n- **Name of the Company:** Topco Bravo 6\n"
+[2026-01-06T18:59:52.156Z] [generateAnswers] Found 18 questions 
+[2026-01-06T18:59:52.157Z] [AutoFill] Sending request to AI... 
+[2026-01-06T19:00:04.836Z] [AutoFill] Generated 18 answers. 
+[2026-01-06T19:00:04.837Z] [AutoFill] Answer 0: QID=0 {
+  "questionIndex": 0,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "- **Name of the Company:** Topco Bravo 6",
+  "reasoning": "The standing data only includes the name of 'Topco Bravo 6', not 'Gode Wind 3 Investor Gmbh'."
+}
+[2026-01-06T19:00:04.838Z] [AutoFill] Found Answer for Bravo: QID=0 {
+  "questionIndex": 0,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "- **Name of the Company:** Topco Bravo 6",
+  "reasoning": "The standing data only includes the name of 'Topco Bravo 6', not 'Gode Wind 3 Investor Gmbh'."
+}
+[2026-01-06T19:00:04.838Z] [AutoFill] Answer 1: QID=1 {
+  "questionIndex": 1,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "- **Name of the Company:** Topco Bravo 6",
+  "reasoning": "There is no information provided regarding beneficial ownership in the standing data."
+}
+[2026-01-06T19:00:04.838Z] [AutoFill] Found Answer for Bravo: QID=1 {
+  "questionIndex": 1,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "- **Name of the Company:** Topco Bravo 6",
+  "reasoning": "There is no information provided regarding beneficial ownership in the standing data."
+}
+[2026-01-06T19:00:04.839Z] [AutoFill] Answer 2: QID=2 {
+  "questionIndex": 2,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "- **Name of the Company:** Topco Bravo 6",
+  "reasoning": "There is no information about shareholding structures in the standing data."
+}
+[2026-01-06T19:00:04.839Z] [AutoFill] Found Answer for Bravo: QID=2 {
+  "questionIndex": 2,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "- **Name of the Company:** Topco Bravo 6",
+  "reasoning": "There is no information about shareholding structures in the standing data."
+}
+[2026-01-06T19:00:04.840Z] [AutoFill] Found Answer for Bravo: QID=3 {
+  "questionIndex": 3,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "- **Name of the Company:** Topco Bravo 6",
+  "reasoning": "There is no information on voting rights in the standing data."
+}
+[2026-01-06T19:00:04.840Z] [AutoFill] Found Answer for Bravo: QID=4 {
+  "questionIndex": 4,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "- **Name of the Company:** Topco Bravo 6",
+  "reasoning": "No information on control structures is available in the standing data."
+}
+[2026-01-06T19:00:04.840Z] [AutoFill] Found Answer for Bravo: QID=5 {
+  "questionIndex": 5,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "- **Name of the Company:** Topco Bravo 6",
+  "reasoning": "The standing data does not indicate any entities exercising control."
+}
+[2026-01-06T19:00:04.840Z] [AutoFill] Found Answer for Bravo: QID=6 {
+  "questionIndex": 6,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "- **Name of the Company:** Topco Bravo 6",
+  "reasoning": "There's no mention of economic percentage investors in the provided data."
+}
+[2026-01-06T19:00:04.841Z] [AutoFill] Found Answer for Bravo: QID=7 {
+  "questionIndex": 7,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "- **Name of the Company:** Topco Bravo 6",
+  "reasoning": "The standing data does not provide information on interest percentages or factual control."
+}
+[2026-01-06T19:00:04.841Z] [AutoFill] Found Answer for Bravo: QID=8 {
+  "questionIndex": 8,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "- **Name of the Company:** Topco Bravo 6",
+  "reasoning": "There is no data provided on business with embargoed countries."
+}
+[2026-01-06T19:00:04.841Z] [AutoFill] Found Answer for Bravo: QID=9 {
+  "questionIndex": 9,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "- **Name of the Company:** Topco Bravo 6",
+  "reasoning": "The standing data does not specify where operations are conducted."
+}
+[2026-01-06T19:00:04.841Z] [AutoFill] Found Answer for Bravo: QID=10 {
+  "questionIndex": 10,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "- **Name of the Company:** Topco Bravo 6",
+  "reasoning": "There is no commercial or UBO register extract data in the standing data."
+}
+[2026-01-06T19:00:04.842Z] [AutoFill] Found Answer for Bravo: QID=11 {
+  "questionIndex": 11,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "- **Name of the Company:** Topco Bravo 6",
+  "reasoning": "No mention of CRS or FATCA forms is made in the standing data."
+}
+[2026-01-06T19:00:04.842Z] [AutoFill] Found Answer for Bravo: QID=12 {
+  "questionIndex": 12,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "- **Name of the Company:** Topco Bravo 6",
+  "reasoning": "There is no specific information about document separation in the standing data."
+}
+[2026-01-06T19:00:04.842Z] [AutoFill] Found Answer for Bravo: QID=13 {
+  "questionIndex": 13,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "- **Name of the Company:** Topco Bravo 6",
+  "reasoning": "The standing data does not contain information on representation."
+}
+[2026-01-06T19:00:04.842Z] [AutoFill] Found Answer for Bravo: QID=14 {
+  "questionIndex": 14,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "- **Name of the Company:** Topco Bravo 6",
+  "reasoning": "There is no information about the KYC representative in the standing data."
+}
+[2026-01-06T19:00:04.842Z] [AutoFill] Found Answer for Bravo: QID=15 {
+  "questionIndex": 15,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "- **Name of the Company:** Topco Bravo 6",
+  "reasoning": "There are no details about UBOs in the standing data."
+}
+[2026-01-06T19:00:04.843Z] [AutoFill] Found Answer for Bravo: QID=16 {
+  "questionIndex": 16,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "- **Name of the Company:** Topco Bravo 6",
+  "reasoning": "The standing data does not specify tax residency or TIN information."
+}
+[2026-01-06T19:00:04.843Z] [AutoFill] Found Answer for Bravo: QID=17 {
+  "questionIndex": 17,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "- **Name of the Company:** Topco Bravo 6",
+  "reasoning": "There is no German TIN provided in the standing data for Gode Wind 3 Investor GmbH."
+}
+[2026-01-06T19:02:07.010Z] [generateAnswers] START for LE 8f522269-ec1a-4fad-a717-1d276fcc0b8d, Q 539fdeee-2129-43bc-8828-7230cce7d64e 
+[2026-01-06T19:02:07.065Z] [generateAnswers] Found 1 sections 
+[2026-01-06T19:02:07.065Z] [generateAnswers] Context Text Preview "SECTION: CORE\nCONTENT:\n- **Name of the Company:** Topco Bravo 6\n"
+[2026-01-06T19:02:07.113Z] [generateAnswers] Found 18 questions 
+[2026-01-06T19:02:07.114Z] [AutoFill] Sending request to AI... 
+[2026-01-06T19:02:19.468Z] [AutoFill] Generated 18 answers. 
+[2026-01-06T19:02:19.469Z] [AutoFill] Answer 0: QID=0 {
+  "questionIndex": 0,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "",
+  "reasoning": "The Standing Data does not include information about Gode Wind 3 Investor Gmbh."
+}
+[2026-01-06T19:02:19.469Z] [AutoFill] Answer 1: QID=1 {
+  "questionIndex": 1,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "",
+  "reasoning": "The Standing Data does not provide details on ownership or ultimate beneficial ownership (UBO)."
+}
+[2026-01-06T19:02:19.469Z] [AutoFill] Answer 2: QID=2 {
+  "questionIndex": 2,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "",
+  "reasoning": "The Standing Data lacks information about shareholding details for Gode Wind 3 Investor GmbH."
+}
+[2026-01-06T19:03:57.354Z] [generateAnswers] START for LE 8f522269-ec1a-4fad-a717-1d276fcc0b8d, Q e5181cdc-5409-4e7d-bcf6-a803ed8d576e 
+[2026-01-06T19:03:57.385Z] [generateAnswers] Found 1 sections 
+[2026-01-06T19:03:57.386Z] [generateAnswers] Context Text Preview "SECTION: CORE\nCONTENT:\n- **Name of the Company:** Topco Bravo 6\n"
+[2026-01-06T19:03:57.413Z] [generateAnswers] Found 10 questions 
+[2026-01-06T19:03:57.413Z] [AutoFill] Sending request to AI... 
+[2026-01-06T19:04:04.017Z] [AutoFill] Generated 10 answers. 
+[2026-01-06T19:04:04.017Z] [AutoFill] Answer 0: QID=0 {
+  "questionIndex": 0,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "",
+  "reasoning": "The standing data provided does not include information about the UBO registry extract or its implementation date in the country."
+}
+[2026-01-06T19:04:04.017Z] [AutoFill] Answer 1: QID=1 {
+  "questionIndex": 1,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "",
+  "reasoning": "The ownership structure is not specified in the standing data."
+}
+[2026-01-06T19:04:04.018Z] [AutoFill] Answer 2: QID=2 {
+  "questionIndex": 2,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "",
+  "reasoning": "The standing data does not provide information about physical persons with interests in the company."
+}
+[2026-01-06T19:41:17.470Z] [generateAnswers] START for LE 8f522269-ec1a-4fad-a717-1d276fcc0b8d, Q 539fdeee-2129-43bc-8828-7230cce7d64e 
+[2026-01-06T19:41:17.508Z] [generateAnswers] Found 1 sections 
+[2026-01-06T19:41:17.508Z] [generateAnswers] Context Text Preview "SECTION: CORE\nCONTENT:\n- **Name of the Company:** Topco Bravo 6\n"
+[2026-01-06T19:41:17.549Z] [generateAnswers] Found 18 questions 
+[2026-01-06T19:41:17.549Z] [AutoFill] Sending request to AI... 
+[2026-01-06T19:41:31.132Z] [AutoFill] Generated 18 answers. 
+[2026-01-06T19:41:31.133Z] [AutoFill] Answer 0: QID=0 {
+  "questionIndex": 0,
+  "answer": "Gode Wind 3 Investor Gmbh is not listed in the Standing Data.",
+  "confidence": 0,
+  "sourceQuote": "Information not available in Standing Data",
+  "reasoning": "The entity mentioned does not match the entity name found in the Standing Data."
+}
+[2026-01-06T19:41:31.133Z] [AutoFill] Answer 1: QID=1 {
+  "questionIndex": 1,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "Information not available in Standing Data",
+  "reasoning": "No information on UBOs is provided in the Standing Data."
+}
+[2026-01-06T19:41:31.133Z] [AutoFill] Answer 2: QID=2 {
+  "questionIndex": 2,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "Information not available in Standing Data",
+  "reasoning": "No details about shareholding by Gode Wind 3 Investor GmbH are present in the Standing Data."
+}
+[2026-01-06T19:44:30.392Z] [generateAnswers] START for LE 8f522269-ec1a-4fad-a717-1d276fcc0b8d, Q 539fdeee-2129-43bc-8828-7230cce7d64e 
+[2026-01-06T19:44:30.467Z] [generateAnswers] Found 1 sections 
+[2026-01-06T19:44:30.467Z] [generateAnswers] Context Text Preview "SECTION: CORE\nCONTENT:\n- **Name of the Company:** Topco Bravo 6\n"
+[2026-01-06T19:44:30.514Z] [generateAnswers] Found 18 questions 
+[2026-01-06T19:44:30.514Z] [AutoFill] Sending request to AI... 
+[2026-01-06T19:44:44.036Z] [AutoFill] Generated 18 answers. 
+[2026-01-06T19:44:44.036Z] [AutoFill] Answer 0: QID=0 {
+  "questionIndex": 0,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "- **Name of the Company:** Topco Bravo 6",
+  "reasoning": "The provided Standing Data only contains information about Topco Bravo 6, not Gode Wind 3 Investor GmbH."
+}
+[2026-01-06T19:44:44.036Z] [AutoFill] Found Answer for Bravo: QID=0 {
+  "questionIndex": 0,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "- **Name of the Company:** Topco Bravo 6",
+  "reasoning": "The provided Standing Data only contains information about Topco Bravo 6, not Gode Wind 3 Investor GmbH."
+}
+[2026-01-06T19:44:44.037Z] [AutoFill] Answer 1: QID=1 {
+  "questionIndex": 1,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "- **Name of the Company:** Topco Bravo 6",
+  "reasoning": "There is no information regarding ultimate beneficial ownership (UBO) in the provided Standing Data."
+}
+[2026-01-06T19:44:44.037Z] [AutoFill] Found Answer for Bravo: QID=1 {
+  "questionIndex": 1,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "- **Name of the Company:** Topco Bravo 6",
+  "reasoning": "There is no information regarding ultimate beneficial ownership (UBO) in the provided Standing Data."
+}
+[2026-01-06T19:44:44.038Z] [AutoFill] Answer 2: QID=2 {
+  "questionIndex": 2,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "- **Name of the Company:** Topco Bravo 6",
+  "reasoning": "The Standing Data does not contain any details about the shareholding structure related to Gode Wind 3 Investor GmbH."
+}
+[2026-01-06T19:44:44.038Z] [AutoFill] Found Answer for Bravo: QID=2 {
+  "questionIndex": 2,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "- **Name of the Company:** Topco Bravo 6",
+  "reasoning": "The Standing Data does not contain any details about the shareholding structure related to Gode Wind 3 Investor GmbH."
+}
+[2026-01-06T19:44:44.038Z] [AutoFill] Found Answer for Bravo: QID=3 {
+  "questionIndex": 3,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "- **Name of the Company:** Topco Bravo 6",
+  "reasoning": "There is no information on voting rights or control in the provided Standing Data."
+}
+[2026-01-06T19:44:44.038Z] [AutoFill] Found Answer for Bravo: QID=4 {
+  "questionIndex": 4,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "- **Name of the Company:** Topco Bravo 6",
+  "reasoning": "The Standing Data does not offer details about control or influence over the company."
+}
+[2026-01-06T19:44:44.039Z] [AutoFill] Found Answer for Bravo: QID=5 {
+  "questionIndex": 5,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "- **Name of the Company:** Topco Bravo 6",
+  "reasoning": "There is no information in the Standing Data about entities exercising factual control."
+}
+[2026-01-06T19:44:44.039Z] [AutoFill] Found Answer for Bravo: QID=6 {
+  "questionIndex": 6,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "- **Name of the Company:** Topco Bravo 6",
+  "reasoning": "The Standing Data does not include any information regarding economic percentages for the mentioned funds."
+}
+[2026-01-06T19:44:44.039Z] [AutoFill] Found Answer for Bravo: QID=7 {
+  "questionIndex": 7,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "- **Name of the Company:** Topco Bravo 6",
+  "reasoning": "The provided Standing Data does not address interests or factual control concerning the mentioned entities."
+}
+[2026-01-06T19:44:44.039Z] [AutoFill] Found Answer for Bravo: QID=8 {
+  "questionIndex": 8,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "- **Name of the Company:** Topco Bravo 6",
+  "reasoning": "There is no information concerning business operations with embargoed countries."
+}
+[2026-01-06T19:44:44.039Z] [AutoFill] Found Answer for Bravo: QID=9 {
+  "questionIndex": 9,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "- **Name of the Company:** Topco Bravo 6",
+  "reasoning": "The location of operations is not specified in the Standing Data."
+}
+[2026-01-06T19:44:44.040Z] [AutoFill] Found Answer for Bravo: QID=10 {
+  "questionIndex": 10,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "- **Name of the Company:** Topco Bravo 6",
+  "reasoning": "There is no commercial registry or UBO register extract available in the Standing Data."
+}
+[2026-01-06T19:44:44.040Z] [AutoFill] Found Answer for Bravo: QID=11 {
+  "questionIndex": 11,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "- **Name of the Company:** Topco Bravo 6",
+  "reasoning": "There is no mention of CRS or FATCA forms in the Standing Data."
+}
+[2026-01-06T19:44:44.040Z] [AutoFill] Found Answer for Bravo: QID=12 {
+  "questionIndex": 12,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "- **Name of the Company:** Topco Bravo 6",
+  "reasoning": "This question asks about document submission, which is not covered in the Standing Data."
+}
+[2026-01-06T19:44:44.040Z] [AutoFill] Found Answer for Bravo: QID=13 {
+  "questionIndex": 13,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "- **Name of the Company:** Topco Bravo 6",
+  "reasoning": "There is no information on acting on behalf of a third party in the Standing Data."
+}
+[2026-01-06T19:44:44.040Z] [AutoFill] Found Answer for Bravo: QID=14 {
+  "questionIndex": 14,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "- **Name of the Company:** Topco Bravo 6",
+  "reasoning": "There is no information about KYC representatives in the Standing Data."
+}
+[2026-01-06T19:44:44.041Z] [AutoFill] Found Answer for Bravo: QID=15 {
+  "questionIndex": 15,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "- **Name of the Company:** Topco Bravo 6",
+  "reasoning": "Details about UBOs are not available in the Standing Data."
+}
+[2026-01-06T19:44:44.041Z] [AutoFill] Found Answer for Bravo: QID=16 {
+  "questionIndex": 16,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "- **Name of the Company:** Topco Bravo 6",
+  "reasoning": "The Standing Data does not provide information on tax residency or TIN."
+}
+[2026-01-06T19:44:44.041Z] [AutoFill] Found Answer for Bravo: QID=17 {
+  "questionIndex": 17,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "- **Name of the Company:** Topco Bravo 6",
+  "reasoning": "The German TIN is not provided in the Standing Data."
+}
+[2026-01-06T19:50:32.532Z] [generateAnswers] START for LE 8f522269-ec1a-4fad-a717-1d276fcc0b8d, Q 539fdeee-2129-43bc-8828-7230cce7d64e 
+[2026-01-06T19:50:32.737Z] [generateAnswers] Found 1 sections 
+[2026-01-06T19:50:32.737Z] [generateAnswers] Context Text Preview "SECTION: CORE\nCONTENT:\n- **Name of the Company:** Topco Bravo 6\n"
+[2026-01-06T19:50:32.779Z] [generateAnswers] Found 18 questions 
+[2026-01-06T19:50:32.780Z] [AutoFill] Sending request to AI... 
+[2026-01-06T19:50:46.384Z] [AutoFill] Generated 18 answers. 
+[2026-01-06T19:50:46.384Z] [AutoFill] Answer 0: QID=0 {
+  "questionIndex": 0,
+  "answer": "No, the entity name is not Gode Wind 3 Investor Gmbh, it is Topco Bravo 6.",
+  "confidence": 1,
+  "sourceQuote": "**Name of the Company:** Topco Bravo 6",
+  "reasoning": "The Standing Data mentions the company name as Topco Bravo 6, not Gode Wind 3 Investor Gmbh."
+}
+[2026-01-06T19:50:46.384Z] [AutoFill] Found Answer for Bravo: QID=0 {
+  "questionIndex": 0,
+  "answer": "No, the entity name is not Gode Wind 3 Investor Gmbh, it is Topco Bravo 6.",
+  "confidence": 1,
+  "sourceQuote": "**Name of the Company:** Topco Bravo 6",
+  "reasoning": "The Standing Data mentions the company name as Topco Bravo 6, not Gode Wind 3 Investor Gmbh."
+}
+[2026-01-06T19:50:46.385Z] [AutoFill] Answer 1: QID=1 {
+  "questionIndex": 1,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "No information on UBO provided.",
+  "reasoning": "The Standing Data does not include details on UBOs."
+}
+[2026-01-06T19:50:46.385Z] [AutoFill] Answer 2: QID=2 {
+  "questionIndex": 2,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "No information on Gode Wind 3 Investor GmbH provided.",
+  "reasoning": "The Standing Data lacks information regarding shareholding structures."
+}
+[2026-01-06T19:51:50.841Z] [generateAnswers] START for LE 8f522269-ec1a-4fad-a717-1d276fcc0b8d, Q 539fdeee-2129-43bc-8828-7230cce7d64e 
+[2026-01-06T19:51:50.869Z] [generateAnswers] Found 1 sections 
+[2026-01-06T19:51:50.870Z] [generateAnswers] Context Text Preview "SECTION: CORE\nCONTENT:\n- **Name of the Company:** Topco Bravo 6\n"
+[2026-01-06T19:51:50.895Z] [generateAnswers] Found 18 questions 
+[2026-01-06T19:51:50.895Z] [AutoFill] Sending request to AI... 
+[2026-01-06T19:52:01.586Z] [AutoFill] Generated 18 answers. 
+[2026-01-06T19:52:01.586Z] [AutoFill] Answer 0: QID=0 {
+  "questionIndex": 0,
+  "answer": "Topco Bravo 6",
+  "confidence": 1,
+  "sourceQuote": "**Name of the Company:** Topco Bravo 6",
+  "reasoning": "The Standing Data specifies the name of the company as Topco Bravo 6. Any mention of Gode Wind 3 Investor Gmbh must be disregarded."
+}
+[2026-01-06T19:52:01.586Z] [AutoFill] Found Answer for Bravo: QID=0 {
+  "questionIndex": 0,
+  "answer": "Topco Bravo 6",
+  "confidence": 1,
+  "sourceQuote": "**Name of the Company:** Topco Bravo 6",
+  "reasoning": "The Standing Data specifies the name of the company as Topco Bravo 6. Any mention of Gode Wind 3 Investor Gmbh must be disregarded."
+}
+[2026-01-06T19:52:01.587Z] [AutoFill] Answer 1: QID=1 {
+  "questionIndex": 1,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "",
+  "reasoning": "The Standing Data does not provide information regarding the UBO (Ultimate Beneficial Owner) aspect."
+}
+[2026-01-06T19:52:01.587Z] [AutoFill] Answer 2: QID=2 {
+  "questionIndex": 2,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "",
+  "reasoning": "No ownership or shareholding structure details are provided in the Standing Data."
+}
+[2026-01-06T20:05:02.466Z] [generateAnswers] START for LE 8f522269-ec1a-4fad-a717-1d276fcc0b8d, Q 539fdeee-2129-43bc-8828-7230cce7d64e 
+[2026-01-06T20:05:02.570Z] [generateAnswers] Found 1 sections 
+[2026-01-06T20:05:02.570Z] [generateAnswers] Context Text Preview "SECTION: CORE\nCONTENT:\n- **Name of the Company:** Topco Bravo 6\n"
+[2026-01-06T20:05:02.652Z] [generateAnswers] Found 18 questions 
+[2026-01-06T20:05:02.652Z] [AutoFill] Sending request to AI... 
+[2026-01-06T20:05:22.884Z] [AutoFill] Generated 18 answers. 
+[2026-01-06T20:05:22.884Z] [AutoFill] Answer 0: QID=2 {
+  "questionIndex": 2,
+  "answer": "Entity name does not match; the correct entity is Topco Bravo 6.",
+  "confidence": 1,
+  "sourceQuote": "Name of the Company: Topco Bravo 6",
+  "reasoning": "The Standing Data specifies the entity as Topco Bravo 6, not Gode Wind 3 Investor GmbH."
+}
+[2026-01-06T20:05:22.885Z] [AutoFill] Found Answer for Bravo: QID=2 {
+  "questionIndex": 2,
+  "answer": "Entity name does not match; the correct entity is Topco Bravo 6.",
+  "confidence": 1,
+  "sourceQuote": "Name of the Company: Topco Bravo 6",
+  "reasoning": "The Standing Data specifies the entity as Topco Bravo 6, not Gode Wind 3 Investor GmbH."
+}
+[2026-01-06T20:05:22.885Z] [AutoFill] Answer 1: QID=5 {
+  "questionIndex": 5,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "No information on UBOs provided.",
+  "reasoning": "There is no information regarding UBOs in the Standing Data."
+}
+[2026-01-06T20:05:22.885Z] [AutoFill] Answer 2: QID=6 {
+  "questionIndex": 6,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "No related information available.",
+  "reasoning": "The Standing Data does not address ownership percentages by Gode Wind 3 Investor GmbH."
+}
+[2026-01-06T20:12:21.114Z] [generateAnswers] START for LE 8f522269-ec1a-4fad-a717-1d276fcc0b8d, Q 539fdeee-2129-43bc-8828-7230cce7d64e 
+[2026-01-06T20:12:24.141Z] [generateAnswers] Found 1 sections 
+[2026-01-06T20:12:24.142Z] [generateAnswers] Context Text Preview "SECTION: CORE\nCONTENT:\n- **Name of the Company:** Topco Bravo 6\n"
+[2026-01-06T20:12:24.188Z] [generateAnswers] Found 18 questions 
+[2026-01-06T20:12:24.189Z] [AutoFill] Sending request to AI... 
+[2026-01-06T20:12:39.532Z] [AutoFill] Generated 18 answers. 
+[2026-01-06T20:12:39.532Z] [AutoFill] Answer 0: QID=2 {
+  "questionIndex": 2,
+  "answer": "The name provided, 'Gode Wind 3 Investor Gmbh', does not match the company name in the Standing Data, which is 'Topco Bravo 6'. Therefore, the correct entity name according to our data is 'Topco Bravo 6'.",
+  "confidence": 0.9,
+  "sourceQuote": "**Name of the Company:** Topco Bravo 6",
+  "reasoning": "The Standing Data only lists 'Topco Bravo 6' as the entity name. Any other name is not verified."
+}
+[2026-01-06T20:12:39.532Z] [AutoFill] Found Answer for Bravo: QID=2 {
+  "questionIndex": 2,
+  "answer": "The name provided, 'Gode Wind 3 Investor Gmbh', does not match the company name in the Standing Data, which is 'Topco Bravo 6'. Therefore, the correct entity name according to our data is 'Topco Bravo 6'.",
+  "confidence": 0.9,
+  "sourceQuote": "**Name of the Company:** Topco Bravo 6",
+  "reasoning": "The Standing Data only lists 'Topco Bravo 6' as the entity name. Any other name is not verified."
+}
+[2026-01-06T20:12:39.532Z] [AutoFill] Answer 1: QID=5 {
+  "questionIndex": 5,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "**Name of the Company:** Topco Bravo 6",
+  "reasoning": "The provided Standing Data does not include information about Ultimate Beneficial Owners (UBOs)."
+}
+[2026-01-06T20:12:39.532Z] [AutoFill] Found Answer for Bravo: QID=5 {
+  "questionIndex": 5,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "**Name of the Company:** Topco Bravo 6",
+  "reasoning": "The provided Standing Data does not include information about Ultimate Beneficial Owners (UBOs)."
+}
+[2026-01-06T20:12:39.532Z] [AutoFill] Answer 2: QID=6 {
+  "questionIndex": 6,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "**Name of the Company:** Topco Bravo 6",
+  "reasoning": "The Standing Data does not provide information regarding shareholding or ownership structures."
+}
+[2026-01-06T20:12:39.532Z] [AutoFill] Found Answer for Bravo: QID=6 {
+  "questionIndex": 6,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "**Name of the Company:** Topco Bravo 6",
+  "reasoning": "The Standing Data does not provide information regarding shareholding or ownership structures."
+}
+[2026-01-06T20:12:39.532Z] [AutoFill] Found Answer for Bravo: QID=7 {
+  "questionIndex": 7,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "**Name of the Company:** Topco Bravo 6",
+  "reasoning": "The Standing Data does not provide details on voting rights."
+}
+[2026-01-06T20:12:39.532Z] [AutoFill] Found Answer for Bravo: QID=8 {
+  "questionIndex": 8,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "**Name of the Company:** Topco Bravo 6",
+  "reasoning": "The Standing Data lacks information regarding control or influence on the company."
+}
+[2026-01-06T20:12:39.532Z] [AutoFill] Found Answer for Bravo: QID=10 {
+  "questionIndex": 10,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "**Name of the Company:** Topco Bravo 6",
+  "reasoning": "The Standing Data does not contain specifics about entities exercising control."
+}
+[2026-01-06T20:12:39.533Z] [AutoFill] Found Answer for Bravo: QID=12 {
+  "questionIndex": 12,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "**Name of the Company:** Topco Bravo 6",
+  "reasoning": "The Standing Data does not include economic percentage information for investors."
+}
+[2026-01-06T20:12:39.533Z] [AutoFill] Found Answer for Bravo: QID=14 {
+  "questionIndex": 14,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "**Name of the Company:** Topco Bravo 6",
+  "reasoning": "The Standing Data does not address interests or control in entities."
+}
+[2026-01-06T20:12:39.533Z] [AutoFill] Found Answer for Bravo: QID=16 {
+  "questionIndex": 16,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "**Name of the Company:** Topco Bravo 6",
+  "reasoning": "The Standing Data does not include information regarding business activities in embargoed countries."
+}
+[2026-01-06T20:12:39.533Z] [AutoFill] Found Answer for Bravo: QID=18 {
+  "questionIndex": 18,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "**Name of the Company:** Topco Bravo 6",
+  "reasoning": "The Standing Data lacks details on operational locations."
+}
+[2026-01-06T20:12:39.533Z] [AutoFill] Found Answer for Bravo: QID=19 {
+  "questionIndex": 19,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "**Name of the Company:** Topco Bravo 6",
+  "reasoning": "The Standing Data does not contain registry or UBO register extracts."
+}
+[2026-01-06T20:12:39.533Z] [AutoFill] Found Answer for Bravo: QID=21 {
+  "questionIndex": 21,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "**Name of the Company:** Topco Bravo 6",
+  "reasoning": "The Standing Data does not have CRS or FATCA forms."
+}
+[2026-01-06T20:12:39.533Z] [AutoFill] Found Answer for Bravo: QID=23 {
+  "questionIndex": 23,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "**Name of the Company:** Topco Bravo 6",
+  "reasoning": "The Standing Data does not indicate any documents or files."
+}
+[2026-01-06T20:12:39.533Z] [AutoFill] Found Answer for Bravo: QID=25 {
+  "questionIndex": 25,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "**Name of the Company:** Topco Bravo 6",
+  "reasoning": "The Standing Data does not include information about acting on own behalf or behalf of a third party."
+}
+[2026-01-06T20:12:39.533Z] [AutoFill] Found Answer for Bravo: QID=26 {
+  "questionIndex": 26,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "**Name of the Company:** Topco Bravo 6",
+  "reasoning": "The Standing Data provides no information about KYC Representatives."
+}
+[2026-01-06T20:12:39.533Z] [AutoFill] Found Answer for Bravo: QID=31 {
+  "questionIndex": 31,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "**Name of the Company:** Topco Bravo 6",
+  "reasoning": "The Standing Data does not provide information about UBOs."
+}
+[2026-01-06T20:12:39.533Z] [AutoFill] Found Answer for Bravo: QID=33 {
+  "questionIndex": 33,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "**Name of the Company:** Topco Bravo 6",
+  "reasoning": "The Standing Data does not address tax residency or provide tax identification numbers."
+}
+[2026-01-06T20:12:39.533Z] [AutoFill] Found Answer for Bravo: QID=34 {
+  "questionIndex": 34,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "**Name of the Company:** Topco Bravo 6",
+  "reasoning": "The Standing Data does not include tax identification numbers."
+}
+[2026-01-06T20:16:21.938Z] [generateAnswers] START for LE 8f522269-ec1a-4fad-a717-1d276fcc0b8d, Q 539fdeee-2129-43bc-8828-7230cce7d64e 
+[2026-01-06T20:16:21.991Z] [generateAnswers] Found 1 sections 
+[2026-01-06T20:16:21.991Z] [generateAnswers] Context Text Preview "SECTION: CORE\nCONTENT:\n- **Name of the Company:** Topco Bravo 6\n"
+[2026-01-06T20:16:22.034Z] [generateAnswers] Found 18 questions 
+[2026-01-06T20:16:22.035Z] [AutoFill] Sending request to AI... 
+[2026-01-06T20:17:02.119Z] [AutoFill] Generated 18 answers. 
+[2026-01-06T20:17:02.119Z] [AutoFill] Answer 0: QID=2 {
+  "questionIndex": 2,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "",
+  "reasoning": "The entity name 'Gode Wind 3 Investor Gmbh' does not match the company name in the Standing Data."
+}
+[2026-01-06T20:17:02.120Z] [AutoFill] Answer 1: QID=5 {
+  "questionIndex": 5,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "",
+  "reasoning": "The Standing Data does not provide information about UBOs."
+}
+[2026-01-06T20:17:02.120Z] [AutoFill] Answer 2: QID=6 {
+  "questionIndex": 6,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "",
+  "reasoning": "The Standing Data does not mention ownership or shareholding details."
+}
+[2026-01-06T20:25:25.266Z] [generateAnswers] START for LE 8f522269-ec1a-4fad-a717-1d276fcc0b8d, Q 539fdeee-2129-43bc-8828-7230cce7d64e 
+[2026-01-06T20:25:25.304Z] [generateAnswers] Found 1 sections 
+[2026-01-06T20:25:25.304Z] [generateAnswers] Context Text Preview "SECTION: CORE\nCONTENT:\n- **Name of the Company:** Topco Bravo 6\n"
+[2026-01-06T20:25:25.347Z] [generateAnswers] Found 18 questions 
+[2026-01-06T20:25:25.348Z] [AutoFill] Sending request to AI... 
+[2026-01-06T20:25:35.714Z] [AutoFill] Generated 18 answers. 
+[2026-01-06T20:25:35.714Z] [AutoFill] Answer 0: QID=2 {
+  "questionIndex": 2,
+  "answer": "Topco Bravo 6",
+  "confidence": 1,
+  "sourceQuote": "- **Name of the Company:** Topco Bravo 6",
+  "reasoning": "The standing data explicitly states the name of the company as Topco Bravo 6."
+}
+[2026-01-06T20:25:35.714Z] [AutoFill] Found Answer for Bravo: QID=2 {
+  "questionIndex": 2,
+  "answer": "Topco Bravo 6",
+  "confidence": 1,
+  "sourceQuote": "- **Name of the Company:** Topco Bravo 6",
+  "reasoning": "The standing data explicitly states the name of the company as Topco Bravo 6."
+}
+[2026-01-06T20:25:35.714Z] [AutoFill] Answer 1: QID=5 {
+  "questionIndex": 5,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "Section: CORE\nCONTENT:\n- **Name of the Company:** Topco Bravo 6",
+  "reasoning": "The standing data does not provide any information regarding UBOs."
+}
+[2026-01-06T20:25:35.715Z] [AutoFill] Found Answer for Bravo: QID=5 {
+  "questionIndex": 5,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "Section: CORE\nCONTENT:\n- **Name of the Company:** Topco Bravo 6",
+  "reasoning": "The standing data does not provide any information regarding UBOs."
+}
+[2026-01-06T20:25:35.715Z] [AutoFill] Answer 2: QID=6 {
+  "questionIndex": 6,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "Section: CORE\nCONTENT:\n- **Name of the Company:** Topco Bravo 6",
+  "reasoning": "The standing data does not mention any information about Gode Wind 3 Investor GmbH."
+}
+[2026-01-06T20:25:35.715Z] [AutoFill] Found Answer for Bravo: QID=6 {
+  "questionIndex": 6,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "Section: CORE\nCONTENT:\n- **Name of the Company:** Topco Bravo 6",
+  "reasoning": "The standing data does not mention any information about Gode Wind 3 Investor GmbH."
+}
+[2026-01-06T20:25:35.715Z] [AutoFill] Found Answer for Bravo: QID=7 {
+  "questionIndex": 7,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "Section: CORE\n- **Name of the Company:** Topco Bravo 6",
+  "reasoning": "The standing data does not contain information on control over voting rights."
+}
+[2026-01-06T20:25:35.715Z] [AutoFill] Found Answer for Bravo: QID=8 {
+  "questionIndex": 8,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "Section: CORE\n- **Name of the Company:** Topco Bravo 6",
+  "reasoning": "There is no information regarding control or influence in the standing data."
+}
+[2026-01-06T20:25:35.716Z] [AutoFill] Found Answer for Bravo: QID=10 {
+  "questionIndex": 10,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "Section: CORE\n- **Name of the Company:** Topco Bravo 6",
+  "reasoning": "No data on entities exercising factual control is available."
+}
+[2026-01-06T20:25:35.716Z] [AutoFill] Found Answer for Bravo: QID=12 {
+  "questionIndex": 12,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "Section: CORE\n- **Name of the Company:** Topco Bravo 6",
+  "reasoning": "There is no economic percentage mentioned in the standing data."
+}
+[2026-01-06T20:25:35.716Z] [AutoFill] Found Answer for Bravo: QID=14 {
+  "questionIndex": 14,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "Section: CORE\n- **Name of the Company:** Topco Bravo 6",
+  "reasoning": "The standing data lacks information about interest or factual control."
+}
+[2026-01-06T20:25:35.716Z] [AutoFill] Found Answer for Bravo: QID=16 {
+  "questionIndex": 16,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "Section: CORE\n- **Name of the Company:** Topco Bravo 6",
+  "reasoning": "No details on business with embargoed countries are available."
+}
+[2026-01-06T20:25:35.716Z] [AutoFill] Found Answer for Bravo: QID=18 {
+  "questionIndex": 18,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "Section: CORE\n- **Name of the Company:** Topco Bravo 6",
+  "reasoning": "The operations' location is not detailed in the standing data."
+}
+[2026-01-06T20:25:35.716Z] [AutoFill] Found Answer for Bravo: QID=19 {
+  "questionIndex": 19,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "Section: CORE\n- **Name of the Company:** Topco Bravo 6",
+  "reasoning": "The standing data does not provide registry extracts."
+}
+[2026-01-06T20:25:35.717Z] [AutoFill] Found Answer for Bravo: QID=21 {
+  "questionIndex": 21,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "Section: CORE\n- **Name of the Company:** Topco Bravo 6",
+  "reasoning": "No information on CRS or FATCA forms is present."
+}
+[2026-01-06T20:25:35.717Z] [AutoFill] Found Answer for Bravo: QID=23 {
+  "questionIndex": 23,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "Section: CORE\n- **Name of the Company:** Topco Bravo 6",
+  "reasoning": "Embedded documents are not mentioned in the standing data."
+}
+[2026-01-06T20:25:35.717Z] [AutoFill] Found Answer for Bravo: QID=25 {
+  "questionIndex": 25,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "Section: CORE\n- **Name of the Company:** Topco Bravo 6",
+  "reasoning": "The standing data does not elaborate on business conduct."
+}
+[2026-01-06T20:25:35.717Z] [AutoFill] Found Answer for Bravo: QID=26 {
+  "questionIndex": 26,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "Section: CORE\n- **Name of the Company:** Topco Bravo 6",
+  "reasoning": "No KYC representatives are referenced in the data."
+}
+[2026-01-06T20:25:35.717Z] [AutoFill] Found Answer for Bravo: QID=31 {
+  "questionIndex": 31,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "Section: CORE\n- **Name of the Company:** Topco Bravo 6",
+  "reasoning": "There is no UBO information in the standing data."
+}
+[2026-01-06T20:25:35.717Z] [AutoFill] Found Answer for Bravo: QID=33 {
+  "questionIndex": 33,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "Section: CORE\n- **Name of the Company:** Topco Bravo 6",
+  "reasoning": "The tax residency is not discussed in the data."
+}
+[2026-01-06T20:25:35.717Z] [AutoFill] Found Answer for Bravo: QID=34 {
+  "questionIndex": 34,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "Section: CORE\n- **Name of the Company:** Topco Bravo 6",
+  "reasoning": "There is no mention of a German TIN in the standing data."
+}

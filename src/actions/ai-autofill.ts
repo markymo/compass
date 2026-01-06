@@ -20,7 +20,23 @@ export interface SuggestedAnswer {
     reasoning: string;
 }
 
-export async function generateAnswers(leId: string, questionnaireId: string): Promise<{ success: boolean; data?: SuggestedAnswer[]; error?: string }> {
+import fs from 'fs';
+import path from 'path';
+
+function logToFile(msg: string, data?: any) {
+    try {
+        const logPath = path.resolve(process.cwd(), 'debug-autofill.txt');
+        const timestamp = new Date().toISOString();
+        const content = `[${timestamp}] ${msg} ${data ? JSON.stringify(data, null, 2) : ''}\n`;
+        fs.appendFileSync(logPath, content);
+    } catch (e) {
+        // ignore
+    }
+}
+
+export async function generateAnswers(leId: string, questionnaireId: string): Promise<{ success: boolean; data?: SuggestedAnswer[]; debugMessages?: any[]; error?: string }> {
+    logToFile(`[generateAnswers] START for LE ${leId}, Q ${questionnaireId}`);
+
     const { userId } = await auth();
     if (!userId) return { success: false, error: "Unauthorized" };
 
@@ -30,7 +46,10 @@ export async function generateAnswers(leId: string, questionnaireId: string): Pr
             where: { clientLEId: leId }
         });
 
+        logToFile(`[generateAnswers] Found ${standingDataSections.length} sections`);
+
         if (standingDataSections.length === 0) {
+            logToFile("[generateAnswers] No standing data found");
             return { success: false, error: "No Standing Data found. Please fill out your Knowledge Base first." };
         }
 
@@ -39,6 +58,7 @@ export async function generateAnswers(leId: string, questionnaireId: string): Pr
             `SECTION: ${section.category}\nCONTENT:\n${section.content}\n`
         ).join("\n---\n");
 
+        logToFile("[generateAnswers] Context Text Preview", contextText.substring(0, 500));
 
         // 2. Fetch Questionnaire Content
         const questionnaire = await prisma.questionnaire.findUnique({
@@ -51,34 +71,50 @@ export async function generateAnswers(leId: string, questionnaireId: string): Pr
         }
 
         const items = questionnaire.extractedContent as any[];
-        // Filter for only items that are "QUESTION"
-        const questions = items.filter((item: any) => item.type === "QUESTION");
+        // Map to preserve original index, then filter for "QUESTION"
+        const questions = items
+            .map((item, idx) => ({ ...item, originalIndex: idx }))
+            .filter((item: any) => item.type === "QUESTION");
 
         if (questions.length === 0) {
             return { success: false, error: "No questions found in this document." };
         }
 
-        // Optimize: If too many questions, we might need to batch this. 
-        // For now, let's try sending them all (assuming < 50-100 questions).
-        // We'll map them to a simplified format to save tokens.
-        const simplifiedQuestions = questions.map((q: any, index: number) => ({
-            id: q.originalText.substring(0, 20) + "_" + index, // Generate a temp ID if one doesn't exist. Ideally extractedContent has IDs.
-            text: q.originalText,
-            category: q.category
-        }));
+        logToFile(`[generateAnswers] Found ${questions.length} questions`);
 
-        // Note: The extractedContent doesn't strictly have stable IDs unless we added them. 
-        // We really should rely on index or generate IDs during extraction. 
-        // For now, let's trust the AI to return the array in order or key off the text if unique.
-        // BETTER APPROACH: Add an 'id' during extraction or just use the array index.
-        // Let's use the array index in the prompt to map back.
-
-        const questionsPrompt = questions.map((q: any, i: number) =>
-            `ID: ${i}\nQuestion: ${q.originalText}\nCategory: ${q.category || "General"}`
+        // Use originalIndex as the ID
+        const questionsPrompt = questions.map((q: any) =>
+            `ID: ${q.originalIndex}\nQuestion: ${q.originalText}\nCategory: ${q.category || "General"}`
         ).join("\n\n");
 
         // 3. Prompt the AI
-        console.log(`[AutoFill] Generating answers for ${questions.length} questions for LE ${leId}`);
+        logToFile(`[AutoFill] Sending request to AI...`);
+
+        const aiMessages = [
+            {
+                role: "system" as const,
+                content: `You are an expert Compliance Officer filling out a Due Diligence Questionnaire (DDQ).
+                    
+                    YOUR GOAL: Answer the provided questions using ONLY the provided verified Standing Data.
+                    
+                    RULES:
+                    1. Use the provided Standing Data as your knowledge base.
+                    2. If the answer is explicitly in the data, set confidence to 0.9-1.0.
+                    3. If you can infer the answer (e.g. "UK" implies "Not US"), set confidence to 0.7-0.9.
+                    4. DATA PRECEDENCE: The Standing Data is the absolute truth for the entity being processed. If a question contains a specific name, date, or value that conflicts with the Standing Data, you MUST ignore the value in the question and answer using the Standing Data.
+                    5. If the data is missing, reply "Information not available in Standing Data" and set confidence to 0.
+                    6. Always provide the "sourceQuote" - the exact text from the Standing Data you used.
+                    7. Be concise and professional.`
+            },
+            {
+                role: "user" as const,
+                content: `STANDING DATA LIBRARY:
+                    ${contextText}
+                    
+                    QUESTIONS TO ANSWER:
+                    ${questionsPrompt}`
+            }
+        ];
 
         const { object } = await generateObject({
             model: openai('gpt-4o'),
@@ -91,33 +127,21 @@ export async function generateAnswers(leId: string, questionnaireId: string): Pr
                     reasoning: z.string().describe("Brief explanation of why this answer was chosen")
                 }))
             }),
-            messages: [
-                {
-                    role: "system",
-                    content: `You are an expert Compliance Officer filling out a Due Diligence Questionnaire (DDQ).
-                    
-                    YOUR GOAL: Answer the provided questions using ONLY the provided verified Standing Data.
-                    
-                    RULES:
-                    1. Use the provided Standing Data as your knowledge base.
-                    2. If the answer is explicitly in the data, set confidence to 0.9-1.0.
-                    3. If you can infer the answer (e.g. "UK" implies "Not US"), set confidence to 0.7-0.9.
-                    4. If the data is missing, reply "Information not available in Standing Data" and set confidence to 0.
-                    5. Always provide the "sourceQuote" - the exact text from the Standing Data you used.
-                    6. Be concise and professional.`
-                },
-                {
-                    role: "user",
-                    content: `STANDING DATA LIBRARY:
-                    ${contextText}
-                    
-                    QUESTIONS TO ANSWER:
-                    ${questionsPrompt}`
-                }
-            ]
+            messages: aiMessages
         });
 
-        console.log(`[AutoFill] Generated ${object.answers.length} answers.`);
+        logToFile(`[AutoFill] Generated ${object.answers.length} answers.`);
+
+        object.answers.forEach((ans, idx) => {
+            // Log first 3 for sanity
+            if (idx < 3) {
+                logToFile(`[AutoFill] Answer ${idx}: QID=${ans.questionIndex}`, ans);
+            }
+            // Log specific debug targets
+            if (ans.answer.toLowerCase().includes("bravo") || ans.sourceQuote.toLowerCase().includes("bravo")) {
+                logToFile(`[AutoFill] Found Answer for Bravo: QID=${ans.questionIndex}`, ans);
+            }
+        });
 
         // 4. Map back to our friendly format
         const finalResults: SuggestedAnswer[] = object.answers.map(ans => {
@@ -139,9 +163,10 @@ export async function generateAnswers(leId: string, questionnaireId: string): Pr
             };
         });
 
-        return { success: true, data: finalResults };
+        return { success: true, data: finalResults, debugMessages: aiMessages };
 
     } catch (error: any) {
+        logToFile("[generateAnswers] Error:", error);
         console.error("[generateAnswers] Error:", error);
         return { success: false, error: error.message || "Failed to generate answers" };
     }

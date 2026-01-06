@@ -32,12 +32,24 @@ export function QuestionnaireFiller({ leId, questionnaireId, initialQuestions }:
         const res = await generateAnswers(leId, questionnaireId);
 
         if (res.success && res.data) {
-            // Map array to Record for easy lookup by ID
-            const map: Record<string, SuggestedAnswer> = {};
+            // EXPOSE AI DEBUG INFO TO CONSOLE
+            if (res.debugMessages) {
+                console.groupCollapsed("🤖 Auto-Fill AI Context & Prompt");
+                console.log("These are the exact messages sent to the AI:");
+                console.log(res.debugMessages);
+                console.log("System Prompt:", res.debugMessages[0].content);
+                console.log("User Prompt (Context + Questions):", res.debugMessages[1].content);
+                console.log("🤖 AI Response (Suggested Answers):", res.data);
+                console.groupEnd();
+            }
+
+            const newGhostAnswers: Record<string, SuggestedAnswer> = {};
             res.data.forEach(ans => {
-                map[ans.questionId] = ans;
+                newGhostAnswers[ans.questionId] = ans;
             });
-            setGhostAnswers(map);
+            setGhostAnswers(newGhostAnswers);
+
+            // alert("Auto-Fill Complete! Review suggestions below.");
         } else {
             alert("Auto-Fill Failed: " + res.error);
         }
