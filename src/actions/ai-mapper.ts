@@ -137,14 +137,21 @@ export async function extractQuestionnaireItems(input: { content: string | strin
     }
 
     try {
-        console.log(`[AI Mapper] Extracting Items (${type} mode)`);
+        const key = process.env.OPENAI_API_KEY;
+        console.log(`[AI Mapper] Server Action Start. API Key present: ${!!key}. Length: ${key ? key.length : 0}`);
 
-        const apiKey = process.env.OPENAI_API_KEY;
-        if (!apiKey) console.warn("[AI Mapper] OPENAI_API_KEY not found in process.env!");
+        if (!key) {
+            console.error("[AI Mapper] CRITICAL: OPENAI_API_KEY is undefined in process.env");
+            // Check debug info
+            console.log("[AI Mapper] Env Keys:", Object.keys(process.env).filter(k => k.includes("OPENAI")));
+            throw new Error("Server Misconfiguration: OPENAI_API_KEY is missing.");
+        }
 
         const openai = createOpenAI({
-            apiKey: apiKey,
+            apiKey: key,
         });
+
+        console.log(`[AI Mapper] Extracting Items (${type} mode). Input length: ${Array.isArray(content) ? content.length + " pages" : content.length + " chars"}`);
 
         const { object } = await generateObject({
             model: openai('gpt-4o'),
