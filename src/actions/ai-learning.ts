@@ -11,10 +11,7 @@ import { revalidatePath } from "next/cache";
 import fs from 'fs';
 import path from 'path';
 
-const apiKey = process.env.OPENAI_API_KEY;
-const openai = createOpenAI({
-    apiKey: apiKey,
-});
+// Global initialization removed. Client created on demand.
 
 interface QAPair {
     question: string;
@@ -58,6 +55,10 @@ export async function learnFromAnswers(leId: string, qaPairs: QAPair[]): Promise
     if (validPairs.length === 0) return { success: true, count: 0 };
 
     try {
+        const openai = createOpenAI({
+            apiKey: process.env.OPENAI_API_KEY,
+        });
+
         // 2. Fetch Existing Standing Data
         const existingSections = await prisma.standingDataSection.findMany({
             where: { clientLEId: leId }
