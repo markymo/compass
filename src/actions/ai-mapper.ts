@@ -5,21 +5,7 @@ import { generateObject } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
 import { z } from 'zod';
 
-// Ensure API Key is loaded
-let apiKey = process.env.OPENAI_API_KEY;
 
-// Minimal logging for production
-if (!apiKey) {
-    if (process.env.OPENAI_API_KEY) {
-        apiKey = process.env.OPENAI_API_KEY;
-    } else {
-        console.log("[AI Mapper] Warning: OPENAI_API_KEY missing.");
-    }
-}
-
-const openai = createOpenAI({
-    apiKey: apiKey,
-});
 
 export interface ExtractedItem {
     type: "QUESTION" | "SECTION" | "INSTRUCTION" | "NOTE";
@@ -152,6 +138,13 @@ export async function extractQuestionnaireItems(input: { content: string | strin
 
     try {
         console.log(`[AI Mapper] Extracting Items (${type} mode)`);
+
+        const apiKey = process.env.OPENAI_API_KEY;
+        if (!apiKey) console.warn("[AI Mapper] OPENAI_API_KEY not found in process.env!");
+
+        const openai = createOpenAI({
+            apiKey: apiKey,
+        });
 
         const { object } = await generateObject({
             model: openai('gpt-4o'),
