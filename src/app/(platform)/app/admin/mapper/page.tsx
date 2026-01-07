@@ -136,7 +136,7 @@ export default function MapperPage() {
             const mapping = suggestions
                 .filter(s => s.suggestedKey && s.suggestedKey !== "IGNORE_SKIP")
                 .map(s => {
-                    let finalKey = s.suggestedKey;
+                    let finalKey = s.suggestedKey!;
                     if (finalKey.startsWith("CREATE_NEW:")) {
                         finalKey = finalKey.replace("CREATE_NEW:", "");
                     }

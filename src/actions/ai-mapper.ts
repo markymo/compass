@@ -191,3 +191,26 @@ export async function extractQuestionnaireItems(input: { content: string | strin
         throw e;
     }
 }
+
+export interface MappingSuggestion {
+    originalText: string;
+    suggestedKey?: string;
+    confidence: number;
+    newFieldProposal?: {
+        key: string;
+        label: string;
+        type: string;
+        description: string;
+    };
+}
+
+export async function generateMappingSuggestions(input: { content: string | string[], type: "image" | "text", mime: string }): Promise<MappingSuggestion[]> {
+    const items = await extractQuestionnaireItems(input);
+    return items
+        .filter(i => i.type === "QUESTION")
+        .map(i => ({
+            originalText: i.originalText,
+            suggestedKey: i.masterKey,
+            confidence: i.confidence || 0
+        }));
+}

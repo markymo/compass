@@ -55,7 +55,30 @@ export async function getQuestionnaireById(id: string) {
 }
 
 // AI Mapper Integration
-import { processDocumentBuffer, extractQuestionnaireItems } from "./ai-mapper";
+// AI Mapper Integration
+import { processDocumentBuffer, extractQuestionnaireItems, generateMappingSuggestions } from "./ai-mapper";
+
+export async function analyzeQuestionnaire(id: string) {
+    if (!(await canManageQuestionnaire(id))) {
+        throw new Error("Unauthorized");
+    }
+    const q = await prisma.questionnaire.findUnique({ where: { id } });
+    if (!q || !q.fileContent) throw new Error("Questionnaire not found");
+
+    try {
+        const processed = await processDocumentBuffer(Buffer.from(q.fileContent), q.fileType, q.fileName);
+        const suggestions = await generateMappingSuggestions(processed);
+
+        return {
+            suggestions,
+            fiOrgId: q.fiOrgId,
+            questionnaireName: q.name
+        };
+    } catch (e: any) {
+        // If scanned PDF, we can't do much in this legacy function yet, just rethrow
+        throw e;
+    }
+}
 
 
 
