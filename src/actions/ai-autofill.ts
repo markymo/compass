@@ -7,10 +7,7 @@ import { createOpenAI } from '@ai-sdk/openai';
 import { z } from 'zod';
 
 // Ensure API Key is loaded (Reusing logic from ai-mapper if needed, or just relying on process.env)
-const apiKey = process.env.OPENAI_API_KEY;
-const openai = createOpenAI({
-    apiKey: apiKey,
-});
+// Global initialization removed. Client created on demand.
 
 export interface SuggestedAnswer {
     questionId: string; // The ID from the extractedContent array
@@ -41,6 +38,10 @@ export async function generateAnswers(leId: string, questionnaireId: string, loc
     if (!userId) return { success: false, error: "Unauthorized" };
 
     try {
+        const openai = createOpenAI({
+            apiKey: process.env.OPENAI_API_KEY,
+        });
+
         // 1. Fetch Standing Data for the Client LE
         const standingDataSections = await prisma.standingDataSection.findMany({
             where: { clientLEId: leId }
