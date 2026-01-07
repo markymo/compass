@@ -8,52 +8,50 @@ import { z } from 'zod';
 import mammoth from 'mammoth';
 import PDFParser from 'pdf2json';
 
-// Helper for debugging
-import fs from 'fs';
-import path from 'path';
 
-function logToFile(msg: string, data?: any) {
-    try {
-        const logPath = path.resolve(process.cwd(), 'debug-server-log.txt');
-        const timestamp = new Date().toISOString();
-        const content = `[${timestamp}] ${msg} ${data ? JSON.stringify(data, null, 2) : ''}\n`;
-        fs.appendFileSync(logPath, content);
-    } catch (e) {
-        // ignore logging errors
-    }
-}
+
+import fs from 'fs';
+import { promises as fsPromises } from 'fs';
+import path from 'path';
+import os from 'os';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+
+const execAsync = promisify(exec);
+
+
 
 // Ensure API Key is loaded
 let apiKey = process.env.OPENAI_API_KEY;
 
 if (!apiKey) {
-    logToFile("[AI Mapper] OPENAI_API_KEY missing in process.env. Attempting manual load.");
+    console.log("[AI Mapper] OPENAI_API_KEY missing in process.env. Attempting manual load.");
     const envFiles = ['.env.local', '.env'];
 
     for (const file of envFiles) {
         try {
             const envPath = path.resolve(process.cwd(), file);
             if (fs.existsSync(envPath)) {
-                logToFile(`[AI Mapper] Found ${file}`);
+                console.log(`[AI Mapper] Found ${file}`);
                 const content = fs.readFileSync(envPath, 'utf-8');
                 const match = content.match(/OPENAI_API_KEY=(.+)/);
                 if (match && match[1]) {
                     apiKey = match[1].trim().replace(/^["']|["']$/g, '');
                     process.env.OPENAI_API_KEY = apiKey;
-                    logToFile(`[AI Mapper] Loaded API Key from ${file}`);
+                    console.log(`[AI Mapper] Loaded API Key from ${file}`);
                     break;
                 }
             }
         } catch (e) {
-            logToFile(`[AI Mapper] Failed to read ${file}`, e);
+            console.log(`[AI Mapper] Failed to read ${file}`, e);
         }
     }
 }
 
 if (!apiKey) {
-    logToFile("[AI Mapper] CRITICAL: API Key still missing after manual search.");
+    console.log("[AI Mapper] CRITICAL: API Key still missing after manual search.");
 } else {
-    logToFile("[AI Mapper] API Key is present (length: " + apiKey.length + ")");
+    console.log("[AI Mapper] API Key is present (length: " + apiKey.length + ")");
 }
 
 const openai = createOpenAI({
@@ -83,13 +81,13 @@ export interface ExtractedItem {
 }
 
 // 1. Process Document: Convert to Base64 (Images/PDF) or Text (Docx/Txt)
-export async function parseDocument(formData: FormData): Promise<{ content: string, type: "image" | "text", mime: string }> {
+export async function parseDocument(formData: FormData): Promise<{ content: string | string[], type: "image" | "text", mime: string }> {
     const file = formData.get("file") as File;
     if (!file) {
         throw new Error("No file uploaded");
     }
 
-    logToFile(`[AI Mapper] Processing file: ${file.name} (${file.type}, ${file.size} bytes)`);
+    console.log(`[AI Mapper] Processing file: ${file.name} (${file.type}, ${file.size} bytes)`);
 
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
@@ -97,24 +95,24 @@ export async function parseDocument(formData: FormData): Promise<{ content: stri
     return processDocumentBuffer(buffer, file.type, file.name);
 }
 
-export async function processDocumentBuffer(buffer: Buffer, mimeType: string, fileName: string): Promise<{ content: string, type: "image" | "text", mime: string }> {
+export async function processDocumentBuffer(buffer: Buffer, mimeType: string, fileName: string): Promise<{ content: string | string[], type: "image" | "text", mime: string }> {
     if (!buffer || buffer.length === 0) {
         throw new Error("Document buffer is empty");
     }
 
     // DOCX Handling
     if (mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || fileName.endsWith(".docx")) {
-        logToFile("[AI Mapper] Parsing DOCX via Mammoth: Start");
+        console.log("[AI Mapper] Parsing DOCX via Mammoth: Start");
         try {
             const result = await mammoth.extractRawText({ buffer });
-            logToFile(`[AI Mapper] DOCX Extraction Complete. Length: ${result.value.length}`);
+            console.log(`[AI Mapper] DOCX Extraction Complete. Length: ${result.value.length}`);
             return {
                 content: result.value, // The raw text
                 type: "text",
                 mime: "text/plain"
             };
         } catch (e) {
-            logToFile("[AI Mapper] DOCX Extraction Failed:", e);
+            console.log("[AI Mapper] DOCX Extraction Failed:", e);
             console.error("[AI Mapper] DOCX Extraction Failed:", e);
             throw e; // Re-throw to be caught by caller
         }
@@ -153,18 +151,40 @@ export async function processDocumentBuffer(buffer: Buffer, mimeType: string, fi
                 console.log("[AI Mapper] Calling parseBuffer, buffer size:", buffer.length);
                 pdfParser.parseBuffer(buffer);
             });
-            if (!text || text.trim().length < 50) {
-                console.log("[AI Mapper] PDF text is empty or too short. Assuming scanned PDF. Falling back to Vision.");
+
+            // Clean up pdf2json artifacts to check for real text
+            const cleanedText = text.replace(/----------------Page \(\d+\) Break----------------/g, "").trim();
+            console.log("[AI Mapper] Cleaned text length:", cleanedText.length);
+
+            if (!text || cleanedText.length < 100) {
+                console.log("[AI Mapper] PDF text is empty or too short (after cleanup). Assuming scanned PDF. Falling back to Vision.");
                 throw new Error("Scanned PDF");
             }
             console.log("[AI Mapper] PDF Parsing Complete");
             return { content: text, type: "text", mime: "text/plain" };
         } catch (e: any) {
             console.error("[AI Mapper] PDF text extraction failed:", e);
-            if (e.message === "Scanned PDF") {
-                throw new Error("The PDF appears to be a scanned image. Please provide a text-selectable PDF or a Word document.");
+
+            // Fallback for Scanned PDF -> Convert to Images
+            console.log("[AI Mapper] Attempting to convert PDF to images (OCR fallback)...");
+            try {
+                // Use Ghostscript for conversion
+                console.log("[AI Mapper] Using Ghostscript...");
+                const images = await convertPdfToImagesGs(buffer);
+
+                console.log(`[AI Mapper] GS converted PDF to ${images.length} images.`);
+
+                const base64Images = images.map((img) => img.toString('base64'));
+
+                return {
+                    content: base64Images,
+                    type: "image",
+                    mime: "image/png"
+                };
+            } catch (imgError) {
+                console.error("[AI Mapper] PDF to Image conversion failed:", imgError);
+                throw new Error("Failed to process PDF. It appears to be scanned, and image conversion failed.");
             }
-            throw new Error("Failed to parse PDF text. Please try converting to Word.");
         }
     }
 
@@ -183,7 +203,7 @@ export async function processDocumentBuffer(buffer: Buffer, mimeType: string, fi
 }
 
 // 2. Generate Schema Mapping
-export async function generateMappingSuggestions(input: { content: string, type: "image" | "text", mime: string }): Promise<MappingSuggestion[]> {
+export async function generateMappingSuggestions(input: { content: string | string[], type: "image" | "text", mime: string }): Promise<MappingSuggestion[]> {
     const { content, type, mime } = input;
 
     // A. Fetch Master Schema
@@ -217,11 +237,24 @@ export async function generateMappingSuggestions(input: { content: string, type:
             text: `DOCUMENT CONTENT:\n\n${content}`
         });
     } else {
-        userContent.push({
-            type: "image",
-            // @ts-ignore
-            image: `data:${mime};base64,${content}`
-        });
+        // Image Mode (Single or Multiple)
+        if (Array.isArray(content)) {
+            // Multiple images (e.g. Scanned PDF pages)
+            content.forEach((b64) => {
+                userContent.push({
+                    type: "image",
+                    // @ts-ignore
+                    image: `data:${mime};base64,${b64}`
+                });
+            });
+        } else {
+            // Single image
+            userContent.push({
+                type: "image",
+                // @ts-ignore
+                image: `data:${mime};base64,${content}`
+            });
+        }
     }
 
     try {
@@ -268,10 +301,10 @@ export async function generateMappingSuggestions(input: { content: string, type:
 import { STANDARD_CATEGORIES } from "@/lib/constants";
 
 // 3. Granular Extraction (Columns 1, 2, 3)
-export async function extractQuestionnaireItems(input: { content: string, type: "image" | "text", mime: string }): Promise<ExtractedItem[]> {
+export async function extractQuestionnaireItems(input: { content: string | string[], type: "image" | "text", mime: string }): Promise<ExtractedItem[]> {
     const { content, type, mime } = input;
 
-    if (!content || content.trim().length === 0) {
+    if (!content || (typeof content === 'string' && content.trim().length === 0) || (Array.isArray(content) && content.length === 0)) {
         throw new Error(`Extraction failed: No text content found in document (MIME: ${mime}). The file might be empty or scanned/image-based without OCR.`);
     }
 
@@ -286,18 +319,18 @@ export async function extractQuestionnaireItems(input: { content: string, type: 
     const userContent: any[] = [
         {
             type: "text",
-            text: `Analyze this financial questionnaire document and extract EVERY structural element.
+            text: `Extract all structural elements (Questions, Sections, Instructions, Notes) from the provided document content.
             
             OUTPUT COLUMNS:
-            1. Type: "QUESTION" (requires answer), "SECTION" (Header/Title), "INSTRUCTION" (Context/Help), "NOTE" (Disclaimer/Footer).
+            1. Type: "QUESTION", "SECTION", "INSTRUCTION", "NOTE".
             2. Original Text: Exact text from document.
-            3. Neutral Text (Questions Only): The question re-phrased to be generic (remove "Please provide...", remove numbering "1.2", remove specific formatting).
+            3. Neutral Text (Questions Only): The question re-phrased to be generic.
             4. Master Key (Questions Only): Best guess match from the provided Master Schema list.
-            5. Category (Questions Only): ALWAYS assign a category from the list below, even if a Master Key matches. This is used for grouping.
-
+            5. Category (Questions Only): Assign a category from the list.
+ 
             MASTER SCHEMA FIELDS:
             ${schemaDesc}
-
+ 
             STANDARD CATEGORIES:
             ${STANDARD_CATEGORIES.join(', ')}
             `
@@ -310,26 +343,44 @@ export async function extractQuestionnaireItems(input: { content: string, type: 
             text: `DOCUMENT CONTENT:\n\n${content}`
         });
     } else {
-        userContent.push({
-            type: "image",
-            // @ts-ignore
-            image: `data:${mime};base64,${content}`
-        });
+        // Image Mode (Single or Multiple)
+        if (Array.isArray(content)) {
+            // Multiple images (e.g. Scanned PDF pages)
+            content.forEach((b64) => {
+                userContent.push({
+                    type: "image",
+                    // @ts-ignore
+                    image: `data:${mime};base64,${b64}`
+                });
+            });
+        } else {
+            // Single image
+            userContent.push({
+                type: "image",
+                // @ts-ignore
+                image: `data:${mime};base64,${content}`
+            });
+        }
     }
 
     try {
-        logToFile(`[AI Mapper] Extracting Items (${type} mode)`);
+        console.log(`[AI Mapper] Extracting Items (${type} mode)`);
 
         const { object } = await generateObject({
             model: openai('gpt-4o'),
+
+            // @ts-ignore
+            mode: 'json',
+            schemaName: 'extracted_questionnaire_items',
+            schemaDescription: 'A list of all questions, sections, and notes extracted from the document',
             schema: z.object({
                 items: z.array(z.object({
                     type: z.enum(["QUESTION", "SECTION", "INSTRUCTION", "NOTE"]).describe("The structural type of the item"),
                     originalText: z.string().describe("The exact text content"),
-                    neutralText: z.string().optional().describe("Neutralized question text (optional for non-questions)"),
-                    masterKey: z.string().optional().describe("Matching master schema key (optional)"),
-                    category: z.string().optional().describe("Fallback category if no master key matches"),
-                    confidence: z.number().optional().describe("Confidence score 0-1")
+                    neutralText: z.string().nullish().describe("Neutralized question text (optional for non-questions)"),
+                    masterKey: z.string().nullish().describe("Matching master schema key (optional)"),
+                    category: z.string().nullish().describe("Fallback category if no master key matches"),
+                    confidence: z.number().nullish().describe("Confidence score 0-1")
                 }))
             }),
             messages: [{ role: "user", content: userContent }]
@@ -344,12 +395,54 @@ export async function extractQuestionnaireItems(input: { content: string, type: 
             confidence: item.confidence ?? 0
         }));
 
-        logToFile(`[AI Mapper] Extraction Success. Found ${safeItems.length} items.`);
+        console.log(`[AI Mapper] Extraction Success. Found ${safeItems.length} items.`);
         return safeItems;
     } catch (e: any) {
-        logToFile("[AI Mapper] Extraction Error:", e);
+        console.log("[AI Mapper] Extraction Error:", e);
         console.error("[AI Mapper] Extraction Error:", e);
-        if (e.cause) logToFile("[AI Mapper] Error Cause:", e.cause);
+        if (e.cause) console.log("[AI Mapper] Error Cause:", e.cause);
         throw e;
+    }
+}
+
+async function convertPdfToImagesGs(buffer: Buffer): Promise<Buffer[]> {
+    const tmpDir = os.tmpdir();
+    const runId = Math.random().toString(36).substring(7);
+    const workDir = path.join(tmpDir, `compass-ocr-${runId}`);
+
+    await fsPromises.mkdir(workDir, { recursive: true });
+
+    const inputPath = path.join(workDir, 'input.pdf');
+    const outputPrefix = path.join(workDir, 'output-%03d.png');
+
+    try {
+        await fsPromises.writeFile(inputPath, buffer);
+
+        // Run Ghostscript
+        // -r150 is usually enough for OCR (Tradeoff: Size vs Quality). 
+        // -sDEVICE=png16m for 24-bit color PNG.
+        const cmd = `gs -dSAFER -dBATCH -dNOPAUSE -sDEVICE=png16m -r150 -sOutputFile="${outputPrefix}" "${inputPath}"`;
+        // console.log("[GS Command]", cmd);
+
+        await execAsync(cmd);
+
+        // Read files
+        const files = await fsPromises.readdir(workDir);
+        const pngs = files.filter(f => f.startsWith('output-') && f.endsWith('.png')).sort();
+
+        const buffers = [];
+        for (const file of pngs) {
+            const b = await fsPromises.readFile(path.join(workDir, file));
+            buffers.push(b);
+        }
+        return buffers;
+
+    } finally {
+        // Cleanup
+        try {
+            await fsPromises.rm(workDir, { recursive: true, force: true });
+        } catch (e) {
+            console.error("Cleanup failed:", e);
+        }
     }
 }

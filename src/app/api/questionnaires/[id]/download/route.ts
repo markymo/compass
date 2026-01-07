@@ -19,7 +19,7 @@ export async function GET(
     // 2. Prepare headers
     const headers = new Headers();
     headers.set("Content-Type", questionnaire.fileType || "application/octet-stream");
-    headers.set("Content-Disposition", `attachment; filename="${questionnaire.fileName}"`);
+    headers.set("Content-Disposition", `inline; filename="${questionnaire.fileName}"`);
 
     // 3. Return the file
     // fileContent is Bytes (Buffer), send it directly

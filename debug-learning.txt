@@ -170,3 +170,14 @@
 [2026-01-06T21:36:25.872Z] [AI Learning] Upserting section: COMPLIANCE (Compliance & Regulation) for LE 8f522269-ec1a-4fad-a717-1d276fcc0b8d 
 [2026-01-06T21:36:25.909Z] [AI Learning] Upsert successful for COMPLIANCE 
 [2026-01-06T21:36:25.912Z] [AI Learning] Successfully updated 1 sections. 
+[2026-01-07T11:08:46.391Z] [learnFromAnswers] Called for LE 8f522269-ec1a-4fad-a717-1d276fcc0b8d with 1 pairs 
+[2026-01-07T11:08:46.403Z] [learnFromAnswers] Valid pairs after filtering: 1 [
+  {
+    "question": "Company name",
+    "answer": "Topco Bravo 6",
+    "category": "Core Details"
+  }
+]
+[2026-01-07T11:08:46.422Z] [AI Learning] Analyzing 1 answers for LE 8f522269-ec1a-4fad-a717-1d276fcc0b8d 
+[2026-01-07T11:08:47.801Z] [AI Learning] AI proposed updates for 0 sections. []
+[2026-01-07T11:08:47.802Z] [AI Learning] No updates proposed by AI. Returning early. 
