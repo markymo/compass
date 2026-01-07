@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { FileText, ArrowRight, Building2 } from "lucide-react";
 import Link from "next/link";
 
+export const dynamic = 'force-dynamic';
+
 export default async function AdminQuestionnairesPage() {
     const questionnaires = await getAllQuestionnaires();
 

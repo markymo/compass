@@ -3,6 +3,8 @@ import { Playfair_Display, Inter } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { ClerkProvider } from "@clerk/nextjs";
+import { UsageTracker } from "@/components/usage-tracker";
+import { Suspense } from "react";
 
 const playfair = Playfair_Display({
   variable: "--font-playfair",
@@ -34,9 +36,12 @@ export default function RootLayout({
             "antialiased min-h-screen bg-background text-foreground font-sans"
           )}
         >
+          <Suspense fallback={null}>
+            <UsageTracker />
+          </Suspense>
           {children}
         </body>
       </html>
-    </ClerkProvider>
+    </ClerkProvider >
   );
 }

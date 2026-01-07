@@ -15,6 +15,7 @@ export interface ExtractedItem {
     category?: string;
     confidence: number;
     answer?: string;
+    order?: number;
 }
 
 import { STANDARD_CATEGORIES } from "@/lib/constants";
@@ -94,12 +95,17 @@ export async function extractQuestionnaireItems(input: { content: string | strin
             type: "text",
             text: `Extract all structural elements (Questions, Sections, Instructions, Notes) from the provided document content.
             
+            RULES FOR QUESTIONS:
+            1. EVERY Question MUST be assigned one of the STANDARD CATEGORIES. This is MANDATORY.
+            2. If a question specifically matches a MASTER SCHEMA FIELD, assign the Master Key as well.
+            3. Priority: Categorization is CRITICAL for UI grouping. Master Mapping is secondary but important for automation.
+
             OUTPUT COLUMNS:
             1. Type: "QUESTION", "SECTION", "INSTRUCTION", "NOTE".
             2. Original Text: Exact text from document.
             3. Neutral Text (Questions Only): The question re-phrased to be generic.
-            4. Master Key (Questions Only): Best guess match from the provided Master Schema list.
-            5. Category (Questions Only): Assign a category from the list.
+            4. Master Key (Questions Only): Best guess match from the provided Master Schema list (Optional).
+            5. Category (Questions Only): The standard category this question belongs to (MANDATORY).
  
             MASTER SCHEMA FIELDS:
             ${schemaDesc}
@@ -162,25 +168,35 @@ export async function extractQuestionnaireItems(input: { content: string | strin
             schemaDescription: 'A list of all questions, sections, and notes extracted from the document',
             schema: z.object({
                 items: z.array(z.object({
-                    type: z.enum(["QUESTION", "SECTION", "INSTRUCTION", "NOTE"]).describe("The structural type of the item"),
+                    type: z.string().describe("The structural type: QUESTION, SECTION, INSTRUCTION, or NOTE"),
                     originalText: z.string().describe("The exact text content"),
-                    neutralText: z.string().nullish().describe("Neutralized question text (optional for non-questions)"),
-                    masterKey: z.string().nullish().describe("Matching master schema key (optional)"),
-                    category: z.string().nullish().describe("Fallback category if no master key matches"),
-                    confidence: z.number().nullish().describe("Confidence score 0-1")
+                    neutralText: z.string().optional().describe("Neutralized question text (optional)"),
+                    masterKey: z.string().optional().describe("Matching master schema key (optional)"),
+                    category: z.string().describe("The standard category for this question (MANDATORY for Questions)"),
+                    confidence: z.number().optional().describe("Confidence score 0-1")
                 }))
             }),
             messages: [{ role: "user", content: userContent }]
         });
 
-        // Post-process: handling nulls if necessary
-        const safeItems = object.items.map(item => ({
-            ...item,
-            neutralText: item.neutralText || undefined,
-            masterKey: item.masterKey || undefined,
-            category: item.category || undefined,
-            confidence: item.confidence ?? 0
-        }));
+        // Post-process: Normalize types and handle nulls
+        const safeItems = object.items.map(item => {
+            let type: any = item.type ? item.type.toUpperCase() : "NOTE";
+            if (!["QUESTION", "SECTION", "INSTRUCTION", "NOTE"].includes(type)) {
+                type = "NOTE"; // Fallback
+                if (item.originalText.includes("?")) type = "QUESTION";
+            }
+
+            return {
+                ...item,
+                type: type as "QUESTION" | "SECTION" | "INSTRUCTION" | "NOTE",
+                neutralText: item.neutralText || undefined,
+                masterKey: item.masterKey || undefined,
+                category: item.category || undefined,
+                confidence: item.confidence ?? 0,
+                order: 0 // Will be populated by index
+            };
+        }).map((item, idx) => ({ ...item, order: idx + 1 }));
 
         console.log(`[AI Mapper] Extraction Success. Found ${safeItems.length} items.`);
         return safeItems;

@@ -124,13 +124,14 @@ model Questionnaire {
   fiOrgId          String
   name             String
   status           String         @default("DRAFT")
-  fileName         String
-  fileType         String
+  fileName         String?
+  fileType         String?
   fileContent      Bytes?
   mappings         Json?
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
   extractedContent Json?
+  rawText          String?        @db.Text
   fiOrg            Organization   @relation(fields: [fiOrgId], references: [id])
   engagements      FIEngagement[] @relation("FIEngagementToQuestionnaire")
 
@@ -162,4 +163,15 @@ enum EngagementStatus {
 enum QueryStatus {
   OPEN
   RESOLVED
+}
+
+model UsageLog {
+  id        String   @id @default(uuid())
+  userId    String
+  action    String
+  path      String?
+  details   Json?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }

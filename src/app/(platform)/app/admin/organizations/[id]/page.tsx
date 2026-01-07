@@ -250,8 +250,8 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
 
                         <Card>
                             <CardHeader>
-                                <CardTitle>Upload Questionnaire</CardTitle>
-                                <CardDescription>Upload a PDF or Word document.</CardDescription>
+                                <CardTitle>Create Questionnaire</CardTitle>
+                                <CardDescription>Start a new questionnaire with or without a document.</CardDescription>
                             </CardHeader>
                             <CardContent>
                                 <form onSubmit={handleUpload} className="space-y-4">
@@ -260,14 +260,15 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
                                         <Input name="name" placeholder="e.g. AML Questionnaire 2025" required />
                                     </div>
                                     <div className="space-y-2">
-                                        <label className="text-sm font-medium">Document</label>
-                                        <Input type="file" name="file" required accept=".pdf,.docx,.doc,.txt" />
+                                        <label className="text-sm font-medium">Document (Optional)</label>
+                                        <Input type="file" name="file" accept=".pdf,.docx,.doc,.txt" />
+                                        <p className="text-[10px] text-muted-foreground">Upload a PDF/Word doc or start empty to paste text manually.</p>
                                     </div>
                                     <Button type="submit" className="w-full" disabled={uploading}>
                                         {uploading ? <Loader2 className="animate-spin w-4 h-4" /> : (
                                             <>
                                                 <Upload className="w-4 h-4 mr-2" />
-                                                Upload & Create
+                                                Create Questionnaire
                                             </>
                                         )}
                                     </Button>

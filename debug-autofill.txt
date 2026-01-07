@@ -860,3 +860,37 @@
   "sourceQuote": "",
   "reasoning": "There is no address information provided in the standing data."
 }
+[2026-01-07T16:00:02.582Z] [generateAnswers] START for LE 8f522269-ec1a-4fad-a717-1d276fcc0b8d, Q 055b9706-cd26-4b4a-ba3b-f302e380a1e3 (Locked: 0) 
+[2026-01-07T16:00:02.628Z] [generateAnswers] Found 2 sections 
+[2026-01-07T16:00:02.629Z] [generateAnswers] Context Text Preview "SECTION: CORE\nCONTENT:\n- **Name of the Company:** Topco Bravo 6\n- **German Taxpayer Identification Number (TIN):** Ger123123456456XY for Gode Wind 3 Investor GmbH\n\n---\nSECTION: COMPLIANCE\nCONTENT:\n- **Embargo Compliance:**\n  - The company does not conduct business with the following embargoed countries: Belarus, Libya, Myanmar, Russian Federation, Somalia, Venezuela, Zimbabwe, and regions of Ukraine (Crimea, The Donbas, Kherson, Zaporizhzhia).\n- **Anti-corruption Program:**\n  - The company has a"
+[2026-01-07T16:00:02.685Z] [generateAnswers] Found 30 questions 
+[2026-01-07T16:00:02.685Z] [AutoFill] Sending request to AI... 
+[2026-01-07T16:00:20.865Z] [AutoFill] Generated 30 answers. 
+[2026-01-07T16:00:20.865Z] [AutoFill] Answer 0: QID=11 {
+  "questionIndex": 11,
+  "answer": "Topco Bravo 6",
+  "confidence": 1,
+  "sourceQuote": "**Name of the Company:** Topco Bravo 6",
+  "reasoning": "The company name is explicitly stated in the Standing Data."
+}
+[2026-01-07T16:00:20.865Z] [AutoFill] Found Answer for Bravo: QID=11 {
+  "questionIndex": 11,
+  "answer": "Topco Bravo 6",
+  "confidence": 1,
+  "sourceQuote": "**Name of the Company:** Topco Bravo 6",
+  "reasoning": "The company name is explicitly stated in the Standing Data."
+}
+[2026-01-07T16:00:20.865Z] [AutoFill] Answer 1: QID=12 {
+  "questionIndex": 12,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "",
+  "reasoning": "The Standing Data does not provide information about key contact persons."
+}
+[2026-01-07T16:00:20.865Z] [AutoFill] Answer 2: QID=13 {
+  "questionIndex": 13,
+  "answer": "Information not available in Standing Data",
+  "confidence": 0,
+  "sourceQuote": "",
+  "reasoning": "The Standing Data does not provide an address."
+}

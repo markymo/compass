@@ -181,3 +181,26 @@
 [2026-01-07T11:08:46.422Z] [AI Learning] Analyzing 1 answers for LE 8f522269-ec1a-4fad-a717-1d276fcc0b8d 
 [2026-01-07T11:08:47.801Z] [AI Learning] AI proposed updates for 0 sections. []
 [2026-01-07T11:08:47.802Z] [AI Learning] No updates proposed by AI. Returning early. 
+[2026-01-07T16:01:04.100Z] [learnFromAnswers] Called for LE 8f522269-ec1a-4fad-a717-1d276fcc0b8d with 2 pairs 
+[2026-01-07T16:01:04.115Z] [learnFromAnswers] Valid pairs after filtering: 2 [
+  {
+    "question": "Company name",
+    "answer": "Topco Bravo 6",
+    "category": "Core Details"
+  },
+  {
+    "question": "Address",
+    "answer": "No. 1 London",
+    "category": "Core Details"
+  }
+]
+[2026-01-07T16:01:04.152Z] [AI Learning] Analyzing 2 answers for LE 8f522269-ec1a-4fad-a717-1d276fcc0b8d 
+[2026-01-07T16:01:06.850Z] [AI Learning] AI proposed updates for 1 sections. [
+  {
+    "category": "Core Details",
+    "content": "- **Name of the Company:** Topco Bravo 6\n- **German Taxpayer Identification Number (TIN):** Ger123123456456XY for Gode Wind 3 Investor GmbH\n- **Address:** No. 1 London"
+  }
+]
+[2026-01-07T16:01:06.850Z] [AI Learning] Upserting section: CORE (Core Details) for LE 8f522269-ec1a-4fad-a717-1d276fcc0b8d 
+[2026-01-07T16:01:06.891Z] [AI Learning] Upsert successful for CORE 
+[2026-01-07T16:01:06.892Z] [AI Learning] Successfully updated 1 sections. 
