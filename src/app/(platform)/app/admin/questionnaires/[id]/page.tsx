@@ -72,22 +72,83 @@ export default function ManageQuestionnairePage() {
         }
     }
 
+    // --- PDF Rendering Logic (Client Side Fallback) ---
+    // We use dynamic import for pdfjs to avoid server-side build issues if possible, 
+    // or just import standard and use it in useEffect. 
+    // Actually, 'pdfjs-dist' can be imported but worker needs setting.
+
+    async function convertPdfToImages(url: string): Promise<string[]> {
+        // Dynamic import to keep bundle clean
+        const pdfJS = await import('pdfjs-dist');
+        // Set worker. Using the CDN worker is standard for Next.js to avoid webpack config hell
+        pdfJS.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfJS.version}/build/pdf.worker.min.mjs`;
+
+        const loadingTask = pdfJS.getDocument(url);
+        const pdf = await loadingTask.promise;
+        const images: string[] = [];
+
+        console.log(`[Client PDF] Document loaded, pages: ${pdf.numPages}`);
+
+        for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            const viewport = page.getViewport({ scale: 2.0 }); // 2x scale for better OCR quality
+
+            const canvas = document.createElement("canvas");
+            const context = canvas.getContext("2d");
+            canvas.height = viewport.height;
+            canvas.width = viewport.width;
+
+            if (context) {
+                await page.render({ canvasContext: context, viewport: viewport } as any).promise;
+                // Convert to base64 (JPEG is smaller/faster for photos, PNG better for text crispness. PNG default)
+                const dataUrl = canvas.toDataURL("image/png");
+                // Remove prefix for API
+                const base64 = dataUrl.replace(/^data:image\/[a-z]+;base64,/, "");
+                images.push(base64);
+            }
+        }
+        return images;
+    }
+
     async function handleExtract() {
         if (!confirm("This will re-analyze the document and overwrite existing extraction data. Continue?")) return;
 
         setExtracting(true);
         try {
+            // 1. Try Server-Side Text Extraction
+            console.log("Attempting server-side extraction...");
             const res = await extractDetailedContent(id);
+
             if (res.success) {
-                if (res.count === 0) {
-                    alert("Extraction finished but found 0 items. The document might be empty.");
-                }
+                if (res.count === 0) alert("Extraction finished but found 0 items.");
                 loadData();
-            } else {
-                alert("Extraction failed: " + (res.error || "Unknown Error"));
+                return;
             }
-        } catch (e) {
-            alert("Error running extraction");
+
+            // 2. Check for Scanned PDF Fallback
+            if (res.error === "SCANNED_PDF_DETECTED" && showPreview) {
+                console.log("Scanned PDF detected. Switching to Client-Side Image Rendering...");
+
+                const images = await convertPdfToImages(iframeSrc);
+                console.log(`Generated ${images.length} images from PDF.`);
+
+                // 3. Send Images to Server
+                const imgRes = await extractDetailedContent(id, images);
+
+                if (imgRes.success) {
+                    loadData();
+                } else {
+                    alert("Image Extraction failed: " + (imgRes.error || "Unknown Error"));
+                }
+                return;
+            }
+
+            // Normal Error
+            alert("Extraction failed: " + (res.error || "Unknown Error"));
+
+        } catch (e: any) {
+            console.error(e);
+            alert("Error running extraction: " + e.message);
         } finally {
             setExtracting(false);
         }

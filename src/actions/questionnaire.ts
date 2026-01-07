@@ -55,29 +55,11 @@ export async function getQuestionnaireById(id: string) {
 }
 
 // AI Mapper Integration
-import { processDocumentBuffer, generateMappingSuggestions, extractQuestionnaireItems } from "./ai-mapper";
+import { processDocumentBuffer, extractQuestionnaireItems } from "./ai-mapper";
 
-export async function analyzeQuestionnaire(id: string) {
-    if (!(await canManageQuestionnaire(id))) {
-        throw new Error("Unauthorized");
-    }
-    const q = await prisma.questionnaire.findUnique({ where: { id } });
-    if (!q || !q.fileContent) throw new Error("Questionnaire not found or has no file");
 
-    // 1. Process the buffer
-    const processed = await processDocumentBuffer(Buffer.from(q.fileContent), q.fileType, q.fileName);
 
-    // 2. Run AI
-    const suggestions = await generateMappingSuggestions(processed);
-
-    return {
-        suggestions,
-        fiOrgId: q.fiOrgId,
-        questionnaireName: q.name
-    };
-}
-
-export async function extractDetailedContent(id: string) {
+export async function extractDetailedContent(id: string, images?: string[]) {
     if (!(await canManageQuestionnaire(id))) {
         return { success: false, error: "Unauthorized" };
     }
@@ -85,7 +67,20 @@ export async function extractDetailedContent(id: string) {
     if (!q || !q.fileContent) throw new Error("Questionnaire not found");
 
     try {
-        const processed = await processDocumentBuffer(Buffer.from(q.fileContent), q.fileType, q.fileName);
+        let processed;
+
+        if (images && images.length > 0) {
+            // Client-side provided images (Scanned PDF fallback)
+            processed = {
+                content: images,
+                type: "image" as "image", // explicit cast
+                mime: "image/png"
+            };
+        } else {
+            // Standard Server-side processing
+            processed = await processDocumentBuffer(Buffer.from(q.fileContent), q.fileType, q.fileName);
+        }
+
         const extractedItems = await extractQuestionnaireItems(processed);
 
         await prisma.questionnaire.update({
