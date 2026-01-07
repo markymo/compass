@@ -204,3 +204,53 @@
 [2026-01-07T16:01:06.850Z] [AI Learning] Upserting section: CORE (Core Details) for LE 8f522269-ec1a-4fad-a717-1d276fcc0b8d 
 [2026-01-07T16:01:06.891Z] [AI Learning] Upsert successful for CORE 
 [2026-01-07T16:01:06.892Z] [AI Learning] Successfully updated 1 sections. 
+[2026-01-07T20:14:32.928Z] [learnFromAnswers] Called for LE 8f522269-ec1a-4fad-a717-1d276fcc0b8d with 3 pairs 
+[2026-01-07T20:14:32.944Z] [learnFromAnswers] Valid pairs after filtering: 3 [
+  {
+    "question": "Entity name(s): ",
+    "answer": "Topco Bravo 6"
+  },
+  {
+    "question": "Please, confirm whether the entities below do business*** with following embargoed countries: Belarus, Libya, Myanmar, Russian Federation, Somalia, Venezuela, Zimbabwe and regions of Ukraine (Crimea, The Donbas, Kherson, Zaporizhzhia).",
+    "answer": "No Entity here does business with any of those embargoed countries."
+  },
+  {
+    "question": "German Taxpayer Identification Number (TIN): Please provide the following: Please provide the German TIN of Gode Wind 3 Investor GmbH",
+    "answer": "Ger123123456456XY"
+  }
+]
+[2026-01-07T20:14:32.983Z] [AI Learning] Analyzing 3 answers for LE 8f522269-ec1a-4fad-a717-1d276fcc0b8d 
+[2026-01-07T20:14:34.841Z] [AI Learning] AI proposed updates for 1 sections. [
+  {
+    "category": "Compliance & Regulation",
+    "content": "- **Embargo Compliance:**\n  - The company does not conduct business with the following embargoed countries: Belarus, Libya, Myanmar, Russian Federation, Somalia, Venezuela, Zimbabwe, and regions of Ukraine (Crimea, The Donbas, Kherson, Zaporizhzhia).\n\n- **Anti-corruption Program:**\n  - The company has an anti-corruption program to prevent, detect, and report bribery and corruption.\n  - Specific anti-corruption policies and procedures are in place.\n  - A designated officer or officers with sufficient experience have been appointed to coordinate the anti-corruption program."
+  }
+]
+[2026-01-07T20:14:34.842Z] [AI Learning] Upserting section: COMPLIANCE (Compliance & Regulation) for LE 8f522269-ec1a-4fad-a717-1d276fcc0b8d 
+[2026-01-07T20:14:34.889Z] [AI Learning] Upsert successful for COMPLIANCE 
+[2026-01-07T20:14:34.889Z] [AI Learning] Successfully updated 1 sections. 
+[2026-01-07T20:15:17.376Z] [learnFromAnswers] Called for LE 8f522269-ec1a-4fad-a717-1d276fcc0b8d with 3 pairs 
+[2026-01-07T20:15:17.388Z] [learnFromAnswers] Valid pairs after filtering: 3 [
+  {
+    "question": "Entity name(s): ",
+    "answer": "Topco Bravo 6"
+  },
+  {
+    "question": "Please, confirm whether the entities below do business*** with following embargoed countries: Belarus, Libya, Myanmar, Russian Federation, Somalia, Venezuela, Zimbabwe and regions of Ukraine (Crimea, The Donbas, Kherson, Zaporizhzhia).",
+    "answer": "No Entity here does business with any of those embargoed countries."
+  },
+  {
+    "question": "German Taxpayer Identification Number (TIN): Please provide the following: Please provide the German TIN of Gode Wind 3 Investor GmbH",
+    "answer": "Ger123123456456XY"
+  }
+]
+[2026-01-07T20:15:17.404Z] [AI Learning] Analyzing 3 answers for LE 8f522269-ec1a-4fad-a717-1d276fcc0b8d 
+[2026-01-07T20:15:19.539Z] [AI Learning] AI proposed updates for 1 sections. [
+  {
+    "category": "Compliance & Regulation",
+    "content": "- **Embargo Compliance:**\n  - The company does not conduct business with the following embargoed countries: Belarus, Libya, Myanmar, Russian Federation, Somalia, Venezuela, Zimbabwe, and regions of Ukraine (Crimea, The Donbas, Kherson, Zaporizhzhia).\n  - No entity within the company does business with any of these embargoed countries.\n\n- **Anti-corruption Program:**\n  - The company has an anti-corruption program to prevent, detect, and report bribery and corruption.\n  - Specific anti-corruption policies and procedures are in place.\n  - A designated officer or officers with sufficient experience have been appointed to coordinate the anti-corruption program."
+  }
+]
+[2026-01-07T20:15:19.540Z] [AI Learning] Upserting section: COMPLIANCE (Compliance & Regulation) for LE 8f522269-ec1a-4fad-a717-1d276fcc0b8d 
+[2026-01-07T20:15:19.559Z] [AI Learning] Upsert successful for COMPLIANCE 
+[2026-01-07T20:15:19.559Z] [AI Learning] Successfully updated 1 sections. 

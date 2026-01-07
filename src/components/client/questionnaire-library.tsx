@@ -207,7 +207,7 @@ export function QuestionnaireLibrary({ leId }: QuestionnaireLibraryProps) {
                         </p>
                     </div>
                 ) : (
-                    <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-4">
                         {engagements.map((eng) => (
                             <Card key={eng.id} className="overflow-hidden group hover:shadow-md transition-shadow border-slate-200">
                                 <CardHeader className="pb-3 bg-slate-50/50 border-b">

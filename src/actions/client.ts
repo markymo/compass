@@ -227,3 +227,82 @@ export async function updateClientLE(leId: string, data: { description: string }
         return { success: false, error: "Failed to update legal entity" };
     }
 }
+
+// 6. Get Dashboard Metrics (Mission Control)
+export async function getDashboardMetrics(leId: string) {
+    const { userId } = await auth();
+    if (!userId) return null;
+
+    // A. Fetch Core Data
+    const le = await prisma.clientLE.findUnique({
+        where: { id: leId },
+        include: {
+            standingDataSections: true,
+            fiEngagements: {
+                include: {
+                    org: true,
+                    questionnaires: true
+                }
+            }
+        }
+    });
+
+    if (!le) return null;
+
+    // B. Calculate Scores
+    // 1. Standing Data Score (Target: 5 key sections)
+    // Core, Legal, Geo, Products, Compliance
+    const standingDataCount = le.standingDataSections.length;
+    const standingDataScore = Math.min(standingDataCount, 5) / 5 * 60; // Max 60 points
+
+    // 2. Questionnaire Score
+    let totalQuestions = 0;
+    let answeredQuestions = 0;
+
+    // Iterate through all questionnaires in all engagements
+    for (const eng of le.fiEngagements) {
+        for (const q of eng.questionnaires) {
+            if (q.extractedContent && Array.isArray(q.extractedContent)) {
+                const items = q.extractedContent as any[];
+                const questions = items.filter(i => i.type === "QUESTION");
+                totalQuestions += questions.length;
+                answeredQuestions += questions.filter(i => !!i.answer).length;
+            }
+        }
+    }
+
+    const questionnaireScore = totalQuestions > 0
+        ? (answeredQuestions / totalQuestions) * 40 // Max 40 points
+        : 0;
+
+    // C. Activity Feed (Mocking User's Activity as "Team Activity" for now)
+    const logs = await prisma.usageLog.findMany({
+        where: { userId }, // In a real app, this would be where: { orgId: le.clientOrgId }
+        orderBy: { createdAt: 'desc' },
+        take: 5
+    });
+
+    return {
+        readiness: {
+            total: Math.round(standingDataScore + questionnaireScore),
+            standingData: Math.round(standingDataScore),
+            questionnaires: Math.round(questionnaireScore),
+            details: {
+                sectionsCompleted: standingDataCount,
+                questionsAnswered: answeredQuestions,
+                totalQuestions: totalQuestions
+            }
+        },
+        pipeline: le.fiEngagements.map(e => ({
+            id: e.id,
+            fiName: e.org.name,
+            status: e.status
+        })),
+        activity: logs.map(l => ({
+            id: l.id,
+            action: l.action,
+            time: l.createdAt,
+            user: "You" // We only fetch current user's logs for now
+        }))
+    };
+}

@@ -894,3 +894,210 @@
   "sourceQuote": "",
   "reasoning": "The Standing Data does not provide an address."
 }
+[2026-01-07T20:13:54.924Z] [generateAnswers] START for LE 8f522269-ec1a-4fad-a717-1d276fcc0b8d, Q 539fdeee-2129-43bc-8828-7230cce7d64e (Locked: 0) 
+[2026-01-07T20:13:55.159Z] [generateAnswers] Found 2 sections 
+[2026-01-07T20:13:55.159Z] [generateAnswers] Context Text Preview "SECTION: CORE\nCONTENT:\n- **Name of the Company:** Topco Bravo 6\n- **German Taxpayer Identification Number (TIN):** Ger123123456456XY for Gode Wind 3 Investor GmbH\n- **Address:** No. 1 London\n\n---\nSECTION: COMPLIANCE\nCONTENT:\n- **Embargo Compliance:**\n  - The company does not conduct business with the following embargoed countries: Belarus, Libya, Myanmar, Russian Federation, Somalia, Venezuela, Zimbabwe, and regions of Ukraine (Crimea, The Donbas, Kherson, Zaporizhzhia).\n- **Anti-corruption Prog"
+[2026-01-07T20:13:55.214Z] [generateAnswers] Found 18 questions 
+[2026-01-07T20:13:55.214Z] [AutoFill] Sending request to AI... 
+[2026-01-07T20:13:58.931Z] [generateAnswers] Error: {
+  "name": "AI_NoObjectGeneratedError",
+  "cause": {
+    "name": "AI_TypeValidationError",
+    "cause": {
+      "name": "ZodError",
+      "message": "[\n  {\n    \"expected\": \"array\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"answers\"\n    ],\n    \"message\": \"Invalid input: expected array, received undefined\"\n  }\n]"
+    },
+    "value": {
+      "type": "object",
+      "properties": {
+        "answers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "questionIndex": {
+                "description": "The numeric ID of the question provided in the input",
+                "type": "number"
+              },
+              "answer": {
+                "description": "The answer to the question based ONLY on the Standing Data",
+                "type": "string"
+              },
+              "confidence": {
+                "description": "Confidence score. 1.0 = Exact match in data. 0.1 = Wild guess.",
+                "type": "number"
+              },
+              "sourceQuote": {
+                "description": "Verbatim quote from the Standing Data that supports this answer",
+                "type": "string"
+              },
+              "reasoning": {
+                "description": "Brief explanation of why this answer was chosen",
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "text": "{\"type\":\"object\",\"properties\":{\"answers\":{\"type\":\"array\",\"items\":{\"type\":\"object\",\"properties\":{\"questionIndex\":{\"description\":\"The numeric ID of the question provided in the input\",\"type\":\"number\"},\"answer\":{\"description\":\"The answer to the question based ONLY on the Standing Data\",\"type\":\"string\"},\"confidence\":{\"description\":\"Confidence score. 1.0 = Exact match in data. 0.1 = Wild guess.\",\"type\":\"number\"},\"sourceQuote\":{\"description\":\"Verbatim quote from the Standing Data that supports this answer\",\"type\":\"string\"},\"reasoning\":{\"description\":\"Brief explanation of why this answer was chosen\",\"type\":\"string\"}}}}}}",
+  "response": {
+    "id": "resp_0df402fec646acb000695ebe840d908196b3aa3c2df2cdc735",
+    "timestamp": "2026-01-07T20:13:56.000Z",
+    "modelId": "gpt-4o-2024-08-06",
+    "headers": {
+      "alt-svc": "h3=\":443\"; ma=86400",
+      "cf-cache-status": "DYNAMIC",
+      "cf-ray": "9ba61e55397534ff-LHR",
+      "connection": "keep-alive",
+      "content-encoding": "br",
+      "content-type": "application/json",
+      "date": "Wed, 07 Jan 2026 20:13:58 GMT",
+      "openai-organization": "user-vrsooq7cta2shxvejg0epzcs",
+      "openai-processing-ms": "2720",
+      "openai-project": "proj_edSfq1tJXX9DG0MZ8R39ReY7",
+      "openai-version": "2020-10-01",
+      "server": "cloudflare",
+      "set-cookie": "_cfuvid=NgLS0OIldAPRdxNGgtf0YAo0GUGdkLXbrovdIYc7928-1767816838824-0.0.1.1-604800000; path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None",
+      "strict-transport-security": "max-age=31536000; includeSubDomains; preload",
+      "transfer-encoding": "chunked",
+      "x-content-type-options": "nosniff",
+      "x-envoy-upstream-service-time": "2722",
+      "x-ratelimit-limit-requests": "10000",
+      "x-ratelimit-limit-tokens": "30000000",
+      "x-ratelimit-remaining-requests": "9999",
+      "x-ratelimit-remaining-tokens": "29998627",
+      "x-ratelimit-reset-requests": "6ms",
+      "x-ratelimit-reset-tokens": "2ms",
+      "x-request-id": "req_0ce82c0a34af49d28d25eb900e9da48e"
+    },
+    "body": {
+      "id": "resp_0df402fec646acb000695ebe840d908196b3aa3c2df2cdc735",
+      "object": "response",
+      "created_at": 1767816836,
+      "status": "completed",
+      "background": false,
+      "billing": {
+        "payer": "openai"
+      },
+      "completed_at": 1767816838,
+      "error": null,
+      "incomplete_details": null,
+      "instructions": null,
+      "max_output_tokens": null,
+      "max_tool_calls": null,
+      "model": "gpt-4o-2024-08-06",
+      "output": [
+        {
+          "id": "msg_0df402fec646acb000695ebe84acc8819684f54eb013988ee6",
+          "type": "message",
+          "status": "completed",
+          "content": [
+            {
+              "type": "output_text",
+              "annotations": [],
+              "logprobs": [],
+              "text": "{\"type\":\"object\",\"properties\":{\"answers\":{\"type\":\"array\",\"items\":{\"type\":\"object\",\"properties\":{\"questionIndex\":{\"description\":\"The numeric ID of the question provided in the input\",\"type\":\"number\"},\"answer\":{\"description\":\"The answer to the question based ONLY on the Standing Data\",\"type\":\"string\"},\"confidence\":{\"description\":\"Confidence score. 1.0 = Exact match in data. 0.1 = Wild guess.\",\"type\":\"number\"},\"sourceQuote\":{\"description\":\"Verbatim quote from the Standing Data that supports this answer\",\"type\":\"string\"},\"reasoning\":{\"description\":\"Brief explanation of why this answer was chosen\",\"type\":\"string\"}}}}}}"
+            }
+          ],
+          "role": "assistant"
+        }
+      ],
+      "parallel_tool_calls": true,
+      "previous_response_id": null,
+      "prompt_cache_key": null,
+      "prompt_cache_retention": null,
+      "reasoning": {
+        "effort": null,
+        "summary": null
+      },
+      "safety_identifier": null,
+      "service_tier": "default",
+      "store": true,
+      "temperature": 1,
+      "text": {
+        "format": {
+          "type": "json_schema",
+          "description": null,
+          "name": "response",
+          "schema": {
+            "type": "object",
+            "properties": {
+              "answers": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "questionIndex": {
+                      "description": "The numeric ID of the question provided in the input",
+                      "type": "number"
+                    },
+                    "answer": {
+                      "description": "The answer to the question based ONLY on the Standing Data",
+                      "type": "string"
+                    },
+                    "confidence": {
+                      "description": "Confidence score. 1.0 = Exact match in data. 0.1 = Wild guess.",
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1
+                    },
+                    "sourceQuote": {
+                      "description": "Verbatim quote from the Standing Data that supports this answer",
+                      "type": "string"
+                    },
+                    "reasoning": {
+                      "description": "Brief explanation of why this answer was chosen",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "questionIndex",
+                    "answer",
+                    "confidence",
+                    "sourceQuote",
+                    "reasoning"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "answers"
+            ],
+            "additionalProperties": false
+          },
+          "strict": false
+        },
+        "verbosity": "medium"
+      },
+      "tool_choice": "auto",
+      "tools": [],
+      "top_logprobs": 0,
+      "top_p": 1,
+      "truncation": "disabled",
+      "usage": {
+        "input_tokens": 1354,
+        "input_tokens_details": {
+          "cached_tokens": 0
+        },
+        "output_tokens": 136,
+        "output_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "total_tokens": 1490
+      },
+      "user": null,
+      "metadata": {}
+    }
+  },
+  "usage": {
+    "inputTokens": 1354,
+    "outputTokens": 136,
+    "totalTokens": 1490,
+    "reasoningTokens": 0,
+    "cachedInputTokens": 0
+  },
+  "finishReason": "stop"
+}
