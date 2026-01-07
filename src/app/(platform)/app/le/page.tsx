@@ -1,65 +1,162 @@
-
 import { getClientLEs } from "@/actions/client";
 import { CreateLEDialog } from "@/components/client/create-le-dialog";
-import { auth } from "@clerk/nextjs/server";
+import { auth, currentUser } from "@clerk/nextjs/server";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
-import { Briefcase, ArrowRight } from "lucide-react";
+import { Briefcase, ArrowRight, Building2, FileText, CheckCircle2, Cloud, AlertCircle, Shield } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
 export default async function ClientEntitiesPage() {
     const { userId } = await auth();
+    const user = await currentUser();
     const les = await getClientLEs();
 
+    // Calculate Stats
+    const totalEntities = les.length;
+    const activeEngagements = les.reduce((acc, le) => acc + le.fiEngagements.length, 0);
+    const activeQuestionnaires = les.reduce((acc, le) =>
+        acc + le.fiEngagements.reduce((qAcc, eng) => qAcc + eng.questionnaires.length, 0), 0
+    );
+
     return (
-        <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Legal Entities</h1>
-                    <p className="text-muted-foreground">Manage your Legal Entities and Data.</p>
+        <div className="space-y-8 pb-12">
+            {/* Hero Section */}
+            <div className="bg-slate-50 -mx-6 -mt-6 px-6 py-12 border-b border-slate-200">
+                <div className="max-w-5xl mx-auto">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                        <div>
+                            <h1 className="text-3xl font-bold tracking-tight text-slate-900">
+                                Welcome back, {user?.firstName || 'User'}
+                            </h1>
+                            <p className="text-slate-600 mt-2 text-lg">
+                                Manage your legal entities and banking relationships in one place.
+                            </p>
+                        </div>
+                        <CreateLEDialog />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
+                        <Card className="bg-white/50 border-slate-200 shadow-sm">
+                            <CardContent className="pt-6 flex items-center gap-4">
+                                <div className="p-2 bg-indigo-100 text-indigo-600 rounded-lg">
+                                    <Shield className="h-6 w-6" />
+                                </div>
+                                <div>
+                                    <p className="text-2xl font-bold text-slate-900">{totalEntities}</p>
+                                    <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Legal Entities</p>
+                                </div>
+                            </CardContent>
+                        </Card>
+                        <Card className="bg-white/50 border-slate-200 shadow-sm">
+                            <CardContent className="pt-6 flex items-center gap-4">
+                                <div className="p-2 bg-emerald-100 text-emerald-600 rounded-lg">
+                                    <Building2 className="h-6 w-6" />
+                                </div>
+                                <div>
+                                    <p className="text-2xl font-bold text-slate-900">{activeEngagements}</p>
+                                    <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Active Banks</p>
+                                </div>
+                            </CardContent>
+                        </Card>
+                        <Card className="bg-white/50 border-slate-200 shadow-sm">
+                            <CardContent className="pt-6 flex items-center gap-4">
+                                <div className="p-2 bg-blue-100 text-blue-600 rounded-lg">
+                                    <FileText className="h-6 w-6" />
+                                </div>
+                                <div>
+                                    <p className="text-2xl font-bold text-slate-900">{activeQuestionnaires}</p>
+                                    <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Questionnaires</p>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
                 </div>
-                <CreateLEDialog />
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {les.map((le) => (
-                    <div key={le.id} className="relative group">
-                        <Link href={`/app/le/${le.id}`}>
-                            <Card className="hover:bg-muted/50 transition-colors cursor-pointer h-full">
-                                <CardHeader>
-                                    <div className="flex items-center justify-between">
-                                        <CardTitle>{le.name}</CardTitle>
-                                        <Badge variant="outline" className="text-[10px] bg-blue-50 text-blue-700 border-blue-200">
-                                            v1
-                                        </Badge>
-                                    </div>
-                                    <CardDescription>{le.jurisdiction}</CardDescription>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className={`text-xs font-mono px-2 py-1 rounded inline-block ${le.status === 'ACTIVE' ? 'bg-green-100 text-green-800' : 'bg-gray-100'}`}>
-                                        {le.status}
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </Link>
+            {/* Entity List */}
+            <div className="max-w-5xl mx-auto space-y-6">
+                <h2 className="text-xl font-semibold text-slate-800">Your Entities</h2>
 
-                        {/* V2 Quick Link */}
-                        <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Link href={`/app/le/${le.id}/v2`}>
-                                <Button size="sm" className="bg-amber-600 hover:bg-amber-700 text-white gap-2 shadow-sm">
-                                    Try V2 <ArrowRight className="h-3 w-3" />
-                                </Button>
-                            </Link>
+                {les.length === 0 ? (
+                    <div className="text-center py-20 border-2 border-dashed rounded-xl bg-slate-50/50">
+                        <div className="flex flex-col items-center gap-3">
+                            <div className="p-4 bg-white rounded-full shadow-sm">
+                                <Briefcase className="h-8 w-8 text-slate-400" />
+                            </div>
+                            <h3 className="text-lg font-medium text-slate-900">No entities found</h3>
+                            <p className="text-slate-500 max-w-sm">Create your first legal entity to start managing your compliance data.</p>
                         </div>
                     </div>
-                ))}
-                {les.length === 0 && (
-                    <div className="col-span-full text-center py-12 border-2 border-dashed rounded-lg text-muted-foreground">
-                        <div className="flex flex-col items-center gap-2">
-                            <Briefcase className="h-8 w-8 opacity-50" />
-                            <p>No entities found. Create one to get started.</p>
-                        </div>
+                ) : (
+                    <div className="grid gap-6">
+                        {les.map((le) => (
+                            <Card key={le.id} className="overflow-hidden shadow-sm hover:shadow-md transition-shadow border-slate-200">
+                                <div className="flex flex-col md:flex-row">
+                                    {/* Left: Entity Info */}
+                                    <div className="p-6 md:w-1/3 bg-slate-50/50 border-b md:border-b-0 md:border-r border-slate-100 flex flex-col justify-between">
+                                        <div>
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <Badge variant="outline" className="bg-white shadow-sm border-slate-200 text-slate-600">
+                                                    {le.jurisdiction || 'Unknown Jurisdiction'}
+                                                </Badge>
+                                                {le.status === 'ACTIVE' && (
+                                                    <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border-none">Active</Badge>
+                                                )}
+                                            </div>
+                                            <h3 className="text-xl font-bold text-slate-900">{le.name}</h3>
+                                            <p className="text-sm text-slate-500 mt-2 line-clamp-2">
+                                                {le.description || "No description provided."}
+                                            </p>
+                                        </div>
+                                        <div className="mt-6 pt-6 border-t border-slate-200/50">
+                                            <Link href={`/app/le/${le.id}/v2`}>
+                                                <Button className="w-full gap-2 group">
+                                                    Manage Entity
+                                                    <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                                                </Button>
+                                            </Link>
+                                        </div>
+                                    </div>
+
+                                    {/* Right: Engagements */}
+                                    <div className="p-6 md:w-2/3">
+                                        <h4 className="text-sm font-semibold text-slate-900 flex items-center gap-2 mb-4">
+                                            <Cloud className="h-4 w-4 text-indigo-500" />
+                                            Active Banking Relationships
+                                        </h4>
+
+                                        {le.fiEngagements.length === 0 ? (
+                                            <div className="flex flex-col items-center justify-center py-8 text-slate-400 bg-slate-50 rounded-lg border border-dashed border-slate-200">
+                                                <AlertCircle className="h-8 w-8 mb-2 opacity-50" />
+                                                <p className="text-sm">No active banking engagements</p>
+                                            </div>
+                                        ) : (
+                                            <div className="grid gap-3">
+                                                {le.fiEngagements.map((eng) => (
+                                                    <div key={eng.id} className="flex items-center justify-between p-3 rounded-lg border border-slate-100 bg-white hover:border-indigo-100 hover:bg-indigo-50/30 transition-colors group">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 font-bold text-xs">
+                                                                {eng.org.name.substring(0, 2).toUpperCase()}
+                                                            </div>
+                                                            <div>
+                                                                <p className="font-medium text-slate-900 text-sm">{eng.org.name}</p>
+                                                                <p className="text-xs text-slate-500 flex items-center gap-1">
+                                                                    {eng.questionnaires.length} Questionnaires
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                        <Badge variant="secondary" className="text-[10px] uppercase">
+                                                            {eng.status}
+                                                        </Badge>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </Card>
+                        ))}
                     </div>
                 )}
             </div>

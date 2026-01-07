@@ -70,20 +70,27 @@ export async function ensureUserOrg(userId: string, userEmail: string = "") {
     return newOrg;
 }
 
-// 1. Get List of Client LEs
+// 1. Get List of Client LEs with Dashboard Data
 export async function getClientLEs() {
     const { userId, sessionClaims } = await auth();
     if (!userId) return [];
 
     // Get the user's Org
-    // We use sessionClaims or just fetch from DB. 
-    // For V1 demo, let's fetch/create on fly.
     const email = (sessionClaims?.email as string) || "";
     const org = await ensureUserOrg(userId, email);
 
     return await prisma.clientLE.findMany({
         where: {
             clientOrgId: org.id
+        },
+        include: {
+            // Fetch engagements to show which banks they are working with
+            fiEngagements: {
+                include: {
+                    org: true, // The Bank Name
+                    questionnaires: true // Assigned questionnaires
+                }
+            }
         },
         orderBy: { createdAt: 'desc' },
     });
