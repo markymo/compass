@@ -6,7 +6,7 @@ import { learnFromAnswers } from "@/actions/ai-learning";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Sparkles, Check, Wand2 } from "lucide-react";
+import { Loader2, Sparkles, Check, Wand2, Lock, Unlock } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 
@@ -29,7 +29,12 @@ export function QuestionnaireFiller({ leId, questionnaireId, initialQuestions }:
         setIsGenerating(true);
         // alert("Summoning the Ghostwriter..."); 
 
-        const res = await generateAnswers(leId, questionnaireId);
+        // Identify Locked Questions (using original index)
+        const lockedIndices = questions
+            .map((q: any, i: number) => (q.isLocked ? i : -1))
+            .filter((i: number) => i !== -1);
+
+        const res = await generateAnswers(leId, questionnaireId, lockedIndices);
 
         if (res.success && res.data) {
             // EXPOSE AI DEBUG INFO TO CONSOLE
@@ -148,11 +153,23 @@ export function QuestionnaireFiller({ leId, questionnaireId, initialQuestions }:
 
                     const ghost = ghostAnswers[index.toString()];
                     const hasAnswer = !!item.answer;
+                    const isLocked = !!item.isLocked;
 
                     return (
-                        <Card key={index} className="overflow-visible border-slate-200 shadow-sm relative transition-all hover:border-slate-300">
+                        <Card key={index} className={`overflow-visible shadow-sm relative transition-all hover:border-slate-300 ${isLocked ? "border-slate-100 bg-slate-50/50 opacity-80" : "border-slate-200"}`}>
                             <CardContent className="pt-6 relative">
-                                <div className="absolute top-4 right-4 text-xs font-mono text-slate-300">#{index + 1}</div>
+                                <div className="absolute top-4 right-4 flex items-center gap-2">
+                                    <button
+                                        onClick={() => {
+                                            setQuestions(prev => prev.map((q, i) => i === index ? { ...q, isLocked: !q.isLocked } : q));
+                                        }}
+                                        className={`text-slate-400 hover:text-slate-600 transition-colors p-1 rounded-full ${isLocked ? "text-amber-500 bg-amber-50 hover:bg-amber-100 hover:text-amber-600" : ""}`}
+                                        title={isLocked ? "Unlock Answer" : "Lock Answer to prevent Auto-Fill"}
+                                    >
+                                        {isLocked ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
+                                    </button>
+                                    <span className="text-xs font-mono text-slate-300">#{index + 1}</span>
+                                </div>
 
                                 <div className="space-y-4">
                                     <div>
@@ -168,21 +185,26 @@ export function QuestionnaireFiller({ leId, questionnaireId, initialQuestions }:
                                     <div className="relative">
                                         {/* Real Answer (if accepted) */}
                                         {hasAnswer ? (
-                                            <Textarea
-                                                className="bg-white border-slate-300 text-slate-900 font-medium min-h-[80px]"
-                                                value={item.answer}
-                                                onChange={(e) => {
-                                                    const val = e.target.value;
-                                                    setQuestions(prev => prev.map((q, i) => i === index ? { ...q, answer: val } : q));
-                                                }}
-                                            />
+                                            <div className="relative">
+                                                <Textarea
+                                                    className={`bg-white border-slate-300 text-slate-900 font-medium min-h-[80px] ${isLocked ? "bg-slate-50 text-slate-500 select-none pointer-events-none" : ""}`}
+                                                    value={item.answer}
+                                                    onChange={(e) => {
+                                                        if (isLocked) return;
+                                                        const val = e.target.value;
+                                                        setQuestions(prev => prev.map((q, i) => i === index ? { ...q, answer: val } : q));
+                                                    }}
+                                                    readOnly={isLocked}
+                                                />
+                                                {isLocked && <div className="absolute inset-0 z-10 cursor-not-allowed" title="Unlock to edit" />}
+                                            </div>
                                         ) : ghost ? (
-                                            // Ghost Answer Overlay
+                                            // Ghost Answer Overlay (Same as before)
                                             <div className="group relative">
+                                                {/* ... Ghost Logic ... Actually I need to copy the ghost logic back or it gets lost ... */}
                                                 <div className={`p-3 rounded-md border-2 border-dashed ${getConfidenceColor(ghost.confidence)} transition-colors`}>
                                                     <p className="italic font-medium text-slate-800">{ghost.suggestedAnswer}</p>
 
-                                                    {/* Audit Data Inline */}
                                                     <div className="mt-3 pt-3 border-t border-slate-200/50 text-xs text-slate-500 space-y-1">
                                                         <div className="flex items-start gap-2">
                                                             <Badge variant="secondary" className="bg-white/50 border shrink-0">
@@ -217,9 +239,12 @@ export function QuestionnaireFiller({ leId, questionnaireId, initialQuestions }:
                                                 placeholder="Type your answer here..."
                                                 value=""
                                                 onChange={(e) => {
+                                                    // Locking doesn't matter for empty? Well, yes it does.
+                                                    if (isLocked) return;
                                                     const val = e.target.value;
                                                     setQuestions(prev => prev.map((q, i) => i === index ? { ...q, answer: val } : q));
                                                 }}
+                                                readOnly={isLocked}
                                             />
                                         )}
                                     </div>

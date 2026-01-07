@@ -34,8 +34,8 @@ function logToFile(msg: string, data?: any) {
     }
 }
 
-export async function generateAnswers(leId: string, questionnaireId: string): Promise<{ success: boolean; data?: SuggestedAnswer[]; debugMessages?: any[]; error?: string }> {
-    logToFile(`[generateAnswers] START for LE ${leId}, Q ${questionnaireId}`);
+export async function generateAnswers(leId: string, questionnaireId: string, lockedQuestionIds: number[] = []): Promise<{ success: boolean; data?: SuggestedAnswer[]; debugMessages?: any[]; error?: string }> {
+    logToFile(`[generateAnswers] START for LE ${leId}, Q ${questionnaireId} (Locked: ${lockedQuestionIds.length})`);
 
     const { userId } = await auth();
     if (!userId) return { success: false, error: "Unauthorized" };
@@ -72,9 +72,19 @@ export async function generateAnswers(leId: string, questionnaireId: string): Pr
 
         const items = questionnaire.extractedContent as any[];
         // Map to preserve original index, then filter for "QUESTION"
+        // AND exclude locked questions (either passed from client OR persisted in DB)
         const questions = items
             .map((item, idx) => ({ ...item, originalIndex: idx }))
-            .filter((item: any) => item.type === "QUESTION");
+            .filter((item: any) => {
+                if (item.type !== "QUESTION") return false;
+
+                // Check if unlocked
+                const isLockedLocally = lockedQuestionIds.includes(item.originalIndex);
+                // Future proofing: check persisted lock status
+                const isLockedPersisted = !!item.isLocked;
+
+                return !isLockedLocally && !isLockedPersisted;
+            });
 
         if (questions.length === 0) {
             return { success: false, error: "No questions found in this document." };

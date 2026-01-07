@@ -64,15 +64,12 @@ export function QuestionnaireLibrary({ leId }: QuestionnaireLibraryProps) {
 
     useEffect(() => {
         fetchLibrary();
+        handleSearch(); // Load defaults immediately
     }, [leId]);
 
     useEffect(() => {
         const timer = setTimeout(() => {
-            if (searchQuery.length > 2) {
-                handleSearch();
-            } else {
-                setSearchResults([]);
-            }
+            handleSearch();
         }, 500);
         return () => clearTimeout(timer);
     }, [searchQuery]);
@@ -278,8 +275,8 @@ export function QuestionnaireLibrary({ leId }: QuestionnaireLibraryProps) {
             </div>
 
             {/* Right Column: Discovery */}
-            <div className="space-y-6">
-                <div className="bg-white border rounded-xl shadow-sm overflow-hidden">
+            <div className="space-y-6 h-full">
+                <div className="bg-white border rounded-xl shadow-sm overflow-hidden flex flex-col h-full min-h-[600px]">
                     <div className="p-4 border-b bg-slate-50/80">
                         <h3 className="font-bold text-slate-900 flex items-center gap-2">
                             <PlusCircle className="h-4 w-4 text-slate-500" />
@@ -329,34 +326,16 @@ export function QuestionnaireLibrary({ leId }: QuestionnaireLibraryProps) {
                                 </div>
                             ) : (
                                 <div className="text-center py-8 space-y-2">
-                                    <p className="text-xs text-slate-400 italic">Try searching for "Barclays" or "Compliance"</p>
+                                    <p className="text-xs text-slate-400 italic">Start typing to search...</p>
                                 </div>
                             )}
                         </div>
                     </div>
                 </div>
-
-                <Card className="bg-slate-900 text-white border-none shadow-xl shadow-slate-200">
-                    <CardHeader className="pb-3">
-                        <CardTitle className="text-lg flex items-center gap-2">
-                            <Clock className="h-5 w-5 text-amber-400" />
-                            Next Move
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        <p className="text-slate-300 text-sm leading-relaxed">
-                            Once your library is ready, we'll start promiting data from these documents into your
-                            <span className="text-white font-semibold"> Master Standing Data</span>.
-                        </p>
-                        <div className="p-3 bg-white/10 rounded-lg border border-white/10">
-                            <p className="text-[10px] uppercase font-bold text-slate-400 tracking-widest mb-1">Coming Soon</p>
-                            <p className="text-xs text-white">AI-Drafting of Standing Data from Library contents.</p>
-                        </div>
-                    </CardContent>
-                </Card>
             </div>
         </div>
     );
+
 }
 
 // Helper icons

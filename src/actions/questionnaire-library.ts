@@ -50,12 +50,12 @@ export async function searchAvailableQuestionnaires(query: string) {
             where: {
                 status: "ACTIVE",
                 AND: [
-                    {
+                    query ? {
                         OR: [
                             { name: { contains: query, mode: 'insensitive' } },
                             { fiOrg: { name: { contains: query, mode: 'insensitive' } } }
                         ]
-                    },
+                    } : {},
                     {
                         OR: [
                             { ownerOrgId: null }, // Public System Questionnaires
@@ -68,7 +68,7 @@ export async function searchAvailableQuestionnaires(query: string) {
             include: {
                 fiOrg: true
             },
-            take: 10
+            take: 20
         });
 
         // Filter out if not sys admin and array logic failed (double check)

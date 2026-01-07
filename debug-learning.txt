@@ -142,3 +142,31 @@
 [2026-01-06T20:34:25.161Z] [AI Learning] Upserting section: CORE (Core Details) for LE 8f522269-ec1a-4fad-a717-1d276fcc0b8d 
 [2026-01-06T20:34:25.183Z] [AI Learning] Upsert successful for CORE 
 [2026-01-06T20:34:25.183Z] [AI Learning] Successfully updated 1 sections. 
+[2026-01-06T21:36:22.906Z] [learnFromAnswers] Called for LE 8f522269-ec1a-4fad-a717-1d276fcc0b8d with 3 pairs 
+[2026-01-06T21:36:22.921Z] [learnFromAnswers] Valid pairs after filtering: 3 [
+  {
+    "question": "Do you have an anti-corruption program to prevent, detect and report bribery and corruption?",
+    "answer": "Yes",
+    "category": "Compliance & Regulation"
+  },
+  {
+    "question": "Do you have specific anti-corruption policies and procedures?",
+    "answer": "Yes",
+    "category": "Compliance & Regulation"
+  },
+  {
+    "question": "Did you appoint a designated officer or officers with sufficient experience to coordinate your anti-corruption program?",
+    "answer": "Yes",
+    "category": "Compliance & Regulation"
+  }
+]
+[2026-01-06T21:36:22.957Z] [AI Learning] Analyzing 3 answers for LE 8f522269-ec1a-4fad-a717-1d276fcc0b8d 
+[2026-01-06T21:36:25.871Z] [AI Learning] AI proposed updates for 1 sections. [
+  {
+    "category": "Compliance & Regulation",
+    "content": "- **Embargo Compliance:**\n  - The company does not conduct business with the following embargoed countries: Belarus, Libya, Myanmar, Russian Federation, Somalia, Venezuela, Zimbabwe, and regions of Ukraine (Crimea, The Donbas, Kherson, Zaporizhzhia).\n- **Anti-corruption Program:**\n  - The company has an anti-corruption program to prevent, detect, and report bribery and corruption.\n  - Specific anti-corruption policies and procedures are in place.\n  - A designated officer or officers with sufficient experience have been appointed to coordinate the anti-corruption program."
+  }
+]
+[2026-01-06T21:36:25.872Z] [AI Learning] Upserting section: COMPLIANCE (Compliance & Regulation) for LE 8f522269-ec1a-4fad-a717-1d276fcc0b8d 
+[2026-01-06T21:36:25.909Z] [AI Learning] Upsert successful for COMPLIANCE 
+[2026-01-06T21:36:25.912Z] [AI Learning] Successfully updated 1 sections. 
