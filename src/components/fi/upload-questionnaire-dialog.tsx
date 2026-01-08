@@ -17,7 +17,7 @@ import { Loader2, Upload } from "lucide-react";
 import { uploadQuestionnaire } from "@/actions/fi";
 import { useRouter } from "next/navigation";
 
-export function UploadQuestionnaireDialog({ isAdmin }: { isAdmin?: boolean }) {
+export function UploadQuestionnaireDialog({ isAdmin, children }: { isAdmin?: boolean, children?: React.ReactNode }) {
     const [open, setOpen] = useState(false);
     const [loading, setLoading] = useState(false);
     const router = useRouter();
@@ -55,10 +55,12 @@ export function UploadQuestionnaireDialog({ isAdmin }: { isAdmin?: boolean }) {
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                <Button>
-                    <Upload className="w-4 h-4 mr-2" />
-                    Upload New
-                </Button>
+                {children ? children : (
+                    <Button>
+                        <Upload className="w-4 h-4 mr-2" />
+                        Upload New
+                    </Button>
+                )}
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px]">
                 <form onSubmit={onSubmit}>

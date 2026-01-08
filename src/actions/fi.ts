@@ -127,7 +127,75 @@ export async function getFIQuestionnaires() {
         where: { fiOrgId: org.id },
         orderBy: { updatedAt: 'desc' },
         include: {
-            // engagements: true 
+            engagements: true
         }
+    });
+}
+
+// --- New Dashboard Actions ---
+
+// 1. Get Dashboard Overview Stats
+export async function getFIDashboardStats() {
+    const org = await getFIOganization();
+    if (!org) return null;
+
+    const [questionnaires, engagements, queries] = await Promise.all([
+        prisma.questionnaire.count({ where: { fiOrgId: org.id } }),
+        prisma.fIEngagement.count({ where: { fiOrgId: org.id } }),
+        prisma.query.count({
+            where: {
+                engagement: { fiOrgId: org.id },
+                status: "OPEN"
+            }
+        })
+    ]);
+
+    return {
+        questionnaires,
+        engagements,
+        queries
+    };
+}
+
+// 2. Get Active Engagements with progress
+export async function getFIEngagements() {
+    const org = await getFIOganization();
+    if (!org) return [];
+
+    const engagements = await prisma.fIEngagement.findMany({
+        where: { fiOrgId: org.id },
+        include: {
+            clientLE: true,
+            questionnaires: {
+                select: {
+                    id: true,
+                    name: true,
+                    // We can't select json content effectively for deeper logic here easily without fetching it
+                    // For now, we'll just show which questionnaires are assigned
+                }
+            }
+        },
+        // orderBy: { updatedAt: 'desc' } // Removed as FIEngagement doesn't have updatedAt yet?
+    });
+
+    return engagements;
+}
+
+// 3. Get Query Inbox
+export async function getFIQueries() {
+    const org = await getFIOganization();
+    if (!org) return [];
+
+    return await prisma.query.findMany({
+        where: {
+            engagement: { fiOrgId: org.id },
+            status: "OPEN"
+        },
+        include: {
+            engagement: {
+                include: { clientLE: true }
+            }
+        },
+        orderBy: { createdAt: 'desc' }
     });
 }
