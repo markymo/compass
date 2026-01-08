@@ -138,6 +138,17 @@ model Questionnaire {
   // Privacy: If set, this questionnaire is only visible to this Org (and System Admins)
   ownerOrgId       String?
   ownerOrg         Organization?  @relation("OwnedQuestionnaires", fields: [ownerOrgId], references: [id])
+  versions         QuestionnaireVersion[]
+}
+
+model QuestionnaireVersion {
+  id              String        @id @default(uuid())
+  questionnaireId String
+  versionNumber   Int
+  snapshotData    Json
+  pdfContent      Bytes
+  createdAt       DateTime      @default(now())
+  questionnaire   Questionnaire @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
 }
 
 enum OrgType {

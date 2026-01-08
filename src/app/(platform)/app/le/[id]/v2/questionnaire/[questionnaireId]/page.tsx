@@ -164,6 +164,7 @@ export default function LEManageQuestionnairePage() {
                         leId={leId}
                         questionnaireId={qId}
                         initialQuestions={items}
+                        questionnaireName={questionnaire.name}
                     />
                 </div>
             </div>
