@@ -278,20 +278,7 @@ export function QuestionnaireFiller({ leId, questionnaireId, initialQuestions, q
                                                     </div>
 
                                                     <div className="relative">
-                                                        {hasAnswer ? (
-                                                            <div className="relative">
-                                                                <Textarea
-                                                                    className={`min-h-[80px] text-sm resize-y ${isLocked ? "bg-slate-50 text-slate-500" : "bg-white"}`}
-                                                                    value={item.answer}
-                                                                    onChange={(e) => {
-                                                                        if (isLocked) return;
-                                                                        const val = e.target.value;
-                                                                        setQuestions(prev => prev.map((q, i) => i === realIndex ? { ...q, answer: val } : q));
-                                                                    }}
-                                                                    readOnly={isLocked}
-                                                                />
-                                                            </div>
-                                                        ) : ghost ? (
+                                                        {ghost && !hasAnswer ? (
                                                             // Ghost Answer Card
                                                             <div className={`p-4 rounded-lg border border-dashed ${getConfidenceColor(ghost.confidence)} transition-all animate-in fade-in duration-300`}>
                                                                 <p className="text-sm font-medium italic mb-3">{ghost.suggestedAnswer}</p>
@@ -307,16 +294,23 @@ export function QuestionnaireFiller({ leId, questionnaireId, initialQuestions, q
                                                                 </div>
                                                             </div>
                                                         ) : (
-                                                            <Textarea
-                                                                className="min-h-[80px] bg-slate-50/50 border-slate-200 placeholder:text-slate-400 text-sm resize-y focus:bg-white focus:border-indigo-300 transition-all"
-                                                                placeholder="Type your answer..."
-                                                                value=""
-                                                                onChange={(e) => {
-                                                                    if (isLocked) return;
-                                                                    const val = e.target.value;
-                                                                    setQuestions(prev => prev.map((q, i) => i === realIndex ? { ...q, answer: val } : q));
-                                                                }}
-                                                            />
+                                                            // Unified Textarea
+                                                            <div className="relative">
+                                                                <Textarea
+                                                                    className={`min-h-[80px] text-sm resize-y transition-all ${hasAnswer
+                                                                            ? (isLocked ? "bg-slate-50 text-slate-500" : "bg-white")
+                                                                            : "bg-slate-50/50 border-slate-200 placeholder:text-slate-400 focus:bg-white focus:border-indigo-300"
+                                                                        }`}
+                                                                    placeholder="Type your answer..."
+                                                                    value={item.answer || ""}
+                                                                    onChange={(e) => {
+                                                                        if (isLocked) return;
+                                                                        const val = e.target.value;
+                                                                        setQuestions(prev => prev.map((q, i) => i === realIndex ? { ...q, answer: val } : q));
+                                                                    }}
+                                                                    readOnly={isLocked}
+                                                                />
+                                                            </div>
                                                         )}
                                                     </div>
                                                 </div>
