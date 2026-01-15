@@ -6,6 +6,7 @@ import { LEProjectSummary } from "./le-project-summary";
 import { StandingDataManager } from "./standing-data-manager";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Building2, ArrowUpRight, CheckCircle2, AlertCircle, Clock } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -135,9 +136,19 @@ export function LEPortalContainer({ le, schema, requirements, standingData, prog
                                                 </div>
                                             </div>
                                         </div>
-                                        <Link href={`/app/le/${le.id}/requirements`} className="h-10 w-10 rounded-full border flex items-center justify-center group-hover:bg-blue-50 dark:group-hover:bg-blue-900/30 group-hover:text-blue-600 transition-all">
-                                            <ArrowUpRight className="h-5 w-5" />
-                                        </Link>
+                                        <div className="flex items-center gap-2">
+                                            <Link href={`/app/le/${le.id}/requirements`} title="View Requirements">
+                                                <div className="h-10 w-10 rounded-full border flex items-center justify-center hover:bg-slate-50 transition-all text-slate-400">
+                                                    <ArrowUpRight className="h-5 w-5" />
+                                                </div>
+                                            </Link>
+                                            <Link href={`/app/le/${le.id}/engagement-new/${eng.id}`}>
+                                                <Button size="sm" variant="default" className="gap-2">
+                                                    Open Workbench
+                                                    <ArrowUpRight className="h-4 w-4" />
+                                                </Button>
+                                            </Link>
+                                        </div>
                                     </CardContent>
                                 </Card>
                             );

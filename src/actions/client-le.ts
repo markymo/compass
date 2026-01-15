@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { ExtractedItem } from "./ai-mapper"; // Importing type
 import { MasterSchemaDefinition } from "@/types/schema";
+import { auth } from "@clerk/nextjs/server";
 
 export async function createLegalEntity(data: { name: string; jurisdiction: string; clientOrgId: string }) {
     if (!data.name || !data.clientOrgId) {
@@ -250,5 +251,34 @@ export async function getStandingData(clientLEId: string) {
     } catch (error) {
         console.error("Failed to fetch standing data:", error);
         return { success: false, error: "Fetch failed" };
+    }
+}
+
+export async function getEngagementDetails(engagementId: string) {
+    const { userId } = await auth();
+    if (!userId) return { success: false, error: "Unauthorized" };
+
+    try {
+        const engagement = await prisma.fIEngagement.findUnique({
+            where: { id: engagementId },
+            include: {
+                org: true, // The FI Organization
+                questionnaires: true, // The questionnaires linked to this engagement
+                clientLE: true // Context
+            }
+        });
+
+        if (!engagement) {
+            return { success: false, error: "Engagement not found" };
+        }
+
+        return {
+            success: true,
+            engagement,
+            questionnaires: engagement.questionnaires
+        };
+    } catch (error) {
+        console.error("Error fetching engagement details:", error);
+        return { success: false, error: "Failed to fetch engagement details" };
     }
 }
