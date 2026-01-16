@@ -193,7 +193,7 @@ export function EngagementDetailView({ le, engagement, questionnaires, initialTa
                             </Button>
                         </div>
                         <div className="min-h-[calc(100vh-250px)] w-full border rounded-lg bg-slate-50/50 p-4">
-                            <KanbanBoard key={refreshKey} engagementId={engagement.id} />
+                            <KanbanBoard key={refreshKey} engagementId={engagement.id} fiName={engagement.org.name} />
                         </div>
                     </TabsContent>
 

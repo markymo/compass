@@ -20,7 +20,7 @@ const MOCK_TASKS: QuestionTask[] = [
     { id: '7', question: "Provide date of incorporation.", answer: "2023-01-01", status: 'SHARED' },
 ];
 
-export function KanbanBoard({ engagementId }: { engagementId?: string }) {
+export function KanbanBoard({ engagementId, fiName = "Bank" }: { engagementId?: string; fiName?: string }) {
     // hello-pangea/dnd requires strict mode handling in Next.js 13+ usually
     const [enabled, setEnabled] = useState(false);
 
@@ -64,7 +64,7 @@ export function KanbanBoard({ engagementId }: { engagementId?: string }) {
     const columns = [
         { id: 'DRAFT', title: 'Drafting', desc: 'AI suggestions & data entry' },
         { id: 'INTERNAL_REVIEW', title: 'Start Review', desc: 'Requires User approval' },
-        { id: 'SHARED', title: 'Shared with Bank', desc: 'Visible to J.P. Morgan' },
+        { id: 'SHARED', title: 'Shared with Bank', desc: `Visible to ${fiName}` },
         { id: 'DONE', title: 'Agreed', desc: 'Signed off by both parties' },
     ];
 
