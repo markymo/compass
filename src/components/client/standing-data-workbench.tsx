@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { Save, Check, Loader2 } from "lucide-react";
 import { getStandingDataSections, updateStandingDataSection } from "@/actions/standing-data";
+import { RecentlyLearned } from "./recently-learned";
 
 interface StandingDataWorkbenchProps {
     leId: string;
@@ -32,6 +33,8 @@ export function StandingDataWorkbench({ leId }: StandingDataWorkbenchProps) {
     const [isSaving, setIsSaving] = useState(false);
     const [lastSaved, setLastSaved] = useState<Date | null>(null);
 
+    const [logs, setLogs] = useState<any[]>([]);
+
     // Initial Load
     useEffect(() => {
         loadSections();
@@ -43,6 +46,9 @@ export function StandingDataWorkbench({ leId }: StandingDataWorkbenchProps) {
         if (res.success && res.data) {
             setServerSections(res.data);
             setDrafts(res.data);
+            if (res.logs) {
+                setLogs(res.logs);
+            }
         }
         setIsLoading(false);
     };
@@ -85,7 +91,7 @@ export function StandingDataWorkbench({ leId }: StandingDataWorkbenchProps) {
     const hasChanges = currentContent !== (serverSections[activeCategory] || "");
 
     return (
-        <div className="grid grid-cols-12 gap-6 h-[600px]">
+        <div className="grid grid-cols-12 gap-6 min-h-[600px]">
             {/* Sidebar */}
             <div className="col-span-4 border-r pr-6">
                 <div className="mb-4">
@@ -117,6 +123,10 @@ export function StandingDataWorkbench({ leId }: StandingDataWorkbenchProps) {
                             </div>
                         </button>
                     ))}
+                </div>
+
+                <div className="mt-8">
+                    <RecentlyLearned items={logs} />
                 </div>
             </div>
 
@@ -176,6 +186,6 @@ export function StandingDataWorkbench({ leId }: StandingDataWorkbenchProps) {
                     />
                 </div>
             </div>
-        </div>
+        </div >
     );
 }

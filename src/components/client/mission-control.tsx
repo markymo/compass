@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +15,8 @@ import {
 import { motion } from "framer-motion";
 
 interface MissionControlProps {
+    leId: string;
+    engagements: any[];
     metrics: {
         readiness: {
             total: number;
@@ -25,7 +29,7 @@ interface MissionControlProps {
     };
 }
 
-export function MissionControl({ metrics }: MissionControlProps) {
+export function MissionControl({ metrics, leId, engagements }: MissionControlProps) {
 
     // Pipeline Stages Logic
     const pipelineStages = [
@@ -50,58 +54,80 @@ export function MissionControl({ metrics }: MissionControlProps) {
             <div className="grid gap-8 md:grid-cols-3">
 
                 {/* 1. The North Star Gauge */}
-                <Card className="md:col-span-1 border-slate-200 shadow-sm relative overflow-hidden">
-                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 to-purple-500" />
+                {/* 1. The North Star Gauge REPLACED with "Closing Tracker" (CP List Summary) */}
+                <Card className="md:col-span-1 border-slate-200 shadow-sm relative overflow-hidden flex flex-col">
+                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-sky-400 via-indigo-500 to-emerald-500" />
                     <CardHeader className="pb-2">
                         <CardTitle className="text-lg flex items-center gap-2">
-                            <Zap className="h-4 w-4 text-purple-600" />
-                            Onboarding Readiness
+                            <Zap className="h-4 w-4 text-indigo-600" />
+                            Closing Tracker
                         </CardTitle>
-                        <CardDescription>Your data completeness score</CardDescription>
+                        <CardDescription>Conditions Precedent (CP) Status</CardDescription>
                     </CardHeader>
-                    <CardContent className="flex flex-col items-center justify-center pt-6 pb-8">
-                        <div className="relative h-40 w-40 flex items-center justify-center">
-                            {/* SVG Gauge */}
-                            <svg className="h-full w-full rotate-[-90deg]" viewBox="0 0 100 100">
-                                <circle cx="50" cy="50" r="45" fill="none" stroke="#e2e8f0" strokeWidth="8" />
-                                <motion.circle
-                                    cx="50" cy="50" r="45" fill="none" stroke="url(#gradient)" strokeWidth="8"
-                                    strokeDasharray="283"
-                                    initial={{ strokeDashoffset: 283 }}
-                                    animate={{ strokeDashoffset: 283 - (283 * metrics.readiness.total) / 100 }}
-                                    transition={{ duration: 1.5, ease: "easeOut" }}
-                                    strokeLinecap="round"
+                    <CardContent className="flex-1 flex flex-col justify-center pb-8">
+
+                        <div className="mb-6 flex items-center justify-between">
+                            <div className="flex flex-col">
+                                <span className="text-3xl font-bold text-slate-900">
+                                    {(metrics.readiness.details as any).cpStatus.draft + (metrics.readiness.details as any).cpStatus.internalReview + (metrics.readiness.details as any).cpStatus.shared}
+                                </span>
+                                <span className="text-xs text-slate-500 uppercase tracking-wider font-semibold">Pending Items</span>
+                            </div>
+                            <div className="text-right">
+                                <span className="text-sm font-medium text-slate-600">Target Funding</span>
+                                <div className="text-indigo-600 font-bold">~ 14 Days</div>
+                            </div>
+                        </div>
+
+                        {/* Ball-in-Court Stacked Bar */}
+                        <div className="space-y-2">
+                            <div className="flex h-4 w-full overflow-hidden rounded-full bg-slate-100">
+                                {/* Done */}
+                                <div
+                                    className="bg-emerald-500 h-full"
+                                    style={{ width: `${((metrics.readiness.details as any).cpStatus.done / metrics.readiness.details.totalQuestions) * 100}%` }}
+                                    title="Done"
                                 />
-                                <defs>
-                                    <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                                        <stop offset="0%" stopColor="#6366f1" />
-                                        <stop offset="100%" stopColor="#a855f7" />
-                                    </linearGradient>
-                                </defs>
-                            </svg>
-                            <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                <span className="text-4xl font-bold text-slate-900">{metrics.readiness.total}%</span>
-                                <span className="text-xs text-slate-500 font-medium uppercase tracking-wider">Ready</span>
+                                {/* External (With Bank) */}
+                                <div
+                                    className="bg-purple-500 h-full"
+                                    style={{ width: `${((metrics.readiness.details as any).cpStatus.shared / metrics.readiness.details.totalQuestions) * 100}%` }}
+                                    title="With Bank"
+                                />
+                                {/* Internal (Drafting + Review) */}
+                                <div
+                                    className="bg-amber-400 h-full"
+                                    style={{ width: `${(((metrics.readiness.details as any).cpStatus.draft + (metrics.readiness.details as any).cpStatus.internalReview) / metrics.readiness.details.totalQuestions) * 100}%` }}
+                                    title="Internal Action"
+                                />
+                            </div>
+
+                            {/* Legend / Key Stats */}
+                            <div className="flex justify-between text-xs pt-2">
+                                <div className="flex items-center gap-1.5">
+                                    <div className="w-2 h-2 rounded-full bg-amber-400" />
+                                    <span className="text-slate-600">Action: <span className="font-bold text-slate-900">{(metrics.readiness.details as any).cpStatus.draft + (metrics.readiness.details as any).cpStatus.internalReview}</span></span>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                    <div className="w-2 h-2 rounded-full bg-purple-500" />
+                                    <span className="text-slate-600">Bank: <span className="font-bold text-slate-900">{(metrics.readiness.details as any).cpStatus.shared}</span></span>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                    <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                                    <span className="text-slate-600">Done: <span className="font-bold text-slate-900">{(metrics.readiness.details as any).cpStatus.done}</span></span>
+                                </div>
                             </div>
                         </div>
 
-                        <div className="w-full mt-6 space-y-3">
-                            <div className="flex items-center justify-between text-sm">
-                                <span className="text-slate-500 flex items-center gap-2">
-                                    <Database className="h-3.5 w-3.5" /> Standing Data
-                                </span>
-                                <span className="font-semibold text-slate-900">{Math.round((metrics.readiness.standingData / 60) * 100)}%</span>
-                            </div>
-                            <Progress value={(metrics.readiness.standingData / 60) * 100} className="h-1.5 bg-slate-100" />
-
-                            <div className="flex items-center justify-between text-sm">
-                                <span className="text-slate-500 flex items-center gap-2">
-                                    <FileText className="h-3.5 w-3.5" /> Questionnaires
-                                </span>
-                                <span className="font-semibold text-slate-900">{Math.round((metrics.readiness.questionnaires / 40) * 100)}%</span>
-                            </div>
-                            <Progress value={(metrics.readiness.questionnaires / 40) * 100} className="h-1.5 bg-slate-100" />
+                        {/* Mini Velocity / Insight */}
+                        <div className="mt-6 p-3 bg-slate-50 rounded-lg border border-slate-100 text-xs text-slate-500 flex items-start gap-2">
+                            <Activity className="h-3.5 w-3.5 text-indigo-500 mt-0.5" />
+                            <p>
+                                You have <strong>{(metrics.readiness.details as any).cpStatus.draft} items</strong> in drafting.
+                                {(metrics.readiness.details as any).cpStatus.shared > 0 ? ` Waiting on Bank for ${(metrics.readiness.details as any).cpStatus.shared} items.` : " Nothing with Bank."}
+                            </p>
                         </div>
+
                     </CardContent>
                 </Card>
 
@@ -125,11 +151,28 @@ export function MissionControl({ metrics }: MissionControlProps) {
 
                     {/* Secondary Stats */}
                     <div className="grid grid-cols-2 gap-4">
-                        <Card className="border-slate-200 shadow-sm flex flex-col justify-center px-6">
-                            <div className="text-sm font-medium text-slate-500 mb-1">Active Banks</div>
-                            <div className="text-3xl font-bold text-slate-900 flex items-center gap-2">
-                                {metrics.pipeline.length}
-                                <span className="text-xs font-normal text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">+1 this week</span>
+                        <Card className="border-slate-200 shadow-sm flex flex-col p-4">
+                            <div className="text-sm font-medium text-slate-500 mb-2">Engagements</div>
+                            <div className="space-y-1">
+                                {engagements && engagements.length > 0 ? (
+                                    engagements.map((eng) => (
+                                        <Link
+                                            key={eng.id}
+                                            href={`/app/le/${leId}/engagement-new/${eng.id}`}
+                                            className="flex items-center gap-2 p-1.5 rounded hover:bg-slate-50 transition-colors group"
+                                        >
+                                            <div className="h-6 w-6 rounded bg-indigo-50 flex items-center justify-center text-indigo-600 flex-shrink-0">
+                                                <Building2 className="h-3 w-3" />
+                                            </div>
+                                            <span className="text-sm font-semibold text-slate-700 group-hover:text-indigo-700 truncate">
+                                                {eng.org?.name || "Unknown Bank"}
+                                            </span>
+                                            <ArrowRight className="h-3 w-3 ml-auto text-slate-300 group-hover:text-indigo-400" />
+                                        </Link>
+                                    ))
+                                ) : (
+                                    <div className="text-xs text-slate-400 italic py-2">No active engagements</div>
+                                )}
                             </div>
                         </Card>
                         <Card className="border-slate-200 shadow-sm flex flex-col justify-center px-6">

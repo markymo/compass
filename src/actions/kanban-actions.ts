@@ -248,7 +248,7 @@ export async function updateAnswer(questionId: string, answer: string) {
             // but Vercel serverless functions might kill it. 
             // We'll await it for safety in this prototype.
             // Running fire-and-forget to prevent UI blocking
-            learnFromAnswer(clientLEId, questionData.text, answer).catch(err => {
+            learnFromAnswer(clientLEId, questionData.text, answer, userId).catch(err => {
                 console.error("Learning Loop background error:", err);
             });
         }

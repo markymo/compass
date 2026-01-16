@@ -102,7 +102,7 @@ export async function generateAIAnswers(contextText: string, questions: Question
  * Analyze an answer and update the Knowledge Base
  * This is a "Learning Loop": if the answer contains new facts, add them to the relevant section.
  */
-export async function learnFromAnswer(clientLEId: string, questionText: string, answerText: string) {
+export async function learnFromAnswer(clientLEId: string, questionText: string, answerText: string, userId: string) {
     try {
         logToFile(`[Learning] Analyzing Q: "${questionText.slice(0, 30)}..." -> A: "${answerText.slice(0, 30)}..."`);
 
@@ -132,7 +132,7 @@ export async function learnFromAnswer(clientLEId: string, questionText: string, 
                 updates: z.array(z.object({
                     sectionId: z.string().describe("The SECTION_ID to update"),
                     newContent: z.string().describe("The FULL updated markdown content for this section"),
-                    reasoning: z.string().describe("Why this update was made"),
+                    reasoning: z.string().describe("What specific fact was learned (e.g. 'Added Tax Residency: UK'). Be extremely concise."),
                     hasChanges: z.boolean().describe("True if new facts were added, False if already knew this")
                 }))
             }),
@@ -149,7 +149,8 @@ export async function learnFromAnswer(clientLEId: string, questionText: string, 
                     4. If the Answer contradicts the Knowledge Base, assume the Answer is the new truth (User Verified) and update the Knowledge Base.
                     5. Return the FULL updated content for any modified sections.
                     6. Do NOT remove existing info unless it is replaced by the new facts.
-                    7. If no new info is found, set hasChanges to false.`
+                    7. If no new info is found, set hasChanges to false.
+                    8. In 'reasoning', be concise: "Learned [Fact]" or "Updated [Fact]".`
                 },
                 {
                     role: "user",
@@ -168,6 +169,20 @@ export async function learnFromAnswer(clientLEId: string, questionText: string, 
             .filter(u => u.hasChanges)
             .map(async (u) => {
                 logToFile(`[Learning] Updating Section ${u.sectionId}: ${u.reasoning}`);
+
+                // Log the learning event
+                await prisma.usageLog.create({
+                    data: {
+                        userId: userId,
+                        action: "AI_LEARNED",
+                        details: {
+                            fact: u.reasoning,
+                            source: "User Answer",
+                            question: questionText.slice(0, 50)
+                        }
+                    }
+                });
+
                 return prisma.standingDataSection.update({
                     where: { id: u.sectionId },
                     data: { content: u.newContent }

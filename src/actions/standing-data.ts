@@ -19,7 +19,28 @@ export async function getStandingDataSections(leId: string) {
             sectionsMap[section.category] = section.content;
         });
 
-        return { success: true, data: sectionsMap };
+        // Mocking "Recently Learned" logs for UX Demo
+        // Fetch Real "Recently Learned" logs
+        const logs = await prisma.usageLog.findMany({
+            where: {
+                userId,
+                action: "AI_LEARNED"
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 5
+        });
+
+        const recentLearnings = logs.map(log => {
+            const details = (log.details as any) || {};
+            return {
+                id: log.id,
+                fact: details.fact || "New Fact Learned",
+                source: details.source || "User Activity",
+                timestamp: log.createdAt
+            };
+        });
+
+        return { success: true, data: sectionsMap, logs: recentLearnings };
     } catch (error) {
         console.error("[getStandingDataSections]", error);
         return { success: false, error: "Failed to fetch standing data" };

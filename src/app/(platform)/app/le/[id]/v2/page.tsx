@@ -80,7 +80,7 @@ export default async function LEDashboardV2Page({ params }: { params: Promise<{ 
                 <div className="bg-white border border-slate-200 rounded-b-xl rounded-tr-xl p-8 relative min-h-[600px]">
                     <TabsContent value="overview" className="mt-0">
                         {metrics ? (
-                            <MissionControl metrics={metrics} />
+                            <MissionControl metrics={metrics} leId={le.id} engagements={(le as any).fiEngagements || []} />
                         ) : (
                             <div className="p-8 text-center text-slate-500">
                                 Failed to load metrics.
