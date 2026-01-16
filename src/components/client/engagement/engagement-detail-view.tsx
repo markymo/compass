@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { FileText, Search, Plus, Filter, Download, ExternalLink, Clock, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 import { AddQuestionnaireDialog } from "./add-questionnaire-dialog";
+import { KanbanBoard } from "./kanban-board";
 
 interface EngagementDetailViewProps {
     le: any;
@@ -16,14 +17,29 @@ interface EngagementDetailViewProps {
     questionnaires: any[];
 }
 
+import { instantiateQuestionnaire } from "@/actions/kanban-actions";
+import { toast } from "sonner";
+import { useRouter } from "next/navigation";
+
 export function EngagementDetailView({ le, engagement, questionnaires }: EngagementDetailViewProps) {
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+    const router = useRouter();
 
-    // Mock handler for now
-    const handleAdd = (type: string, data: any) => {
-        console.log("Adding questionnaire:", type, data);
-        setIsAddDialogOpen(false);
-        // In real impl, would trigger server action or upload
+    const handleAdd = async (type: string, data: any) => {
+        if (type === 'library') {
+            toast.info("Instantiating questionnaire...");
+            const result = await instantiateQuestionnaire(data.templateId, engagement.id, data.name);
+            if (result.success) {
+                toast.success("Questionnaire added");
+                setIsAddDialogOpen(false);
+                router.refresh();
+            } else {
+                toast.error("Failed to add questionnaire");
+            }
+        } else {
+            toast.info("Upload not implemented yet");
+            setIsAddDialogOpen(false);
+        }
     };
 
     return (
@@ -31,27 +47,16 @@ export function EngagementDetailView({ le, engagement, questionnaires }: Engagem
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-900">{engagement.org.name}</h1>
-                    <div className="flex items-center gap-2 mt-1 text-slate-500 text-sm">
-                        <span>Relationship Status:</span>
-                        <Badge variant={engagement.status === 'ACTIVE' ? 'default' : 'secondary'} className="uppercase text-[10px]">
-                            {engagement.status}
-                        </Badge>
-                    </div>
                 </div>
-                <div className="flex gap-2">
-                    <Button variant="outline">Manage Team</Button>
-                    <Button onClick={() => setIsAddDialogOpen(true)}>
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Questionnaire
-                    </Button>
-                </div>
+
             </div>
 
-            <Tabs defaultValue="questionnaires" className="w-full">
+            <Tabs defaultValue="workbench" className="w-full">
                 <TabsList className="bg-slate-100 p-1">
                     <TabsTrigger value="overview">Overview</TabsTrigger>
                     <TabsTrigger value="questionnaires">Questionnaires ({questionnaires.length})</TabsTrigger>
                     <TabsTrigger value="documents">Documents</TabsTrigger>
+                    <TabsTrigger value="workbench">Workbench</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="overview" className="mt-6">
@@ -66,73 +71,48 @@ export function EngagementDetailView({ le, engagement, questionnaires }: Engagem
                 </TabsContent>
 
                 <TabsContent value="questionnaires" className="mt-6 space-y-4">
-                    {/* Toolbar */}
-                    <div className="flex items-center gap-2">
-                        <div className="relative flex-1 max-w-sm">
-                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-500" />
-                            <Input placeholder="Filter questionnaires..." className="pl-9" />
-                        </div>
-                        <Button variant="ghost" size="icon">
-                            <Filter className="h-4 w-4 text-slate-500" />
+                    <div className="flex justify-between items-center">
+                        <h2 className="text-lg font-semibold text-slate-900">Active Questionnaires</h2>
+                        <Button onClick={() => setIsAddDialogOpen(true)}>
+                            <Plus className="h-4 w-4 mr-2" />
+                            Add Questionnaire
                         </Button>
                     </div>
 
-                    {/* List */}
-                    <div className="grid gap-4">
-                        {questionnaires.length === 0 ? (
-                            <div className="text-center py-12 bg-slate-50 rounded-lg border-2 border-dashed">
-                                <FileText className="h-8 w-8 mx-auto text-slate-300 mb-2" />
-                                <h3 className="font-medium text-slate-900">No questionnaires yet</h3>
-                                <p className="text-slate-500 text-sm mb-4">Add a questionnaire to start sharing data.</p>
-                                <Button onClick={() => setIsAddDialogOpen(true)} variant="outline">Add Questionnaire</Button>
-                            </div>
-                        ) : (
-                            questionnaires.map((q) => (
-                                <Card key={q.id} className="hover:border-indigo-300 transition-colors">
-                                    <div className="p-6 flex items-start justify-between gap-4">
-                                        <div className="flex items-start gap-4">
-                                            <div className="mt-1 p-2 bg-indigo-50 text-indigo-600 rounded">
-                                                <FileText className="h-5 w-5" />
-                                            </div>
-                                            <div>
-                                                <h3 className="font-semibold text-slate-900">{q.name}</h3>
-                                                <div className="flex items-center gap-2 mt-1">
-                                                    <Badge variant="outline" className="text-[10px] bg-slate-50">
-                                                        {q.mappings ? 'FI-Published' : 'Client-Digitized'}
+                    <Card>
+                        <CardContent className="p-0">
+                            {questionnaires.length === 0 ? (
+                                <div className="text-center py-12">
+                                    <FileText className="h-8 w-8 mx-auto text-slate-300 mb-2" />
+                                    <h3 className="font-medium text-slate-900">No questionnaires linked</h3>
+                                    <p className="text-slate-500 text-sm mb-4">Link a questionnaire to this engagement to start tracking answers.</p>
+                                </div>
+                            ) : (
+                                <div className="divide-y divide-slate-100">
+                                    {questionnaires.map((q) => (
+                                        <div key={q.id} className="p-4 flex items-center justify-between hover:bg-slate-50/50">
+                                            <div className="flex items-center gap-4">
+                                                <div className="h-10 w-10 bg-indigo-50 text-indigo-600 rounded flex items-center justify-center">
+                                                    <FileText className="h-5 w-5" />
+                                                </div>
+                                                <div>
+                                                    <h3 className="font-medium text-slate-900">{q.name}</h3>
+                                                    <Badge variant="secondary" className="mt-1 text-[10px]">
+                                                        {q.mappings ? 'Standard' : 'Custom'}
                                                     </Badge>
-                                                    <span className="text-slate-300">•</span>
-                                                    <span className="text-xs text-slate-500 flex items-center gap-1">
-                                                        <Clock className="h-3 w-3" /> Updated 2 days ago
-                                                    </span>
                                                 </div>
                                             </div>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <Button variant="ghost" size="sm" className="h-8">
-                                                <Download className="h-4 w-4 mr-2" />
-                                                PDF
-                                            </Button>
-                                            <Link href={`#`}>
-                                                <Button size="sm" variant="secondary">
-                                                    Open Workbench
-                                                    <ExternalLink className="h-3 w-3 ml-2 opacity-50" />
+                                            <div className="flex items-center gap-2">
+                                                <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-700 hover:bg-red-50">
+                                                    Remove
                                                 </Button>
-                                            </Link>
-                                        </div>
-                                    </div>
-                                    <div className="px-6 pb-4 pt-0">
-                                        {/* Progress Bar Mockup */}
-                                        <div className="flex items-center gap-3 text-xs text-slate-500">
-                                            <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
-                                                <div className="h-full bg-emerald-500 w-[65%]"></div>
                                             </div>
-                                            <span>65% Complete</span>
                                         </div>
-                                    </div>
-                                </Card>
-                            ))
-                        )}
-                    </div>
+                                    ))}
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
                 </TabsContent>
 
                 <TabsContent value="documents" className="mt-6">
@@ -145,6 +125,12 @@ export function EngagementDetailView({ le, engagement, questionnaires }: Engagem
                             <p className="text-slate-500 text-sm">No documents found.</p>
                         </CardContent>
                     </Card>
+                </TabsContent>
+
+                <TabsContent value="workbench" className="mt-6">
+                    <div className="h-[600px] w-full border rounded-lg bg-slate-50/50 p-4">
+                        <KanbanBoard engagementId={engagement.id} />
+                    </div>
                 </TabsContent>
             </Tabs>
 

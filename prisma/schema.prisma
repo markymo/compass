@@ -13,6 +13,7 @@ model User {
   name      String?
   createdAt DateTime               @default(now())
   orgRoles  UserOrganizationRole[]
+  comments  Comment[]
 }
 
 model Organization {
@@ -139,6 +140,47 @@ model Questionnaire {
   ownerOrgId       String?
   ownerOrg         Organization?  @relation("OwnedQuestionnaires", fields: [ownerOrgId], references: [id])
   versions         QuestionnaireVersion[]
+  questions        Question[]
+}
+
+model Question {
+  id              String             @id @default(uuid())
+  questionnaireId String
+  text            String
+  answer          String?            @db.Text
+  status          QuestionStatus     @default(DRAFT)
+  order           Int                @default(0)
+  
+  // Link to Standing Data (if auto-filled)
+  sourceSectionId String?
+  
+  assignedToUserId String?
+  
+  questionnaire   Questionnaire      @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
+  comments        Comment[]
+  
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+}
+
+model Comment {
+  id         String   @id @default(uuid())
+  questionId String
+  userId     String
+  text       String   @db.Text
+  type       String   @default("USER") // USER, AI, SYSTEM
+  createdAt  DateTime @default(now())
+  
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id])
+}
+
+enum QuestionStatus {
+  DRAFT
+  INTERNAL_REVIEW
+  SHARED
+  QUERY
+  DONE
 }
 
 model QuestionnaireVersion {

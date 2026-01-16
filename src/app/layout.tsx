@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { ClerkProvider } from "@clerk/nextjs";
 import { UsageTracker } from "@/components/usage-tracker";
 import { Suspense } from "react";
+import { Toaster } from "@/components/ui/sonner";
 
 const playfair = Playfair_Display({
   variable: "--font-playfair",
@@ -40,6 +41,7 @@ export default function RootLayout({
             <UsageTracker />
           </Suspense>
           {children}
+          <Toaster />
         </body>
       </html>
     </ClerkProvider >

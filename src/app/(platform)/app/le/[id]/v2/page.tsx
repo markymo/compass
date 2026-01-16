@@ -1,14 +1,16 @@
 import { getClientLEData, getDashboardMetrics } from "@/actions/client";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ChevronRight, LayoutDashboard, Library, Database, Table as TableIcon, RefreshCcw, Check } from "lucide-react";
+import { ChevronRight, LayoutDashboard, Library, Database, Table as TableIcon, RefreshCcw, Check, Building2, ArrowUpRight } from "lucide-react";
 import { EditableDescription } from "@/components/client/editable-description";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { QuestionnaireLibrary } from "@/components/client/questionnaire-library";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { StandingDataWorkbench } from "@/components/client/standing-data-workbench";
 import { MissionControl } from "@/components/client/mission-control";
+import { EngagementManager } from "@/components/client/engagement/engagement-manager";
 
 export default async function LEDashboardV2Page({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
@@ -69,8 +71,14 @@ export default async function LEDashboardV2Page({ params }: { params: Promise<{ 
                         value="standing-data"
                         className="gap-2 px-6 py-3 rounded-t-xl border border-b-0 border-slate-200 bg-slate-50 text-slate-500 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:border-slate-200 data-[state=active]:-mb-[1px] data-[state=active]:z-10 transition-all shadow-none"
                     >
-                        <Database className="h-4 w-4" />
                         Standing Data
+                    </TabsTrigger>
+                    <TabsTrigger
+                        value="engagements"
+                        className="gap-2 px-6 py-3 rounded-t-xl border border-b-0 border-slate-200 bg-slate-50 text-slate-500 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:border-slate-200 data-[state=active]:-mb-[1px] data-[state=active]:z-10 transition-all shadow-none"
+                    >
+                        <Building2 className="h-4 w-4" />
+                        Engagements
                     </TabsTrigger>
                 </TabsList>
 
@@ -95,6 +103,13 @@ export default async function LEDashboardV2Page({ params }: { params: Promise<{ 
                         <div className="bg-white border border-slate-200 rounded-b-xl rounded-tr-xl p-8 min-h-[600px]">
                             <StandingDataWorkbench leId={id} />
                         </div>
+                    </TabsContent>
+
+                    <TabsContent value="engagements" className="mt-0">
+                        <EngagementManager
+                            leId={le.id}
+                            initialEngagements={(le as any).fiEngagements || []}
+                        />
                     </TabsContent>
                 </div>
             </Tabs>

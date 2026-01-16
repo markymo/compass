@@ -61,15 +61,29 @@ export function AddQuestionnaireDialog({ open, onOpenChange, onAdd }: AddQuestio
                 )}
 
                 {step === 'library' && (
-                    <div className="space-y-4 py-4">
+                    <div className="space-y-4 py-4 max-h-[400px] overflow-y-auto">
                         <div className="relative">
                             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-500" />
                             <Input placeholder="Search library (e.g. Wolfsberg)..." className="pl-9" />
                         </div>
-                        <div className="h-[200px] border rounded-md p-4 flex flex-col items-center justify-center text-slate-500 bg-slate-50 border-dashed">
-                            <p>Library features coming next...</p>
-                            <Button variant="link" onClick={() => setStep('selection')}>&larr; Back</Button>
+                        <div className="grid gap-2">
+                            {[
+                                { id: 'wolfsberg', name: 'Wolfsberg CBDDQ v1.4', desc: 'Standard Correspondent Banking Due Diligence' },
+                                { id: 'sig', name: 'SIG Lite 2024', desc: 'Standard Information Gathering - Lite' },
+                                { id: 'custom', name: 'JPM Custom Onboarding', desc: 'Specific requirements for J.P. Morgan' }
+                            ].map(t => (
+                                <div key={t.id} className="p-3 border rounded-lg hover:border-indigo-500 cursor-pointer flex justify-between items-center group"
+                                    onClick={() => onAdd('library', { templateId: t.id, name: t.name })}
+                                >
+                                    <div>
+                                        <h4 className="font-medium text-slate-900 group-hover:text-indigo-700">{t.name}</h4>
+                                        <p className="text-xs text-slate-500">{t.desc}</p>
+                                    </div>
+                                    <Button size="sm" variant="ghost" className="opacity-0 group-hover:opacity-100">Select</Button>
+                                </div>
+                            ))}
                         </div>
+                        <Button variant="link" onClick={() => setStep('selection')}>&larr; Back</Button>
                     </div>
                 )}
 

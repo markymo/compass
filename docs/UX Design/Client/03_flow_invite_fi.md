@@ -9,13 +9,15 @@ This flow describes how a Client User (Project Manager) invites a Financial Inst
 
 ## 3. The "Invite Wizard" Steps
 
-### Step 1: Search Directory (The "LinkedIn" Approach)
-*   **Prompt**: "Who do you want to connect with?"
-*   **Interaction**: User types "Bank of Amer..."
+### Step 1: Search & Add (The "Slack/Linear" Pattern)
+*   **Prompt**: "Search for your Financial Institution partner."
+*   **Interaction**:
+    *   **Search**: User types into a combobox (e.g., "J.P. Morg...").
+    *   **Results**: Real-time filtering of the Global FI Directory.
+    *   **Not Found?**: If no match, the dropdown shows a robust **"Add 'J.P. Morgan' to Directory"** action row at the bottom.
 *   **System Logic**:
-    *   Search Global Organization table (System-wide).
-    *   *If Found*: Show "Bank of America" card with specific branches (e.g., "Global Custody", "Prime Brokerage").
-    *   *If Not Found*: Show "Create New Invitation" option.
+    *   *If Existing Selected*: Links directly to that Org ID.
+    *   *If New Created*: Opens a localized "Create Profile" modal or expands inline to capture basic FI details (Name, Domain).
 
 ### Step 2: Configure Engagement
 *   **Prompt**: "Which of your Funds/Entities is this for?"

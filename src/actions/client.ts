@@ -125,6 +125,14 @@ export async function getClientLEData(leId: string) {
     // 1. Get the LE
     const le = await prisma.clientLE.findUnique({
         where: { id: leId },
+        include: {
+            fiEngagements: {
+                include: {
+                    org: true,
+                    questionnaires: true
+                }
+            }
+        }
     });
     console.log(`[getClientLEData] LE Result:`, JSON.stringify(le, null, 2));
     if (!le) return null;

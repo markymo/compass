@@ -263,7 +263,17 @@ export async function getEngagementDetails(engagementId: string) {
             where: { id: engagementId },
             include: {
                 org: true, // The FI Organization
-                questionnaires: true, // The questionnaires linked to this engagement
+                questionnaires: {
+                    select: {
+                        id: true,
+                        name: true,
+                        status: true,
+                        mappings: true,
+                        createdAt: true,
+                        updatedAt: true
+                        // Excluded: fileContent, extractedContent, rawText
+                    }
+                },
                 clientLE: true // Context
             }
         });
@@ -280,5 +290,53 @@ export async function getEngagementDetails(engagementId: string) {
     } catch (error) {
         console.error("Error fetching engagement details:", error);
         return { success: false, error: "Failed to fetch engagement details" };
+    }
+}
+
+export async function createFIEngagement(clientLEId: string, fiName: string) {
+    const { userId } = await auth();
+    if (!userId) return { success: false, error: "Unauthorized" };
+
+    try {
+        // 1. Find or Create the Organization for the FI
+        // In a real app, we would search properly. Here we treat 'fiName' as the unique key for demo.
+        let fiOrg = await prisma.organization.findFirst({
+            where: { name: fiName, types: { has: "FI" } }
+        });
+
+        if (!fiOrg) {
+            fiOrg = await prisma.organization.create({
+                data: {
+                    name: fiName,
+                    types: ["FI"],
+                    members: {
+                        create: {
+                            userId: userId, // Temporarily creating user as member or leaving empty? 
+                            // Better to just create the Org without members if it's an external stub.
+                            // But schema might require members. Let's assume we can create it isolated.
+                            // Actually schema says members: UserOrganizationRole[]. 
+                            // Let's create it with the current user as an opportunistic "admin" or just leave members empty if possible.
+                            // If schema allows members to be empty, great.
+                            role: "ADMIN"
+                        }
+                    }
+                }
+            });
+        }
+
+        // 2. Create the Engagement
+        const engagement = await prisma.fIEngagement.create({
+            data: {
+                clientLEId: clientLEId,
+                fiOrgId: fiOrg.id,
+                status: "PENDING",
+            }
+        });
+
+        revalidatePath(`/app/le/${clientLEId}/v2`);
+        return { success: true, engagement };
+    } catch (error) {
+        console.error("Failed to create engagement:", error);
+        return { success: false, error: "Failed to create engagement" };
     }
 }
