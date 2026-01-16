@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { LEProjectSummary } from "./le-project-summary";
-import { StandingDataManager } from "./standing-data-manager";
+import { StandingDataWorkbench } from "./standing-data-workbench";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -48,7 +48,7 @@ export function LEPortalContainer({ le, schema, requirements, standingData, prog
                         Dashboard
                     </TabsTrigger>
                     <TabsTrigger value="standing-data" className="flex-1">
-                        Standing Data
+                        Knowledge Base
                     </TabsTrigger>
                     <TabsTrigger value="engagements" className="flex-1">
                         Engagements
@@ -107,12 +107,8 @@ export function LEPortalContainer({ le, schema, requirements, standingData, prog
                 </TabsContent>
 
                 <TabsContent value="standing-data" className="mt-0">
-                    <div className="bg-slate-50/30 dark:bg-slate-900/10 p-6 rounded-2xl border border-slate-200 dark:border-slate-800">
-                        <StandingDataManager
-                            clientLEId={le.id}
-                            requirements={requirements}
-                            standingData={standingData}
-                        />
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 shadow-sm">
+                        <StandingDataWorkbench leId={le.id} />
                     </div>
                 </TabsContent>
 

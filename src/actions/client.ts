@@ -134,7 +134,6 @@ export async function getClientLEData(leId: string) {
             }
         }
     });
-    console.log(`[getClientLEData] LE Result:`, JSON.stringify(le, null, 2));
     if (!le) return null;
 
     // 2. Get the Active Master Schema

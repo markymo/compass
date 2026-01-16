@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { FileText, Search, Plus, Filter, Download, ExternalLink, Clock, CheckCircle2 } from "lucide-react";
+import { FileText, Search, Plus, Filter, Download, ExternalLink, Clock, CheckCircle2, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { AddQuestionnaireDialog } from "./add-questionnaire-dialog";
 import { KanbanBoard } from "./kanban-board";
@@ -17,7 +17,7 @@ interface EngagementDetailViewProps {
     questionnaires: any[];
 }
 
-import { instantiateQuestionnaire } from "@/actions/kanban-actions";
+import { instantiateQuestionnaire, generateEngagementAnswers } from "@/actions/kanban-actions";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
@@ -40,6 +40,24 @@ export function EngagementDetailView({ le, engagement, questionnaires }: Engagem
             toast.info("Upload not implemented yet");
             setIsAddDialogOpen(false);
         }
+    };
+
+    const handleBatchGenerate = async () => {
+        toast.promise(
+            async () => {
+                const res = await generateEngagementAnswers(engagement.id);
+                if (!res.success) throw new Error(res.error);
+                return res;
+            },
+            {
+                loading: 'Analyzing Knowledge Base and drafting answers...',
+                success: (data: any) => {
+                    router.refresh();
+                    return `Drafted answers for ${data.count} questions via AI`;
+                },
+                error: (err) => `Failed: ${err.message}`
+            }
+        );
     };
 
     return (
@@ -128,6 +146,16 @@ export function EngagementDetailView({ le, engagement, questionnaires }: Engagem
                 </TabsContent>
 
                 <TabsContent value="workbench" className="mt-6">
+                    <div className="flex justify-between items-center mb-4">
+                        <div className="space-y-1">
+                            <h3 className="text-lg font-medium text-slate-900">Task Board</h3>
+                            <p className="text-sm text-slate-500">Manage questions and track progress</p>
+                        </div>
+                        <Button onClick={handleBatchGenerate} className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2 shadow-sm">
+                            <Sparkles className="h-4 w-4" />
+                            Draft Answers for All
+                        </Button>
+                    </div>
                     <div className="h-[600px] w-full border rounded-lg bg-slate-50/50 p-4">
                         <KanbanBoard engagementId={engagement.id} />
                     </div>

@@ -33,7 +33,7 @@ export default async function EngagementPage({ params }: PageProps) {
                     </BreadcrumbItem>
                     <BreadcrumbSeparator />
                     <BreadcrumbItem>
-                        <BreadcrumbLink href={`/app/le/${le.id}`}>{le.name}</BreadcrumbLink>
+                        <BreadcrumbLink href={`/app/le/${le.id}/v2`}>{le.name}</BreadcrumbLink>
                     </BreadcrumbItem>
                     <BreadcrumbSeparator />
                     <BreadcrumbItem>

@@ -18,7 +18,9 @@ export interface QuestionTask {
         type: 'AI' | 'USER' | 'BANK';
     };
     commentCount?: number;
+    activities?: any[];
     hasFlag?: boolean;
+    isLocked?: boolean;
     comments?: Array<{
         id: string;
         text: string;

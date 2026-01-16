@@ -120,9 +120,26 @@ export async function getEffectiveRequirements(clientLEId: string) {
 
         for (const q of eng.questionnaires) {
             // Check extractedContent for generic 'QUESTIONS' that map to a Master Key
-            const items = (q.extractedContent as any as ExtractedItem[]) || [];
+            // flexible extraction logic
+            const content: any = q.extractedContent;
+            let items: any[] = [];
+
+            if (Array.isArray(content)) {
+                items = content;
+            } else if (content && Array.isArray(content.questions)) {
+                items = content.questions;
+            } else if (content && Array.isArray(content.fields)) {
+                items = content.fields;
+            }
 
             items.forEach(item => {
+                // Support both direct extraction schema and question schema
+                // Question schema might have 'question' text but we look for 'masterKey' mapping
+
+                // If it's the new question format, it might not have masterKey yet unless mapped.
+                // But this code is specifically looking for "QUESTION" type and "masterKey".
+                // Let's assume the new format items align or we skip them.
+
                 if (item.type === "QUESTION" && item.masterKey) {
                     const key = item.masterKey;
 
