@@ -164,25 +164,36 @@ export function EngagementManager({ leId, initialEngagements }: EngagementManage
                                     </div>
                                 </div>
                             </div>
-                            <Link href={eng.id.startsWith("temp-") ? "#" : `/app/le/${leId}/engagement-new/${eng.id}`}>
-                                <Button
-                                    variant="outline"
-                                    disabled={eng.id.startsWith("temp-")}
-                                    className="gap-2 group-hover:bg-indigo-50 group-hover:text-indigo-600 group-hover:border-indigo-200"
-                                >
-                                    {eng.id.startsWith("temp-") ? (
-                                        <>
-                                            <Loader2 className="h-4 w-4 animate-spin" />
-                                            Creating...
-                                        </>
-                                    ) : (
-                                        <>
-                                            Open Workbench
-                                            <ArrowUpRight className="h-4 w-4" />
-                                        </>
-                                    )}
-                                </Button>
-                            </Link>
+                            <div className="flex items-center gap-2">
+                                <Link href={eng.id.startsWith("temp-") ? "#" : `/app/le/${leId}/engagement-new/${eng.id}?tab=manage`}>
+                                    <Button
+                                        variant="ghost"
+                                        disabled={eng.id.startsWith("temp-")}
+                                        className="text-slate-600 hover:text-indigo-600 hover:bg-slate-50"
+                                    >
+                                        Manage Engagement
+                                    </Button>
+                                </Link>
+                                <Link href={eng.id.startsWith("temp-") ? "#" : `/app/le/${leId}/engagement-new/${eng.id}?tab=workbench`}>
+                                    <Button
+                                        variant="outline"
+                                        disabled={eng.id.startsWith("temp-")}
+                                        className="gap-2 group-hover:bg-indigo-50 group-hover:text-indigo-600 group-hover:border-indigo-200"
+                                    >
+                                        {eng.id.startsWith("temp-") ? (
+                                            <>
+                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                                Creating...
+                                            </>
+                                        ) : (
+                                            <>
+                                                Open Workbench
+                                                <ArrowUpRight className="h-4 w-4" />
+                                            </>
+                                        )}
+                                    </Button>
+                                </Link>
+                            </div>
                         </CardContent>
                     </Card>
                 ))}

@@ -247,11 +247,10 @@ export async function updateAnswer(questionId: string, answer: string) {
             // Running in background (no await) would be better for UX speed, 
             // but Vercel serverless functions might kill it. 
             // We'll await it for safety in this prototype.
-            try {
-                await learnFromAnswer(clientLEId, questionData.text, answer);
-            } catch (err) {
-                console.error("Learning Loop failed:", err);
-            }
+            // Running fire-and-forget to prevent UI blocking
+            learnFromAnswer(clientLEId, questionData.text, answer).catch(err => {
+                console.error("Learning Loop background error:", err);
+            });
         }
 
         revalidatePath("/(platform)/app/le/[id]/engagement-new/[engagementId]", "page");

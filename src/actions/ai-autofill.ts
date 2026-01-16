@@ -21,13 +21,8 @@ import fs from 'fs';
 import path from 'path';
 
 function logToFile(msg: string, data?: any) {
-    try {
-        const logPath = path.resolve(process.cwd(), 'debug-autofill.txt');
-        const timestamp = new Date().toISOString();
-        const content = `[${timestamp}] ${msg} ${data ? JSON.stringify(data, null, 2) : ''}\n`;
-        fs.appendFileSync(logPath, content);
-    } catch (e) {
-        // ignore
+    if (process.env.NODE_ENV === 'development') {
+        // console.log(`[AutoFill Debug] ${msg}`, data ? JSON.stringify(data).slice(0, 100) : '');
     }
 }
 

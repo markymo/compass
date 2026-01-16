@@ -8,10 +8,12 @@ interface PageProps {
         id: string;
         engagementId: string;
     }>;
+    searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
-export default async function EngagementPage({ params }: PageProps) {
+export default async function EngagementPage({ params, searchParams }: PageProps) {
     const { id, engagementId } = await params;
+    const { tab } = await searchParams;
 
     const { success, engagement, questionnaires } = await getEngagementDetails(engagementId);
 
@@ -22,22 +24,23 @@ export default async function EngagementPage({ params }: PageProps) {
     // Context Data
     const le = engagement.clientLE;
     const fiName = engagement.org.name;
+    const activeTab = typeof tab === 'string' ? tab : undefined;
 
     return (
-        <div className="max-w-6xl mx-auto space-y-6 pb-20 pt-6">
+        <div className="w-full px-6 space-y-6 pb-20 pt-6">
             {/* Breadcrumb Navigation */}
             <Breadcrumb>
                 <BreadcrumbList>
                     <BreadcrumbItem>
-                        <BreadcrumbLink href="/app/le">Legal Entities</BreadcrumbLink>
+                        <BreadcrumbLink href="/app">Client Dashboard</BreadcrumbLink>
                     </BreadcrumbItem>
                     <BreadcrumbSeparator />
                     <BreadcrumbItem>
-                        <BreadcrumbLink href={`/app/le/${le.id}/v2`}>{le.name}</BreadcrumbLink>
+                        <BreadcrumbLink href={`/app/le/${le.id}/v2`}>Legal Entity: {le.name}</BreadcrumbLink>
                     </BreadcrumbItem>
                     <BreadcrumbSeparator />
                     <BreadcrumbItem>
-                        <BreadcrumbPage>{fiName}</BreadcrumbPage>
+                        <BreadcrumbPage>Engagement: {fiName}</BreadcrumbPage>
                     </BreadcrumbItem>
                 </BreadcrumbList>
             </Breadcrumb>
@@ -46,6 +49,7 @@ export default async function EngagementPage({ params }: PageProps) {
                 le={le}
                 engagement={engagement}
                 questionnaires={questionnaires || []}
+                initialTab={activeTab}
             />
         </div>
     );

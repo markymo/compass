@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ChevronRight, LayoutDashboard, Library, Database, Table as TableIcon, RefreshCcw, Check, Building2, ArrowUpRight } from "lucide-react";
 import { EditableDescription } from "@/components/client/editable-description";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { QuestionnaireLibrary } from "@/components/client/questionnaire-library";
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -31,11 +31,11 @@ export default async function LEDashboardV2Page({ params }: { params: Promise<{ 
             {/* Header Section */}
             <div className="space-y-4">
                 <nav className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Link href="/app/le" className="hover:text-slate-900 transition-colors">
+                    <Link href="/app" className="hover:text-slate-900 transition-colors">
                         Client Dashboard
                     </Link>
                     <ChevronRight className="h-4 w-4" />
-                    <span className="text-slate-900 font-medium">{le.name}</span>
+                    <span className="text-slate-900 font-medium">Legal Entity: {le.name}</span>
                     <span className="bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full text-[10px] font-bold ml-2">V2 PROTOTYPE</span>
                 </nav>
 
@@ -55,27 +55,22 @@ export default async function LEDashboardV2Page({ params }: { params: Promise<{ 
                 <TabsList className="bg-transparent p-0 flex justify-start h-auto gap-0.5 border-b-0 space-x-1">
                     <TabsTrigger
                         value="overview"
-                        className="gap-2 px-6 py-3 rounded-t-xl border border-b-0 border-slate-200 bg-slate-50 text-slate-500 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:border-slate-200 data-[state=active]:-mb-[1px] data-[state=active]:z-10 transition-all shadow-none"
+                        className="relative gap-2 px-6 py-3 rounded-t-xl border border-b-0 border-slate-200 bg-slate-50 text-slate-500 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:border-slate-200 data-[state=active]:border-b-white data-[state=active]:-mb-[1px] data-[state=active]:z-10 transition-all shadow-none"
                     >
                         <LayoutDashboard className="h-4 w-4" />
                         Overview
                     </TabsTrigger>
-                    <TabsTrigger
-                        value="library"
-                        className="gap-2 px-6 py-3 rounded-t-xl border border-b-0 border-slate-200 bg-slate-50 text-slate-500 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:border-slate-200 data-[state=active]:-mb-[1px] data-[state=active]:z-10 transition-all shadow-none"
-                    >
-                        <Library className="h-4 w-4" />
-                        Selected Questionnaires
-                    </TabsTrigger>
+
                     <TabsTrigger
                         value="standing-data"
-                        className="gap-2 px-6 py-3 rounded-t-xl border border-b-0 border-slate-200 bg-slate-50 text-slate-500 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:border-slate-200 data-[state=active]:-mb-[1px] data-[state=active]:z-10 transition-all shadow-none"
+                        className="relative gap-2 px-6 py-3 rounded-t-xl border border-b-0 border-slate-200 bg-slate-50 text-slate-500 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:border-slate-200 data-[state=active]:border-b-white data-[state=active]:-mb-[1px] data-[state=active]:z-10 transition-all shadow-none"
                     >
-                        Standing Data
+                        <Database className="h-4 w-4" />
+                        Knowledge Base
                     </TabsTrigger>
                     <TabsTrigger
                         value="engagements"
-                        className="gap-2 px-6 py-3 rounded-t-xl border border-b-0 border-slate-200 bg-slate-50 text-slate-500 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:border-slate-200 data-[state=active]:-mb-[1px] data-[state=active]:z-10 transition-all shadow-none"
+                        className="relative gap-2 px-6 py-3 rounded-t-xl border border-b-0 border-slate-200 bg-slate-50 text-slate-500 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:border-slate-200 data-[state=active]:border-b-white data-[state=active]:-mb-[1px] data-[state=active]:z-10 transition-all shadow-none"
                     >
                         <Building2 className="h-4 w-4" />
                         Engagements
@@ -93,14 +88,12 @@ export default async function LEDashboardV2Page({ params }: { params: Promise<{ 
                         )}
                     </TabsContent>
 
-                    <TabsContent value="library" className="mt-0">
-                        <QuestionnaireLibrary leId={id} />
-                    </TabsContent>
+
 
 
 
                     <TabsContent value="standing-data" className="mt-0">
-                        <div className="bg-white border border-slate-200 rounded-b-xl rounded-tr-xl p-8 min-h-[600px]">
+                        <div className="bg-white rounded-b-xl rounded-tr-xl min-h-[600px] p-8">
                             <StandingDataWorkbench leId={id} />
                         </div>
                     </TabsContent>

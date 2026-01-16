@@ -119,7 +119,7 @@ export function KanbanBoard({ engagementId }: { engagementId?: string }) {
 
     return (
         <DragDropContext onDragEnd={onDragEnd}>
-            <div className="flex h-full gap-6 overflow-x-auto pb-4">
+            <div className="flex min-h-full gap-6 pb-4">
                 {columns.map((col) => (
                     <KanbanColumn
                         key={col.id}

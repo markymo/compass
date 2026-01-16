@@ -1113,3 +1113,9 @@
 [2026-01-16T12:43:17.182Z] [Learning] Updating Section 53047316-ea6d-48e3-8cc1-07e147742297: The answer provides the full legal name of the entity as 'greengallion 24', updating the previously recorded 'greengallion' to reflect the new information provided. 
 [2026-01-16T12:43:51.185Z] [Learning] Analyzing Q: "Provide the primary business a..." -> A: "No 2 London, N1..." 
 [2026-01-16T12:43:56.102Z] [Learning] Updating Section 53047316-ea6d-48e3-8cc1-07e147742297: The answer provides a primary business address which is new specific information that should be added to the CORE section. 
+[2026-01-16T12:50:51.816Z] [AutoFill] Sending request to AI... 
+[2026-01-16T12:50:54.124Z] [AutoFill] Generated 1 answers. 
+[2026-01-16T12:50:57.803Z] [Learning] Analyzing Q: "What is the full legal name of..." -> A: "greengallion 24..." 
+[2026-01-16T12:51:02.941Z] [Learning] Error: AI_NoObjectGeneratedError: No object generated: response did not match schema. 
+[2026-01-16T12:51:23.373Z] [AutoFill] Sending request to AI... 
+[2026-01-16T12:51:27.705Z] [AutoFill] Generated 4 answers. 
