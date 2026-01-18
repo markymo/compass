@@ -27,18 +27,28 @@ export async function getStandingDataSections(leId: string) {
                 action: "AI_LEARNED"
             },
             orderBy: { createdAt: 'desc' },
-            take: 5
+            take: 20 // Fetch more, then filter
         });
 
-        const recentLearnings = logs.map(log => {
-            const details = (log.details as any) || {};
-            return {
-                id: log.id,
-                fact: details.fact || "New Fact Learned",
-                source: details.source || "User Activity",
-                timestamp: log.createdAt
-            };
-        });
+        const recentLearnings = logs
+            .filter(log => {
+                const d = (log.details as any) || {};
+                // Backwards compatibility: if log has no LE ID, maybe show it? 
+                // Better to be strict: only show if matches LE ID.
+                // But for "Global" logs (e.g. system usage)?
+                // Let's match strictly for "AI_LEARNED" events.
+                return d.clientLEId === leId;
+            })
+            .slice(0, 5) // Take top 5 after filter
+            .map(log => {
+                const details = (log.details as any) || {};
+                return {
+                    id: log.id,
+                    fact: details.fact || "New Fact Learned",
+                    source: details.source || "User Activity",
+                    timestamp: log.createdAt
+                };
+            });
 
         return { success: true, data: sectionsMap, logs: recentLearnings };
     } catch (error) {

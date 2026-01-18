@@ -168,25 +168,29 @@ export async function learnFromAnswer(clientLEId: string, questionText: string, 
         const updatePromises = object.updates
             .filter(u => u.hasChanges)
             .map(async (u) => {
-                logToFile(`[Learning] Updating Section ${u.sectionId}: ${u.reasoning}`);
+                const sectionId = u.sectionId.trim();
+                logToFile(`[Learning] Updating Section ${sectionId}: ${u.reasoning}`);
 
-                // Log the learning event
-                await prisma.usageLog.create({
-                    data: {
-                        userId: userId,
-                        action: "AI_LEARNED",
-                        details: {
-                            fact: u.reasoning,
-                            source: "User Answer",
-                            question: questionText.slice(0, 50)
+                // Transaction: Create Log + Update Section
+                // @ts-ignore: Prisma client lag
+                return prisma.$transaction([
+                    prisma.usageLog.create({
+                        data: {
+                            userId: userId,
+                            action: "AI_LEARNED",
+                            details: {
+                                fact: u.reasoning,
+                                source: "User Answer",
+                                question: questionText.slice(0, 50),
+                                clientLEId: clientLEId
+                            }
                         }
-                    }
-                });
-
-                return prisma.standingDataSection.update({
-                    where: { id: u.sectionId },
-                    data: { content: u.newContent }
-                });
+                    }),
+                    prisma.standingDataSection.update({
+                        where: { id: sectionId },
+                        data: { content: u.newContent }
+                    })
+                ]);
             });
 
         if (updatePromises.length > 0) {
