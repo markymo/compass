@@ -1,3 +1,4 @@
+
 "use client";
 
 
@@ -8,6 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { CheckCircle2, Circle, AlertCircle, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { QuestionDetailView } from "./question-detail-view";
 
 interface Question {
     id: string;
@@ -77,48 +79,12 @@ export function QuestionnaireQAMode({ questions }: QuestionnaireQAModeProps) {
             <div className="flex-1 flex flex-col">
                 {activeQuestion ? (
                     <div className="flex-1 p-8 overflow-y-auto">
-                        <div className="max-w-2xl mx-auto space-y-6">
-                            {/* Question Header */}
-                            <div className="space-y-4">
-                                <Badge variant="outline" className="bg-slate-100 text-slate-600">
-                                    Question {questions.findIndex(q => q.id === activeQuestion.id) + 1} of {questions.length}
-                                </Badge>
-                                <h1 className="text-xl font-semibold text-slate-900 leading-relaxed">
-                                    {activeQuestion.text}
-                                </h1>
-                            </div>
-
-                            {/* Answer Area */}
-                            <Card className="border-indigo-100 shadow-sm">
-                                <CardContent className="p-0">
-                                    <div className="p-3 bg-indigo-50/30 border-b border-indigo-100 flex justify-between items-center">
-                                        <span className="text-xs font-semibold text-indigo-900 uppercase tracking-wide">Refined Answer</span>
-                                        <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border-none shadow-none">Auto-Filled</Badge>
-                                    </div>
-                                    <div className="p-4">
-                                        <textarea
-                                            className="w-full min-h-[150px] p-0 border-none resize-none focus:ring-0 text-slate-700 leading-relaxed text-sm bg-transparent"
-                                            placeholder="Type your answer here..."
-                                            defaultValue={activeQuestion.answer || ""}
-                                        />
-                                    </div>
-                                    <div className="p-3 bg-slate-50 border-t border-slate-100 flex justify-end gap-2">
-                                        <Button variant="ghost" size="sm">Flag for Review</Button>
-                                        <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700">Save Answer</Button>
-                                    </div>
-                                </CardContent>
-                            </Card>
-
-                            {/* Context / Source (Placeholder) */}
-                            <div className="space-y-2 pt-4 border-t border-slate-200">
-                                <h4 className="text-sm font-medium text-slate-900 flex items-center gap-2">
-                                    <MessageSquare className="w-4 h-4 text-slate-400" />
-                                    Reviewer Comments
-                                </h4>
-                                <div className="bg-slate-50 rounded-lg p-4 text-sm text-slate-500 italic text-center">
-                                    No comments yet.
-                                </div>
-                            </div>
+                        <div className="max-w-2xl mx-auto">
+                            <QuestionDetailView
+                                question={activeQuestion as any}
+                                totalQuestions={questions.length}
+                                currentIndex={questions.findIndex(q => q.id === activeQuestion.id)}
+                            />
                         </div>
                     </div>
                 ) : (

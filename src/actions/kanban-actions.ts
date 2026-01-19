@@ -108,6 +108,7 @@ export async function getBoardQuestions(engagementId: string) {
     // Map to frontend Task shape
     return questions.map(q => ({
         id: q.id,
+        questionnaireId: q.questionnaireId,
         question: q.text,
         answer: q.answer || undefined,
         status: q.status,

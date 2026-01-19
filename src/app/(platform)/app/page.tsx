@@ -104,7 +104,9 @@ export default async function ClientDashboardPage() {
                                                     <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border-none">Active</Badge>
                                                 )}
                                             </div>
-                                            <h3 className="text-xl font-bold text-slate-900">{le.name}</h3>
+                                            <Link href={`/app/le/${le.id}/v2`} className="hover:underline decoration-slate-400 underline-offset-4">
+                                                <h3 className="text-xl font-bold text-slate-900">{le.name}</h3>
+                                            </Link>
                                             <p className="text-sm text-slate-500 mt-2 line-clamp-2">
                                                 {le.description || "No description provided."}
                                             </p>
@@ -123,7 +125,7 @@ export default async function ClientDashboardPage() {
                                     <div className="p-6 md:w-2/3">
                                         <h4 className="text-sm font-semibold text-slate-900 flex items-center gap-2 mb-4">
                                             <Cloud className="h-4 w-4 text-indigo-500" />
-                                            Active Banking Relationships
+                                            Engagements
                                         </h4>
 
                                         {le.fiEngagements.length === 0 ? (
@@ -140,7 +142,9 @@ export default async function ClientDashboardPage() {
                                                                 {eng.org.name.substring(0, 2).toUpperCase()}
                                                             </div>
                                                             <div>
-                                                                <p className="font-medium text-slate-900 text-sm">{eng.org.name}</p>
+                                                                <Link href={`/app/le/${le.id}/engagement-new/${eng.id}`} className="hover:text-indigo-600 hover:underline">
+                                                                    <p className="font-medium text-slate-900 text-sm">{eng.org.name}</p>
+                                                                </Link>
                                                                 <p className="text-xs text-slate-500 flex items-center gap-1">
                                                                     {eng.questionnaires.length} Questionnaires
                                                                 </p>

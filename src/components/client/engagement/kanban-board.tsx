@@ -20,9 +20,21 @@ const MOCK_TASKS: QuestionTask[] = [
     { id: '7', question: "Provide date of incorporation.", answer: "2023-01-01", status: 'SHARED' },
 ];
 
-export function KanbanBoard({ engagementId, fiName = "Bank" }: { engagementId?: string; fiName?: string }) {
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+import { Filter } from "lucide-react";
+
+// ... existing imports
+
+export function KanbanBoard({ engagementId, fiName = "Bank", questionnaires = [] }: { engagementId?: string; fiName?: string; questionnaires?: any[] }) {
     // hello-pangea/dnd requires strict mode handling in Next.js 13+ usually
     const [enabled, setEnabled] = useState(false);
+    const [selectedQuestionnaireId, setSelectedQuestionnaireId] = useState<string>("all");
 
     useEffect(() => {
         const animation = requestAnimationFrame(() => setEnabled(true));
@@ -107,7 +119,16 @@ export function KanbanBoard({ engagementId, fiName = "Bank" }: { engagementId?: 
         setIsDialogOpen(true);
     };
 
-    const getTasksByStatus = (status: string) => tasks.filter(t =>
+    // Filter Logic
+    const filteredTasks = tasks.filter(t => {
+        if (selectedQuestionnaireId === "all") return true;
+        // @ts-ignore
+        if (t.questionnaireId) return t.questionnaireId === selectedQuestionnaireId;
+        return true; // If no questionnaireId on task, show it? Or hide? Let's show for safety or hide?
+        // Based on update, q.questionnaireId IS mapped.
+    });
+
+    const getTasksByStatus = (status: string) => filteredTasks.filter(t =>
         status === 'INTERNAL_REVIEW'
             ? (t.status === 'INTERNAL_REVIEW' || t.status === 'QUERY')
             : t.status === status
@@ -118,25 +139,50 @@ export function KanbanBoard({ engagementId, fiName = "Bank" }: { engagementId?: 
     }
 
     return (
-        <DragDropContext onDragEnd={onDragEnd}>
-            <div className="flex min-h-full gap-6 pb-4">
-                {columns.map((col) => (
-                    <KanbanColumn
-                        key={col.id}
-                        id={col.id}
-                        title={col.title}
-                        description={col.desc}
-                        tasks={getTasksByStatus(col.id)}
-                        onTaskClick={handleTaskClick}
-                    />
-                ))}
+        <div className="space-y-4">
+            {/* Filter Bar */}
+            <div className="flex items-center justify-between pb-2">
+                <div className="flex items-center gap-2">
+                    <Filter className="h-4 w-4 text-slate-500" />
+                    <Select value={selectedQuestionnaireId} onValueChange={setSelectedQuestionnaireId}>
+                        <SelectTrigger className="w-[280px] h-9">
+                            <SelectValue placeholder="Filter by Questionnaire" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">All Questionnaires</SelectItem>
+                            {questionnaires.map((q) => (
+                                <SelectItem key={q.id} value={q.id}>
+                                    {q.name}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+                <div className="text-xs text-slate-400">
+                    Showing {filteredTasks.length} tasks
+                </div>
             </div>
 
-            <QuestionDetailDialog
-                open={isDialogOpen}
-                onOpenChange={setIsDialogOpen}
-                task={selectedTask}
-            />
-        </DragDropContext>
+            <DragDropContext onDragEnd={onDragEnd}>
+                <div className="flex min-h-full gap-6 pb-4 overflow-x-auto">
+                    {columns.map((col) => (
+                        <KanbanColumn
+                            key={col.id}
+                            id={col.id}
+                            title={col.title}
+                            description={col.desc}
+                            tasks={getTasksByStatus(col.id)}
+                            onTaskClick={handleTaskClick}
+                        />
+                    ))}
+                </div>
+
+                <QuestionDetailDialog
+                    open={isDialogOpen}
+                    onOpenChange={setIsDialogOpen}
+                    task={selectedTask}
+                />
+            </DragDropContext>
+        </div>
     );
 }
