@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { FileText, Clock, CheckCircle, ArrowRight } from "lucide-react";
 import { isSystemAdmin, getUserOrgRole } from "@/actions/security";
 import Link from "next/link";
+import { QuestionnaireActions } from "@/components/fi/questionnaire-actions";
 
 export default async function FIQuestionnairesPage() {
     const questionnaires = await getFIQuestionnaires();
@@ -77,11 +78,14 @@ export default async function FIQuestionnairesPage() {
                                         <TableCell className="text-right">
                                             <div className="flex justify-end gap-2">
                                                 {isAdmin && (
-                                                    <Link href={`/app/admin/questionnaires/${q.id}`}>
-                                                        <Button size="sm" variant="ghost">
-                                                            Manage <ArrowRight className="ml-2 h-4 w-4" />
-                                                        </Button>
-                                                    </Link>
+                                                    <>
+                                                        <Link href={`/app/admin/questionnaires/${q.id}`}>
+                                                            <Button size="sm" variant="ghost">
+                                                                Manage <ArrowRight className="ml-2 h-4 w-4" />
+                                                            </Button>
+                                                        </Link>
+                                                        <QuestionnaireActions id={q.id} name={q.name} />
+                                                    </>
                                                 )}
                                                 <span className="text-xs text-muted-foreground flex items-center px-3">
                                                     {new Date(q.createdAt).toLocaleDateString()}

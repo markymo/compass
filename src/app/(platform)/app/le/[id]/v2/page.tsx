@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { StandingDataWorkbench } from "@/components/client/standing-data-workbench";
 import { MissionControl } from "@/components/client/mission-control";
 import { EngagementManager } from "@/components/client/engagement/engagement-manager";
+import { ClientLEActions } from "@/components/client/client-le-actions";
 
 export default async function LEDashboardV2Page({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
@@ -38,18 +39,20 @@ export default async function LEDashboardV2Page({ params }: { params: Promise<{ 
                     <span className="text-slate-900 font-medium">Legal Entity: {le.name}</span>
                     <span className="bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full text-[10px] font-bold ml-2">V2 PROTOTYPE</span>
                 </nav>
-
-                <div className="flex flex-col gap-6">
-                    <h1 className="text-5xl font-bold tracking-tight font-serif text-slate-900">
-                        {le.name}
-                    </h1>
-
-                    <div className="max-w-3xl">
-                        <EditableDescription leId={le.id} initialValue={(le as any).description} />
-                    </div>
+                <div className="ml-auto">
+                    <ClientLEActions leId={le.id} leName={le.name} />
                 </div>
             </div>
 
+            <div className="flex flex-col gap-6">
+                <h1 className="text-5xl font-bold tracking-tight font-serif text-slate-900">
+                    {le.name}
+                </h1>
+
+                <div className="max-w-3xl">
+                    <EditableDescription leId={le.id} initialValue={(le as any).description} />
+                </div>
+            </div>
             {/* Main Content Tabs */}
             <Tabs defaultValue="overview" className="space-y-0">
                 <TabsList className="bg-transparent p-0 flex justify-start h-auto gap-0.5 border-b-0 space-x-1">
@@ -106,6 +109,6 @@ export default async function LEDashboardV2Page({ params }: { params: Promise<{ 
                     </TabsContent>
                 </div>
             </Tabs>
-        </div>
+        </div >
     );
 }

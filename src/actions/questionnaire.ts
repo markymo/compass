@@ -59,9 +59,70 @@ export async function createQuestionnaire(orgId: string, formData: FormData) {
 
 export async function getQuestionnaires(orgId: string) {
     return await prisma.questionnaire.findMany({
-        where: { fiOrgId: orgId },
+        where: {
+            fiOrgId: orgId,
+            isDeleted: false,
+            // We might want to show archived in a separate view, but hide from main list
+            status: { not: "ARCHIVED" }
+        },
         orderBy: { updatedAt: "desc" },
     });
+}
+
+// ... existing code ...
+
+export async function deleteQuestionnaire(id: string) {
+    if (!(await canManageQuestionnaire(id))) {
+        return { success: false, error: "Unauthorized" };
+    }
+    const q = await prisma.questionnaire.findUnique({ where: { id } });
+    if (!q) return { success: false, error: "Questionnaire not found" };
+
+    try {
+        // Soft Delete
+        await prisma.questionnaire.update({
+            where: { id },
+            data: { isDeleted: true }
+        });
+
+        await logActivity("DELETE_QUESTIONNAIRE", `/app/admin/organizations/${q.fiOrgId}`, {
+            questionnaireId: id,
+            name: q.name,
+            type: "SOFT_DELETE"
+        });
+
+        revalidatePath(`/app/admin/organizations/${q.fiOrgId}`);
+        return { success: true };
+    } catch (error) {
+        console.error("Delete failed:", error);
+        return { success: false, error: "Database error during deletion" };
+    }
+}
+
+export async function archiveQuestionnaire(id: string) {
+    if (!(await canManageQuestionnaire(id))) {
+        return { success: false, error: "Unauthorized" };
+    }
+    const q = await prisma.questionnaire.findUnique({ where: { id } });
+    if (!q) return { success: false, error: "Questionnaire not found" };
+
+    try {
+        await prisma.questionnaire.update({
+            where: { id },
+            data: { status: "ARCHIVED" }
+        });
+
+        await logActivity("ARCHIVE_QUESTIONNAIRE", `/app/admin/organizations/${q.fiOrgId}`, {
+            questionnaireId: id,
+            name: q.name
+        });
+
+        revalidatePath(`/app/admin/organizations/${q.fiOrgId}`);
+        return { success: true };
+    } catch (error) {
+        console.error("Archive failed:", error);
+        return { success: false, error: "Database error during archive" };
+    }
 }
 
 export async function getQuestionnaireById(id: string) {
@@ -365,29 +426,4 @@ export async function updateQuestionnaireFile(id: string, formData: FormData) {
     }
 }
 
-export async function deleteQuestionnaire(id: string) {
-    if (!(await canManageQuestionnaire(id))) {
-        return { success: false, error: "Unauthorized" };
-    }
-    const q = await prisma.questionnaire.findUnique({ where: { id } });
-    if (!q) return { success: false, error: "Questionnaire not found" };
-
-    // if (q.status !== "DRAFT") {
-    //     return { success: false, error: "Only DRAFT questionnaires can be deleted. Please Archive used questionnaires instead." };
-    // }
-
-    try {
-        await prisma.questionnaire.delete({ where: { id } });
-
-        await logActivity("DELETE_QUESTIONNAIRE", `/app/admin/organizations/${q.fiOrgId}`, {
-            questionnaireId: id,
-            name: q.name
-        });
-
-        revalidatePath(`/app/admin/organizations/${q.fiOrgId}`);
-        return { success: true };
-    } catch (error) {
-        console.error("Delete failed:", error);
-        return { success: false, error: "Database error during deletion" };
-    }
-}
+// End of file

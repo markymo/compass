@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowRight, FileText } from "lucide-react";
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
+import { EngagementActions } from "./engagement-actions";
 
 // Mock interface for now, matching closely to what getFIEngagements returns
 interface Engagement {
@@ -93,6 +94,9 @@ export function EngagementList({ engagements }: EngagementListProps) {
                                             <ArrowRight className="w-4 h-4" />
                                         </Link>
                                     </Button>
+                                    <div className="inline-block ml-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <EngagementActions engagementId={eng.id} clientName={eng.clientLE.name} />
+                                    </div>
                                 </TableCell>
                             </TableRow>
                         ))}

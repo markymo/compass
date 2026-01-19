@@ -126,7 +126,10 @@ export async function getFIQuestionnaires() {
     if (!org) return [];
 
     return await prisma.questionnaire.findMany({
-        where: { fiOrgId: org.id },
+        where: {
+            fiOrgId: org.id,
+            isDeleted: false
+        },
         orderBy: { updatedAt: 'desc' },
     });
 }
@@ -176,7 +179,11 @@ export async function getFIEngagements(): Promise<ApplicationEngagement[]> {
     if (!org) return [];
 
     const engagements = await prisma.fIEngagement.findMany({
-        where: { fiOrgId: org.id },
+        where: {
+            fiOrgId: org.id,
+            isDeleted: false,
+            status: { not: "ARCHIVED" }
+        },
         include: {
             clientLE: true,
             questionnaireInstances: { // Fetch Instances instead of Templates
@@ -343,5 +350,38 @@ export async function assignQuestionnaireToEngagement(engagementId: string, temp
     } catch (e: any) {
         console.error("Failed to assign questionnaire:", e);
         return { success: false, error: "Database error" };
+    }
+}
+
+// 6. Archive / Delete Engagement
+export async function deleteEngagement(id: string) {
+    const org = await getFIOganization();
+    if (!org) return { success: false, error: "Unauthorized" };
+
+    try {
+        await prisma.fIEngagement.update({
+            where: { id, fiOrgId: org.id },
+            data: { isDeleted: true }
+        });
+        revalidatePath("/app/fi");
+        return { success: true };
+    } catch (e) {
+        return { success: false, error: "Failed to delete engagement" };
+    }
+}
+
+export async function archiveEngagement(id: string) {
+    const org = await getFIOganization();
+    if (!org) return { success: false, error: "Unauthorized" };
+
+    try {
+        await prisma.fIEngagement.update({
+            where: { id, fiOrgId: org.id },
+            data: { status: "ARCHIVED" }
+        });
+        revalidatePath("/app/fi");
+        return { success: true };
+    } catch (e) {
+        return { success: false, error: "Failed to archive engagement" };
     }
 }

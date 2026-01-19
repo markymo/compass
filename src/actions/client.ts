@@ -81,7 +81,9 @@ export async function getClientLEs() {
 
     return await prisma.clientLE.findMany({
         where: {
-            clientOrgId: org.id
+            clientOrgId: org.id,
+            isDeleted: false,
+            status: { not: "ARCHIVED" }
         },
         include: {
             // Fetch engagements to show which banks they are working with
@@ -344,4 +346,36 @@ export async function getDashboardMetrics(leId: string) {
             user: "You"
         }))
     };
+}
+// 7. Archive / Delete Client LE
+export async function deleteClientLE(leId: string) {
+    const { userId } = await auth();
+    if (!userId) return { success: false, error: "Unauthorized" };
+
+    try {
+        await prisma.clientLE.update({
+            where: { id: leId },
+            data: { isDeleted: true }
+        });
+        revalidatePath("/app");
+        return { success: true };
+    } catch (e) {
+        return { success: false, error: "Failed to delete entity" };
+    }
+}
+
+export async function archiveClientLE(leId: string) {
+    const { userId } = await auth();
+    if (!userId) return { success: false, error: "Unauthorized" };
+
+    try {
+        await prisma.clientLE.update({
+            where: { id: leId },
+            data: { status: "ARCHIVED" } // Assuming string status field
+        });
+        revalidatePath("/app");
+        return { success: true };
+    } catch (e) {
+        return { success: false, error: "Failed to archive entity" };
+    }
 }

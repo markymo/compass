@@ -78,6 +78,7 @@ model ClientLE {
   description  String?            @db.Text
   jurisdiction String?
   status       String             @default("ACTIVE")
+  isDeleted    Boolean            @default(false)
   createdAt    DateTime           @default(now())
   updatedAt    DateTime           @updatedAt
   records      ClientLERecord[]
@@ -101,6 +102,7 @@ model FIEngagement {
   fiOrgId        String
   clientLEId     String
   status         EngagementStatus
+  isDeleted      Boolean          @default(false)
   clientLE       ClientLE         @relation(fields: [clientLEId], references: [id])
   org            Organization     @relation(fields: [fiOrgId], references: [id])
   queries        Query[]
@@ -127,6 +129,7 @@ model Questionnaire {
   fiOrgId          String
   name             String
   status           String         @default("DRAFT")
+  isDeleted        Boolean        @default(false)
   fileName         String?
   fileType         String?
   fileContent      Bytes?
@@ -231,6 +234,7 @@ enum EngagementStatus {
   REVIEWING
   QUERIES_OPEN
   SIGNED_OFF
+  ARCHIVED
 }
 
 enum QueryStatus {
