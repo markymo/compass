@@ -65,9 +65,17 @@ export async function getQuestionnaires(orgId: string) {
 }
 
 export async function getQuestionnaireById(id: string) {
+    if (!(await canManageQuestionnaire(id))) {
+        return null;
+    }
     return await prisma.questionnaire.findUnique({
         where: { id },
-        include: { fiOrg: true }
+        include: {
+            fiOrg: true,
+            questions: {
+                orderBy: { order: 'asc' }
+            }
+        }
     });
 }
 

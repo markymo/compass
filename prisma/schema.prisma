@@ -104,7 +104,8 @@ model FIEngagement {
   clientLE       ClientLE         @relation(fields: [clientLEId], references: [id])
   org            Organization     @relation(fields: [fiOrgId], references: [id])
   queries        Query[]
-  questionnaires Questionnaire[]  @relation("FIEngagementToQuestionnaire")
+  questionnaires Questionnaire[]  @relation("FIEngagementToQuestionnaire") // Templates
+  questionnaireInstances Questionnaire[] @relation("QuestionnaireInstance") // Instances
 
   @@unique([fiOrgId, clientLEId])
 }
@@ -137,6 +138,10 @@ model Questionnaire {
   fiOrg            Organization   @relation(fields: [fiOrgId], references: [id])
   engagements      FIEngagement[] @relation("FIEngagementToQuestionnaire")
 
+  // Link to Engagement (For Instances/Snapshots)
+  fiEngagementId   String?
+  fiEngagement     FIEngagement?  @relation("QuestionnaireInstance", fields: [fiEngagementId], references: [id])
+  
   // Privacy: If set, this questionnaire is only visible to this Org (and System Admins)
   ownerOrgId       String?
   ownerOrg         Organization?  @relation("OwnedQuestionnaires", fields: [ownerOrgId], references: [id])

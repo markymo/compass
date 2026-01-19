@@ -23,8 +23,10 @@ export function PlatformNavLinks({ orgTypes = [] }: PlatformNavLinksProps) {
             <Link
                 href="/app"
                 className={cn(
-                    "text-sm font-medium transition-colors hover:text-slate-900",
-                    isActive("/app") ? "text-slate-900" : "text-slate-500"
+                    "text-sm font-medium transition-all px-3 py-2 rounded-md",
+                    isActive("/app")
+                        ? "bg-slate-100 text-slate-900 border-b-2 border-slate-300" // Active: Light BG + subtle border
+                        : "text-slate-500 hover:text-slate-900 hover:bg-slate-50"
                 )}
             >
                 Client Dashboard
@@ -35,8 +37,10 @@ export function PlatformNavLinks({ orgTypes = [] }: PlatformNavLinksProps) {
                 <Link
                     href="/app/fi"
                     className={cn(
-                        "text-sm font-medium transition-colors hover:text-slate-900",
-                        isActive("/app/fi") ? "text-slate-900" : "text-slate-500"
+                        "text-sm font-medium transition-all px-3 py-2 rounded-md",
+                        isActive("/app/fi")
+                            ? "bg-slate-100 text-slate-900 border-b-2 border-indigo-300"
+                            : "text-slate-500 hover:text-slate-900 hover:bg-slate-50"
                     )}
                 >
                     FI Dashboard
