@@ -88,9 +88,12 @@ export async function getClientLEs() {
         include: {
             // Fetch engagements to show which banks they are working with
             fiEngagements: {
+                where: { isDeleted: false },
                 include: {
                     org: true, // The Bank Name
-                    questionnaires: true // Assigned questionnaires
+                    questionnaires: {
+                        where: { isDeleted: false }
+                    }
                 }
             }
         },
@@ -132,11 +135,20 @@ export async function getClientLEData(leId: string) {
                 where: { isDeleted: false },
                 include: {
                     org: true,
-                    questionnaires: true
+                    questionnaires: {
+                        where: { isDeleted: false }
+                    }
                 }
             }
         }
     });
+
+    if (le) {
+        le.fiEngagements.forEach(eng => {
+            console.log(`[getClientLEData] Engagement ${eng.org.name} has ${eng.questionnaires.length} ACTIVE questionnaires`);
+        });
+    }
+
     if (!le) return null;
 
     // 2. Get the Active Master Schema
@@ -249,9 +261,11 @@ export async function getDashboardMetrics(leId: string) {
         include: {
             standingDataSections: true,
             fiEngagements: {
+                where: { isDeleted: false },
                 include: {
                     org: true,
                     questionnaires: {
+                        where: { isDeleted: false },
                         include: {
                             questions: true // Fetch individual questions for "Closing Tracker"
                         }
@@ -449,5 +463,31 @@ export async function archiveClientLE(leId: string) {
         return { success: true };
     } catch (e) {
         return { success: false, error: "Failed to archive entity" };
+    }
+}
+
+// 9. Search Financial Institutions
+export async function searchFIs(query: string) {
+    const { userId } = await auth();
+    if (!userId) return [];
+
+    try {
+        const fis = await prisma.organization.findMany({
+            where: {
+                types: { has: "FI" },
+                name: { contains: query, mode: "insensitive" }
+            },
+            take: 10,
+            orderBy: { name: 'asc' }
+        });
+
+        return fis.map(fi => ({
+            value: fi.id, // Use ID as value for uniqueness
+            label: fi.name,
+            description: fi.description || "Financial Institution"
+        }));
+    } catch (e) {
+        console.error("Search FIs Failed", e);
+        return [];
     }
 }

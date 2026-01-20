@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { createFIEngagement } from "@/actions/client-le";
 import { toast } from "sonner";
-import { deleteEngagementByClient } from "@/actions/client";
+import { deleteEngagementByClient, searchFIs } from "@/actions/client";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -29,16 +29,13 @@ export function EngagementManager({ leId, initialEngagements }: EngagementManage
     const [isAdding, setIsAdding] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    // Mock Directory Data - In reality this would come from an API
-    const directory = [
-        { value: "barclays", label: "Barclays" },
-        { value: "jpmorgan", label: "J.P. Morgan" },
-        { value: "goldman", label: "Goldman Sachs" },
-        { value: "citie", label: "Citi" },
-        { value: "hsbc", label: "HSBC" },
-        { value: "deutsche", label: "Deutsche Bank" },
-        { value: "ubs", label: "UBS" },
+    // Initial Mock Data to show something before type
+    const initialDirectory = [
+        { value: "barclays", label: "Barclays", description: "Global Financial Services" },
+        { value: "jpmorgan", label: "J.P. Morgan", description: "Leading Global Financial Services Firm" },
     ];
+
+    const [searchResults, setSearchResults] = useState<{ value: string, label: string, description: string }[]>(initialDirectory);
 
     const handleAdd = async (fiName: string) => {
         setIsSubmitting(true);
@@ -109,15 +106,19 @@ export function EngagementManager({ leId, initialEngagements }: EngagementManage
             {isAdding && (
                 <div className="animate-in fade-in slide-in-from-top-2 duration-300">
                     <Card className="border-2 border-indigo-100 shadow-md bg-white overflow-hidden">
-                        {/* We use a custom wrapper to override the 'orange' accent color locally */}
                         <div className="[&_[cmdk-item][data-selected='true']]:bg-slate-100 [&_[cmdk-item][data-selected='true']]:text-slate-900">
-                            <Command className="rounded-none border-0">
+                            <Command className="rounded-none border-0" shouldFilter={false}>
                                 <div className="flex items-center border-b border-slate-100 px-3 overflow-hidden">
                                     <Search className="h-4 w-4 shrink-0 opacity-50 text-slate-500 mr-2" />
                                     <CommandInput
                                         placeholder="Search for a bank to add..."
                                         autoFocus
                                         className="border-0 focus:ring-0 shadow-none px-0 h-12 text-base"
+                                        onValueChange={(val) => {
+                                            if (val.length > 2) {
+                                                searchFIs(val).then(res => setSearchResults(res));
+                                            }
+                                        }}
                                     />
                                     <Button
                                         variant="ghost"
@@ -140,15 +141,18 @@ export function EngagementManager({ leId, initialEngagements }: EngagementManage
                                         </Button>
                                     </CommandEmpty>
                                     <CommandGroup heading="Available Institutions">
-                                        {directory.map((framework) => (
+                                        {searchResults.map((framework) => (
                                             <CommandItem
                                                 key={framework.value}
-                                                value={framework.label}
+                                                value={framework.value}
                                                 onSelect={() => handleAdd(framework.label)}
                                                 className="cursor-pointer py-3"
                                             >
                                                 <Building2 className="mr-3 h-4 w-4 text-slate-400" />
-                                                <span className="font-medium text-slate-700">{framework.label}</span>
+                                                <div className="flex flex-col">
+                                                    <span className="font-medium text-slate-700">{framework.label}</span>
+                                                    <span className="text-xs text-slate-400">{framework.description?.slice(0, 50)}...</span>
+                                                </div>
                                                 <div className="ml-auto opacity-0 group-data-[selected=true]:opacity-100">
                                                     <Plus className="h-4 w-4 text-slate-400" />
                                                 </div>
