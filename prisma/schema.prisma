@@ -84,6 +84,7 @@ model ClientLE {
   records      ClientLERecord[]
   fiEngagements FIEngagement[]
   standingDataSections StandingDataSection[]
+  documents     Document[]
 }
 
 model ClientLERecord {
@@ -110,6 +111,25 @@ model FIEngagement {
   questionnaireInstances Questionnaire[] @relation("QuestionnaireInstance") // Instances
 
   @@unique([fiOrgId, clientLEId])
+  sharedDocuments Document[] @relation("SharedDocuments") // Access Granted
+}
+
+model Document {
+  id              String         @id @default(uuid())
+  clientLEId      String
+  name            String
+  fileUrl         String         // Path to storage (or mock URL)
+  fileType        String         // mime type e.g. 'application/pdf'
+  docType         String?        // 'IDENTITY', 'CORPORATE'
+  metadata        Json?          // { expiry: "2025-12-31" }
+  isVerified      Boolean        @default(false)
+  isDeleted       Boolean        @default(false)
+  
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  clientLE        ClientLE       @relation(fields: [clientLEId], references: [id])
+  sharedWith      FIEngagement[] @relation("SharedDocuments")
 }
 
 model Query {

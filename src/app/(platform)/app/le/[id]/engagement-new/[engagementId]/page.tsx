@@ -26,6 +26,11 @@ export default async function EngagementPage({ params, searchParams }: PageProps
     const fiName = engagement.org.name;
     const activeTab = typeof tab === 'string' ? tab : undefined;
 
+    // Check if sharedDocuments is array, if not empty
+    // Typescript might complain if engagement type is not inferred fully yet due to pending generation
+    // But runtime it should avail.
+    const sharedDocuments = (engagement as any).sharedDocuments || [];
+
     return (
         <div className="w-full px-6 space-y-6 pb-20 pt-6">
             {/* Breadcrumb Navigation */}
@@ -49,6 +54,7 @@ export default async function EngagementPage({ params, searchParams }: PageProps
                 le={le}
                 engagement={engagement}
                 questionnaires={questionnaires || []}
+                sharedDocuments={sharedDocuments}
                 initialTab={activeTab}
             />
         </div>

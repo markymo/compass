@@ -9,3 +9,5 @@ const nextConfig: NextConfig = {
 };
 
 export default nextConfig;
+
+// Force restart for Prisma Schema update

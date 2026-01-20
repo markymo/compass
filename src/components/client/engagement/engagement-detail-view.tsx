@@ -10,11 +10,13 @@ import { FileText, Search, Plus, Filter, Download, ExternalLink, Clock, CheckCir
 import Link from "next/link";
 import { AddQuestionnaireDialog } from "./add-questionnaire-dialog";
 import { KanbanBoard } from "./kanban-board";
+import { EngagementDocumentManager } from "./engagement-document-manager";
 
 interface EngagementDetailViewProps {
     le: any;
     engagement: any;
     questionnaires: any[];
+    sharedDocuments: any[];
     initialTab?: string;
 }
 
@@ -23,7 +25,7 @@ import { deleteQuestionnaire } from "@/actions/questionnaire"; // Import Delete 
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
-export function EngagementDetailView({ le, engagement, questionnaires, initialTab }: EngagementDetailViewProps) {
+export function EngagementDetailView({ le, engagement, questionnaires, sharedDocuments, initialTab }: EngagementDetailViewProps) {
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
     const [refreshKey, setRefreshKey] = useState(0);
     const router = useRouter();
@@ -189,15 +191,10 @@ export function EngagementDetailView({ le, engagement, questionnaires, initialTa
                     </TabsContent>
 
                     <TabsContent value="documents" className="mt-0">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Shared Documents</CardTitle>
-                                <CardDescription>Other files shared with this FI.</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <p className="text-slate-500 text-sm">No documents found.</p>
-                            </CardContent>
-                        </Card>
+                        <EngagementDocumentManager
+                            engagementId={engagement.id}
+                            documents={sharedDocuments || []}
+                        />
                     </TabsContent>
 
                     <TabsContent value="workbench" className="mt-6">

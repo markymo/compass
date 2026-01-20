@@ -292,6 +292,10 @@ export async function getEngagementDetails(engagementId: string) {
                         // Excluded: fileContent, extractedContent, rawText
                     }
                 },
+                sharedDocuments: {
+                    where: { isDeleted: false },
+                    orderBy: { createdAt: 'desc' }
+                },
                 clientLE: true // Context
             }
         });
