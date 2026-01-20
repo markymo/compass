@@ -11,6 +11,8 @@ import { Building2, ArrowUpRight, CheckCircle2, AlertCircle, Clock } from "lucid
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
+import { DocumentVault } from "./document-vault";
+
 interface LEPortalContainerProps {
     le: any;
     schema: any;
@@ -49,6 +51,9 @@ export function LEPortalContainer({ le, schema, requirements, standingData, prog
                     </TabsTrigger>
                     <TabsTrigger value="standing-data" className="flex-1">
                         Knowledge Base
+                    </TabsTrigger>
+                    <TabsTrigger value="documents" className="flex-1">
+                        Digital Vault
                     </TabsTrigger>
                     <TabsTrigger value="engagements" className="flex-1">
                         Engagements
@@ -109,6 +114,12 @@ export function LEPortalContainer({ le, schema, requirements, standingData, prog
                 <TabsContent value="standing-data" className="mt-0">
                     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 shadow-sm">
                         <StandingDataWorkbench leId={le.id} />
+                    </div>
+                </TabsContent>
+
+                <TabsContent value="documents" className="mt-0">
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 shadow-sm">
+                        <DocumentVault leId={le.id} />
                     </div>
                 </TabsContent>
 
