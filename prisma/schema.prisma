@@ -21,6 +21,9 @@ model Organization {
   id             String                 @id @default(uuid())
   name           String
   types          OrgType[]
+  domain         String?
+  logoUrl        String?
+  description    String?                @db.Text
   clientLEs      ClientLE[]
   engagements    FIEngagement[]
   fiSchemas      FISchema[]
