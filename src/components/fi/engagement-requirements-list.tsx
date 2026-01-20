@@ -6,7 +6,9 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+
 import { Card } from "@/components/ui/card";
+import { QuestionnaireActions } from "@/components/fi/questionnaire-actions";
 
 interface EngagementRequirementsListProps {
     engagementId: string;
@@ -75,13 +77,16 @@ export function EngagementRequirementsList({ engagementId, questionnaires }: Eng
                                 <p className="text-xs text-slate-500">Source: Digital Form • Client Submitted</p>
                             </div>
                         </div>
-                        <div className="flex items-center gap-4">
+
+
+                        <div className="flex items-center gap-2">
                             <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 border-emerald-100">Ready</Badge>
                             <Link href={`./${engagementId}/workbench/${q.id}`}>
                                 <Button size="sm" variant="ghost" className="text-slate-400 group-hover:text-indigo-600">
                                     Review <ArrowRight className="w-4 h-4 ml-1" />
                                 </Button>
                             </Link>
+                            <QuestionnaireActions id={q.id} name={q.name} />
                         </div>
                     </div>
                 ))}

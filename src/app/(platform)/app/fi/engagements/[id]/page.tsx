@@ -8,6 +8,7 @@ import { ArrowLeft, CheckCircle2, Clock, FileText, ArrowRight, AlertCircle, Shie
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { EngagementRequirementsList } from "@/components/fi/engagement-requirements-list";
+import { EngagementActions } from "@/components/fi/engagement-actions";
 
 export default async function FIEngagementOverviewPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
@@ -41,8 +42,10 @@ export default async function FIEngagementOverviewPage({ params }: { params: Pro
                             Last active: 2 hours ago
                         </p>
                     </div>
+
+
                     <div className="flex gap-2">
-                        <Button variant="outline">Actions</Button>
+                        <EngagementActions engagementId={engagement.id} clientName={engagement.clientLE.name} />
                         <Button className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2">
                             <CheckCircle2 className="w-4 h-4" /> Approve Onboarding
                         </Button>

@@ -19,6 +19,7 @@ interface EngagementDetailViewProps {
 }
 
 import { instantiateQuestionnaire, generateEngagementAnswers } from "@/actions/kanban-actions";
+import { deleteQuestionnaire } from "@/actions/questionnaire"; // Import Delete action
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
@@ -42,6 +43,19 @@ export function EngagementDetailView({ le, engagement, questionnaires, initialTa
             toast.info("Upload not implemented yet");
             setIsAddDialogOpen(false);
         }
+    };
+
+    const handleDeleteQuestionnaire = async (id: string, name: string) => {
+        if (!confirm(`Are you sure you want to remove "${name}" from this engagement?`)) return;
+
+        toast.promise(deleteQuestionnaire(id), {
+            loading: "Removing questionnaire...",
+            success: () => {
+                router.refresh();
+                return "Questionnaire removed";
+            },
+            error: "Failed to remove questionnaire"
+        });
     };
 
     const handleBatchGenerate = async () => {
@@ -126,7 +140,7 @@ export function EngagementDetailView({ le, engagement, questionnaires, initialTa
 
                     <TabsContent value="manage" className="mt-0 space-y-4">
                         <div className="flex justify-between items-center">
-                            <h2 className="text-lg font-semibold text-slate-900">Engagement Management</h2>
+                            <h2 className="text-lg font-semibold text-slate-900">Questionnaires</h2>
                             <Button onClick={() => setIsAddDialogOpen(true)}>
                                 <Plus className="h-4 w-4 mr-2" />
                                 Add Questionnaire
@@ -157,7 +171,12 @@ export function EngagementDetailView({ le, engagement, questionnaires, initialTa
                                                     </div>
                                                 </div>
                                                 <div className="flex items-center gap-2">
-                                                    <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-700 hover:bg-red-50">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                                                        onClick={() => handleDeleteQuestionnaire(q.id, q.name)}
+                                                    >
                                                         Remove
                                                     </Button>
                                                 </div>

@@ -281,6 +281,7 @@ export async function getEngagementDetails(engagementId: string) {
             include: {
                 org: true, // The FI Organization
                 questionnaires: {
+                    where: { isDeleted: false }, // Filter out deleted questionnaires
                     select: {
                         id: true,
                         name: true,

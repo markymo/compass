@@ -129,6 +129,7 @@ export async function getClientLEData(leId: string) {
         where: { id: leId },
         include: {
             fiEngagements: {
+                where: { isDeleted: false },
                 include: {
                     org: true,
                     questionnaires: true
@@ -348,19 +349,90 @@ export async function getDashboardMetrics(leId: string) {
     };
 }
 // 7. Archive / Delete Client LE
+// 7. Archive / Delete Client LE
 export async function deleteClientLE(leId: string) {
     const { userId } = await auth();
     if (!userId) return { success: false, error: "Unauthorized" };
+    // Ownership check is implicit in getClientLEs but for write we should double check OR assume they can only edit what they see.
+    // Ideally we check ownership via ensureUserOrg.
+
+    const org = await ensureUserOrg(userId); // Re-fetch to confirm ID
+    const le = await prisma.clientLE.findFirst({
+        where: { id: leId, clientOrgId: org.id }
+    });
+    if (!le) return { success: false, error: "Legal Entity not found or unauthorized" };
 
     try {
+        // Cascade: Delete LE -> Delete Engagements -> Delete Questionnaire Instances
+        // 1. Find all engagements
+        const engagements = await prisma.fIEngagement.findMany({
+            where: { clientLEId: leId }
+        });
+        const engagementIds = engagements.map(e => e.id);
+
+        // 2. Soft Delete all Questionnaires linked to these engagements
+        await prisma.questionnaire.updateMany({
+            where: { fiEngagementId: { in: engagementIds } },
+            data: { isDeleted: true }
+        });
+
+        // 3. Soft Delete all Engagements
+        await prisma.fIEngagement.updateMany({
+            where: { clientLEId: leId },
+            data: { isDeleted: true }
+        });
+
+        // 4. Soft Delete the LE itself
         await prisma.clientLE.update({
             where: { id: leId },
             data: { isDeleted: true }
         });
+
         revalidatePath("/app");
         return { success: true };
     } catch (e) {
+        console.error("Delete ClientLE Failed", e);
         return { success: false, error: "Failed to delete entity" };
+    }
+}
+
+// 8. Client-Side Engagement Deletion
+export async function deleteEngagementByClient(engagementId: string) {
+    const { userId } = await auth();
+    if (!userId) return { success: false, error: "Unauthorized" };
+
+    const org = await ensureUserOrg(userId);
+
+    // Verify ownership: The engagement must belong to a ClientLE owned by this user's Org
+    const engagement = await prisma.fIEngagement.findFirst({
+        where: {
+            id: engagementId,
+            clientLE: {
+                clientOrgId: org.id
+            }
+        }
+    });
+
+    if (!engagement) return { success: false, error: "Engagement not found or unauthorized" };
+
+    try {
+        // Cascade: Engagement -> Questionnaire Instances
+        await prisma.questionnaire.updateMany({
+            where: { fiEngagementId: engagementId },
+            data: { isDeleted: true }
+        });
+
+        // Delete Engagement
+        await prisma.fIEngagement.update({
+            where: { id: engagementId },
+            data: { isDeleted: true }
+        });
+
+        revalidatePath("/app");
+        return { success: true };
+    } catch (e) {
+        console.error("Delete Engagement Failed", e);
+        return { success: false, error: "Failed to delete engagement" };
     }
 }
 

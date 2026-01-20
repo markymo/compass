@@ -10,6 +10,14 @@ import { cn } from "@/lib/utils";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { createFIEngagement } from "@/actions/client-le";
 import { toast } from "sonner";
+import { deleteEngagementByClient } from "@/actions/client";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { MoreVertical, Trash2 } from "lucide-react";
 
 interface EngagementManagerProps {
     leId: string;
@@ -66,6 +74,21 @@ export function EngagementManager({ leId, initialEngagements }: EngagementManage
             toast.error("Failed to create engagement: " + result.error);
         }
         setIsSubmitting(false);
+    };
+
+    const handleDelete = async (details: { id: string, name: string }) => {
+        const previousEngagements = [...engagements];
+        // Optimistic delete
+        setEngagements(prev => prev.filter(e => e.id !== details.id));
+
+        toast.promise(deleteEngagementByClient(details.id), {
+            loading: "Deleting engagement...",
+            success: () => "Engagement deleted",
+            error: (err) => {
+                setEngagements(previousEngagements); // Rollback
+                return "Failed to delete";
+            }
+        });
     };
 
     return (
@@ -193,6 +216,23 @@ export function EngagementManager({ leId, initialEngagements }: EngagementManage
                                         )}
                                     </Button>
                                 </Link>
+
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                                            <MoreVertical className="h-4 w-4" />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                        <DropdownMenuItem
+                                            className="text-red-600 focus:text-red-600 focus:bg-red-50"
+                                            onClick={() => handleDelete({ id: eng.id, name: typeof eng.org === 'string' ? eng.org : eng.org?.name })}
+                                        >
+                                            <Trash2 className="mr-2 h-4 w-4" />
+                                            Delete Engagement
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
                             </div>
                         </CardContent>
                     </Card>

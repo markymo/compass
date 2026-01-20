@@ -182,7 +182,8 @@ export async function getFIEngagements(): Promise<ApplicationEngagement[]> {
         where: {
             fiOrgId: org.id,
             isDeleted: false,
-            status: { not: "ARCHIVED" }
+            status: { not: "ARCHIVED" },
+            clientLE: { isDeleted: false }
         },
         include: {
             clientLE: true,
@@ -354,11 +355,18 @@ export async function assignQuestionnaireToEngagement(engagementId: string, temp
 }
 
 // 6. Archive / Delete Engagement
+// 6. Archive / Delete Engagement
 export async function deleteEngagement(id: string) {
     const org = await getFIOganization();
     if (!org) return { success: false, error: "Unauthorized" };
 
     try {
+        // Cascade: Delete linked Questionnaire Instances
+        await prisma.questionnaire.updateMany({
+            where: { fiEngagementId: id },
+            data: { isDeleted: true }
+        });
+
         await prisma.fIEngagement.update({
             where: { id, fiOrgId: org.id },
             data: { isDeleted: true }
