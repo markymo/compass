@@ -1,15 +1,26 @@
-import { getClientLEs } from "@/actions/client";
+import { getClientLEs, ensureUserOrg } from "@/actions/client";
 import { CreateLEDialog } from "@/components/client/create-le-dialog";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
 import { Briefcase, ArrowRight, Building2, FileText, CheckCircle2, Cloud, AlertCircle, Shield } from "lucide-react";
+import { RedirectTo } from "@/components/layout/RedirectTo";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
 export default async function ClientDashboardPage() {
-    const { userId } = await auth();
+    const { userId, sessionClaims } = await auth();
     const user = await currentUser();
+
+    const email = (sessionClaims?.email as string) || "";
+    // We already call this inside getClientLEs but we need the org object for the check
+    const org = await ensureUserOrg(userId!, email);
+
+    // SECURITY: If user is strictly an FI, redirect to FI Dashboard
+    if (org.types.includes("FI") && !org.types.includes("SYSTEM")) {
+        return <RedirectTo path="/app/fi" />;
+    }
+
     const les = await getClientLEs();
 
     // Calculate Stats

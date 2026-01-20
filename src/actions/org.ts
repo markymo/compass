@@ -95,17 +95,22 @@ export async function addMemberToOrg(orgId: string, email: string, role: "ADMIN"
         // But logic elsewhere assumes 1 role.
         // Let's assume we OVERWRITE valid org for now (Move user).
 
-        // Remove existing roles to enforce 1-org policy for MVP simplicity
-        await prisma.userOrganizationRole.deleteMany({
-            where: { userId: user.id }
-        });
-
-        // Create new role
-        await prisma.userOrganizationRole.create({
-            data: {
+        // Create or Update role for this specific Org
+        // We no longer delete other roles, supporting Multi-Org users.
+        await prisma.userOrganizationRole.upsert({
+            where: {
+                userId_orgId: {
+                    userId: user.id,
+                    orgId: orgId
+                }
+            },
+            create: {
                 userId: user.id,
                 orgId,
                 role
+            },
+            update: {
+                role // Update role if already exists
             }
         });
 

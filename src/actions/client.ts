@@ -4,7 +4,8 @@ import prisma from "@/lib/prisma";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
 
-// Helper to get or create the user's Client Organization
+import { cookies } from "next/headers";
+
 // Helper to get or create the user's Client Organization
 export async function ensureUserOrg(userId: string, userEmail: string = "") {
     // 0. Fallback: If email is missing (failed session claim), fetch from Clerk directly
@@ -27,15 +28,24 @@ export async function ensureUserOrg(userId: string, userEmail: string = "") {
         }
     }
 
-    // 1. Check all roles
+    // 2. Fetch all roles
     const roles = await prisma.userOrganizationRole.findMany({
         where: { userId },
         include: { org: true }
     });
 
-    // console.log(`[ensureUserOrg] Found ${roles.length} roles for ${userId}`);
-
     if (roles.length > 0) {
+        // Priority 0: Check Cookie for Preference
+        const cookieStore = await cookies();
+        const preferredOrgId = cookieStore.get("compass_active_org")?.value;
+
+        if (preferredOrgId) {
+            const preferredRole = roles.find(r => r.org.id === preferredOrgId);
+            if (preferredRole) {
+                return preferredRole.org;
+            }
+        }
+
         // Priority 1: System Admin
         const systemRole = roles.find(r => r.org.types.includes("SYSTEM"));
         if (systemRole) return systemRole.org;
@@ -44,7 +54,7 @@ export async function ensureUserOrg(userId: string, userEmail: string = "") {
         return roles[0].org;
     }
 
-    // 2. If not, AUTO-CREATE one (for this demo/v1)
+    // 3. If not, AUTO-CREATE one (for this demo/v1)
     console.log(`[ensureUserOrg] No roles found for ${userId}. Auto-creating Client Org.`);
 
     // Ensure User exists
@@ -68,6 +78,25 @@ export async function ensureUserOrg(userId: string, userEmail: string = "") {
     });
 
     return newOrg;
+}
+
+export async function switchOrganization(orgId: string) {
+    const cookieStore = await cookies();
+    cookieStore.set("compass_active_org", orgId);
+    revalidatePath("/app");
+    return { success: true };
+}
+
+export async function getUserOrganizations() {
+    const { userId } = await auth();
+    if (!userId) return [];
+
+    const roles = await prisma.userOrganizationRole.findMany({
+        where: { userId },
+        include: { org: true }
+    });
+
+    return roles.map(r => r.org);
 }
 
 // 1. Get List of Client LEs with Dashboard Data

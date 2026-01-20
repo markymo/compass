@@ -116,3 +116,21 @@ export async function canViewQuestionnaire(questionnaireId: string) {
     const role = await getUserOrgRole(q.fiOrgId);
     return !!role; // Any non-null role means membership
 }
+
+/**
+ * Gets the FI organization the user belongs to (if any).
+ */
+export async function getUserFIOrg() {
+    const { userId } = await auth();
+    if (!userId) return null;
+
+    const role = await prisma.userOrganizationRole.findFirst({
+        where: {
+            userId: userId,
+            org: { types: { has: "FI" } }
+        },
+        include: { org: true }
+    });
+
+    return role?.org || null;
+}

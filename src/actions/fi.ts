@@ -283,8 +283,13 @@ export async function getFIEngagementById(id: string): Promise<ApplicationEngage
                     questions: {
                         orderBy: { order: 'asc' }
                     }
+                    // processingLogs is included by default if not selecting specific fields?
+                    // wait, 'include' on top level includes relationships, but scalar fields are included by default.
+                    // processingLogs is a scalar field (Json).
+                    // So it SHOULD be included automatically since we don't use 'select' here, we use 'include'.
                 }
             }
+
         }
     });
 

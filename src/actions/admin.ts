@@ -48,14 +48,21 @@ export async function updateUserOrg(targetUserId: string, targetOrgId: string, f
     // Transactional
 
     await prisma.$transaction(async (tx) => {
-        await tx.userOrganizationRole.deleteMany({
-            where: { userId: targetUserId }
-        });
-
-        await tx.userOrganizationRole.create({
-            data: {
+        // Update or Create role for this target Org
+        // We do NOT remove other roles anymore.
+        await tx.userOrganizationRole.upsert({
+            where: {
+                userId_orgId: {
+                    userId: targetUserId,
+                    orgId: targetOrgId
+                }
+            },
+            create: {
                 userId: targetUserId,
                 orgId: targetOrgId,
+                role: "ADMIN"
+            },
+            update: {
                 role: "ADMIN"
             }
         });

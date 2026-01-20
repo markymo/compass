@@ -66,7 +66,7 @@ export default function UserAdminPage() {
                             </TableHeader>
                             <TableBody>
                                 {users.map(u => (
-                                    <TableRow key={u.userId}>
+                                    <TableRow key={`${u.userId}-${u.orgId}`}>
                                         <TableCell className="font-medium">{u.email}</TableCell>
                                         <TableCell>{u.orgName}</TableCell>
                                         <TableCell>

@@ -1,16 +1,16 @@
-
 import Link from "next/link";
 import { Compass } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { PlatformNavLinks } from "./PlatformNavLinks";
 import { UserNav } from "./UserNav";
+import { OrgSwitcher } from "./OrgSwitcher";
 
 interface PlatformNavbarProps {
     orgName?: string;
     orgTypes?: string[];
+    availableOrgs?: { id: string; name: string; types: string[] }[];
 }
 
-export function PlatformNavbar({ orgName, orgTypes = [] }: PlatformNavbarProps) {
+export function PlatformNavbar({ orgName = "", orgTypes = [], availableOrgs = [] }: PlatformNavbarProps) {
     return (
         <header className="sticky top-0 left-0 right-0 z-50 border-b border-slate-200 bg-white/80 backdrop-blur-xl">
             <div className="container mx-auto flex h-20 items-center justify-between px-4 md:px-6">
@@ -29,9 +29,11 @@ export function PlatformNavbar({ orgName, orgTypes = [] }: PlatformNavbarProps) 
 
                 <div className="flex items-center gap-4">
                     {orgName && (
-                        <Badge variant="outline" className="text-sm px-3 py-1 bg-white/50">
-                            {orgName} <span className="text-muted-foreground ml-1">({orgTypes.join(", ")})</span>
-                        </Badge>
+                        <OrgSwitcher
+                            currentOrgName={orgName}
+                            currentOrgTypes={orgTypes}
+                            availableOrgs={availableOrgs}
+                        />
                     )}
                     <UserNav />
                 </div>

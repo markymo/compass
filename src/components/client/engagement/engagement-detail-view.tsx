@@ -167,9 +167,17 @@ export function EngagementDetailView({ le, engagement, questionnaires, sharedDoc
                                                     </div>
                                                     <div>
                                                         <h3 className="font-medium text-slate-900">{q.name}</h3>
-                                                        <Badge variant="secondary" className="mt-1 text-[10px]">
-                                                            {q.mappings ? 'Standard' : 'Custom'}
-                                                        </Badge>
+                                                        <div className="flex items-center gap-2 mt-1">
+                                                            {q.status === 'DIGITIZING' ? (
+                                                                <Badge variant="outline" className="text-xs bg-indigo-50 text-indigo-600 border-indigo-200 animate-pulse">
+                                                                    Digitizing...
+                                                                </Badge>
+                                                            ) : (
+                                                                <Badge variant="secondary" className="text-[10px]">
+                                                                    {q.mappings ? 'Standard' : 'Custom'}
+                                                                </Badge>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 </div>
                                                 <div className="flex items-center gap-2">
@@ -236,6 +244,7 @@ export function EngagementDetailView({ le, engagement, questionnaires, sharedDoc
                 open={isAddDialogOpen}
                 onOpenChange={setIsAddDialogOpen}
                 onAdd={handleAdd}
+                engagementId={engagement.id}
             />
         </div>
     );

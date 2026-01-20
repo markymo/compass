@@ -22,33 +22,40 @@ import { STANDARD_CATEGORIES } from "@/lib/constants";
 import mammoth from 'mammoth';
 import PDFParser from 'pdf2json';
 
+// LOGGING INTERFACE
+type Logger = (message: string, stage?: string, level?: "INFO" | "ERROR" | "SUCCESS") => Promise<void>;
+
 // 1. Process Document: Convert to Base64 (Images/PDF) or Text (Docx/Txt)
-export async function parseDocument(formData: FormData): Promise<{ content: string | string[], type: "image" | "text", mime: string }> {
+export async function parseDocument(formData: FormData, logger?: Logger): Promise<{ content: string | string[], type: "image" | "text", mime: string }> {
     const file = formData.get("file") as File;
     if (!file) throw new Error("No file uploaded");
-    console.log(`[AI Mapper] Processing file: ${file.name}`);
+    if (logger) await logger(`Processing file: ${file.name} (${file.type})`, "FILE_DETECT");
     const buffer = Buffer.from(await file.arrayBuffer());
-    return processDocumentBuffer(buffer, file.type, file.name);
+    return processDocumentBuffer(buffer, file.type, file.name, logger);
 }
 
-export async function processDocumentBuffer(buffer: Buffer, mimeType: string, fileName: string): Promise<{ content: string | string[], type: "image" | "text", mime: string }> {
+export async function processDocumentBuffer(buffer: Buffer, mimeType: string, fileName: string, logger?: Logger): Promise<{ content: string | string[], type: "image" | "text", mime: string }> {
     if (!buffer || buffer.length === 0) throw new Error("Document buffer is empty");
+
+    if (logger) await logger(`Analyzing buffer: ${(buffer.length / 1024).toFixed(2)} KB`, "BUFFER_ANALYSIS");
 
     // DOCX
     if (mimeType.includes("wordprocessingml") || fileName.endsWith(".docx")) {
-        console.log("[AI Mapper] Parsing DOCX via Mammoth");
+        if (logger) await logger("Detected DOCX format. Using Mammoth parser.", "PARSER_SELECT");
         const result = await mammoth.extractRawText({ buffer });
+        if (logger) await logger(`DOCX Text Extracted. Length: ${result.value.length} chars`, "TEXT_EXTRACT", "SUCCESS");
         return { content: result.value, type: "text", mime: "text/plain" };
     }
 
     // TEXT
     if (mimeType === "text/plain" || fileName.endsWith(".txt")) {
+        if (logger) await logger("Detected Plain Text.", "PARSER_SELECT");
         return { content: buffer.toString('utf-8'), type: "text", mime: "text/plain" };
     }
 
     // PDF
     if (mimeType === "application/pdf" || fileName.endsWith(".pdf")) {
-        console.log("[AI Mapper] Parsing PDF via pdf2json");
+        if (logger) await logger("Detected PDF format. Using pdf2json parser.", "PARSER_SELECT");
         try {
             // @ts-ignore
             const pdfParser = new PDFParser(null, 1);
@@ -60,27 +67,30 @@ export async function processDocumentBuffer(buffer: Buffer, mimeType: string, fi
 
             // Check if Scanned
             const cleanedText = text.replace(/----------------Page \(\d+\) Break----------------/g, "").trim();
+            if (logger) await logger(`PDF Text Extracted. Raw Length: ${text.length} chars`, "TEXT_EXTRACT");
+
             if (!text || cleanedText.length < 100) {
-                console.log("[AI Mapper] PDF text extraction yielded empty/short text. Likely Scanned.");
-                // THROW SPECIFIC ERROR for Client-Side Fallback
+                if (logger) await logger("Text too short. Probably a Scanned PDF.", "SCANNED_DETECT", "ERROR");
                 throw new Error("SCANNED_PDF_DETECTED");
             }
+
+            if (logger) await logger("PDF Text Validation Passed.", "TEXT_EXTRACT", "SUCCESS");
             return { content: text, type: "text", mime: "text/plain" };
         } catch (e: any) {
             console.error("[AI Mapper] PDF Parse Error:", e);
+            if (logger) await logger(`PDF Parse Error: ${e.message}`, "TEXT_EXTRACT", "ERROR");
             if (e.message === "SCANNED_PDF_DETECTED") throw e;
-            // Other errors
             throw new Error("Failed to parse PDF text.");
         }
     }
 
-    // Fallback: Treat as Image? No, without GS we can't generic convert. 
-    // Just return as base64 and hope Vision can read it? (No, Vision needs image/png not application/pdf)
-
     throw new Error(`Unsupported file type: ${mimeType}`);
 }
-export async function extractQuestionnaireItems(input: { content: string | string[], type: "image" | "text", mime: string }): Promise<ExtractedItem[]> {
+
+export async function extractQuestionnaireItems(input: { content: string | string[], type: "image" | "text", mime: string }, logger?: Logger): Promise<ExtractedItem[]> {
     const { content, type, mime } = input;
+
+    if (logger) await logger(`Preparing AI Extraction Context. Mode: ${type}`, "AI_PREP");
 
     // A. Fetch Master Schema
     const masterSchema = await prisma.masterSchema.findFirst({
@@ -144,12 +154,10 @@ export async function extractQuestionnaireItems(input: { content: string | strin
 
     try {
         const key = process.env.OPENAI_API_KEY;
-        console.log(`[AI Mapper] Server Action Start. API Key present: ${!!key}. Length: ${key ? key.length : 0}`);
+        if (logger) await logger("Calling OpenAI API...", "AI_CALL");
 
         if (!key) {
-            console.error("[AI Mapper] CRITICAL: OPENAI_API_KEY is undefined in process.env");
-            // Check debug info
-            console.log("[AI Mapper] Env Keys:", Object.keys(process.env).filter(k => k.includes("OPENAI")));
+            if (logger) await logger("CRITICAL: Missing API Key", "AI_CALL", "ERROR");
             throw new Error("Server Misconfiguration: OPENAI_API_KEY is missing.");
         }
 
@@ -157,13 +165,11 @@ export async function extractQuestionnaireItems(input: { content: string | strin
             apiKey: key,
         });
 
-        console.log(`[AI Mapper] Extracting Items (${type} mode). Input length: ${Array.isArray(content) ? content.length + " pages" : content.length + " chars"}`);
-
         const { object } = await generateObject({
             model: openai('gpt-4o'),
 
             // @ts-ignore
-            mode: 'json',
+            mode: 'tool',
             schemaName: 'extracted_questionnaire_items',
             schemaDescription: 'A list of all questions, sections, and notes extracted from the document',
             schema: z.object({
@@ -172,12 +178,14 @@ export async function extractQuestionnaireItems(input: { content: string | strin
                     originalText: z.string().describe("The exact text content"),
                     neutralText: z.string().optional().describe("Neutralized question text (optional)"),
                     masterKey: z.string().optional().describe("Matching master schema key (optional)"),
-                    category: z.string().describe("The standard category for this question (MANDATORY for Questions)"),
+                    category: z.string().optional().describe("The standard category for this question (Recommended)"),
                     confidence: z.number().optional().describe("Confidence score 0-1")
                 }))
             }),
             messages: [{ role: "user", content: userContent }]
         });
+
+        if (logger) await logger(`AI Response Received. Processing items...`, "AI_RESPONSE");
 
         // Post-process: Normalize types and handle nulls
         const safeItems = object.items.map(item => {
@@ -198,12 +206,11 @@ export async function extractQuestionnaireItems(input: { content: string | strin
             };
         }).map((item, idx) => ({ ...item, order: idx + 1 }));
 
-        console.log(`[AI Mapper] Extraction Success. Found ${safeItems.length} items.`);
+        if (logger) await logger(`Extraction Complete. Found ${safeItems.length} items.`, "COMPLETE", "SUCCESS");
         return safeItems;
     } catch (e: any) {
-        console.log("[AI Mapper] Extraction Error:", e);
         console.error("[AI Mapper] Extraction Error:", e);
-        if (e.cause) console.log("[AI Mapper] Error Cause:", e.cause);
+        if (logger) await logger(`Extraction Error: ${e.message}`, "AI_ERROR", "ERROR");
         throw e;
     }
 }
@@ -221,7 +228,7 @@ export interface MappingSuggestion {
 }
 
 export async function generateMappingSuggestions(input: { content: string | string[], type: "image" | "text", mime: string }): Promise<MappingSuggestion[]> {
-    const items = await extractQuestionnaireItems(input);
+    const items = await extractQuestionnaireItems(input); // Add logger here if we expose it?
     return items
         .filter(i => i.type === "QUESTION")
         .map(i => ({

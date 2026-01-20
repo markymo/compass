@@ -161,6 +161,7 @@ model Questionnaire {
   updatedAt        DateTime       @updatedAt
   extractedContent Json?
   rawText          String?        @db.Text
+  processingLogs   Json?          // Array of { timestamp, stage, message, level }
   fiOrg            Organization   @relation(fields: [fiOrgId], references: [id])
   engagements      FIEngagement[] @relation("FIEngagementToQuestionnaire")
 

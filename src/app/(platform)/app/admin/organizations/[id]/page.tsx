@@ -1,15 +1,48 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { getOrganizationDetails, addMemberToOrg } from "@/actions/org";
-import { getQuestionnaires, createQuestionnaire } from "@/actions/questionnaire";
+import { getQuestionnaires, createQuestionnaire, startBackgroundExtraction } from "@/actions/questionnaire";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, ArrowLeft, UserPlus, Mail, FileText, Upload, Calendar } from "lucide-react";
+import { Loader2, ArrowLeft, UserPlus, Mail, FileText, Upload, Plus } from "lucide-react";
 import Link from "next/link";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { toast } from "sonner";
+
+// Helper for Logs
+function LogViewer({ logs }: { logs: any }) {
+    // Ensure logs is an array
+    let safeLogs = logs;
+    if (typeof logs === 'string') {
+        try { safeLogs = JSON.parse(logs); } catch (e) { safeLogs = []; }
+    }
+    if (!Array.isArray(safeLogs)) safeLogs = [];
+
+    console.log("LogViewer rendering:", logs, "Safe:", safeLogs);
+
+    if (safeLogs.length === 0) return <div className="text-xs text-slate-400 p-2">No logs available.</div>;
+
+    return (
+        <ScrollArea className="h-64 w-full rounded border bg-slate-950 p-2 text-xs font-mono">
+            {safeLogs.map((log: any, i: number) => (
+                <div key={i} className="mb-1 flex gap-2">
+                    <span className="text-slate-500 shrink-0">{new Date(log.timestamp).toLocaleTimeString()}</span>
+                    <span className={
+                        log.level === 'ERROR' ? 'text-red-400 font-bold' :
+                            log.level === 'SUCCESS' ? 'text-emerald-400' : 'text-slate-300'
+                    }>
+                        {log.message}
+                    </span>
+                </div>
+            ))}
+        </ScrollArea>
+    );
+}
 
 export default function OrganizationDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const [unwrappedParams, setUnwrappedParams] = useState<{ id: string } | null>(null);
@@ -25,6 +58,8 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
     const [uploading, setUploading] = useState(false);
     const [showArchived, setShowArchived] = useState(false);
 
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
     useEffect(() => {
         params.then(setUnwrappedParams);
     }, [params]);
@@ -34,7 +69,8 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
     }, [unwrappedParams]);
 
     async function loadData(id: string) {
-        setLoading(true);
+        // Only show full loading spinner on initial load, not polling
+        if (!org) setLoading(true);
         const [orgData, qData] = await Promise.all([
             getOrganizationDetails(id),
             getQuestionnaires(id)
@@ -44,7 +80,20 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
         setLoading(false);
     }
 
-    // ... (keep handleAddMember and handleUpload unchanged) ...
+    // Polling for Digitization Progress
+    useEffect(() => {
+        if (!unwrappedParams?.id) return;
+
+        const hasProcessing = questionnaires.some(q => q.status === "DIGITIZING");
+        if (!hasProcessing) return;
+
+        const interval = setInterval(() => {
+            loadData(unwrappedParams.id);
+        }, 2000);
+
+        return () => clearInterval(interval);
+    }, [questionnaires, unwrappedParams]);
+
     async function handleAddMember() {
         if (!inviteEmail || !org) return;
         setInviting(true);
@@ -58,21 +107,41 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
         }
     }
 
-    async function handleUpload(e: React.FormEvent<HTMLFormElement>) {
-        e.preventDefault();
-        if (!org) return;
+    async function handleDirectUpload(e: React.ChangeEvent<HTMLInputElement>) {
+        const file = e.target.files?.[0];
+        if (!file || !org) return;
+
         setUploading(true);
+        toast.info("Uploading " + file.name + "...");
 
-        const formData = new FormData(e.currentTarget);
-        const res = await createQuestionnaire(org.id, formData);
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("name", "Pending"); // Default name as requested
 
-        setUploading(false);
-        if (res.success) {
-            // Reset form
-            (e.target as HTMLFormElement).reset();
-            loadData(org.id);
-        } else {
-            alert("Error: " + res.error);
+        try {
+            const res = await createQuestionnaire(org.id, formData);
+            if (res.success && res.data?.id) {
+                const qId = res.data.id;
+                toast.success("Upload started", { description: "You can rename this later." });
+
+                // Refresh list immediately
+                loadData(org.id);
+
+                // Background Extract
+                startBackgroundExtraction(qId).then(() => {
+                    toast.success("Digitization complete!");
+                    loadData(org.id); // Refresh again on complete
+                });
+
+            } else {
+                toast.error("Upload failed: " + res.error);
+            }
+        } catch (error) {
+            console.error(error);
+            toast.error("Upload error");
+        } finally {
+            setUploading(false);
+            if (fileInputRef.current) fileInputRef.current.value = "";
         }
     }
 
@@ -184,11 +253,25 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
                 )}
 
                 {activeTab === "questionnaires" && (
-                    <div className="grid gap-6 md:grid-cols-3">
-                        <Card className="md:col-span-2">
+                    <div className="grid gap-6">
+                        {/* Full Width Card */}
+                        <Card>
                             <CardHeader className="flex flex-row items-center justify-between">
                                 <div>
-                                    <CardTitle>Electronic Questionnaires</CardTitle>
+                                    <div className="flex items-center gap-3">
+                                        <CardTitle>Electronic Questionnaires</CardTitle>
+                                        <input
+                                            type="file"
+                                            ref={fileInputRef}
+                                            className="hidden"
+                                            accept=".pdf,.docx,.doc,.txt"
+                                            onChange={handleDirectUpload}
+                                        />
+                                        <Button size="sm" onClick={() => fileInputRef.current?.click()} disabled={uploading} className="h-8 gap-2">
+                                            {uploading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
+                                            New Questionnaire
+                                        </Button>
+                                    </div>
                                     <CardDescription>Manage digitized questionnaires for this FI.</CardDescription>
                                 </div>
                                 <div className="flex items-center space-x-2">
@@ -207,6 +290,7 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
                                     <TableHeader>
                                         <TableRow>
                                             <TableHead>Name</TableHead>
+                                            <TableHead>File</TableHead>
                                             <TableHead>Status</TableHead>
                                             <TableHead>Created</TableHead>
                                             <TableHead>Actions</TableHead>
@@ -215,8 +299,8 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
                                     <TableBody>
                                         {displayedQuestionnaires.length === 0 && (
                                             <TableRow>
-                                                <TableCell colSpan={4} className="text-center text-muted-foreground">
-                                                    {questionnaires.length > 0 ? "No active questionnaires found." : "No questionnaires found."}
+                                                <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                                                    {questionnaires.length > 0 ? "No active questionnaires found." : "No questionnaires found. Upload one to get started."}
                                                 </TableCell>
                                             </TableRow>
                                         )}
@@ -228,10 +312,38 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
                                                         {q.name}
                                                     </div>
                                                 </TableCell>
+                                                <TableCell className="text-muted-foreground text-xs font-mono">
+                                                    {q.fileName || "-"}
+                                                </TableCell>
                                                 <TableCell>
-                                                    <Badge variant={q.status === "ACTIVE" ? "default" : (q.status === "ARCHIVED" ? "destructive" : "secondary")}>
-                                                        {q.status}
-                                                    </Badge>
+                                                    <Popover>
+                                                        <PopoverTrigger asChild>
+                                                            <div className="cursor-pointer inline-flex">
+                                                                {q.status === 'DIGITIZING' ? (
+                                                                    <Badge variant="outline" className="text-xs bg-indigo-50 text-indigo-600 border-indigo-200 animate-pulse hover:bg-indigo-100 transition-colors">
+                                                                        Digitizing...
+                                                                    </Badge>
+                                                                ) : q.status === 'DRAFT' ? (
+                                                                    <Badge variant="outline" className="text-xs bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100">
+                                                                        Draft
+                                                                    </Badge>
+                                                                ) : (
+                                                                    <Badge variant={q.status === "ACTIVE" ? "default" : (q.status === "ARCHIVED" ? "destructive" : "secondary")}>
+                                                                        {q.status}
+                                                                    </Badge>
+                                                                )}
+                                                            </div>
+                                                        </PopoverTrigger>
+                                                        <PopoverContent className="w-[400px] p-0" align="end">
+                                                            <div className="p-3 border-b bg-slate-50 flex justify-between items-center">
+                                                                <h4 className="font-medium text-xs uppercase tracking-wide text-slate-500">Processing Logs</h4>
+                                                                <Badge variant="outline" className="text-[10px] h-5">{q.status}</Badge>
+                                                            </div>
+                                                            <div className="p-0">
+                                                                <LogViewer logs={q.processingLogs || []} />
+                                                            </div>
+                                                        </PopoverContent>
+                                                    </Popover>
                                                 </TableCell>
                                                 <TableCell className="text-muted-foreground text-xs">
                                                     {new Date(q.createdAt).toLocaleDateString()}
@@ -245,34 +357,6 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
                                         ))}
                                     </TableBody>
                                 </Table>
-                            </CardContent>
-                        </Card>
-
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Create Questionnaire</CardTitle>
-                                <CardDescription>Start a new questionnaire with or without a document.</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <form onSubmit={handleUpload} className="space-y-4">
-                                    <div className="space-y-2">
-                                        <label className="text-sm font-medium">Name</label>
-                                        <Input name="name" placeholder="e.g. AML Questionnaire 2025" required />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label className="text-sm font-medium">Document (Optional)</label>
-                                        <Input type="file" name="file" accept=".pdf,.docx,.doc,.txt" />
-                                        <p className="text-[10px] text-muted-foreground">Upload a PDF/Word doc or start empty to paste text manually.</p>
-                                    </div>
-                                    <Button type="submit" className="w-full" disabled={uploading}>
-                                        {uploading ? <Loader2 className="animate-spin w-4 h-4" /> : (
-                                            <>
-                                                <Upload className="w-4 h-4 mr-2" />
-                                                Create Questionnaire
-                                            </>
-                                        )}
-                                    </Button>
-                                </form>
                             </CardContent>
                         </Card>
                     </div>

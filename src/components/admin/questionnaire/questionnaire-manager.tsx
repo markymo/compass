@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { updateQuestionnaireFile, toggleQuestionnaireStatus, updateQuestionnaireName } from "@/actions/questionnaire";
 import {
     ArrowLeft, Loader2, Play, AlertCircle, CheckCircle2,
-    FileText, Save, LayoutTemplate, Pencil
+    FileText, Save, LayoutTemplate, Pencil, MoreVertical, Download, Eye, FileSearch, Keyboard
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,22 @@ import {
     SelectTrigger, SelectValue
 } from "@/components/ui/select";
 import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
+
+import {
     saveQuestionnaireChanges,
     extractRawText,
     extractDetailedContent, // Legacy/Fallback
@@ -24,8 +40,9 @@ import {
 } from "@/actions/questionnaire";
 import { ExtractedItem } from "@/actions/ai-mapper";
 
-import { ExtractTextStep } from "./extract-text-step";
-import { ParseStructureStep } from "./parse-structure-step";
+// We don't use the steps anymore
+// import { ExtractTextStep } from "./extract-text-step";
+// import { ParseStructureStep } from "./parse-structure-step";
 import { MappingWorkbench } from "./mapping-workbench";
 
 interface QuestionnaireManagerProps {
@@ -41,12 +58,27 @@ export function QuestionnaireManager({ questionnaire: initialQ, masterFields }: 
     const [items, setItems] = useState<ExtractedItem[]>(initialQ.extractedContent as ExtractedItem[] || []);
     const [rawText, setRawText] = useState<string>(initialQ.rawText || "");
 
-    // Steps: 1=Preview, 2=Text Review, 3=Structure Summary, 4=Mapping
-    const [step, setStep] = useState<number>(1);
-
     const [extracting, setExtracting] = useState(false);
+    const [extractionError, setExtractionError] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
     const [isEditingName, setIsEditingName] = useState(false);
+
+    // Dialog States
+    const [showRawText, setShowRawText] = useState(false);
+    const [showSource, setShowSource] = useState(false);
+
+    // accessors
+    const hasFile = !!questionnaire.fileType;
+    const isPDF = questionnaire.fileType === "application/pdf";
+    const iframeSrc = `/api/questionnaires/${questionnaire.id}/download`;
+
+    // --- Auto-Extraction Logic ---
+    useEffect(() => {
+        // If we have a file, but no items and no raw text, let's try to auto-extract on load
+        if (hasFile && items.length === 0 && !rawText && !extracting) {
+            handleExtractText();
+        }
+    }, []); // Run once on mount
 
     const handleNameSave = async () => {
         setIsEditingName(false);
@@ -61,116 +93,72 @@ export function QuestionnaireManager({ questionnaire: initialQ, masterFields }: 
         } catch (e) { console.error(e); }
     };
 
-    // --- accessors ---
-    const hasFile = !!questionnaire.fileType;
-    const isPDF = questionnaire.fileType === "application/pdf";
-    const iframeSrc = `/api/questionnaires/${questionnaire.id}/download`;
-
-    // --- Initial Step Logic ---
-    // --- Initial Step Logic ---
-    useEffect(() => {
-        // Determine initial step based on data state
-        // We only run this on mount/initial load to prevent "auto-advancing" 
-        // when state updates during the workflow.
-        if (items.length > 0) {
-            setStep(2); // Parsed -> Show Text/Summary Page
-        } else if (rawText && rawText.length > 0) {
-            setStep(2); // Text extracted but not parsed
-        } else if (!hasFile) {
-            setStep(2); // No file, start at text entry
-        } else {
-            setStep(1); // Ready to extract
-        }
-    }, [items.length]);
-
-
-
-    const [uploading, setUploading] = useState(false);
-
-    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (!e.target.files || e.target.files.length === 0) return;
-        setUploading(true);
-        const formData = new FormData();
-        formData.append("file", e.target.files[0]);
-
-        const res = await updateQuestionnaireFile(questionnaire.id, formData);
-        setUploading(false);
-        if (res.success) {
-            await fetchQ();
-            // Stay on Step 1 to show file is loaded
-        } else {
-            alert("Upload failed: " + res.error);
-        }
-    };
-
-    const goBack = () => {
-        if (step > 1) setStep(step - 1);
-    };
-
     const handleExtractText = async () => {
+        if (extracting) return;
         setExtracting(true);
+        setExtractionError(null);
         try {
             // 1. Try Server-Side Text Extraction
             console.log("Attempting server-side extraction...");
+
+            // If we already have rawText, we technically only need to parse it, 
+            // but `extractDetailedContent` is our main robust entry point. 
+            // Ideally, we'd have a `parseOnly` flag, but for now, re-running is safer checksum.
+            // (Future optimization: pass skipExtraction=true)
             const res = await extractRawText(questionnaire.id);
 
-            if (res.success) {
-                if (res.data) {
-                    setRawText(res.data);
-                    setStep(2);
-                } else {
-                    // check check, might be skipped
-                    if (res.status === "SKIPPED_TEXT_EXTRACT") {
-                        // handled?
+            // Actually, let's just use the robust `extractDetailedContent` which handles the chain
+            const chainRes = await extractDetailedContent(questionnaire.id);
+
+            if (chainRes.success) {
+                const freshQ = await fetchQ();
+                setItems(freshQ && freshQ.extractedContent ? freshQ.extractedContent as any[] : []);
+                if (freshQ && freshQ.rawText) setRawText(freshQ.rawText);
+            } else {
+                // Refresh anyway to get logs/rawText even on failure
+                const errorQ = await fetchQ();
+                if (errorQ && errorQ.rawText) setRawText(errorQ.rawText);
+
+                if (chainRes.error === "SCANNED_PDF_DETECTED" && isPDF) {
+                    // Handle Scanned PDF
+                    if (confirm("Scanned PDF detected. Use browser-side OCR? (Slow)")) {
+                        const images = await convertPdfToImages(iframeSrc);
+                        const imgRes = await extractDetailedContent(questionnaire.id, images);
+                        if (imgRes.success) {
+                            const ocrQ = await fetchQ();
+                            setItems(ocrQ && ocrQ.extractedContent ? ocrQ.extractedContent as any[] : []);
+                            if (ocrQ && ocrQ.rawText) setRawText(ocrQ.rawText);
+                        } else {
+                            setExtractionError(imgRes.error || "OCR Failed");
+                        }
                     } else {
-                        alert("Extraction finished but returned empty text.");
+                        setExtractionError("Scanned PDF detected. Auto-extraction skipped.");
                     }
-                }
-                return;
-            }
-
-            // 2. Handle specific Server Errors
-            if (res.error === "NO_FILE") {
-                // No file exists, user wants to manually edit
-                setRawText("");
-                setStep(2);
-                return;
-            }
-
-            // 3. Check for Scanned PDF Fallback
-            if (res.error === "SCANNED_PDF_DETECTED" && isPDF) {
-                console.log("Scanned PDF detected. Switching to Client-Side Image Rendering...");
-                if (!confirm("This document appears to be a scanned PDF. We will use your browser to render it for AI analysis. This operation is resource intensive and may take 2-3 minutes to complete. Please do not close the window. Continue?")) return;
-
-                const images = await convertPdfToImages(iframeSrc);
-                console.log(`Generated ${images.length} images from PDF.`);
-
-                const imgRes = await extractDetailedContent(questionnaire.id, images);
-
-                if (imgRes.success) {
-                    const freshQ = await fetchQ();
-                    const newItems = freshQ && freshQ.extractedContent ? freshQ.extractedContent as any[] : [];
-                    setItems(newItems);
-
-                    if (newItems.length > 0) {
-                        const reconstructedText = newItems.map((i: any) => i.originalText).join("\n\n");
-                        setRawText(reconstructedText);
-                    }
-
-                    setStep(3); // Go to Summary first
                 } else {
-                    alert("Image Extraction failed: " + (imgRes.error || "Unknown Error"));
+                    console.warn("Extraction warning:", chainRes.error);
+                    setExtractionError(chainRes.error || "Failed to extract content.");
                 }
-                return;
             }
 
-            alert("Extraction failed: " + (res.error || "Unknown Error"));
         } catch (e: any) {
             console.error(e);
-            alert("Error: " + e.message);
+            setExtractionError(e.message || "An unexpected error occurred.");
         } finally {
             setExtracting(false);
         }
+    };
+
+    const handleStartManually = () => {
+        const newItem: any = {
+            type: "QUESTION",
+            originalText: "Question 1",
+            confidence: 0,
+            order: 1,
+            category: "CORE",
+        };
+        setItems([newItem]);
+        // Also save this initial state so user doesn't lose it on refresh
+        saveQuestionnaireChanges(questionnaire.id, [newItem]);
     };
 
     // Helper to refresh data
@@ -183,7 +171,6 @@ export function QuestionnaireManager({ questionnaire: initialQ, masterFields }: 
 
     const handleStatusChange = async (val: string) => {
         const newStatus = val as "ACTIVE" | "ARCHIVED" | "DRAFT";
-        // Optimistic update
         setQuestionnaire({ ...questionnaire, status: newStatus });
 
         try {
@@ -203,7 +190,7 @@ export function QuestionnaireManager({ questionnaire: initialQ, masterFields }: 
         try {
             const res = await saveQuestionnaireChanges(questionnaire.id, items);
             if (res.success) {
-                // maybe toast
+                // Toasted
             } else {
                 alert("Failed to save.");
             }
@@ -211,7 +198,7 @@ export function QuestionnaireManager({ questionnaire: initialQ, masterFields }: 
         finally { setSaving(false); }
     };
 
-    // --- PDF Helper ---
+    // --- PDF Helper (Kept for Scanned Fallback) ---
     async function convertPdfToImages(url: string): Promise<string[]> {
         const pdfJS = await import('pdfjs-dist');
         pdfJS.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfJS.version}/build/pdf.worker.min.mjs`;
@@ -235,12 +222,10 @@ export function QuestionnaireManager({ questionnaire: initialQ, masterFields }: 
         return images;
     }
 
-    // --- Render ---
-
     return (
-        <div className="min-h-screen bg-slate-50 pb-20">
+        <div className="min-h-screen bg-slate-50 flex flex-col">
             {/* Header */}
-            <header className="h-16 border-b bg-white px-6 flex items-center justify-between sticky top-0 z-30 shadow-sm">
+            <header className="h-16 border-b bg-white px-6 flex items-center justify-between sticky top-0 z-30 shadow-sm flex-none">
                 <div className="flex items-center gap-4">
                     <Link href={`/app/admin/organizations/${questionnaire.fiOrgId}`}>
                         <Button variant="ghost" size="icon" className="hover:bg-slate-100 rounded-full h-8 w-8">
@@ -286,6 +271,31 @@ export function QuestionnaireManager({ questionnaire: initialQ, masterFields }: 
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
+                    {/* Document Options */}
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <MoreVertical className="w-4 h-4 text-slate-500" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Document Options</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => window.open(iframeSrc, '_blank')}>
+                                <Download className="w-4 h-4 mr-2" />
+                                Download Original
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setShowSource(true)}>
+                                <FileSearch className="w-4 h-4 mr-2" />
+                                View Source PDF
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setShowRawText(true)}>
+                                <FileText className="w-4 h-4 mr-2" />
+                                View Extracted Text
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+
                     <Button
                         variant={saving ? "secondary" : "default"}
                         onClick={handleSaveItems}
@@ -298,182 +308,146 @@ export function QuestionnaireManager({ questionnaire: initialQ, masterFields }: 
                 </div>
             </header>
 
-            {/* Main Content Area - Vertical Flow */}
-            <main className="max-w-5xl mx-auto p-4 md:p-6 space-y-6">
-
-                {/* STEP 1: SOURCE DOCUMENT */}
-                <div className={`bg-white rounded-xl border transition-all duration-300 ${step === 1 ? 'shadow-lg ring-1 ring-indigo-100' : 'shadow-sm opacity-90'}`}>
-                    <div
-                        className={`px-6 py-4 flex items-center justify-between cursor-pointer ${step !== 1 ? 'hover:bg-slate-50' : ''}`}
-                        onClick={() => setStep(1)}
-                    >
-                        <div className="flex items-center gap-3">
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${step > 1 ? 'bg-green-100 text-green-700' :
-                                step === 1 ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-100 text-slate-500'
-                                }`}>
-                                {step > 1 ? <CheckCircle2 className="w-5 h-5" /> : "1"}
-                            </div>
-                            <div>
-                                <h3 className={`font-semibold ${step === 1 ? 'text-slate-900' : 'text-slate-700'}`}>Source Document</h3>
-                                {step !== 1 && hasFile && (
-                                    <p className="text-sm text-slate-500">File: {questionnaire.fileName}</p>
-                                )}
-                            </div>
-                        </div>
-                        {step !== 1 && (
-                            <Button variant="ghost" size="sm" className="text-indigo-600 hover:text-indigo-700">Edit</Button>
-                        )}
+            {/* Main Content: Data First Editor */}
+            <main className="flex-1 overflow-hidden flex flex-col relative bg-slate-50">
+                {extracting ? (
+                    <div className="flex-1 flex flex-col items-center justify-center p-8 text-center animate-in fade-in">
+                        <Loader2 className="w-12 h-12 text-indigo-500 animate-spin mb-4" />
+                        <h2 className="text-xl font-semibold text-slate-800">Digitizing Document...</h2>
+                        <p className="text-slate-500 max-w-md mt-2">
+                            We are using AI to read your document structure. This usually takes 10-20 seconds.
+                            If it's a scanned PDF, it might take up to 3 minutes.
+                        </p>
                     </div>
+                ) : items.length === 0 ? (
+                    <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-6">
+                        <div className="bg-slate-100 p-6 rounded-full relative">
+                            <FileText className="w-12 h-12 text-slate-400" />
+                            {extractionError && (
+                                <div className="absolute -top-1 -right-1 bg-red-100 text-red-600 rounded-full p-1">
+                                    <AlertCircle className="w-6 h-6" />
+                                </div>
+                            )}
+                        </div>
 
-                    {step === 1 && (
-                        <div className="px-6 pb-6 pt-2 border-t border-slate-100 animate-in slide-in-from-top-2 fade-in">
-                            <div className="flex flex-col md:flex-row gap-8 items-start">
-                                {/* Preview / Info */}
-                                <div className="flex-1 w-full text-center md:text-left">
-                                    <div className="mb-4">
-                                        <h4 className="text-sm font-medium text-slate-700 mb-1">Current Status</h4>
-                                        <p className="text-sm text-slate-500">
-                                            {hasFile
-                                                ? `Document uploaded: ${questionnaire.fileName} (${questionnaire.fileType})`
-                                                : "No document uploaded yet."}
-                                        </p>
-                                    </div>
+                        <div className="max-w-md text-center">
+                            <h2 className="text-lg font-semibold text-slate-800">
+                                {extractionError ? "Digitization Failed" : "Start Digitization"}
+                            </h2>
+                            <p className="text-slate-500 mt-2">
+                                {extractionError
+                                    ? `We encountered an issue during extraction. You can retry with the AI or check the raw text.`
+                                    : "We couldn't automatically read this document yet. You can retry the AI extraction or start manually."}
+                            </p>
+                        </div>
 
-                                    {/* Simple Preview Link */}
-                                    {hasFile && (
-                                        <div className="bg-slate-50 p-4 rounded-lg border border-slate-100 inline-block mb-4">
-                                            <div className="flex items-center gap-3">
-                                                <FileText className="w-8 h-8 text-blue-500" />
-                                                <div className="text-left">
-                                                    <p className="text-sm font-medium text-slate-900 truncate max-w-[200px]">{questionnaire.fileName}</p>
-                                                    <a href={iframeSrc} target="_blank" className="text-xs text-blue-600 hover:underline">Download / View Original</a>
-                                                </div>
-                                            </div>
+                        {/* Log Display for Debugging */}
+                        {(questionnaire.processingLogs && questionnaire.processingLogs.length > 0) && (
+                            <div className="w-full max-w-lg bg-slate-900 rounded-md p-4 text-left shadow-sm">
+                                <div className="flex items-center justify-between mb-2">
+                                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Process Logs</h4>
+                                    <span className="text-[10px] text-slate-500">Live</span>
+                                </div>
+                                <div className="h-32 overflow-y-auto font-mono text-[10px]">
+                                    {questionnaire.processingLogs.map((log: any, i: number) => (
+                                        <div key={i} className="mb-1 flex gap-2">
+                                            <span className="text-slate-500 shrink-0">{new Date(log.timestamp).toLocaleTimeString()}</span>
+                                            <span className={
+                                                log.level === 'ERROR' ? 'text-red-400 font-bold' :
+                                                    log.level === 'SUCCESS' ? 'text-emerald-400' : 'text-slate-300'
+                                            }>
+                                                {log.message}
+                                            </span>
                                         </div>
-                                    )}
-                                </div>
-
-                                {/* Actions */}
-                                <div className="flex-1 w-full max-w-sm bg-slate-50 p-6 rounded-lg border border-slate-100">
-                                    <label className="block text-sm font-medium text-slate-700 mb-3">
-                                        {hasFile ? "Replace Document" : "Upload Document"}
-                                    </label>
-                                    <div className="space-y-4">
-                                        <Input type="file" onChange={handleFileUpload} disabled={uploading} className="bg-white" />
-                                        {uploading && <p className="text-xs text-blue-600 animate-pulse">Uploading...</p>}
-                                        <Button
-                                            className="w-full bg-indigo-600 hover:bg-indigo-700 mt-2"
-                                            onClick={() => setStep(2)}
-                                        >
-                                            Next: Text Extraction
-                                        </Button>
-                                    </div>
+                                    ))}
                                 </div>
                             </div>
-                        </div>
-                    )}
-                </div>
+                        )}
 
-                {/* STEP 2: TEXT EXTRACTION */}
-                <div className={`bg-white rounded-xl border transition-all duration-300 ${step === 2 ? 'shadow-lg ring-1 ring-indigo-100' : 'shadow-sm opacity-90'}`}>
-                    <div
-                        className={`px-6 py-4 flex items-center justify-between cursor-pointer ${step !== 2 ? 'hover:bg-slate-50' : ''}`}
-                        onClick={() => setStep(2)}
-                    >
                         <div className="flex items-center gap-3">
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${step > 2 ? 'bg-green-100 text-green-700' :
-                                step === 2 ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-100 text-slate-500'
-                                }`}>
-                                {step > 2 ? <CheckCircle2 className="w-5 h-5" /> : "2"}
-                            </div>
-                            <div>
-                                <h3 className={`font-semibold ${step === 2 ? 'text-slate-900' : 'text-slate-700'}`}>Text Extraction</h3>
-                                {step > 2 && (
-                                    <p className="text-sm text-slate-500">
-                                        {items.length} structured items extracted from {rawText.length} chars.
-                                    </p>
-                                )}
-                            </div>
-                        </div>
-                        {step === 2 && hasFile && (
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={(e) => { e.stopPropagation(); handleExtractText(); }}
-                                disabled={extracting}
-                                className="text-blue-600 border-blue-200 hover:bg-blue-50 ml-auto mr-4"
-                            >
-                                {extracting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Play className="w-4 h-4 mr-2" />}
-                                {rawText ? "Re-Extract" : "Auto-Extract"}
+                            <Button onClick={handleExtractText} variant="default" className="w-[160px]">
+                                <Play className="w-4 h-4 mr-2" />
+                                {extractionError ? "Retry AI" : "Run Extraction"}
                             </Button>
-                        )}
-                        {step !== 2 && (
-                            <Button variant="ghost" size="sm" className="text-indigo-600 hover:text-indigo-700">Edit</Button>
-                        )}
-                    </div>
 
-                    {step === 2 && (
-                        <div className="px-6 pb-6 pt-0 border-t border-slate-100 animate-in slide-in-from-top-2 fade-in">
-                            <div className="h-[600px] mt-4 rounded-md overflow-hidden border">
-                                <ExtractTextStep
-                                    questionnaireId={questionnaire.id}
-                                    initialText={rawText}
-                                    analysisResults={items}
-                                    onAnalyzeComplete={async () => {
-                                        const freshQ = await fetchQ();
-                                        setItems(freshQ && freshQ.extractedContent ? freshQ.extractedContent as any : []);
-                                    }}
-                                    onOpenWorkbench={() => setStep(3)}
-                                />
-                            </div>
+                            <span className="text-slate-300 text-sm">or</span>
+
+                            <Button onClick={handleStartManually} variant="secondary">
+                                <Keyboard className="w-4 h-4 mr-2" />
+                                Start Manually
+                            </Button>
                         </div>
-                    )}
-                </div>
 
-                {/* STEP 3: STRUCTURED QUESTIONS */}
-                <div className={`bg-white rounded-xl border transition-all duration-300 ${step === 3 ? 'shadow-lg ring-1 ring-indigo-100' : 'shadow-sm opacity-90'}`}>
-                    <div
-                        className={`px-6 py-4 flex items-center justify-between cursor-pointer ${step !== 3 ? 'hover:bg-slate-50' : ''}`}
-                        onClick={() => setStep(3)}
-                    >
-                        <div className="flex items-center gap-3">
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${step === 3 ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-100 text-slate-500'
-                                }`}>
-                                3
-                            </div>
-                            <h3 className={`font-semibold ${step === 3 ? 'text-slate-900' : 'text-slate-700'}`}>Structured Questions</h3>
+                        <div className="flex gap-4">
+                            {rawText && (
+                                <Button variant="link" size="sm" onClick={() => setShowRawText(true)} className="text-indigo-600">
+                                    <CheckCircle2 className="w-3 h-3 mr-1" /> View Extracted Text
+                                </Button>
+                            )}
+                            {hasFile && (
+                                <Button variant="link" size="sm" onClick={() => setShowSource(true)} className="text-slate-400">
+                                    View Source PDF
+                                </Button>
+                            )}
                         </div>
                     </div>
-
-                    {step === 3 && (
-                        <div className="px-6 pb-6 pt-0 border-t border-slate-100 animate-in slide-in-from-top-2 fade-in">
-                            <div className="mt-6">
-                                <MappingWorkbench
-                                    items={items}
-                                    masterFields={masterFields}
-                                    onUpdateItem={(idx, field, val) => {
-                                        const newItems = [...items];
-                                        newItems[idx] = { ...newItems[idx], [field]: val };
-                                        setItems(newItems);
-                                    }}
-                                    onAddItem={() => {
-                                        const newItem: any = {
-                                            type: "QUESTION",
-                                            originalText: "New Question",
-                                            confidence: 0,
-                                            order: items.length + 1,
-                                            category: "CORE",
-                                        };
-                                        setItems([...items, newItem]);
-                                        // Scroll to bottom logic is handled by component update usually, or user scrolls
-                                    }}
-                                />
-                            </div>
-                        </div>
-                    )}
-                </div>
-
+                ) : (
+                    // The Mapping Workbench fills the area
+                    <div className="flex-1 overflow-hidden h-full">
+                        <MappingWorkbench
+                            items={items}
+                            masterFields={masterFields}
+                            onUpdateItem={(idx, field, val) => {
+                                const newItems = [...items];
+                                newItems[idx] = { ...newItems[idx], [field]: val };
+                                setItems(newItems);
+                            }}
+                            onAddItem={() => {
+                                const newItem: any = {
+                                    type: "QUESTION",
+                                    originalText: "New Question",
+                                    confidence: 0,
+                                    order: items.length + 1,
+                                    category: "CORE",
+                                };
+                                setItems([...items, newItem]);
+                            }}
+                        />
+                    </div>
+                )}
             </main>
+
+            {/* Dialogs */}
+            <Dialog open={showRawText} onOpenChange={setShowRawText}>
+                <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
+                    <DialogHeader>
+                        <DialogTitle>Raw Extracted Text</DialogTitle>
+                        <DialogDescription>
+                            This is the raw text we read from the document file.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="flex-1 overflow-auto border rounded-md bg-slate-50 p-4 font-mono text-xs whitespace-pre-wrap">
+                        {rawText || "No raw text available."}
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={showSource} onOpenChange={setShowSource}>
+                <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
+                    <DialogHeader>
+                        <DialogTitle>Source Document</DialogTitle>
+                    </DialogHeader>
+                    <div className="flex-1 bg-slate-100 rounded border overflow-hidden">
+                        {iframeSrc ? (
+                            <iframe src={iframeSrc} className="w-full h-full" />
+                        ) : (
+                            <div className="flex items-center justify-center h-full text-slate-400">No Document</div>
+                        )}
+                    </div>
+                </DialogContent>
+            </Dialog>
+
         </div>
     );
 }
+
