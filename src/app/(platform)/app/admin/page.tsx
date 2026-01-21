@@ -66,7 +66,32 @@ export default async function AdminDashboardPage() {
                 </p>
             </div>
 
+
+
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+                <Link href="/app/admin/todo" className="group">
+                    <Card className="h-full border-blue-200 bg-blue-50/50 shadow-sm transition-all duration-300 hover:shadow-lg hover:-translate-y-1 dark:border-slate-800">
+                        <CardHeader className="flex flex-row items-center justify-between pb-2">
+                            <CardTitle className="text-base font-semibold text-blue-900 dark:text-slate-200">
+                                Internal Tasks
+                            </CardTitle>
+                            <div className="rounded-full p-2.5 bg-white shadow-sm">
+                                <FileText className="h-5 w-5 text-blue-600" />
+                            </div>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="flex items-center justify-between mb-1">
+                                <div className="text-2xl font-bold text-slate-900 dark:text-white">
+                                    Board
+                                </div>
+                            </div>
+                            <CardDescription className="text-xs font-medium text-slate-500 line-clamp-2">
+                                Manage "Stuff" and Backlog items
+                            </CardDescription>
+                        </CardContent>
+                    </Card>
+                </Link>
+
                 {cards.map((card) => (
                     <Link key={card.title} href={card.href} className="group">
                         <Card className="h-full border-slate-200 shadow-sm transition-all duration-300 hover:shadow-lg hover:-translate-y-1 dark:border-slate-800">
@@ -104,5 +129,6 @@ export default async function AdminDashboardPage() {
                 </p>
             </div>
         </div>
+
     );
 }

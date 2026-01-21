@@ -15,6 +15,11 @@ model User {
   orgRoles  UserOrganizationRole[]
   comments  Comment[]
   activities QuestionActivity[]
+  
+  // Admin Todo Relations
+  assignedTodos AdminTodo[] @relation("AssignedTodos")
+  createdTodos  AdminTodo[] @relation("CreatedTodos")
+  adminComments AdminTodoComment[]
 }
 
 model Organization {
@@ -275,4 +280,40 @@ model UsageLog {
   createdAt DateTime @default(now())
 
   @@index([userId])
+}
+
+model AdminTodo {
+  id               String             @id @default(uuid())
+  title            String
+  description      String?            @db.Text
+  status           AdminTodoStatus    @default(BACKLOG)
+  dueDate          DateTime?
+  assignedToUserId String?
+  createdByUserId  String
+  
+  assignedToUser   User?              @relation("AssignedTodos", fields: [assignedToUserId], references: [id])
+  createdByUser    User               @relation("CreatedTodos", fields: [createdByUserId], references: [id])
+  
+  comments         AdminTodoComment[]
+  
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+}
+
+model AdminTodoComment {
+  id          String    @id @default(uuid())
+  adminTodoId String
+  userId      String
+  text        String    @db.Text
+  createdAt   DateTime  @default(now())
+  
+  adminTodo   AdminTodo @relation(fields: [adminTodoId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id])
+}
+
+enum AdminTodoStatus {
+  BACKLOG
+  DRAFTING
+  IN_PROGRESS
+  DONE
 }
