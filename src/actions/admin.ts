@@ -101,6 +101,7 @@ export async function getAllQuestionnaires() {
             status: true,
             updatedAt: true,
             createdAt: true,
+            mappings: true,
             fileName: true,
             ownerOrgId: true,
             fiOrg: {
