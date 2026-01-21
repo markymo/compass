@@ -16,6 +16,10 @@ export async function getAdminTodos() {
 
     try {
         const todos = await prisma.adminTodo.findMany({
+            where: {
+                isDeleted: false,
+                isArchived: false
+            },
             orderBy: { createdAt: 'desc' },
             include: {
                 assignedToUser: true,
@@ -199,5 +203,47 @@ export async function getSystemAdmins() {
     } catch (e) {
         console.error("Failed to fetch admins", e);
         return [];
+    }
+}
+
+/**
+ * Soft delete a todo
+ */
+export async function deleteAdminTodo(id: string) {
+    const { userId } = await auth();
+    if (!userId) return { success: false, error: "Unauthorized" };
+
+    try {
+        await prisma.adminTodo.update({
+            where: { id },
+            data: { isDeleted: true }
+        });
+
+        revalidatePath("/(platform)/app/admin/todo", "page");
+        return { success: true };
+    } catch (e) {
+        console.error("Delete failed", e);
+        return { success: false, error: "Failed to delete task" };
+    }
+}
+
+/**
+ * Archive a todo
+ */
+export async function archiveAdminTodo(id: string) {
+    const { userId } = await auth();
+    if (!userId) return { success: false, error: "Unauthorized" };
+
+    try {
+        await prisma.adminTodo.update({
+            where: { id },
+            data: { isArchived: true }
+        });
+
+        revalidatePath("/(platform)/app/admin/todo", "page");
+        return { success: true };
+    } catch (e) {
+        console.error("Archive failed", e);
+        return { success: false, error: "Failed to archive task" };
     }
 }

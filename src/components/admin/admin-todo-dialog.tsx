@@ -13,11 +13,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Send, MessageSquare, Calendar as CalendarIcon, User as UserIcon } from "lucide-react";
+import { Send, MessageSquare, Calendar as CalendarIcon, User as UserIcon, Trash, Archive } from "lucide-react";
 import { AdminTodoTask } from "./admin-todo-card";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
-import { updateAdminTodo, addAdminTodoComment, getSystemAdmins } from "@/actions/admin-todo-actions";
+import { updateAdminTodo, addAdminTodoComment, getSystemAdmins, deleteAdminTodo, archiveAdminTodo } from "@/actions/admin-todo-actions";
 import { toast } from "sonner";
 import {
     Select,
@@ -26,6 +26,17 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 
 interface AdminTodoDialogProps {
@@ -79,6 +90,31 @@ export function AdminTodoDialog({ open, onOpenChange, task }: AdminTodoDialogPro
             toast.success("Task updated");
         } else {
             toast.error("Failed to update");
+        }
+    };
+
+    const handleDelete = async () => {
+        if (!task) return;
+        if (!confirm("Are you sure you want to delete this task? It will be hidden permanently.")) return;
+
+        const res = await deleteAdminTodo(task.id);
+        if (res.success) {
+            toast.success("Task deleted");
+            onOpenChange(false);
+        } else {
+            toast.error("Failed to delete task");
+        }
+    };
+
+    const handleArchive = async () => {
+        if (!task) return;
+
+        const res = await archiveAdminTodo(task.id);
+        if (res.success) {
+            toast.success("Task archived");
+            onOpenChange(false);
+        } else {
+            toast.error("Failed to archive task");
         }
     };
 
@@ -161,7 +197,27 @@ export function AdminTodoDialog({ open, onOpenChange, task }: AdminTodoDialogPro
                                     onBlur={() => handleSave()}
                                     placeholder="Add task details..."
                                 />
-                                <div className="flex justify-end mt-2">
+                                <div className="flex justify-between mt-8 pt-4 border-t border-slate-100">
+                                    <div className="flex gap-2">
+                                        <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            className="text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+                                            onClick={handleArchive}
+                                        >
+                                            <Archive className="h-4 w-4 mr-1.5" />
+                                            Archive
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                                            onClick={handleDelete}
+                                        >
+                                            <Trash className="h-4 w-4 mr-1.5" />
+                                            Delete
+                                        </Button>
+                                    </div>
                                     <Button size="sm" onClick={() => handleSave()} variant="secondary">Save Changes</Button>
                                 </div>
                             </div>

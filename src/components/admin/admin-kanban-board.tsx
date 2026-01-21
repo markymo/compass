@@ -9,6 +9,7 @@ import { KanbanColumn } from "@/components/client/engagement/kanban-column"; // 
 
 import { AdminTodoTask, AdminTodoCard } from "./admin-todo-card";
 import { AdminTodoDialog } from "./admin-todo-dialog";
+import { MotivationalGoblin } from "./motivational-goblin";
 import { toast } from "sonner";
 import { getAdminTodos, updateAdminTodoStatus, createAdminTodo } from "@/actions/admin-todo-actions";
 import { AdminTodoStatus } from "@prisma/client";
@@ -140,8 +141,12 @@ export function AdminKanbanBoard() {
 
     return (
         <div className="h-full flex flex-col">
+            {/* Header */}
             <div className="flex items-center justify-between mb-8">
-                <h2 className="text-xl font-bold font-serif text-slate-800">Mark and Robs ToDo List</h2>
+                <div>
+                    <h2 className="text-xl font-bold font-serif text-slate-800">Mark and Robs ToDo List</h2>
+                    <MotivationalGoblin />
+                </div>
                 <Button onClick={handleCreateTask} className="gap-2">
                     <Plus className="h-4 w-4" /> Add Task
                 </Button>
@@ -172,6 +177,6 @@ export function AdminKanbanBoard() {
                 }}
                 task={selectedTask}
             />
-        </div>
+        </div >
     );
 }
