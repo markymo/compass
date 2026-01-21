@@ -95,7 +95,14 @@ export async function getAllQuestionnaires() {
 
     return await prisma.questionnaire.findMany({
         orderBy: { updatedAt: 'desc' },
-        include: {
+        select: {
+            id: true,
+            name: true,
+            status: true,
+            updatedAt: true,
+            createdAt: true,
+            fileName: true,
+            ownerOrgId: true,
             fiOrg: {
                 select: { name: true }
             }

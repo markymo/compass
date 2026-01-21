@@ -2,13 +2,12 @@
 
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { del } from '@vercel/blob';
 
 /**
- * Upload a document to the Legal Entity's Vault.
- * In a real app, this would handle file storage (S3/Blob).
- * Here we mock the storage by accepting a URL.
+ * Save Document Metadata after Vercel Blob Upload
  */
-export async function uploadDocument(clientLEId: string, data: { name: string, type: string, fileUrl: string, docType?: string }) {
+export async function uploadDocument(clientLEId: string, data: { name: string, type: string, fileUrl: string, docType?: string, kbSize?: number }) {
     try {
         const doc = await prisma.document.create({
             data: {
@@ -16,11 +15,12 @@ export async function uploadDocument(clientLEId: string, data: { name: string, t
                 name: data.name,
                 fileType: data.type,
                 fileUrl: data.fileUrl,
+                kbSize: data.kbSize || 0,
                 docType: data.docType || "UNCATEGORIZED",
                 isVerified: false
             }
         });
-        revalidatePath(`/app/le/${clientLEId}/v2`);
+        revalidatePath(`/app/le/${clientLEId}`);
         return { success: true, document: doc };
     } catch (error) {
         console.error("Failed to upload document:", error);
@@ -117,10 +117,17 @@ export async function revokeDocumentAccess(documentId: string, engagementId: str
 }
 
 /**
- * Soft Delete a document from the Vault.
+ * Soft Delete a document from the Vault and Hard Delete from Blob.
  */
 export async function deleteDocument(documentId: string) {
     try {
+        const doc = await prisma.document.findUnique({ where: { id: documentId } });
+
+        if (doc && doc.fileUrl.includes('public.blob.vercel-storage.com')) {
+            // Attempt to delete from blob storage
+            try { await del(doc.fileUrl); } catch (e) { console.warn("Failed to delete blob", e) }
+        }
+
         await prisma.document.update({
             where: { id: documentId },
             data: { isDeleted: true }

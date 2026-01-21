@@ -30,6 +30,8 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { getVaultDocuments, uploadDocument, deleteDocument } from "@/actions/documents";
+import { getLEEngagements } from "@/actions/client-le";
+import { DocumentSharingDialog } from "./document-sharing-dialog";
 import {
     FileText, MoreVertical, Search, Upload, Download, Trash2, Loader2, File, ShieldCheck, Clock,
     LayoutGrid, List as ListIcon, Filter, FolderOpen, Building2
@@ -48,6 +50,7 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { upload } from "@vercel/blob/client";
 
 interface DocumentVaultProps {
     leId: string;
@@ -58,6 +61,7 @@ type FilterType = 'ALL' | 'CORPORATE' | 'IDENTITY' | 'FINANCIAL' | 'OTHER' | 'SH
 
 export function DocumentVault({ leId }: DocumentVaultProps) {
     const [documents, setDocuments] = useState<any[]>([]);
+    const [engagements, setEngagements] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
     const [viewMode, setViewMode] = useState<ViewMode>('list');
@@ -65,13 +69,27 @@ export function DocumentVault({ leId }: DocumentVaultProps) {
 
     const loadDocuments = async () => {
         setLoading(true);
-        const res = await getVaultDocuments(leId);
-        if (res.success && res.documents) {
-            setDocuments(res.documents);
-        } else {
-            toast.error("Failed to load documents");
+        try {
+            const [docRes, engRes] = await Promise.all([
+                getVaultDocuments(leId),
+                getLEEngagements(leId)
+            ]);
+
+            if (docRes.success && docRes.documents) {
+                setDocuments(docRes.documents);
+            } else {
+                toast.error("Failed to load documents");
+            }
+
+            if (engRes.success && engRes.engagements) {
+                setEngagements(engRes.engagements);
+            }
+        } catch (error) {
+            console.error(error);
+            toast.error("Failed to load vault data");
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     };
 
     useEffect(() => {
@@ -205,11 +223,11 @@ export function DocumentVault({ leId }: DocumentVaultProps) {
                             {viewMode === 'grid' ? (
                                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                                     {filteredDocs.map((doc) => (
-                                        <Card key={doc.id} className="group hover:border-blue-300 dark:hover:border-blue-700 transition-all cursor-pointer">
+                                        <Card key={doc.id} className="group hover:border-indigo-300 dark:hover:border-indigo-700 transition-all">
                                             <CardContent className="p-4">
                                                 <div className="flex items-start justify-between mb-3">
-                                                    <div className="bg-blue-50 dark:bg-blue-900/20 p-2.5 rounded-lg">
-                                                        <File className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                                                    <div className="bg-indigo-50 dark:bg-indigo-900/20 p-2.5 rounded-lg">
+                                                        <File className="h-6 w-6 text-indigo-600 dark:text-indigo-400" />
                                                     </div>
                                                     <DocumentActions doc={doc} onDelete={handleDelete} />
                                                 </div>
@@ -225,8 +243,15 @@ export function DocumentVault({ leId }: DocumentVaultProps) {
 
                                                 <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
                                                     <DocStatusBadge verified={doc.isVerified} />
-                                                    <SharedWithAvatars sharedWith={doc.sharedWith} />
+                                                    <DocumentSharingDialog
+                                                        docId={doc.id}
+                                                        docName={doc.name}
+                                                        initialSharedWith={doc.sharedWith || []}
+                                                        allEngagements={engagements}
+                                                        onUpdate={loadDocuments}
+                                                    />
                                                 </div>
+                                                {doc.sharedWith?.length > 0 && <SharedWithAvatars sharedWith={doc.sharedWith} leId={leId} className="mt-2" />}
                                             </CardContent>
                                         </Card>
                                     ))}
@@ -240,7 +265,7 @@ export function DocumentVault({ leId }: DocumentVaultProps) {
                                                 <TableHead>Type</TableHead>
                                                 <TableHead>Date Added</TableHead>
                                                 <TableHead>Status</TableHead>
-                                                <TableHead>Shared With</TableHead>
+                                                <TableHead>Sharing</TableHead>
                                                 <TableHead className="w-[50px]"></TableHead>
                                             </TableRow>
                                         </TableHeader>
@@ -265,7 +290,16 @@ export function DocumentVault({ leId }: DocumentVaultProps) {
                                                         <DocStatusBadge verified={doc.isVerified} />
                                                     </TableCell>
                                                     <TableCell>
-                                                        <SharedWithAvatars sharedWith={doc.sharedWith} limit={3} />
+                                                        <div className="flex items-center gap-2">
+                                                            <DocumentSharingDialog
+                                                                docId={doc.id}
+                                                                docName={doc.name}
+                                                                initialSharedWith={doc.sharedWith || []}
+                                                                allEngagements={engagements}
+                                                                onUpdate={loadDocuments}
+                                                            />
+                                                            <SharedWithAvatars sharedWith={doc.sharedWith} leId={leId} />
+                                                        </div>
                                                     </TableCell>
                                                     <TableCell>
                                                         <DocumentActions doc={doc} onDelete={handleDelete} />
@@ -303,19 +337,21 @@ function DocStatusBadge({ verified }: { verified: boolean }) {
     );
 }
 
-function SharedWithAvatars({ sharedWith, limit = 4 }: { sharedWith: any[], limit?: number }) {
-    if (!sharedWith || sharedWith.length === 0) return <span className="text-xs text-slate-400 italic">Not shared</span>;
+import Link from "next/link";
+
+function SharedWithAvatars({ sharedWith, leId, limit = 4, className }: { sharedWith: any[], leId: string, limit?: number, className?: string }) {
+    if (!sharedWith || sharedWith.length === 0) return null;
 
     return (
-        <div className="flex items-center -space-x-2">
+        <div className={cn("flex items-center -space-x-2", className)}>
             {sharedWith.slice(0, limit).map((share: any) => (
-                <div key={share.id} title={`Shared with ${share.org.name}`}>
-                    <Avatar className="h-6 w-6 border-2 border-white ring-1 ring-slate-100">
-                        <AvatarFallback className="text-[9px] bg-blue-100 text-blue-700 font-bold">
+                <Link key={share.id} href={`/app/le/${leId}/engagement-new/${share.id}?tab=documents`} title={`Shared with ${share.org.name}`}>
+                    <Avatar className="h-6 w-6 border-2 border-white ring-1 ring-slate-100 cursor-pointer hover:ring-indigo-300 transition-all">
+                        <AvatarFallback className="text-[9px] bg-indigo-100 text-indigo-700 font-bold">
                             {share.org.name.substring(0, 1)}
                         </AvatarFallback>
                     </Avatar>
-                </div>
+                </Link>
             ))}
             {sharedWith.length > limit && (
                 <div className="h-6 w-6 rounded-full bg-slate-100 border-2 border-white flex items-center justify-center text-[9px] text-slate-500 font-medium">
@@ -352,39 +388,50 @@ function DocumentActions({ doc, onDelete }: { doc: any, onDelete: (id: string) =
 function UploadDocumentDialog({ leId, onSuccess }: { leId: string, onSuccess: () => void }) {
     const [open, setOpen] = useState(false);
     const [loading, setLoading] = useState(false);
-    const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [uploadProgress, setUploadProgress] = useState(0);
 
     async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault();
         setLoading(true);
+        setUploadProgress(10);
 
-        const formData = new FormData(e.currentTarget);
-        const file = formData.get("file") as File;
-        const docName = formData.get("name") as string;
-        const docType = formData.get("docType") as string;
+        try {
+            const formData = new FormData(e.currentTarget);
+            const file = formData.get("file") as File;
+            const docName = formData.get("name") as string;
+            const docType = formData.get("docType") as string;
 
-        // Mock Upload Delay
-        await new Promise(resolve => setTimeout(resolve, 800));
+            if (!file) return;
 
-        // Mock URL
-        const mockUrl = `https://example.com/files/${file.name}`;
+            const newBlob = await upload(file.name, file, {
+                access: 'public',
+                handleUploadUrl: '/api/upload',
+            });
 
-        const res = await uploadDocument(leId, {
-            name: docName || file.name,
-            type: file.type || "application/pdf",
-            fileUrl: mockUrl,
-            docType: docType
-        });
+            setUploadProgress(80);
 
-        setLoading(false);
+            const res = await uploadDocument(leId, {
+                name: docName || file.name,
+                type: file.type || "application/pdf",
+                fileUrl: newBlob.url,
+                docType: docType,
+                kbSize: Math.round(file.size / 1024)
+            });
 
-        if (res.success) {
-            toast.success("Document uploaded successfully");
-            setOpen(false);
-            setSelectedFile(null);
-            onSuccess();
-        } else {
-            toast.error(res.error || "Upload failed");
+            if (res.success) {
+                toast.success("Document uploaded successfully");
+                setOpen(false);
+                onSuccess();
+            } else {
+                toast.error(res.error || "Failed to save document metadata");
+            }
+
+        } catch (error) {
+            console.error(error);
+            toast.error("Upload failed. Check console for details.");
+        } finally {
+            setLoading(false);
+            setUploadProgress(0);
         }
     }
 
@@ -429,14 +476,13 @@ function UploadDocumentDialog({ leId, onSuccess }: { leId: string, onSuccess: ()
                                 type="file"
                                 accept=".pdf,.docx,.jpg,.png"
                                 required
-                                onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
                             />
                         </div>
                     </div>
                     <DialogFooter>
                         <Button type="submit" disabled={loading}>
                             {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                            Upload Document
+                            {loading ? `Uploading ${uploadProgress > 0 ? uploadProgress + '%' : ''}` : 'Upload Document'}
                         </Button>
                     </DialogFooter>
                 </form>

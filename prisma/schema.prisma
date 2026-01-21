@@ -128,6 +128,7 @@ model Document {
   name            String
   fileUrl         String         // Path to storage (or mock URL)
   fileType        String         // mime type e.g. 'application/pdf'
+  kbSize          Int?           // Size in KB
   docType         String?        // 'IDENTITY', 'CORPORATE'
   metadata        Json?          // { expiry: "2025-12-31" }
   isVerified      Boolean        @default(false)

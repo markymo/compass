@@ -88,7 +88,7 @@ export function EngagementDetailView({ le, engagement, questionnaires, sharedDoc
 
             </div>
 
-            <Tabs defaultValue={initialTab || "workbench"} className="w-full space-y-0">
+            <Tabs id="engagement-tabs" defaultValue={initialTab || "workbench"} className="w-full space-y-0">
                 <TabsList className="bg-transparent p-0 flex justify-start h-auto gap-0.5 border-b-0 space-x-1">
                     <TabsTrigger
                         value="overview"

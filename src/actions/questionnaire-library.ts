@@ -65,8 +65,12 @@ export async function searchAvailableQuestionnaires(query: string) {
                     }
                 ]
             },
-            include: {
-                fiOrg: true
+            select: {
+                id: true,
+                name: true,
+                status: true,
+                updatedAt: true,
+                fiOrg: { select: { id: true, name: true, logoUrl: true } }
             },
             take: 20
         });

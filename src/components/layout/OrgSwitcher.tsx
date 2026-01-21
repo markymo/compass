@@ -48,6 +48,7 @@ export function OrgSwitcher({ currentOrgName, currentOrgTypes, availableOrgs }: 
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
                 <Button
+                    id="org-switcher-trigger"
                     variant="outline"
                     role="combobox"
                     disabled={isPending}
