@@ -98,7 +98,7 @@ export function AdminTodoDialog({ open, onOpenChange, task }: AdminTodoDialogPro
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[700px] flex flex-col p-0 gap-0 overflow-hidden max-h-[85vh]">
+            <DialogContent className="sm:max-w-[85vw] w-[85vw] h-[85vh] flex flex-col p-0 gap-0 overflow-hidden">
                 <DialogHeader className="p-6 pb-4 border-b bg-slate-50/50">
                     <DialogTitle className="sr-only">{title}</DialogTitle>
                     <div className="flex items-center justify-between mb-2">

@@ -48,7 +48,7 @@ export async function getAdminTodos() {
             comments: t.comments.map(c => ({
                 id: c.id,
                 text: c.text,
-                author: c.user.name || "Unknown",
+                author: c.user.name || c.user.email,
                 createdAt: c.createdAt,
                 userId: c.userId
             }))
@@ -73,7 +73,7 @@ export async function createAdminTodo(data: { title: string; description?: strin
                 title: data.title,
                 description: data.description,
                 status: data.status || "BACKLOG", // Default to BACKLOG
-                dueDate: data.dueDate,
+                dueDate: data.dueDate || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // Default to +7 days
                 assignedToUserId: data.assignedToUserId,
                 createdByUserId: userId
             }
