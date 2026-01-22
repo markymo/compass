@@ -725,6 +725,7 @@ export async function getClientDashboardData(clientId: string) {
                 return { success: false, error: "Unauthorized" };
             }
 
+            if (!leMemberships[0].clientLE) return { success: false, error: "Invalid Membership Data" };
             org = leMemberships[0].clientLE.clientOrg;
             roleLabel = "Restricted (LE Scope)";
 
