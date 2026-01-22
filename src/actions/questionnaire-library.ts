@@ -142,9 +142,9 @@ export async function uploadClientQuestionnaire(leId: string, fiName: string, fo
 
     try {
         // Find user's Client Org to set ownership
-        const userRole = await prisma.userOrganizationRole.findFirst({
-            where: { userId, org: { types: { has: "CLIENT" } } },
-            select: { orgId: true }
+        const userMembership = await prisma.membership.findFirst({
+            where: { userId, organization: { types: { has: "CLIENT" } } },
+            select: { organizationId: true }
         });
 
         // Find or Create FI Org
@@ -176,7 +176,7 @@ export async function uploadClientQuestionnaire(leId: string, fiName: string, fo
                 fileType: file.type,
                 fileContent: buffer,
                 status: "ACTIVE",
-                ownerOrgId: userRole?.orgId // Set ownership!
+                ownerOrgId: userMembership?.organizationId // Set ownership!
             }
         });
 
