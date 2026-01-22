@@ -179,9 +179,9 @@ export async function getSystemAdmins() {
     try {
         const admins = await prisma.user.findMany({
             where: {
-                orgRoles: {
+                memberships: {
                     some: {
-                        org: {
+                        organization: {
                             types: {
                                 has: "SYSTEM"
                             }
