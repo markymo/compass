@@ -28,47 +28,104 @@ export async function ensureUserOrg(userId: string, userEmail: string = "") {
         }
     }
 
-    // 2. Fetch all roles
-    const roles = await prisma.userOrganizationRole.findMany({
-        where: { userId },
-        include: { org: true }
+    // 2. Fetch all memberships (Party Scope)
+    const memberships = await prisma.membership.findMany({
+        where: { userId, organizationId: { not: null } },
+        include: { organization: true }
     });
 
-    if (roles.length > 0) {
+    if (memberships.length > 0) {
         // Priority 0: Check Cookie for Preference
         const cookieStore = await cookies();
         const preferredOrgId = cookieStore.get("compass_active_org")?.value;
 
         if (preferredOrgId) {
-            const preferredRole = roles.find(r => r.org.id === preferredOrgId);
-            if (preferredRole) {
-                return preferredRole.org;
+            const preferredMembership = memberships.find((m: any) => m.organization?.id === preferredOrgId);
+            if (preferredMembership && preferredMembership.organization) {
+                return preferredMembership.organization;
             }
         }
 
         // Priority 1: System Admin
-        const systemRole = roles.find(r => r.org.types.includes("SYSTEM"));
-        if (systemRole) return systemRole.org;
+        const systemMembership = memberships.find((m: any) => m.organization?.types.includes("SYSTEM"));
+        if (systemMembership && systemMembership.organization) return systemMembership.organization;
 
         // Priority 2: Any other (e.g. Client)
-        return roles[0].org;
+        // Ensure organization is not null (Prisma typing)
+        const validOrg = memberships[0].organization;
+        if (validOrg) return validOrg;
     }
 
-    // 3. If not, AUTO-CREATE one (for this demo/v1)
-    console.log(`[ensureUserOrg] No roles found for ${userId}. Auto-creating Client Org.`);
+    // 3. If not, AUTO-CREATE or LINK (for this demo/v1)
+    console.log(`[ensureUserOrg] No memberships found for ${userId}. Checking for pending invitations...`);
 
-    // Ensure User exists
-    await prisma.user.upsert({
-        where: { id: userId },
-        create: { id: userId, email: userEmail || "unknown@demo.com" },
-        update: {}
-    });
+    // Check if a placeholder user exists with this email
+    if (userEmail && userEmail !== "unknown@demo.com") {
+        const existingUserByEmail = await prisma.user.findFirst({
+            where: { email: userEmail }
+        });
+
+        if (existingUserByEmail && existingUserByEmail.id !== userId) {
+            console.log(`[ensureUserOrg] Found placeholder user ${existingUserByEmail.id} for ${userEmail}. Merging...`);
+
+            // Transactional Merge
+            await prisma.$transaction(async (tx) => {
+                // 1. Move Memberships
+                await tx.membership.updateMany({
+                    where: { userId: existingUserByEmail.id },
+                    data: { userId: userId }
+                });
+
+                // 2. Move Comments/Activities/Todos if any (Optional but good practice)
+                await tx.comment.updateMany({ where: { userId: existingUserByEmail.id }, data: { userId: userId } });
+                await tx.questionActivity.updateMany({ where: { userId: existingUserByEmail.id }, data: { userId: userId } });
+
+                // 3. Delete Placeholder
+                await tx.user.delete({
+                    where: { id: existingUserByEmail.id }
+                });
+
+                // 4. Create New User (The upsert below would do this, but we do it inside tx to be safe)
+                await tx.user.create({
+                    data: { id: userId, email: userEmail, name: existingUserByEmail.name }
+                });
+            });
+
+            console.log(`[ensureUserOrg] Merge complete. Welcome ${userEmail}`);
+            // Return early or let flow continue to fetch memberships again?
+            // Fetching memberships again is safest.
+            const mergedMemberships = await prisma.membership.findMany({
+                where: { userId, organizationId: { not: null } },
+                include: { organization: true }
+            });
+            if (mergedMemberships.length > 0) return mergedMemberships[0].organization; // Return first found
+        }
+    }
+
+    // Ensure User exists (Standard Upsert for non-merge cases)
+    // If we just merged, this might throw if we already created in TX, so we should wrap or check.
+    // Actually, if we merged, we returned or we created.
+    // Let's rely on upsert idempotency but `create` inside TX handles it.
+    // We only reach here if NO merge happened OR merge happen but we want standard fallback.
+
+    // Safety check if user exists now
+    const userExists = await prisma.user.findUnique({ where: { id: userId } });
+    if (!userExists) {
+        await prisma.user.create({
+            data: { id: userId, email: userEmail || "unknown@demo.com" }
+        });
+    } else {
+        // Update email if needed
+        if (userEmail && userExists.email !== userEmail) {
+            await prisma.user.update({ where: { id: userId }, data: { email: userEmail } });
+        }
+    }
 
     const newOrg = await prisma.organization.create({
         data: {
             name: userEmail ? `${userEmail.split('@')[0]}'s Corp` : "My Demo Client",
             types: ["CLIENT"],
-            members: {
+            memberships: {
                 create: {
                     userId: userId,
                     role: "ADMIN"
@@ -91,12 +148,20 @@ export async function getUserOrganizations() {
     const { userId } = await auth();
     if (!userId) return [];
 
-    const roles = await prisma.userOrganizationRole.findMany({
-        where: { userId },
-        include: { org: true }
+    const memberships = await prisma.membership.findMany({
+        where: { userId, organizationId: { not: null } },
+        include: { organization: true }
     });
 
-    return roles.map(r => r.org);
+    // Deduplicate and filter nulls
+    const uniqueOrgs = new Map();
+    memberships.forEach(m => {
+        if (m.organization) {
+            uniqueOrgs.set(m.organization.id, m.organization);
+        }
+    });
+
+    return Array.from(uniqueOrgs.values());
 }
 
 // 1. Get List of Client LEs with Dashboard Data

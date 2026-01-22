@@ -13,24 +13,28 @@ import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { Loader2, Plus, Building2, Users } from "lucide-react";
 
+import { useSearchParams } from "next/navigation";
+
 export default function OrganizationsPage() {
+    const searchParams = useSearchParams();
+    const filterType = searchParams.get("type");
+
     const [orgs, setOrgs] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [open, setOpen] = useState(false);
 
     // Form State
-    // Form State
     const [name, setName] = useState("");
-    const [types, setTypes] = useState<string[]>(["CLIENT"]);
+    const [types, setTypes] = useState<string[]>(filterType ? [filterType] : ["CLIENT"]);
     const [creating, setCreating] = useState(false);
 
     useEffect(() => {
         loadData();
-    }, []);
+    }, [filterType]);
 
     async function loadData() {
         setLoading(true);
-        const data = await getOrganizations();
+        const data = await getOrganizations(filterType || undefined);
         setOrgs(data);
         setLoading(false);
     }
@@ -73,15 +77,22 @@ export default function OrganizationsPage() {
         }
     }
 
+    const pageTitle = filterType === "CLIENT" ? "Client Management" :
+        filterType === "FI" ? "Financial Institution Management" :
+            "Organization Management";
+    const buttonText = filterType === "CLIENT" ? "New Client" :
+        filterType === "FI" ? "New FI" :
+            "New Organization";
+
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
-                <h1 className="text-3xl font-bold tracking-tight">Organization Management</h1>
+                <h1 className="text-3xl font-bold tracking-tight">{pageTitle}</h1>
                 <Dialog open={open} onOpenChange={setOpen}>
                     <DialogTrigger asChild>
                         <Button>
                             <Plus className="w-4 h-4 mr-2" />
-                            New Organization
+                            {buttonText}
                         </Button>
                     </DialogTrigger>
                     <DialogContent>

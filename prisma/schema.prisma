@@ -8,11 +8,14 @@ datasource db {
 }
 
 model User {
-  id        String                 @id @default(uuid())
-  email     String                 @unique
+  id        String       @id @default(uuid())
+  email     String       @unique
   name      String?
-  createdAt DateTime               @default(now())
-  orgRoles  UserOrganizationRole[]
+  createdAt DateTime     @default(now())
+  
+  // Replaced orgRoles with polymorphic memberships
+  memberships Membership[]
+  
   comments  Comment[]
   activities QuestionActivity[]
   
@@ -23,29 +26,45 @@ model User {
 }
 
 model Organization {
-  id             String                 @id @default(uuid())
+  id             String          @id @default(uuid())
   name           String
   types          OrgType[]
   domain         String?
   logoUrl        String?
-  description    String?                @db.Text
+  description    String?         @db.Text
   clientLEs      ClientLE[]
   engagements    FIEngagement[]
   fiSchemas      FISchema[]
   questionnaires      Questionnaire[] 
   ownedQuestionnaires Questionnaire[] @relation("OwnedQuestionnaires")
-  members        UserOrganizationRole[]
+  
+  // Replaced members with memberships (Party Scope)
+  memberships    Membership[]
 }
 
-model UserOrganizationRole {
-  id     String       @id @default(uuid())
-  userId String
-  orgId  String
-  role   String
-  org    Organization @relation(fields: [orgId], references: [id])
-  user   User         @relation(fields: [userId], references: [id])
+// POLYMORPHIC MEMBERSHIP (Party OR Workspace)
+model Membership {
+  id             String        @id @default(uuid())
+  userId         String
+  
+  // Scope A: Organization (The Party: Client or Supplier)
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  
+  // Scope B: ClientLE (The Workspace: Project Company / SPV)
+  clientLEId     String?
+  clientLE       ClientLE?     @relation(fields: [clientLEId], references: [id])
+  
+  role           String        // e.g. "REV_ADMIN", "CONTRIBUTOR", "AID_ADVISOR"
+  permissions    Json?         // Optional granular overrides
+  
+  user           User          @relation(fields: [userId], references: [id])
+  
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
-  @@unique([userId, orgId])
+  // A user can have only one role per scope instance
+  @@unique([userId, organizationId, clientLEId])
 }
 
 model MasterSchema {
@@ -93,6 +112,9 @@ model ClientLE {
   fiEngagements FIEngagement[]
   standingDataSections StandingDataSection[]
   documents     Document[]
+  
+  // Workspace Memberships (Direct Access)
+  memberships   Membership[]
 }
 
 model ClientLERecord {
@@ -250,6 +272,7 @@ enum OrgType {
   CLIENT
   FI
   SYSTEM
+  LAW_FIRM
 }
 
 enum RecordStatus {

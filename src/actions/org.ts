@@ -3,6 +3,7 @@
 import prisma from "@/lib/prisma";
 import { isSystemAdmin } from "./admin";
 import { revalidatePath } from "next/cache";
+import { v4 as uuidv4 } from 'uuid';
 
 // 1. Create Organization (Admin Only)
 export async function createOrganization(name: string, types: ("CLIENT" | "FI" | "SYSTEM")[]) {
@@ -25,15 +26,21 @@ export async function createOrganization(name: string, types: ("CLIENT" | "FI" |
 }
 
 // 2. List All Organizations (Admin Only)
-export async function getOrganizations() {
+export async function getOrganizations(filterType?: string) {
     const isAdmin = await isSystemAdmin();
     if (!isAdmin) return [];
 
+    const where: any = {};
+    if (filterType) {
+        where.types = { has: filterType as any };
+    }
+
     return await prisma.organization.findMany({
+        where,
         orderBy: { name: 'asc' },
         include: {
             _count: {
-                select: { members: true }
+                select: { memberships: true }
             }
         }
     });
@@ -47,7 +54,7 @@ export async function getOrganizationDetails(orgId: string) {
     return await prisma.organization.findUnique({
         where: { id: orgId },
         include: {
-            members: {
+            memberships: {
                 include: {
                     user: true
                 }
@@ -67,20 +74,12 @@ export async function addMemberToOrg(orgId: string, email: string, role: "ADMIN"
 
     try {
         // Find or Create User
-        // Note: In a real app with Clerk, we might want to use Clerk API to check if user exists or invite them.
-        // For this MVP, we create a placeholder in our DB.
-
         let user = await prisma.user.findFirst({
             where: { email: email }
         });
 
+
         if (!user) {
-            // Create placeholder
-            // ID: We can generate a UUID locally or let Prisma do it if schema allows, 
-            // but schema says String ID. We usually use Clerk ID.
-            // WORKAROUND: Generate a placeholder ID "placeholder_..." so we know to link it later?
-            // Or just use a UUID.
-            const { v4: uuidv4 } = require('uuid');
             user = await prisma.user.create({
                 data: {
                     id: `invite_${uuidv4()}`,
@@ -89,30 +88,38 @@ export async function addMemberToOrg(orgId: string, email: string, role: "ADMIN"
             });
         }
 
-        // Check if already member of THIS or ANOTHER org?
-        // Our constraint is 1 active org role per user usually, but Schema allows many?
-        // Schema: key [userId, orgId].
-        // But logic elsewhere assumes 1 role.
-        // Let's assume we OVERWRITE valid org for now (Move user).
+        // Create or Update Membership for this Scope (Party)
+        // Unique constraint: [userId, organizationId, clientLEId]
+        // Here, clientLEId is implicitly null (Prisma handles null in unique index logic differently on DBs, 
+        // but typically (USER, ORG, null) is unique row).
 
-        // Create or Update role for this specific Org
-        // We no longer delete other roles, supporting Multi-Org users.
-        await prisma.userOrganizationRole.upsert({
+        // However, Prisma upsert needs the specific unique composite key name or fields.
+        // We defined @@unique([userId, organizationId, clientLEId]).
+        // But clientLEId is nullable. Prisma doesn't support null in composite unique identifiers for UPSERT unless all fields are non-null?
+        // Actually, we can just use findFirst -> update/create path to be safe.
+
+        const existing = await prisma.membership.findFirst({
             where: {
-                userId_orgId: {
-                    userId: user.id,
-                    orgId: orgId
-                }
-            },
-            create: {
                 userId: user.id,
-                orgId,
-                role
-            },
-            update: {
-                role // Update role if already exists
+                organizationId: orgId,
+                clientLEId: null
             }
         });
+
+        if (existing) {
+            await prisma.membership.update({
+                where: { id: existing.id },
+                data: { role }
+            });
+        } else {
+            await prisma.membership.create({
+                data: {
+                    userId: user.id,
+                    organizationId: orgId,
+                    role
+                }
+            });
+        }
 
         revalidatePath(`/app/admin/organizations/${orgId}`);
         return { success: true };

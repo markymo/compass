@@ -1,7 +1,7 @@
 
 import prisma from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Users, Building2, Database, Wand2, FileText, AlertCircle } from "lucide-react";
+import { Users, Building2, Database, Wand2, FileText, AlertCircle, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 
@@ -14,6 +14,13 @@ export default async function AdminDashboardPage() {
     ]);
 
     const cards = [
+        {
+            title: "Super Admin",
+            description: "System stats and tenant onboarding",
+            href: "/app/admin/super",
+            icon: ShieldCheck,
+            color: "text-red-600",
+        },
         {
             title: "Organizations",
             description: "Manage Clients and Financial Institutions",
@@ -65,8 +72,6 @@ export default async function AdminDashboardPage() {
                     Manage the Compass platform core configuration and tenants.
                 </p>
             </div>
-
-
 
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
                 <Link href="/app/admin/todo" className="group">
@@ -129,6 +134,5 @@ export default async function AdminDashboardPage() {
                 </p>
             </div>
         </div>
-
     );
 }

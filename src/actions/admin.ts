@@ -13,26 +13,26 @@ export async function getAllUsers() {
     const isAdmin = await isSystemAdmin();
     if (!isAdmin) return [];
 
-    // Fetch users and their primary/current org context
-    // Ideally we join User -> UserOrgRole -> Org
-    // Since we didn't fully sync User table with Clerk yet, we rely on Roles.
+    // Fetch users and their primary/current org context (Party)
+    // We fetch memberships that have an organizationId (Party scopes only for this view)
 
-    // Get all roles
-    const roles = await prisma.userOrganizationRole.findMany({
+    // Get all memberships
+    const memberships = await prisma.membership.findMany({
+        where: { organizationId: { not: null } },
         include: {
             user: true,
-            org: true
+            organization: true
         },
         orderBy: { user: { email: 'asc' } }
     });
 
-    return roles.map(r => ({
-        userId: r.userId,
-        email: r.user.email,
-        orgId: r.orgId,
-        orgName: r.org.name,
-        orgType: r.org.types[0], // simplified for list view
-        role: r.role
+    return memberships.map((m: any) => ({
+        userId: m.userId,
+        email: m.user.email,
+        orgId: m.organizationId,
+        orgName: m.organization?.name,
+        orgType: m.organization?.types[0], // simplified for list view
+        role: m.role
     }));
 }
 
@@ -48,24 +48,30 @@ export async function updateUserOrg(targetUserId: string, targetOrgId: string, f
     // Transactional
 
     await prisma.$transaction(async (tx) => {
-        // Update or Create role for this target Org
-        // We do NOT remove other roles anymore.
-        await tx.userOrganizationRole.upsert({
+        // Update or Create Membership for this target Org (Party)
+
+        const existing = await tx.membership.findFirst({
             where: {
-                userId_orgId: {
-                    userId: targetUserId,
-                    orgId: targetOrgId
-                }
-            },
-            create: {
                 userId: targetUserId,
-                orgId: targetOrgId,
-                role: "ADMIN"
-            },
-            update: {
-                role: "ADMIN"
+                organizationId: targetOrgId,
+                clientLEId: null
             }
         });
+
+        if (existing) {
+            await tx.membership.update({
+                where: { id: existing.id },
+                data: { role: "ADMIN" }
+            });
+        } else {
+            await tx.membership.create({
+                data: {
+                    userId: targetUserId,
+                    organizationId: targetOrgId,
+                    role: "ADMIN"
+                }
+            });
+        }
     });
 
     revalidatePath("/app/admin/users");

@@ -207,7 +207,7 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {org.members.map((m: any) => (
+                                        {org.memberships.map((m: any) => (
                                             <TableRow key={m.id}>
                                                 <TableCell>
                                                     <div className="flex items-center gap-2">
