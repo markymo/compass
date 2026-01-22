@@ -44,7 +44,9 @@ export async function searchAvailableQuestionnaires(query: string) {
             where: { userId, organization: { types: { has: "CLIENT" } } },
             select: { organizationId: true }
         });
-        const userOrgIds = userMemberships.map(r => r.organizationId);
+        const userOrgIds = userMemberships
+            .map(r => r.organizationId)
+            .filter((id): id is string => id !== null);
 
         const questionnaires = await prisma.questionnaire.findMany({
             where: {
