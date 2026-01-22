@@ -17,7 +17,7 @@ export default async function ClientDashboardPage() {
     const org = await ensureUserOrg(userId!, email);
 
     // SECURITY: If user is strictly an FI, redirect to FI Dashboard
-    if (org.types.includes("FI") && !org.types.includes("SYSTEM")) {
+    if (org && org.types.includes("FI") && !org.types.includes("SYSTEM")) {
         return <RedirectTo path="/app/fi" />;
     }
 
