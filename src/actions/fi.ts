@@ -68,15 +68,15 @@ export async function getFIOganization() {
     const { userId } = await auth();
     if (!userId) return null;
 
-    const role = await prisma.userOrganizationRole.findFirst({
+    const membership = await prisma.membership.findFirst({
         where: {
             userId: userId,
-            org: { types: { has: "FI" } }
+            organization: { types: { has: "FI" } }
         },
-        include: { org: true }
+        include: { organization: true }
     });
 
-    return role?.org || null;
+    return membership?.organization || null;
 }
 
 export async function isFIUser() {
