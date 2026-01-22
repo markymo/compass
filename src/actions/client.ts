@@ -204,6 +204,7 @@ export async function createClientLE(data: { name: string; jurisdiction: string 
 
     const email = (sessionClaims?.email as string) || "";
     const org = await ensureUserOrg(userId, email);
+    if (!org) return { success: false, error: "No organization found" };
 
     const newLE = await prisma.clientLE.create({
         data: {
@@ -467,6 +468,8 @@ export async function deleteClientLE(leId: string) {
     // Ideally we check ownership via ensureUserOrg.
 
     const org = await ensureUserOrg(userId); // Re-fetch to confirm ID
+    if (!org) return { success: false, error: "No organization found" };
+
     const le = await prisma.clientLE.findFirst({
         where: { id: leId, clientOrgId: org.id }
     });
