@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { createClientLE } from "@/actions/client";
 import { useRouter } from "next/navigation";
 
-export function CreateLEDialog() {
+export function CreateLEDialog({ orgId }: { orgId?: string }) {
     const router = useRouter();
     const [mounted, setMounted] = useState(false);
     const [open, setOpen] = useState(false);
@@ -26,7 +26,8 @@ export function CreateLEDialog() {
     async function handleCreate() {
         if (!name || !jurisdiction) return;
         setLoading(true);
-        const res = await createClientLE({ name, jurisdiction });
+        // Pass the explicitOrgId if available
+        const res = await createClientLE({ name, jurisdiction, explicitOrgId: orgId });
         setLoading(false);
 
         if (res.success) {

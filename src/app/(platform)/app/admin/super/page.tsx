@@ -10,6 +10,8 @@ import { Loader2, Users, Building2, Briefcase, Landmark, Gavel, PlusCircle } fro
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
+import { UserManagementWizard } from "@/components/super-admin/UserManagementWizard";
+
 export default function SuperAdminPage() {
     const [stats, setStats] = useState<any>(null);
     const [loading, setLoading] = useState(true);
@@ -120,6 +122,9 @@ export default function SuperAdminPage() {
                     </CardContent>
                 </Card>
             </div>
+
+            {/* USER MANAGEMENT WIZARD */}
+            <UserManagementWizard />
 
             <div className="grid gap-8 md:grid-cols-2">
                 {/* ONBOARD WIZARD */}

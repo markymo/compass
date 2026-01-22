@@ -4,6 +4,8 @@
 import prisma from "@/lib/prisma";
 import { auth } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
+import { extractDetailedContent } from "@/actions/questionnaire";
+import { isSystemAdmin } from "@/actions/security";
 
 // 1. Get questionnaires already in the LE's library
 export async function getLibraryEngagements(leId: string) {
@@ -26,10 +28,7 @@ export async function getLibraryEngagements(leId: string) {
     }
 }
 
-import { extractDetailedContent } from "@/actions/questionnaire";
-import { isSystemAdmin } from "@/actions/security";
 
-// ... existing imports
 
 // 2. Search for all active questionnaires in the system
 export async function searchAvailableQuestionnaires(query: string) {
@@ -45,8 +44,8 @@ export async function searchAvailableQuestionnaires(query: string) {
             select: { organizationId: true }
         });
         const userOrgIds = userMemberships
-            .map(r => r.organizationId)
-            .filter((id): id is string => id !== null);
+            .map((r: any) => r.organizationId)
+            .filter((id: any): id is string => id !== null);
 
         const questionnaires = await prisma.questionnaire.findMany({
             where: {

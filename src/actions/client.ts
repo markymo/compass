@@ -165,19 +165,34 @@ export async function getUserOrganizations() {
 }
 
 // 1. Get List of Client LEs with Dashboard Data
-export async function getClientLEs() {
+export async function getClientLEs(explicitOrgId?: string) {
     const { userId, sessionClaims } = await auth();
     if (!userId) return [];
 
-    // Get the user's Org
-    const email = (sessionClaims?.email as string) || "";
-    const org = await ensureUserOrg(userId, email);
+    let targetOrgId = explicitOrgId;
 
-    if (!org) return [];
+    if (explicitOrgId) {
+        // Verify explicit access
+        const membership = await prisma.membership.findFirst({
+            where: {
+                userId,
+                organizationId: explicitOrgId,
+                organization: { types: { has: "CLIENT" } }
+            }
+        });
+        if (!membership) return []; // Unauthorized or invalid
+        // targetOrgId is already set
+    } else {
+        // Fallback to active/default org
+        const email = (sessionClaims?.email as string) || "";
+        const org = await ensureUserOrg(userId, email);
+        if (!org) return [];
+        targetOrgId = org.id;
+    }
 
     return await prisma.clientLE.findMany({
         where: {
-            clientOrgId: org.id,
+            clientOrgId: targetOrgId,
             isDeleted: false,
             status: { not: "ARCHIVED" }
         },
@@ -198,24 +213,44 @@ export async function getClientLEs() {
 }
 
 // 2. Create a new LE
-export async function createClientLE(data: { name: string; jurisdiction: string }) {
+export async function createClientLE(data: { name: string; jurisdiction: string; explicitOrgId?: string }) {
     const { userId, sessionClaims } = await auth();
     if (!userId) return { success: false, error: "Unauthorized" };
 
-    const email = (sessionClaims?.email as string) || "";
-    const org = await ensureUserOrg(userId, email);
-    if (!org) return { success: false, error: "No organization found" };
+    let targetOrgId = data.explicitOrgId;
+
+    if (targetOrgId) {
+        // Verify membership if explicit ID provided
+        const membership = await prisma.membership.findFirst({
+            where: {
+                userId,
+                organizationId: targetOrgId
+            }
+        });
+        if (!membership) return { success: false, error: "Unauthorized: No membership to specified organization" };
+    } else {
+        // Fallback to cookie/default
+        const email = (sessionClaims?.email as string) || "";
+        const org = await ensureUserOrg(userId, email);
+        if (!org) return { success: false, error: "No organization found" };
+        targetOrgId = org.id;
+    }
 
     const newLE = await prisma.clientLE.create({
         data: {
             name: data.name,
             jurisdiction: data.jurisdiction,
             status: "ACTIVE",
-            clientOrgId: org.id, // Linked to Org, not User
+            clientOrgId: targetOrgId!, // Linked to Org, not User
         },
     });
 
     revalidatePath("/app/le");
+    // Also revalidate the client dashboard if we know the path - but it uses dynamic ID so revalidating /app/clients/[id] is tricky without the ID here.
+    // Ideally we return the path to redirect or revalidatePath acts globally enough.
+    // Actually, revalidatePath layout might be safer:
+    revalidatePath("/app/clients/[clientId]");
+
     return { success: true, data: newLE };
 }
 
@@ -589,5 +624,141 @@ export async function searchFIs(query: string) {
     } catch (e) {
         console.error("Search FIs Failed", e);
         return [];
+    }
+}
+// 10. Get Client Dashboard Data with Granular Permissions
+// 10. Get Client Dashboard Data with Granular Permissions
+export async function getClientDashboardData(clientId: string) {
+    const { userId, sessionClaims } = await auth();
+    if (!userId) return { success: false, error: "Unauthorized" };
+
+    try {
+        // 1. Check for Direct Membership in the Client Organization
+        const directMembership = await prisma.membership.findFirst({
+            where: {
+                userId,
+                organizationId: clientId,
+            },
+            include: { organization: true }
+        });
+
+        let org;
+        let activeLes: any[] = [];
+        let permissions = {
+            canCreateLE: false,
+            canManageOrg: false,
+            canViewAllLEs: false
+        };
+        let roleLabel = "Restricted";
+
+        // Logic for deriving permissions per LE based on context
+        const deriveLEPermissions = (role: string) => {
+            const isAdmin = role === "ADMIN";
+            const isMember = role === "MEMBER";
+            return {
+                canEdit: isAdmin || isMember,
+                canCreateRelationship: isAdmin || isMember,
+                canDelete: isAdmin
+            };
+        };
+
+        if (directMembership && directMembership.organization) {
+            // CASE A: Direct Member (Admin or Member)
+            org = directMembership.organization;
+            roleLabel = directMembership.role === "ADMIN" ? "Client Admin" : "Client Member";
+
+            permissions.canCreateLE = directMembership.role === "ADMIN";
+            permissions.canManageOrg = directMembership.role === "ADMIN";
+            permissions.canViewAllLEs = true;
+
+            // Fetch ALL active LEs for this Client Org
+            const rawLes = await prisma.clientLE.findMany({
+                where: {
+                    clientOrgId: clientId,
+                    isDeleted: false,
+                    status: { not: "ARCHIVED" }
+                },
+                include: {
+                    fiEngagements: {
+                        where: { isDeleted: false },
+                        include: {
+                            org: true, // Bank Name
+                            questionnaires: { where: { isDeleted: false } }
+                        }
+                    }
+                },
+                orderBy: { createdAt: 'desc' },
+            });
+
+            // Hydrate with permissions
+            activeLes = rawLes.map(le => ({
+                ...le,
+                myPermissions: deriveLEPermissions(directMembership.role)
+            }));
+
+        } else {
+            // CASE B: No Direct Membership -> Check for LE-scoped access
+            const leMemberships = await prisma.membership.findMany({
+                where: {
+                    userId,
+                    clientLE: {
+                        clientOrgId: clientId
+                    }
+                },
+                include: {
+                    clientLE: {
+                        include: {
+                            clientOrg: true,
+                            fiEngagements: {
+                                where: { isDeleted: false },
+                                include: {
+                                    org: true,
+                                    questionnaires: { where: { isDeleted: false } }
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            if (leMemberships.length === 0) {
+                return { success: false, error: "Unauthorized" };
+            }
+
+            org = leMemberships[0].clientLE.clientOrg;
+            roleLabel = "Restricted (LE Scope)";
+
+            permissions.canCreateLE = false;
+            permissions.canManageOrg = false;
+            permissions.canViewAllLEs = false; // Restricted
+
+            const leMap = new Map();
+            leMemberships.forEach((m: any) => {
+                if (m.clientLE && !m.clientLE.isDeleted && m.clientLE.status !== "ARCHIVED") {
+                    const leWithPerms = {
+                        ...m.clientLE,
+                        myPermissions: deriveLEPermissions(m.role)
+                    };
+                    leMap.set(m.clientLE.id, leWithPerms);
+                }
+            });
+            activeLes = Array.from(leMap.values());
+        }
+
+        return {
+            success: true,
+            data: {
+                org,
+                les: activeLes,
+                permissions,
+                roleLabel,
+                userId, // For debug info
+                email: sessionClaims?.email
+            }
+        };
+
+    } catch (error) {
+        console.error("[getClientDashboardData]", error);
+        return { success: false, error: "Failed to load dashboard data" };
     }
 }
