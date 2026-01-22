@@ -40,11 +40,11 @@ export async function searchAvailableQuestionnaires(query: string) {
         const isSysAdmin = await isSystemAdmin();
 
         // Find user's client orgs to partial match
-        const userRoles = await prisma.userOrganizationRole.findMany({
-            where: { userId, org: { types: { has: "CLIENT" } } },
-            select: { orgId: true }
+        const userMemberships = await prisma.membership.findMany({
+            where: { userId, organization: { types: { has: "CLIENT" } } },
+            select: { organizationId: true }
         });
-        const userOrgIds = userRoles.map(r => r.orgId);
+        const userOrgIds = userMemberships.map(r => r.organizationId);
 
         const questionnaires = await prisma.questionnaire.findMany({
             where: {
