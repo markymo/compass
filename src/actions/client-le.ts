@@ -331,14 +331,9 @@ export async function createFIEngagement(clientLEId: string, fiName: string) {
                 data: {
                     name: fiName,
                     types: ["FI"],
-                    members: {
+                    memberships: {
                         create: {
-                            userId: userId, // Temporarily creating user as member or leaving empty? 
-                            // Better to just create the Org without members if it's an external stub.
-                            // But schema might require members. Let's assume we can create it isolated.
-                            // Actually schema says members: UserOrganizationRole[]. 
-                            // Let's create it with the current user as an opportunistic "admin" or just leave members empty if possible.
-                            // If schema allows members to be empty, great.
+                            userId: userId,
                             role: "ADMIN"
                         }
                     }
