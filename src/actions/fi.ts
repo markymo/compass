@@ -24,7 +24,7 @@ export async function createFI(name: string) {
         data: {
             name,
             types: ["FI"],
-            members: {
+            memberships: {
                 create: {
                     userId,
                     role: "ADMIN"
