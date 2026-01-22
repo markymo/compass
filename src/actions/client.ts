@@ -173,6 +173,8 @@ export async function getClientLEs() {
     const email = (sessionClaims?.email as string) || "";
     const org = await ensureUserOrg(userId, email);
 
+    if (!org) return [];
+
     return await prisma.clientLE.findMany({
         where: {
             clientOrgId: org.id,
