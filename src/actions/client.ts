@@ -515,6 +515,7 @@ export async function deleteEngagementByClient(engagementId: string) {
     if (!userId) return { success: false, error: "Unauthorized" };
 
     const org = await ensureUserOrg(userId);
+    if (!org) return { success: false, error: "No organization found" };
 
     // Verify ownership: The engagement must belong to a ClientLE owned by this user's Org
     const engagement = await prisma.fIEngagement.findFirst({
