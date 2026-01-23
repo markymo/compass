@@ -129,13 +129,10 @@ export default function V2DashboardPage() {
                             <Link href={`#`} key={rel.id}>
                                 <Card className="hover:shadow-md transition-shadow cursor-pointer border-indigo-100">
                                     <CardHeader className="pb-2">
-                                        <div className="flex justify-between items-start">
-                                            <CardTitle className="text-lg">{rel.supplierName}</CardTitle>
-                                            <Badge variant="outline">{rel.status}</Badge>
+                                        <div className="flex justify-between items-start gap-2">
+                                            <CardTitle className="text-lg leading-tight">{rel.leName} : {rel.supplierName}</CardTitle>
+                                            <Badge variant="outline" className="shrink-0">{rel.status}</Badge>
                                         </div>
-                                        <CardDescription>
-                                            via <span className="font-medium text-foreground">{rel.leName}</span>
-                                        </CardDescription>
                                     </CardHeader>
                                 </Card>
                             </Link>
