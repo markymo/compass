@@ -150,7 +150,7 @@ export default function V2DashboardPage() {
                     </div>
                     <div className="grid gap-4 md:grid-cols-3">
                         {contexts.financialInstitutions.map(fi => (
-                            <Link href="/app/fi" key={fi.id}>
+                            <Link href={`/app/fi/${fi.id}`} key={fi.id}>
                                 <Card className="hover:shadow-md transition-shadow cursor-pointer border-blue-100">
                                     <CardHeader>
                                         <CardTitle>{fi.name}</CardTitle>

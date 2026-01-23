@@ -66,9 +66,21 @@ export async function saveFIMapping(fiOrgId: string, mapping: any[]) {
 
 // Check if current user belongs to an FI
 // Check if current user belongs to an FI
-export async function getFIOganization() {
+export async function getFIOganization(fiOrgId?: string) {
     const { userId } = await auth();
     if (!userId) return null;
+
+    if (fiOrgId) {
+        const membership = await prisma.membership.findFirst({
+            where: {
+                userId,
+                organizationId: fiOrgId,
+                organization: { types: { has: "FI" } }
+            },
+            include: { organization: true }
+        });
+        return membership?.organization || null;
+    }
 
     const cookieStore = await cookies();
     const activeOrgId = cookieStore.get("compass_active_org")?.value;
@@ -175,29 +187,41 @@ export async function getFIQuestionnaires() {
 // --- New Dashboard Actions ---
 
 // 1. Get Dashboard Overview Stats
-export async function getFIDashboardStats() {
+// 1. Get Dashboard Overview Stats
+export async function getFIDashboardStats(fiOrgId?: string) {
     const { userId } = await auth();
     if (!userId) return null;
 
-    // Get all FI memberships
-    const memberships = await prisma.membership.findMany({
-        where: {
-            userId,
-            organization: { types: { has: "FI" } },
-            organizationId: { not: null }
-        },
-        select: { organizationId: true }
-    });
+    let targetFiOrgIds: string[] = [];
 
-    const fiOrgIds = memberships.map((m: any) => m.organizationId).filter(Boolean) as string[];
-    if (fiOrgIds.length === 0) return null;
+    if (fiOrgId) {
+        // Verify access to specific FI
+        const membership = await prisma.membership.findFirst({
+            where: { userId, organizationId: fiOrgId, organization: { types: { has: "FI" } } }
+        });
+        if (!membership) return null;
+        targetFiOrgIds = [fiOrgId];
+    } else {
+        // Get all FI memberships
+        const memberships = await prisma.membership.findMany({
+            where: {
+                userId,
+                organization: { types: { has: "FI" } },
+                organizationId: { not: null }
+            },
+            select: { organizationId: true }
+        });
+        targetFiOrgIds = memberships.map((m: any) => m.organizationId).filter(Boolean) as string[];
+    }
+
+    if (targetFiOrgIds.length === 0) return null;
 
     const [questionnaires, engagements, queries] = await Promise.all([
-        prisma.questionnaire.count({ where: { fiOrgId: { in: fiOrgIds }, isDeleted: false } }),
-        prisma.fIEngagement.count({ where: { fiOrgId: { in: fiOrgIds }, isDeleted: false, status: { not: "ARCHIVED" } } }),
+        prisma.questionnaire.count({ where: { fiOrgId: { in: targetFiOrgIds }, isDeleted: false } }),
+        prisma.fIEngagement.count({ where: { fiOrgId: { in: targetFiOrgIds }, isDeleted: false, status: { not: "ARCHIVED" } } }),
         prisma.query.count({
             where: {
-                engagement: { fiOrgId: { in: fiOrgIds } },
+                engagement: { fiOrgId: { in: targetFiOrgIds } },
                 status: "OPEN"
             }
         })
@@ -228,26 +252,35 @@ export type ApplicationEngagement = Prisma.FIEngagementGetPayload<{
     }>[]
 };
 
-export async function getFIEngagements(): Promise<ApplicationEngagement[]> {
+export async function getFIEngagements(fiOrgId?: string): Promise<ApplicationEngagement[]> {
     const { userId } = await auth();
     if (!userId) return [];
 
-    // Get all FI memberships
-    const memberships = await prisma.membership.findMany({
-        where: {
-            userId,
-            organization: { types: { has: "FI" } },
-            organizationId: { not: null }
-        },
-        select: { organizationId: true }
-    });
+    let targetFiOrgIds: string[] = [];
 
-    const fiOrgIds = memberships.map((m: any) => m.organizationId).filter(Boolean) as string[];
-    if (fiOrgIds.length === 0) return [];
+    if (fiOrgId) {
+        const membership = await prisma.membership.findFirst({
+            where: { userId, organizationId: fiOrgId, organization: { types: { has: "FI" } } }
+        });
+        if (!membership) return [];
+        targetFiOrgIds = [fiOrgId];
+    } else {
+        const memberships = await prisma.membership.findMany({
+            where: {
+                userId,
+                organization: { types: { has: "FI" } },
+                organizationId: { not: null }
+            },
+            select: { organizationId: true }
+        });
+        targetFiOrgIds = memberships.map((m: any) => m.organizationId).filter(Boolean) as string[];
+    }
+
+    if (targetFiOrgIds.length === 0) return [];
 
     const engagements = await prisma.fIEngagement.findMany({
         where: {
-            fiOrgId: { in: fiOrgIds },
+            fiOrgId: { in: targetFiOrgIds },
             isDeleted: false,
             status: { not: "ARCHIVED" },
             clientLE: { isDeleted: false }
@@ -277,20 +310,31 @@ export async function getFIEngagements(): Promise<ApplicationEngagement[]> {
 }
 
 // 2.b Get Questions for Dashboard (Kanban Items)
-export async function getFIDashboardQuestions(filters?: { clientLEId?: string; questionnaireName?: string }) {
+export async function getFIDashboardQuestions(filters?: { clientLEId?: string; questionnaireName?: string; fiOrgId?: string }) {
     const { userId } = await auth();
     if (!userId) return [];
 
-    const memberships = await prisma.membership.findMany({
-        where: { userId, organization: { types: { has: "FI" } }, organizationId: { not: null } },
-        select: { organizationId: true }
-    });
-    const fiOrgIds = memberships.map((m: any) => m.organizationId).filter(Boolean) as string[];
-    if (fiOrgIds.length === 0) return [];
+    let targetFiOrgIds: string[] = [];
+
+    if (filters?.fiOrgId) {
+        const membership = await prisma.membership.findFirst({
+            where: { userId, organizationId: filters.fiOrgId, organization: { types: { has: "FI" } } }
+        });
+        if (!membership) return [];
+        targetFiOrgIds = [filters.fiOrgId];
+    } else {
+        const memberships = await prisma.membership.findMany({
+            where: { userId, organization: { types: { has: "FI" } }, organizationId: { not: null } },
+            select: { organizationId: true }
+        });
+        targetFiOrgIds = memberships.map((m: any) => m.organizationId).filter(Boolean) as string[];
+    }
+
+    if (targetFiOrgIds.length === 0) return [];
 
     const where: any = {
         questionnaire: {
-            fiOrgId: { in: fiOrgIds },
+            fiOrgId: { in: targetFiOrgIds },
             fiEngagement: filters?.clientLEId ? {
                 clientLEId: filters.clientLEId
             } : undefined,

@@ -10,9 +10,9 @@ import { notFound } from "next/navigation";
 import { EngagementRequirementsList } from "@/components/fi/engagement-requirements-list";
 import { EngagementActions } from "@/components/fi/engagement-actions";
 
-export default async function FIEngagementOverviewPage({ params }: { params: Promise<{ id: string }> }) {
-    const { id } = await params;
-    const engagement = await getFIEngagementById(id);
+export default async function FIEngagementOverviewPage({ params }: { params: Promise<{ id: string; engagementId: string }> }) {
+    const { id, engagementId } = await params;
+    const engagement = await getFIEngagementById(engagementId);
 
     if (!engagement) return notFound();
 
@@ -24,7 +24,7 @@ export default async function FIEngagementOverviewPage({ params }: { params: Pro
             <GuideHeader
                 breadcrumbs={[
                     { label: "My Universe", href: "/app", icon: Home },
-                    { label: "Financial Institutions", href: "/app/fi", icon: Landmark },
+                    { label: "Financial Institutions", href: `/app/fi/${id}`, icon: Landmark },
                     { label: engagement.clientLE.name, icon: Building2 }
                 ]}
             />

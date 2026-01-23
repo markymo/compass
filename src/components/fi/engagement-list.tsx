@@ -31,9 +31,10 @@ interface Engagement {
 
 interface EngagementListProps {
     engagements: Engagement[];
+    fiOrgId: string;
 }
 
-export function EngagementList({ engagements }: EngagementListProps) {
+export function EngagementList({ engagements, fiOrgId }: EngagementListProps) {
     if (engagements.length === 0) {
         return null;
     }
@@ -41,7 +42,7 @@ export function EngagementList({ engagements }: EngagementListProps) {
     return (
         <div className="rounded-md border border-slate-200 bg-white shadow-sm overflow-hidden">
             <div className="bg-slate-50 px-4 py-2 border-b border-slate-200 flex justify-between items-center">
-                <h3 className="font-semibold text-sm text-slate-700">Recent Engagements</h3>
+                <h3 className="font-semibold text-sm text-slate-700">Recent Relationships</h3>
                 <span className="text-xs text-slate-500">{engagements.length} active</span>
             </div>
             <div className="max-h-[300px] overflow-y-auto">
@@ -90,7 +91,7 @@ export function EngagementList({ engagements }: EngagementListProps) {
                                         size="sm"
                                         className="h-6 w-6 p-0 hover:bg-indigo-50 hover:text-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity"
                                     >
-                                        <Link href={`/app/fi/engagements/${eng.id}`}>
+                                        <Link href={`/app/fi/${fiOrgId}/engagements/${eng.id}`}>
                                             <ArrowRight className="w-4 h-4" />
                                         </Link>
                                     </Button>

@@ -1,15 +1,18 @@
 import { notFound, redirect } from "next/navigation";
-import { isFIUser } from "@/actions/fi";
+import { getFIOganization } from "@/actions/fi";
 import { Building2 } from "lucide-react";
 
 export default async function FILayout({
     children,
+    params,
 }: {
     children: React.ReactNode;
+    params: Promise<{ id: string }>;
 }) {
-    const isFI = await isFIUser();
+    const { id } = await params;
+    const org = await getFIOganization(id);
 
-    if (!isFI) {
+    if (!org) {
         // Obscurity
         return (
             <div className="flex h-[50vh] flex-col items-center justify-center gap-4 text-center">
