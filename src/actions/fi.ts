@@ -2,6 +2,7 @@
 
 import prisma from "@/lib/prisma";
 import { auth } from "@clerk/nextjs/server";
+import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 
 import { Prisma } from "@prisma/client"; // Added import
@@ -64,9 +65,25 @@ export async function saveFIMapping(fiOrgId: string, mapping: any[]) {
 // --- FI User Actions ---
 
 // Check if current user belongs to an FI
+// Check if current user belongs to an FI
 export async function getFIOganization() {
     const { userId } = await auth();
     if (!userId) return null;
+
+    const cookieStore = await cookies();
+    const activeOrgId = cookieStore.get("compass_active_org")?.value;
+
+    if (activeOrgId) {
+        const activeMembership = await prisma.membership.findFirst({
+            where: {
+                userId,
+                organizationId: activeOrgId,
+                organization: { types: { has: "FI" } }
+            },
+            include: { organization: true }
+        });
+        if (activeMembership) return activeMembership.organization;
+    }
 
     const membership = await prisma.membership.findFirst({
         where: {
@@ -87,8 +104,29 @@ export async function isFIUser() {
 // Create a new Questionnaire (Draft)
 // Create a new Questionnaire (Draft)
 export async function uploadQuestionnaire(formData: FormData) {
-    const org = await getFIOganization();
-    if (!org) return { success: false, error: "Unauthorized" };
+    const { userId } = await auth();
+    if (!userId) return { success: false, error: "Unauthorized" };
+
+    let orgId = formData.get("fiOrgId") as string;
+
+    if (!orgId) {
+        // Try to default if user has only one FI
+        const memberships = await prisma.membership.findMany({
+            where: { userId, organization: { types: { has: "FI" } } },
+            select: { organizationId: true }
+        });
+        if (memberships.length === 1 && memberships[0].organizationId) {
+            orgId = memberships[0].organizationId;
+        } else {
+            return { success: false, error: "Ambiguous context: Please specify Target FI Organization" };
+        }
+    }
+
+    // Verify permission
+    const membership = await prisma.membership.findFirst({
+        where: { userId, organizationId: orgId, organization: { types: { has: "FI" } } }
+    });
+    if (!membership) return { success: false, error: "Unauthorized for this Organization" };
 
     const name = formData.get("name") as string;
     const file = formData.get("file") as File;
@@ -103,7 +141,7 @@ export async function uploadQuestionnaire(formData: FormData) {
 
         const q = await prisma.questionnaire.create({
             data: {
-                fiOrgId: org.id,
+                fiOrgId: orgId,
                 name,
                 fileName: file.name,
                 fileType: file.type,
@@ -138,15 +176,28 @@ export async function getFIQuestionnaires() {
 
 // 1. Get Dashboard Overview Stats
 export async function getFIDashboardStats() {
-    const org = await getFIOganization();
-    if (!org) return null;
+    const { userId } = await auth();
+    if (!userId) return null;
+
+    // Get all FI memberships
+    const memberships = await prisma.membership.findMany({
+        where: {
+            userId,
+            organization: { types: { has: "FI" } },
+            organizationId: { not: null }
+        },
+        select: { organizationId: true }
+    });
+
+    const fiOrgIds = memberships.map((m: any) => m.organizationId).filter(Boolean) as string[];
+    if (fiOrgIds.length === 0) return null;
 
     const [questionnaires, engagements, queries] = await Promise.all([
-        prisma.questionnaire.count({ where: { fiOrgId: org.id } }),
-        prisma.fIEngagement.count({ where: { fiOrgId: org.id } }),
+        prisma.questionnaire.count({ where: { fiOrgId: { in: fiOrgIds }, isDeleted: false } }),
+        prisma.fIEngagement.count({ where: { fiOrgId: { in: fiOrgIds }, isDeleted: false, status: { not: "ARCHIVED" } } }),
         prisma.query.count({
             where: {
-                engagement: { fiOrgId: org.id },
+                engagement: { fiOrgId: { in: fiOrgIds } },
                 status: "OPEN"
             }
         })
@@ -164,7 +215,10 @@ export async function getFIDashboardStats() {
 // Define the return type explicitly to help IDEs
 export type ApplicationEngagement = Prisma.FIEngagementGetPayload<{
     include: {
-        clientLE: true,
+        clientLE: {
+            include: { clientOrg: true }
+        },
+        org: true,
         // We override questionnaires in the return, so we don't include it here to avoid conflict in partials?
         // Actually, let's just use the base payload and extend it.
     }
@@ -175,18 +229,34 @@ export type ApplicationEngagement = Prisma.FIEngagementGetPayload<{
 };
 
 export async function getFIEngagements(): Promise<ApplicationEngagement[]> {
-    const org = await getFIOganization();
-    if (!org) return [];
+    const { userId } = await auth();
+    if (!userId) return [];
+
+    // Get all FI memberships
+    const memberships = await prisma.membership.findMany({
+        where: {
+            userId,
+            organization: { types: { has: "FI" } },
+            organizationId: { not: null }
+        },
+        select: { organizationId: true }
+    });
+
+    const fiOrgIds = memberships.map((m: any) => m.organizationId).filter(Boolean) as string[];
+    if (fiOrgIds.length === 0) return [];
 
     const engagements = await prisma.fIEngagement.findMany({
         where: {
-            fiOrgId: org.id,
+            fiOrgId: { in: fiOrgIds },
             isDeleted: false,
             status: { not: "ARCHIVED" },
             clientLE: { isDeleted: false }
         },
         include: {
-            clientLE: true,
+            clientLE: {
+                include: { clientOrg: true }
+            },
+            org: true,
             questionnaireInstances: { // Fetch Instances instead of Templates
                 select: {
                     id: true,
@@ -208,30 +278,33 @@ export async function getFIEngagements(): Promise<ApplicationEngagement[]> {
 
 // 2.b Get Questions for Dashboard (Kanban Items)
 export async function getFIDashboardQuestions(filters?: { clientLEId?: string; questionnaireName?: string }) {
-    const org = await getFIOganization();
-    if (!org) return [];
+    const { userId } = await auth();
+    if (!userId) return [];
+
+    const memberships = await prisma.membership.findMany({
+        where: { userId, organization: { types: { has: "FI" } }, organizationId: { not: null } },
+        select: { organizationId: true }
+    });
+    const fiOrgIds = memberships.map((m: any) => m.organizationId).filter(Boolean) as string[];
+    if (fiOrgIds.length === 0) return [];
 
     const where: any = {
         questionnaire: {
-            fiOrgId: org.id,
-            fiEngagementId: { not: null }, // Only fetch Instances (Answers), not Templates
-            // Filter by Client via Engagement
+            fiOrgId: { in: fiOrgIds },
             fiEngagement: filters?.clientLEId ? {
                 clientLEId: filters.clientLEId
             } : undefined,
-            // Filter by Questionnaire Name (Instance Name or Original Name? Usually Instance Name matches Template)
             name: filters?.questionnaireName ? {
-                contains: filters.questionnaireName, // Loose match or exact? Let's do exact if possible, or contains for flexibility
+                contains: filters.questionnaireName,
                 mode: 'insensitive'
             } : undefined
         }
     };
 
-    // Remove undefined keys
     if (!where.questionnaire.fiEngagement) delete where.questionnaire.fiEngagement;
     if (!where.questionnaire.name) delete where.questionnaire.name;
 
-    const questions = await prisma.question.findMany({
+    return await prisma.question.findMany({
         where,
         include: {
             questionnaire: {
@@ -244,18 +317,23 @@ export async function getFIDashboardQuestions(filters?: { clientLEId?: string; q
         },
         orderBy: { updatedAt: 'desc' }
     });
-
-    return questions;
 }
 
 // 3. Get Query Inbox
 export async function getFIQueries() {
-    const org = await getFIOganization();
-    if (!org) return [];
+    const { userId } = await auth();
+    if (!userId) return [];
+
+    const memberships = await prisma.membership.findMany({
+        where: { userId, organization: { types: { has: "FI" } }, organizationId: { not: null } },
+        select: { organizationId: true }
+    });
+    const fiOrgIds = memberships.map((m: any) => m.organizationId).filter(Boolean) as string[];
+    if (fiOrgIds.length === 0) return [];
 
     return await prisma.query.findMany({
         where: {
-            engagement: { fiOrgId: org.id },
+            engagement: { fiOrgId: { in: fiOrgIds } },
             status: "OPEN"
         },
         include: {
@@ -268,28 +346,43 @@ export async function getFIQueries() {
 }
 // 4. Get Single Engagement by ID
 export async function getFIEngagementById(id: string): Promise<ApplicationEngagement | null> {
-    const org = await getFIOganization();
-    if (!org) return null;
+    const { userId } = await auth();
+    if (!userId) return null;
+
+    // 1. Get all Org IDs where I am a member
+    const myMemberships = await prisma.membership.findMany({
+        where: {
+            userId,
+            organizationId: { not: null }
+        },
+        include: { organization: true }
+    });
+
+    const isSystemAdmin = myMemberships.some((m: any) => m.organization?.types.includes("SYSTEM"));
+    const myOrgIds = myMemberships.map((m: any) => m.organizationId).filter(Boolean) as string[];
+
+    if (!isSystemAdmin && myOrgIds.length === 0) return null;
+
+    // 2. Find Engagement
+    const whereClause: any = { id };
+    if (!isSystemAdmin) {
+        whereClause.fiOrgId = { in: myOrgIds };
+    }
 
     const engagement = await prisma.fIEngagement.findFirst({
-        where: {
-            id,
-            fiOrgId: org.id
-        },
+        where: whereClause,
         include: {
-            clientLE: true,
+            clientLE: {
+                include: { clientOrg: true }
+            },
+            org: true,
             questionnaireInstances: {
                 include: {
                     questions: {
                         orderBy: { order: 'asc' }
                     }
-                    // processingLogs is included by default if not selecting specific fields?
-                    // wait, 'include' on top level includes relationships, but scalar fields are included by default.
-                    // processingLogs is a scalar field (Json).
-                    // So it SHOULD be included automatically since we don't use 'select' here, we use 'include'.
                 }
             }
-
         }
     });
 
@@ -302,23 +395,37 @@ export async function getFIEngagementById(id: string): Promise<ApplicationEngage
 }
 
 // 5. Assign Questionnaire to Engagement (Deep Clone / Snapshot)
+// 5. Assign Questionnaire to Engagement (Deep Clone / Snapshot)
 export async function assignQuestionnaireToEngagement(engagementId: string, templateId: string) {
-    const org = await getFIOganization();
-    if (!org) return { success: false, error: "Unauthorized" };
+    const { userId } = await auth();
+    if (!userId) return { success: false, error: "Unauthorized" };
 
-    // 1. Fetch Template and its Questions
+    // Derive Org from Engagement
+    const engagement = await prisma.fIEngagement.findUnique({
+        where: { id: engagementId },
+        select: { fiOrgId: true }
+    });
+    if (!engagement) return { success: false, error: "Engagement not found" };
+
+    // Check permission
+    const membership = await prisma.membership.findFirst({
+        where: { userId, organizationId: engagement.fiOrgId }
+    });
+    if (!membership) return { success: false, error: "Unauthorized" };
+
+    // 1. Fetch Template and its Questions (Ensure template belongs to SAME Org)
     const template = await prisma.questionnaire.findUnique({
-        where: { id: templateId, fiOrgId: org.id },
+        where: { id: templateId, fiOrgId: engagement.fiOrgId },
         include: { questions: true }
     });
 
-    if (!template) return { success: false, error: "Template not found" };
+    if (!template) return { success: false, error: "Template not found or mismatch" };
 
     try {
         // 2. Create Instance (Copy of Questionnaire) linked to Engagement
         const instance = await prisma.questionnaire.create({
             data: {
-                fiOrgId: org.id,
+                fiOrgId: engagement.fiOrgId,
                 name: template.name, // Can append (Copy) if desired, but ideally kept same name for UI
                 status: "PENDING",
                 fileName: template.fileName,
@@ -344,12 +451,6 @@ export async function assignQuestionnaireToEngagement(engagementId: string, temp
             }
         });
 
-        // 4. (Optional) Also link as a "Template" reference?
-        // Actually, we probably don't need to double-link if we rely on Instances.
-        // But for "Which questionnaires are part of this?" queries to work with existing code
-        // that uses the Many-to-Many relation, we might need to think about backward compat.
-        // For now, let's assume the UI will switch to look at 'questionnaireInstances'.
-
         revalidatePath(`/app/fi/engagements/${engagementId}`);
         return { success: true, data: instance };
 
@@ -361,9 +462,18 @@ export async function assignQuestionnaireToEngagement(engagementId: string, temp
 
 // 6. Archive / Delete Engagement
 // 6. Archive / Delete Engagement
+// 6. Delete Engagement
 export async function deleteEngagement(id: string) {
-    const org = await getFIOganization();
-    if (!org) return { success: false, error: "Unauthorized" };
+    const { userId } = await auth();
+    if (!userId) return { success: false, error: "Unauthorized" };
+
+    const engagement = await prisma.fIEngagement.findUnique({ where: { id }, select: { fiOrgId: true } });
+    if (!engagement) return { success: false, error: "Not found" };
+
+    const membership = await prisma.membership.findFirst({
+        where: { userId, organizationId: engagement.fiOrgId }
+    });
+    if (!membership) return { success: false, error: "Unauthorized" };
 
     try {
         // Cascade: Delete linked Questionnaire Instances
@@ -373,7 +483,7 @@ export async function deleteEngagement(id: string) {
         });
 
         await prisma.fIEngagement.update({
-            where: { id, fiOrgId: org.id },
+            where: { id }, // Already guarded by check above
             data: { isDeleted: true }
         });
         revalidatePath("/app/fi");
@@ -384,12 +494,20 @@ export async function deleteEngagement(id: string) {
 }
 
 export async function archiveEngagement(id: string) {
-    const org = await getFIOganization();
-    if (!org) return { success: false, error: "Unauthorized" };
+    const { userId } = await auth();
+    if (!userId) return { success: false, error: "Unauthorized" };
+
+    const engagement = await prisma.fIEngagement.findUnique({ where: { id }, select: { fiOrgId: true } });
+    if (!engagement) return { success: false, error: "Not found" };
+
+    const membership = await prisma.membership.findFirst({
+        where: { userId, organizationId: engagement.fiOrgId }
+    });
+    if (!membership) return { success: false, error: "Unauthorized" };
 
     try {
         await prisma.fIEngagement.update({
-            where: { id, fiOrgId: org.id },
+            where: { id },
             data: { status: "ARCHIVED" }
         });
         revalidatePath("/app/fi");

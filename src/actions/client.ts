@@ -94,21 +94,16 @@ export async function ensureUserOrg(userId: string, userEmail: string = "") {
             console.log(`[ensureUserOrg] Merge complete. Welcome ${userEmail}`);
             // Return early or let flow continue to fetch memberships again?
             // Fetching memberships again is safest.
+            // Fetching memberships again is safest.
             const mergedMemberships = await prisma.membership.findMany({
                 where: { userId, organizationId: { not: null } },
                 include: { organization: true }
             });
-            if (mergedMemberships.length > 0) return mergedMemberships[0].organization; // Return first found
+            // if (mergedMemberships.length > 0) return mergedMemberships[0].organization; // Removing return
         }
     }
 
     // Ensure User exists (Standard Upsert for non-merge cases)
-    // If we just merged, this might throw if we already created in TX, so we should wrap or check.
-    // Actually, if we merged, we returned or we created.
-    // Let's rely on upsert idempotency but `create` inside TX handles it.
-    // We only reach here if NO merge happened OR merge happen but we want standard fallback.
-
-    // Safety check if user exists now
     const userExists = await prisma.user.findUnique({ where: { id: userId } });
     if (!userExists) {
         await prisma.user.create({
@@ -121,27 +116,38 @@ export async function ensureUserOrg(userId: string, userEmail: string = "") {
         }
     }
 
-    const newOrg = await prisma.organization.create({
-        data: {
-            name: userEmail ? `${userEmail.split('@')[0]}'s Corp` : "My Demo Client",
-            types: ["CLIENT"],
-            memberships: {
-                create: {
-                    userId: userId,
-                    role: "ADMIN"
+    // Creating a default org if NONE exist is arguably still useful for new users to have a playground,
+    // but in Global Context, we might just let them see an empty dashboard with "Create Client" button.
+    // For legacy compatibility, let's keep creating it if they have absolutely nothing, but don't return it.
+
+    const count = await prisma.membership.count({ where: { userId } });
+    if (count === 0) {
+        await prisma.organization.create({
+            data: {
+                name: userEmail ? `${userEmail.split('@')[0]}'s Corp` : "My Demo Client",
+                types: ["CLIENT"],
+                memberships: {
+                    create: {
+                        userId: userId,
+                        role: "ADMIN"
+                    }
                 }
             }
-        }
-    });
-
-    return newOrg;
+        });
+    }
 }
 
-export async function switchOrganization(orgId: string) {
-    const cookieStore = await cookies();
-    cookieStore.set("compass_active_org", orgId);
-    revalidatePath("/app");
-    return { success: true };
+
+
+// Check if user has ANY system admin membership (regardless of active context)
+export async function checkIsSystemAdmin(userId: string) {
+    const membership = await prisma.membership.findFirst({
+        where: {
+            userId,
+            organization: { types: { has: "SYSTEM" } }
+        }
+    });
+    return !!membership;
 }
 
 export async function getUserOrganizations() {
@@ -169,33 +175,38 @@ export async function getClientLEs(explicitOrgId?: string) {
     const { userId, sessionClaims } = await auth();
     if (!userId) return [];
 
-    let targetOrgId = explicitOrgId;
+    // Ensure user record exists (and email is synced)
+    const email = (sessionClaims?.email as string) || "";
+    await ensureUserOrg(userId, email);
+
+    // 1. Get all organizations where user is a MEMBER or ADMIN
+    const memberships = await prisma.membership.findMany({
+        where: { userId, organizationId: { not: null } },
+        select: { organizationId: true }
+    });
+
+    // Filter to Client Orgs if needed? 
+    // Actually, we want CLIENT LEs. Client LEs belong to Client Orgs.
+    // If I am a member of Org X, I should see Org X's LEs.
+
+    const myOrgIds = memberships.map((m: any) => m.organizationId).filter(Boolean) as string[];
+
+    if (myOrgIds.length === 0) return [];
+
+    // 2. Fetch all LEs belonging to these Orgs
+    const whereClause: any = {
+        clientOrgId: { in: myOrgIds },
+        isDeleted: false,
+        status: { not: "ARCHIVED" }
+    };
 
     if (explicitOrgId) {
-        // Verify explicit access
-        const membership = await prisma.membership.findFirst({
-            where: {
-                userId,
-                organizationId: explicitOrgId,
-                organization: { types: { has: "CLIENT" } }
-            }
-        });
-        if (!membership) return []; // Unauthorized or invalid
-        // targetOrgId is already set
-    } else {
-        // Fallback to active/default org
-        const email = (sessionClaims?.email as string) || "";
-        const org = await ensureUserOrg(userId, email);
-        if (!org) return [];
-        targetOrgId = org.id;
+        // If strict filtering requested
+        whereClause.clientOrgId = explicitOrgId;
     }
 
     return await prisma.clientLE.findMany({
-        where: {
-            clientOrgId: targetOrgId,
-            isDeleted: false,
-            status: { not: "ARCHIVED" }
-        },
+        where: whereClause,
         include: {
             // Fetch engagements to show which banks they are working with
             fiEngagements: {
@@ -219,21 +230,35 @@ export async function createClientLE(data: { name: string; jurisdiction: string;
 
     let targetOrgId = data.explicitOrgId;
 
-    if (targetOrgId) {
-        // Verify membership if explicit ID provided
+    // If valid targetOrgId is not resolved, try to resolve a default
+    if (!targetOrgId) {
+        // Fetch all client memberships where user is ADMIN
+        const adminMemberships = await prisma.membership.findMany({
+            where: {
+                userId,
+                role: "ADMIN",
+                organization: { types: { has: "CLIENT" } }
+            },
+            select: { organizationId: true }
+        });
+
+        if (adminMemberships.length === 1 && adminMemberships[0].organizationId) {
+            targetOrgId = adminMemberships[0].organizationId;
+        } else if (adminMemberships.length === 0) {
+            return { success: false, error: "You do not have permission to create Legal Entities (No Client Admin role)." };
+        } else {
+            return { success: false, error: "Ambiguous context: Please select which Organization to create this entity for." };
+        }
+    } else {
+        // Verify explicit permission if ID was passed
         const membership = await prisma.membership.findFirst({
             where: {
                 userId,
-                organizationId: targetOrgId
+                organizationId: targetOrgId,
+                role: "ADMIN"
             }
         });
-        if (!membership) return { success: false, error: "Unauthorized: No membership to specified organization" };
-    } else {
-        // Fallback to cookie/default
-        const email = (sessionClaims?.email as string) || "";
-        const org = await ensureUserOrg(userId, email);
-        if (!org) return { success: false, error: "No organization found" };
-        targetOrgId = org.id;
+        if (!membership) return { success: false, error: "Unauthorized: You must be an Admin of the target Organization." };
     }
 
     const newLE = await prisma.clientLE.create({
@@ -263,6 +288,7 @@ export async function getClientLEData(leId: string) {
     const le = await prisma.clientLE.findUnique({
         where: { id: leId },
         include: {
+            clientOrg: true, // Needed for breadcrumbs
             fiEngagements: {
                 where: { isDeleted: false },
                 include: {
@@ -502,13 +528,23 @@ export async function deleteClientLE(leId: string) {
     // Ownership check is implicit in getClientLEs but for write we should double check OR assume they can only edit what they see.
     // Ideally we check ownership via ensureUserOrg.
 
-    const org = await ensureUserOrg(userId); // Re-fetch to confirm ID
-    if (!org) return { success: false, error: "No organization found" };
-
-    const le = await prisma.clientLE.findFirst({
-        where: { id: leId, clientOrgId: org.id }
+    // We need to find the LE first to know its Org
+    const le = await prisma.clientLE.findUnique({
+        where: { id: leId },
+        select: { id: true, clientOrgId: true }
     });
-    if (!le) return { success: false, error: "Legal Entity not found or unauthorized" };
+    if (!le) return { success: false, error: "Legal Entity not found" };
+
+    // Check permissions on the Parent Org
+    const membership = await prisma.membership.findFirst({
+        where: {
+            userId,
+            organizationId: le.clientOrgId,
+            role: "ADMIN"
+        }
+    });
+
+    if (!membership) return { success: false, error: "Unauthorized: You must be an Admin of the owning Organization." };
 
     try {
         // Cascade: Delete LE -> Delete Engagements -> Delete Questionnaire Instances
@@ -549,20 +585,26 @@ export async function deleteEngagementByClient(engagementId: string) {
     const { userId } = await auth();
     if (!userId) return { success: false, error: "Unauthorized" };
 
-    const org = await ensureUserOrg(userId);
-    if (!org) return { success: false, error: "No organization found" };
-
-    // Verify ownership: The engagement must belong to a ClientLE owned by this user's Org
-    const engagement = await prisma.fIEngagement.findFirst({
-        where: {
-            id: engagementId,
-            clientLE: {
-                clientOrgId: org.id
-            }
+    // 1. Find the Engagement -> ClientLE -> ClientOrg
+    const engagement = await prisma.fIEngagement.findUnique({
+        where: { id: engagementId },
+        include: {
+            clientLE: true // to get clientOrgId
         }
     });
 
-    if (!engagement) return { success: false, error: "Engagement not found or unauthorized" };
+    if (!engagement) return { success: false, error: "Engagement not found" };
+
+    // 2. Check Admin Permission on the Client Org
+    const membership = await prisma.membership.findFirst({
+        where: {
+            userId,
+            organizationId: engagement.clientLE.clientOrgId,
+            role: "ADMIN"
+        }
+    });
+
+    if (!membership) return { success: false, error: "Unauthorized: You must be an Admin of the owning Organization." };
 
     try {
         // Cascade: Engagement -> Questionnaire Instances
@@ -656,6 +698,7 @@ export async function getClientDashboardData(clientId: string) {
             const isAdmin = role === "ADMIN";
             const isMember = role === "MEMBER";
             return {
+                canEnter: isAdmin || isMember,
                 canEdit: isAdmin || isMember,
                 canCreateRelationship: isAdmin || isMember,
                 canDelete: isAdmin

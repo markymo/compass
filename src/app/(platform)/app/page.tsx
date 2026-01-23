@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { getUserContexts, DashboardContexts } from "@/actions/dashboard";
-import { switchOrganization } from "@/actions/client"; // To create
+
+import { GuideHeader } from "@/components/layout/GuideHeader";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, Building2, Briefcase, Landmark, Gavel, ArrowRight } from "lucide-react";
+import { Loader2, Building2, Briefcase, Landmark, Gavel, ArrowRight, Home } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -30,20 +31,19 @@ export default function V2DashboardPage() {
         load();
     }, []);
 
-    const handleClientClick = async (orgId: string) => {
-        // Switch context then navigate
-        await switchOrganization(orgId);
-        router.push("/app/client-dashboard");
-    };
+
 
     if (loading) return <div className="h-full flex items-center justify-center"><Loader2 className="animate-spin" /></div>;
     if (!contexts) return <div>Failed to load context.</div>;
 
     return (
         <div className="space-y-8 p-8">
-            <div>
-                <h1 className="text-3xl font-bold tracking-tight">My Universe</h1>
-                <p className="text-muted-foreground">Select a context to work in.</p>
+            <div className="flex items-center gap-2">
+                <Home className="h-8 w-8 text-muted-foreground" />
+                <div>
+                    <h1 className="text-3xl font-bold tracking-tight">My Universe</h1>
+                    <p className="text-muted-foreground">Select a context to work in.</p>
+                </div>
             </div>
 
             {/* 1. My Clients */}
@@ -153,7 +153,7 @@ export default function V2DashboardPage() {
                     </div>
                     <div className="grid gap-4 md:grid-cols-3">
                         {contexts.financialInstitutions.map(fi => (
-                            <Link href={`/app/admin/organizations/${fi.id}`} key={fi.id}>
+                            <Link href="/app/fi" key={fi.id}>
                                 <Card className="hover:shadow-md transition-shadow cursor-pointer border-blue-100">
                                     <CardHeader>
                                         <CardTitle>{fi.name}</CardTitle>

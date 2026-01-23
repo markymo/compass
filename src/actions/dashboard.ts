@@ -39,7 +39,7 @@ export async function getUserContexts(): Promise<DashboardContexts> {
     };
 
     const clientMap = new Map<string, { id: string; name: string; role: string; source: "DIRECT" | "DERIVED" }>();
-    const leIds: string[] = [];
+    const leMap = new Map<string, { id: string; name: string; clientName: string; role: string }>();
 
     for (const m of memberships) {
         // A. Direct Party Memberships
@@ -47,26 +47,63 @@ export async function getUserContexts(): Promise<DashboardContexts> {
             const org = m.organization;
             if (org.types.includes("CLIENT")) {
                 clientMap.set(org.id, { id: org.id, name: org.name, role: m.role, source: "DIRECT" });
+
+                // NEW: IF Admin/Member of Client, fetch ALL its active LEs
+                const orgLEs = await prisma.clientLE.findMany({
+                    where: { clientOrgId: org.id, isDeleted: false, status: { not: "ARCHIVED" } },
+                    select: { id: true, name: true, clientOrg: { select: { name: true } } }
+                });
+
+                orgLEs.forEach(le => {
+                    if (!leMap.has(le.id)) {
+                        leMap.set(le.id, {
+                            id: le.id,
+                            name: le.name,
+                            clientName: le.clientOrg.name,
+                            role: m.role // Inherit Org Role
+                        });
+                    }
+                });
+
             } else if (org.types.includes("FI")) {
                 context.financialInstitutions.push({ id: org.id, name: org.name, role: m.role });
-            } else if (org.types.includes("LAW_FIRM" as any)) { // Cast to any to avoid temporarily missing type issue before regen finishes or just string check
+            } else if (org.types.includes("LAW_FIRM" as any)) {
                 context.lawFirms.push({ id: org.id, name: org.name, role: m.role });
             } else if (org.types.includes("SYSTEM")) {
-                // System admin logic
+                // System Admin: ALSO fetch all LEs of this 'System' org if it acts as a client
+                const orgLEs = await prisma.clientLE.findMany({
+                    where: { clientOrgId: org.id, isDeleted: false, status: { not: "ARCHIVED" } },
+                    select: { id: true, name: true, clientOrg: { select: { name: true } } }
+                });
+
+                orgLEs.forEach(le => {
+                    if (!leMap.has(le.id)) {
+                        leMap.set(le.id, {
+                            id: le.id,
+                            name: le.name,
+                            clientName: le.clientOrg.name,
+                            role: m.role
+                        });
+                    }
+                });
             }
         }
 
         // B. Direct Worksheet (LE) Memberships
         if (m.clientLE) {
             const le = m.clientLE;
-            leIds.push(le.id);
 
-            context.legalEntities.push({
-                id: le.id,
-                name: le.name,
-                clientName: le.clientOrg.name,
-                role: m.role
-            });
+            // Upsert (prefer direct role if we want to be specific, or just ensure existence)
+            // If already added by Org logic, this might be redundant, OR we might want to update the role to the specific LE role?
+            // For now, simple existence check to avoid duplicates.
+            if (!leMap.has(le.id)) {
+                leMap.set(le.id, {
+                    id: le.id,
+                    name: le.name,
+                    clientName: le.clientOrg.name,
+                    role: m.role
+                });
+            }
 
             // Implied Client Access (Derived)
             if (!clientMap.has(le.clientOrgId)) {
@@ -81,6 +118,8 @@ export async function getUserContexts(): Promise<DashboardContexts> {
     }
 
     context.clients = Array.from(clientMap.values());
+    context.legalEntities = Array.from(leMap.values());
+    const leIds = context.legalEntities.map(l => l.id);
 
     // 2. Fetch Relationships (Engagements) for visible LEs
     if (leIds.length > 0) {

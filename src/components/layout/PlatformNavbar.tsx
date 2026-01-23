@@ -4,12 +4,10 @@ import { UserNav } from "./UserNav";
 import { Button } from "@/components/ui/button";
 
 interface PlatformNavbarProps {
-    orgName?: string;
-    orgTypes?: string[];
-    availableOrgs?: { id: string; name: string; types: string[] }[];
+    isSystemAdmin?: boolean;
 }
 
-export function PlatformNavbar({ orgName = "", orgTypes = [], availableOrgs = [] }: PlatformNavbarProps) {
+export function PlatformNavbar({ isSystemAdmin = false }: PlatformNavbarProps) {
     return (
         <header className="sticky top-0 left-0 right-0 z-50 border-b border-slate-200 bg-white/80 backdrop-blur-xl">
             <div className="container mx-auto flex h-20 items-center justify-between px-4 md:px-6">
@@ -25,7 +23,7 @@ export function PlatformNavbar({ orgName = "", orgTypes = [], availableOrgs = []
                 </div>
 
                 <div className="flex items-center gap-2">
-                    {orgTypes.includes("SYSTEM") && (
+                    {isSystemAdmin && (
                         <Button variant="ghost" size="icon" asChild className="text-slate-500 hover:text-slate-900">
                             <Link href="/app/admin">
                                 <Settings className="h-5 w-5" />

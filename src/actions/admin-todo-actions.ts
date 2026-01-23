@@ -177,29 +177,42 @@ export async function getSystemAdmins() {
     if (!userId) return [];
 
     try {
-        const admins = await prisma.user.findMany({
+        // 1. Find the System Admin Organization
+        const systemOrg = await prisma.organization.findFirst({
             where: {
-                memberships: {
-                    some: {
-                        organization: {
-                            types: {
-                                has: "SYSTEM"
-                            }
-                        }
+                types: { has: "SYSTEM" }
+            },
+            select: { id: true }
+        });
+
+        if (!systemOrg) {
+            console.warn("No System Admin organization found.");
+            return [];
+        }
+
+        // 2. Find Members of this Org
+        const memberships = await prisma.membership.findMany({
+            where: {
+                organizationId: systemOrg.id
+            },
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        name: true,
+                        email: true
                     }
                 }
-            },
-            select: {
-                id: true,
-                name: true,
-                email: true
             }
         });
 
-        return admins.map(u => ({
-            id: u.id,
-            name: u.name || u.email
-        }));
+        // 3. Map to Users
+        const admins = memberships.map(m => ({
+            id: m.user.id,
+            name: m.user.name || m.user.email
+        })).sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+
+        return admins;
     } catch (e) {
         console.error("Failed to fetch admins", e);
         return [];
