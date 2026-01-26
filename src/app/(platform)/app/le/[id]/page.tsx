@@ -34,7 +34,7 @@ export default async function LEDashboardPage({ params }: { params: Promise<{ id
             <GuideHeader
                 breadcrumbs={[
                     { label: "My Universe", href: "/app", icon: Home },
-                    { label: (le as any).clientOrg?.name || "Client", href: `/app/clients/${le.clientOrgId}`, icon: Building2 },
+                    { label: (le as any).owners?.[0]?.party?.name || "Client", href: `/app/clients/${(le as any).owners?.[0]?.partyId}`, icon: Building2 },
                     { label: le.name, icon: Briefcase }
                 ]}
                 actions={<ClientLEActions leId={le.id} leName={le.name} />}

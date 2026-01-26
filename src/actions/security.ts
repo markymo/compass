@@ -99,7 +99,9 @@ export async function canManageQuestionnaire(questionnaireId: string) {
 
         // Find LEs for these Orgs
         const clientLEs = await prisma.clientLE.findMany({
-            where: { clientOrgId: { in: clientOrgIds } },
+            where: {
+                owners: { some: { partyId: { in: clientOrgIds }, endAt: null } }
+            },
             select: { id: true }
         });
         const clientLEIds = clientLEs.map(le => le.id);

@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, ShieldAlert, User, Building } from "lucide-react";
+import { Loader2, ShieldAlert, User, Building, Settings } from "lucide-react";
+import Link from "next/link";
 
 export default function UserAdminPage() {
     const [users, setUsers] = useState<any[]>([]);
@@ -74,7 +75,14 @@ export default function UserAdminPage() {
                                                 {u.orgType}
                                             </Badge>
                                         </TableCell>
-                                        <TableCell className="text-right">
+                                        <TableCell className="text-right flex items-center justify-end gap-2">
+                                            <Button size="sm" variant="secondary" asChild>
+                                                <Link href={`/app/admin/users/${u.userId}`}>
+                                                    <Settings className="w-4 h-4 mr-2" />
+                                                    Manage
+                                                </Link>
+                                            </Button>
+
                                             {u.orgType !== "SYSTEM" && (
                                                 <Button size="sm" variant="outline" onClick={() => handlePromote(u.userId)}>
                                                     <ShieldAlert className="w-4 h-4 mr-2" />
@@ -83,7 +91,7 @@ export default function UserAdminPage() {
                                             )}
                                             {u.orgType === "SYSTEM" && (
                                                 <span className="text-muted-foreground text-sm italic">
-                                                    (Cannot demote self in UI safely)
+                                                    (Super Admin)
                                                 </span>
                                             )}
                                         </TableCell>

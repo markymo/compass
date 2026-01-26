@@ -49,7 +49,11 @@ export async function getClientUsers(clientId: string) {
     // B. LE Members
     const leMembers = await prisma.membership.findMany({
         where: {
-            clientLE: { clientOrgId: clientId }
+            clientLE: {
+                owners: {
+                    some: { partyId: clientId, endAt: null }
+                }
+            }
         },
         include: {
             user: true,
@@ -100,14 +104,27 @@ export async function getClientContext(clientId: string) {
     const client = await prisma.organization.findUnique({
         where: { id: clientId },
         include: {
-            clientLEs: {
-                where: { isDeleted: false, status: { not: "ARCHIVED" } },
-                select: { id: true, name: true }
+            ownedLEs: {
+                where: { endAt: null },
+                include: {
+                    clientLE: {
+                        select: { id: true, name: true, status: true, isDeleted: true }
+                    }
+                }
             }
         }
     });
 
-    return client;
+    if (!client) return null;
+
+    // Transform to flat structure expected by UI
+    return {
+        ...client,
+        clientLEs: client.ownedLEs
+            .map(o => o.clientLE)
+            .filter(le => !le.isDeleted && le.status !== "ARCHIVED")
+            .sort((a, b) => a.name.localeCompare(b.name))
+    };
 }
 
 // 4. Assign Client Role (Building Pass)
@@ -246,4 +263,76 @@ export async function addUserToClient(data: { email: string, clientId: string, n
         console.error("Add User Error", e);
         return { success: false, error: "Failed to add user" };
     }
+}
+// 7. Get User Permissions Profile (All Orgs + LEs)
+export async function getUserPermissionsProfile(targetUserId: string) {
+    await ensureAdmin();
+
+    // 1. Fetch User Details
+    const user = await prisma.user.findUnique({
+        where: { id: targetUserId },
+        select: { id: true, name: true, email: true }
+    });
+    if (!user) return null;
+
+    // 2. Fetch All Org Memberships (Party Scope)
+    const orgMemberships = await prisma.membership.findMany({
+        where: { userId: targetUserId, organizationId: { not: null } },
+        include: { organization: true }
+    });
+
+    // 3. Fetch All LE Memberships (Workspace Scope)
+    const leMemberships = await prisma.membership.findMany({
+        where: { userId: targetUserId, clientLEId: { not: null } },
+        select: { clientLEId: true, role: true }
+    });
+
+    const leRoleMap = new Map<string, string>();
+    leMemberships.forEach(m => {
+        if (m.clientLEId) leRoleMap.set(m.clientLEId, m.role);
+    });
+
+    // 4. Build Tree
+    const tree = await Promise.all(orgMemberships.map(async (om) => {
+        if (!om.organization) return null;
+
+        // Fetch owned LEs for this Org
+        const ownedLEs = await prisma.clientLEOwner.findMany({
+            where: { partyId: om.organization.id, endAt: null },
+            include: {
+                clientLE: {
+                    select: { id: true, name: true, status: true, isDeleted: true }
+                }
+            }
+        });
+
+        // Map LEs with user's role
+        const les = ownedLEs.map(owner => {
+            const le = owner.clientLE;
+            return {
+                id: le.id,
+                name: le.name,
+                status: le.status,
+                isDeleted: le.isDeleted,
+                role: leRoleMap.get(le.id) || "NONE"
+            };
+        }).filter(le => !le.isDeleted && le.status !== "ARCHIVED")
+            .sort((a, b) => a.name.localeCompare(b.name));
+
+        return {
+            org: {
+                id: om.organization.id,
+                name: om.organization.name,
+                logoUrl: om.organization.logoUrl,
+                type: om.organization.types[0]
+            },
+            role: om.role,
+            les
+        };
+    }));
+
+    return {
+        user,
+        memberships: tree.filter(Boolean) as any[]
+    };
 }

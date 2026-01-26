@@ -16,8 +16,13 @@ export async function createLegalEntity(data: { name: string; jurisdiction: stri
             data: {
                 name: data.name,
                 jurisdiction: data.jurisdiction,
-                clientOrgId: data.clientOrgId,
                 status: "ACTIVE",
+                owners: {
+                    create: {
+                        partyId: data.clientOrgId,
+                        startAt: new Date()
+                    }
+                }
             },
         });
         revalidatePath(`/app/le`); // Revalidate list page

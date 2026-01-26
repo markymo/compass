@@ -60,7 +60,8 @@ export async function getOrganizationDetails(orgId: string) {
                 }
             },
             // Include related entities count if useful
-            clientLEs: {
+            ownedLEs: {
+                where: { endAt: null },
                 select: { id: true } // just count
             }
         }

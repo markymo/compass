@@ -194,15 +194,16 @@ export async function getClientLEs(explicitOrgId?: string) {
     if (myOrgIds.length === 0) return [];
 
     // 2. Fetch all LEs belonging to these Orgs
+    // 2. Fetch all LEs belonging to these Orgs
     const whereClause: any = {
-        clientOrgId: { in: myOrgIds },
+        owners: { some: { partyId: { in: myOrgIds }, endAt: null } },
         isDeleted: false,
         status: { not: "ARCHIVED" }
     };
 
     if (explicitOrgId) {
         // If strict filtering requested
-        whereClause.clientOrgId = explicitOrgId;
+        whereClause.owners = { some: { partyId: explicitOrgId, endAt: null } };
     }
 
     return await prisma.clientLE.findMany({
@@ -266,7 +267,12 @@ export async function createClientLE(data: { name: string; jurisdiction: string;
             name: data.name,
             jurisdiction: data.jurisdiction,
             status: "ACTIVE",
-            clientOrgId: targetOrgId!, // Linked to Org, not User
+            owners: {
+                create: {
+                    partyId: targetOrgId!,
+                    startAt: new Date()
+                }
+            }
         },
     });
 
@@ -288,7 +294,10 @@ export async function getClientLEData(leId: string) {
     const le = await prisma.clientLE.findUnique({
         where: { id: leId },
         include: {
-            clientOrg: true, // Needed for breadcrumbs
+            owners: {
+                where: { endAt: null },
+                include: { party: true }
+            },
             fiEngagements: {
                 where: { isDeleted: false },
                 include: {
@@ -528,18 +537,27 @@ export async function deleteClientLE(leId: string) {
     // Ownership check is implicit in getClientLEs but for write we should double check OR assume they can only edit what they see.
     // Ideally we check ownership via ensureUserOrg.
 
-    // We need to find the LE first to know its Org
+    // We need to find the LE first to check ownership
     const le = await prisma.clientLE.findUnique({
         where: { id: leId },
-        select: { id: true, clientOrgId: true }
+        select: { id: true }
     });
     if (!le) return { success: false, error: "Legal Entity not found" };
 
     // Check permissions on the Parent Org
+    // Need to find which party owns it effectively?
+    // For delete, being Admin of ANY current owning party is likely sufficient.
+    const owningParties = await prisma.clientLEOwner.findMany({
+        where: { clientLEId: leId, endAt: null },
+        select: { partyId: true }
+    });
+
+    const owningPartyIds = owningParties.map(o => o.partyId);
+
     const membership = await prisma.membership.findFirst({
         where: {
             userId,
-            organizationId: le.clientOrgId,
+            organizationId: { in: owningPartyIds },
             role: "ADMIN"
         }
     });
@@ -588,18 +606,23 @@ export async function deleteEngagementByClient(engagementId: string) {
     // 1. Find the Engagement -> ClientLE -> ClientOrg
     const engagement = await prisma.fIEngagement.findUnique({
         where: { id: engagementId },
-        include: {
-            clientLE: true // to get clientOrgId
-        }
+        select: { id: true, clientLEId: true }
     });
 
     if (!engagement) return { success: false, error: "Engagement not found" };
 
     // 2. Check Admin Permission on the Client Org
+    const owningParties = await prisma.clientLEOwner.findMany({
+        where: { clientLEId: engagement.clientLEId, endAt: null },
+        select: { partyId: true }
+    });
+
+    const owningPartyIds = owningParties.map(o => o.partyId);
+
     const membership = await prisma.membership.findFirst({
         where: {
             userId,
-            organizationId: engagement.clientLE.clientOrgId,
+            organizationId: { in: owningPartyIds },
             role: "ADMIN"
         }
     });
@@ -717,7 +740,7 @@ export async function getClientDashboardData(clientId: string) {
             // Fetch ALL active LEs for this Client Org
             const rawLes = await prisma.clientLE.findMany({
                 where: {
-                    clientOrgId: clientId,
+                    owners: { some: { partyId: clientId, endAt: null } },
                     isDeleted: false,
                     status: { not: "ARCHIVED" }
                 },
@@ -745,13 +768,22 @@ export async function getClientDashboardData(clientId: string) {
                 where: {
                     userId,
                     clientLE: {
-                        clientOrgId: clientId
+                        owners: {
+                            some: {
+                                partyId: clientId,
+                                endAt: null
+                            }
+                        }
                     }
                 },
                 include: {
                     clientLE: {
                         include: {
-                            clientOrg: true,
+                            // clientOrg: true, // Removed
+                            owners: {
+                                where: { partyId: clientId, endAt: null },
+                                include: { party: true }
+                            },
                             fiEngagements: {
                                 where: { isDeleted: false },
                                 include: {
@@ -769,7 +801,9 @@ export async function getClientDashboardData(clientId: string) {
             }
 
             if (!leMemberships[0].clientLE) return { success: false, error: "Invalid Membership Data" };
-            org = leMemberships[0].clientLE.clientOrg;
+            // org = leMemberships[0].clientLE.clientOrg;
+            const contextOwner = leMemberships[0].clientLE?.owners?.[0];
+            org = contextOwner?.party;
             roleLabel = "Restricted (LE Scope)";
 
             permissions.canCreateLE = false;

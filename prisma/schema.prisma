@@ -32,7 +32,7 @@ model Organization {
   domain         String?
   logoUrl        String?
   description    String?         @db.Text
-  clientLEs      ClientLE[]
+  // clientLEs replaced by ownedLEs
   engagements    FIEngagement[]
   fiSchemas      FISchema[]
   questionnaires      Questionnaire[] 
@@ -40,6 +40,9 @@ model Organization {
   
   // Replaced members with memberships (Party Scope)
   memberships    Membership[]
+
+  // New Ownership Model
+  ownedLEs       ClientLEOwner[]
 }
 
 // POLYMORPHIC MEMBERSHIP (Party OR Workspace)
@@ -99,8 +102,6 @@ model StandingDataSection {
 
 model ClientLE {
   id           String             @id @default(uuid())
-  clientOrgId  String
-  clientOrg    Organization       @relation(fields: [clientOrgId], references: [id])
   name         String
   description  String?            @db.Text
   jurisdiction String?
@@ -115,6 +116,27 @@ model ClientLE {
   
   // Workspace Memberships (Direct Access)
   memberships   Membership[]
+
+  // Ownership History (New Multi-Owner Model)
+  owners        ClientLEOwner[]
+}
+
+model ClientLEOwner {
+  id           String       @id @default(uuid())
+  clientLEId   String
+  clientLE     ClientLE     @relation(fields: [clientLEId], references: [id], onDelete: Cascade)
+  
+  partyId      String       // The Client Org
+  party        Organization @relation(fields: [partyId], references: [id])
+  
+  startAt      DateTime     @default(now())
+  endAt        DateTime?    // Null = Current Owner
+  
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@index([clientLEId])
+  @@index([partyId])
 }
 
 model ClientLERecord {

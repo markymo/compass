@@ -13,7 +13,7 @@ async function main() {
             isDeleted: true,
             status: true,
             org: { select: { name: true } },
-            clientLE: { select: { name: true, clientOrgId: true } }
+            clientLE: { select: { name: true } }
         }
     })
 

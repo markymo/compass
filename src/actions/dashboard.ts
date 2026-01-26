@@ -24,7 +24,10 @@ export async function getUserContexts(): Promise<DashboardContexts> {
             organization: true,
             clientLE: {
                 include: {
-                    clientOrg: true
+                    owners: {
+                        where: { endAt: null }, // Current owners
+                        include: { party: true }
+                    }
                 }
             }
         }
@@ -48,40 +51,67 @@ export async function getUserContexts(): Promise<DashboardContexts> {
             if (org.types.includes("CLIENT")) {
                 clientMap.set(org.id, { id: org.id, name: org.name, role: m.role, source: "DIRECT" });
 
-                // NEW: IF Admin/Member of Client, fetch ALL its active LEs
-                const orgLEs = await prisma.clientLE.findMany({
-                    where: { clientOrgId: org.id, isDeleted: false, status: { not: "ARCHIVED" } },
-                    select: { id: true, name: true, clientOrg: { select: { name: true } } }
-                });
+                // IF Admin of Client, fetch ALL its owned LEs (for management view)
+                // Note: Implicit access to DATA is denied, but visibility for management is allowed.
+                if (m.role === "ADMIN" || m.role === "CLIENT_ADMIN") {
+                    const orgLEs = await prisma.clientLE.findMany({
+                        where: {
+                            owners: { some: { partyId: org.id, endAt: null } },
+                            isDeleted: false,
+                            status: { not: "ARCHIVED" }
+                        },
+                        select: {
+                            id: true,
+                            name: true,
+                            owners: {
+                                where: { endAt: null },
+                                select: { party: { select: { name: true } } }
+                            }
+                        }
+                    });
 
-                orgLEs.forEach(le => {
-                    if (!leMap.has(le.id)) {
-                        leMap.set(le.id, {
-                            id: le.id,
-                            name: le.name,
-                            clientName: le.clientOrg.name,
-                            role: m.role // Inherit Org Role
-                        });
-                    }
-                });
+                    orgLEs.forEach(le => {
+                        const ownerName = le.owners[0]?.party.name || "Unknown Client";
+                        if (!leMap.has(le.id)) {
+                            leMap.set(le.id, {
+                                id: le.id,
+                                name: le.name,
+                                clientName: ownerName,
+                                role: "ADMIN_VISIBILITY" // Special marker? Or just ADMIN?
+                            });
+                        }
+                    });
+                }
 
             } else if (org.types.includes("FI")) {
                 context.financialInstitutions.push({ id: org.id, name: org.name, role: m.role });
             } else if (org.types.includes("LAW_FIRM" as any)) {
                 context.lawFirms.push({ id: org.id, name: org.name, role: m.role });
             } else if (org.types.includes("SYSTEM")) {
-                // System Admin: ALSO fetch all LEs of this 'System' org if it acts as a client
+                // System Admin: Fetch ALL LEs owned by System
                 const orgLEs = await prisma.clientLE.findMany({
-                    where: { clientOrgId: org.id, isDeleted: false, status: { not: "ARCHIVED" } },
-                    select: { id: true, name: true, clientOrg: { select: { name: true } } }
+                    where: {
+                        owners: { some: { partyId: org.id, endAt: null } },
+                        isDeleted: false,
+                        status: { not: "ARCHIVED" }
+                    },
+                    select: {
+                        id: true,
+                        name: true,
+                        owners: {
+                            where: { endAt: null },
+                            select: { party: { select: { name: true } } }
+                        }
+                    }
                 });
 
                 orgLEs.forEach(le => {
+                    const ownerName = le.owners[0]?.party.name || "Unknown System";
                     if (!leMap.has(le.id)) {
                         leMap.set(le.id, {
                             id: le.id,
                             name: le.name,
-                            clientName: le.clientOrg.name,
+                            clientName: ownerName,
                             role: m.role
                         });
                     }
@@ -92,28 +122,30 @@ export async function getUserContexts(): Promise<DashboardContexts> {
         // B. Direct Worksheet (LE) Memberships
         if (m.clientLE) {
             const le = m.clientLE;
+            // Current owner name
+            const ownerName = le.owners[0]?.party.name || "Unknown Client";
 
-            // Upsert (prefer direct role if we want to be specific, or just ensure existence)
-            // If already added by Org logic, this might be redundant, OR we might want to update the role to the specific LE role?
-            // For now, simple existence check to avoid duplicates.
-            if (!leMap.has(le.id)) {
-                leMap.set(le.id, {
-                    id: le.id,
-                    name: le.name,
-                    clientName: le.clientOrg.name,
-                    role: m.role
-                });
-            }
+            // Upsert (prefer direct role)
+            // Existing logic maps ID to role.
+            leMap.set(le.id, {
+                id: le.id,
+                name: le.name,
+                clientName: ownerName,
+                role: m.role
+            });
 
             // Implied Client Access (Derived)
-            if (!clientMap.has(le.clientOrgId)) {
-                clientMap.set(le.clientOrgId, {
-                    id: le.clientOrg.id,
-                    name: le.clientOrg.name,
-                    role: "DERIVED", // Not a direct member
-                    source: "DERIVED"
-                });
-            }
+            // Add all current owners to the client list as DERIVED
+            le.owners.forEach(owner => {
+                if (!clientMap.has(owner.partyId)) {
+                    clientMap.set(owner.partyId, {
+                        id: owner.party.id,
+                        name: owner.party.name,
+                        role: "DERIVED",
+                        source: "DERIVED"
+                    });
+                }
+            });
         }
     }
 

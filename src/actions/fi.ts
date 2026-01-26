@@ -240,7 +240,7 @@ export async function getFIDashboardStats(fiOrgId?: string) {
 export type ApplicationEngagement = Prisma.FIEngagementGetPayload<{
     include: {
         clientLE: {
-            include: { clientOrg: true }
+            include: { owners: { include: { party: true } } }
         },
         org: true,
         // We override questionnaires in the return, so we don't include it here to avoid conflict in partials?
@@ -287,7 +287,7 @@ export async function getFIEngagements(fiOrgId?: string): Promise<ApplicationEng
         },
         include: {
             clientLE: {
-                include: { clientOrg: true }
+                include: { owners: { where: { endAt: null }, include: { party: true } } }
             },
             org: true,
             questionnaireInstances: { // Fetch Instances instead of Templates
@@ -417,7 +417,7 @@ export async function getFIEngagementById(id: string): Promise<ApplicationEngage
         where: whereClause,
         include: {
             clientLE: {
-                include: { clientOrg: true }
+                include: { owners: { where: { endAt: null }, include: { party: true } } }
             },
             org: true,
             questionnaireInstances: {
