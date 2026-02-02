@@ -14,10 +14,9 @@ async function ensureAdmin() {
 export async function searchClients(query: string) {
     await ensureAdmin();
 
-    // Find organizations of type CLIENT matching query
+    // Find organizations matching query (CLIENT or FI)
     const clients = await prisma.organization.findMany({
         where: {
-            types: { has: "CLIENT" },
             name: { contains: query, mode: "insensitive" }
         },
         take: 10,
@@ -27,7 +26,8 @@ export async function searchClients(query: string) {
     return clients.map(c => ({
         id: c.id,
         name: c.name,
-        logoUrl: c.logoUrl
+        logoUrl: c.logoUrl,
+        type: c.types.length > 0 ? c.types[0] : "CLIENT"
     }));
 }
 
@@ -324,7 +324,7 @@ export async function getUserPermissionsProfile(targetUserId: string) {
                 id: om.organization.id,
                 name: om.organization.name,
                 logoUrl: om.organization.logoUrl,
-                type: om.organization.types[0]
+                type: om.organization.types.length > 0 ? om.organization.types[0] : "CLIENT"
             },
             role: om.role,
             les

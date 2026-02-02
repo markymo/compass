@@ -137,8 +137,11 @@ export function UserPermissionEditor({ profile, userId }: UserPermissionEditorPr
                                                                 setOrgSearchOpen(false);
                                                             }}
                                                         >
-                                                            <Building2 className="mr-2 h-4 w-4 opacity-70" />
-                                                            {org.name}
+                                                            <div className="flex items-center gap-2">
+                                                                <Building2 className="mr-2 h-4 w-4 opacity-70" />
+                                                                <span>{org.name}</span>
+                                                                <Badge variant="outline" className="ml-2 text-[10px] h-5">{org.type}</Badge>
+                                                            </div>
                                                         </CommandItem>
                                                     ))}
                                                 </CommandGroup>
@@ -204,19 +207,28 @@ function OrganizationCard({ membership, onUpdateClientRole, onUpdateLERole, load
                 <CardHeader className="py-4">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4">
-                            <CollapsibleTrigger asChild>
-                                <Button variant="ghost" size="sm" className="p-0 h-auto hover:bg-transparent">
+                            <CollapsibleTrigger asChild disabled={org.type !== "CLIENT"}>
+                                <Button variant="ghost" size="sm" className={`p-0 h-auto hover:bg-transparent ${org.type !== "CLIENT" ? "opacity-0 cursor-default" : ""}`}>
                                     {isOpen ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
                                 </Button>
                             </CollapsibleTrigger>
                             <div className="flex items-center gap-3">
                                 <div className="p-2 bg-slate-100 rounded-lg">
-                                    <Building2 className="h-5 w-5 text-slate-600" />
+                                    {org.type === "FI" ? (
+                                        <Building2 className="h-5 w-5 text-indigo-600" />
+                                    ) : (
+                                        <Building2 className="h-5 w-5 text-slate-600" />
+                                    )}
                                 </div>
                                 <div>
-                                    <CardTitle className="text-base">{org.name}</CardTitle>
+                                    <div className="flex items-center gap-2">
+                                        <CardTitle className="text-base">{org.name}</CardTitle>
+                                        <Badge variant="secondary" className="text-[10px] h-5">{org.type}</Badge>
+                                    </div>
                                     <CardDescription>
-                                        {membership.les.length} Workspaces Available
+                                        {org.type === "CLIENT"
+                                            ? `${membership.les.length} Workspaces Available`
+                                            : "Supplier Organization (No Workspaces)"}
                                     </CardDescription>
                                 </div>
                             </div>

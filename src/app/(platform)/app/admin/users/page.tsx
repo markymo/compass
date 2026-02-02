@@ -44,7 +44,7 @@ export default function UserAdminPage() {
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
-                <h1 className="text-3xl font-bold tracking-tight">User Management</h1>
+                <h1 className="text-3xl font-bold tracking-tight">System Administrator User Management</h1>
             </div>
 
             <Card>

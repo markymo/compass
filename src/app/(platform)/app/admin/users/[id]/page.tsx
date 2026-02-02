@@ -31,6 +31,8 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
                 </Button>
             </div>
 
+            <h1 className="text-3xl font-bold tracking-tight mb-8">User Access Management</h1>
+
             <UserPermissionEditor profile={profile} userId={id} />
         </div>
     );
