@@ -108,3 +108,55 @@ export async function fetchGLEIFData(lei: string): Promise<GLEIFFetchResult> {
         return { success: false, error: "Failed to connect to GLEIF API." };
     }
 }
+
+export interface GLEIFSearchResult {
+    id: string;
+    name: string;
+    jurisdiction: string;
+    status: string;
+}
+
+/**
+ * Searches GLEIF By Name
+ * URL: https://api.gleif.org/api/v1/lei-records?filter[entity.legalName]=...
+ */
+export async function searchGLEIFByName(name: string): Promise<{ success: boolean; results?: GLEIFSearchResult[]; error?: string }> {
+    const cleanName = name.trim();
+    if (cleanName.length < 3) return { success: false, error: "Please enter at least 3 characters." };
+
+    try {
+        // 'contains' often works better than exact match for names
+        // But the standard filter[entity.legalName] is usually a contains search in GLEIF v1?
+        // Let's stick to the standard filter.
+        const encodedName = encodeURIComponent(cleanName);
+        const url = `https://api.gleif.org/api/v1/lei-records?filter[entity.legalName]=${encodedName}&page[size]=10&page[number]=1`;
+
+        const response = await fetch(url, {
+            headers: { 'Accept': 'application/vnd.api+json' },
+            next: { revalidate: 300 } // Cache searches for 5 mins
+        });
+
+        if (!response.ok) {
+            return { success: false, error: `GLEIF Search Error: ${response.statusText}` };
+        }
+
+        const json: GLEIFData = await response.json();
+
+        if (!json.data || json.data.length === 0) {
+            return { success: true, results: [] };
+        }
+
+        const results: GLEIFSearchResult[] = json.data.map(record => ({
+            id: record.attributes.lei, // or record.id
+            name: record.attributes.entity.legalName.name,
+            jurisdiction: record.attributes.entity.jurisdiction,
+            status: record.attributes.registration.status
+        }));
+
+        return { success: true, results };
+
+    } catch (error) {
+        console.error("GLEIF Search Error:", error);
+        return { success: false, error: "Connection failed" };
+    }
+}
