@@ -1,9 +1,11 @@
 import { getClientLEData, getDashboardMetrics } from "@/actions/client";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ChevronRight, LayoutDashboard, Library, Database, Table as TableIcon, RefreshCcw, Check, Building2, ArrowUpRight, Home, Briefcase } from "lucide-react";
+import { ChevronRight, LayoutDashboard, Library, Database, Table as TableIcon, RefreshCcw, Check, Building2, ArrowUpRight, Home, Briefcase, Globe } from "lucide-react";
 import { GuideHeader } from "@/components/layout/GuideHeader";
 import { EditableDescription } from "@/components/client/editable-description";
+import { EditableLEI } from "@/components/client/editable-lei";
+import { GleifTab } from "@/components/client/gleif-tab";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -48,30 +50,33 @@ export default async function LEDashboardPage({ params }: { params: Promise<{ id
 
                     <div className="max-w-3xl">
                         <EditableDescription leId={le.id} initialValue={(le as any).description} />
+                        <div className="mt-4">
+                            <EditableLEI
+                                leId={le.id}
+                                initialLei={(le as any).lei}
+                                initialFetchedAt={(le as any).gleifFetchedAt}
+                            />
+                        </div>
                     </div>
                 </div>
                 {/* Main Content Tabs */}
                 <Tabs defaultValue="overview" className="space-y-0">
-                    <TabsList className="bg-transparent p-0 flex justify-start h-auto gap-0.5 border-b-0 space-x-1">
-                        <TabsTrigger
-                            value="overview"
-                            className="relative gap-2 px-6 py-3 rounded-t-xl border border-b-0 border-slate-200 bg-slate-50 text-slate-500 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:border-slate-200 data-[state=active]:border-b-white data-[state=active]:-mb-[1px] data-[state=active]:z-10 transition-all shadow-none"
-                        >
-                            <LayoutDashboard className="h-4 w-4" />
+                    <TabsList className="w-full justify-start border-b border-slate-200 bg-white/50 backdrop-blur-xl rounded-t-xl rounded-b-none h-auto p-0 z-10 sticky top-[73px]">
+                        <TabsTrigger value="overview" className="px-6 py-4 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 data-[state=active]:shadow-none bg-transparent">
                             Overview
                         </TabsTrigger>
-
-                        <TabsTrigger
-                            value="standing-data"
-                            className="relative gap-2 px-6 py-3 rounded-t-xl border border-b-0 border-slate-200 bg-slate-50 text-slate-500 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:border-slate-200 data-[state=active]:border-b-white data-[state=active]:-mb-[1px] data-[state=active]:z-10 transition-all shadow-none"
-                        >
+                        <TabsTrigger value="gleif" className="px-6 py-4 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 data-[state=active]:shadow-none bg-transparent flex items-center gap-2">
+                            <Globe className="h-4 w-4" />
+                            GLEIF
+                        </TabsTrigger>
+                        <TabsTrigger value="standing-data" className="px-6 py-4 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 data-[state=active]:shadow-none bg-transparent flex items-center gap-2">
                             <Database className="h-4 w-4" />
                             Knowledge Base
                         </TabsTrigger>
 
                         <TabsTrigger
                             value="documents"
-                            className="relative gap-2 px-6 py-3 rounded-t-xl border border-b-0 border-slate-200 bg-slate-50 text-slate-500 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:border-slate-200 data-[state=active]:border-b-white data-[state=active]:-mb-[1px] data-[state=active]:z-10 transition-all shadow-none"
+                            className="px-6 py-4 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 data-[state=active]:shadow-none bg-transparent flex items-center gap-2"
                         >
                             <Library className="h-4 w-4" />
                             Digital Vault
@@ -79,7 +84,7 @@ export default async function LEDashboardPage({ params }: { params: Promise<{ id
 
                         <TabsTrigger
                             value="engagements"
-                            className="relative gap-2 px-6 py-3 rounded-t-xl border border-b-0 border-slate-200 bg-slate-50 text-slate-500 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:border-slate-200 data-[state=active]:border-b-white data-[state=active]:-mb-[1px] data-[state=active]:z-10 transition-all shadow-none"
+                            className="px-6 py-4 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 data-[state=active]:shadow-none bg-transparent flex items-center gap-2"
                         >
                             <Building2 className="h-4 w-4" />
                             Engagements
@@ -87,7 +92,8 @@ export default async function LEDashboardPage({ params }: { params: Promise<{ id
                     </TabsList>
 
                     <div className="bg-white border border-slate-200 rounded-b-xl rounded-tr-xl p-8 relative min-h-[600px]">
-                        <TabsContent value="overview" className="mt-0">
+                        <TabsContent value="overview" className="m-0 bg-transparent">
+                            {/* Overview Content */}
                             {metrics ? (
                                 <MissionControl metrics={metrics} leId={le.id} engagements={(le as any).fiEngagements || []} />
                             ) : (
@@ -97,7 +103,14 @@ export default async function LEDashboardPage({ params }: { params: Promise<{ id
                             )}
                         </TabsContent>
 
-                        <TabsContent value="standing-data" className="mt-0">
+                        <TabsContent value="gleif" className="m-0 bg-transparent py-6">
+                            <GleifTab
+                                data={(le as any).gleifData}
+                                fetchedAt={(le as any).gleifFetchedAt}
+                            />
+                        </TabsContent>
+
+                        <TabsContent value="standing-data" className="m-0 bg-transparent">
                             <div className="bg-white rounded-b-xl rounded-tr-xl min-h-[600px] p-8">
                                 <StandingDataWorkbench leId={id} />
                             </div>

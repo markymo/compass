@@ -264,7 +264,7 @@ export async function getClientLEs(explicitOrgId?: string) {
 }
 
 // 2. Create a new LE
-export async function createClientLE(data: { name: string; jurisdiction: string; explicitOrgId?: string }) {
+export async function createClientLE(data: { name: string; jurisdiction: string; explicitOrgId?: string; lei?: string; gleifData?: any }) {
     const { userId, sessionClaims } = await auth();
     if (!userId) return { success: false, error: "Unauthorized" };
 
@@ -326,6 +326,10 @@ export async function createClientLE(data: { name: string; jurisdiction: string;
         data: {
             name: data.name,
             jurisdiction: data.jurisdiction,
+            // @ts-ignore - Prisma client types may be stale in IDE
+            lei: data.lei,
+            gleifData: data.gleifData,
+            gleifFetchedAt: data.gleifData ? new Date() : null,
             status: "ACTIVE",
             owners: {
                 create: {
@@ -350,6 +354,7 @@ export async function getClientLEData(leId: string) {
     try {
         await ensureAuthorization(Action.LE_VIEW_DATA, { clientLEId: leId });
     } catch (e) {
+        console.error(`[getClientLEData] Auth Failed for ${leId}:`, e);
         return null; // Return null if unauthorized for read
     }
 
@@ -376,13 +381,14 @@ export async function getClientLEData(leId: string) {
         }
     });
 
-    if (le) {
-        le.fiEngagements.forEach(eng => {
-            console.log(`[getClientLEData] Engagement ${eng.org.name} has ${eng.questionnaires.length} ACTIVE questionnaires`);
-        });
+    if (!le) {
+        console.error(`[getClientLEData] LE not found in DB: ${leId}`);
+        return null;
     }
 
-    if (!le) return null;
+    le.fiEngagements.forEach(eng => {
+        console.log(`[getClientLEData] Engagement ${eng.org.name} has ${eng.questionnaires.length} ACTIVE questionnaires`);
+    });
 
     // 2. Get the Active Master Schema
     const activeSchema = await prisma.masterSchema.findFirst({
@@ -390,10 +396,6 @@ export async function getClientLEData(leId: string) {
     });
 
     // 3. Get existing Answers (Records)
-    // We want the LATEST record for this schema? Or just the latest answer wrapper?
-    // The ERD says: ClientLERecord belongs to (ClientLE, MasterSchema).
-    // Implementation: We find the record for this LE and this Schema.
-
     let record = null;
     if (activeSchema) {
         record = await prisma.clientLERecord.findFirst({
@@ -403,8 +405,6 @@ export async function getClientLEData(leId: string) {
             }
         });
 
-        // Fallback: If no record for THIS version, find the most recent one for ANY version
-        // This implements "Input Once": Answers carry forward to new schema versions automatically.
         if (!record) {
             record = await prisma.clientLERecord.findFirst({
                 where: { clientLEId: leId },
@@ -466,7 +466,7 @@ export async function saveClientLEData(leId: string, schemaId: string, answers: 
 }
 
 // 5. Update LE Basic Info (e.g. Description)
-export async function updateClientLE(leId: string, data: { description: string }) {
+export async function updateClientLE(leId: string, data: { description?: string, lei?: string, gleifData?: any }) {
     try {
         await ensureAuthorization(Action.LE_UPDATE, { clientLEId: leId });
     } catch (e) {
@@ -478,7 +478,12 @@ export async function updateClientLE(leId: string, data: { description: string }
         const updated = await prisma.clientLE.update({
             where: { id: leId },
             data: {
-                description: data.description
+                description: data.description,
+                ...(data.lei !== undefined && { lei: data.lei }),
+                ...(data.gleifData !== undefined && {
+                    gleifData: data.gleifData,
+                    gleifFetchedAt: new Date()
+                })
             }
         });
         console.log(`[updateClientLE] Update successful:`, JSON.stringify(updated, null, 2));

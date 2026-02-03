@@ -115,6 +115,11 @@ model ClientLE {
   standingDataSections StandingDataSection[]
   documents     Document[]
   
+  // LEI & GLEIF Integration
+  lei           String?            @unique
+  gleifData     Json?              // Raw/Canonical response from GLEIF
+  gleifFetchedAt DateTime?
+  
   // Workspace Memberships (Direct Access)
   memberships   Membership[]
 

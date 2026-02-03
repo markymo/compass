@@ -109,13 +109,14 @@ export async function can(
         if (leRole && checkPermission(leRole, action)) return true;
     }
 
-    // 3. Check Ownership-Based Inheritance (Provisioning Only)
-    // Only verify ownership if the action is Administrative
-    const isProvisioningAction = [
-        Action.LE_CREATE, Action.LE_UPDATE, Action.LE_ARCHIVE, Action.LE_MANAGE_USERS
+    // 3. Check Ownership-Based Inheritance (Provisioning & Data Access for Admins)
+    // Only verify ownership if the action is Administrative or Data Access
+    const isInheritableAction = [
+        Action.LE_CREATE, Action.LE_UPDATE, Action.LE_ARCHIVE, Action.LE_MANAGE_USERS,
+        Action.LE_VIEW_DATA, Action.LE_EDIT_DATA
     ].includes(action);
 
-    if (context.clientLEId && isProvisioningAction) {
+    if (context.clientLEId && isInheritableAction) {
         // Is user a Client Party Admin?
         const partyIdsKeyed = getPartyAdminIds(user);
 
@@ -133,7 +134,9 @@ export async function can(
     }
 
     // 4. Check Party Context (for Creation/Provisioning under a specific Org)
-    if (context.partyId && isProvisioningAction) {
+    const isPartyProvisioning = [Action.LE_CREATE, Action.LE_UPDATE].includes(action);
+
+    if (context.partyId && isPartyProvisioning) {
         const partyIds = getPartyAdminIds(user);
         if (partyIds.includes(context.partyId)) return true;
     }
