@@ -65,9 +65,13 @@ export function AddQuestionnaireDialog({ open, onOpenChange, onAdd, engagementId
         const formData = new FormData();
         formData.append("file", selectedFile);
         formData.append("name", selectedFile.name.replace(/\.[^/.]+$/, "")); // Default name to filename
+        if (engagementId) {
+            formData.append("fiEngagementId", engagementId);
+        }
 
         // 1. Create Record (Fast)
-        const res = await createQuestionnaire(engagementId, formData);
+        // Pass null as identifier so it infers from engagementId in formData
+        const res = await createQuestionnaire(null, formData);
 
         if (res.success && res.data) {
             const qId = res.data.id;
@@ -82,6 +86,8 @@ export function AddQuestionnaireDialog({ open, onOpenChange, onAdd, engagementId
                 const extRes = await startBackgroundExtraction(qId);
                 if (extRes.success) {
                     toast.success("Digitization complete!");
+                } else if (extRes.error === "SCANNED_PDF_DETECTED") {
+                    toast.error("Scanned PDF detected. Please upload a digital PDF (text-selectable) or Word document.");
                 } else {
                     toast.error("Digitization failed. Please try manual entry.");
                 }

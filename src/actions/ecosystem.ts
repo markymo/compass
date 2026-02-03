@@ -149,7 +149,7 @@ export async function engageSupplier(data: { clientLEId: string, supplierId: str
             data: {
                 clientLEId,
                 fiOrgId: supplierId,
-                status: "PENDING"
+                status: "INVITED"
             }
         });
 

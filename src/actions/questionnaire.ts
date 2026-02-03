@@ -107,7 +107,10 @@ export async function createQuestionnaire(identifier: string | null | undefined,
 
         revalidatePath(`/app/admin/organizations/${targetOrgId}`);
         revalidatePath(`/app/fi/questionnaires`); // Refresh FI view
-        if (engagementId) revalidatePath(`/app/fi/engagements/${engagementId}`);
+        if (engagementId) {
+            revalidatePath(`/app/fi/engagements/${engagementId}`);
+            revalidatePath(`/app/le`); // Revalidate Client views
+        }
 
         return { success: true, data: questionnaire };
     } catch (error) {

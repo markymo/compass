@@ -44,12 +44,12 @@ export function EngagementManager({ leId, initialEngagements }: EngagementManage
         const tempId = `temp-${Date.now()}`;
         const newEng = {
             id: tempId,
-            status: "PENDING",
+            status: "INVITED", // New status
             org: { name: fiName },
             questionnaires: []
         };
 
-        const previousEngagements = [...engagements];
+        const previousEngagements = [...engagements as any[]];
         setEngagements([newEng, ...engagements]);
         setIsAdding(false);
 
@@ -92,11 +92,11 @@ export function EngagementManager({ leId, initialEngagements }: EngagementManage
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h2 className="text-xl font-semibold text-slate-900">Banking Relationships</h2>
-                    <p className="text-sm text-slate-500">Manage your connections with financial institutions.</p>
+                    <h2 className="text-xl font-semibold text-slate-900">Supplier Relationships</h2>
+                    <p className="text-sm text-slate-500">Manage your connections with connected supply chain partners.</p>
                 </div>
                 {!isAdding && (
-                    <Button onClick={() => setIsAdding(true)} variant="outline" size="icon" title="Add Financial Institution">
+                    <Button onClick={() => setIsAdding(true)} variant="outline" size="icon" title="Add Supplier">
                         <Plus className="h-4 w-4" />
                     </Button>
                 )}
@@ -180,12 +180,16 @@ export function EngagementManager({ leId, initialEngagements }: EngagementManage
                                         {typeof eng.org === 'string' ? eng.org : eng.org?.name}
                                     </h3>
                                     <div className="flex items-center gap-2 mt-0.5">
+                                        {/* Status Badge */}
                                         <Badge variant="outline" className={cn(
-                                            "text-[10px] uppercase",
-                                            eng.status === 'PENDING' ? "bg-amber-50 text-amber-700 border-amber-200" : ""
+                                            "text-[10px] uppercase font-bold",
+                                            eng.status === 'INVITED' ? "bg-blue-50 text-blue-700 border-blue-200" :
+                                                eng.status === 'CONNECTED' ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
+                                                    "text-slate-500"
                                         )}>
                                             {eng.status}
                                         </Badge>
+
                                         <span className="text-slate-400 text-xs">•</span>
                                         <span className="text-xs text-slate-500">{eng.questionnaires?.length || 0} Questionnaires</span>
                                     </div>
@@ -233,7 +237,7 @@ export function EngagementManager({ leId, initialEngagements }: EngagementManage
                                             onClick={() => handleDelete({ id: eng.id, name: typeof eng.org === 'string' ? eng.org : eng.org?.name })}
                                         >
                                             <Trash2 className="mr-2 h-4 w-4" />
-                                            Delete Engagement
+                                            Delete Relationship
                                         </DropdownMenuItem>
                                     </DropdownMenuContent>
                                 </DropdownMenu>
@@ -244,7 +248,7 @@ export function EngagementManager({ leId, initialEngagements }: EngagementManage
 
                 {engagements.length === 0 && !isAdding && (
                     <div className="text-center py-20 bg-slate-50 rounded-xl border-2 border-dashed">
-                        <p className="text-slate-500">No active engagements found.</p>
+                        <p className="text-slate-500">No active relationships found.</p>
                         <Button variant="link" onClick={() => setIsAdding(true)} className="mt-2">
                             Add your first partner
                         </Button>

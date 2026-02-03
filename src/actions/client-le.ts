@@ -1,6 +1,7 @@
 "use server";
 
 import prisma from "@/lib/prisma";
+import { EngagementStatus } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { ExtractedItem } from "./ai-mapper"; // Importing type
 import { MasterSchemaDefinition } from "@/types/schema";
@@ -285,8 +286,9 @@ export async function getEngagementDetails(engagementId: string) {
             where: { id: engagementId },
             include: {
                 org: true, // The FI Organization
+                // Fetch both Templates (if any) AND Instances
                 questionnaires: {
-                    where: { isDeleted: false }, // Filter out deleted questionnaires
+                    where: { isDeleted: false },
                     select: {
                         id: true,
                         name: true,
@@ -294,8 +296,19 @@ export async function getEngagementDetails(engagementId: string) {
                         mappings: true,
                         createdAt: true,
                         updatedAt: true
-                        // Excluded: fileContent, extractedContent, rawText
                     }
+                },
+                questionnaireInstances: {
+                    where: { isDeleted: false },
+                    select: {
+                        id: true,
+                        name: true,
+                        status: true,
+                        mappings: true,
+                        createdAt: true,
+                        updatedAt: true
+                    },
+                    orderBy: { createdAt: 'desc' }
                 },
                 sharedDocuments: {
                     where: { isDeleted: false },
@@ -309,10 +322,18 @@ export async function getEngagementDetails(engagementId: string) {
             return { success: false, error: "Engagement not found" };
         }
 
+        // Combine both for the UI, or prioritize Instances
+        // For Client View, we mostly care about Instances (what we are working on)
+        // effectively 'questionnaires' in the UI maps to 'questionnaireInstances'
+        const combinedQuestionnaires = [
+            ...engagement.questionnaireInstances,
+            ...engagement.questionnaires
+        ];
+
         return {
             success: true,
             engagement,
-            questionnaires: engagement.questionnaires
+            questionnaires: combinedQuestionnaires
         };
     } catch (error) {
         console.error("Error fetching engagement details:", error);
@@ -351,7 +372,14 @@ export async function createFIEngagement(clientLEId: string, fiName: string) {
             data: {
                 clientLEId: clientLEId,
                 fiOrgId: fiOrg.id,
-                status: "PENDING",
+                status: EngagementStatus.INVITED,
+                activities: {
+                    create: {
+                        userId: userId,
+                        type: "INVITE_SENT",
+                        details: { fiName }
+                    }
+                }
             }
         });
 

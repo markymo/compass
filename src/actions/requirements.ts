@@ -62,7 +62,7 @@ export async function addRequirement(clientLEId: string, fiOrgId: string, questi
                 data: {
                     fiOrgId,
                     clientLEId,
-                    status: "PENDING"
+                    status: "INVITED"
                 }
             });
         }

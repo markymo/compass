@@ -551,12 +551,15 @@ export async function getDashboardMetrics(leId: string) {
             if (q.questions && q.questions.length > 0) {
                 for (const task of q.questions) {
                     totalQuestions++;
-                    if (task.status === "DONE") {
+                    const s = task.status;
+
+                    if (s === "SUPPLIER_SIGNED_OFF") {
                         answeredQuestions++;
                         cpStatus.done++;
-                    } else if (task.status === "SHARED") {
+                    } else if (s === "SHARED" || s === "SUPPLIER_REVIEW" || s === "CLIENT_SIGNED_OFF") {
+                        // Waiting on Supplier or in shared state
                         cpStatus.shared++;
-                    } else if (task.status === "INTERNAL_REVIEW" || task.status === "QUERY") {
+                    } else if (s === "INTERNAL_REVIEW" || s === "QUERY") {
                         cpStatus.internalReview++;
                     } else {
                         // DRAFT or others

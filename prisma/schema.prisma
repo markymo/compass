@@ -24,6 +24,8 @@ model User {
   assignedTodos AdminTodo[] @relation("AssignedTodos")
   createdTodos  AdminTodo[] @relation("CreatedTodos")
   adminComments AdminTodoComment[]
+  
+  engagementActivities EngagementActivity[]
 }
 
 model Organization {
@@ -170,6 +172,19 @@ model FIEngagement {
 
   @@unique([fiOrgId, clientLEId])
   sharedDocuments Document[] @relation("SharedDocuments") // Access Granted
+  activities      EngagementActivity[]
+}
+
+model EngagementActivity {
+  id             String       @id @default(uuid())
+  fiEngagementId String
+  userId         String
+  type           String       // INVITE_SENT, CONNECTED, SNAPSHOT_CHANGE
+  details        Json?
+  createdAt      DateTime     @default(now())
+
+  engagement     FIEngagement @relation(fields: [fiEngagementId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id])
 }
 
 model Document {
@@ -282,8 +297,10 @@ enum QuestionStatus {
   DRAFT
   INTERNAL_REVIEW
   SHARED
+  SUPPLIER_REVIEW
   QUERY
-  DONE
+  CLIENT_SIGNED_OFF
+  SUPPLIER_SIGNED_OFF // Final
 }
 
 model QuestionnaireVersion {
@@ -310,11 +327,9 @@ enum RecordStatus {
 }
 
 enum EngagementStatus {
-  PREPARATION // Client preparing data privately
-  PENDING
-  REVIEWING
-  QUERIES_OPEN
-  SIGNED_OFF
+  PREPARATION
+  INVITED
+  CONNECTED
   ARCHIVED
 }
 

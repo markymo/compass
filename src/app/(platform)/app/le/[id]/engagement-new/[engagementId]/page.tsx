@@ -45,7 +45,7 @@ export default async function EngagementPage({ params, searchParams }: PageProps
                     </BreadcrumbItem>
                     <BreadcrumbSeparator />
                     <BreadcrumbItem>
-                        <BreadcrumbPage>Engagement: {fiName}</BreadcrumbPage>
+                        <BreadcrumbPage>Supplier Relationship: {fiName}</BreadcrumbPage>
                     </BreadcrumbItem>
                 </BreadcrumbList>
             </Breadcrumb>

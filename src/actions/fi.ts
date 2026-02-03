@@ -471,7 +471,7 @@ export async function assignQuestionnaireToEngagement(engagementId: string, temp
             data: {
                 fiOrgId: engagement.fiOrgId,
                 name: template.name, // Can append (Copy) if desired, but ideally kept same name for UI
-                status: "PENDING",
+                status: "SHARED",
                 fileName: template.fileName,
                 fileType: template.fileType,
                 fileContent: template.fileContent,

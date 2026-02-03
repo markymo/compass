@@ -87,7 +87,7 @@ export default async function LEDashboardPage({ params }: { params: Promise<{ id
                             className="px-6 py-4 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 data-[state=active]:shadow-none bg-transparent flex items-center gap-2"
                         >
                             <Building2 className="h-4 w-4" />
-                            Engagements
+                            Supplier Relationships
                         </TabsTrigger>
                     </TabsList>
 

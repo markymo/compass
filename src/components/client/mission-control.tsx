@@ -33,18 +33,17 @@ export function MissionControl({ metrics, leId, engagements }: MissionControlPro
 
     // Pipeline Stages Logic
     const pipelineStages = [
-        { id: "PREPARATION", label: "Preparation", icon: Database },
-        { id: "PENDING", label: "Under Review", icon: Clock },
-        { id: "QUERIES_OPEN", label: "Queries Open", icon: AlertCircle },
-        { id: "SIGNED_OFF", label: "Signed Off", icon: CheckCircle2 },
+        { id: "INVITED", label: "Invited", icon: Clock },
+        { id: "CONNECTED", label: "Connected", icon: CheckCircle2 },
+        // Future: Add "VERIFIED" etc if we implement computed status here
     ];
 
     const getStageForStatus = (status: string) => {
-        if (status === "PREPARATION") return "PREPARATION";
-        if (["PENDING", "REVIEWING"].includes(status)) return "PENDING";
-        if (status === "QUERIES_OPEN") return "QUERIES_OPEN";
-        if (status === "SIGNED_OFF") return "SIGNED_OFF";
-        return "PREPARATION";
+        if (status === "PREPARATION") return "INVITED"; // Map preparation to bucket 1 or hide it
+        if (["INVITED"].includes(status)) return "INVITED";
+        if (status === "CONNECTED") return "CONNECTED";
+        if (status === "ARCHIVED") return "ARCHIVED";
+        return "INVITED";
     };
 
     return (
@@ -152,7 +151,7 @@ export function MissionControl({ metrics, leId, engagements }: MissionControlPro
                     {/* Secondary Stats */}
                     <div className="grid grid-cols-2 gap-4">
                         <Card className="border-slate-200 shadow-sm flex flex-col p-4">
-                            <div className="text-sm font-medium text-slate-500 mb-2">Engagements</div>
+                            <div className="text-sm font-medium text-slate-500 mb-2">Relationships</div>
                             <div className="space-y-1">
                                 {engagements && engagements.length > 0 ? (
                                     engagements.map((eng) => (
@@ -171,7 +170,7 @@ export function MissionControl({ metrics, leId, engagements }: MissionControlPro
                                         </Link>
                                     ))
                                 ) : (
-                                    <div className="text-xs text-slate-400 italic py-2">No active engagements</div>
+                                    <div className="text-xs text-slate-400 italic py-2">No active relationships</div>
                                 )}
                             </div>
                         </Card>
@@ -191,7 +190,7 @@ export function MissionControl({ metrics, leId, engagements }: MissionControlPro
                 <CardHeader className="bg-slate-50/50 border-b pb-4">
                     <CardTitle className="text-base font-semibold flex items-center gap-2">
                         <LayoutDashboard className="h-4 w-4 text-slate-500" />
-                        Banking Relationship Pipeline
+                        Supplier Relationship Pipeline
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="p-8">

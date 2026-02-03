@@ -176,9 +176,9 @@ export async function extractQuestionnaireItems(input: { content: string | strin
                 items: z.array(z.object({
                     type: z.string().describe("The structural type: QUESTION, SECTION, INSTRUCTION, or NOTE"),
                     originalText: z.string().describe("The exact text content"),
-                    neutralText: z.string().optional().describe("Neutralized question text (optional)"),
-                    masterKey: z.string().optional().describe("Matching master schema key (optional)"),
-                    category: z.string().optional().describe("The standard category for this question (Recommended)"),
+                    neutralText: z.string().nullable().optional().describe("Neutralized question text (optional)"),
+                    masterKey: z.string().nullable().optional().describe("Matching master schema key (optional)"),
+                    category: z.string().nullable().optional().describe("The standard category for this question (Recommended)"),
                     confidence: z.number().optional().describe("Confidence score 0-1")
                 }))
             }),

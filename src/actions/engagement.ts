@@ -40,7 +40,7 @@ export async function createEngagement(fiOrgId: string, clientLEId: string) {
             data: {
                 fiOrgId,
                 clientLEId,
-                status: "PENDING"
+                status: "INVITED"
             }
         });
         return { success: true, data: engagement };
