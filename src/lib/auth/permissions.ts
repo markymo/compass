@@ -3,21 +3,15 @@ import { PrismaClient } from "@prisma/client";
 
 // Define Roles
 export enum Role {
+    // Unified Roles (DB String Values)
+    ADMIN = "ADMIN",
+    MEMBER = "MEMBER",
+    EDITOR = "EDITOR",
+    VIEWER = "VIEWER",
+    CONTRIBUTOR = "CONTRIBUTOR",
+
     // System
     SYSTEM_ADMIN = "SYSTEM_ADMIN",
-
-    // Party Scope
-    CLIENT_ADMIN = "CLIENT_ADMIN",
-    SUPPLIER_ADMIN = "SUPPLIER_ADMIN",
-    MEMBER = "MEMBER",
-
-    // LE Scope
-    LE_ADMIN = "ADMIN", // Reusing existing string values from DB if possible, or mapping
-    LE_CONTRIBUTOR = "CONTRIBUTOR",
-
-    // Engagement Scope
-    ENGAGEMENT_ADMIN = "ENGAGEMENT_ADMIN",
-    ENGAGEMENT_USER = "ENGAGEMENT_USER"
 }
 
 // Define Permissions
@@ -36,29 +30,47 @@ export enum Action {
     // Engagement
     ENG_CREATE = "eng:create",
     ENG_VIEW = "eng:view",
+    ENG_UPDATE = "eng:update",
+    ENG_DELETE = "eng:delete",
 }
 
 // Role -> Permissions Mapping
 const ROLE_PERMISSIONS: Record<string, string[]> = {
     [Role.SYSTEM_ADMIN]: ["*"], // God mode
 
-    // Client Party Admin (Provisioning Only)
-    [Role.CLIENT_ADMIN]: [
-        Action.LE_CREATE,
-        Action.LE_UPDATE,
-        Action.LE_ARCHIVE,
-        Action.LE_MANAGE_USERS
-        // NO LE_VIEW_DATA by default!
-    ],
-
-    // Client LE Roles
-    [Role.LE_ADMIN]: [
+    // Standard Roles
+    [Role.ADMIN]: [
         Action.LE_VIEW_DATA,
         Action.LE_EDIT_DATA,
         Action.LE_SIGNOFF,
-        Action.LE_MANAGE_USERS
+        Action.LE_MANAGE_USERS,
+        Action.LE_CREATE,
+        Action.LE_UPDATE,
+        Action.LE_ARCHIVE,
+        Action.ENG_CREATE,
+        Action.ENG_UPDATE,
+        Action.ENG_DELETE,
+        Action.ENG_VIEW
     ],
-    [Role.LE_CONTRIBUTOR]: [
+    [Role.MEMBER]: [
+        Action.LE_VIEW_DATA,
+        Action.LE_EDIT_DATA,
+        Action.ENG_CREATE,
+        Action.ENG_UPDATE,
+        Action.ENG_VIEW
+    ],
+    [Role.EDITOR]: [
+        Action.LE_VIEW_DATA,
+        Action.LE_EDIT_DATA,
+        Action.ENG_CREATE,
+        Action.ENG_UPDATE,
+        Action.ENG_VIEW
+    ],
+    [Role.VIEWER]: [
+        Action.LE_VIEW_DATA,
+        Action.ENG_VIEW
+    ],
+    [Role.CONTRIBUTOR]: [
         Action.LE_VIEW_DATA,
         Action.LE_EDIT_DATA
     ]
@@ -118,6 +130,12 @@ export async function can(
             });
             if (ownership) return true;
         }
+    }
+
+    // 4. Check Party Context (for Creation/Provisioning under a specific Org)
+    if (context.partyId && isProvisioningAction) {
+        const partyIds = getPartyAdminIds(user);
+        if (partyIds.includes(context.partyId)) return true;
     }
 
     return false;

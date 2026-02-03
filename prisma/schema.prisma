@@ -11,6 +11,7 @@ model User {
   id        String       @id @default(uuid())
   email     String       @unique
   name      String?
+  description String?    @db.Text
   createdAt DateTime     @default(now())
   
   // Replaced orgRoles with polymorphic memberships

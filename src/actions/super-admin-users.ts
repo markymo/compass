@@ -264,6 +264,56 @@ export async function addUserToClient(data: { email: string, clientId: string, n
         return { success: false, error: "Failed to add user" };
     }
 }
+
+// 8. Create Client LE (Super Admin Force Create)
+export async function createClientLEForOrg(data: { name: string, jurisdiction: string, orgId: string }) {
+    await ensureAdmin();
+    const { name, jurisdiction, orgId } = data;
+
+    try {
+        const newLE = await prisma.clientLE.create({
+            data: {
+                name,
+                jurisdiction,
+                status: "ACTIVE",
+                owners: {
+                    create: {
+                        partyId: orgId,
+                        startAt: new Date()
+                    }
+                }
+            }
+        });
+
+        revalidatePath("/app/admin/super");
+        return { success: true, data: newLE };
+    } catch (e) {
+        console.error("Create LE Failure", e);
+        return { success: false, error: "Failed to create Client Legal Entity (LE) Workspace" };
+    }
+}
+
+// 9. Update User Basic Info (Name, Description)
+export async function updateUserBasicInfo(userId: string, data: { name?: string, description?: string }) {
+    await ensureAdmin();
+
+    try {
+        await prisma.user.update({
+            where: { id: userId },
+            data: {
+                ...(data.name && { name: data.name }),
+                ...(data.description !== undefined && { description: data.description }) // Allow clearing text
+            }
+        });
+
+        revalidatePath("/app/admin/super");
+        return { success: true };
+    } catch (e) {
+        console.error("Update User Info Failed", e);
+        return { success: false, error: "Failed to update user info" };
+    }
+}
+
 // 7. Get User Permissions Profile (All Orgs + LEs)
 export async function getUserPermissionsProfile(targetUserId: string) {
     await ensureAdmin();
@@ -271,7 +321,7 @@ export async function getUserPermissionsProfile(targetUserId: string) {
     // 1. Fetch User Details
     const user = await prisma.user.findUnique({
         where: { id: targetUserId },
-        select: { id: true, name: true, email: true }
+        select: { id: true, name: true, email: true, description: true }
     });
     if (!user) return null;
 

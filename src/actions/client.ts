@@ -3,8 +3,35 @@
 import prisma from "@/lib/prisma";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
+import { can, Action, UserWithMemberships } from "@/lib/auth/permissions";
 
 import { cookies } from "next/headers";
+
+// --- Authorization Helper ---
+async function ensureAuthorization(action: Action, context: { partyId?: string, clientLEId?: string, engagementId?: string }) {
+    const { userId } = await auth();
+    if (!userId) throw new Error("Unauthorized: No User");
+
+    // Fetch User with Memberships (reusing simple fetch for now, similar to ensureUserOrg but raw)
+    const memberships = await prisma.membership.findMany({
+        where: { userId },
+        select: {
+            organizationId: true,
+            clientLEId: true,
+            role: true
+        }
+    });
+
+    const user: UserWithMemberships = {
+        id: userId,
+        memberships: memberships
+    };
+
+    const allowed = await can(user, action, context, prisma);
+    if (!allowed) throw new Error(`Unauthorized: Cannot perform ${action}`);
+
+    return { userId, user };
+}
 
 // Helper to get or create the user's Client Organization
 export async function ensureUserOrg(userId: string, userEmail: string = "") {
@@ -194,16 +221,28 @@ export async function getClientLEs(explicitOrgId?: string) {
     if (myOrgIds.length === 0) return [];
 
     // 2. Fetch all LEs belonging to these Orgs
-    // 2. Fetch all LEs belonging to these Orgs
+    // 2. Fetch all LEs belonging to these Orgs OR where I am a direct member
     const whereClause: any = {
-        owners: { some: { partyId: { in: myOrgIds }, endAt: null } },
         isDeleted: false,
         status: { not: "ARCHIVED" }
     };
 
     if (explicitOrgId) {
-        // If strict filtering requested
+        // Strict Mode: Must be owned by Target Org AND (I am Org Member OR I am LE Member)
+        const isOrgMember = myOrgIds.includes(explicitOrgId);
+
         whereClause.owners = { some: { partyId: explicitOrgId, endAt: null } };
+
+        if (!isOrgMember) {
+            // I am NOT a member of the Org, so I can only see LEs where I am a direct member
+            whereClause.memberships = { some: { userId } };
+        }
+    } else {
+        // Global Mode: Owned by any of My Orgs OR I am a direct member
+        whereClause.OR = [
+            { owners: { some: { partyId: { in: myOrgIds }, endAt: null } } },
+            { memberships: { some: { userId } } }
+        ];
     }
 
     return await prisma.clientLE.findMany({
@@ -245,21 +284,42 @@ export async function createClientLE(data: { name: string; jurisdiction: string;
 
         if (adminMemberships.length === 1 && adminMemberships[0].organizationId) {
             targetOrgId = adminMemberships[0].organizationId;
-        } else if (adminMemberships.length === 0) {
-            return { success: false, error: "You do not have permission to create Legal Entities (No Client Admin role)." };
         } else {
-            return { success: false, error: "Ambiguous context: Please select which Organization to create this entity for." };
+            // If System Admin, they have permission but we don't know which org to use.
+            // If Client Admin of multiple, same issue.
+            // We should check if they can AT LEAST one, if so, return Ambiguous.
+            // If none, return Unauthorized.
+
+            // Re-using the logic: if we found 0 admin memberships, we returned error above.
+            // If we are here, we have 0 admin memberships (client scope) found by that query, OR multiple.
+
+            // Let's rely on standard authorization check to differentiate.
+            try {
+                // Determine if they are a System Admin
+                const isSys = await checkIsSystemAdmin(userId);
+                if (isSys) {
+                    return { success: false, error: "System Admin: Please select a specific Organization to create this entity for." };
+                }
+
+                // If not system admin, and we found 0 client admin memberships:
+                if (adminMemberships.length === 0) {
+                    return { success: false, error: "You do not have permission to create Legal Entities (No Client Admin role)." };
+                }
+
+                return { success: false, error: "Multiple Organizations detected: Please select which Organization to create this entity for." };
+            } catch (e) {
+                return { success: false, error: "Unauthorized." };
+            }
         }
     } else {
-        // Verify explicit permission if ID was passed
-        const membership = await prisma.membership.findFirst({
-            where: {
-                userId,
-                organizationId: targetOrgId,
-                role: "ADMIN"
-            }
-        });
-        if (!membership) return { success: false, error: "Unauthorized: You must be an Admin of the target Organization." };
+        // Explicit Org provided. Check Permission.
+    } // Close else block
+
+    // New Standardized Check
+    try {
+        await ensureAuthorization(Action.LE_CREATE, { partyId: targetOrgId });
+    } catch (e) {
+        return { success: false, error: "Unauthorized: You do not have permission to create Legal Entities for this Organization." };
     }
 
     const newLE = await prisma.clientLE.create({
@@ -287,6 +347,12 @@ export async function createClientLE(data: { name: string; jurisdiction: string;
 
 // 3. Get Full Data (Schema + Answers) for an LE
 export async function getClientLEData(leId: string) {
+    try {
+        await ensureAuthorization(Action.LE_VIEW_DATA, { clientLEId: leId });
+    } catch (e) {
+        return null; // Return null if unauthorized for read
+    }
+
     const { userId } = await auth();
     if (!userId) return null;
 
@@ -356,6 +422,12 @@ export async function getClientLEData(leId: string) {
 
 // 4. Save Answers
 export async function saveClientLEData(leId: string, schemaId: string, answers: any) {
+    try {
+        await ensureAuthorization(Action.LE_EDIT_DATA, { clientLEId: leId });
+    } catch (e) {
+        return { success: false, error: "Unauthorized: Access denied." };
+    }
+
     const { userId } = await auth();
     if (!userId) return { success: false, error: "Unauthorized" };
 
@@ -395,10 +467,13 @@ export async function saveClientLEData(leId: string, schemaId: string, answers: 
 
 // 5. Update LE Basic Info (e.g. Description)
 export async function updateClientLE(leId: string, data: { description: string }) {
-    const { userId } = await auth();
-    if (!userId) return { success: false, error: "Unauthorized" };
+    try {
+        await ensureAuthorization(Action.LE_UPDATE, { clientLEId: leId });
+    } catch (e) {
+        return { success: false, error: "Unauthorized: Access denied." };
+    }
 
-    console.log(`[updateClientLE] Attempting update for ${leId} with description: ${data.description}`);
+    const { userId } = await auth();
     try {
         const updated = await prisma.clientLE.update({
             where: { id: leId },
@@ -419,6 +494,12 @@ export async function updateClientLE(leId: string, data: { description: string }
 
 // 6. Get Dashboard Metrics (Mission Control)
 export async function getDashboardMetrics(leId: string) {
+    try {
+        await ensureAuthorization(Action.LE_VIEW_DATA, { clientLEId: leId });
+    } catch (e) {
+        return null;
+    }
+
     const { userId } = await auth();
     if (!userId) return null;
 
@@ -544,25 +625,13 @@ export async function deleteClientLE(leId: string) {
     });
     if (!le) return { success: false, error: "Legal Entity not found" };
 
-    // Check permissions on the Parent Org
-    // Need to find which party owns it effectively?
-    // For delete, being Admin of ANY current owning party is likely sufficient.
-    const owningParties = await prisma.clientLEOwner.findMany({
-        where: { clientLEId: leId, endAt: null },
-        select: { partyId: true }
-    });
-
-    const owningPartyIds = owningParties.map(o => o.partyId);
-
-    const membership = await prisma.membership.findFirst({
-        where: {
-            userId,
-            organizationId: { in: owningPartyIds },
-            role: "ADMIN"
-        }
-    });
-
-    if (!membership) return { success: false, error: "Unauthorized: You must be an Admin of the owning Organization." };
+    // Standardized Check
+    // For delete, we check LE_ARCHIVE (as we are soft deleting)
+    try {
+        await ensureAuthorization(Action.LE_ARCHIVE, { clientLEId: leId });
+    } catch (e) {
+        return { success: false, error: "Unauthorized: You do not have permission to delete this Legal Entity." };
+    }
 
     try {
         // Cascade: Delete LE -> Delete Engagements -> Delete Questionnaire Instances
@@ -611,23 +680,20 @@ export async function deleteEngagementByClient(engagementId: string) {
 
     if (!engagement) return { success: false, error: "Engagement not found" };
 
-    // 2. Check Admin Permission on the Client Org
-    const owningParties = await prisma.clientLEOwner.findMany({
-        where: { clientLEId: engagement.clientLEId, endAt: null },
-        select: { partyId: true }
-    });
+    // Standardized Check
+    // We need to resolve the LE from the Engagement to check permission on the LE context
+    // Actually, ensureAuthorization supports engagementId? No, context needs explicit Party/LE usually.
+    // Let's add engagement context resolution inside EnsureAuth? 
+    // Or just resolve here.
+    // But Action.ENG_DELETE logic in `permissions.ts`?
+    // `permissions.ts` logic checks `getRoleForLE`. We need ClientLEId.
 
-    const owningPartyIds = owningParties.map(o => o.partyId);
-
-    const membership = await prisma.membership.findFirst({
-        where: {
-            userId,
-            organizationId: { in: owningPartyIds },
-            role: "ADMIN"
-        }
-    });
-
-    if (!membership) return { success: false, error: "Unauthorized: You must be an Admin of the owning Organization." };
+    // We already fetched engagement above with clientLEId
+    try {
+        await ensureAuthorization(Action.ENG_DELETE, { clientLEId: engagement.clientLEId, engagementId });
+    } catch (e) {
+        return { success: false, error: "Unauthorized: You do not have permission to delete engagements." };
+    }
 
     try {
         // Cascade: Engagement -> Questionnaire Instances
@@ -651,6 +717,12 @@ export async function deleteEngagementByClient(engagementId: string) {
 }
 
 export async function archiveClientLE(leId: string) {
+    try {
+        await ensureAuthorization(Action.LE_ARCHIVE, { clientLEId: leId });
+    } catch (e) {
+        return { success: false, error: "Unauthorized" };
+    }
+
     const { userId } = await auth();
     if (!userId) return { success: false, error: "Unauthorized" };
 

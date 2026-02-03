@@ -1,18 +1,21 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { assignClientRole, assignLERole, searchClients, addUserToClient } from "@/actions/super-admin-users";
+import { assignClientRole, assignLERole, searchClients, addUserToClient, createClientLEForOrg, updateUserBasicInfo } from "@/actions/super-admin-users";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, PlusCircle, Building2, Briefcase, ChevronDown, ChevronRight, LayoutDashboard, ShieldCheck, DoorOpen } from "lucide-react";
+import { Loader2, PlusCircle, Building2, Briefcase, ChevronDown, ChevronRight, LayoutDashboard, ShieldCheck, DoorOpen, Pencil, CheckCircle2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
 import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 interface UserPermissionEditorProps {
     profile: any; // The tree returned from getUserPermissionsProfile
@@ -53,11 +56,11 @@ export function UserPermissionEditor({ profile, userId }: UserPermissionEditorPr
         setLoadingMap(prev => ({ ...prev, [`le-${leId}`]: true }));
         const res = await assignLERole({ userId, leId, role });
         if (res.success) {
-            toast.success("Workspace Access Updated");
+            toast.success("Client Legal Entity (LE) Workspace Access Updated");
             // Optimistically update strictly necessary? Reload is safer for consistency.
             refresh();
         } else {
-            toast.error("Failed to update workspace access");
+            toast.error("Failed to update Client Legal Entity (LE) Workspace access");
             setLoadingMap(prev => ({ ...prev, [`le-${leId}`]: false }));
         }
     }
@@ -89,10 +92,25 @@ export function UserPermissionEditor({ profile, userId }: UserPermissionEditorPr
     return (
         <div className="space-y-8">
             {/* Header */}
-            <div className="flex items-center justify-between">
-                <div>
-                    <h2 className="text-xl font-bold">{data.user.name || "Unnamed User"}</h2>
-                    <p className="text-muted-foreground">{data.user.email}</p>
+            <div className="flex items-start justify-between">
+                <div className="flex-1 mr-8">
+                    <EditableUserField
+                        userId={userId}
+                        value={data.user.name || ""}
+                        field="name"
+                        className="text-xl font-bold text-slate-900"
+                        placeholder="Unnamed User"
+                    />
+                    <div className="text-sm text-muted-foreground mb-2">{data.user.email}</div>
+
+                    <EditableUserField
+                        userId={userId}
+                        value={data.user.description || ""}
+                        field="description"
+                        className="text-sm text-slate-600 italic"
+                        placeholder="Add a description for this user..."
+                        multiline
+                    />
                 </div>
                 <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
                     <DialogTrigger asChild>
@@ -200,6 +218,27 @@ export function UserPermissionEditor({ profile, userId }: UserPermissionEditorPr
 function OrganizationCard({ membership, onUpdateClientRole, onUpdateLERole, loadingMap }: any) {
     const [isOpen, setIsOpen] = useState(true);
     const org = membership.org;
+    const [isCreateOpen, setIsCreateOpen] = useState(false);
+    const [newLeName, setNewLeName] = useState("");
+    const [creating, setCreating] = useState(false);
+
+    async function handleCreateLE() {
+        if (!newLeName.trim()) return;
+        setCreating(true);
+        // Default jurisdiction to "UK" or empty for now as it's just a quick add
+        const res = await createClientLEForOrg({ name: newLeName, jurisdiction: "UK", orgId: org.id });
+        setCreating(false);
+
+        if (res.success) {
+            toast.success("Client Legal Entity (LE) Workspace Created");
+            setIsCreateOpen(false);
+            setNewLeName("");
+            // Refresh logic - ideally we lift state up or trigger a reload
+            window.location.reload();
+        } else {
+            toast.error("Failed to create workspace");
+        }
+    }
 
     return (
         <Card>
@@ -227,8 +266,8 @@ function OrganizationCard({ membership, onUpdateClientRole, onUpdateLERole, load
                                     </div>
                                     <CardDescription>
                                         {org.type === "CLIENT"
-                                            ? `${membership.les.length} Workspaces Available`
-                                            : "Supplier Organization (No Workspaces)"}
+                                            ? `${membership.les.length} Client Legal Entity (LE) Workspaces Available`
+                                            : "Supplier Organization (No Client Legal Entity (LE) Workspaces)"}
                                     </CardDescription>
                                 </div>
                             </div>
@@ -253,6 +292,46 @@ function OrganizationCard({ membership, onUpdateClientRole, onUpdateLERole, load
                                     </SelectContent>
                                 </Select>
                             </div>
+
+                            {/* Create LE Button - Allow for CLIENT and FI (Super Admin Flexibilty) */}
+                            {["CLIENT", "FI"].includes(org.type) && (
+                                <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+                                    <DialogTrigger asChild>
+                                        <Button variant="outline" size="sm" className="h-8 text-xs border-dashed gap-1"
+                                            onClick={(e) => e.stopPropagation()}
+                                        // Stop propagation so it doesn't toggle collapse
+                                        >
+                                            <PlusCircle className="h-3 w-3" />
+                                            Create Workspace
+                                        </Button>
+                                    </DialogTrigger>
+                                    <DialogContent className="sm:max-w-[425px]" onClick={(e) => e.stopPropagation()}>
+                                        <DialogHeader>
+                                            <DialogTitle>Create New Workspace</DialogTitle>
+                                            <DialogDescription>
+                                                Create a new Legal Entity Workspace for {org.name}.
+                                            </DialogDescription>
+                                        </DialogHeader>
+                                        <div className="grid gap-4 py-4">
+                                            <div className="space-y-2">
+                                                <Label htmlFor="le-name">Workspace Name</Label>
+                                                <Input
+                                                    id="le-name"
+                                                    value={newLeName}
+                                                    onChange={(e) => setNewLeName(e.target.value)}
+                                                    placeholder="e.g. Project Alpha SPV"
+                                                />
+                                            </div>
+                                        </div>
+                                        <DialogFooter>
+                                            <Button onClick={handleCreateLE} disabled={creating || !newLeName.trim()}>
+                                                {creating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                                Create
+                                            </Button>
+                                        </DialogFooter>
+                                    </DialogContent>
+                                </Dialog>
+                            )}
                         </div>
                     </div>
                 </CardHeader>
@@ -262,14 +341,14 @@ function OrganizationCard({ membership, onUpdateClientRole, onUpdateLERole, load
                     <CardContent className="pt-6 pb-6 bg-slate-50/50">
                         <div className="space-y-1 pl-12 pr-4">
                             <div className="grid grid-cols-12 text-xs font-semibold text-muted-foreground uppercase mb-2 px-3">
-                                <div className="col-span-6">Workspace Name</div>
+                                <div className="col-span-6">Client Legal Entity (LE) Workspace Name</div>
                                 <div className="col-span-2">Status</div>
                                 <div className="col-span-4 text-right">Access Level</div>
                             </div>
 
                             {membership.les.length === 0 && (
                                 <div className="text-sm text-muted-foreground py-2 px-3 italic">
-                                    No workspaces found for this organization.
+                                    No Client Legal Entity (LE) Workspaces found for this organization.
                                 </div>
                             )}
 
@@ -284,22 +363,60 @@ function OrganizationCard({ membership, onUpdateClientRole, onUpdateLERole, load
                                             {le.status}
                                         </Badge>
                                     </div>
-                                    <div className="col-span-4 flex justify-end">
-                                        <Select
-                                            value={le.role}
-                                            onValueChange={(val) => onUpdateLERole(le.id, val)}
-                                            disabled={loadingMap[`le-${le.id}`]}
-                                        >
-                                            <SelectTrigger className={`h-8 w-[180px] text-xs ${le.role !== 'NONE' ? 'bg-white border-slate-200' : 'bg-transparent border-transparent text-muted-foreground'}`}>
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="NONE">No Direct Access</SelectItem>
-                                                <SelectItem value="VIEWER">Viewer (Read Only)</SelectItem>
-                                                <SelectItem value="EDITOR">Editor (Can Manage)</SelectItem>
-                                                <SelectItem value="MEMBER">Member</SelectItem>
-                                            </SelectContent>
-                                        </Select>
+                                    <div className="col-span-4 flex justify-end items-center gap-4">
+                                        {/* Viewer Checkbox */}
+                                        <div className="flex items-center gap-1.5" title="Can view documents and status">
+                                            <Checkbox
+                                                id={`le-view-${le.id}`}
+                                                checked={["VIEWER", "EDITOR", "MEMBER"].includes(le.role)}
+                                                onCheckedChange={(checked) => {
+                                                    // Toggle viewer: If on -> Off (None), If off -> on (Viewer)
+                                                    if (["VIEWER", "EDITOR", "MEMBER"].includes(le.role)) {
+                                                        onUpdateLERole(le.id, "NONE");
+                                                    } else {
+                                                        onUpdateLERole(le.id, "VIEWER");
+                                                    }
+                                                }}
+                                                disabled={loadingMap[`le-${le.id}`]}
+                                            />
+                                            <label htmlFor={`le-view-${le.id}`} className="text-xs cursor-pointer select-none">View</label>
+                                        </div>
+
+                                        {/* Editor Checkbox */}
+                                        <div className="flex items-center gap-1.5" title="Can upload and edit data">
+                                            <Checkbox
+                                                id={`le-edit-${le.id}`}
+                                                checked={["EDITOR", "MEMBER"].includes(le.role)}
+                                                onCheckedChange={(checked) => {
+                                                    // Toggle Editor: If on -> Downgrade to Viewer, If off -> Upgrade to Editor
+                                                    if (["EDITOR", "MEMBER"].includes(le.role)) {
+                                                        onUpdateLERole(le.id, "VIEWER");
+                                                    } else {
+                                                        onUpdateLERole(le.id, "EDITOR");
+                                                    }
+                                                }}
+                                                disabled={loadingMap[`le-${le.id}`]}
+                                            />
+                                            <label htmlFor={`le-edit-${le.id}`} className="text-xs cursor-pointer select-none">Edit</label>
+                                        </div>
+
+                                        {/* Member Checkbox */}
+                                        <div className="flex items-center gap-1.5" title="Full access management">
+                                            <Checkbox
+                                                id={`le-admin-${le.id}`}
+                                                checked={le.role === "MEMBER"}
+                                                onCheckedChange={(checked) => {
+                                                    // Toggle Member: If on -> Downgrade to Editor, If off -> Upgrade to Member
+                                                    if (le.role === "MEMBER") {
+                                                        onUpdateLERole(le.id, "EDITOR");
+                                                    } else {
+                                                        onUpdateLERole(le.id, "MEMBER");
+                                                    }
+                                                }}
+                                                disabled={loadingMap[`le-${le.id}`]}
+                                            />
+                                            <label htmlFor={`le-admin-${le.id}`} className="text-xs cursor-pointer select-none">Member</label>
+                                        </div>
                                     </div>
                                 </div>
                             ))}
@@ -308,5 +425,77 @@ function OrganizationCard({ membership, onUpdateClientRole, onUpdateLERole, load
                 </CollapsibleContent>
             </Collapsible>
         </Card>
+    );
+}
+
+function EditableUserField({ userId, value, field, className, placeholder, multiline }: any) {
+    const [isEditing, setIsEditing] = useState(false);
+    const [currentValue, setCurrentValue] = useState(value);
+    const [isSaving, setIsSaving] = useState(false);
+
+    // Reset if prop updates from outside
+    useEffect(() => { setCurrentValue(value); }, [value]);
+
+    async function handleSave() {
+        if (currentValue === value) {
+            setIsEditing(false);
+            return;
+        }
+
+        setIsSaving(true);
+        // Optimistic update?
+        const res = await updateUserBasicInfo(userId, { [field]: currentValue });
+        setIsSaving(false);
+
+        if (res.success) {
+            setIsEditing(false);
+            toast.success("Updated");
+        } else {
+            toast.error("Failed to update");
+            setCurrentValue(value); // Revert
+        }
+    }
+
+    if (isEditing) {
+        return (
+            <div className="relative group mb-1">
+                {multiline ? (
+                    <textarea
+                        className={`w-full p-1 bg-white border border-slate-200 rounded text-sm focus:ring-2 focus:ring-slate-200 focus:border-transparent ${className}`}
+                        value={currentValue}
+                        onChange={(e) => setCurrentValue(e.target.value)}
+                        onBlur={handleSave}
+                        disabled={isSaving}
+                        placeholder={placeholder}
+                        autoFocus
+                        rows={2}
+                    />
+                ) : (
+                    <input
+                        className={`w-full p-1 bg-white border border-slate-200 rounded focus:ring-2 focus:ring-slate-200 focus:border-transparent ${className}`}
+                        value={currentValue}
+                        onChange={(e) => setCurrentValue(e.target.value)}
+                        onBlur={handleSave}
+                        disabled={isSaving}
+                        placeholder={placeholder}
+                        autoFocus
+                    />
+                )}
+                {isSaving && <Loader2 className="absolute right-2 top-2 h-3 w-3 animate-spin text-slate-400" />}
+            </div>
+        );
+    }
+
+    return (
+        <div
+            className={`group relative cursor-pointer border border-transparent hover:border-slate-200 rounded p-1 -ml-1 flex items-center gap-2 ${className}`}
+            onClick={() => setIsEditing(true)}
+            title="Click to edit"
+        >
+            <span className={!currentValue ? "text-slate-400 italic font-light" : ""}>
+                {currentValue || placeholder}
+            </span>
+            <Pencil className="h-3 w-3 text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+        </div>
     );
 }

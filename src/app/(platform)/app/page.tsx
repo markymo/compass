@@ -104,7 +104,7 @@ export default function V2DashboardPage() {
                                     <CardContent className="pt-2">
                                         <Button variant="ghost" size="sm" className="w-full justify-between" asChild>
                                             <div>
-                                                Enter Workspace <ArrowRight className="w-4 h-4" />
+                                                Enter Client Legal Entity (LE) Workspace <ArrowRight className="w-4 h-4" />
                                             </div>
                                         </Button>
                                     </CardContent>
