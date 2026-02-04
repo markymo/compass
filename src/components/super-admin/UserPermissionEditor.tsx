@@ -286,8 +286,8 @@ function OrganizationCard({ membership, onUpdateClientRole, onUpdateLERole, load
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="MEMBER">Member</SelectItem>
-                                        <SelectItem value="ADMIN">Admin</SelectItem>
+                                        <SelectItem value="ORG_MEMBER">Member (Standard)</SelectItem>
+                                        <SelectItem value="ORG_ADMIN">Client Admin</SelectItem>
                                         <SelectItem value="NONE" className="text-red-600">Remove Access</SelectItem>
                                     </SelectContent>
                                 </Select>
@@ -364,58 +364,21 @@ function OrganizationCard({ membership, onUpdateClientRole, onUpdateLERole, load
                                         </Badge>
                                     </div>
                                     <div className="col-span-4 flex justify-end items-center gap-4">
-                                        {/* Viewer Checkbox */}
-                                        <div className="flex items-center gap-1.5" title="Can view documents and status">
-                                            <Checkbox
-                                                id={`le-view-${le.id}`}
-                                                checked={["VIEWER", "EDITOR", "MEMBER"].includes(le.role)}
-                                                onCheckedChange={(checked) => {
-                                                    // Toggle viewer: If on -> Off (None), If off -> on (Viewer)
-                                                    if (["VIEWER", "EDITOR", "MEMBER"].includes(le.role)) {
-                                                        onUpdateLERole(le.id, "NONE");
-                                                    } else {
-                                                        onUpdateLERole(le.id, "VIEWER");
-                                                    }
-                                                }}
+                                        <div className="col-span-4 flex justify-end items-center gap-4">
+                                            <Select
+                                                value={["LE_ADMIN", "LE_USER"].includes(le.role) ? le.role : (le.role === "NONE" ? undefined : le.role)}
+                                                onValueChange={(val) => onUpdateLERole(le.id, val)}
                                                 disabled={loadingMap[`le-${le.id}`]}
-                                            />
-                                            <label htmlFor={`le-view-${le.id}`} className="text-xs cursor-pointer select-none">View</label>
-                                        </div>
-
-                                        {/* Editor Checkbox */}
-                                        <div className="flex items-center gap-1.5" title="Can upload and edit data">
-                                            <Checkbox
-                                                id={`le-edit-${le.id}`}
-                                                checked={["EDITOR", "MEMBER"].includes(le.role)}
-                                                onCheckedChange={(checked) => {
-                                                    // Toggle Editor: If on -> Downgrade to Viewer, If off -> Upgrade to Editor
-                                                    if (["EDITOR", "MEMBER"].includes(le.role)) {
-                                                        onUpdateLERole(le.id, "VIEWER");
-                                                    } else {
-                                                        onUpdateLERole(le.id, "EDITOR");
-                                                    }
-                                                }}
-                                                disabled={loadingMap[`le-${le.id}`]}
-                                            />
-                                            <label htmlFor={`le-edit-${le.id}`} className="text-xs cursor-pointer select-none">Edit</label>
-                                        </div>
-
-                                        {/* Member Checkbox */}
-                                        <div className="flex items-center gap-1.5" title="Full access management">
-                                            <Checkbox
-                                                id={`le-admin-${le.id}`}
-                                                checked={le.role === "MEMBER"}
-                                                onCheckedChange={(checked) => {
-                                                    // Toggle Member: If on -> Downgrade to Editor, If off -> Upgrade to Member
-                                                    if (le.role === "MEMBER") {
-                                                        onUpdateLERole(le.id, "EDITOR");
-                                                    } else {
-                                                        onUpdateLERole(le.id, "MEMBER");
-                                                    }
-                                                }}
-                                                disabled={loadingMap[`le-${le.id}`]}
-                                            />
-                                            <label htmlFor={`le-admin-${le.id}`} className="text-xs cursor-pointer select-none">Member</label>
+                                            >
+                                                <SelectTrigger className="h-8 w-[140px]">
+                                                    <SelectValue placeholder="No Access" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="LE_USER">LE User</SelectItem>
+                                                    <SelectItem value="LE_ADMIN">LE Admin</SelectItem>
+                                                    <SelectItem value="NONE" className="text-red-600">Remove Access</SelectItem>
+                                                </SelectContent>
+                                            </Select>
                                         </div>
                                     </div>
                                 </div>

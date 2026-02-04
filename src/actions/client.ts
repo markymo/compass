@@ -798,8 +798,8 @@ export async function getClientDashboardData(clientId: string) {
 
         // Logic for deriving permissions per LE based on context
         const deriveLEPermissions = (role: string) => {
-            const isAdmin = role === "ADMIN";
-            const isMember = role === "MEMBER";
+            const isAdmin = role === "ADMIN" || role === "ORG_ADMIN" || role === "LE_ADMIN";
+            const isMember = role === "MEMBER" || role === "ORG_MEMBER" || role === "LE_USER";
             return {
                 canEnter: isAdmin || isMember,
                 canEdit: isAdmin || isMember,
@@ -811,10 +811,11 @@ export async function getClientDashboardData(clientId: string) {
         if (directMembership && directMembership.organization) {
             // CASE A: Direct Member (Admin or Member)
             org = directMembership.organization;
-            roleLabel = directMembership.role === "ADMIN" ? "Client Admin" : "Client Member";
+            const isOrgAdmin = directMembership.role === "ADMIN" || directMembership.role === "ORG_ADMIN";
+            roleLabel = isOrgAdmin ? "Client Admin" : "Client Member";
 
-            permissions.canCreateLE = directMembership.role === "ADMIN";
-            permissions.canManageOrg = directMembership.role === "ADMIN";
+            permissions.canCreateLE = isOrgAdmin;
+            permissions.canManageOrg = isOrgAdmin;
             permissions.canViewAllLEs = true;
 
             // Fetch ALL active LEs for this Client Org

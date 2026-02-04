@@ -26,6 +26,7 @@ model User {
   adminComments AdminTodoComment[]
   
   engagementActivities EngagementActivity[]
+  auditLogs       AuditLog[]
 }
 
 model Organization {
@@ -46,6 +47,8 @@ model Organization {
 
   // New Ownership Model
   ownedLEs       ClientLEOwner[]
+  
+  invitations    Invitation[]
 }
 
 // POLYMORPHIC MEMBERSHIP (Party OR Workspace)
@@ -127,6 +130,8 @@ model ClientLE {
 
   // Ownership History (New Multi-Owner Model)
   owners        ClientLEOwner[]
+  
+  invitations   Invitation[]
 }
 
 model ClientLEOwner {
@@ -386,4 +391,43 @@ enum AdminTodoStatus {
   DRAFTING
   IN_PROGRESS
   DONE
+}
+
+model Invitation {
+  id             String           @id @default(uuid())
+  email          String
+  token          String           @unique
+  organizationId String
+  clientLEId     String?
+  role           String
+  invitedBy      String
+  status         InvitationStatus @default(PENDING)
+  expiresAt      DateTime
+  createdAt      DateTime         @default(now())
+
+  organization Organization  @relation(fields: [organizationId], references: [id])
+  clientLE     ClientLE?     @relation(fields: [clientLEId], references: [id])
+
+  @@index([email])
+  @@index([token])
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String
+  action    String
+  entityId  String?
+  details   Json?
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([entityId])
 }

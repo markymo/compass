@@ -16,24 +16,60 @@ export async function getAllUsers() {
     // Fetch users and their primary/current org context (Party)
     // We fetch memberships that have an organizationId (Party scopes only for this view)
 
-    // Get all memberships
-    const memberships = await prisma.membership.findMany({
-        where: { organizationId: { not: null } },
+    // Fetch ALL users and their memberships
+    const users = await prisma.user.findMany({
+        orderBy: { email: 'asc' },
         include: {
-            user: true,
-            organization: true
-        },
-        orderBy: { user: { email: 'asc' } }
+            memberships: {
+                include: {
+                    organization: true,
+                    clientLE: true // Include ClientLE for workspace context
+                }
+            }
+        }
     });
 
-    return memberships.map((m: any) => ({
-        userId: m.userId,
-        email: m.user.email,
-        orgId: m.organizationId,
-        orgName: m.organization?.name,
-        orgType: m.organization?.types[0], // simplified for list view
-        role: m.role
-    }));
+    // Map to User View Model
+    const userViewModels = users.map(u => {
+        const mappedMemberships = u.memberships.map(m => {
+            if (m.organization) {
+                return {
+                    orgId: m.organization.id,
+                    orgName: m.organization.name,
+                    orgType: m.organization.types[0],
+                    role: m.role
+                };
+            } else if (m.clientLE) {
+                // Handle Workspace Memberships
+                return {
+                    orgId: m.clientLE.id,
+                    orgName: m.clientLE.name,
+                    orgType: "WORKSPACE", // Distinct type for UI
+                    role: m.role
+                };
+            }
+            return null;
+        }).filter(m => m !== null); // Remove invalid/empty memberships
+
+        // Sort Memberships: Type DESC (SYSTEM > FI > CLIENT > WORKSPACE), Name ASC
+        mappedMemberships.sort((a: any, b: any) => {
+            // 1. Type DESC
+            if (a.orgType < b.orgType) return 1;
+            if (a.orgType > b.orgType) return -1;
+            // 2. Name ASC
+            if (a.orgName < b.orgName) return -1;
+            if (a.orgName > b.orgName) return 1;
+            return 0;
+        });
+
+        return {
+            userId: u.id,
+            email: u.email,
+            memberships: mappedMemberships
+        };
+    });
+
+    return userViewModels;
 }
 
 // 3. Promote/Demote/Switch Org Type (Super Admin Action)

@@ -1,14 +1,14 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { getOrganizationDetails, addMemberToOrg } from "@/actions/org";
+import { getOrganizationDetails, addMemberToOrg, updateOrganization } from "@/actions/org";
 import { getQuestionnaires, createQuestionnaire, startBackgroundExtraction } from "@/actions/questionnaire";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, ArrowLeft, UserPlus, Mail, FileText, Upload, Plus } from "lucide-react";
+import { Loader2, ArrowLeft, UserPlus, Mail, FileText, Upload, Plus, Pen, Check, X } from "lucide-react";
 import Link from "next/link";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -59,6 +59,23 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
     const [showArchived, setShowArchived] = useState(false);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // Edit State
+    const [isEditing, setIsEditing] = useState(false);
+    const [editName, setEditName] = useState("");
+
+    async function handleSaveName() {
+        if (!org || !editName.trim()) return;
+        const res = await updateOrganization(org.id, { name: editName });
+        if (res.success) {
+            toast.success("Organization name updated");
+            setOrg({ ...org, name: editName }); // Optimistic / Local update
+            setIsEditing(false);
+            loadData(org.id); // Refresh
+        } else {
+            toast.error("Update failed: " + res.error);
+        }
+    }
 
     useEffect(() => {
         params.then(setUnwrappedParams);
@@ -157,13 +174,41 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
                 <Link href="/app/admin/organizations">
                     <Button variant="ghost" size="icon"><ArrowLeft className="w-4 h-4" /></Button>
                 </Link>
+
+
+
+
                 <div>
-                    <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-                        {org.name}
-                        {org.types.map((t: string) => (
-                            <Badge key={t} variant="secondary">{t}</Badge>
-                        ))}
-                    </h1>
+                    {isEditing ? (
+                        <div className="flex items-center gap-2">
+                            <Input
+                                value={editName}
+                                onChange={(e) => setEditName(e.target.value)}
+                                className="text-2xl font-bold h-10 w-96"
+                            />
+                            <Button size="icon" variant="ghost" onClick={handleSaveName}>
+                                <Check className="w-5 h-5 text-emerald-600" />
+                            </Button>
+                            <Button size="icon" variant="ghost" onClick={() => setIsEditing(false)}>
+                                <X className="w-5 h-5 text-slate-400" />
+                            </Button>
+                        </div>
+                    ) : (
+                        <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2 group">
+                            {org.name}
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6"
+                                onClick={() => { setEditName(org.name); setIsEditing(true); }}
+                            >
+                                <Pen className="w-3 h-3 text-slate-400" />
+                            </Button>
+                            {org.types.map((t: string) => (
+                                <Badge key={t} variant="secondary">{t}</Badge>
+                            ))}
+                        </h1>
+                    )}
                     <p className="text-muted-foreground text-sm">ID: {org.id}</p>
                 </div>
             </div>

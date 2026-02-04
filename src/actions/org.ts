@@ -129,3 +129,24 @@ export async function addMemberToOrg(orgId: string, email: string, role: "ADMIN"
         return { success: false, error: "Failed to add member" };
     }
 }
+
+// 5. Update Organization (Admin Only)
+export async function updateOrganization(orgId: string, data: { name?: string }) {
+    const isAdmin = await isSystemAdmin();
+    if (!isAdmin) return { success: false, error: "Unauthorized" };
+
+    try {
+        const org = await prisma.organization.update({
+            where: { id: orgId },
+            data: {
+                name: data.name
+            }
+        });
+        revalidatePath(`/app/admin/organizations/${orgId}`);
+        revalidatePath("/app/admin/organizations");
+        return { success: true, data: org };
+    } catch (e) {
+        console.error(e);
+        return { success: false, error: "Failed to update organization" };
+    }
+}

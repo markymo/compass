@@ -2,7 +2,7 @@ import { getClientDashboardData } from "@/actions/client";
 import { CreateLEDialog } from "@/components/client/create-le-dialog";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
-import { Briefcase, ArrowRight, Building2, FileText, Cloud, AlertCircle, Shield } from "lucide-react";
+import { Briefcase, ArrowRight, Building2, FileText, Cloud, AlertCircle, Shield, Users, CreditCard, Activity } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
@@ -27,11 +27,7 @@ export default async function ClientDashboardPage({ params }: ClientDashboardPag
     const { org, les, permissions, roleLabel, userId, email } = response.data;
 
     // Calculate Stats
-    const totalEntities = les.length;
-    const activeEngagements = les.reduce((acc: number, le: any) => acc + le.fiEngagements.length, 0);
-    const activeQuestionnaires = les.reduce((acc: number, le: any) =>
-        acc + le.fiEngagements.reduce((qAcc: number, eng: any) => qAcc + eng.questionnaires.length, 0), 0
-    );
+
 
     return (
         <div className="flex flex-col min-h-screen">
@@ -60,55 +56,68 @@ export default async function ClientDashboardPage({ params }: ClientDashboardPag
                                 </p>
                             </div>
 
-                            {/* Conditional Action: Only Admins can create LEs */}
-                            {permissions.canCreateLE && (
-                                <CreateLEDialog orgId={org.id} />
-                            )}
+
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
-                            <Card className="bg-white/50 border-slate-200 shadow-sm">
-                                <CardContent className="pt-6 flex items-center gap-4">
-                                    <div className="p-2 bg-indigo-100 text-indigo-600 rounded-lg">
-                                        <Shield className="h-6 w-6" />
-                                    </div>
-                                    <div>
-                                        <p className="text-2xl font-bold text-slate-900">{totalEntities}</p>
-                                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Legal Entities</p>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                            <Card className="bg-white/50 border-slate-200 shadow-sm">
-                                <CardContent className="pt-6 flex items-center gap-4">
-                                    <div className="p-2 bg-emerald-100 text-emerald-600 rounded-lg">
-                                        <Building2 className="h-6 w-6" />
-                                    </div>
-                                    <div>
-                                        <p className="text-2xl font-bold text-slate-900">{activeEngagements}</p>
-                                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Active Banks</p>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                            <Card className="bg-white/50 border-slate-200 shadow-sm">
-                                <CardContent className="pt-6 flex items-center gap-4">
-                                    <div className="p-2 bg-blue-100 text-blue-600 rounded-lg">
-                                        <FileText className="h-6 w-6" />
-                                    </div>
-                                    <div>
-                                        <p className="text-2xl font-bold text-slate-900">{activeQuestionnaires}</p>
-                                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Questionnaires</p>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </div>
+                        {/* Management Section (Admins Only) */}
+                        {permissions.canManageOrg && (
+                            <div className="mt-8">
+                                <h2 className="text-lg font-semibold text-slate-900 mb-4">Organization Management</h2>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <Link href={`/app/clients/${org.id}/team`}>
+                                        <Card className="bg-white border-slate-200 shadow-sm hover:shadow-md transition-all cursor-pointer group h-full">
+                                            <CardContent className="p-5 flex items-start gap-4">
+                                                <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg group-hover:scale-105 transition-transform">
+                                                    <Users className="h-5 w-5" />
+                                                </div>
+                                                <div>
+                                                    <h3 className="font-semibold text-slate-900 group-hover:text-indigo-600 transition-colors">Team Members</h3>
+                                                    <p className="text-sm text-slate-500 mt-1">Manage user access and roles.</p>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    </Link>
+
+                                    <Card className="bg-white border-slate-200 shadow-sm hover:shadow-md transition-all cursor-not-allowed opacity-75">
+                                        <CardContent className="p-5 flex items-start gap-4">
+                                            <div className="p-2 bg-slate-100 text-slate-500 rounded-lg">
+                                                <CreditCard className="h-5 w-5" />
+                                            </div>
+                                            <div>
+                                                <h3 className="font-semibold text-slate-700">Billing & Invoicing</h3>
+                                                <p className="text-sm text-slate-500 mt-1">View invoices and usage.</p>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+
+                                    <Card className="bg-white border-slate-200 shadow-sm hover:shadow-md transition-all cursor-not-allowed opacity-75">
+                                        <CardContent className="p-5 flex items-start gap-4">
+                                            <div className="p-2 bg-slate-100 text-slate-500 rounded-lg">
+                                                <Activity className="h-5 w-5" />
+                                            </div>
+                                            <div>
+                                                <h3 className="font-semibold text-slate-700">Activity Log</h3>
+                                                <p className="text-sm text-slate-500 mt-1">Monitor system changes.</p>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
 
                 {/* Entity List */}
                 <div className="max-w-5xl mx-auto space-y-6">
-                    <h2 className="text-xl font-semibold text-slate-800">
-                        {permissions.canViewAllLEs ? "All Entities" : "Your Entities"}
-                    </h2>
+                    <div className="flex items-center justify-between">
+                        <h2 className="text-xl font-semibold text-slate-800">
+                            {permissions.canViewAllLEs ? "Legal Entities" : "Your Entities"}
+                        </h2>
+                        {/* Conditional Action: Only Admins can create LEs */}
+                        {permissions.canCreateLE && (
+                            <CreateLEDialog orgId={org.id} />
+                        )}
+                    </div>
 
                     {les.length === 0 ? (
                         <div className="text-center py-20 border-2 border-dashed rounded-xl bg-slate-50/50">

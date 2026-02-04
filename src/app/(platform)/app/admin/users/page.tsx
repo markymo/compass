@@ -1,13 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getAllUsers, updateUserOrg, bootstrapSystemOrg } from "@/actions/admin";
+import { getAllUsers } from "@/actions/admin";
 import { getFIs } from "@/actions/fi"; // Reuse to get list of potential orgs if needed, or just specific logic
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, ShieldAlert, User, Building, Settings } from "lucide-react";
+import { Loader2, User, Building, Settings } from "lucide-react";
 import Link from "next/link";
 
 export default function UserAdminPage() {
@@ -30,16 +30,7 @@ export default function UserAdminPage() {
         }
     }
 
-    async function handlePromote(userId: string) {
-        if (!confirm("Grant SYSTEM ADMIN access to this user?")) return;
 
-        // Ensure System Org Exists
-        const sysOrg = await bootstrapSystemOrg();
-
-        const res = await updateUserOrg(userId, sysOrg.id);
-        if (res.success) loadData();
-        else alert("Failed: " + res.error);
-    }
 
     return (
         <div className="space-y-6">
@@ -60,43 +51,56 @@ export default function UserAdminPage() {
                             <TableHeader>
                                 <TableRow>
                                     <TableHead>User Email</TableHead>
-                                    <TableHead>Organization</TableHead>
-                                    <TableHead>Type</TableHead>
+                                    <TableHead>Organizations / Roles</TableHead>
                                     <TableHead className="text-right">Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {users.map(u => (
-                                    <TableRow key={`${u.userId}-${u.orgId}`}>
-                                        <TableCell className="font-medium">{u.email}</TableCell>
-                                        <TableCell>{u.orgName}</TableCell>
-                                        <TableCell>
-                                            <Badge variant={u.orgType === "SYSTEM" ? "destructive" : "secondary"}>
-                                                {u.orgType}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell className="text-right flex items-center justify-end gap-2">
-                                            <Button size="sm" variant="secondary" asChild>
-                                                <Link href={`/app/admin/users/${u.userId}`}>
-                                                    <Settings className="w-4 h-4 mr-2" />
-                                                    Manage
-                                                </Link>
-                                            </Button>
-
-                                            {u.orgType !== "SYSTEM" && (
-                                                <Button size="sm" variant="outline" onClick={() => handlePromote(u.userId)}>
-                                                    <ShieldAlert className="w-4 h-4 mr-2" />
-                                                    Make Admin
+                                {users.map(u => {
+                                    const isSystemAdmin = u.memberships.some((m: any) => m.orgType === "SYSTEM");
+                                    return (
+                                        <TableRow key={u.userId}>
+                                            <TableCell className="font-medium align-top py-4">
+                                                <div className="flex flex-col gap-1">
+                                                    <div className="flex items-center gap-2">
+                                                        <User className="w-4 h-4 text-slate-400" />
+                                                        {u.email}
+                                                    </div>
+                                                    {isSystemAdmin && (
+                                                        <Badge className="w-fit text-[10px] h-5 px-1.5 bg-amber-500 hover:bg-amber-600 text-white border-none">
+                                                            Platform Admin
+                                                        </Badge>
+                                                    )}
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="align-top py-4">
+                                                <div className="space-y-2">
+                                                    {u.memberships.map((m: any, idx: number) => (
+                                                        <div key={idx} className="flex items-center gap-2 text-sm">
+                                                            <Badge
+                                                                variant={m.orgType === "SYSTEM" ? "default" : "outline"}
+                                                                className={`w-20 justify-center shrink-0 text-[10px] ${m.orgType === "SYSTEM" ? "bg-amber-500 hover:bg-amber-600 text-white border-none" : ""}`}
+                                                            >
+                                                                {m.orgType}
+                                                            </Badge>
+                                                            <span className="font-medium text-slate-700">{m.orgName}</span>
+                                                            <span className="text-slate-400 text-xs">({m.role})</span>
+                                                        </div>
+                                                    ))}
+                                                    {u.memberships.length === 0 && <span className="text-slate-400 italic">No memberships</span>}
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="text-right align-top py-4">
+                                                <Button size="sm" variant="secondary" asChild>
+                                                    <Link href={`/app/admin/users/${u.userId}`}>
+                                                        <Settings className="w-4 h-4 mr-2" />
+                                                        Manage
+                                                    </Link>
                                                 </Button>
-                                            )}
-                                            {u.orgType === "SYSTEM" && (
-                                                <span className="text-muted-foreground text-sm italic">
-                                                    (Super Admin)
-                                                </span>
-                                            )}
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
+                                            </TableCell>
+                                        </TableRow>
+                                    );
+                                })}
                             </TableBody>
                         </Table>
                     )}
