@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ArrowLeft, Mail, Shield, User, Clock, Trash2, Check } from "lucide-react";
 import Link from "next/link";
 import { format } from "date-fns";
-import { InviteMemberDialog } from "@/components/client/invite-member-dialog";
+import { InviteMemberDialog } from "./invite-member-dialog";
 import { revokeInvitation } from "@/actions/invitations";
 import { useRouter } from "next/navigation";
 import { Checkbox } from "@/components/ui/checkbox";

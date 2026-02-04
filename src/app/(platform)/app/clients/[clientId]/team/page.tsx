@@ -93,7 +93,7 @@ export default async function TeamPageWrapper({ params }: { params: Promise<{ cl
 
     // Group Invites by Email
     const inviteMap = new Map<string, any>();
-    rawInvites.forEach(inv => {
+    rawInvites.forEach((inv: any) => {
         if (!inviteMap.has(inv.email)) {
             inviteMap.set(inv.email, {
                 email: inv.email,
