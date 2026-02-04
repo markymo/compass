@@ -89,14 +89,28 @@ export default async function TeamPageWrapper({ params }: { params: Promise<{ cl
     const users = Array.from(userMap.values());
 
     // 4. Fetch Pending Invites
-    const invites = await getPendingInvitations(clientId);
+    const rawInvites = await getPendingInvitations(clientId);
+
+    // Group Invites by Email
+    const inviteMap = new Map<string, any>();
+    rawInvites.forEach(inv => {
+        if (!inviteMap.has(inv.email)) {
+            inviteMap.set(inv.email, {
+                email: inv.email,
+                items: []
+            });
+        }
+        const entry = inviteMap.get(inv.email);
+        entry.items.push(inv);
+    });
+    const groupedInvites = Array.from(inviteMap.values());
 
     return (
         <ClientTeamPage
             clientId={clientId}
             orgName={org.name}
             users={users}
-            invites={invites}
+            invites={groupedInvites}
             canManage={canManage}
             allClientLEs={allClientLEs}
         />

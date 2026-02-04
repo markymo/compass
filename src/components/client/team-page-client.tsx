@@ -102,39 +102,43 @@ export default function ClientTeamPage({
                             </CardHeader>
                             <CardContent>
                                 <div className="space-y-4">
-                                    {invites.map((inv: any) => (
-                                        <div key={inv.id} className="flex items-center justify-between p-4 border rounded-lg bg-white border-dashed">
-                                            <div>
-                                                <div className="flex items-center gap-2">
-                                                    <Mail className="h-4 w-4 text-slate-400" />
-                                                    <p className="font-medium text-slate-900">{inv.email}</p>
-                                                </div>
-                                                <div className="flex items-center gap-2 mt-2 text-xs text-slate-500">
-                                                    <Badge variant="outline" className="text-[10px]">{inv.role}</Badge>
-                                                    <span>•</span>
-                                                    <span>Sent {format(new Date(inv.createdAt), 'MMM d, yyyy')}</span>
-                                                    {inv.clientLE && (
-                                                        <>
-                                                            <span>•</span>
-                                                            <span className="flex items-center gap-1 text-amber-600">
-                                                                <Shield className="h-3 w-3" />
-                                                                {inv.clientLE.name}
-                                                            </span>
-                                                        </>
-                                                    )}
-                                                </div>
+                                    {invites.map((group: any) => (
+                                        <div key={group.email} className="p-4 border rounded-lg bg-white border-dashed">
+                                            <div className="flex items-center gap-2 mb-3">
+                                                <Mail className="h-4 w-4 text-slate-400" />
+                                                <p className="font-medium text-slate-900">{group.email}</p>
                                             </div>
-                                            {canManage && (
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                                                    onClick={() => handleRevoke(inv.id)}
-                                                    disabled={isRevoking === inv.id}
-                                                >
-                                                    {isRevoking === inv.id ? "Revoking..." : <Trash2 className="h-4 w-4" />}
-                                                </Button>
-                                            )}
+
+                                            <div className="space-y-2 pl-6 border-l-2 border-slate-100 ml-2">
+                                                {group.items.map((inv: any) => (
+                                                    <div key={inv.id} className="flex items-center justify-between text-sm">
+                                                        <div className="flex items-center gap-2">
+                                                            <Badge variant="outline" className="text-[10px]">{inv.role}</Badge>
+                                                            {inv.clientLE ? (
+                                                                <span className="flex items-center gap-1 text-amber-600 text-xs">
+                                                                    <Shield className="h-3 w-3" />
+                                                                    {inv.clientLE.name}
+                                                                </span>
+                                                            ) : (
+                                                                <span className="text-slate-500 text-xs">Organization Wide</span>
+                                                            )}
+                                                            <span className="text-xs text-slate-400">• {format(new Date(inv.createdAt), 'MMM d')}</span>
+                                                        </div>
+
+                                                        {canManage && (
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="h-6 text-red-500 hover:text-red-700 hover:bg-red-50 text-xs px-2"
+                                                                onClick={() => handleRevoke(inv.id)}
+                                                                disabled={isRevoking === inv.id}
+                                                            >
+                                                                {isRevoking === inv.id ? "..." : "Revoke"}
+                                                            </Button>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
                                         </div>
                                     ))}
                                     {invites.length === 0 && (
