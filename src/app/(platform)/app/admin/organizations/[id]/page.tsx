@@ -1,14 +1,14 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { getOrganizationDetails, addMemberToOrg, updateOrganization } from "@/actions/org";
+import { getOrganizationDetails, addMemberToOrg, updateOrganization, archiveOrganization } from "@/actions/org";
 import { getQuestionnaires, createQuestionnaire, startBackgroundExtraction } from "@/actions/questionnaire";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, ArrowLeft, UserPlus, Mail, FileText, Upload, Plus, Pen, Check, X } from "lucide-react";
+import { Loader2, ArrowLeft, UserPlus, Mail, FileText, Upload, Plus, Pen, Check, X, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -207,11 +207,35 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
                             {org.types.map((t: string) => (
                                 <Badge key={t} variant="secondary">{t}</Badge>
                             ))}
+                            {org.status === "ARCHIVED" && (
+                                <Badge variant="destructive">ARCHIVED</Badge>
+                            )}
                         </h1>
                     )}
                     <p className="text-muted-foreground text-sm">ID: {org.id}</p>
                 </div>
+
+                <div className="ml-auto">
+                    {org.status !== "ARCHIVED" && (
+                        <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={async () => {
+                                if (confirm("Are you sure you want to archive this organization? All Legal Entities will also be archived.")) {
+                                    await archiveOrganization(org.id);
+                                    loadData(org.id);
+                                    toast.success("Organization Archived");
+                                }
+                            }}
+                        >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Archive Organization
+                        </Button>
+                    )}
+                </div>
             </div>
+
+
 
             {/* Custom Tabs */}
             <div className="border-b">

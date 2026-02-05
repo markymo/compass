@@ -810,6 +810,10 @@ export async function getClientDashboardData(clientId: string) {
 
         if (directMembership && directMembership.organization) {
             // CASE A: Direct Member (Admin or Member)
+            if (directMembership.organization.status === "ARCHIVED") {
+                return { success: false, error: "This Organization has been archived." };
+            }
+
             org = directMembership.organization;
             const isOrgAdmin = directMembership.role === "ADMIN" || directMembership.role === "ORG_ADMIN";
             roleLabel = isOrgAdmin ? "Client Admin" : "Client Member";
@@ -885,6 +889,11 @@ export async function getClientDashboardData(clientId: string) {
             // org = leMemberships[0].clientLE.clientOrg;
             const contextOwner = leMemberships[0].clientLE?.owners?.[0];
             org = contextOwner?.party;
+
+            if (org?.status === "ARCHIVED") {
+                return { success: false, error: "This Organization has been archived." };
+            }
+
             roleLabel = "Restricted (LE Scope)";
 
             permissions.canCreateLE = false;

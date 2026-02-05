@@ -36,6 +36,7 @@ model Organization {
   domain         String?
   logoUrl        String?
   description    String?         @db.Text
+  status         String          @default("ACTIVE") // ACTIVE, ARCHIVED
   // clientLEs replaced by ownedLEs
   engagements    FIEngagement[]
   fiSchemas      FISchema[]

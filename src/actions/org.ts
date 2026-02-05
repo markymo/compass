@@ -131,7 +131,7 @@ export async function addMemberToOrg(orgId: string, email: string, role: "ADMIN"
 }
 
 // 5. Update Organization (Admin Only)
-export async function updateOrganization(orgId: string, data: { name?: string }) {
+export async function updateOrganization(orgId: string, data: { name?: string, status?: string }) {
     const isAdmin = await isSystemAdmin();
     if (!isAdmin) return { success: false, error: "Unauthorized" };
 
@@ -139,7 +139,8 @@ export async function updateOrganization(orgId: string, data: { name?: string })
         const org = await prisma.organization.update({
             where: { id: orgId },
             data: {
-                name: data.name
+                name: data.name,
+                status: data.status
             }
         });
         revalidatePath(`/app/admin/organizations/${orgId}`);
@@ -148,5 +149,43 @@ export async function updateOrganization(orgId: string, data: { name?: string })
     } catch (e) {
         console.error(e);
         return { success: false, error: "Failed to update organization" };
+    }
+}
+// 6. Archive Organization (Admin Only)
+export async function archiveOrganization(orgId: string) {
+    const isAdmin = await isSystemAdmin();
+    if (!isAdmin) return { success: false, error: "Unauthorized" };
+
+    try {
+        // Archive the Org
+        await prisma.organization.update({
+            where: { id: orgId },
+            data: { status: "ARCHIVED" }
+        });
+
+        // Optionally Archive all Owned LEs?
+        // Let's cascade conceptually (frontend filtering) or explicitly?
+        // Explicitly is safer for queries.
+        // Find owned LEs
+        const owned = await prisma.clientLEOwner.findMany({
+            where: { partyId: orgId, endAt: null },
+            include: { clientLE: true }
+        });
+
+        const leIds = owned.map(o => o.clientLEId);
+
+        if (leIds.length > 0) {
+            await prisma.clientLE.updateMany({
+                where: { id: { in: leIds } },
+                data: { status: "ARCHIVED" }
+            });
+        }
+
+        revalidatePath(`/app/admin/organizations/${orgId}`);
+        revalidatePath("/app/admin/organizations");
+        return { success: true };
+    } catch (e) {
+        console.error(e);
+        return { success: false, error: "Failed to archive organization" };
     }
 }
