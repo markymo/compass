@@ -26,3 +26,5 @@ console.log(`\n--- Preview of '${firstSheetName}' (Rows 10-25) ---`);
 rows.slice(10, 25).forEach((row: any, idx: number) => {
     console.log(`Row ${10 + idx}:`, JSON.stringify(row));
 });
+
+export { };
