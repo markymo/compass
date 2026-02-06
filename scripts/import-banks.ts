@@ -1,8 +1,8 @@
 
-const XLSX = require('xlsx');
-const { PrismaClient } = require('@prisma/client');
-const path = require('path');
-const fs = require('fs');
+import * as XLSX from 'xlsx';
+import { PrismaClient } from '@prisma/client';
+import path from 'path';
+import fs from 'fs';
 
 const prisma = new PrismaClient();
 
@@ -118,7 +118,7 @@ async function upsertBank(rawName: string, region: "uk" | "eu", data: any, statC
 
     if (existing) {
         // Update Metadata
-        const currentMeta: any = existing.metadata || {};
+        const currentMeta: any = (existing as any).metadata || {};
         const leagueTable = currentMeta.leagueTable || {};
 
         leagueTable[region] = data;
@@ -126,7 +126,7 @@ async function upsertBank(rawName: string, region: "uk" | "eu", data: any, statC
         await prisma.organization.update({
             where: { id: existing.id },
             data: {
-                metadata: { ...currentMeta, leagueTable }
+                metadata: { ...currentMeta, leagueTable } as any
             }
         });
         statCounter.updated++;
@@ -141,7 +141,7 @@ async function upsertBank(rawName: string, region: "uk" | "eu", data: any, statC
                 name: cleanName,
                 types: ["FI"], // Assume Financial Institution
                 status: "ACTIVE",
-                metadata: { leagueTable }
+                metadata: { leagueTable } as any
             }
         });
         statCounter.created++;
