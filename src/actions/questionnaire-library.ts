@@ -2,15 +2,16 @@
 "use server";
 
 import prisma from "@/lib/prisma";
-import { auth } from "@clerk/nextjs/server";
+import { getIdentity } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { extractDetailedContent } from "@/actions/questionnaire";
 import { isSystemAdmin } from "@/actions/security";
 
 // 1. Get questionnaires already in the LE's library
 export async function getLibraryEngagements(leId: string) {
-    const { userId } = await auth();
-    if (!userId) return { success: false, error: "Unauthorized" };
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+    const { userId } = identity;
 
     try {
         const engagements = await prisma.fIEngagement.findMany({
@@ -32,8 +33,9 @@ export async function getLibraryEngagements(leId: string) {
 
 // 2. Search for all active questionnaires in the system
 export async function searchAvailableQuestionnaires(query: string) {
-    const { userId } = await auth();
-    if (!userId) return { success: false, error: "Unauthorized" };
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+    const { userId } = identity;
 
     try {
         const isSysAdmin = await isSystemAdmin();
@@ -82,8 +84,9 @@ export async function searchAvailableQuestionnaires(query: string) {
 
 // 3. Link a questionnaire to an LE (Preparation Mode)
 export async function linkQuestionnaireToLE(leId: string, questionnaireId: string) {
-    const { userId } = await auth();
-    if (!userId) return { success: false, error: "Unauthorized" };
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+    const { userId } = identity;
 
     try {
         const questionnaire = await prisma.questionnaire.findUnique({
@@ -125,8 +128,9 @@ export async function linkQuestionnaireToLE(leId: string, questionnaireId: strin
 
 // 4. Client Upload: Find/Create FI, Create Questionnaire, then link
 export async function uploadClientQuestionnaire(leId: string, fiName: string, formData: FormData) {
-    const { userId } = await auth();
-    if (!userId) return { success: false, error: "Unauthorized" };
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+    const { userId } = identity;
 
     const file = formData.get("file") as File;
     const questionnaireName = formData.get("name") as string || file.name;
@@ -202,8 +206,9 @@ export async function getFIs() {
 
 // 6. Remove (Unlink) a questionnaire from an LE
 export async function removeQuestionnaireFromLibrary(leId: string, questionnaireId: string) {
-    const { userId } = await auth();
-    if (!userId) return { success: false, error: "Unauthorized" };
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+    const { userId } = identity;
 
     try {
         const questionnaire = await prisma.questionnaire.findUnique({

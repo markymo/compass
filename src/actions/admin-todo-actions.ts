@@ -1,6 +1,6 @@
 "use server"
 
-import { auth } from "@clerk/nextjs/server";
+import { getIdentity } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { AdminTodoStatus } from "@prisma/client";
 import { revalidatePath } from "next/cache";
@@ -9,8 +9,9 @@ import { revalidatePath } from "next/cache";
  * Fetch all admin todos
  */
 export async function getAdminTodos() {
-    const { userId } = await auth();
-    if (!userId) return []; // Require auth
+    const identity = await getIdentity();
+    if (!identity?.userId) return []; // Require auth
+    const { userId } = identity;
 
     // In a real app, check for 'ADMIN' role here.
 
@@ -68,8 +69,9 @@ export async function getAdminTodos() {
  * Create a new admin todo
  */
 export async function createAdminTodo(data: { title: string; description?: string; dueDate?: Date; assignedToUserId?: string; status?: AdminTodoStatus }) {
-    const { userId } = await auth();
-    if (!userId) return { success: false, error: "Unauthorized" };
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+    const { userId } = identity;
 
     try {
         const todo = await prisma.adminTodo.create({
@@ -95,8 +97,9 @@ export async function createAdminTodo(data: { title: string; description?: strin
  * Update todo status (Drag and Drop)
  */
 export async function updateAdminTodoStatus(id: string, status: AdminTodoStatus) {
-    const { userId } = await auth();
-    if (!userId) return { success: false, error: "Unauthorized" };
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+    const { userId } = identity;
 
     try {
         await prisma.adminTodo.update({
@@ -116,8 +119,9 @@ export async function updateAdminTodoStatus(id: string, status: AdminTodoStatus)
  * Update todo details
  */
 export async function updateAdminTodo(id: string, data: { title?: string; description?: string; dueDate?: Date; assignedToUserId?: string }) {
-    const { userId } = await auth();
-    if (!userId) return { success: false, error: "Unauthorized" };
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+    const { userId } = identity;
 
     try {
         await prisma.adminTodo.update({
@@ -139,8 +143,9 @@ export async function updateAdminTodo(id: string, data: { title?: string; descri
  * Add comment
  */
 export async function addAdminTodoComment(todoId: string, text: string) {
-    const { userId } = await auth();
-    if (!userId) return { success: false, error: "Unauthorized" };
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+    const { userId } = identity;
 
     try {
         const comment = await prisma.adminTodoComment.create({
@@ -173,8 +178,9 @@ export async function addAdminTodoComment(todoId: string, text: string) {
  * Get all system admins for assignment lookup
  */
 export async function getSystemAdmins() {
-    const { userId } = await auth();
-    if (!userId) return [];
+    const identity = await getIdentity();
+    if (!identity?.userId) return [];
+    const { userId } = identity;
 
     try {
         // 1. Find the System Admin Organization
@@ -223,8 +229,9 @@ export async function getSystemAdmins() {
  * Soft delete a todo
  */
 export async function deleteAdminTodo(id: string) {
-    const { userId } = await auth();
-    if (!userId) return { success: false, error: "Unauthorized" };
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+    const { userId } = identity;
 
     try {
         await prisma.adminTodo.update({
@@ -244,8 +251,9 @@ export async function deleteAdminTodo(id: string) {
  * Archive a todo
  */
 export async function archiveAdminTodo(id: string) {
-    const { userId } = await auth();
-    if (!userId) return { success: false, error: "Unauthorized" };
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+    const { userId } = identity;
 
     try {
         await prisma.adminTodo.update({

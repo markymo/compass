@@ -1,4 +1,5 @@
-import { getClientLEData, getDashboardMetrics } from "@/actions/client";
+import { getClientLEData, getDashboardMetrics, checkIsSystemAdmin } from "@/actions/client";
+import { getIdentity } from "@/lib/auth";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ChevronRight, LayoutDashboard, Library, Database, Table as TableIcon, RefreshCcw, Check, Building2, ArrowUpRight, Home, Briefcase, Globe } from "lucide-react";
@@ -31,6 +32,10 @@ export default async function LEDashboardPage({ params }: { params: Promise<{ id
 
     const { le } = data;
 
+    // Check for System Admin Permission
+    const identity = await getIdentity();
+    const isSystemAdmin = identity?.userId ? await checkIsSystemAdmin(identity.userId) : false;
+
     return (
         <div className="flex flex-col min-h-screen">
             <GuideHeader
@@ -39,7 +44,7 @@ export default async function LEDashboardPage({ params }: { params: Promise<{ id
                     { label: (le as any).owners?.[0]?.party?.name || "Client", href: `/app/clients/${(le as any).owners?.[0]?.partyId}`, icon: Building2 },
                     { label: le.name, icon: Briefcase }
                 ]}
-                actions={<ClientLEActions leId={le.id} leName={le.name} />}
+                actions={<ClientLEActions leId={le.id} leName={le.name} isSystemAdmin={isSystemAdmin} />}
             />
             <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in duration-500 p-8 w-full">
 
@@ -105,7 +110,10 @@ export default async function LEDashboardPage({ params }: { params: Promise<{ id
 
                         <TabsContent value="gleif" className="m-0 bg-transparent py-6">
                             <GleifTab
-                                data={(le as any).gleifData}
+                                data={{
+                                    ...(le as any).gleifData,
+                                    nationalRegistryData: (le as any).nationalRegistryData
+                                }}
                                 fetchedAt={(le as any).gleifFetchedAt}
                             />
                         </TabsContent>

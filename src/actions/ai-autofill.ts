@@ -1,7 +1,7 @@
 "use server";
 
 import prisma from "@/lib/prisma";
-import { auth } from "@clerk/nextjs/server";
+import { getIdentity } from "@/lib/auth";
 import { generateObject } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
 import { z } from 'zod';
@@ -212,8 +212,9 @@ export async function learnFromAnswer(clientLEId: string, questionText: string, 
 export async function generateAnswers(leId: string, questionnaireId: string, lockedQuestionIds: number[] = []): Promise<{ success: boolean; data?: SuggestedAnswer[]; debugMessages?: any[]; error?: string }> {
     logToFile(`[generateAnswers] START for LE ${leId}, Q ${questionnaireId} (Locked: ${lockedQuestionIds.length})`);
 
-    const { userId } = await auth();
-    if (!userId) return { success: false, error: "Unauthorized" };
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+    const { userId } = identity;
 
     try {
         // 1. Fetch Standing Data for the Client LE
@@ -228,23 +229,27 @@ export async function generateAnswers(leId: string, questionnaireId: string, loc
             return { success: false, error: "No Standing Data found. Please fill out your Knowledge Base first." };
         }
 
-        // 1b. Fetch Registry Data (GLEIF)
+        // 1b. Fetch Registry Data (GLEIF + National)
         const le = await prisma.clientLE.findUnique({
             where: { id: leId },
-            select: { lei: true, gleifData: true }
+            // @ts-ignore
+            select: { lei: true, gleifData: true, nationalRegistryData: true }
         });
 
         let contextText = standingDataSections.map(section =>
             `SECTION: ${section.category}\nCONTENT:\n${section.content}\n`
         ).join("\n---\n");
 
+        let registryContext = "";
+
+        // A. GLEIF Data
         if (le?.gleifData) {
             const gd: any = le.gleifData;
             const attributes = gd.attributes || {};
             const entity = attributes.entity || {};
             const reg = attributes.registration || {};
 
-            const registryContext = `
+            registryContext += `
 --- OFFICIAL REGISTRY DATA (GLEIF) ---
 LEI: ${le.lei}
 Legal Name: ${entity.legalName?.name}
@@ -255,8 +260,34 @@ HQ Address: ${entity.headquartersAddress?.addressLines?.join(", ")}, ${entity.he
 Registration Status: ${reg.status}
 Initial Registration: ${reg.initialRegistrationDate}
 Next Renewal: ${reg.nextRenewalDate}
----------------------------------------
 `;
+        }
+
+        // B. National Registry Data (Companies House)
+        // @ts-ignore
+        if (le?.nationalRegistryData) {
+            // @ts-ignore
+            const nd: any = le.nationalRegistryData;
+            if (nd.officers && Array.isArray(nd.officers)) {
+                const activeOfficers = nd.officers.map((o: any) => {
+                    const status = o.resigned_on ? `Resigned (${o.resigned_on})` : "Active";
+                    const dob = o.date_of_birth ? `${o.date_of_birth.month}/${o.date_of_birth.year}` : "N/A";
+                    return `- ${o.name} (${o.officer_role}) [Status: ${status}] [Born: ${dob}] [Appointed: ${o.appointed_on}]`;
+                }).join("\n");
+
+                registryContext += `
+--- NATIONAL REGISTRY DATA (Companies House) ---
+Source: ${nd.source || "Official Registry"}
+Company Number: ${nd.company_number || "N/A"}
+
+DIRECTORS / OFFICERS:
+${activeOfficers}
+`;
+            }
+        }
+
+        if (registryContext) {
+            registryContext += "\n---------------------------------------\n";
             contextText = registryContext + "\n" + contextText;
         }
 

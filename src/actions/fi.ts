@@ -1,7 +1,7 @@
 "use server";
 
 import prisma from "@/lib/prisma";
-import { auth } from "@clerk/nextjs/server";
+import { getIdentity } from "@/lib/auth";
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 
@@ -18,8 +18,9 @@ export async function getFIs() {
 
 // 2. Create an FI (Helper)
 export async function createFI(name: string) {
-    const { userId } = await auth();
-    if (!userId) return { success: false, error: "Unauthorized" };
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+    const { userId } = identity;
 
     const fi = await prisma.organization.create({
         data: {
@@ -67,7 +68,8 @@ export async function saveFIMapping(fiOrgId: string, mapping: any[]) {
 // Check if current user belongs to an FI
 // Check if current user belongs to an FI
 export async function getFIOganization(fiOrgId?: string) {
-    const { userId } = await auth();
+    const identity = await getIdentity();
+    const userId = identity?.userId;
     if (!userId) return null;
 
     if (fiOrgId) {
@@ -116,8 +118,9 @@ export async function isFIUser() {
 // Create a new Questionnaire (Draft)
 // Create a new Questionnaire (Draft)
 export async function uploadQuestionnaire(formData: FormData) {
-    const { userId } = await auth();
-    if (!userId) return { success: false, error: "Unauthorized" };
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+    const { userId } = identity;
 
     let orgId = formData.get("fiOrgId") as string;
 
@@ -189,8 +192,9 @@ export async function getFIQuestionnaires() {
 // 1. Get Dashboard Overview Stats
 // 1. Get Dashboard Overview Stats
 export async function getFIDashboardStats(fiOrgId?: string) {
-    const { userId } = await auth();
-    if (!userId) return null;
+    const identity = await getIdentity();
+    if (!identity?.userId) return null;
+    const { userId } = identity;
 
     let targetFiOrgIds: string[] = [];
 
@@ -253,8 +257,9 @@ export type ApplicationEngagement = Prisma.FIEngagementGetPayload<{
 };
 
 export async function getFIEngagements(fiOrgId?: string): Promise<ApplicationEngagement[]> {
-    const { userId } = await auth();
-    if (!userId) return [];
+    const identity = await getIdentity();
+    if (!identity?.userId) return [];
+    const { userId } = identity;
 
     let targetFiOrgIds: string[] = [];
 
@@ -311,8 +316,9 @@ export async function getFIEngagements(fiOrgId?: string): Promise<ApplicationEng
 
 // 2.b Get Questions for Dashboard (Kanban Items)
 export async function getFIDashboardQuestions(filters?: { clientLEId?: string; questionnaireName?: string; fiOrgId?: string }) {
-    const { userId } = await auth();
-    if (!userId) return [];
+    const identity = await getIdentity();
+    if (!identity?.userId) return [];
+    const { userId } = identity;
 
     let targetFiOrgIds: string[] = [];
 
@@ -365,8 +371,9 @@ export async function getFIDashboardQuestions(filters?: { clientLEId?: string; q
 
 // 3. Get Query Inbox
 export async function getFIQueries() {
-    const { userId } = await auth();
-    if (!userId) return [];
+    const identity = await getIdentity();
+    if (!identity?.userId) return [];
+    const { userId } = identity;
 
     const memberships = await prisma.membership.findMany({
         where: { userId, organization: { types: { has: "FI" } }, organizationId: { not: null } },
@@ -390,8 +397,9 @@ export async function getFIQueries() {
 }
 // 4. Get Single Engagement by ID
 export async function getFIEngagementById(id: string): Promise<ApplicationEngagement | null> {
-    const { userId } = await auth();
-    if (!userId) return null;
+    const identity = await getIdentity();
+    if (!identity?.userId) return null;
+    const { userId } = identity;
 
     // 1. Get all Org IDs where I am a member
     const myMemberships = await prisma.membership.findMany({
@@ -441,8 +449,9 @@ export async function getFIEngagementById(id: string): Promise<ApplicationEngage
 // 5. Assign Questionnaire to Engagement (Deep Clone / Snapshot)
 // 5. Assign Questionnaire to Engagement (Deep Clone / Snapshot)
 export async function assignQuestionnaireToEngagement(engagementId: string, templateId: string) {
-    const { userId } = await auth();
-    if (!userId) return { success: false, error: "Unauthorized" };
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+    const { userId } = identity;
 
     // Derive Org from Engagement
     const engagement = await prisma.fIEngagement.findUnique({
@@ -508,8 +517,9 @@ export async function assignQuestionnaireToEngagement(engagementId: string, temp
 // 6. Archive / Delete Engagement
 // 6. Delete Engagement
 export async function deleteEngagement(id: string) {
-    const { userId } = await auth();
-    if (!userId) return { success: false, error: "Unauthorized" };
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+    const { userId } = identity;
 
     const engagement = await prisma.fIEngagement.findUnique({ where: { id }, select: { fiOrgId: true } });
     if (!engagement) return { success: false, error: "Not found" };
@@ -538,8 +548,9 @@ export async function deleteEngagement(id: string) {
 }
 
 export async function archiveEngagement(id: string) {
-    const { userId } = await auth();
-    if (!userId) return { success: false, error: "Unauthorized" };
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+    const { userId } = identity;
 
     const engagement = await prisma.fIEngagement.findUnique({ where: { id }, select: { fiOrgId: true } });
     if (!engagement) return { success: false, error: "Not found" };

@@ -1,6 +1,6 @@
 "use server"
 
-import { auth } from "@clerk/nextjs/server";
+import { getIdentity } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { QuestionStatus } from "@prisma/client";
 import { revalidatePath } from "next/cache";
@@ -11,8 +11,9 @@ import { generateAIAnswers, learnFromAnswer } from "./ai-autofill";
  * This effectively "Instantiates" the questionnaire for the Kanban board.
  */
 export async function populateQuestionsFromExtraction(questionnaireId: string) {
-    const { userId } = await auth();
-    if (!userId) return { success: false, error: "Unauthorized" };
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+    const { userId } = identity;
 
     const questionnaire = await prisma.questionnaire.findUnique({
         where: { id: questionnaireId },
@@ -79,8 +80,9 @@ export async function populateQuestionsFromExtraction(questionnaireId: string) {
  * Fetch all questions for a given Engagement (aggregating all linked questionnaires)
  */
 export async function getBoardQuestions(engagementId: string) {
-    const { userId } = await auth();
-    if (!userId) return []; // Security: Add Org check later
+    const identity = await getIdentity();
+    if (!identity?.userId) return []; // Security: Add Org check later
+    const { userId } = identity;
 
     const questions = await prisma.question.findMany({
         where: {
@@ -150,8 +152,9 @@ export async function getBoardQuestions(engagementId: string) {
  * Update a question's status (Drag and Drop persistence)
  */
 export async function updateQuestionStatus(questionId: string, newStatus: QuestionStatus) {
-    const { userId } = await auth();
-    if (!userId) return { success: false };
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false };
+    const { userId } = identity;
 
     try {
         await prisma.question.update({
@@ -168,8 +171,9 @@ export async function updateQuestionStatus(questionId: string, newStatus: Questi
  * Instantiate a questionnaire for an engagement (Clone Template from DB)
  */
 export async function instantiateQuestionnaire(templateId: string, engagementId: string, name: string) {
-    const { userId } = await auth();
-    if (!userId) return { success: false, error: "Unauthorized" };
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+    const { userId } = identity;
 
     try {
         // 1. Fetch Template from DB
@@ -217,8 +221,9 @@ export async function instantiateQuestionnaire(templateId: string, engagementId:
  * Update a question's answer
  */
 export async function updateAnswer(questionId: string, answer: string) {
-    const { userId } = await auth();
-    if (!userId) return { success: false, error: "Unauthorized" };
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+    const { userId } = identity;
 
     try {
         await prisma.question.update({
@@ -288,8 +293,9 @@ export async function updateAnswer(questionId: string, answer: string) {
  * Toggle lock status
  */
 export async function toggleQuestionLock(questionId: string, isLocked: boolean) {
-    const { userId } = await auth();
-    if (!userId) return { success: false, error: "Unauthorized" };
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+    const { userId } = identity;
 
     try {
         // Explicitly typing the update payload to bypass transient TS errors
@@ -333,8 +339,9 @@ export async function toggleQuestionLock(questionId: string, isLocked: boolean) 
  * Generate a single question answer (Mock AI)
  */
 export async function generateSingleQuestionAnswer(questionId: string) {
-    const { userId } = await auth();
-    if (!userId) return { success: false, error: "Unauthorized" };
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+    const { userId } = identity;
 
     // In future: Fetch question -> Vector DB Lookup -> LLM Synthesis
     // For now: Return a "smart" mock answer
@@ -475,11 +482,12 @@ Next Renewal: ${reg.nextRenewalDate}
  * Add a comment to a question
  */
 export async function addComment(questionId: string, text: string) {
-    const { userId } = await auth();
+    const identity = await getIdentity();
     // Fetch name for UI
-    const user = await prisma.user.findUnique({ where: { id: userId! } });
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+    const { userId } = identity;
 
-    if (!userId || !user) return { success: false, error: "Unauthorized" };
+    const user = await prisma.user.findUnique({ where: { id: userId } });
 
     try {
         const comment = await prisma.comment.create({
@@ -512,8 +520,9 @@ export async function addComment(questionId: string, text: string) {
  * Batch generate answers for an entire engagement
  */
 export async function generateEngagementAnswers(engagementId: string) {
-    const { userId } = await auth();
-    if (!userId) return { success: false, error: "Unauthorized" };
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+    const { userId } = identity;
 
     try {
         // 1. Fetch Engagement + Questions + ClientLE
@@ -617,8 +626,9 @@ export async function generateEngagementAnswers(engagementId: string) {
  * Fetch all team members (Active & Pending) for a Client LE
  */
 export async function getLETeamMembers(clientLEId: string) {
-    const { userId } = await auth();
-    if (!userId) return { success: false, error: "Unauthorized" };
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+    const { userId } = identity;
 
     try {
         // 1. Fetch Active Memberships
@@ -661,8 +671,9 @@ export async function getLETeamMembers(clientLEId: string) {
  * Assign a question to a user or invitee
  */
 export async function assignQuestion(questionId: string, assignee: { userId?: string, email?: string } | null) {
-    const { userId: actorId } = await auth();
-    if (!actorId) return { success: false, error: "Unauthorized" };
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+    const { userId: actorId } = identity;
 
     try {
         const question = await prisma.question.update({

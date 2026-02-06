@@ -37,3 +37,20 @@ We utilize a custom Role-Based Access Control (RBAC) system, not Clerk's roles.
 ### Potential Improvements
 -   **Webhooks**: If we need to trigger actions immediately upon sign-up (e.g., sending a welcome email *before* they log in), we may need to implement Clerk Webhooks (`user.created`).
 -   **Middleware**: Re-evaluating global middleware for stricter edge-level route protection.
+
+## 3. Password Management (Credentials Auth)
+
+Passwords in the database are hashed using `bcrypt` and cannot be read or updated with plain text directly via SQL.
+
+### Resetting a Password manually
+
+Use the provided utility script to securely hash and update a user's password:
+
+```bash
+node scripts/set-password.js <email> <new-password>
+```
+
+**Example:**
+```bash
+node scripts/set-password.js mark@example.com MyNewPass123!
+```

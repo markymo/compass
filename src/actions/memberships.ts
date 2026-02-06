@@ -1,7 +1,7 @@
 "use server";
 
 import prisma from "@/lib/prisma";
-import { auth } from "@clerk/nextjs/server";
+import { getIdentity } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 
 export type UpdatePermissionData = {
@@ -12,8 +12,9 @@ export type UpdatePermissionData = {
 };
 
 export async function updateUserPermission(data: UpdatePermissionData) {
-    const { userId } = await auth();
-    if (!userId) return { success: false, error: "Unauthorized" };
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+    const { userId } = identity;
 
     // 1. Authorization Check (Can current user manage credentials?)
     // Basic Rule: Must be ORG_ADMIN of the owning Org to change permissions.

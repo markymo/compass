@@ -4,13 +4,14 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { CheckCircle2, AlertCircle, Building2, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { auth } from "@clerk/nextjs/server";
+import { getIdentity } from "@/lib/auth";
 import { Badge } from "@/components/ui/badge";
 
 // This is a Public Page (outside (platform) layout)
 export default async function InvitationPage({ params }: { params: { token: string } }) {
     const { token } = await params;
-    const { userId } = await auth();
+    const identity = await getIdentity();
+    const userId = identity?.userId;
 
     // 1. validate token via action (dry run)
     // We can't really "dry run" nicely without a specific read-only method or reusing logic.

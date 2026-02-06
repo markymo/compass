@@ -5,7 +5,7 @@ import { EngagementStatus } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { ExtractedItem } from "./ai-mapper"; // Importing type
 import { MasterSchemaDefinition } from "@/types/schema";
-import { auth } from "@clerk/nextjs/server";
+import { getIdentity } from "@/lib/auth";
 
 export async function createLegalEntity(data: { name: string; jurisdiction: string; clientOrgId: string }) {
     if (!data.name || !data.clientOrgId) {
@@ -278,8 +278,9 @@ export async function getStandingData(clientLEId: string) {
 }
 
 export async function getEngagementDetails(engagementId: string) {
-    const { userId } = await auth();
-    if (!userId) return { success: false, error: "Unauthorized" };
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+    const { userId } = identity;
 
     try {
         const engagement = await prisma.fIEngagement.findUnique({
@@ -343,8 +344,9 @@ export async function getEngagementDetails(engagementId: string) {
 }
 
 export async function createFIEngagement(clientLEId: string, fiName: string) {
-    const { userId } = await auth();
-    if (!userId) return { success: false, error: "Unauthorized" };
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+    const { userId } = identity;
 
     try {
         // 1. Find or Create the Organization for the FI

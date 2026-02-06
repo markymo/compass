@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { createClientLE } from "@/actions/client";
 import { useRouter } from "next/navigation";
 import { LEILookup } from "./lei-lookup";
+import { toast } from "sonner";
 
 export function CreateLEDialog({ orgId }: { orgId?: string }) {
     const router = useRouter();
@@ -29,27 +30,36 @@ export function CreateLEDialog({ orgId }: { orgId?: string }) {
     async function handleCreate() {
         if (!name || !jurisdiction) return;
         setLoading(true);
-        // Pass the explicitOrgId if available
-        const res = await createClientLE({
-            name,
-            jurisdiction,
-            explicitOrgId: orgId,
-            lei: lei || undefined,
-            gleifData: gleifData || undefined
-        });
-        setLoading(false);
+        try {
+            const res = await createClientLE({
+                name,
+                jurisdiction,
+                explicitOrgId: orgId,
+                lei: lei || undefined,
+                gleifData: gleifData || undefined
+            });
 
-        if (res.success) {
-            setOpen(false);
-            setName("");
-            setOpen(false);
-            setName("");
-            setJurisdiction("");
-            setLei("");
-            setGleifData(null);
-            router.refresh();
-        } else {
-            alert("Error creating entity");
+            if (res.success) {
+                setOpen(false);
+                setName("");
+                setJurisdiction("");
+                setLei("");
+                setGleifData(null);
+
+                if (res.message) {
+                    toast.info(res.message); // Informational toast for linking
+                } else {
+                    toast.success("Legal Entity created successfully");
+                }
+
+                router.refresh();
+            } else {
+                toast.error(res.error || "Failed to create entity");
+            }
+        } catch (error) {
+            toast.error("An unexpected error occurred");
+        } finally {
+            setLoading(false);
         }
     }
 

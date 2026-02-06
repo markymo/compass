@@ -1,6 +1,6 @@
 "use server"
 
-import { auth } from "@clerk/nextjs/server";
+import { getIdentity } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 
 /**
@@ -9,9 +9,10 @@ import prisma from "@/lib/prisma";
  */
 export async function logActivity(action: string, path: string, details?: any) {
     try {
-        const { userId } = await auth();
+        const identity = await getIdentity();
         // We only track authenticated users per requirements
-        if (!userId) return;
+        if (!identity?.userId) return;
+        const { userId } = identity;
 
         await prisma.usageLog.create({
             data: {

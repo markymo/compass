@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Compass } from "lucide-react";
-import { SignedIn, SignedOut } from "@clerk/nextjs";
+import { useSession } from "next-auth/react";
 
 export function Navbar() {
+    const { data: session } = useSession();
     return (
         <header className="fixed top-0 left-0 right-0 z-50 border-b border-slate-200 bg-white/80 backdrop-blur-xl">
             <div className="container mx-auto flex h-20 items-center justify-between px-4 md:px-6">
@@ -40,23 +41,24 @@ export function Navbar() {
                 </nav>
 
                 <div className="flex items-center gap-4">
-                    <SignedOut>
-                        <Link href="/login" className="hidden text-sm font-medium text-slate-900 transition-colors hover:text-slate-700 md:block">
-                            Sign In
-                        </Link>
-                        <Button asChild variant="premium" size="sm">
-                            <Link href="/login">
-                                Get Started
+                    {!session ? (
+                        <>
+                            <Link href="/login" className="hidden text-sm font-medium text-slate-900 transition-colors hover:text-slate-700 md:block">
+                                Sign In
                             </Link>
-                        </Button>
-                    </SignedOut>
-                    <SignedIn>
+                            <Button asChild variant="premium" size="sm">
+                                <Link href="/login">
+                                    Get Started
+                                </Link>
+                            </Button>
+                        </>
+                    ) : (
                         <Button asChild variant="premium" size="sm">
                             <Link href="/app">
                                 Go to App
                             </Link>
                         </Button>
-                    </SignedIn>
+                    )}
                 </div>
             </div>
         </header>

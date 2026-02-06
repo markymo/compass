@@ -1,4 +1,4 @@
-import { auth } from "@clerk/nextjs/server";
+import { getIdentity } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import ClientTeamPage from "@/components/client/team-page-client";
 import { getPendingInvitations } from "@/actions/invitations";
@@ -7,7 +7,8 @@ import { notFound } from "next/navigation";
 export default async function TeamPageWrapper({ params }: { params: Promise<{ clientId: string }> }) {
     // Await params for Next.js 15 compatibility
     const { clientId } = await params;
-    const { userId } = await auth();
+    const identity = await getIdentity();
+    const userId = identity?.userId;
 
     if (!userId) return <div>Unauthorized</div>;
 

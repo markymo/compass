@@ -1,12 +1,13 @@
 "use server";
 
-import { auth } from "@clerk/nextjs/server";
+import { getIdentity } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 
 export async function getStandingDataSections(leId: string) {
-    const { userId } = await auth();
-    if (!userId) return { success: false, error: "Unauthorized" };
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+    const { userId } = identity;
 
     try {
         const sections = await prisma.standingDataSection.findMany({
@@ -58,8 +59,9 @@ export async function getStandingDataSections(leId: string) {
 }
 
 export async function updateStandingDataSection(leId: string, category: string, content: string) {
-    const { userId } = await auth();
-    if (!userId) return { success: false, error: "Unauthorized" };
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+    const { userId } = identity;
 
     try {
         const section = await prisma.standingDataSection.upsert({

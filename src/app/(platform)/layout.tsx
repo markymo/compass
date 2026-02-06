@@ -1,5 +1,4 @@
-import { UserButton } from "@clerk/nextjs";
-import { auth } from "@clerk/nextjs/server";
+import { getIdentity } from "@/lib/auth";
 import { ensureUserOrg, checkIsSystemAdmin } from "@/actions/client";
 import { Badge } from "@/components/ui/badge";
 import { PlatformNavbar } from "@/components/layout/PlatformNavbar";
@@ -10,13 +9,14 @@ export default async function PlatformLayout({
 }: {
     children: React.ReactNode;
 }) {
-    const { userId, sessionClaims } = await auth();
+    const identity = await getIdentity();
+    const userId = identity?.userId;
     let orgName = "";
     let orgTypes: string[] = [];
     let isSystemAdmin = false;
 
     if (userId) {
-        const email = (sessionClaims?.email as string) || "";
+        const email = identity?.email || "";
 
         // Ensure user record exists & sync email
         // We ignore the returned org as we operate in global context

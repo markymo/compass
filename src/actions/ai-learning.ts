@@ -1,7 +1,7 @@
 "use server";
 
 import prisma from "@/lib/prisma";
-import { auth } from "@clerk/nextjs/server";
+import { getIdentity } from "@/lib/auth";
 import { generateObject } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
 import { z } from 'zod';
@@ -42,7 +42,8 @@ function logToFile(msg: string, data?: any) {
 export async function learnFromAnswers(leId: string, qaPairs: QAPair[]): Promise<{ success: boolean; count?: number; error?: string }> {
     logToFile(`[learnFromAnswers] Called for LE ${leId} with ${qaPairs.length} pairs`);
 
-    const { userId } = await auth();
+    const identity = await getIdentity();
+    const userId = identity?.userId;
     if (!userId) {
         logToFile("[learnFromAnswers] Unauthorized");
         return { success: false, error: "Unauthorized" };

@@ -1,7 +1,7 @@
 "use server";
 
 import prisma from "@/lib/prisma";
-import { auth, currentUser } from "@clerk/nextjs/server";
+import { getIdentity } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { can, Action, UserWithMemberships } from "@/lib/auth/permissions";
 
@@ -9,8 +9,9 @@ import { cookies } from "next/headers";
 
 // --- Authorization Helper ---
 async function ensureAuthorization(action: Action, context: { partyId?: string, clientLEId?: string, engagementId?: string }) {
-    const { userId } = await auth();
-    if (!userId) throw new Error("Unauthorized: No User");
+    const identity = await getIdentity();
+    if (!identity?.userId) throw new Error("Unauthorized: No User");
+    const { userId } = identity;
 
     // Fetch User with Memberships (reusing simple fetch for now, similar to ensureUserOrg but raw)
     const memberships = await prisma.membership.findMany({
@@ -35,12 +36,10 @@ async function ensureAuthorization(action: Action, context: { partyId?: string, 
 
 // Helper to get or create the user's Client Organization
 export async function ensureUserOrg(userId: string, userEmail: string = "") {
-    // 0. Fallback: If email is missing (failed session claim), fetch from Clerk directly
-    if (!userEmail || userEmail === "unknown@demo.com") {
-        const clerkUser = await currentUser();
-        if (clerkUser?.emailAddresses?.[0]) {
-            userEmail = clerkUser.emailAddresses[0].emailAddress;
-        }
+    // 0. Fallback: If email is missing, we rely on what was passed or DB.
+    // Clerk fallback removed.
+    if (!userEmail) {
+        // We could fetch from DB if needed, but usually getIdentity provides it.
     }
 
     // 1. Self-Heal Email (if we have a better one now)
@@ -178,8 +177,9 @@ export async function checkIsSystemAdmin(userId: string) {
 }
 
 export async function getUserOrganizations() {
-    const { userId } = await auth();
-    if (!userId) return [];
+    const identity = await getIdentity();
+    if (!identity?.userId) return [];
+    const { userId } = identity;
 
     const memberships = await prisma.membership.findMany({
         where: { userId, organizationId: { not: null } },
@@ -199,12 +199,12 @@ export async function getUserOrganizations() {
 
 // 1. Get List of Client LEs with Dashboard Data
 export async function getClientLEs(explicitOrgId?: string) {
-    const { userId, sessionClaims } = await auth();
-    if (!userId) return [];
+    const identity = await getIdentity();
+    if (!identity?.userId) return [];
+    const { userId, email } = identity;
 
     // Ensure user record exists (and email is synced)
-    const email = (sessionClaims?.email as string) || "";
-    await ensureUserOrg(userId, email);
+    await ensureUserOrg(userId, email || "");
 
     // 1. Get all organizations where user is a MEMBER or ADMIN
     const memberships = await prisma.membership.findMany({
@@ -265,8 +265,9 @@ export async function getClientLEs(explicitOrgId?: string) {
 
 // 2. Create a new LE
 export async function createClientLE(data: { name: string; jurisdiction: string; explicitOrgId?: string; lei?: string; gleifData?: any }) {
-    const { userId, sessionClaims } = await auth();
-    if (!userId) return { success: false, error: "Unauthorized" };
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+    const { userId } = identity;
 
     let targetOrgId = data.explicitOrgId;
 
@@ -322,14 +323,101 @@ export async function createClientLE(data: { name: string; jurisdiction: string;
         return { success: false, error: "Unauthorized: You do not have permission to create Legal Entities for this Organization." };
     }
 
+    // --- Check if LEI already exists ---
+    if (data.lei) {
+        const existingLE = await prisma.clientLE.findUnique({
+            where: { lei: data.lei }
+        });
+
+        if (existingLE) {
+            console.log(`[createClientLE] LEI collision for ${data.lei}. Checking status...`);
+
+            // --- Case A: Entity is Soft Deleted (Resurrect It) ---
+            if (existingLE.isDeleted) {
+                console.log(`[createClientLE] Entity ${existingLE.id} is deleted. Resurrecting...`);
+
+                // 1. Un-delete the LE
+                await prisma.clientLE.update({
+                    where: { id: existingLE.id },
+                    data: { isDeleted: false, status: "ACTIVE" }
+                });
+
+                // 2. Ensure Ownership
+                const existingOwner = await prisma.clientLEOwner.findFirst({
+                    where: {
+                        clientLEId: existingLE.id,
+                        partyId: targetOrgId!,
+                        endAt: null
+                    }
+                });
+
+                if (!existingOwner) {
+                    await prisma.clientLEOwner.create({
+                        data: {
+                            clientLEId: existingLE.id,
+                            partyId: targetOrgId!,
+                            startAt: new Date()
+                        }
+                    });
+                }
+
+                revalidatePath("/app/clients/[clientId]");
+                revalidatePath("/app/le");
+
+                return {
+                    success: true,
+                    data: existingLE,
+                    message: `Entity "${existingLE.name}" was previously deleted. It has been restored to your workspace.`
+                };
+            }
+
+            // --- Case B: Entity is Active (Real Collision) ---
+
+            // Check if already owned by this org
+            const existingOwner = await prisma.clientLEOwner.findFirst({
+                where: {
+                    clientLEId: existingLE.id,
+                    partyId: targetOrgId!, // targetOrgId is definitely set by now
+                    endAt: null
+                }
+            });
+
+            if (existingOwner) {
+                return { success: false, error: "This Legal Entity is already in your dashboard." };
+            }
+
+            // Not owned -> Owned by someone else (Global Unique Check)
+            // User requested: "Whoever gets it first gets to keep it."
+            return {
+                success: false,
+                error: `The entity "${existingLE.name}" has already been registered by another client. Access is currently restricted.`
+            };
+        }
+    }
+
+    // --- Proceed with valid creation ---
+    // Extract National Registry Data if present in the GLEIF blob
+    let gleifPayload = data.gleifData;
+    let nationalPayload = null;
+    if (gleifPayload && gleifPayload.nationalRegistryData) {
+        nationalPayload = gleifPayload.nationalRegistryData;
+        // Create a clean copy without our injected field
+        const { nationalRegistryData, ...rest } = gleifPayload;
+        gleifPayload = rest;
+    }
+
     const newLE = await prisma.clientLE.create({
         data: {
             name: data.name,
             jurisdiction: data.jurisdiction,
             // @ts-ignore - Prisma client types may be stale in IDE
             lei: data.lei,
-            gleifData: data.gleifData,
-            gleifFetchedAt: data.gleifData ? new Date() : null,
+            gleifData: gleifPayload,
+            gleifFetchedAt: gleifPayload ? new Date() : null,
+            // @ts-ignore
+            nationalRegistryData: nationalPayload,
+            // @ts-ignore
+            registryFetchedAt: nationalPayload ? new Date() : null,
             status: "ACTIVE",
             owners: {
                 create: {
@@ -351,15 +439,17 @@ export async function createClientLE(data: { name: string; jurisdiction: string;
 
 // 3. Get Full Data (Schema + Answers) for an LE
 export async function getClientLEData(leId: string) {
+    // Check Auth - Wrap in try/catch to handle deleted/unauthorized gracefully
     try {
         await ensureAuthorization(Action.LE_VIEW_DATA, { clientLEId: leId });
     } catch (e) {
-        console.error(`[getClientLEData] Auth Failed for ${leId}:`, e);
-        return null; // Return null if unauthorized for read
+        console.warn(`[getClientLEData] Access denied or entity missing for: ${leId}`);
+        return null;
     }
 
-    const { userId } = await auth();
-    if (!userId) return null;
+    const identity = await getIdentity();
+    if (!identity?.userId) return null;
+    const { userId } = identity;
 
     // 1. Get the LE
     const le = await prisma.clientLE.findUnique({
@@ -428,8 +518,9 @@ export async function saveClientLEData(leId: string, schemaId: string, answers: 
         return { success: false, error: "Unauthorized: Access denied." };
     }
 
-    const { userId } = await auth();
-    if (!userId) return { success: false, error: "Unauthorized" };
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+    const { userId } = identity;
 
     // Upsert the record
     // We search by ID if we knew it, but here we search by composite (Client + Schema)
@@ -473,7 +564,9 @@ export async function updateClientLE(leId: string, data: { description?: string,
         return { success: false, error: "Unauthorized: Access denied." };
     }
 
-    const { userId } = await auth();
+    const identity = await getIdentity(); // This usage was suspicious in original code (await auth() inside try/catch block line 476 but used userId)
+    // Actually original code: const { userId } = await auth(); is line 476.
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
     try {
         const updated = await prisma.clientLE.update({
             where: { id: leId },
@@ -481,8 +574,15 @@ export async function updateClientLE(leId: string, data: { description?: string,
                 description: data.description,
                 ...(data.lei !== undefined && { lei: data.lei }),
                 ...(data.gleifData !== undefined && {
-                    gleifData: data.gleifData,
-                    gleifFetchedAt: new Date()
+                    gleifData: data.gleifData?.nationalRegistryData
+                        ? (({ nationalRegistryData, ...rest }) => rest)(data.gleifData) // Exclude if present
+                        : data.gleifData,
+                    gleifFetchedAt: new Date(),
+                    // Update National Data if present in the blob
+                    ...(data.gleifData?.nationalRegistryData && {
+                        nationalRegistryData: data.gleifData.nationalRegistryData,
+                        registryFetchedAt: new Date()
+                    })
                 })
             }
         });
@@ -505,8 +605,9 @@ export async function getDashboardMetrics(leId: string) {
         return null;
     }
 
-    const { userId } = await auth();
-    if (!userId) return null;
+    const identity = await getIdentity();
+    if (!identity?.userId) return null;
+    const { userId } = identity;
 
     // A. Fetch Core Data
     const le = await prisma.clientLE.findUnique({
@@ -645,8 +746,9 @@ export async function getDashboardMetrics(leId: string) {
 // 7. Archive / Delete Client LE
 // 7. Archive / Delete Client LE
 export async function deleteClientLE(leId: string) {
-    const { userId } = await auth();
-    if (!userId) return { success: false, error: "Unauthorized" };
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+    const { userId } = identity;
     // Ownership check is implicit in getClientLEs but for write we should double check OR assume they can only edit what they see.
     // Ideally we check ownership via ensureUserOrg.
 
@@ -701,8 +803,9 @@ export async function deleteClientLE(leId: string) {
 
 // 8. Client-Side Engagement Deletion
 export async function deleteEngagementByClient(engagementId: string) {
-    const { userId } = await auth();
-    if (!userId) return { success: false, error: "Unauthorized" };
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+    const { userId } = identity;
 
     // 1. Find the Engagement -> ClientLE -> ClientOrg
     const engagement = await prisma.fIEngagement.findUnique({
@@ -755,8 +858,9 @@ export async function archiveClientLE(leId: string) {
         return { success: false, error: "Unauthorized" };
     }
 
-    const { userId } = await auth();
-    if (!userId) return { success: false, error: "Unauthorized" };
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+    const { userId } = identity;
 
     try {
         await prisma.clientLE.update({
@@ -770,10 +874,83 @@ export async function archiveClientLE(leId: string) {
     }
 }
 
+// 9. Force Delete Client LE (System Admin Only)
+export async function forceDeleteClientLE(leId: string) {
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+    const { userId } = identity;
+
+    // Strict System Admin Check
+    const isSys = await checkIsSystemAdmin(userId);
+    if (!isSys) {
+        return { success: false, error: "Unauthorized: Only System Administrators can perform Force Delete." };
+    }
+
+    try {
+        console.log(`[forceDeleteClientLE] Admin ${userId} invoking Force Delete on LE ${leId}`);
+
+        await prisma.$transaction(async (tx) => {
+            // 1. Delete all Engagements (and their sub-relations if not cascaded)
+            // Note: FIEngagement deletion needs to carefully matching relation names if using deleteMany
+            // But let's check schema again. FIEngagement doesn't have cascade on DB level for ClientLE?
+            // "clientLE ClientLE @relation(fields: [clientLEId], references: [id])" -> Default is restrict/no action.
+            // So we MUST delete them manually.
+
+            // 1.1 Delete Questionnaires linked to Engagements of this LE
+            // Find Engagements first
+            const engs = await tx.fIEngagement.findMany({ where: { clientLEId: leId }, select: { id: true } });
+            const engIds = engs.map(e => e.id);
+
+            if (engIds.length > 0) {
+                // Delete Questionnaires (Instances)
+                await tx.questionnaire.deleteMany({ where: { fiEngagementId: { in: engIds } } });
+
+                // Delete EngagementActivities
+                await tx.engagementActivity.deleteMany({ where: { fiEngagementId: { in: engIds } } });
+
+                // Delete Queries
+                await tx.query.deleteMany({ where: { fiEngagementId: { in: engIds } } });
+
+                // Delete FIEngagements
+                await tx.fIEngagement.deleteMany({ where: { clientLEId: leId } });
+            }
+
+            // 2. Delete Documents
+            await tx.document.deleteMany({ where: { clientLEId: leId } });
+
+            // 3. Delete ClientLERecords (Answers)
+            await tx.clientLERecord.deleteMany({ where: { clientLEId: leId } });
+
+            // 4. Delete StandingDataSections (Has Cascade, but explicit is safer for force)
+            await tx.standingDataSection.deleteMany({ where: { clientLEId: leId } });
+
+            // 5. Delete Invitations
+            await tx.invitation.deleteMany({ where: { clientLEId: leId } });
+
+            // 6. Delete Memberships (Direct Workspace Access)
+            await tx.membership.deleteMany({ where: { clientLEId: leId } });
+
+            // 7. Delete Ownership Links (Has Cascade)
+            // await tx.clientLEOwner.deleteMany({ where: { clientLEId: leId } });
+
+            // 8. Delete the LE itself
+            await tx.clientLE.delete({ where: { id: leId } });
+        });
+
+        revalidatePath("/app");
+        return { success: true };
+    } catch (e) {
+        console.error("[forceDeleteClientLE] Failed:", e);
+        return { success: false, error: "Failed to force delete entity. Check server logs." };
+    }
+}
+
+
 // 9. Search Financial Institutions
 export async function searchFIs(query: string) {
-    const { userId } = await auth();
-    if (!userId) return [];
+    const identity = await getIdentity();
+    if (!identity?.userId) return [];
+    const { userId } = identity;
 
     try {
         const fis = await prisma.organization.findMany({
@@ -798,8 +975,9 @@ export async function searchFIs(query: string) {
 // 10. Get Client Dashboard Data with Granular Permissions
 // 10. Get Client Dashboard Data with Granular Permissions
 export async function getClientDashboardData(clientId: string) {
-    const { userId, sessionClaims } = await auth();
-    if (!userId) return { success: false, error: "Unauthorized" };
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+    const { userId, email } = identity;
 
     try {
         // 1. Check for Direct Membership in the Client Organization
@@ -951,7 +1129,7 @@ export async function getClientDashboardData(clientId: string) {
                 permissions,
                 roleLabel,
                 userId, // For debug info
-                email: sessionClaims?.email
+                email: email
             }
         };
 

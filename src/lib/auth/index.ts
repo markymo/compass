@@ -1,4 +1,4 @@
-import { clerkProvider } from "./providers/clerk";
+import { nextAuthProvider } from "./providers/next-auth";
 
 export interface AuthIdentity {
     userId: string;
@@ -9,8 +9,8 @@ export interface AuthProvider {
     getIdentity(): Promise<AuthIdentity | null>;
 }
 
-// Default to Clerk for now
-const currentProvider: AuthProvider = clerkProvider;
+// Switch to NextAuth
+const currentProvider: AuthProvider = nextAuthProvider;
 
 export async function getIdentity(): Promise<AuthIdentity | null> {
     return await currentProvider.getIdentity();

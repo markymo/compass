@@ -2,6 +2,8 @@
 // Trigger CI Build
 
 
+import { fetchCompanyOfficers } from "@/lib/companies-house";
+
 export interface GLEIFData {
     data: {
         id: string; // The LEI
@@ -99,9 +101,35 @@ export async function fetchGLEIFData(lei: string): Promise<GLEIFFetchResult> {
             status: attributes.registration.status // e.g. ISSUED, LAPSED
         };
 
+        // --- Companies House Integration ---
+        let nationalRegistryData = null;
+
+        // Check for UK Jurisdiction (GB) and Companies House Registration Authority (RA000585)
+        // Usually 'registeredAt.id' is the RA Code.
+        if (entity.jurisdiction === "GB") {
+            const registrationAuthorityId = entity.registeredAt?.id; // e.g. RA000585
+            // 'registeredAs' is typically the Company Number
+            const companyNumber = entity.registeredAs;
+
+            // RA000585 = Companies House
+            if (registrationAuthorityId === "RA000585" && companyNumber) {
+                const officers = await fetchCompanyOfficers(companyNumber);
+                if (officers.length > 0) {
+                    nationalRegistryData = {
+                        source: "Companies House",
+                        company_number: companyNumber,
+                        officers: officers
+                    };
+                }
+            }
+        }
+
         return {
             success: true,
-            data: record, // Store the full record
+            data: {
+                ...record,
+                nationalRegistryData // Attach to the record structure we pass to UI
+            },
             summary
         };
 

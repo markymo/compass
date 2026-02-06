@@ -1,7 +1,7 @@
 "use server";
 
 import prisma from "@/lib/prisma";
-import { auth } from "@clerk/nextjs/server";
+import { getIdentity } from "@/lib/auth";
 import { Action, can } from "@/lib/auth/permissions";
 import { revalidatePath } from "next/cache";
 
@@ -9,8 +9,9 @@ import { revalidatePath } from "next/cache";
  * Helper to ensure user has permission to INVITE/REVOKE
  */
 async function ensureInvitationAuth(action: Action, context: { orgId: string, clientLEId?: string }) {
-    const { userId } = await auth();
-    if (!userId) throw new Error("Unauthorized");
+    const identity = await getIdentity();
+    if (!identity?.userId) throw new Error("Unauthorized");
+    const { userId } = identity;
 
     const memberships = await prisma.membership.findMany({ where: { userId } });
     const user = { id: userId, memberships };
@@ -66,8 +67,10 @@ export async function inviteUser(data: {
     // ... (This auth logic is getting complex, let's stick to the simplest loop for now: 
     // If bulk LEs, we assume the caller is likely an Org Admin or we check each).
 
-    const { userId } = await auth();
-    if (!userId) return { success: false, error: "Unauthorized" };
+    const identity = await getIdentity();
+    // For specialized logic needing email, use identity.email
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+    const { userId, email } = identity;
 
     const targetLEs = data.clientLEIds || (data.clientLEId ? [data.clientLEId] : []);
 
@@ -169,8 +172,10 @@ async function createSingleInvitation(data: {
  * Revoke an Invitation
  */
 export async function revokeInvitation(invitationId: string) {
-    const { userId } = await auth();
-    if (!userId) return { success: false, error: "Unauthorized" };
+    const identity = await getIdentity();
+    // For specialized logic needing email, use identity.email
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+    const { userId, email } = identity;
 
     const invite = await prisma.invitation.findUnique({ where: { id: invitationId } });
     if (!invite) return { success: false, error: "Not found" };
@@ -229,7 +234,8 @@ export async function acceptInvitation(token: string) {
     if (invite.status !== "PENDING") return { success: false, error: "Invitation already accepted or expired." };
     if (new Date() > invite.expiresAt) return { success: false, error: "Invitation has expired." };
 
-    const { userId } = await auth();
+    const identity = await getIdentity();
+    const userId = identity?.userId;
 
     // 2. Scenario A: User is LOGGED IN
     if (userId) {
