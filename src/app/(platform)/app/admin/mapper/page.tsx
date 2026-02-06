@@ -141,7 +141,7 @@ export default function MapperPage() {
                         finalKey = finalKey.replace("CREATE_NEW:", "");
                     }
                     return {
-                        fiQuestion: s.originalText,
+                        fiQuestion: s.text,
                         masterKey: finalKey
                     };
                 });
@@ -284,7 +284,7 @@ export default function MapperPage() {
                                 {suggestions.map((suggestion, idx) => (
                                     <TableRow key={idx}>
                                         <TableCell className="break-words whitespace-pre-wrap max-w-sm">
-                                            {suggestion.originalText}
+                                            {suggestion.text}
                                         </TableCell>
                                         <TableCell>
                                             <Select
