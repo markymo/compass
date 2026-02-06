@@ -29,11 +29,11 @@ export function MappingWorkbench({ items, masterFields, onUpdateItem, onAddItem 
         let currentGroup = { title: "General", startIndex: 0, items: [] as { item: ExtractedItem, originalIndex: number }[] };
 
         items.forEach((item, idx) => {
-            if (item.type === "SECTION") {
+            if (item.type === "section") {
                 if (currentGroup.items.length > 0) {
                     groups.push(currentGroup);
                 }
-                currentGroup = { title: item.originalText, startIndex: idx, items: [] };
+                currentGroup = { title: item.text, startIndex: idx, items: [] };
             } else {
                 currentGroup.items.push({ item, originalIndex: idx });
             }
@@ -74,7 +74,7 @@ export function MappingWorkbench({ items, masterFields, onUpdateItem, onAddItem 
 
                         <div className="space-y-3 pl-2">
                             {section.items.map(({ item, originalIndex }) => {
-                                const isQuestion = item.type === "QUESTION";
+                                const isQuestion = item.type === "question";
                                 // const isMapped = !!item.masterKey && item.masterKey !== "IGNORE";
                                 const isMapped = !!item.masterKey && item.masterKey !== "IGNORE";
                                 const isCategorized = !!item.category && item.category !== "IGNORE";
@@ -108,10 +108,10 @@ export function MappingWorkbench({ items, masterFields, onUpdateItem, onAddItem 
                                                             <SelectValue />
                                                         </SelectTrigger>
                                                         <SelectContent>
-                                                            <SelectItem value="QUESTION">Question</SelectItem>
-                                                            <SelectItem value="SECTION">Section</SelectItem>
-                                                            <SelectItem value="INSTRUCTION">Instruction</SelectItem>
-                                                            <SelectItem value="NOTE">Note</SelectItem>
+                                                            <SelectItem value="question">Question</SelectItem>
+                                                            <SelectItem value="section">Section</SelectItem>
+                                                            <SelectItem value="instruction">Instruction</SelectItem>
+                                                            <SelectItem value="note">Note</SelectItem>
                                                         </SelectContent>
                                                     </Select>
                                                 </div>
@@ -123,7 +123,7 @@ export function MappingWorkbench({ items, masterFields, onUpdateItem, onAddItem 
                                                 </span>
                                             </div>
                                             <div className="text-sm text-slate-700 leading-relaxed font-serif italic border-l-2 border-slate-200 pl-3 py-1">
-                                                "{item.originalText}"
+                                                "{item.text}"
                                             </div>
                                         </div>
 
