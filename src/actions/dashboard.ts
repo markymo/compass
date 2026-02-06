@@ -8,7 +8,18 @@ export type DashboardContexts = {
     financialInstitutions: Array<{ id: string; name: string; role: string }>;
     lawFirms: Array<{ id: string; name: string; role: string }>;
     legalEntities: Array<{ id: string; name: string; clientName: string; role: string }>;
-    relationships: Array<{ id: string; leName: string; supplierName: string; status: string }>;
+    relationships: Array<{
+        id: string;
+        leName: string;
+        clientId: string;
+        clientName: string;
+        supplierName: string;
+        status: string;
+        fiOrgId: string;
+        clientLEId: string;
+        userIsClient: boolean;
+        userIsSupplier: boolean;
+    }>;
 };
 
 export async function getUserContexts(): Promise<DashboardContexts> {
@@ -53,7 +64,7 @@ export async function getUserContexts(): Promise<DashboardContexts> {
 
                 // IF Admin of Client, fetch ALL its owned LEs (for management view)
                 // Note: Implicit access to DATA is denied, but visibility for management is allowed.
-                if (m.role === "ADMIN" || m.role === "CLIENT_ADMIN") {
+                if (m.role === "ADMIN" || m.role === "CLIENT_ADMIN" || m.role === "ORG_ADMIN") {
                     const orgLEs = await prisma.clientLE.findMany({
                         where: {
                             owners: { some: { partyId: org.id, endAt: null } },
@@ -153,25 +164,46 @@ export async function getUserContexts(): Promise<DashboardContexts> {
     context.legalEntities = Array.from(leMap.values());
     const leIds = context.legalEntities.map(l => l.id);
 
-    // 2. Fetch Relationships (Engagements) for visible LEs
-    if (leIds.length > 0) {
+    const fiIds = context.financialInstitutions.map(fi => fi.id);
+
+    // 2. Fetch Relationships (Engagements) for visible LEs OR visible FIs
+    if (leIds.length > 0 || fiIds.length > 0) {
         const engagements = await prisma.fIEngagement.findMany({
             where: {
-                clientLEId: { in: leIds },
+                OR: [
+                    { clientLEId: { in: leIds } },
+                    { fiOrgId: { in: fiIds } }
+                ],
                 isDeleted: false
             },
             include: {
                 org: true,      // The Supplier (FI)
-                clientLE: true  // The Workspace (LE)
+                clientLE: {
+                    include: {
+                        owners: {
+                            where: { endAt: null },
+                            include: { party: true }
+                        }
+                    }
+                }
             }
         });
 
-        context.relationships = engagements.map(e => ({
-            id: e.id,
-            leName: e.clientLE.name,
-            supplierName: e.org.name,
-            status: e.status
-        }));
+        context.relationships = engagements.map(e => {
+            const owner = e.clientLE.owners[0];
+            return {
+                id: e.id,
+                leName: e.clientLE.name,
+                clientId: owner?.partyId || '',
+                clientName: owner?.party.name || 'Unknown Client',
+                supplierName: e.org.name,
+                status: e.status,
+                fiOrgId: e.fiOrgId,
+                clientLEId: e.clientLEId,
+                userIsClient: leIds.includes(e.clientLEId),
+                userIsSupplier: fiIds.includes(e.fiOrgId)
+            };
+        });
     }
 
     return context;

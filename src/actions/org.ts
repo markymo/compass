@@ -189,3 +189,39 @@ export async function archiveOrganization(orgId: string) {
         return { success: false, error: "Failed to archive organization" };
     }
 }
+
+// 7. Unarchive Organization (Admin Only)
+export async function unarchiveOrganization(orgId: string) {
+    const isAdmin = await isSystemAdmin();
+    if (!isAdmin) return { success: false, error: "Unauthorized" };
+
+    try {
+        // Unarchive the Org
+        await prisma.organization.update({
+            where: { id: orgId },
+            data: { status: "ACTIVE" }
+        });
+
+        // Unarchive all Owned LEs
+        const owned = await prisma.clientLEOwner.findMany({
+            where: { partyId: orgId, endAt: null },
+            include: { clientLE: true }
+        });
+
+        const leIds = owned.map(o => o.clientLEId);
+
+        if (leIds.length > 0) {
+            await prisma.clientLE.updateMany({
+                where: { id: { in: leIds } },
+                data: { status: "ACTIVE" }
+            });
+        }
+
+        revalidatePath(`/app/admin/organizations/${orgId}`);
+        revalidatePath("/app/admin/organizations");
+        return { success: true };
+    } catch (e) {
+        console.error(e);
+        return { success: false, error: "Failed to unarchive organization" };
+    }
+}

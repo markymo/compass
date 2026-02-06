@@ -27,6 +27,7 @@ model User {
   
   engagementActivities EngagementActivity[]
   auditLogs       AuditLog[]
+  assignedQuestions Question[] @relation("AssignedQuestions")
 }
 
 model Organization {
@@ -249,6 +250,7 @@ model Questionnaire {
   // Privacy: If set, this questionnaire is only visible to this Org (and System Admins)
   ownerOrgId       String?
   ownerOrg         Organization?  @relation("OwnedQuestionnaires", fields: [ownerOrgId], references: [id])
+  isGlobal         Boolean        @default(false)
   versions         QuestionnaireVersion[]
   questions        Question[]
 }
@@ -266,6 +268,8 @@ model Question {
   sourceSectionId String?
   
   assignedToUserId String?
+  assignedToUser   User?              @relation("AssignedQuestions", fields: [assignedToUserId], references: [id])
+  assignedEmail    String?
   
   questionnaire   Questionnaire      @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
   comments        Comment[]

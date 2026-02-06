@@ -9,8 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import {
     Activity, ArrowRight, Building2, CheckCircle2,
-    Clock, Database, FileText, AlertCircle,
-    Check, LayoutDashboard, Zap
+    Clock, LayoutDashboard, Zap
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -130,56 +129,72 @@ export function MissionControl({ metrics, leId, engagements }: MissionControlPro
                     </CardContent>
                 </Card>
 
-                {/* 2. Action Center / Smart Alerts */}
-                <div className="md:col-span-2 grid gap-4 grid-rows-2">
-                    {/* Top Alert: Most Critical */}
-                    <div className="bg-amber-50 border border-amber-100 rounded-xl p-6 flex items-start gap-4 shadow-sm">
-                        <div className="p-2 bg-amber-100 rounded-lg text-amber-600">
-                            <AlertCircle className="h-6 w-6" />
-                        </div>
-                        <div className="flex-1">
-                            <h3 className="font-bold text-slate-900 text-lg">Missing Key Document</h3>
-                            <p className="text-slate-600 text-sm mt-1 mb-3">
-                                You have not uploaded your <span className="font-semibold">Certificate of Incorporation</span> yet. This is required for 3 active banking engagements.
-                            </p>
-                            <Button size="sm" className="bg-amber-600 hover:bg-amber-700 text-white shadow-sm border-amber-700">
-                                Upload Now
-                            </Button>
-                        </div>
-                    </div>
-
+                {/* 2. Action Center / Smart Alerts - REPURPOSED for just Stats since Alert was mock */}
+                <div className="md:col-span-2 flex flex-col justify-center">
                     {/* Secondary Stats */}
-                    <div className="grid grid-cols-2 gap-4">
-                        <Card className="border-slate-200 shadow-sm flex flex-col p-4">
-                            <div className="text-sm font-medium text-slate-500 mb-2">Relationships</div>
-                            <div className="space-y-1">
-                                {engagements && engagements.length > 0 ? (
-                                    engagements.map((eng) => (
-                                        <Link
-                                            key={eng.id}
-                                            href={`/app/le/${leId}/engagement-new/${eng.id}`}
-                                            className="flex items-center gap-2 p-1.5 rounded hover:bg-slate-50 transition-colors group"
-                                        >
-                                            <div className="h-6 w-6 rounded bg-indigo-50 flex items-center justify-center text-indigo-600 flex-shrink-0">
-                                                <Building2 className="h-3 w-3" />
-                                            </div>
-                                            <span className="text-sm font-semibold text-slate-700 group-hover:text-indigo-700 truncate">
-                                                {eng.org?.name || "Unknown Bank"}
-                                            </span>
-                                            <ArrowRight className="h-3 w-3 ml-auto text-slate-300 group-hover:text-indigo-400" />
-                                        </Link>
-                                    ))
+                    <div className="grid grid-cols-2 gap-4 h-full max-h-[250px]">
+                        <Card className="border-slate-200 shadow-sm flex flex-col p-0 overflow-hidden">
+                            <div className="bg-slate-50 px-4 py-2 border-b border-slate-100 flex justify-between items-center">
+                                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Relationship</span>
+                                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Progress</span>
+                            </div>
+
+                            <div className="flex-1 overflow-y-auto max-h-[150px]">
+                                {metrics.pipeline && metrics.pipeline.length > 0 ? (
+                                    <div className="divide-y divide-slate-50">
+                                        {metrics.pipeline.map((p) => (
+                                            <Link
+                                                key={p.id}
+                                                href={`/app/le/${leId}/engagement-new/${p.id}`}
+                                                className="flex items-center justify-between px-4 py-3 hover:bg-slate-50 transition-colors group text-sm"
+                                            >
+                                                <div className="flex items-center gap-2 truncate pr-2">
+                                                    <div className="h-5 w-5 rounded bg-indigo-50 flex items-center justify-center text-indigo-600 flex-shrink-0">
+                                                        <Building2 className="h-3 w-3" />
+                                                    </div>
+                                                    <span className="font-semibold text-slate-700 group-hover:text-indigo-700 truncate">
+                                                        {p.fiName || "Unknown Bank"}
+                                                    </span>
+                                                </div>
+                                                <div className="flexitems-center text-slate-600 font-medium whitespace-nowrap">
+                                                    {(p as any).stats ? (
+                                                        <>
+                                                            <span className="text-slate-900 font-bold">{(p as any).stats.answered}</span>
+                                                            <span className="text-slate-400 mx-1">/</span>
+                                                            <span className="text-slate-500">{(p as any).stats.total}</span>
+                                                        </>
+                                                    ) : (
+                                                        <span className="text-slate-400">-</span>
+                                                    )}
+                                                </div>
+                                            </Link>
+                                        ))}
+                                    </div>
                                 ) : (
-                                    <div className="text-xs text-slate-400 italic py-2">No active relationships</div>
+                                    <div className="flex flex-col items-center justify-center h-full text-slate-400 italic text-xs p-4">
+                                        No active relationships
+                                    </div>
                                 )}
                             </div>
+
+                            {/* Summary Footer */}
+                            <div className="bg-slate-50 px-4 py-2 border-t border-slate-100 flex justify-between items-center text-xs">
+                                <span className="font-bold text-slate-600">Total</span>
+                                <div className="font-medium">
+                                    <span className="text-slate-900 font-bold">{metrics.readiness.details.questionsAnswered}</span>
+                                    <span className="text-slate-400 mx-1">/</span>
+                                    <span className="text-slate-500">{metrics.readiness.details.totalQuestions}</span>
+                                </div>
+                            </div>
                         </Card>
+
                         <Card className="border-slate-200 shadow-sm flex flex-col justify-center px-6">
-                            <div className="text-sm font-medium text-slate-500 mb-1">Questions Answered</div>
+                            <div className="text-sm font-medium text-slate-500 mb-1">Total Questions Answered</div>
                             <div className="text-3xl font-bold text-slate-900 flex items-center gap-2">
                                 {metrics.readiness.details.questionsAnswered}
                                 <span className="text-sm font-normal text-slate-400">/ {metrics.readiness.details.totalQuestions}</span>
                             </div>
+                            <p className="text-xs text-slate-400 mt-2">Aggregate across all relationships</p>
                         </Card>
                     </div>
                 </div>

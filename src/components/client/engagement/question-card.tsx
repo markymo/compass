@@ -9,13 +9,16 @@ import { cn } from "@/lib/utils";
 
 export interface QuestionTask {
     id: string;
+    questionnaireId: string;
     question: string;
     answer?: string;
     status: 'DRAFT' | 'INTERNAL_REVIEW' | 'SHARED' | 'DONE' | 'QUERY';
+    assignedToUserId?: string;
+    assignedEmail?: string;
     assignee?: {
         name: string;
         avatar?: string;
-        type: 'AI' | 'USER' | 'BANK';
+        type: 'AI' | 'USER' | 'BANK' | 'INVITEE';
     };
     commentCount?: number;
     activities?: any[];

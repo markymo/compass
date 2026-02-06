@@ -53,16 +53,18 @@ export async function generateAIAnswers(contextText: string, questions: Question
                 role: "system" as const,
                 content: `You are an expert Compliance Officer filling out a Due Diligence Questionnaire (DDQ).
                     
-                    YOUR GOAL: Answer the provided questions using ONLY the provided verified Knowledge Base.
+                    YOUR GOAL: Answer the provided questions using the provided verified Knowledge Base and Official Registry Data.
                     
                     RULES:
-                    1. Use the provided Knowledge Base as your source of truth.
-                    2. If the answer is explicitly in the data, set confidence to 0.9-1.0.
-                    3. If you can infer the answer (e.g. "UK" implies "Not US"), set confidence to 0.7-0.9.
-                    4. DATA PRECEDENCE: The Knowledge Base is the absolute truth for the entity being processed. If a question contains a specific name, date, or value that conflicts with the Knowledge Base, you MUST ignore the value in the question and answer using the Knowledge Base.
-                    5. If the data is missing, reply "Information not available in Knowledge Base" and set confidence to 0.
-                    6. Always provide the "sourceQuote" - the exact text from the Knowledge Base you used.
-                    7. Be concise and professional.`
+                    1. Use the provided Knowledge Base and REGISTRY data as your source of truth.
+                    2. REGISTRY DATA PRECEDENCE: Data from the "OFFICIAL REGISTRY (GLEIF)" is of the highest quality for legal names, addresses, and registration status. If there is a conflict between the REGISTRY and the user Knowledge Base for these specific fields, prioritize the REGISTRY.
+                    3. If the answer is explicitly in the data, set confidence to 0.9-1.0.
+                    4. If you can infer the answer (e.g. "UK" implies "Not US"), set confidence to 0.7-0.9.
+                    5. DATA PRECEDENCE: The context is the absolute truth for the entity being processed. 
+                    6. If the data is missing, reply "Information not available in Knowledge Base" and set confidence to 0.
+                    7. Always provide the "sourceQuote" - the exact text from the source you used.
+                    8. Be concise and professional.
+`
             },
             {
                 role: "user" as const,
@@ -226,10 +228,39 @@ export async function generateAnswers(leId: string, questionnaireId: string, loc
             return { success: false, error: "No Standing Data found. Please fill out your Knowledge Base first." };
         }
 
-        // Format Standing Data for the AI
-        const contextText = standingDataSections.map(section =>
+        // 1b. Fetch Registry Data (GLEIF)
+        const le = await prisma.clientLE.findUnique({
+            where: { id: leId },
+            select: { lei: true, gleifData: true }
+        });
+
+        let contextText = standingDataSections.map(section =>
             `SECTION: ${section.category}\nCONTENT:\n${section.content}\n`
         ).join("\n---\n");
+
+        if (le?.gleifData) {
+            const gd: any = le.gleifData;
+            const attributes = gd.attributes || {};
+            const entity = attributes.entity || {};
+            const reg = attributes.registration || {};
+
+            const registryContext = `
+--- OFFICIAL REGISTRY DATA (GLEIF) ---
+LEI: ${le.lei}
+Legal Name: ${entity.legalName?.name}
+Jurisdiction: ${entity.jurisdiction}
+Entity Status: ${entity.status}
+Legal Address: ${entity.legalAddress?.addressLines?.join(", ")}, ${entity.legalAddress?.city}, ${entity.legalAddress?.country}
+HQ Address: ${entity.headquartersAddress?.addressLines?.join(", ")}, ${entity.headquartersAddress?.city}, ${entity.headquartersAddress?.country}
+Registration Status: ${reg.status}
+Initial Registration: ${reg.initialRegistrationDate}
+Next Renewal: ${reg.nextRenewalDate}
+---------------------------------------
+`;
+            contextText = registryContext + "\n" + contextText;
+        }
+
+        logToFile(`[generateAnswers] Context prepared. GLEIF included: ${!!le?.gleifData}`);
 
         // 2. Fetch Questionnaire Content
         const questionnaire = await prisma.questionnaire.findUnique({
@@ -242,12 +273,11 @@ export async function generateAnswers(leId: string, questionnaireId: string, loc
         }
 
         const items = questionnaire.extractedContent as any[];
-        // Map to preserve original index, then filter for "QUESTION"
-        // AND exclude locked questions (either passed from client OR persisted in DB)
         const questions: QuestionPrompt[] = items
             .map((item, idx) => ({ ...item, originalIndex: idx }))
             .filter((item: any) => {
-                if (item.type !== "QUESTION") return false;
+                const type = (item.type || "").toLowerCase();
+                if (type !== "question") return false;
 
                 // Check if unlocked
                 const isLockedLocally = lockedQuestionIds.includes(item.originalIndex);
@@ -258,7 +288,7 @@ export async function generateAnswers(leId: string, questionnaireId: string, loc
             })
             .map((item: any) => ({
                 id: item.originalIndex.toString(),
-                text: item.originalText || item.text,
+                text: item.text || item.originalText || "Untitled Question",
                 category: item.category
             }));
 

@@ -7,6 +7,7 @@ import { GuideHeader } from "@/components/layout/GuideHeader";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { RelationshipCard } from "@/components/ui/relationship-card";
 import { Loader2, Building2, Briefcase, Landmark, Gavel, ArrowRight, Home } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -63,7 +64,7 @@ export default function V2DashboardPage() {
                                         <div className="flex justify-between items-start">
                                             <CardTitle className="text-lg">{c.name}</CardTitle>
                                             <Badge variant={c.source === "DIRECT" ? "default" : "secondary"}>
-                                                {c.source === "DIRECT" ? (c.role === "ADMIN" ? "Admin" : "Member") : "Derived"}
+                                                {c.source === "DIRECT" ? ((c.role === "ADMIN" || c.role === "CLIENT_ADMIN" || c.role === "ORG_ADMIN") ? "Admin" : "Member") : "Derived"}
                                             </Badge>
                                         </div>
                                         <CardDescription>
@@ -126,16 +127,19 @@ export default function V2DashboardPage() {
                 ) : (
                     <div className="grid gap-4 md:grid-cols-3">
                         {contexts.relationships.map(rel => (
-                            <Link href={`#`} key={rel.id}>
-                                <Card className="hover:shadow-md transition-shadow cursor-pointer border-indigo-100">
-                                    <CardHeader className="pb-2">
-                                        <div className="flex justify-between items-start gap-2">
-                                            <CardTitle className="text-lg leading-tight">{rel.leName} : {rel.supplierName}</CardTitle>
-                                            <Badge variant="outline" className="shrink-0">{rel.status}</Badge>
-                                        </div>
-                                    </CardHeader>
-                                </Card>
-                            </Link>
+                            <RelationshipCard
+                                key={rel.id}
+                                id={rel.id}
+                                clientId={rel.clientId}
+                                clientName={rel.clientName}
+                                leName={rel.leName}
+                                supplierName={rel.supplierName}
+                                status={rel.status}
+                                fiOrgId={rel.fiOrgId}
+                                clientLEId={rel.clientLEId}
+                                userIsClient={rel.userIsClient}
+                                userIsSupplier={rel.userIsSupplier}
+                            />
                         ))}
                     </div>
                 )}

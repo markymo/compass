@@ -146,7 +146,7 @@ export async function getEffectiveRequirements(clientLEId: string) {
                 // But this code is specifically looking for "QUESTION" type and "masterKey".
                 // Let's assume the new format items align or we skip them.
 
-                if (item.type === "QUESTION" && item.masterKey) {
+                if ((item.type || "").toLowerCase() === "question" && item.masterKey) {
                     const key = item.masterKey;
 
                     // Verify key exists in Master Schema
@@ -325,10 +325,11 @@ export async function getEngagementDetails(engagementId: string) {
         // Combine both for the UI, or prioritize Instances
         // For Client View, we mostly care about Instances (what we are working on)
         // effectively 'questionnaires' in the UI maps to 'questionnaireInstances'
-        const combinedQuestionnaires = [
-            ...engagement.questionnaireInstances,
-            ...engagement.questionnaires
-        ];
+        const combinedQuestionnaires = Array.from(
+            new Map(
+                [...engagement.questionnaireInstances, ...engagement.questionnaires].map(item => [item.id, item])
+            ).values()
+        );
 
         return {
             success: true,

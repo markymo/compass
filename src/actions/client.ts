@@ -545,16 +545,33 @@ export async function getDashboardMetrics(leId: string) {
         done: 0             // Complete
     };
 
+    const engagementStats = new Map<string, { total: number, answered: number }>();
+
     for (const eng of le.fiEngagements) {
+        let engTotal = 0;
+        let engAnswered = 0;
+
         for (const q of eng.questionnaires) {
             // Use Relation-based questions if available (The new Kanban way)
             if (q.questions && q.questions.length > 0) {
                 for (const task of q.questions) {
                     totalQuestions++;
+                    engTotal++;
                     const s = task.status;
+                    const isAnswered = s === "SUPPLIER_SIGNED_OFF" ||
+                        s === "CLIENT_SIGNED_OFF" ||
+                        s === "SHARED" ||
+                        s === "SUPPLIER_REVIEW" ||
+                        s === "INTERNAL_REVIEW" ||
+                        task.isLocked;
 
-                    if (s === "SUPPLIER_SIGNED_OFF") {
+                    if (isAnswered) {
                         answeredQuestions++;
+                        engAnswered++;
+                    }
+
+                    // Bucketing Logic
+                    if (s === "SUPPLIER_SIGNED_OFF") {
                         cpStatus.done++;
                     } else if (s === "SHARED" || s === "SUPPLIER_REVIEW" || s === "CLIENT_SIGNED_OFF") {
                         // Waiting on Supplier or in shared state
@@ -570,16 +587,22 @@ export async function getDashboardMetrics(leId: string) {
             // Fallback for Legacy/Imported data (Extracted Content JSON)
             else if (q.extractedContent && Array.isArray(q.extractedContent)) {
                 const items = q.extractedContent as any[];
-                const questions = items.filter(i => i.type === "QUESTION");
-                totalQuestions += questions.length;
-                const answered = questions.filter(i => !!i.answer).length;
-                answeredQuestions += answered;
+                const questions = items.filter(i => (i.type || "").toLowerCase() === "question");
+                const qCount = questions.length;
+                const qAnswered = questions.filter(i => !!i.answer).length;
+
+                totalQuestions += qCount;
+                answeredQuestions += qAnswered;
+
+                engTotal += qCount;
+                engAnswered += qAnswered;
 
                 // Estimate status for legacy items
-                cpStatus.done += answered;
-                cpStatus.draft += (questions.length - answered);
+                cpStatus.done += qAnswered;
+                cpStatus.draft += (qCount - qAnswered);
             }
         }
+        engagementStats.set(eng.id, { total: engTotal, answered: engAnswered });
     }
 
     const questionnaireScore = totalQuestions > 0
@@ -608,7 +631,8 @@ export async function getDashboardMetrics(leId: string) {
         pipeline: le.fiEngagements.map(e => ({
             id: e.id,
             fiName: e.org.name,
-            status: e.status
+            status: e.status,
+            stats: engagementStats.get(e.id) || { total: 0, answered: 0 }
         })),
         activity: logs.map(l => ({
             id: l.id,
@@ -834,7 +858,10 @@ export async function getClientDashboardData(clientId: string) {
                         where: { isDeleted: false },
                         include: {
                             org: true, // Bank Name
-                            questionnaires: { where: { isDeleted: false } }
+                            questionnaires: {
+                                where: { isDeleted: false },
+                                include: { questions: true }
+                            }
                         }
                     }
                 },
@@ -873,7 +900,10 @@ export async function getClientDashboardData(clientId: string) {
                                 where: { isDeleted: false },
                                 include: {
                                     org: true,
-                                    questionnaires: { where: { isDeleted: false } }
+                                    questionnaires: {
+                                        where: { isDeleted: false },
+                                        include: { questions: true }
+                                    }
                                 }
                             }
                         }

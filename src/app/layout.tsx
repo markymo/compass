@@ -31,6 +31,7 @@ export default function RootLayout({
     <ClerkProvider>
       <html lang="en" suppressHydrationWarning>
         <body
+          suppressHydrationWarning
           className={cn(
             playfair.variable,
             inter.variable,

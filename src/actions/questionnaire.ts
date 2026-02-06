@@ -135,10 +135,10 @@ export async function startBackgroundExtraction(id: string) {
         const res = await extractDetailedContent(id);
 
         if (res.success) {
-            // Success: Move to DRAFT
+            // Success: Move to ACTIVE
             await prisma.questionnaire.update({
                 where: { id },
-                data: { status: "DRAFT" }
+                data: { status: "ACTIVE" }
             });
             revalidatePath(`/app/admin/questionnaires/${id}`);
             return { success: true };
@@ -181,6 +181,71 @@ export async function getQuestionnaires(orgId: string) {
     }
 
     return qs;
+}
+
+/**
+ * Creates a questionnaire manually with a list of questions.
+ */
+export async function createManualQuestionnaire(data: { name: string, fiOrgId?: string, questions: string, isGlobal?: boolean }) {
+    if (!(await isSystemAdmin())) {
+        return { success: false, error: "Unauthorized" };
+    }
+
+    let { name, fiOrgId, questions, isGlobal = false } = data;
+    const questionLines = questions.split("\n").map(q => q.trim()).filter(q => q.length > 0);
+
+    if (questionLines.length === 0) {
+        return { success: false, error: "At least one question is required" };
+    }
+
+    try {
+        // If no FI provided, default to System Admin Org
+        if (!fiOrgId) {
+            const sysOrg = await prisma.organization.findFirst({
+                where: { types: { has: "SYSTEM" } }
+            });
+            if (sysOrg) {
+                fiOrgId = sysOrg.id;
+            } else {
+                return { success: false, error: "System Organization not found. Please select an FI or contact support." };
+            }
+        }
+
+        const extractedContent = questionLines.map((text, index) => ({
+            type: "question",
+            text: text,
+            order: index + 1
+        }));
+
+        const questionnaire = await prisma.questionnaire.create({
+            data: {
+                fiOrgId,
+                name,
+                status: "ACTIVE",
+                extractedContent: extractedContent as any,
+                isGlobal
+            } as any
+        });
+
+        // Sync to Question rows
+        await syncQuestionsToDatabase(questionnaire.id, extractedContent);
+
+        revalidatePath("/app/admin/questionnaires");
+        return { success: true, id: questionnaire.id };
+    } catch (e: any) {
+        console.error("[createManualQuestionnaire] ERROR:", e);
+        return { success: false, error: e.message || "Failed to create questionnaire" };
+    }
+}
+
+/**
+ * AI-powered question generation from a prompt.
+ */
+export async function generateAIQuestions(prompt: string) {
+    if (!(await isSystemAdmin())) {
+        return { success: false, error: "Unauthorized" };
+    }
+    return await generateQuestionnaireFromPrompt(prompt);
 }
 
 // ... existing code ...
@@ -256,7 +321,7 @@ export async function getQuestionnaireById(id: string) {
 
 // AI Mapper Integration
 // AI Mapper Integration
-import { processDocumentBuffer, extractQuestionnaireItems, generateMappingSuggestions } from "./ai-mapper";
+import { processDocumentBuffer, extractQuestionnaireItems, generateMappingSuggestions, generateQuestionnaireFromPrompt } from "./ai-mapper";
 
 export async function analyzeQuestionnaire(id: string) {
     if (!(await canManageQuestionnaire(id))) {
@@ -577,15 +642,11 @@ async function syncQuestionsToDatabase(id: string, items: any[]) {
 
     // 2. Filter for Questions only (or map others if we expand model later)
     const questionsToCreate = items
-        .filter(i => i.type === "QUESTION")
+        .filter(i => (i.type || "").toLowerCase() === "question")
         .map((item, index) => ({
             questionnaireId: id,
-            text: item.originalText, // Or use neutralText?
+            text: item.text || item.originalText || "Untitled Question",
             order: item.order || index + 1,
-            // category: item.category?? We don't have a category field on Question model yet?
-            // Wait, we need to check schema. Question model DOES NOT have 'category'.
-            // It has 'sourceSectionId'.
-            // For now, we just save text and order.
             status: "DRAFT" as const
         }));
 

@@ -220,6 +220,7 @@ export function EngagementDetailView({ le, engagement, questionnaires, sharedDoc
                             <KanbanBoard
                                 key={refreshKey}
                                 engagementId={engagement.id}
+                                clientLEId={le.id}
                                 fiName={engagement.org.name}
                                 questionnaires={questionnaires}
                             />

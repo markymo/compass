@@ -50,6 +50,7 @@ export async function searchAvailableQuestionnaires(query: string) {
         const questionnaires = await prisma.questionnaire.findMany({
             where: {
                 status: "ACTIVE",
+                isGlobal: true,
                 AND: [
                     query ? {
                         OR: [
@@ -57,15 +58,8 @@ export async function searchAvailableQuestionnaires(query: string) {
                             { fiOrg: { name: { contains: query, mode: 'insensitive' } } }
                         ]
                     } : {},
-                    {
-                        OR: [
-                            { ownerOrgId: null }, // Public System Questionnaires
-                            { ownerOrgId: { in: userOrgIds } }, // Owned by my org
-                            ...(isSysAdmin ? [{}] : []) // System admin sees all (hacky way to add "OR true")
-                        ]
-                    }
                 ]
-            },
+            } as any,
             select: {
                 id: true,
                 name: true,

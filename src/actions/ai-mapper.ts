@@ -8,8 +8,8 @@ import { z } from 'zod';
 
 
 export interface ExtractedItem {
-    type: "QUESTION" | "SECTION" | "INSTRUCTION" | "NOTE";
-    originalText: string;
+    type: "question" | "section" | "instruction" | "note";
+    text: string;
     neutralText?: string;
     masterKey?: string;
     category?: string;
@@ -111,8 +111,8 @@ export async function extractQuestionnaireItems(input: { content: string | strin
             3. Priority: Categorization is CRITICAL for UI grouping. Master Mapping is secondary but important for automation.
 
             OUTPUT COLUMNS:
-            1. Type: "QUESTION", "SECTION", "INSTRUCTION", "NOTE".
-            2. Original Text: Exact text from document.
+            1. Type: "question", "section", "instruction", "note".
+            2. Text: Exact text from document.
             3. Neutral Text (Questions Only): The question re-phrased to be generic.
             4. Master Key (Questions Only): Best guess match from the provided Master Schema list (Optional).
             5. Category (Questions Only): The standard category this question belongs to (MANDATORY).
@@ -174,8 +174,8 @@ export async function extractQuestionnaireItems(input: { content: string | strin
             schemaDescription: 'A list of all questions, sections, and notes extracted from the document',
             schema: z.object({
                 items: z.array(z.object({
-                    type: z.string().describe("The structural type: QUESTION, SECTION, INSTRUCTION, or NOTE"),
-                    originalText: z.string().describe("The exact text content"),
+                    type: z.string().describe("The structural type: question, section, instruction, or note"),
+                    text: z.string().describe("The exact text content"),
                     neutralText: z.string().nullable().optional().describe("Neutralized question text (optional)"),
                     masterKey: z.string().nullable().optional().describe("Matching master schema key (optional)"),
                     category: z.string().nullable().optional().describe("The standard category for this question (Recommended)"),
@@ -189,15 +189,15 @@ export async function extractQuestionnaireItems(input: { content: string | strin
 
         // Post-process: Normalize types and handle nulls
         const safeItems = object.items.map(item => {
-            let type: any = item.type ? item.type.toUpperCase() : "NOTE";
-            if (!["QUESTION", "SECTION", "INSTRUCTION", "NOTE"].includes(type)) {
-                type = "NOTE"; // Fallback
-                if (item.originalText.includes("?")) type = "QUESTION";
+            let type: any = item.type ? item.type.toLowerCase() : "note";
+            if (!["question", "section", "instruction", "note"].includes(type)) {
+                type = "note"; // Fallback
+                if (item.text.includes("?")) type = "question";
             }
 
             return {
                 ...item,
-                type: type as "QUESTION" | "SECTION" | "INSTRUCTION" | "NOTE",
+                type: type as "question" | "section" | "instruction" | "note",
                 neutralText: item.neutralText || undefined,
                 masterKey: item.masterKey || undefined,
                 category: item.category || undefined,
@@ -216,7 +216,7 @@ export async function extractQuestionnaireItems(input: { content: string | strin
 }
 
 export interface MappingSuggestion {
-    originalText: string;
+    text: string;
     suggestedKey?: string;
     confidence: number;
     newFieldProposal?: {
@@ -230,10 +230,44 @@ export interface MappingSuggestion {
 export async function generateMappingSuggestions(input: { content: string | string[], type: "image" | "text", mime: string }): Promise<MappingSuggestion[]> {
     const items = await extractQuestionnaireItems(input); // Add logger here if we expose it?
     return items
-        .filter(i => i.type === "QUESTION")
+        .filter(i => i.type === "question")
         .map(i => ({
-            originalText: i.originalText,
+            text: i.text,
             suggestedKey: i.masterKey,
             confidence: i.confidence || 0
         }));
+}
+
+/**
+ * Generates a list of questions based on a user prompt.
+ */
+export async function generateQuestionnaireFromPrompt(prompt: string): Promise<{ success: boolean, questions?: string[], error?: string }> {
+    try {
+        const key = process.env.OPENAI_API_KEY;
+        if (!key) throw new Error("Server Misconfiguration: OPENAI_API_KEY is missing.");
+
+        const openai = createOpenAI({ apiKey: key });
+
+        const { object } = await generateObject({
+            model: openai('gpt-4o'),
+            schema: z.object({
+                questions: z.array(z.string().describe("A single, clear compliance or KYC question"))
+            }),
+            messages: [
+                {
+                    role: "system",
+                    content: "You are an expert compliance officer and legal analyst specializing in KYC, AML, and regulatory frameworks like MiFID II, GDPR, and local banking regulations."
+                },
+                {
+                    role: "user",
+                    content: `Based on the following request, generate a comprehensive list of questions for a questionnaire: \n\n${prompt}\n\nReturn only the questions.`
+                }
+            ]
+        });
+
+        return { success: true, questions: object.questions };
+    } catch (e: any) {
+        console.error("[generateQuestionnaireFromPrompt]", e);
+        return { success: false, error: e.message };
+    }
 }

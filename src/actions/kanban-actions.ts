@@ -34,11 +34,12 @@ export async function populateQuestionsFromExtraction(questionnaireId: string) {
         // Helper to extract questions recursively or from flat list
         const extract = (items: any[]) => {
             for (const item of items) {
-                if (item.type === 'question' || item.question) {
+                const type = item.type?.toLowerCase();
+                if (type === 'question' || item.question) {
                     questionsToCreate.push({
                         questionnaireId: questionnaire.id,
-                        text: item.question || item.text || "Untitled Question",
-                        order: orderCounter++,
+                        text: item.text || item.question || item.originalText || "Untitled Question",
+                        order: item.order ?? orderCounter++,
                         status: 'DRAFT' as QuestionStatus,
                         sourceSectionId: item.section || null // simplified
                     });
@@ -83,13 +84,20 @@ export async function getBoardQuestions(engagementId: string) {
 
     const questions = await prisma.question.findMany({
         where: {
-            questionnaire: {
-                engagements: {
-                    some: {
-                        id: engagementId
+            OR: [
+                {
+                    questionnaire: {
+                        engagements: {
+                            some: { id: engagementId }
+                        }
+                    }
+                },
+                {
+                    questionnaire: {
+                        fiEngagementId: engagementId
                     }
                 }
-            }
+            ]
         },
         orderBy: { order: 'asc' },
         include: {
@@ -97,6 +105,7 @@ export async function getBoardQuestions(engagementId: string) {
                 include: { user: true },
                 orderBy: { createdAt: 'asc' }
             },
+            assignedToUser: true,
             // @ts-ignore: Prisma client lag
             activities: {
                 orderBy: { createdAt: 'desc' },
@@ -113,7 +122,11 @@ export async function getBoardQuestions(engagementId: string) {
         answer: q.answer || undefined,
         status: q.status,
         isLocked: (q as any).isLocked,
-        assignee: q.assignedToUserId ? { name: 'User', type: 'USER' } : undefined, // Simplify for now
+        assignedToUserId: q.assignedToUserId,
+        assignedEmail: (q as any).assignedEmail,
+        assignee: q.assignedToUserId
+            ? { name: q.assignedToUser?.name || q.assignedToUser?.email || 'User', type: 'USER' }
+            : ((q as any).assignedEmail ? { name: (q as any).assignedEmail, type: 'INVITEE' } : undefined),
         commentCount: q.comments.length,
         comments: q.comments.map(c => ({
             id: c.id,
@@ -152,48 +165,47 @@ export async function updateQuestionStatus(questionId: string, newStatus: Questi
 }
 
 /**
- * Instantiate a questionnaire for an engagement (Clone Template)
+ * Instantiate a questionnaire for an engagement (Clone Template from DB)
  */
 export async function instantiateQuestionnaire(templateId: string, engagementId: string, name: string) {
     const { userId } = await auth();
     if (!userId) return { success: false, error: "Unauthorized" };
 
     try {
-        // 1. Fetch Template (Mocking a 'template' fetch by just using mock content if not found)
-        // In real app, we'd fetch prisma.questionnaire.findUnique({ where: { id: templateId } })
+        // 1. Fetch Template from DB
+        const template = await prisma.questionnaire.findUnique({
+            where: { id: templateId }
+        });
 
-        const mockExtraction = {
-            questions: [
-                { question: "What is the full legal name of the entity?", section: "Identity" },
-                { question: "Provide the primary business address.", section: "Identity" },
-                { question: "List all beneficial owners >25%.", section: "Ownership" },
-                { question: "Is the entity listed on a regulated exchange?", section: "Governance" },
-                { question: "Provide date of incorporation.", section: "Identity" }
-            ]
-        };
+        if (!template) {
+            return { success: false, error: "Template questionnaire not found" };
+        }
 
         // 2. Create New Questionnaire Instance
         const engagement = await prisma.fIEngagement.findUnique({
-            where: { id: engagementId }, include: { org: true }
+            where: { id: engagementId },
+            include: { org: true }
         });
 
         if (!engagement) return { success: false, error: "Engagement not found" };
 
         const newQuestionnaire = await prisma.questionnaire.create({
             data: {
-                name: name,
+                name: name || template.name,
                 fiOrgId: engagement.fiOrgId,
                 status: "ACTIVE",
-                extractedContent: mockExtraction,
+                extractedContent: template.extractedContent as any,
+                fiEngagementId: engagementId, // Set for direct relation
                 engagements: {
                     connect: { id: engagementId }
                 }
             }
         });
 
-        // 3. Populate Questions
+        // 3. Populate Questions from the template's extractedContent
         await populateQuestionsFromExtraction(newQuestionnaire.id);
 
+        revalidatePath(`/app/le/${engagement.clientLEId}/engagement-new/${engagementId}`);
         return { success: true, id: newQuestionnaire.id };
     } catch (e) {
         console.error("Instantiation failed", e);
@@ -355,29 +367,57 @@ export async function generateSingleQuestionAnswer(questionId: string) {
         return { success: false, error: "No Client LE context found" };
     }
 
-    // 1. Fetch Standing Data
-    const standingDataSections = await prisma.standingDataSection.findMany({
-        where: { clientLEId }
-    });
+    // 1. Fetch Standing Data & Registry Data
+    const [standingDataSections, le] = await Promise.all([
+        prisma.standingDataSection.findMany({
+            where: { clientLEId }
+        }),
+        prisma.clientLE.findUnique({
+            where: { id: clientLEId },
+            select: { lei: true, gleifData: true }
+        })
+    ]);
 
-    if (standingDataSections.length === 0) {
-        const mockAnswer = "I cannot answer this yet because the Knowledge Base is empty. Please add content to the Knowledge Base for this entity first.";
+    if (standingDataSections.length === 0 && !le?.gleifData) {
+        const mockAnswer = "I cannot answer this yet because the Knowledge Base is empty and no Official Registry data (GLEIF) is available. Please add content to the Knowledge Base first.";
         // Log "No Data" generic activity
         await prisma.questionActivity.create({
             data: {
                 questionId,
                 userId,
                 type: "AI_GENERATED",
-                details: { answerSnippet: "Failed: Knowledge Base Empty" }
+                details: { answerSnippet: "Failed: Context Empty" }
             }
         });
         return { success: true, answer: mockAnswer };
     }
 
     // Format Context
-    const contextText = standingDataSections.map(section =>
+    let contextText = standingDataSections.map(section =>
         `SECTION: ${section.category}\nCONTENT:\n${section.content}\n`
     ).join("\n---\n");
+
+    if (le?.gleifData) {
+        const gd: any = le.gleifData;
+        const attributes = gd.attributes || {};
+        const entity = attributes.entity || {};
+        const reg = attributes.registration || {};
+
+        const registryContext = `
+--- OFFICIAL REGISTRY DATA (GLEIF) ---
+LEI: ${le.lei}
+Legal Name: ${entity.legalName?.name}
+Jurisdiction: ${entity.jurisdiction}
+Entity Status: ${entity.status}
+Legal Address: ${entity.legalAddress?.addressLines?.join(", ")}, ${entity.legalAddress?.city}, ${entity.legalAddress?.country}
+HQ Address: ${entity.headquartersAddress?.addressLines?.join(", ")}, ${entity.headquartersAddress?.city}, ${entity.headquartersAddress?.country}
+Registration Status: ${reg.status}
+Initial Registration: ${reg.initialRegistrationDate}
+Next Renewal: ${reg.nextRenewalDate}
+---------------------------------------
+`;
+        contextText = registryContext + "\n" + contextText;
+    }
 
     try {
         // 2. Call Shared AI Service
@@ -570,5 +610,95 @@ export async function generateEngagementAnswers(engagementId: string) {
     } catch (e: any) {
         console.error("Batch Generation Error:", e);
         return { success: false, error: e.message || "Failed to batch generate answers" };
+    }
+}
+
+/**
+ * Fetch all team members (Active & Pending) for a Client LE
+ */
+export async function getLETeamMembers(clientLEId: string) {
+    const { userId } = await auth();
+    if (!userId) return { success: false, error: "Unauthorized" };
+
+    try {
+        // 1. Fetch Active Memberships
+        const memberships = await prisma.membership.findMany({
+            where: { clientLEId },
+            include: { user: true }
+        });
+
+        // 2. Fetch Pending Invitations
+        const invitations = await prisma.invitation.findMany({
+            where: { clientLEId, status: "PENDING" }
+        });
+
+        const members = memberships.map(m => ({
+            id: m.userId,
+            email: m.user.email,
+            name: m.user.name || m.user.email,
+            status: "ACTIVE" as const,
+            role: m.role
+        }));
+
+        const invitees = invitations.map(i => ({
+            id: undefined,
+            email: i.email,
+            name: i.email,
+            status: "PENDING" as const,
+            role: i.role
+        }));
+
+        // Deduplicate by email just in case (e.g. invited user also has org membership but LE membership is missing?)
+        // Actually, if they are in memberships, they aren't PENDING anymore in this LE.
+        return { success: true, team: [...members, ...invitees] };
+    } catch (e) {
+        console.error("Failed to fetch team members:", e);
+        return { success: false, error: "Failed to fetch team" };
+    }
+}
+
+/**
+ * Assign a question to a user or invitee
+ */
+export async function assignQuestion(questionId: string, assignee: { userId?: string, email?: string } | null) {
+    const { userId: actorId } = await auth();
+    if (!actorId) return { success: false, error: "Unauthorized" };
+
+    try {
+        const question = await prisma.question.update({
+            where: { id: questionId },
+            data: {
+                assignedToUserId: assignee?.userId || null,
+                assignedEmail: assignee?.email || null
+            }
+        });
+
+        // Log Activity
+        const activity = await prisma.questionActivity.create({
+            data: {
+                questionId,
+                userId: actorId,
+                type: "ASSIGNED",
+                details: {
+                    assignedToUserId: assignee?.userId,
+                    assignedEmail: assignee?.email
+                }
+            },
+            include: { user: true }
+        });
+
+        return {
+            success: true,
+            activity: {
+                id: activity.id,
+                type: activity.type,
+                details: activity.details,
+                userName: activity.user.name || "User",
+                createdAt: activity.createdAt
+            }
+        };
+    } catch (e) {
+        console.error("Failed to assign question:", e);
+        return { success: false, error: "Assignment failed" };
     }
 }

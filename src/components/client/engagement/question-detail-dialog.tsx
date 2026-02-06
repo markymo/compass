@@ -13,28 +13,38 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Bot, User, Send, History, MessageSquare, Sparkles, Lock, Unlock, Loader2, Database } from "lucide-react";
+import { Bot, User, Send, History, MessageSquare, Sparkles, Lock, Unlock, Loader2, Database, UserPlus } from "lucide-react";
 import { QuestionTask } from "./question-card";
 import { cn } from "@/lib/utils";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 
 interface QuestionDetailDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     task: QuestionTask | null;
+    clientLEId?: string;
 }
 
-import { updateAnswer, addComment, generateSingleQuestionAnswer, toggleQuestionLock } from "@/actions/kanban-actions";
+import { updateAnswer, addComment, generateSingleQuestionAnswer, toggleQuestionLock, getLETeamMembers, assignQuestion } from "@/actions/kanban-actions";
 import { toast } from "sonner";
 import { useState, useEffect } from "react";
 
 // ... existing imports
 
-export function QuestionDetailDialog({ open, onOpenChange, task }: QuestionDetailDialogProps) {
+export function QuestionDetailDialog({ open, onOpenChange, task, clientLEId }: QuestionDetailDialogProps) {
     const [comment, setComment] = useState("");
     const [answer, setAnswer] = useState("");
     const [isSaving, setIsSaving] = useState(false);
     const [isGenerating, setIsGenerating] = useState(false);
     const [isLocked, setIsLocked] = useState(false);
+    const [isAssigning, setIsAssigning] = useState(false);
+    const [teamMembers, setTeamMembers] = useState<any[]>([]);
 
     // Optimistic Activities
     const [localActivities, setLocalActivities] = useState<any[]>([]);
@@ -58,6 +68,21 @@ export function QuestionDetailDialog({ open, onOpenChange, task }: QuestionDetai
             setLocalComments([]);
         }
     }, [task]);
+
+    // Fetch Team for Assignment
+    useEffect(() => {
+        if (open && clientLEId) {
+            fetchTeam();
+        }
+    }, [open, clientLEId]);
+
+    const fetchTeam = async () => {
+        if (!clientLEId) return;
+        const res = await getLETeamMembers(clientLEId);
+        if (res.success && res.team) {
+            setTeamMembers(res.team);
+        }
+    };
 
     const handleSaveAnswer = async () => {
         if (!task) return;
@@ -120,6 +145,29 @@ export function QuestionDetailDialog({ open, onOpenChange, task }: QuestionDetai
         }
     };
 
+    const handleAssign = async (assigneeVal: string) => {
+        if (!task) return;
+        setIsAssigning(true);
+
+        let assignee: { userId?: string, email?: string } | null = null;
+        if (assigneeVal.startsWith("u:")) {
+            assignee = { userId: assigneeVal.substring(2) };
+        } else if (assigneeVal.startsWith("i:")) {
+            assignee = { email: assigneeVal.substring(2) };
+        }
+
+        const res = await assignQuestion(task.id, assignee);
+        if (res.success) {
+            toast.success("Assignee updated");
+            if (res.activity) {
+                setLocalActivities([res.activity, ...localActivities]);
+            }
+        } else {
+            toast.error("Failed to update assignee");
+        }
+        setIsAssigning(false);
+    };
+
     if (!task) return null;
 
     return (
@@ -148,9 +196,38 @@ export function QuestionDetailDialog({ open, onOpenChange, task }: QuestionDetai
                         </div>
                     </div>
                     <DialogTitle className="text-xl leading-snug font-playfair">{task.question}</DialogTitle>
-                    <DialogDescription className="mt-1">
-                        Internal ID: {task.id.slice(0, 8)} • Assigned to {task.assignee?.name || 'Unassigned'}
-                    </DialogDescription>
+                    <div className="flex items-center gap-4 mt-2">
+                        <DialogDescription className="text-xs">
+                            Internal ID: {task.id.slice(0, 8)}
+                        </DialogDescription>
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs text-slate-400">Assignee:</span>
+                            <Select
+                                onValueChange={handleAssign}
+                                disabled={isAssigning}
+                                defaultValue={task.assignedToUserId ? `u:${task.assignedToUserId}` : (task.assignedEmail ? `i:${task.assignedEmail}` : "unassigned")}
+                            >
+                                <SelectTrigger className="h-7 text-xs bg-white border-slate-200 min-w-[140px]">
+                                    <SelectValue placeholder="Assign user..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="unassigned">Unassigned</SelectItem>
+                                    {teamMembers.map((member) => (
+                                        <SelectItem
+                                            key={member.id || member.email}
+                                            value={member.id ? `u:${member.id}` : `i:${member.email}`}
+                                        >
+                                            <div className="flex items-center gap-2">
+                                                <div className={cn("h-1.5 w-1.5 rounded-full", member.status === 'ACTIVE' ? "bg-green-500" : "bg-amber-400")} />
+                                                <span>{member.name}</span>
+                                                {member.status === 'PENDING' && <span className="text-[10px] opacity-50 ml-1">(Invited)</span>}
+                                            </div>
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
                 </DialogHeader>
 
                 <div className="flex-1 overflow-hidden flex flex-col md:flex-row">
@@ -207,6 +284,7 @@ export function QuestionDetailDialog({ open, onOpenChange, task }: QuestionDetai
                                                 {activity.type === 'AI_GENERATED' && <Sparkles className="h-3 w-3 text-indigo-500" />}
                                                 {activity.type === 'ANSWER_UPDATED' && <History className="h-3 w-3" />}
                                                 {(activity.type === 'LOCKED' || activity.type === 'UNLOCKED') && <Lock className="h-3 w-3 text-amber-500" />}
+                                                {activity.type === 'ASSIGNED' && <UserPlus className="h-3 w-3 text-blue-500" />}
                                             </div>
                                             <div>
                                                 <p className="text-xs font-medium text-slate-900">
@@ -216,6 +294,7 @@ export function QuestionDetailDialog({ open, onOpenChange, task }: QuestionDetai
                                                         {activity.type === 'ANSWER_UPDATED' && " updated the answer"}
                                                         {activity.type === 'LOCKED' && " locked the question"}
                                                         {activity.type === 'UNLOCKED' && " unlocked the question"}
+                                                        {activity.type === 'ASSIGNED' && ` assigned the question to ${activity.details?.assignedEmail || (activity.details?.assignedToUserId ? 'Team Member' : 'nobody')}`}
                                                     </span>
                                                 </p>
                                                 <p className="text-[10px] text-slate-400">
@@ -234,7 +313,7 @@ export function QuestionDetailDialog({ open, onOpenChange, task }: QuestionDetai
                                                         <div className="flex flex-wrap gap-2 pt-1">
                                                             {activity.details.confidence && (
                                                                 <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${activity.details.confidence > 0.8 ? 'bg-green-100 text-green-700' :
-                                                                        activity.details.confidence > 0.5 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
+                                                                    activity.details.confidence > 0.5 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
                                                                     }`}>
                                                                     {Math.round(activity.details.confidence * 100)}% Confidence
                                                                 </span>

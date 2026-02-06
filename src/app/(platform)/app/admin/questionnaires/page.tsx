@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { FileText, ArrowRight, Building2 } from "lucide-react";
 import Link from "next/link";
 
+import { CreateManualDialog } from "@/components/admin/create-manual-dialog";
+
 export const dynamic = 'force-dynamic';
 
 export default async function AdminQuestionnairesPage() {
@@ -13,9 +15,12 @@ export default async function AdminQuestionnairesPage() {
 
     return (
         <div className="space-y-6">
-            <div>
-                <h1 className="text-3xl font-bold tracking-tight">Questionnaire Management</h1>
-                <p className="text-muted-foreground">Review and map questionnaires uploaded by Financial Institutions.</p>
+            <div className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-3xl font-bold tracking-tight">Questionnaire Management</h1>
+                    <p className="text-muted-foreground">Review and map questionnaires uploaded by Financial Institutions.</p>
+                </div>
+                <CreateManualDialog />
             </div>
 
             <Card>

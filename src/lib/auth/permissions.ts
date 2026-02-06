@@ -58,10 +58,20 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
         Action.LE_UPDATE,
         Action.LE_ARCHIVE,
         Action.ORG_MANAGE_TEAM,
-        Action.ORG_SELF_JOIN_LE // Key: Can grant themselves access
-        // NOTE: NO DATA ACCESS
+        Action.ORG_SELF_JOIN_LE, // Key: Can grant themselves access
+
+        // --- ADDED ---
+        // Org Admins have management oversight over all LEs in their Org
+        Action.LE_VIEW_DATA,
+        Action.LE_MANAGE_USERS,
+        Action.ENG_CREATE,
+        Action.ENG_UPDATE,
+        Action.ENG_DELETE,
+        Action.ENG_VIEW
     ],
-    [Role.ORG_MEMBER]: [], // Basic view only
+    [Role.ORG_MEMBER]: [
+        Action.ENG_VIEW // Members can see relationships
+    ],
 
     // LE Level
     [Role.LE_ADMIN]: [
@@ -128,18 +138,26 @@ export async function can(
 
     // A. LE Context (Data Access)
     if (context.clientLEId) {
+        // 1. Direct Workspace membership
         const leRole = getRoleForLE(user, context.clientLEId);
         if (leRole && checkPermission(leRole, action)) return true;
+
+        // 2. Ownership Inheritance (Org Admin of the owner Org)
+        const owners = await prisma.clientLEOwner.findMany({
+            where: { clientLEId: context.clientLEId, endAt: null },
+            select: { partyId: true }
+        });
+
+        for (const owner of owners) {
+            const orgRole = getRoleForOrg(user, owner.partyId);
+            if (orgRole && checkPermission(orgRole, action)) return true;
+        }
     }
 
     // B. Org Context (Management Access)
     if (context.partyId) {
         const orgRole = getRoleForOrg(user, context.partyId);
-        if (orgRole && checkPermission(orgRole, action)) {
-            // Special Check: ORG_ADMIN cannot do LE_VIEW_DATA via Org Role
-            // (Use permissions map to enforce, which is already done above)
-            return true;
-        }
+        if (orgRole && checkPermission(orgRole, action)) return true;
     }
 
     // 3. Inheritance (REMOVED/LIMITED)
@@ -162,13 +180,13 @@ function hasRole(user: UserWithMemberships, role: string): boolean {
 function getRoleForLE(user: UserWithMemberships, leId: string): string | undefined {
     // Direct LE membership
     const membership = user.memberships.find(m => m.clientLEId === leId);
-    return mapLegacyRole(membership?.role);
+    return mapLegacyRole(membership?.role, "LE");
 }
 
 function getRoleForOrg(user: UserWithMemberships, orgId: string): string | undefined {
     // Org membership (clientLEId is null)
     const membership = user.memberships.find(m => m.organizationId === orgId && !m.clientLEId);
-    return mapLegacyRole(membership?.role);
+    return mapLegacyRole(membership?.role, "ORG");
 }
 
 function checkPermission(role: string, action: Action): boolean {
@@ -178,9 +196,13 @@ function checkPermission(role: string, action: Action): boolean {
 }
 
 // Temp Helper to support old "ADMIN" strings during dev until migration
-function mapLegacyRole(roleName?: string): string | undefined {
+function mapLegacyRole(roleName?: string, scope?: "ORG" | "LE"): string | undefined {
     if (!roleName) return undefined;
-    if (roleName === "ADMIN") return Role.ORG_ADMIN; // Assume Org Admin for now (dangerous, but needed for transition)
-    if (roleName === "MEMBER") return Role.ORG_MEMBER;
+    if (roleName === "ADMIN") {
+        return scope === "LE" ? Role.LE_ADMIN : Role.ORG_ADMIN;
+    }
+    if (roleName === "MEMBER") {
+        return scope === "LE" ? Role.LE_USER : Role.ORG_MEMBER;
+    }
     return roleName;
 }

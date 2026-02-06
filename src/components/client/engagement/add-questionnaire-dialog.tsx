@@ -8,8 +8,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createQuestionnaire, startBackgroundExtraction } from "@/actions/questionnaire";
+import { searchAvailableQuestionnaires } from "@/actions/questionnaire-library";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { useEffect } from "react";
 
 interface AddQuestionnaireDialogProps {
     open: boolean;
@@ -23,7 +25,32 @@ export function AddQuestionnaireDialog({ open, onOpenChange, onAdd, engagementId
     const [dragActive, setDragActive] = useState(false);
     const [loading, setLoading] = useState(false);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [searchQuery, setSearchQuery] = useState("");
+    const [searchResults, setSearchResults] = useState<any[]>([]);
+    const [isSearching, setIsSearching] = useState(false);
     const router = useRouter();
+
+    useEffect(() => {
+        if (step === 'library') {
+            handleSearch();
+        }
+    }, [step]);
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            if (step === 'library') handleSearch();
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [searchQuery]);
+
+    const handleSearch = async () => {
+        setIsSearching(true);
+        const res = await searchAvailableQuestionnaires(searchQuery);
+        if (res.success && res.data) {
+            setSearchResults(res.data);
+        }
+        setIsSearching(false);
+    };
 
     const reset = () => {
         setStep('selection');
@@ -144,24 +171,35 @@ export function AddQuestionnaireDialog({ open, onOpenChange, onAdd, engagementId
                     <div className="space-y-4 py-4 max-h-[400px] overflow-y-auto">
                         <div className="relative">
                             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-500" />
-                            <Input placeholder="Search library (e.g. Wolfsberg)..." className="pl-9" />
+                            <Input
+                                placeholder="Search library (e.g. Wolfsberg)..."
+                                className="pl-9"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                            />
                         </div>
                         <div className="grid gap-2">
-                            {[
-                                { id: 'wolfsberg', name: 'Wolfsberg CBDDQ v1.4', desc: 'Standard Correspondent Banking Due Diligence' },
-                                { id: 'sig', name: 'SIG Lite 2024', desc: 'Standard Information Gathering - Lite' },
-                                { id: 'custom', name: 'JPM Custom Onboarding', desc: 'Specific requirements for J.P. Morgan' }
-                            ].map(t => (
-                                <div key={t.id} className="p-3 border rounded-lg hover:border-indigo-500 cursor-pointer flex justify-between items-center group"
-                                    onClick={() => onAdd('library', { templateId: t.id, name: t.name })}
-                                >
-                                    <div>
-                                        <h4 className="font-medium text-slate-900 group-hover:text-indigo-700">{t.name}</h4>
-                                        <p className="text-xs text-slate-500">{t.desc}</p>
-                                    </div>
-                                    <Button size="sm" variant="ghost" className="opacity-0 group-hover:opacity-100">Select</Button>
+                            {isSearching ? (
+                                <div className="flex items-center justify-center py-8">
+                                    <Loader2 className="h-6 w-6 animate-spin text-slate-300" />
                                 </div>
-                            ))}
+                            ) : searchResults.length === 0 ? (
+                                <div className="text-center py-8 text-slate-500 text-sm">
+                                    {searchQuery ? "No matching questionnaires found." : "Start typing to search the library..."}
+                                </div>
+                            ) : (
+                                searchResults.map(q => (
+                                    <div key={q.id} className="p-3 border rounded-lg hover:border-indigo-500 cursor-pointer flex justify-between items-center group"
+                                        onClick={() => onAdd('library', { templateId: q.id, name: q.name })}
+                                    >
+                                        <div>
+                                            <h4 className="font-medium text-slate-900 group-hover:text-indigo-700">{q.name}</h4>
+                                            <p className="text-xs text-slate-500">{q.fiOrg.name}</p>
+                                        </div>
+                                        <Button size="sm" variant="ghost" className="opacity-0 group-hover:opacity-100">Select</Button>
+                                    </div>
+                                ))
+                            )}
                         </div>
                         <Button variant="link" onClick={() => setStep('selection')}>&larr; Back</Button>
                     </div>
