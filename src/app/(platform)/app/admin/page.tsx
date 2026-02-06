@@ -1,7 +1,7 @@
 
 import prisma from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Users, Building2, Database, Wand2, FileText, AlertCircle, ShieldCheck } from "lucide-react";
+import { Users, Building2, Database, Wand2, FileText, AlertCircle, ShieldCheck, BarChart3 } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 
@@ -59,6 +59,13 @@ export default async function AdminDashboardPage() {
             color: "text-pink-500",
             stat: draftQCount,
             badge: draftQCount > 0 ? "Pending Mapping" : null
+        },
+        {
+            title: "League Tables",
+            description: "View Bank Target Lists (UK/EU)",
+            href: "/app/admin/league-tables",
+            icon: BarChart3,
+            color: "text-indigo-500",
         },
     ];
 

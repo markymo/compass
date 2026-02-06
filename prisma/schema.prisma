@@ -38,6 +38,7 @@ model Organization {
   logoUrl        String?
   description    String?         @db.Text
   status         String          @default("ACTIVE") // ACTIVE, ARCHIVED
+  metadata       Json?           // Flexible store for stats (League Tables etc)
   // clientLEs replaced by ownedLEs
   engagements    FIEngagement[]
   fiSchemas      FISchema[]
