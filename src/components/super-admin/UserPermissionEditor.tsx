@@ -43,7 +43,7 @@ export function UserPermissionEditor({ profile, userId }: UserPermissionEditorPr
     async function handleToggleDemoActor(checked: boolean) {
         const res = await updateDemoActorStatus(userId, checked);
         if (res.success) {
-            setData(prev => ({
+            setData((prev: any) => ({
                 ...prev,
                 user: { ...prev.user, isDemoActor: checked }
             }));
