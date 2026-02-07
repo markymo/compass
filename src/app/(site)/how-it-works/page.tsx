@@ -17,7 +17,7 @@ export default function HowItWorks() {
                         <p className="text-xl text-slate-600 leading-relaxed">
                             Stop filling out multiple compliance forms. <br className="hidden md:block" />
                             Stop maintaining "Master Spreadsheets". <br className="hidden md:block" />
-                            Compass builds your Knowledge Base automatically as you work.
+                            ONpro builds your Knowledge Base automatically as you work.
                         </p>
                     </div>
 
@@ -64,10 +64,10 @@ export default function HowItWorks() {
                                 <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-purple-50 border border-purple-100 shadow-sm">
                                     <BrainCircuit className="h-7 w-7 text-purple-600" />
                                 </div>
-                                <h2 className="text-3xl font-bold text-slate-900">2. We build your "Standing Data"</h2>
+                                <h2 className="text-3xl font-bold text-slate-900">2. We build your "Knowledge Base"</h2>
                                 <p className="text-lg text-slate-600 leading-relaxed">
-                                    As you work, Compass is learning. It automatically extracts your answers, policies, and corporate details
-                                    to build your live <strong>Standing Data</strong> library. Your knowledge base grows organically with every question you answer.
+                                    As you work, ONpro is learning. It automatically extracts your answers, policies, and corporate details
+                                    to build your live <strong>Knowledge Base</strong> library. Your knowledge base grows organically with every question you answer.
                                 </p>
                             </div>
                             <div className="flex-1 relative group">
@@ -94,9 +94,9 @@ export default function HowItWorks() {
                                 </div>
                                 <h2 className="text-3xl font-bold text-slate-900">3. Never repeat yourself</h2>
                                 <p className="text-lg text-slate-600 leading-relaxed">
-                                    The next time a questionnaire comes in, Compass auto-fills it using your Standing Data.
+                                    The next time a questionnaire comes in, ONpro auto-fills it using your Knowledge Base.
                                     You only need to answer the <em>new</em> questions—the "delta".
-                                    And guess what? Those new answers instantly update your Standing Data for next time.
+                                    And guess what? Those new answers instantly update your Knowledge Base for next time.
                                 </p>
                             </div>
                             <div className="flex-1 relative group">

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Playfair_Display, Inter } from "next/font/google";
+import { Outfit, Inter } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { UsageTracker } from "@/components/usage-tracker";
@@ -7,8 +7,8 @@ import { AuthSessionProvider } from "@/components/providers/session-provider";
 import { Suspense } from "react";
 import { Toaster } from "@/components/ui/sonner";
 
-const playfair = Playfair_Display({
-  variable: "--font-playfair",
+const outfit = Outfit({
+  variable: "--font-heading",
   subsets: ["latin"],
 });
 
@@ -33,7 +33,7 @@ export default function RootLayout({
         <body
           suppressHydrationWarning
           className={cn(
-            playfair.variable,
+            outfit.variable,
             inter.variable,
             "antialiased min-h-screen bg-background text-foreground font-sans"
           )}

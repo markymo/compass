@@ -14,7 +14,7 @@ export default function Icon() {
             // ImageResponse JSX element
             <div
                 style={{
-                    fontSize: 24,
+                    fontSize: 18,
                     background: '#0f172a', // slate-900
                     width: '100%',
                     height: '100%',
@@ -22,23 +22,20 @@ export default function Icon() {
                     alignItems: 'center',
                     justifyContent: 'center',
                     color: 'white',
-                    borderRadius: '6px', // Slightly rounded corners
+                    borderRadius: '6px',
+                    fontFamily: 'sans-serif',
+                    fontWeight: 800,
                 }}
             >
-                <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="20"
-                    height="20"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                >
-                    <circle cx="12" cy="12" r="10" />
-                    <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" />
-                </svg>
+                <div style={{ display: 'flex', alignItems: 'baseline', position: 'relative', top: '1px' }}>
+                    <span>ON</span>
+                    <div style={{
+                        width: '4px',
+                        height: '4px',
+                        backgroundColor: '#f59e0b', // amber-500
+                        marginLeft: '1px',
+                    }} />
+                </div>
             </div>
         ),
         {
