@@ -1,3 +1,4 @@
+
 import NextAuth from "next-auth"
 import { PrismaAdapter } from "@auth/prisma-adapter"
 import prisma from "@/lib/prisma"
@@ -10,11 +11,14 @@ import jwt from "jsonwebtoken"
 export const { handlers, auth, signIn, signOut } = NextAuth({
     adapter: PrismaAdapter(prisma),
     session: { strategy: "jwt" }, // Required for Credentials
+    secret: process.env.AUTH_SECRET, // Explicitly pass secret
     ...authConfig,
     providers: [
         ...authConfig.providers.filter((p: any) => p.id !== "credentials"), // Remove stub
         // Add Full Implementation
         Credentials({
+            // You can specify which fields should be submitted, by adding keys to the `credentials` object.
+            // e.g. domain, username, password, 2FA token, etc.
             credentials: {
                 email: { label: "Email", type: "email" },
                 password: { label: "Password", type: "password" },
