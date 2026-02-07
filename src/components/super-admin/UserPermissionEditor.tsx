@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { assignClientRole, assignLERole, searchClients, addUserToClient, createClientLEForOrg, updateUserBasicInfo, resetUserPassword } from "@/actions/super-admin-users";
+import { assignClientRole, assignLERole, searchClients, addUserToClient, createClientLEForOrg, updateUserBasicInfo, resetUserPassword, updateDemoActorStatus } from "@/actions/super-admin-users";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 
 interface UserPermissionEditorProps {
     profile: any; // The tree returned from getUserPermissionsProfile
@@ -38,6 +39,19 @@ export function UserPermissionEditor({ profile, userId }: UserPermissionEditorPr
     const [isResetOpen, setIsResetOpen] = useState(false);
     const [newPassword, setNewPassword] = useState("");
     const [resetting, setResetting] = useState(false);
+
+    async function handleToggleDemoActor(checked: boolean) {
+        const res = await updateDemoActorStatus(userId, checked);
+        if (res.success) {
+            setData(prev => ({
+                ...prev,
+                user: { ...prev.user, isDemoActor: checked }
+            }));
+            toast.success(checked ? "User marked as Demo Actor" : "User removed from Demo Actors");
+        } else {
+            toast.error("Failed to update status");
+        }
+    }
 
     async function refresh() {
         // In a real app we'd re-fetch the server action here or rely on parent re-render.
@@ -132,7 +146,17 @@ export function UserPermissionEditor({ profile, userId }: UserPermissionEditorPr
                         multiline
                     />
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 items-center">
+                    <div className="flex items-center space-x-2 mr-4 bg-amber-50 px-3 py-2 rounded-md border border-amber-100">
+                        <Switch
+                            id="demo-mode"
+                            checked={data.user.isDemoActor || false}
+                            onCheckedChange={handleToggleDemoActor}
+                        />
+                        <Label htmlFor="demo-mode" className="text-sm font-medium text-amber-900 cursor-pointer">
+                            Demo Actor
+                        </Label>
+                    </div>
                     <Dialog open={isResetOpen} onOpenChange={setIsResetOpen}>
                         <DialogTrigger asChild>
                             <Button variant="outline" className="text-destructive border-destructive/20 hover:bg-destructive/10 hover:text-destructive">

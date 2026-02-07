@@ -7,12 +7,14 @@ import { toast } from "sonner";
 import { Loader2, UserCheck } from "lucide-react"; // Theater icon might not be available in lucide-react version installed
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useRouter } from "next/navigation";
 
 interface DemoUserProps {
     users: any[];
 }
 
 export function DemoUserList({ users }: DemoUserProps) {
+    const router = useRouter();
     const [loadingId, setLoadingId] = useState<string | null>(null);
 
     const handleImpersonate = async (userId: string) => {
@@ -43,7 +45,8 @@ export function DemoUserList({ users }: DemoUserProps) {
                 setLoadingId(null);
             } else {
                 // Manually redirect on success
-                window.location.href = "/app";
+                router.refresh(); // Update server components with new session
+                router.push("/app");
             }
         } catch (error) {
             console.error("Impersonation error", error);

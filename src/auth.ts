@@ -12,6 +12,34 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     adapter: PrismaAdapter(prisma),
     session: { strategy: "jwt" }, // Required for Credentials
     ...authConfig,
+    callbacks: {
+        ...authConfig.callbacks,
+        async session({ session, token }) {
+            // Run default logic first (if we could, but we can't easily call super).
+            // So we strictly implement the enhancement here.
+
+            if (session.user && token?.sub) {
+                session.user.id = token.sub;
+                // @ts-ignore
+                session.user.isDemoActor = token.isDemoActor;
+
+                // Check System Admin Status
+                try {
+                    const sysAdmin = await prisma.membership.findFirst({
+                        where: {
+                            userId: token.sub,
+                            organization: { types: { has: "SYSTEM" } }
+                        }
+                    });
+                    // @ts-ignore
+                    session.user.isSystemAdmin = !!sysAdmin;
+                } catch (e) {
+                    console.error("Failed to check sys admin in session", e);
+                }
+            }
+            return session;
+        }
+    },
     providers: [
         ...authConfig.providers.filter((p: any) => p.id !== "credentials"), // Remove stub
         // Add Full Implementation

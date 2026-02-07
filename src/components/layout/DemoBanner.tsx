@@ -5,8 +5,9 @@ import { useSession } from "next-auth/react";
 import { X, UserCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { signOut } from "next-auth/react";
+import { AuthSessionProvider } from "@/components/providers/session-provider";
 
-export function DemoBanner() {
+function DemoBannerContent() {
     const { data: session } = useSession();
 
     // @ts-ignore - Session type doesn't know about isDemoActor without augmentation
@@ -25,10 +26,38 @@ export function DemoBanner() {
                 variant="ghost"
                 size="sm"
                 className="hover:bg-amber-700 text-white hover:text-white h-7 px-3 border border-amber-500/50"
-                onClick={() => signOut({ callbackUrl: "/login" })}
+                onClick={async () => {
+                    // unexpected error handling: if restore fails, just sign out
+                    try {
+                        const { restoreAdminSession } = await import("@/actions/demo-actions");
+                        const { signIn } = await import("next-auth/react");
+
+                        const result = await restoreAdminSession();
+                        if (result.success && result.token) {
+                            await signIn("credentials", {
+                                token: result.token,
+                                callbackUrl: "/app/admin/demo",
+                                redirect: true
+                            });
+                        } else {
+                            // Fallback
+                            signOut({ callbackUrl: "/login" });
+                        }
+                    } catch (e) {
+                        signOut({ callbackUrl: "/login" });
+                    }
+                }}
             >
                 End Demo <X className="ml-1 h-3 w-3" />
             </Button>
         </div>
+    );
+}
+
+export function DemoBanner() {
+    return (
+        <AuthSessionProvider>
+            <DemoBannerContent />
+        </AuthSessionProvider>
     );
 }

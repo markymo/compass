@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Compass, Settings } from "lucide-react";
 import { UserNav } from "./UserNav";
 import { Button } from "@/components/ui/button";
+import { DemoSwitcher } from "./DemoSwitcher";
 
 interface PlatformNavbarProps {
     isSystemAdmin?: boolean;
@@ -27,6 +28,7 @@ export function PlatformNavbar({ isSystemAdmin = false }: PlatformNavbarProps) {
                             </Link>
                         </Button>
                     )}
+                    {isSystemAdmin && <DemoSwitcher />}
                     <UserNav />
                 </div>
             </div>

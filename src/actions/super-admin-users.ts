@@ -336,6 +336,25 @@ export async function resetUserPassword(userId: string, newPassword: string) {
     }
 }
 
+// 11. Toggle Demo Actor Status
+export async function updateDemoActorStatus(userId: string, isDemoActor: boolean) {
+    await ensureAdmin();
+
+    try {
+        await prisma.user.update({
+            where: { id: userId },
+            data: { isDemoActor }
+        });
+
+        revalidatePath("/app/admin/super");
+        revalidatePath("/app/admin/demo");
+        return { success: true };
+    } catch (e) {
+        console.error("Update Demo Status Failed", e);
+        return { success: false, error: "Failed to update demo status" };
+    }
+}
+
 // 7. Get User Permissions Profile (All Orgs + LEs)
 export async function getUserPermissionsProfile(targetUserId: string) {
     await ensureAdmin();
@@ -343,7 +362,7 @@ export async function getUserPermissionsProfile(targetUserId: string) {
     // 1. Fetch User Details
     const user = await prisma.user.findUnique({
         where: { id: targetUserId },
-        select: { id: true, name: true, email: true, description: true }
+        select: { id: true, name: true, email: true, description: true, isDemoActor: true }
     });
     if (!user) return null;
 
