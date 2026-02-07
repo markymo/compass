@@ -12,7 +12,7 @@ export function ValueProp() {
                         One Platform, Two massive Advantages
                     </h2>
                     <p className="mt-4 text-lg text-slate-600 max-w-2xl mx-auto">
-                        Whether you are raising capital or providing it, Compass
+                        Whether you are raising capital or providing it, ONpro
                         removes the friction from the equation.
                     </p>
                 </div>
@@ -30,7 +30,7 @@ export function ValueProp() {
                         </h3>
                         <p className="text-slate-600 mb-8 text-lg leading-relaxed">
                             Why fill out 20+ complicated forms when you can fill out just one?
-                            Compass acts as a project management tool for your advisory team,
+                            ONpro acts as a project management tool for your advisory team,
                             giving you a single picture of your entire onboarding status.
                         </p>
 
@@ -64,7 +64,7 @@ export function ValueProp() {
                             For Financial Institutions
                         </h3>
                         <p className="text-slate-300 mb-8 text-lg leading-relaxed">
-                            By validating against the Compass Master Schema, you signal to the market
+                            By validating against the ONpro Master Schema, you signal to the market
                             that you prioritize efficiency. Improve data quality, remove inconsistency,
                             and streamline your KYC processes.
                         </p>

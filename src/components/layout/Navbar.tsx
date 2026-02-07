@@ -10,12 +10,9 @@ export function Navbar() {
     return (
         <header className="fixed top-0 left-0 right-0 z-50 border-b border-slate-200 bg-white/80 backdrop-blur-xl">
             <div className="container mx-auto flex h-20 items-center justify-between px-4 md:px-6">
-                <Link href="/" className="flex items-center gap-2">
-                    <div className="relative flex h-8 w-8 items-center justify-center rounded bg-slate-900 text-white">
-                        <Compass className="h-5 w-5" />
-                    </div>
-                    <span className="text-xl font-bold tracking-tight text-slate-900 font-serif">
-                        COMPASS
+                <Link href="/" className="flex items-center gap-1">
+                    <span className="text-2xl font-bold tracking-tight text-slate-900 font-sans">
+                        ONpro<span className="text-amber-500 text-3xl leading-none">.</span>
                     </span>
                 </Link>
 

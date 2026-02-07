@@ -59,7 +59,7 @@ export default function LoginPage() {
                     <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-slate-900 text-white mb-4">
                         <Compass className="h-6 w-6" />
                     </div>
-                    <CardTitle className="text-2xl font-serif">Welcome to Compass</CardTitle>
+                    <CardTitle className="text-2xl font-sans font-bold">Welcome to ONpro<span className="text-amber-500">.</span></CardTitle>
                     <CardDescription>
                         Sign in to access your workspace
                     </CardDescription>

@@ -25,16 +25,20 @@ export default {
         signIn: '/login',
     },
     callbacks: {
-        session({ session, user, token }) {
+        session({ session, token }) {
             // In session strategy (used by Creds), user ID is in token.sub
             if (session.user && token?.sub) {
                 session.user.id = token.sub;
+                // @ts-ignore
+                session.user.isDemoActor = token.isDemoActor;
             }
             return session;
         },
         jwt({ token, user }) {
             if (user) {
                 token.sub = user.id;
+                // @ts-ignore
+                token.isDemoActor = user.isDemoActor;
             }
             return token;
         }

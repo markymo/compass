@@ -69,6 +69,10 @@ model User {
   
   engagementActivities EngagementActivity[]
   auditLogs       AuditLog[]
+  
+  // Demo Capability
+  isDemoActor     Boolean        @default(false)
+  
   assignedQuestions Question[] @relation("AssignedQuestions")
 }
 

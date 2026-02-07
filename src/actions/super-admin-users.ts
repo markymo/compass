@@ -1,5 +1,8 @@
 "use server";
 
+import bcrypt from "bcryptjs";
+
+
 import prisma from "@/lib/prisma";
 import { isSystemAdmin } from "./admin";
 import { revalidatePath } from "next/cache";
@@ -311,6 +314,25 @@ export async function updateUserBasicInfo(userId: string, data: { name?: string,
     } catch (e) {
         console.error("Update User Info Failed", e);
         return { success: false, error: "Failed to update user info" };
+    }
+}
+
+// 10. Reset User Password
+export async function resetUserPassword(userId: string, newPassword: string) {
+    await ensureAdmin();
+
+    try {
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        await prisma.user.update({
+            where: { id: userId },
+            data: { password: hashedPassword }
+        });
+
+        revalidatePath("/app/admin/super");
+        return { success: true };
+    } catch (e) {
+        console.error("Reset Password Failed", e);
+        return { success: false, error: "Failed to reset password" };
     }
 }
 

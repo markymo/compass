@@ -39,7 +39,7 @@ export function Hero() {
                     transition={{ duration: 0.5, delay: 0.2 }}
                     className="mx-auto mt-8 max-w-2xl text-xl text-slate-600 leading-relaxed font-light"
                 >
-                    Compass unifies the onboarding process with a single Master Schema.
+                    ONpro unifies the onboarding process with a single Master Schema.
                     We replace the chaos of duplicative forms with a streamlined, professional workflow.
                 </motion.p>
 
@@ -57,6 +57,6 @@ export function Hero() {
                     </Button>
                 </motion.div>
             </div>
-        </section>
+        </section >
     );
 }

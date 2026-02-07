@@ -1,7 +1,7 @@
 
 import prisma from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Users, Building2, Database, Wand2, FileText, AlertCircle, ShieldCheck, BarChart3 } from "lucide-react";
+import { Users, Building2, Database, Wand2, FileText, AlertCircle, ShieldCheck, BarChart3, UserCheck } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 
@@ -66,6 +66,13 @@ export default async function AdminDashboardPage() {
             href: "/app/admin/league-tables",
             icon: BarChart3,
             color: "text-indigo-500",
+        },
+        {
+            title: "Demo Room",
+            description: "Manage and impersonate demo actors",
+            href: "/app/admin/demo",
+            icon: UserCheck,
+            color: "text-amber-600",
         },
     ];
 

@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { assignClientRole, assignLERole, searchClients, addUserToClient, createClientLEForOrg, updateUserBasicInfo } from "@/actions/super-admin-users";
+import { assignClientRole, assignLERole, searchClients, addUserToClient, createClientLEForOrg, updateUserBasicInfo, resetUserPassword } from "@/actions/super-admin-users";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, PlusCircle, Building2, Briefcase, ChevronDown, ChevronRight, LayoutDashboard, ShieldCheck, DoorOpen, Pencil, CheckCircle2 } from "lucide-react";
+import { Loader2, PlusCircle, Building2, Briefcase, ChevronDown, ChevronRight, LayoutDashboard, ShieldCheck, DoorOpen, Pencil, CheckCircle2, KeyRound } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -33,6 +33,11 @@ export function UserPermissionEditor({ profile, userId }: UserPermissionEditorPr
     const [selectedOrg, setSelectedOrg] = useState<any>(null);
     const [addRole, setAddRole] = useState("MEMBER");
     const [adding, setAdding] = useState(false);
+
+    // Reset Password State
+    const [isResetOpen, setIsResetOpen] = useState(false);
+    const [newPassword, setNewPassword] = useState("");
+    const [resetting, setResetting] = useState(false);
 
     async function refresh() {
         // In a real app we'd re-fetch the server action here or rely on parent re-render.
@@ -69,6 +74,21 @@ export function UserPermissionEditor({ profile, userId }: UserPermissionEditorPr
         if (query.length < 2) return;
         const res = await searchClients(query);
         setOrgSearchResults(res);
+    }
+
+    async function handleResetPassword() {
+        if (!newPassword) return;
+        setResetting(true);
+        const res = await resetUserPassword(userId, newPassword);
+        setResetting(false);
+
+        if (res.success) {
+            toast.success("Password reset successfully");
+            setIsResetOpen(false);
+            setNewPassword("");
+        } else {
+            toast.error("Failed to reset password");
+        }
     }
 
     async function handleAddOrg() {
@@ -112,83 +132,119 @@ export function UserPermissionEditor({ profile, userId }: UserPermissionEditorPr
                         multiline
                     />
                 </div>
-                <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-                    <DialogTrigger asChild>
-                        <Button>
-                            <PlusCircle className="mr-2 h-4 w-4" /> Add to Organization
-                        </Button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-[425px]">
-                        <DialogHeader>
-                            <DialogTitle>Add User to Client Organization</DialogTitle>
-                            <DialogDescription>
-                                Give this user access to a new client environment.
-                            </DialogDescription>
-                        </DialogHeader>
-                        <div className="grid gap-4 py-4">
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium">Organization</label>
-                                <Popover open={orgSearchOpen} onOpenChange={setOrgSearchOpen}>
-                                    <PopoverTrigger asChild>
-                                        <Button
-                                            variant="outline"
-                                            role="combobox"
-                                            aria-expanded={orgSearchOpen}
-                                            className="w-full justify-between"
-                                        >
-                                            {selectedOrg ? selectedOrg.name : "Search organization..."}
-                                            <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                        </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="p-0 w-[400px]">
-                                        <Command shouldFilter={false}>
-                                            <CommandInput placeholder="Search clients..." onValueChange={handleSearch} />
-                                            <CommandList>
-                                                <CommandEmpty>No clients found.</CommandEmpty>
-                                                <CommandGroup>
-                                                    {orgSearchResults.map((org) => (
-                                                        <CommandItem
-                                                            key={org.id}
-                                                            value={org.id}
-                                                            onSelect={() => {
-                                                                setSelectedOrg(org);
-                                                                setOrgSearchOpen(false);
-                                                            }}
-                                                        >
-                                                            <div className="flex items-center gap-2">
-                                                                <Building2 className="mr-2 h-4 w-4 opacity-70" />
-                                                                <span>{org.name}</span>
-                                                                <Badge variant="outline" className="ml-2 text-[10px] h-5">{org.type}</Badge>
-                                                            </div>
-                                                        </CommandItem>
-                                                    ))}
-                                                </CommandGroup>
-                                            </CommandList>
-                                        </Command>
-                                    </PopoverContent>
-                                </Popover>
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium">Initial Role</label>
-                                <Select value={addRole} onValueChange={setAddRole}>
-                                    <SelectTrigger>
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="MEMBER">Member (Standard)</SelectItem>
-                                        <SelectItem value="ADMIN">Admin (Full Control)</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        </div>
-                        <DialogFooter>
-                            <Button onClick={handleAddOrg} disabled={adding || !selectedOrg}>
-                                {adding && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                Add Membership
+                <div className="flex gap-2">
+                    <Dialog open={isResetOpen} onOpenChange={setIsResetOpen}>
+                        <DialogTrigger asChild>
+                            <Button variant="outline" className="text-destructive border-destructive/20 hover:bg-destructive/10 hover:text-destructive">
+                                <KeyRound className="mr-2 h-4 w-4" /> Reset Password
                             </Button>
-                        </DialogFooter>
-                    </DialogContent>
-                </Dialog>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-[425px]">
+                            <DialogHeader>
+                                <DialogTitle>Reset User Password</DialogTitle>
+                                <DialogDescription>
+                                    Set a new password for this user. They will need to use this new password to log in.
+                                </DialogDescription>
+                            </DialogHeader>
+                            <div className="grid gap-4 py-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="new-password">New Password</Label>
+                                    <Input
+                                        id="new-password"
+                                        type="password"
+                                        value={newPassword}
+                                        onChange={(e) => setNewPassword(e.target.value)}
+                                        placeholder="Enter new password"
+                                    />
+                                </div>
+                            </div>
+                            <DialogFooter>
+                                <Button onClick={handleResetPassword} disabled={resetting || !newPassword}>
+                                    {resetting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                    Reset Password
+                                </Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+
+                    <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
+                        <DialogTrigger asChild>
+                            <Button>
+                                <PlusCircle className="mr-2 h-4 w-4" /> Add to Organization
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-[425px]">
+                            <DialogHeader>
+                                <DialogTitle>Add User to Client Organization</DialogTitle>
+                                <DialogDescription>
+                                    Give this user access to a new client environment.
+                                </DialogDescription>
+                            </DialogHeader>
+                            <div className="grid gap-4 py-4">
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium">Organization</label>
+                                    <Popover open={orgSearchOpen} onOpenChange={setOrgSearchOpen}>
+                                        <PopoverTrigger asChild>
+                                            <Button
+                                                variant="outline"
+                                                role="combobox"
+                                                aria-expanded={orgSearchOpen}
+                                                className="w-full justify-between"
+                                            >
+                                                {selectedOrg ? selectedOrg.name : "Search organization..."}
+                                                <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                            </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="p-0 w-[400px]">
+                                            <Command shouldFilter={false}>
+                                                <CommandInput placeholder="Search clients..." onValueChange={handleSearch} />
+                                                <CommandList>
+                                                    <CommandEmpty>No clients found.</CommandEmpty>
+                                                    <CommandGroup>
+                                                        {orgSearchResults.map((org) => (
+                                                            <CommandItem
+                                                                key={org.id}
+                                                                value={org.id}
+                                                                onSelect={() => {
+                                                                    setSelectedOrg(org);
+                                                                    setOrgSearchOpen(false);
+                                                                }}
+                                                            >
+                                                                <div className="flex items-center gap-2">
+                                                                    <Building2 className="mr-2 h-4 w-4 opacity-70" />
+                                                                    <span>{org.name}</span>
+                                                                    <Badge variant="outline" className="ml-2 text-[10px] h-5">{org.type}</Badge>
+                                                                </div>
+                                                            </CommandItem>
+                                                        ))}
+                                                    </CommandGroup>
+                                                </CommandList>
+                                            </Command>
+                                        </PopoverContent>
+                                    </Popover>
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium">Initial Role</label>
+                                    <Select value={addRole} onValueChange={setAddRole}>
+                                        <SelectTrigger>
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="MEMBER">Member (Standard)</SelectItem>
+                                            <SelectItem value="ADMIN">Admin (Full Control)</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
+                            <DialogFooter>
+                                <Button onClick={handleAddOrg} disabled={adding || !selectedOrg}>
+                                    {adding && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                    Add Membership
+                                </Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+                </div>
             </div>
 
             <Separator />

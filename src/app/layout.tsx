@@ -18,7 +18,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Compass | Sovereign Identity for Finance",
+  title: "ONpro | Sovereign Identity for Finance",
   description: "The single source of truth for corporate debt finance onboarding.",
 };
 
