@@ -18,7 +18,7 @@ export default function Solutions() {
                                 Endless Efficiency.
                             </h1>
                             <p className="mt-6 text-lg leading-8 text-slate-600">
-                                Compass moves complex KYC and onboarding processes out of the chaos of email and into a secure, structured platform. Whether you are a Corporate, a Lender, or an Advisor, we make the process work for you.
+                                ONpro moves complex KYC and onboarding processes out of the chaos of email and into a secure, structured platform. Whether you are a Corporate, a Lender, or an Advisor, we make the process work for you.
                             </p>
                             <div className="mt-10 flex items-center justify-center gap-x-6">
                                 <Button size="lg" variant="premium">
@@ -87,7 +87,7 @@ export default function Solutions() {
                                 Built for Every Stakeholder
                             </h2>
                             <p className="mt-4 text-lg text-slate-600">
-                                Compass unifies the workflow, providing value to every participant in the deal.
+                                ONpro unifies the workflow, providing value to every participant in the deal.
                             </p>
                         </div>
 

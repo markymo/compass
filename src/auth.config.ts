@@ -6,11 +6,11 @@ import { z } from "zod"
 export default {
     secret: process.env.AUTH_SECRET,
     providers: [
-        Google({
-            clientId: process.env.AUTH_GOOGLE_ID,
-            clientSecret: process.env.AUTH_GOOGLE_SECRET,
-            allowDangerousEmailAccountLinking: true,
-        }),
+        // Google({
+        //     clientId: process.env.AUTH_GOOGLE_ID,
+        //     clientSecret: process.env.AUTH_GOOGLE_SECRET,
+        //     allowDangerousEmailAccountLinking: true,
+        // }),
         Credentials({
             credentials: {
                 email: { label: "Email", type: "email" },
