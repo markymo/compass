@@ -11,7 +11,6 @@ import jwt from "jsonwebtoken"
 export const { handlers, auth, signIn, signOut } = NextAuth({
     adapter: PrismaAdapter(prisma),
     session: { strategy: "jwt" }, // Required for Credentials
-    secret: process.env.AUTH_SECRET, // Explicitly pass secret
     ...authConfig,
     providers: [
         ...authConfig.providers.filter((p: any) => p.id !== "credentials"), // Remove stub
