@@ -4,6 +4,7 @@ import Credentials from "next-auth/providers/credentials"
 import { z } from "zod"
 
 export default {
+    secret: process.env.AUTH_SECRET,
     providers: [
         Google({
             clientId: process.env.AUTH_GOOGLE_ID,
