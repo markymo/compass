@@ -1,0 +1,32 @@
+| Email | Role | Context (Scope) |
+| :--- | :--- | :--- |
+| admin@example.com | **ADMIN** | Org: admin's Corp (CLIENT) |
+| chrisjwpenner@gmail.com | **ADMIN** | Org: chrisjwpenner's Corp (CLIENT) |
+| demo.alice@example.com | **ADMIN** | Org: Acme Hedge Fund (CLIENT) |
+| demo.bob@example.com | **ADMIN** | Org: G-SIB Bank (FI) |
+| demo.charlie@example.com | **MEMBER** | Org: Acme Hedge Fund (CLIENT) |
+| mark@30gram6.com | **ORG_ADMIN** | Org: mark's Corp 30gram6 again (CLIENT) |
+| mark@30gram6.com | **ORG_ADMIN** | Org: mark's Corp 30gram6 (CLIENT) |
+| mark@30gram6.com | **ADMIN** | Org: Compass System Admin (SYSTEM, CLIENT, FI) |
+| mark@30gram6.com | **MEMBER** | Org: Banco Galicia (FI) |
+| mark@30gram6.com | **ORG_ADMIN** | Org: MegaFund Global Inc (CLIENT) |
+| mark@30gram6.com | **ORG_ADMIN** | Org: Acme Hedge Fund (CLIENT) |
+| mark@30gram6.com | **ADMIN** | LE: Robs TestCo |
+| mark@30gram6.com | **VIEWER** | LE: LE23 Solar |
+| mark@30gram6.com | **VIEWER** | LE: Mark's Solar Farm |
+| mark@30gram6.com | **ADMIN** | Org: Banco Bradesco (FI) |
+| mark@30gram6.com | **VIEWER** | LE: SOLARARISE INDIA PROJECTS PRIVATE LIMITED |
+| mark@30gram6.com | **LE_ADMIN** | LE: EAST ANGLIA TWO LIMITED |
+| mark@30gram6.com | **LE_ADMIN** | LE: FLOW DATA |
+| mark@lissaman.com | **ADMIN** | Org: mark's Corp Lissaman (CLIENT) |
+| mark@lissaman.com | **MEMBER** | Org: Canadian Imperial Bank of Commerce (CIBC) (FI) |
+| rdorntonduff@riskbridge.com | **ADMIN** | Org: rdorntonduff's Corp (CLIENT) |
+| rob.dorntonduff@gmail.com | **ADMIN** | Org: Compass System Admin (SYSTEM, CLIENT, FI) |
+| rob.dorntonduff@gmail.com | **EDITOR** | LE: LE23 Solar |
+| rob.dorntonduff@gmail.com | **EDITOR** | LE: Mark's Solar Farm |
+| rob.dorntonduff@gmail.com | **MEMBER** | Org: Banco Galicia (FI) |
+| robdorntonduff@riskbridge.com | **ADMIN** | Org: Compass System Admin (SYSTEM, CLIENT, FI) |
+| robdorntonduff@riskbridge.com | **EDITOR** | LE: LE23 Solar |
+| verify_1769090545041@test.com | No Membership | - |
+| verify_1769090674329@test.com | **ADMIN** | Org: Test Client Party (CLIENT) |
+| verify_1769090674329@test.com | **VIEWER** | LE: Test Project SPV |

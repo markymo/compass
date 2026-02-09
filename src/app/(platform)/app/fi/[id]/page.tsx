@@ -1,63 +1,16 @@
+
 import {
     getFIOganization,
-    getFIEngagements,
-    getFIDashboardQuestions,
 } from "@/actions/fi";
-import { Search, Home, Landmark } from "lucide-react";
+import { Home, Landmark, Search, ArrowRight } from "lucide-react";
 import { GuideHeader } from "@/components/layout/GuideHeader";
-import { QuestionKanbanCard } from "@/components/fi/question-kanban-card";
-import { EngagementList } from "@/components/fi/engagement-list";
-import { DashboardFilterBar } from "@/components/fi/dashboard-filter-bar";
+import { PortfolioSummary, ActivityFeed } from "@/components/fi/dashboard-widgets";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
-export default async function FIDashboard({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
+export default async function FIDashboard({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
     const org = await getFIOganization(id);
-    const resolvedSearchParams = await searchParams; // Rename to avoid conflict if needed, or just use await
-
-    // 1. Fetch Engagements (for List & Filter Options)
-    const allEngagements = await getFIEngagements(id);
-
-    // 2. Extract Available Filters
-    const availableQuestionnaires = Array.from(new Set(
-        allEngagements.flatMap(e => e.questionnaires.map(q => q.name))
-    )).sort();
-
-    const availableClients = Array.from(new Set(
-        allEngagements.map(e => e.clientLE.name)
-    )).sort();
-
-    // 3. Filter Engagements for the List (Summary)
-    let engagements = allEngagements;
-    const filterQ = resolvedSearchParams.questionnaire as string;
-    const filterClient = resolvedSearchParams.client as string;
-
-    if (filterQ && filterQ !== "all") {
-        engagements = engagements.filter(e =>
-            e.questionnaires.some(q => q.name === filterQ)
-        );
-    }
-
-    if (filterClient && filterClient !== "all") {
-        engagements = engagements.filter(e =>
-            e.clientLE.name === filterClient
-        );
-    }
-
-    // 4. Fetch Questions for the Kanban (Applying same filters)
-    const questions = await getFIDashboardQuestions({
-        clientLEId: (filterClient && filterClient !== 'all')
-            ? allEngagements.find(e => e.clientLE.name === filterClient)?.clientLEId
-            : undefined,
-        questionnaireName: (filterQ && filterQ !== 'all') ? filterQ : undefined,
-        fiOrgId: id
-    });
-
-    // 5. Group Questions by Status
-    const draftQuestions = questions.filter(q => q.status === 'DRAFT');
-    const reviewQuestions = questions.filter(q => q.status === 'INTERNAL_REVIEW');
-    const sharedQuestions = questions.filter(q => q.status === 'SHARED');
-    // const queryQuestions = questions.filter(q => q.status === 'QUERY'); // Maybe group with shared?
-    // const doneQuestions = questions.filter(q => q.status === 'DONE');
 
     if (!org) return <div>Unauthorized</div>;
 
@@ -69,122 +22,57 @@ export default async function FIDashboard({ params, searchParams }: { params: Pr
                     { label: org?.name || "Financial Institution", icon: Landmark }
                 ]}
             />
-            <div className="space-y-6 animate-in fade-in duration-500 py-6">
+            <div className="space-y-8 animate-in fade-in duration-500 py-6 px-6">
                 {/* Header */}
-                <div className="flex items-center justify-between px-6">
+                <div className="flex items-center justify-between">
                     <div>
-                        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Triage</h1>
-                        {/* Placeholder for future status/messages */}
-                        <div className="flex items-center gap-4 mt-2">
-                            <div className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-1 rounded border border-slate-200 flex items-center gap-2">
-                                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                                System Operational
-                            </div>
-                            <div className="text-xs text-slate-400">
-                                No new messages.
-                            </div>
-                        </div>
+                        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Dashboard</h1>
+                        <p className="text-slate-500 text-sm mt-1">
+                            Welcome back, here is what is happening in your portfolio.
+                        </p>
                     </div>
                     <div className="flex gap-3">
-                        <div className="relative">
-                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
-                            <input
-                                placeholder="Global Search (Entity, Fund)..."
-                                className="h-9 w-80 pl-9 pr-4 rounded-full border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 bg-white shadow-sm"
-                            />
-                        </div>
+                        <Button asChild>
+                            <Link href={`/app/fi/${id}/engagements`}>
+                                View All Relationships <ArrowRight className="ml-2 h-4 w-4" />
+                            </Link>
+                        </Button>
                     </div>
                 </div>
 
-                <div className="px-6">
-                    <EngagementList engagements={engagements} fiOrgId={id} />
-                </div>
+                <PortfolioSummary />
 
-                {/* Filters */}
-                <div className="px-6">
-                    <DashboardFilterBar
-                        availableQuestionnaires={availableQuestionnaires}
-                        availableClients={availableClients}
-                    />
-                </div>
+                <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+                    <ActivityFeed />
 
-                {/* Kanban Board (Questions) */}
-                <div className="overflow-x-auto pb-6 px-6">
-                    <div className="flex gap-6 min-w-[1000px]">
-
-                        {/* Column 1: Drafts (Not Started/In Progress) */}
-                        <div className="w-1/3 flex flex-col bg-slate-50/50 rounded-xl border border-slate-200/60 p-1">
-                            <div className="p-3 pb-2 flex items-center justify-between text-sm font-semibold text-slate-700">
-                                <span className="flex items-center gap-2">
-                                    <span className="w-2 h-2 rounded-full bg-slate-400" />
-                                    Draft / Unanswered
-                                </span>
-                                <span className="bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full text-xs">
-                                    {draftQuestions.length}
-                                </span>
-                            </div>
-                            <div className="flex-1 overflow-y-auto p-2 space-y-3 custom-scrollbar max-h-[600px]">
-                                {draftQuestions.map(q => (
-                                    <QuestionKanbanCard key={q.id} question={q} />
-                                ))}
-                                {draftQuestions.length === 0 && (
-                                    <div className="text-center py-10 text-slate-400 text-xs italic">
-                                        No draft questions
-                                    </div>
-                                )}
+                    {/* Right column: Quick Actions / System Status? */}
+                    <div className="space-y-6">
+                        <div className="bg-indigo-50/50 rounded-xl border border-indigo-100 p-4">
+                            <h3 className="font-semibold text-indigo-900 mb-2 text-sm">Quick Actions</h3>
+                            <div className="space-y-2">
+                                <Button variant="outline" className="w-full justify-start text-indigo-700 bg-white border-indigo-200 hover:bg-indigo-50">
+                                    + Invite New Client
+                                </Button>
+                                <Button variant="outline" className="w-full justify-start text-indigo-700 bg-white border-indigo-200 hover:bg-indigo-50">
+                                    Create New Questionnaire
+                                </Button>
                             </div>
                         </div>
 
-                        {/* Column 2: Internal Review (Ready for FI Review) */}
-                        <div className="w-1/3 flex flex-col bg-slate-50/50 rounded-xl border border-slate-200/60 p-1">
-                            <div className="p-3 pb-2 flex items-center justify-between text-sm font-semibold text-slate-700">
-                                <span className="flex items-center gap-2">
-                                    <span className="w-2 h-2 rounded-full bg-indigo-500" />
-                                    Ready for Review
-                                </span>
-                                <span className="bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full text-xs">
-                                    {reviewQuestions.length}
-                                </span>
+                        <div className="bg-slate-50 rounded-xl border border-slate-200 p-4">
+                            <h3 className="font-semibold text-slate-900 mb-2 text-sm">System Status</h3>
+                            <div className="flex items-center gap-2 text-sm text-slate-600">
+                                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                                APIs Operational
                             </div>
-                            <div className="flex-1 overflow-y-auto p-2 space-y-3 custom-scrollbar max-h-[600px]">
-                                {reviewQuestions.map(q => (
-                                    <QuestionKanbanCard key={q.id} question={q} />
-                                ))}
-                                {reviewQuestions.length === 0 && (
-                                    <div className="text-center py-10 text-slate-400 text-xs italic">
-                                        Nothing to review
-                                    </div>
-                                )}
+                            <div className="flex items-center gap-2 text-sm text-slate-600 mt-1">
+                                <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                                Webhooks Active
                             </div>
                         </div>
-
-                        {/* Column 3: Shared / Done (With Client or Finished) */}
-                        <div className="w-1/3 flex flex-col bg-slate-50/50 rounded-xl border border-slate-200/60 p-1">
-                            <div className="p-3 pb-2 flex items-center justify-between text-sm font-semibold text-slate-700">
-                                <span className="flex items-center gap-2">
-                                    <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                                    Shared / Done
-                                </span>
-                                <span className="bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full text-xs">
-                                    {sharedQuestions.length}
-                                </span>
-                            </div>
-                            <div className="flex-1 overflow-y-auto p-2 space-y-3 custom-scrollbar max-h-[600px]">
-                                {sharedQuestions.map(q => (
-                                    <QuestionKanbanCard key={q.id} question={q} />
-                                ))}
-                                {sharedQuestions.length === 0 && (
-                                    <div className="text-center py-10 text-slate-400 text-xs italic">
-                                        No active shared items
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-
                     </div>
                 </div>
             </div>
         </div>
-
     );
 }

@@ -29,8 +29,8 @@ export function Hero() {
                     transition={{ duration: 0.5, delay: 0.1 }}
                     className="text-5xl font-bold tracking-tight text-slate-900 md:text-7xl font-serif"
                 >
-                    Efficiency for Borrowers. <br />
-                    <span className="text-amber-700">Clarity for Lenders.</span>
+                    Better for Borrowers. <br />
+                    <span className="text-amber-700">Confidence for Lenders.</span>
                 </motion.h1>
 
                 <motion.p
