@@ -1,16 +1,17 @@
 "use client"
 
+import { useState } from "react";
 import { Draggable } from "@hello-pangea/dnd";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { MessageSquare, AlertCircle, Bot, User } from "lucide-react";
+import { Card } from "@/components/ui/card";
+import { Sparkles, Loader2, Check, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { updateAnswer, generateSingleQuestionAnswer } from "@/actions/kanban-actions";
 
 export interface QuestionTask {
     id: string;
     questionnaireId: string;
     question: string;
+    compactText?: string;
     answer?: string;
     status: 'DRAFT' | 'INTERNAL_REVIEW' | 'SHARED' | 'DONE' | 'QUERY';
     assignedToUserId?: string;
@@ -39,14 +40,65 @@ interface QuestionCardProps {
     onClick?: (task: QuestionTask) => void;
 }
 
+type AIState = 'idle' | 'generating' | 'success' | 'error';
+
 export function QuestionCard({ task, index, onClick }: QuestionCardProps) {
-    const statusColor = {
-        'DRAFT': 'bg-slate-300',
-        'INTERNAL_REVIEW': 'bg-blue-400',
-        'SHARED': 'bg-indigo-500',
-        'DONE': 'bg-emerald-500',
-        'QUERY': 'bg-amber-500'
-    }[task.status] || 'bg-slate-200';
+    const [answer, setAnswer] = useState(task.answer || "");
+    const [isSaving, setIsSaving] = useState(false);
+    const [aiState, setAIState] = useState<AIState>('idle');
+
+    const statusColors = {
+        'DRAFT': 'border-l-slate-400',
+        'INTERNAL_REVIEW': 'border-l-blue-500',
+        'SHARED': 'border-l-indigo-600',
+        'DONE': 'border-l-emerald-500',
+        'QUERY': 'border-l-amber-500'
+    };
+
+    const handleSave = async () => {
+        if (answer === task.answer) return;
+
+        setIsSaving(true);
+        try {
+            await updateAnswer(task.id, answer);
+        } catch (error) {
+            console.error("Failed to save answer:", error);
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Tab') {
+            e.preventDefault();
+            handleSave();
+            e.currentTarget.blur();
+        } else if (e.key === 'Escape') {
+            setAnswer(task.answer || "");
+            e.currentTarget.blur();
+        }
+    };
+
+    const handleAIGenerate = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+
+        setAIState('generating');
+        try {
+            const result = await generateSingleQuestionAnswer(task.id);
+            if (result.success && result.answer) {
+                setAnswer(result.answer);
+                setAIState('success');
+                setTimeout(() => setAIState('idle'), 800);
+            } else {
+                setAIState('error');
+                setTimeout(() => setAIState('idle'), 2000);
+            }
+        } catch (error) {
+            console.error("AI generation failed:", error);
+            setAIState('error');
+            setTimeout(() => setAIState('idle'), 2000);
+        }
+    };
 
     return (
         <Draggable draggableId={task.id} index={index}>
@@ -55,77 +107,61 @@ export function QuestionCard({ task, index, onClick }: QuestionCardProps) {
                     ref={provided.innerRef}
                     {...provided.draggableProps}
                     {...provided.dragHandleProps}
-                    onClick={() => onClick?.(task)}
                     className={cn(
-                        "group hover:shadow-md transition-all mb-3 shadow-sm bg-white border-l-4 relative overflow-hidden",
-                        snapshot.isDragging && "shadow-xl rotate-2 scale-105 z-50",
-                        task.status === 'DONE' ? "border-l-emerald-500 bg-slate-50/50" : `border-l-${statusColor.replace('bg-', '')}`
+                        "mb-0.5 rounded-sm border-l-4 relative group hover:shadow-md transition-all bg-white cursor-pointer p-0",
+                        statusColors[task.status],
+                        snapshot.isDragging && "shadow-2xl scale-105 z-50",
+                        task.status === 'DONE' && "bg-emerald-50/30"
                     )}
-                    style={{
-                        ...provided.draggableProps.style,
-                        borderLeftColor: task.status === 'DONE' ? '#10b981' : undefined // Tailwind arb color fallback
-                    }}
                 >
-                    {/* Status Strip override for Tailwind dynamic class limitations if needed, usually cleaner to use style or strictly mapped classes. 
-                        Let's rely on standard classes for simplicity first, but border-l-4 needs distinctive color 
-                    */}
-                    <div className={cn("absolute left-0 top-0 bottom-0 w-1", statusColor)} />
-
-                    <CardContent className="p-3 pl-4">
-                        {/* Top Row: Question & Flag */}
-                        <div className="flex justify-between gap-2 mb-2">
-                            <p className="text-sm font-medium text-slate-900 leading-snug line-clamp-3">
-                                {task.question}
+                    <div className="px-2 pt-px pb-px">
+                        {/* Line 1: Question text with AI button */}
+                        <div className="flex items-center justify-between gap-2">
+                            <p
+                                className="text-sm font-semibold truncate text-slate-900 flex-1 leading-tight"
+                                onClick={() => onClick?.(task)}
+                            >
+                                {task.compactText || task.question.slice(0, 20)}
                             </p>
-                            {task.hasFlag && <AlertCircle className="h-4 w-4 text-red-500 shrink-0" />}
+
+                            {/* AI Generation Button */}
+                            <button
+                                onClick={handleAIGenerate}
+                                disabled={aiState === 'generating' || task.isLocked}
+                                className={cn(
+                                    "w-5 h-5 flex-shrink-0 flex items-center justify-center rounded transition-all",
+                                    "disabled:cursor-not-allowed",
+                                    aiState === 'idle' && "opacity-40 hover:opacity-100 hover:scale-110 text-purple-600",
+                                    aiState === 'generating' && "opacity-100 text-purple-600",
+                                    aiState === 'success' && "opacity-100 text-emerald-600",
+                                    aiState === 'error' && "opacity-100 text-red-600"
+                                )}
+                            >
+                                {aiState === 'generating' && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                                {aiState === 'success' && <Check className="h-3.5 w-3.5" />}
+                                {aiState === 'error' && <X className="h-3.5 w-3.5" />}
+                                {aiState === 'idle' && <Sparkles className="h-3.5 w-3.5" />}
+                            </button>
                         </div>
 
-                        {/* Answer Snippet (if exists) */}
-                        {task.answer ? (
-                            <div className="mb-3 text-xs text-slate-600 bg-slate-100/50 p-2 rounded border border-slate-100 font-mono truncate">
-                                <span className="text-slate-400 mr-1">A:</span>
-                                {task.answer}
-                            </div>
-                        ) : (
-                            <div className="mb-3 h-6" /> // Spacer or "Needs Input" indicator? Kept clean for now.
-                        )}
-
-                        {/* Footer: Meta */}
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                                {task.assignee ? (
-                                    <div className="h-5 w-5 rounded-full bg-indigo-100 flex items-center justify-center border border-indigo-200" title={task.assignee.name}>
-                                        {task.assignee.type === 'AI' ? (
-                                            <Bot className="h-3 w-3 text-indigo-600" />
-                                        ) : (
-                                            <span className="text-[9px] font-bold text-indigo-700">{task.assignee.name.charAt(0)}</span>
-                                        )}
-                                    </div>
-                                ) : (
-                                    <div className="h-5 w-5 rounded-full border border-dashed border-slate-300 flex items-center justify-center">
-                                        <User className="h-3 w-3 text-slate-300" />
-                                    </div>
-                                )}
-                                <span className="text-[10px] text-slate-400 font-medium">
-                                    {task.id.slice(0, 4)}
-                                </span>
-                            </div>
-
-                            <div className="flex items-center gap-3">
-                                {task.commentCount ? (
-                                    <div className="flex items-center text-slate-400 text-xs">
-                                        <MessageSquare className="h-3 w-3 mr-1" />
-                                        {task.commentCount}
-                                    </div>
-                                ) : null}
-                                {task.status === 'DONE' && (
-                                    <div className="h-4 w-4 rounded-full bg-emerald-100 flex items-center justify-center">
-                                        <div className="h-2 w-2 rounded-full bg-emerald-500" />
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </CardContent>
+                        {/* Line 2: Answer field */}
+                        <input
+                            type="text"
+                            value={answer}
+                            onChange={(e) => setAnswer(e.target.value)}
+                            onBlur={handleSave}
+                            onKeyDown={handleKeyDown}
+                            onClick={(e) => e.stopPropagation()}
+                            placeholder="Click to answer..."
+                            disabled={isSaving || task.isLocked}
+                            className={cn(
+                                "w-full text-xs bg-transparent border-none outline-none",
+                                "focus:ring-1 focus:ring-purple-200 rounded px-1 py-0",
+                                "placeholder:text-slate-300 text-slate-600 leading-tight",
+                                "disabled:opacity-50 disabled:cursor-not-allowed"
+                            )}
+                        />
+                    </div>
                 </Card>
             )}
         </Draggable>

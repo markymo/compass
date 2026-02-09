@@ -60,7 +60,7 @@ export function QuestionKanbanCard({ question }: QuestionKanbanCardProps) {
                             {/* Question Text & Answer */}
                             <div className="space-y-2">
                                 <p className="text-sm font-medium text-slate-900 leading-tight">
-                                    {question.text}
+                                    {question.compactText || question.text.slice(0, 20) + (question.text.length > 20 ? '...' : '')}
                                 </p>
 
                                 {question.answer && (

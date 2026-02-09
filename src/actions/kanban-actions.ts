@@ -40,6 +40,7 @@ export async function populateQuestionsFromExtraction(questionnaireId: string) {
                     questionsToCreate.push({
                         questionnaireId: questionnaire.id,
                         text: item.text || item.question || item.originalText || "Untitled Question",
+                        compactText: item.compactText || null,
                         order: item.order ?? orderCounter++,
                         status: 'DRAFT' as QuestionStatus,
                         sourceSectionId: item.section || null // simplified
@@ -123,6 +124,7 @@ export async function getBoardQuestions(engagementId: string) {
         id: q.id,
         questionnaireId: q.questionnaireId,
         question: q.text,
+        compactText: (q as any).compactText || undefined,
         answer: q.answer || undefined,
         status: q.status,
         isLocked: (q as any).isLocked,

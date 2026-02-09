@@ -211,9 +211,16 @@ export async function createManualQuestionnaire(data: { name: string, fiOrgId?: 
             }
         }
 
+        // Generate compact text for each question using AI
+        console.log("[createManualQuestionnaire] Generating compact text for", questionLines.length, "questions...");
+        const compactResults = await Promise.all(
+            questionLines.map(q => compactifyQuestion(q))
+        );
+
         const extractedContent = questionLines.map((text, index) => ({
             type: "question",
             text: text,
+            compactText: compactResults[index]?.compactText || null,
             order: index + 1
         }));
 
@@ -227,7 +234,7 @@ export async function createManualQuestionnaire(data: { name: string, fiOrgId?: 
             } as any
         });
 
-        // Sync to Question rows
+        // Sync to Question rows (with compact text)
         await syncQuestionsToDatabase(questionnaire.id, extractedContent);
 
         revalidatePath("/app/admin/questionnaires");
@@ -246,6 +253,58 @@ export async function generateAIQuestions(prompt: string) {
         return { success: false, error: "Unauthorized" };
     }
     return await generateQuestionnaireFromPrompt(prompt);
+}
+
+/**
+ * Generates a compact version of a question (≤20 chars) using AI.
+ */
+export async function compactifyQuestion(fullQuestion: string): Promise<{
+    success: boolean;
+    compactText?: string;
+    error?: string;
+}> {
+    try {
+        const key = process.env.OPENAI_API_KEY;
+        if (!key) {
+            return { success: false, error: "OpenAI API key not configured" };
+        }
+
+        const { createOpenAI } = await import('@ai-sdk/openai');
+        const { generateText } = await import('ai');
+
+        const openai = createOpenAI({ apiKey: key });
+
+        const { text } = await generateText({
+            model: openai('gpt-4o-mini'),
+            prompt: `Shorten this question to exactly 20 characters or less. Be concise and specific. Use abbreviations if needed. Return ONLY the shortened text, nothing else.
+
+Examples:
+"Please provide the full legal entity name" → "Entity Name"
+"What is the incorporation date?" → "Inc. Date"  
+"List all beneficial owners over 25%" → "Beneficial Owners"
+"Upload Certificate of Incorporation" → "Incorporation Cert"
+
+Question to shorten:
+${fullQuestion}`,
+            temperature: 0.3,
+        });
+
+        const compact = text.trim();
+
+        // Enforce 20 char limit strictly
+        if (compact.length > 20) {
+            // Fallback: Just truncate the original
+            const fallback = fullQuestion.slice(0, 17) + "...";
+            return { success: true, compactText: fallback };
+        }
+
+        return { success: true, compactText: compact };
+    } catch (error: any) {
+        console.error("[compactifyQuestion] Error:", error);
+        // Fallback to simple truncation on error
+        const fallback = fullQuestion.slice(0, 17) + "...";
+        return { success: true, compactText: fallback };
+    }
 }
 
 // ... existing code ...
@@ -643,12 +702,16 @@ async function syncQuestionsToDatabase(id: string, items: any[]) {
     // 2. Filter for Questions only (or map others if we expand model later)
     const questionsToCreate = items
         .filter(i => (i.type || "").toLowerCase() === "question")
-        .map((item, index) => ({
-            questionnaireId: id,
-            text: item.text || item.originalText || "Untitled Question",
-            order: item.order || index + 1,
-            status: "DRAFT" as const
-        }));
+        .map((item, index) => {
+            console.log(`[syncQuestionsToDatabase] Question "${item.text?.slice(0, 30)}..." has compactText: "${item.compactText}"`);
+            return {
+                questionnaireId: id,
+                text: item.text || item.originalText || "Untitled Question",
+                compactText: item.compactText || null,
+                order: item.order || index + 1,
+                status: "DRAFT" as const
+            };
+        });
 
     if (questionsToCreate.length > 0) {
         await prisma.question.createMany({

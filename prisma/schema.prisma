@@ -310,6 +310,7 @@ model Question {
   id              String             @id @default(uuid())
   questionnaireId String
   text            String
+  compactText     String?            // Compact version (≤20 chars) for kanban display
   answer          String?            @db.Text
   status          QuestionStatus     @default(DRAFT)
   isLocked        Boolean            @default(false)
