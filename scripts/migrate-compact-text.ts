@@ -3,26 +3,27 @@
  * Run this after adding the compactText field to sync data from extractedContent JSON
  */
 
+import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 
 export async function migrateCompactText() {
     console.log("Starting compactText migration...");
 
-    // Get all questionnaires that have extractedContent
+    // Get all questionnaires - we'll filter for extractedContent in code
     const questionnaires = await prisma.questionnaire.findMany({
-        where: {
-            extractedContent: { not: null }
-        },
         include: {
             questions: true
         }
     });
 
-    console.log(`Found ${questionnaires.length} questionnaires to migrate`);
+    console.log(`Found ${questionnaires.length} questionnaires to check`);
 
     let updated = 0;
 
     for (const q of questionnaires) {
+        // Skip if no extractedContent
+        if (!q.extractedContent) continue;
+
         const extractedContent = q.extractedContent as any[];
 
         if (!Array.isArray(extractedContent)) continue;
