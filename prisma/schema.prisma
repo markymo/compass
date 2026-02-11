@@ -178,6 +178,9 @@ model ClientLE {
   nationalRegistryData Json?     // "Mother" Directory Data
   registryFetchedAt    DateTime?
   
+  // Billing & Invoicing
+  billingDetails       Json?     // Flexible store for Address, VAT, PO, Contacts
+  
   // Workspace Memberships (Direct Access)
   memberships   Membership[]
 
@@ -487,4 +490,525 @@ model AuditLog {
 
   @@index([userId])
   @@index([entityId])
+}
+
+// ============================================================================
+// Phase 2A: KYC Data Model Enums
+// ============================================================================
+
+enum EvidenceProvider {
+  GLEIF
+  COMPANIES_HOUSE
+  USER_UPLOAD
+}
+
+enum DocumentOwnerType {
+  LEGAL_ENTITY
+  STAKEHOLDER
+  AUTHORIZED_TRADER
+}
+
+enum StakeholderType {
+  INDIVIDUAL
+  CORPORATE
+}
+
+enum StakeholderRole {
+  DIRECTOR
+  UBO
+  CONTROLLER
+}
+
+enum ContactType {
+  NOTICE
+  PROCESS_AGENT
+  OFFICE
+  PORTFOLIO_DATA
+  DISCREPANCY
+  DISPUTE
+}
+
+// ============================================================================
+// Phase 2A: KYC Data Model Tables
+// Schema-only migration - creates empty tables for new KYC data model
+// No existing data is moved or modified in this phase
+// ============================================================================
+
+// ----------------------------------------------------------------------------
+// Core Tables (Foundation)
+// ----------------------------------------------------------------------------
+
+model LegalEntity {
+  id        String   @id @default(uuid())
+  reference String   @unique // Public identifier
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // 1:1 Profiles
+  identityProfile       IdentityProfile?
+  entityInfoProfile     EntityInfoProfile?
+  leiRegistration       LeiRegistration?
+  relationshipProfile   RelationshipProfile?
+  constitutionalProfile ConstitutionalProfile?
+  complianceProfile     ComplianceProfile?
+  taxProfile            TaxProfile?
+  financialProfile      FinancialProfile?
+  derivativesProfile    DerivativesProfile?
+  tradingProfile        TradingProfile?
+  contactProfile        ContactProfile?
+
+  // 1:N Repeating
+  entityNames             EntityName[]
+  industryClassifications IndustryClassification[]
+  stakeholders            Stakeholder[]
+  taxRegistrations        TaxRegistration[]
+  authorizedTraders       AuthorizedTrader[]
+  contacts                Contact[]
+  settlementInstructions  SettlementInstruction[]
+
+  // Documents
+  documents DocumentRegistry[]
+
+  @@map("legal_entities")
+}
+
+model EvidenceStore {
+  id            String           @id @default(uuid())
+  hash          String           @unique // SHA-256 for deduplication
+  provider      EvidenceProvider
+  payload       Json // Immutable source data (GLEIF, Companies House, etc.)
+  schemaVersion String
+  retrievedAt   DateTime
+  capturedBy    String? // User ID
+
+  createdAt DateTime @default(now())
+
+  @@index([hash])
+  @@index([provider])
+  @@map("evidence_store")
+}
+
+model DocumentRegistry {
+  id            String            @id @default(uuid())
+  legalEntityId String
+  ownerType     DocumentOwnerType
+  ownerId       String // Polymorphic: LegalEntity, Stakeholder, or AuthorizedTrader ID
+  fieldNo       Int // Traceability to Master Schema Field No
+  filePath      String // S3 key or storage reference
+  fileName      String
+  mimeType      String
+  uploadedAt    DateTime @default(now())
+  uploadedBy    String // User ID
+
+  legalEntity LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
+
+  @@index([legalEntityId])
+  @@index([ownerType, ownerId])
+  @@index([fieldNo])
+  @@map("document_registry")
+}
+
+// ----------------------------------------------------------------------------
+// 1:1 Profile Modules
+// Each profile stores canonical current values for its domain
+// Original source data preserved in evidence_store
+// Provenance tracked via meta.evidence_id
+// ----------------------------------------------------------------------------
+
+model IdentityProfile {
+  id            String @id @default(uuid())
+  legalEntityId String @unique
+
+  // Fields 1-3, 6-10, 11-15, 26-27
+  leiValidationDate  DateTime?
+  leiCode            String?
+  legalName          String?
+  regAddressLine1    String?
+  regAddressCity     String?
+  regAddressRegion   String?
+  regAddressCountry  String?
+  regAddressPostcode String?
+  hqAddressLine1     String?
+  hqAddressCity      String?
+  hqAddressRegion    String?
+  hqAddressCountry   String?
+  hqAddressPostcode  String?
+  entityStatus       String?
+  entityCreationDate DateTime?
+
+  meta      Json     @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  legalEntity LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
+
+  @@map("identity_profiles")
+}
+
+model EntityInfoProfile {
+  id            String @id @default(uuid())
+  legalEntityId String @unique
+
+  // Fields 19-25
+  gleifEntityCategory                   String?
+  entityLegalFormCode                   String? // ELF
+  countryOfFormation                    String?
+  countryCode                           String? // ISO 3166-1
+  entityLegalFormLocalName              String?
+  entityLegalFormTransliteratedName     String?
+
+  meta      Json     @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  legalEntity LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
+
+  @@map("entity_info_profiles")
+}
+
+model LeiRegistration {
+  id            String @id @default(uuid())
+  legalEntityId String @unique
+
+  // Fields 28-35
+  leiRegistrationDate       DateTime?
+  leiRegistrationUpdateDate DateTime?
+  leiRegistrationStatus     String?
+  leiRegistrationNextRenewal DateTime?
+  leiIssuerLei              String?
+  leiIssuer                 String?
+  leiCorroborationLevel     String?
+  leiCorroborationSource    String?
+
+  meta      Json     @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  legalEntity LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
+
+  @@map("lei_registrations")
+}
+
+model RelationshipProfile {
+  id            String @id @default(uuid())
+  legalEntityId String @unique
+
+  // Fields 36-55
+  directParentId                 String?
+  directParent                   String?
+  directParentIdType             String?
+  directParentRelationship       String?
+  ultimateParentId               String?
+  ultimateParent                 String?
+  ultimateParentIdType           String?
+  ultimateParentRelationship     String?
+  fundManagerId                  String?
+  fundManager                    String?
+  fundManagerIdType              String?
+  fundManagerRelationship        String?
+  fundManagerRelationshipStatus  String?
+  umbrellaFundId                 String?
+  umbrellaFund                   String?
+  umbrellaFundIdType             String?
+  umbrellaFundRelationship       String?
+  umbrellaFundRelationshipStatus String?
+  leiDirectParentException       String?
+  leiUltimateParentException     String?
+
+  meta      Json     @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  legalEntity LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
+
+  @@map("relationship_profiles")
+}
+
+model ConstitutionalProfile {
+  id            String @id @default(uuid())
+  legalEntityId String @unique
+
+  // Fields 16-18, 57-59
+  registrationAuthorityGleifId String?
+  registrationAuthority        String?
+  registeredNumber             String?
+
+  meta      Json     @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  legalEntity LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
+
+  @@map("constitutional_profiles")
+}
+
+model ComplianceProfile {
+  id            String @id @default(uuid())
+  legalEntityId String @unique
+
+  // Fields 75-80
+  operatingCountries Json? // Array of country codes
+  highRiskCountries  Json? // Array of country codes
+  highRiskSectors    Json? // Array of sector codes
+  ukSanctionsCheck   String? // FALSE or description
+  euSanctionsCheck   String? // FALSE or description
+  ofacSanctionsCheck String? // FALSE or description
+
+  meta      Json     @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  legalEntity LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
+
+  @@map("compliance_profiles")
+}
+
+model TaxProfile {
+  id            String @id @default(uuid())
+  legalEntityId String @unique
+
+  // Field 83 (FATCA status only)
+  // Note: Fields 82 (W-8BEN-E) and 84 (CRS Self-Certification) are document-only
+  fatcaStatus String?
+
+  meta      Json     @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  legalEntity LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
+
+  @@map("tax_profiles")
+}
+
+model FinancialProfile {
+  id            String @id @default(uuid())
+  legalEntityId String @unique
+
+  // Fields 85-90
+  lastAccountsMadeUpTo DateTime?
+  nextAccountingDate   DateTime?
+  nextAccountsDueDate  DateTime?
+  lastStatementDate    DateTime?
+  nextStatementDate    DateTime?
+  nextStatementDueDate DateTime?
+
+  meta      Json     @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  legalEntity LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
+
+  @@map("financial_profiles")
+}
+
+model DerivativesProfile {
+  id            String @id @default(uuid())
+  legalEntityId String @unique
+
+  // Fields 91-93, 110-112 (document references)
+  isdaMasterRegulatoryDisclosureLetterRef String? // Doc ID
+  isdaEmirClassificationLetterRef         String? // Doc ID
+  isdaUsSelfdisclosureLetterRef           String? // Doc ID
+  isdaReportingDelegationAgreementRef     String? // Doc ID
+  isdaFiaEmirReportingDelegationRef       String? // Doc ID
+  isda2013ReportingProtocolSideLetterRef  String? // Doc ID
+
+  meta      Json     @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  legalEntity LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
+
+  @@map("derivatives_profiles")
+}
+
+model TradingProfile {
+  id            String @id @default(uuid())
+  legalEntityId String @unique
+
+  // Fields 102-103 (board minute references)
+  boardMinuteAuthorisingIndividualsRef   String? // Doc ID
+  boardMinuteAuthorisingTransactionsRef  String? // Doc ID
+
+  meta      Json     @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  legalEntity LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
+
+  @@map("trading_profiles")
+}
+
+model ContactProfile {
+  id            String @id @default(uuid())
+  legalEntityId String @unique
+
+  // Fields 107-109, 113-115
+  processAgent           String?
+  office                 String?
+  isMultibranchParty     Boolean?
+  portfolioDataEmail     String?
+  discrepancyNoticeEmail String?
+  disputeNoticeEmail     String?
+
+  meta      Json     @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  legalEntity LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
+
+  @@map("contact_profiles")
+}
+
+// ----------------------------------------------------------------------------
+// 1:N Repeating Tables
+// Multiple instances per Legal Entity
+// ----------------------------------------------------------------------------
+
+model EntityName {
+  id            String @id @default(uuid())
+  legalEntityId String
+
+  // Fields 4-5
+  name String
+  type String // TRADING_AS, PREVIOUS, LEGAL
+
+  meta      Json     @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  legalEntity LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
+
+  @@index([legalEntityId])
+  @@map("entity_names")
+}
+
+model IndustryClassification {
+  id            String @id @default(uuid())
+  legalEntityId String
+
+  // Field 20
+  code   String
+  scheme String // UK_SIC, etc.
+
+  meta      Json     @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  legalEntity LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
+
+  @@index([legalEntityId])
+  @@map("industry_classifications")
+}
+
+model Stakeholder {
+  id              String          @id @default(uuid())
+  legalEntityId   String
+  stakeholderType StakeholderType
+  role            StakeholderRole
+
+  // Individual fields (Fields 65-68)
+  fullName      String?
+  dateOfBirth   DateTime?
+  placeOfBirth  String?
+  nationalities Json? // Array
+  idDocumentId  String? // FK to DocumentRegistry
+
+  // Corporate fields (Fields 69-73)
+  legalName                    String?
+  leiCode                      String?
+  registrationAuthorityGleifId String?
+  registrationAuthority        String?
+  registeredNumber             String?
+
+  meta      Json     @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  legalEntity LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
+
+  @@index([legalEntityId])
+  @@index([role])
+  @@map("stakeholders")
+}
+
+model TaxRegistration {
+  id            String @id @default(uuid())
+  legalEntityId String
+
+  // Field 81
+  taxId   String
+  country String
+
+  meta      Json     @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  legalEntity LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
+
+  @@index([legalEntityId])
+  @@map("tax_registrations")
+}
+
+model AuthorizedTrader {
+  id            String @id @default(uuid())
+  legalEntityId String
+
+  // Fields 96-101
+  fullName                 String
+  email                    String
+  phone                    String?
+  mobile                   String?
+  products                 Json? // Array
+  authorityDocumentId      String? // FK to DocumentRegistry (Field 100)
+  authorityAttestationText String? @db.Text
+
+  meta      Json     @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  legalEntity LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
+
+  @@index([legalEntityId])
+  @@map("authorized_traders")
+}
+
+model Contact {
+  id            String      @id @default(uuid())
+  legalEntityId String
+  contactType   ContactType
+
+  // Fields 104-106
+  address   String? @db.Text
+  attention String?
+  email     String?
+
+  meta      Json     @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  legalEntity LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
+
+  @@index([legalEntityId])
+  @@map("contacts")
+}
+
+model SettlementInstruction {
+  id            String @id @default(uuid())
+  legalEntityId String
+
+  // Fields 116-119
+  currency      String
+  accountName   String
+  accountNumber String
+  ibanSwift     String
+
+  meta      Json     @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  legalEntity LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
+
+  @@index([legalEntityId])
+  @@map("settlement_instructions")
 }

@@ -2,7 +2,7 @@ import { getClientDashboardData } from "@/actions/client";
 import { CreateLEDialog } from "@/components/client/create-le-dialog";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
-import { Briefcase, ArrowRight, Building2, Users, CreditCard, Activity } from "lucide-react";
+import { Briefcase, ArrowRight, Building2, Users, CreditCard, Activity, Shield, User } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 import { AccessDebugInfo } from "@/components/dev/AccessDebugInfo";
@@ -77,17 +77,19 @@ export default async function ClientDashboardPage({ params }: ClientDashboardPag
                                         </Card>
                                     </Link>
 
-                                    <Card className="bg-white border-slate-200 shadow-sm hover:shadow-md transition-all cursor-not-allowed opacity-75">
-                                        <CardContent className="p-5 flex items-start gap-4">
-                                            <div className="p-2 bg-slate-100 text-slate-500 rounded-lg">
-                                                <CreditCard className="h-5 w-5" />
-                                            </div>
-                                            <div>
-                                                <h3 className="font-semibold text-slate-700">Billing & Invoicing</h3>
-                                                <p className="text-sm text-slate-500 mt-1">View invoices and usage.</p>
-                                            </div>
-                                        </CardContent>
-                                    </Card>
+                                    <Link href={`/app/clients/${org.id}/billing`}>
+                                        <Card className="bg-white border-slate-200 shadow-sm hover:shadow-md transition-all cursor-pointer group h-full">
+                                            <CardContent className="p-5 flex items-start gap-4">
+                                                <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg group-hover:scale-105 transition-transform">
+                                                    <CreditCard className="h-5 w-5" />
+                                                </div>
+                                                <div>
+                                                    <h3 className="font-semibold text-slate-900 group-hover:text-indigo-600 transition-colors">Billing & Invoicing</h3>
+                                                    <p className="text-sm text-slate-500 mt-1">Manage entity billing details.</p>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    </Link>
 
                                     <Card className="bg-white border-slate-200 shadow-sm hover:shadow-md transition-all cursor-not-allowed opacity-75">
                                         <CardContent className="p-5 flex items-start gap-4">
@@ -139,7 +141,8 @@ export default async function ClientDashboardPage({ params }: ClientDashboardPag
 
                                 const CardComponent = (
                                     <Card className={`border-slate-200 shadow-sm transition-all ${isAccessible ? 'hover:shadow-md hover:border-indigo-200 cursor-pointer group' : 'opacity-75 bg-slate-50'}`}>
-                                        <CardContent className="p-4 sm:p-5 flex items-center gap-4">
+                                        <CardContent className="p-4 sm:p-5 flex flex-col md:flex-row gap-6 md:items-center">
+                                            {/* Entity Info */}
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-1.5">
                                                     <h3 className={`font-semibold text-base sm:text-lg ${isAccessible ? 'text-slate-900 group-hover:text-indigo-700' : 'text-slate-700'} truncate`}>
@@ -153,8 +156,40 @@ export default async function ClientDashboardPage({ params }: ClientDashboardPag
                                                     {le.description || "No description provided."}
                                                 </p>
                                             </div>
+
+                                            {/* Members List */}
+                                            {le.memberships && le.memberships.length > 0 && (
+                                                <div className="w-full md:w-auto md:min-w-[220px] flex flex-col gap-1.5 border-t md:border-t-0 md:border-l border-slate-100 pt-4 md:pt-0 md:pl-6">
+                                                    <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1 hidden md:block">Access</div>
+                                                    {le.memberships.map((m: any) => {
+                                                        const roleName = m.role || 'Unknown';
+                                                        const displayRole = roleName.replace(/_/g, ' ');
+                                                        const isAdmin = roleName.includes('ADMIN');
+
+                                                        return (
+                                                            <div key={m.id} className="flex items-center gap-2 text-sm text-slate-600 w-full">
+                                                                {isAdmin ? (
+                                                                    <Shield className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
+                                                                ) : (
+                                                                    <User className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                                                                )}
+                                                                <span className="font-medium truncate flex-1 min-w-0 text-xs sm:text-sm" title={m.user.name || m.user.email}>
+                                                                    {m.user.name || m.user.email}
+                                                                </span>
+                                                                <span className={`text-[10px] px-1.5 py-0.5 rounded-full border shrink-0 uppercase ${isAdmin ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-slate-50 text-slate-500 border-slate-100'}`}>
+                                                                    {displayRole}
+                                                                </span>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
+
+                                            {/* Arrow */}
                                             {isAccessible && (
-                                                <ArrowRight className="h-5 w-5 text-slate-300 group-hover:text-indigo-500 transition-colors shrink-0" />
+                                                <div className="hidden md:flex pl-2 items-center justify-center">
+                                                    <ArrowRight className="h-5 w-5 text-slate-300 group-hover:text-indigo-500 transition-colors shrink-0" />
+                                                </div>
                                             )}
                                         </CardContent>
                                     </Card>

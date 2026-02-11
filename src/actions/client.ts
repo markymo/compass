@@ -1041,6 +1041,9 @@ export async function getClientDashboardData(clientId: string) {
                                 include: { questions: true }
                             }
                         }
+                    },
+                    memberships: {
+                        include: { user: true }
                     }
                 },
                 orderBy: { createdAt: 'desc' },
@@ -1083,6 +1086,9 @@ export async function getClientDashboardData(clientId: string) {
                                         include: { questions: true }
                                     }
                                 }
+                            },
+                            memberships: {
+                                include: { user: true }
                             }
                         }
                     }

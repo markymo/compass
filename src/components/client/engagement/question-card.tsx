@@ -13,7 +13,7 @@ export interface QuestionTask {
     question: string;
     compactText?: string;
     answer?: string;
-    status: 'DRAFT' | 'INTERNAL_REVIEW' | 'SHARED' | 'DONE' | 'QUERY';
+    status: 'DRAFT' | 'INTERNAL_REVIEW' | 'SHARED' | 'DONE' | 'QUERY' | 'SUPPLIER_REVIEW' | 'CLIENT_SIGNED_OFF' | 'SUPPLIER_SIGNED_OFF';
     assignedToUserId?: string;
     assignedEmail?: string;
     assignee?: {
@@ -52,7 +52,10 @@ export function QuestionCard({ task, index, onClick }: QuestionCardProps) {
         'INTERNAL_REVIEW': 'border-l-blue-500',
         'SHARED': 'border-l-indigo-600',
         'DONE': 'border-l-emerald-500',
-        'QUERY': 'border-l-amber-500'
+        'QUERY': 'border-l-amber-500',
+        'SUPPLIER_REVIEW': 'border-l-purple-500',
+        'CLIENT_SIGNED_OFF': 'border-l-emerald-600',
+        'SUPPLIER_SIGNED_OFF': 'border-l-emerald-600'
     };
 
     const handleSave = async () => {

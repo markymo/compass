@@ -20,11 +20,7 @@ export enum Role {
     RELATIONSHIP_USER = "RELATIONSHIP_USER"    // Engagement Worker
 }
 
-// Legacy Mappings (for migration support if needed)
-export const LEGACY_ROLE_MAP: Record<string, string> = {
-    "ADMIN": Role.ORG_ADMIN, // Default to Org Admin if ambiguous
-    "MEMBER": Role.ORG_MEMBER
-};
+// export const LEGACY_ROLE_MAP = { ... }; // REMOVED
 
 // Define Permissions
 export enum Action {
@@ -177,16 +173,17 @@ function hasRole(user: UserWithMemberships, role: string): boolean {
     return user.memberships.some(m => m.role === role);
 }
 
+
 function getRoleForLE(user: UserWithMemberships, leId: string): string | undefined {
     // Direct LE membership
     const membership = user.memberships.find(m => m.clientLEId === leId);
-    return mapLegacyRole(membership?.role, "LE");
+    return membership?.role;
 }
 
 function getRoleForOrg(user: UserWithMemberships, orgId: string): string | undefined {
     // Org membership (clientLEId is null)
     const membership = user.memberships.find(m => m.organizationId === orgId && !m.clientLEId);
-    return mapLegacyRole(membership?.role, "ORG");
+    return membership?.role;
 }
 
 function checkPermission(role: string, action: Action): boolean {
@@ -195,14 +192,4 @@ function checkPermission(role: string, action: Action): boolean {
     return perms.includes(action);
 }
 
-// Temp Helper to support old "ADMIN" strings during dev until migration
-function mapLegacyRole(roleName?: string, scope?: "ORG" | "LE"): string | undefined {
-    if (!roleName) return undefined;
-    if (roleName === "ADMIN") {
-        return scope === "LE" ? Role.LE_ADMIN : Role.ORG_ADMIN;
-    }
-    if (roleName === "MEMBER") {
-        return scope === "LE" ? Role.LE_USER : Role.ORG_MEMBER;
-    }
-    return roleName;
-}
+// function mapLegacyRole(roleName?: string, scope?: "ORG" | "LE"): string | undefined { ... } // REMOVED
