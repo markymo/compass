@@ -2,9 +2,8 @@ import { getClientDashboardData } from "@/actions/client";
 import { CreateLEDialog } from "@/components/client/create-le-dialog";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
-import { Briefcase, ArrowRight, Building2, FileText, Cloud, AlertCircle, Shield, Users, CreditCard, Activity } from "lucide-react";
+import { Briefcase, ArrowRight, Building2, Users, CreditCard, Activity } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 
 import { AccessDebugInfo } from "@/components/dev/AccessDebugInfo";
 import { GuideHeader } from "@/components/layout/GuideHeader";
@@ -134,88 +133,43 @@ export default async function ClientDashboardPage({ params }: ClientDashboardPag
                             </div>
                         </div>
                     ) : (
-                        <div className="grid gap-6">
-                            {les.map((le: any) => (
-                                <Card key={le.id} className="overflow-hidden shadow-sm hover:shadow-md transition-shadow border-slate-200">
-                                    <div className="flex flex-col md:flex-row">
-                                        {/* Left: Entity Info */}
-                                        <div className="p-6 md:w-1/3 bg-slate-50/50 border-b md:border-b-0 md:border-r border-slate-100 flex flex-col justify-between">
-                                            <div>
-                                                <div className="flex items-center gap-2 mb-2">
-                                                    <Badge variant="outline" className="bg-white shadow-sm border-slate-200 text-slate-600">
-                                                        {le.jurisdiction || 'Unknown Jurisdiction'}
+                        <div className="grid gap-3">
+                            {les.map((le: any) => {
+                                const isAccessible = le.myPermissions?.canEnter;
+
+                                const CardComponent = (
+                                    <Card className={`border-slate-200 shadow-sm transition-all ${isAccessible ? 'hover:shadow-md hover:border-indigo-200 cursor-pointer group' : 'opacity-75 bg-slate-50'}`}>
+                                        <CardContent className="p-4 sm:p-5 flex items-center gap-4">
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-1.5">
+                                                    <h3 className={`font-semibold text-base sm:text-lg ${isAccessible ? 'text-slate-900 group-hover:text-indigo-700' : 'text-slate-700'} truncate`}>
+                                                        {le.name}
+                                                    </h3>
+                                                    <Badge variant="outline" className="text-xs font-normal text-slate-600 bg-slate-50 shrink-0">
+                                                        {le.jurisdiction || 'Unknown'}
                                                     </Badge>
-                                                    {le.status === 'ACTIVE' && (
-                                                        <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border-none">Active</Badge>
-                                                    )}
                                                 </div>
-                                                {le.myPermissions?.canEnter ? (
-                                                    <Link href={`/app/le/${le.id}`} className="hover:underline decoration-slate-400 underline-offset-4">
-                                                        <h3 className="text-xl font-bold text-slate-900">{le.name}</h3>
-                                                    </Link>
-                                                ) : (
-                                                    <h3 className="text-xl font-bold text-slate-700">{le.name}</h3>
-                                                )}
-                                                <p className="text-sm text-slate-500 mt-2 line-clamp-2">
+                                                <p className="text-sm text-slate-500 line-clamp-1 sm:line-clamp-2">
                                                     {le.description || "No description provided."}
                                                 </p>
                                             </div>
-                                            <div className="mt-6 pt-6 border-t border-slate-200/50">
-                                                {le.myPermissions?.canEnter ? (
-                                                    <Link href={`/app/le/${le.id}`}>
-                                                        <Button className="w-full gap-2 group">
-                                                            Manage Entity
-                                                            <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
-                                                        </Button>
-                                                    </Link>
-                                                ) : (
-                                                    <Button disabled variant="secondary" className="w-full gap-2 opacity-50 cursor-not-allowed">
-                                                        Restricted Access
-                                                    </Button>
-                                                )}
-                                            </div>
-                                        </div>
-
-                                        {/* Right: Engagements */}
-                                        <div className="p-6 md:w-2/3">
-                                            <h4 className="text-sm font-semibold text-slate-900 flex items-center gap-2 mb-4">
-                                                <Cloud className="h-4 w-4 text-indigo-500" />
-                                                Relationships
-                                            </h4>
-
-                                            {le.fiEngagements.length === 0 ? (
-                                                <div className="flex flex-col items-center justify-center py-8 text-slate-400 bg-slate-50 rounded-lg border border-dashed border-slate-200">
-                                                    <AlertCircle className="h-8 w-8 mb-2 opacity-50" />
-                                                    <p className="text-sm">No active relationships</p>
-                                                </div>
-                                            ) : (
-                                                <div className="grid gap-3">
-                                                    {le.fiEngagements.map((eng: any) => (
-                                                        <div key={eng.id} className="flex items-center justify-between p-3 rounded-lg border border-slate-100 bg-white hover:border-indigo-100 hover:bg-indigo-50/30 transition-colors group">
-                                                            <div className="flex items-center gap-3">
-                                                                <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 font-bold text-xs">
-                                                                    {eng.org.name.substring(0, 2).toUpperCase()}
-                                                                </div>
-                                                                <div>
-                                                                    <Link href={`/app/le/${le.id}/engagement-new/${eng.id}`} className="hover:text-indigo-600 hover:underline">
-                                                                        <p className="font-medium text-slate-900 text-sm">{eng.org.name}</p>
-                                                                    </Link>
-                                                                    <p className="text-xs text-slate-500 flex items-center gap-1">
-                                                                        {eng.questionnaires.length} Questionnaires
-                                                                    </p>
-                                                                </div>
-                                                            </div>
-                                                            <Badge variant="secondary" className="text-[10px] uppercase">
-                                                                {eng.status}
-                                                            </Badge>
-                                                        </div>
-                                                    ))}
-                                                </div>
+                                            {isAccessible && (
+                                                <ArrowRight className="h-5 w-5 text-slate-300 group-hover:text-indigo-500 transition-colors shrink-0" />
                                             )}
-                                        </div>
+                                        </CardContent>
+                                    </Card>
+                                );
+
+                                return isAccessible ? (
+                                    <Link key={le.id} href={`/app/le/${le.id}`} className="block">
+                                        {CardComponent}
+                                    </Link>
+                                ) : (
+                                    <div key={le.id}>
+                                        {CardComponent}
                                     </div>
-                                </Card>
-                            ))}
+                                );
+                            })}
                         </div>
                     )}
 
