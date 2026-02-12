@@ -132,6 +132,7 @@ export async function getFieldDetail(legalEntityId: string, fieldNo: number): Pr
 
             relevant.forEach((c: any) => {
                 candidates.push({
+                    fieldNo: c.fieldNo,
                     source: c.source,
                     value: c.value,
                     confidence: c.confidence,
