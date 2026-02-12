@@ -467,7 +467,9 @@ export async function getClientLEData(leId: string) {
                         where: { isDeleted: false }
                     }
                 }
-            }
+            },
+            // Phase 2: Include Profile Data
+            identityProfile: true
         }
     });
 

@@ -17,6 +17,7 @@ import { MissionControl } from "@/components/client/mission-control";
 import { EngagementManager } from "@/components/client/engagement/engagement-manager";
 import { ClientLEActions } from "@/components/client/client-le-actions";
 import { DocumentVault } from "@/components/client/document-vault";
+import { DataSchemaTab } from "@/components/client/data-schema-tab";
 
 export default async function LEDashboardPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
@@ -46,7 +47,7 @@ export default async function LEDashboardPage({ params }: { params: Promise<{ id
                 ]}
                 actions={<ClientLEActions leId={le.id} leName={le.name} isSystemAdmin={isSystemAdmin} />}
             />
-            <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in duration-500 p-8 w-full">
+            <div className="max-w-6xl mx-auto space-y-8 p-8 w-full">
 
                 <div className="flex flex-col gap-6">
                     <h1 className="text-5xl font-bold tracking-tight font-serif text-slate-900">
@@ -73,6 +74,10 @@ export default async function LEDashboardPage({ params }: { params: Promise<{ id
                         <TabsTrigger value="gleif" className="px-6 py-4 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 data-[state=active]:shadow-none bg-transparent flex items-center gap-2">
                             <Globe className="h-4 w-4" />
                             GLEIF
+                        </TabsTrigger>
+                        <TabsTrigger value="data-schema" className="px-6 py-4 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 data-[state=active]:shadow-none bg-transparent flex items-center gap-2">
+                            <TableIcon className="h-4 w-4" />
+                            Data Schema
                         </TabsTrigger>
                         <TabsTrigger value="standing-data" className="px-6 py-4 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 data-[state=active]:shadow-none bg-transparent flex items-center gap-2">
                             <Database className="h-4 w-4" />
@@ -116,6 +121,15 @@ export default async function LEDashboardPage({ params }: { params: Promise<{ id
                                 }}
                                 fetchedAt={(le as any).gleifFetchedAt}
                             />
+                        </TabsContent>
+
+                        <TabsContent value="data-schema" className="m-0 bg-transparent py-6">
+                            <div className="bg-white rounded-b-xl rounded-tr-xl min-h-[600px] p-8">
+                                <DataSchemaTab
+                                    leId={le.id}
+                                    identityProfile={(le as any).identityProfile}
+                                />
+                            </div>
                         </TabsContent>
 
                         <TabsContent value="standing-data" className="m-0 bg-transparent">

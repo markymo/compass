@@ -173,6 +173,9 @@ model ClientLE {
   lei           String?            @unique
   gleifData     Json?              // Raw/Canonical response from GLEIF
   gleifFetchedAt DateTime?
+  
+  // Phase 2 Bridge
+  identityProfile IdentityProfile?
 
   // National Registry Data (e.g. Companies House)
   nationalRegistryData Json?     // "Mother" Directory Data
@@ -568,6 +571,9 @@ model LegalEntity {
 
   // Documents
   documents DocumentRegistry[]
+  
+  // Audit Log
+  masterDataEvents MasterDataEvent[]
 
   @@map("legal_entities")
 }
@@ -582,6 +588,9 @@ model EvidenceStore {
   capturedBy    String? // User ID
 
   createdAt DateTime @default(now())
+
+  // Audit Log
+  masterDataEvents MasterDataEvent[]
 
   @@index([hash])
   @@index([provider])
@@ -617,7 +626,7 @@ model DocumentRegistry {
 
 model IdentityProfile {
   id            String @id @default(uuid())
-  legalEntityId String @unique
+  legalEntityId String? @unique
 
   // Fields 1-3, 6-10, 11-15, 26-27
   leiValidationDate  DateTime?
@@ -640,7 +649,11 @@ model IdentityProfile {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  legalEntity LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
+  legalEntity LegalEntity? @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
+
+  // Bridge for Hybrid Adoption (Phase 2E)
+  clientLEId String? @unique
+  clientLE   ClientLE? @relation(fields: [clientLEId], references: [id])
 
   @@map("identity_profiles")
 }
@@ -1011,4 +1024,24 @@ model SettlementInstruction {
 
   @@index([legalEntityId])
   @@map("settlement_instructions")
+}
+
+model MasterDataEvent {
+  id            String           @id @default(uuid())
+  legalEntityId String
+  fieldNo       Int
+  oldValue      Json?
+  newValue      Json?
+  source        String
+  evidenceId    String?
+  actorId       String?
+  reason        String?
+  timestamp     DateTime         @default(now())
+
+  legalEntity LegalEntity    @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
+  evidence    EvidenceStore? @relation(fields: [evidenceId], references: [id])
+
+  @@index([legalEntityId, fieldNo, timestamp(sort: Desc)])
+  @@index([evidenceId])
+  @@map("master_data_events")
 }
