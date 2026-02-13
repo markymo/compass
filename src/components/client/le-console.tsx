@@ -11,7 +11,7 @@ import { TrendingDown, Clock, AlertCircle, Save } from "lucide-react";
 import { FIELD_GROUPS } from "@/domain/kyc/FieldGroups";
 import { FIELD_DEFINITIONS } from "@/domain/kyc/FieldDefinitions";
 import { useState, useEffect } from "react";
-import { resolveMasterData, getConsoleQuestions, ConsoleQuestion } from "@/actions/kyc-query";
+import { resolveMasterData, get consoleQuestions, ConsoleQuestion, ResolverResponse } from "@/actions/kyc-query";
 
 interface LEConsoleProps {
     leId: string;
@@ -29,7 +29,7 @@ export function LEConsole({ leId }: LEConsoleProps) {
 
     // State for inputs (mocking form state)
     const [formState, setFormState] = useState<Record<string, string>>({});
-    const [hydrated, setHydrated] = useState<Record<string, boolean>>({}); // Track which fields are from Master Data
+    const [hydrated, setHydrated] = useState<ResolverResponse>({}); // Track which fields are from Master Data
 
     // Hydration Effect
     useEffect(() => {
