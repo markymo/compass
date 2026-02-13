@@ -224,7 +224,7 @@ export class KycWriteService {
             candidate.value,
             {
                 source: 'USER_INPUT',
-                evidenceId: candidate.evidenceId,
+                evidenceId: candidate.evidenceId || undefined,
                 verifiedBy: userId,
                 confidence: 1.0,
                 reason: `Manual application of candidate from ${candidate.source}`
