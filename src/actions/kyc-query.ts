@@ -115,7 +115,7 @@ export async function getFieldDetail(
             legalEntityId: resolvedLeId,
             fieldNo: fieldNo
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { timestamp: 'desc' },
         take: 20
     });
 
