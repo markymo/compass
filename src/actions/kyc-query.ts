@@ -133,16 +133,7 @@ export async function getFieldDetail(
         history,
         candidates
     };
-    return {
-        current: current ? {
-            value: current.value,
-            source: current.source as ProvenanceSource,
-            timestamp: current.updatedAt,
-            confidence: current.confidence
-        } : null,
-        history,
-        candidates
-    };
+
 }
 
 // --- Console Question Fetcher ---
