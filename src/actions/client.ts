@@ -1146,3 +1146,91 @@ export async function getClientDashboardData(clientId: string) {
         return { success: false, error: "Failed to load dashboard data" };
     }
 }
+
+// 12. Get LE Users
+export interface LEUser {
+    userId: string;
+    name: string | null;
+    email: string;
+    role: string;
+}
+
+export async function getLEUsers(leId: string): Promise<LEUser[]> {
+    try {
+        await ensureAuthorization(Action.LE_VIEW_DATA, { clientLEId: leId });
+    } catch (e) {
+        return [];
+    }
+
+    const memberships = await prisma.membership.findMany({
+        where: {
+            clientLEId: leId,
+            role: { in: ["LE_ADMIN", "LE_USER"] }
+        },
+        include: { user: true }
+    });
+
+    return memberships.map(m => ({
+        userId: m.userId,
+        name: m.user.name,
+        email: m.user.email,
+        role: m.role
+    }));
+}
+
+// 13. Invite User to LE
+export async function inviteUserToLE(leId: string, email: string, role: string) {
+    try {
+        await ensureAuthorization(Action.LE_MANAGE_USERS, { clientLEId: leId });
+    } catch (e) {
+        return { success: false, error: "Unauthorized: You do not have permission to invite users." };
+    }
+
+    // Role Validation
+    if (!["LE_ADMIN", "LE_USER"].includes(role)) {
+        return { success: false, error: "Invalid role." };
+    }
+
+    // 1. Find or Create User (Placeholder)
+    let user = await prisma.user.findUnique({ where: { email } });
+    if (!user) {
+        const { v4: uuidv4 } = require('uuid');
+        // We create a simpler placeholder if not exists
+        // Ideally use a specialized seed or invite flow, but auto-create works for now
+        user = await prisma.user.create({
+            data: {
+                id: `invite_${uuidv4()}`,
+                email,
+                name: email.split("@")[0]
+            }
+        });
+    }
+
+    // 2. Add Membership (Upsert)
+    // Check if member already
+    const existing = await prisma.membership.findFirst({
+        where: { userId: user.id, clientLEId: leId }
+    });
+
+    if (existing) {
+        if (existing.role === role) {
+            return { success: false, error: "User is already a member with this role." };
+        }
+        // Update role
+        await prisma.membership.update({
+            where: { id: existing.id },
+            data: { role }
+        });
+    } else {
+        await prisma.membership.create({
+            data: {
+                userId: user.id,
+                clientLEId: leId,
+                role
+            }
+        });
+    }
+
+    revalidatePath(`/app/le/${leId}`);
+    return { success: true };
+}

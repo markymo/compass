@@ -20,6 +20,8 @@ import { DocumentVault } from "@/components/client/document-vault";
 import { DataSchemaTab } from "@/components/client/data-schema-tab";
 
 import { LEConsole } from "@/components/client/le-console";
+import { LEUsersTab } from "@/components/client/le-users-tab";
+import { Users } from "lucide-react";
 
 export default async function LEDashboardPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
@@ -105,6 +107,14 @@ export default async function LEDashboardPage({ params }: { params: Promise<{ id
                         >
                             <Building2 className="h-4 w-4" />
                             Supplier Relationships
+                        </TabsTrigger>
+
+                        <TabsTrigger
+                            value="users"
+                            className="px-6 py-4 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 data-[state=active]:shadow-none bg-transparent flex items-center gap-2"
+                        >
+                            <Users className="h-4 w-4" />
+                            Users
                         </TabsTrigger>
                     </TabsList>
 
