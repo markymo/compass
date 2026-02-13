@@ -11,7 +11,7 @@ import { TrendingDown, Clock, AlertCircle, Save } from "lucide-react";
 import { FIELD_GROUPS } from "@/domain/kyc/FieldGroups";
 import { FIELD_DEFINITIONS } from "@/domain/kyc/FieldDefinitions";
 import { useState, useEffect } from "react";
-import { resolveMasterData, get consoleQuestions, ConsoleQuestion, ResolverResponse } from "@/actions/kyc-query";
+import { resolveMasterData, getConsoleQuestions, ConsoleQuestion, ResolverResponse } from "@/actions/kyc-query";
 
 interface LEConsoleProps {
     leId: string;
