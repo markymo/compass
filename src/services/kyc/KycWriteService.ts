@@ -214,26 +214,24 @@ export class KycWriteService {
         userId: string,
         entityType: 'LEGAL_ENTITY' | 'CLIENT_LE' = 'LEGAL_ENTITY'
     ): Promise<boolean> {
-        // Validation handled by applyFieldCandidate logic (overwrite rules)
-        // If user explicitly selects this, we might want to treat it as USER_INPUT or just re-apply the candidate source?
-        // The plan says: "Treats this as accept/revert to this candidate"
-        // If we treat it as USER_INPUT, it becomes sticky.
-        // If we treat it as GLEIF (original source), it might be overwritten again by a newer GLEIF update?
-        // BUT, if the user explicitly chose it, maybe it should be sticky?
-        // Let's stick to the Candidate's original source for truth, BUT
-        // strict overwrite rules might block it if we just re-apply "GLEIF" over "USER_INPUT".
-        // SO, if the user is reverting, we likely want to force it.
+        // When a user manually applies a candidate, we treat it as a Manual Override (USER_INPUT).
+        // This ensures it becomes "sticky" and won't be overwritten by subsequent automated feeds.
+        // However, we preserve the evidenceId to maintain the link to the original source.
 
-        // However, the prompt says: "calls KycWriteService.applyFieldCandidate"
-        // And `applyFieldCandidate` uses candidate.source.
-        // If I want to "pin" this value, I should probably use `applyManualOverride` with the candidate's value.
-        // BUT, if I want to just "restore" it and let future updates flow, I use `applyFieldCandidate`.
-        // Let's implement it as `applyFieldCandidate` wrapper for now. 
-        // If overwrite rules block it (e.g. reverting to GLEIF when USER_INPUT is present), 
-        // the user would need to "Manual Edit" to the value instead.
-        // Or we can add a flag to `updateField` to "Force" or treat as "USER_VERIFIED_CANDIDATE"?
-
-        return this.applyFieldCandidate(legalEntityId, candidate, userId, entityType);
+        return this.updateField(
+            legalEntityId,
+            candidate.fieldNo,
+            candidate.value,
+            {
+                source: 'USER_INPUT',
+                evidenceId: candidate.evidenceId,
+                verifiedBy: userId,
+                confidence: 1.0,
+                reason: `Manual application of candidate from ${candidate.source}`
+            },
+            undefined,
+            entityType
+        );
     }
 
 

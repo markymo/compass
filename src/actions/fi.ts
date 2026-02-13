@@ -47,11 +47,13 @@ export async function saveFIMapping(fiOrgId: string, mapping: any[]) {
     if (!activeSchema) return { success: false, error: "No active master schema" };
 
     // 2. Format as Overlay Definition
+    // mapping is now [{ fiQuestion, masterFieldNo, masterQuestionGroupId }]
     const overlay = {
         mappings: mapping
     };
 
     // 3. Create or Update FISchema
+    // We should probably upsert or create new version. For now, create new.
     await prisma.fISchema.create({
         data: {
             fiOrgId,

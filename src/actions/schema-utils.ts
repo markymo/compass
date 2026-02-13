@@ -1,13 +1,14 @@
 "use server";
 
-import prisma from "@/lib/prisma";
-// Auth import removed
+import { FIELD_DEFINITIONS } from "@/domain/kyc/FieldDefinitions";
 
 export async function getMasterSchemaFields() {
-    const activeSchema = await prisma.masterSchema.findFirst({
-        where: { isActive: true }
-    });
-
-    if (!activeSchema) return [];
-    return (activeSchema.definition as any).fields || [];
+    // Return canonical fields from code-base (Phase 2 Source of Truth)
+    return Object.values(FIELD_DEFINITIONS).map(def => ({
+        key: String(def.fieldNo),
+        fieldNo: def.fieldNo,
+        label: def.fieldName,
+        description: def.notes || "",
+        type: def.dataType
+    }));
 }

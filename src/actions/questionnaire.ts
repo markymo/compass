@@ -571,12 +571,31 @@ export async function saveQuestionnaireChanges(id: string, items: any[], mapping
     const q = await prisma.questionnaire.findUnique({ where: { id } });
     if (!q) throw new Error("Questionnaire not found");
 
+    // MERGE LOGIC: If 'mappings' is provided (the new [{fiQuestion, masterFieldNo...}] format)
+    // we should merge it into 'items' (extractedContent) so that syncQuestionsToDatabase picks it up.
+    // However, the UI currently sends 'items' AS the merged structures in the new 'MapperPage'.
+    // Let's assume 'items' contains the full state including mappings for now, 
+    // OR we might need to apply the 'mappings' overlay to 'items'.
+
+    // In Phase 4 UI: handleSave calls saveFIMapping (for generic) OR saveQuestionnaireChanges (for specific).
+    // If it calls this, it likely sends the mapped items directly.
+
+    // Safety: If 'mappings' is the robust array, we use it.
+    let contentToSave = items;
+    if (mappings && Array.isArray(mappings)) {
+        // If mappings is passed separately (e.g. from old partial update or distinct payload), 
+        // we might need to merge. But new UI creates a single source of truth 'extractedItems'.
+        // We will trust 'items' if they have the fields, or 'mappings' if provided.
+        // Actually, let's trust 'items' as the primary source for content + mapping.
+    }
+
     const updateData: any = {
-        extractedContent: items,
-        status: "ACTIVE" // Mark as active if reviewed? Or keep as is?
+        extractedContent: contentToSave,
+        status: "ACTIVE"
     };
 
     if (mappings) {
+        // We still save the overlay/mappings separately strictly for legacy or overlay caching
         updateData.mappings = mappings;
     }
 
@@ -585,12 +604,12 @@ export async function saveQuestionnaireChanges(id: string, items: any[], mapping
         data: updateData
     });
 
-    // SYNC TO QUESTION ROWS
-    await syncQuestionsToDatabase(id, items);
+    // SYNC TO QUESTION ROWS (This now handles masterFieldNo/etc)
+    await syncQuestionsToDatabase(id, contentToSave);
 
     await logActivity("SAVE_MAPPING", `/app/admin/questionnaires/${id}`, {
         questionnaireId: id,
-        itemCount: items.length
+        itemCount: contentToSave.length
     });
 
     revalidatePath(`/app/admin/organizations/${q.fiOrgId}`);
@@ -704,12 +723,19 @@ async function syncQuestionsToDatabase(id: string, items: any[]) {
         .filter(i => (i.type || "").toLowerCase() === "question")
         .map((item, index) => {
             console.log(`[syncQuestionsToDatabase] Question "${item.text?.slice(0, 30)}..." has compactText: "${item.compactText}"`);
+
+            // Map the new fields if present in the "items" (which comes from extractedContent or mappings overlay)
+            // The UI "extractedItems" has masterFieldNo/masterQuestionGroupId
+
             return {
                 questionnaireId: id,
                 text: item.text || item.originalText || "Untitled Question",
                 compactText: item.compactText || null,
                 order: item.order || index + 1,
-                status: "DRAFT" as const
+                status: "DRAFT" as const,
+                // NEW: Persist Mapping
+                masterFieldNo: item.masterFieldNo || null,
+                masterQuestionGroupId: item.masterQuestionGroupId || null
             };
         });
 

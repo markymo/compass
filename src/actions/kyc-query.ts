@@ -1,169 +1,233 @@
 "use server";
 
-import prisma from "@/lib/prisma";
-import { getFieldDefinition } from "@/domain/kyc/FieldDefinitions";
-// @ts-ignore
-import { mapGleifPayloadToFieldCandidates } from "@/services/kyc/normalization/GleifNormalizer";
-import { ProvenanceMetadata } from "@/domain/kyc/types/ProvenanceTypes";
+import { KycLoader } from "@/services/kyc/KycLoader";
+import { FIELD_GROUPS } from "@/domain/kyc/FieldGroups";
 
-/**
- * Detailed view of a field:
- * - Current value (from Profile table)
- * - History of changes (from MasterDataEvent table)
- * - Available Candidates (re-derived from raw Evidence or Stored Data)
- */
-export type FieldDetailData = {
-    fieldNo: number;
-    definition: any; // Serialized FieldDefinition
-    current: {
-        value: any;
-        source: string;
-        timestamp: Date | null;
-        verifiedBy?: string | null;
-        confidence?: number;
-    } | null;
-    history: Array<{
-        id: string;
-        oldValue: any;
-        newValue: any;
-        source: string;
-        reason?: string | null;
-        actorId?: string | null;
-        timestamp: Date;
-    }>;
-    candidates: Array<{
-        source: string;
-        value: any;
-        confidence: number;
-        evidenceId?: string;
-    }>;
+const loader = new KycLoader();
+
+export type ResolverRequest = {
+    questionId: string;
+    masterFieldNo?: number | null;
+    masterQuestionGroupId?: string | null;
 };
 
-export async function getFieldDetail(legalEntityId: string, fieldNo: number): Promise<FieldDetailData | null> {
-    console.log(`[getFieldDetail] Starting for LE=${legalEntityId}, Field=${fieldNo}`);
+export type HydratedValue = {
+    value: any;
+    source: string | null;
+    isSynced: boolean; // True if value exists in Master Data
+};
 
-    try {
-        const def = getFieldDefinition(fieldNo);
-        if (!def) {
-            console.error(`[getFieldDetail] Field definition not found for FieldNo=${fieldNo}`);
-            return null;
+export type ResolverResponse = Record<string, Record<string, HydratedValue>>; // QuestionId -> FieldNo -> Value
+
+export async function resolveMasterData(
+    leId: string,
+    questions: ResolverRequest[]
+): Promise<ResolverResponse> {
+    const response: ResolverResponse = {};
+
+    // Group by requested fields to optimize? 
+    // For now, straightforward iteration.
+
+    for (const q of questions) {
+        response[q.questionId] = {};
+
+        // A. Handle Group Mapping
+        if (q.masterQuestionGroupId) {
+            const group = FIELD_GROUPS[q.masterQuestionGroupId];
+            if (group) {
+                const results = await loader.loadGroup(leId, q.masterQuestionGroupId, 'CLIENT_LE'); // ID is likely ClientLE ID in this context
+
+                // Map results to { [fieldNo]: HydratedValue }
+                for (const fieldNo of group.fieldNos) {
+                    const loaded = results[fieldNo];
+                    if (loaded && loaded.value !== null) {
+                        response[q.questionId][fieldNo] = {
+                            value: loaded.value,
+                            source: loaded.source,
+                            isSynced: true
+                        };
+                    }
+                }
+            }
         }
-
-        console.log(`[getFieldDetail] Resolved FieldDefinition: ${def.fieldName} (${def.model}.${def.field})`);
-
-        // 1. Fetch Current Value & Metadata from Profile
-        const prismaClientKey = def.model.charAt(0).toLowerCase() + def.model.slice(1);
-        console.log(`[getFieldDetail] Using Prisma delegate: ${prismaClientKey}`);
-
-        // @ts-ignore
-        const delegate = prisma[prismaClientKey];
-
-        if (!delegate) {
-            console.error(`[getFieldDetail] Prisma delegate '${prismaClientKey}' is undefined! Check client/model name.`);
-            throw new Error(`Prisma delegate not found for model ${def.model}`);
+        // B. Handle Single Field Mapping
+        else if (q.masterFieldNo) {
+            const loaded = await loader.loadField(leId, q.masterFieldNo, 'CLIENT_LE');
+            if (loaded && loaded.value !== null) {
+                response[q.questionId][q.masterFieldNo] = {
+                    value: loaded.value,
+                    source: loaded.source,
+                    isSynced: true
+                };
+            }
         }
+    }
 
-        // @ts-ignore
-        const record = await delegate.findFirst({
-            where: { legalEntityId },
+    return response;
+}
+
+// --- Field Detail Inspector (Restored) ---
+
+import prisma from "@/lib/prisma";
+import { ProvenanceSource } from "@/domain/kyc/types/ProvenanceTypes";
+
+export interface FieldDetailData {
+    current: {
+        value: any;
+        source: ProvenanceSource;
+        timestamp: Date | null;
+        confidence: number | null;
+    } | null;
+    history: any[]; // MasterDataEvent[]
+    candidates: any[]; // FieldCandidate[]
+}
+
+export async function getFieldDetail(
+    entityId: string,
+    fieldNo: number,
+    entityType: 'LEGAL_ENTITY' | 'CLIENT_LE' = 'LEGAL_ENTITY'
+): Promise<FieldDetailData> {
+    // 1. Get Current Value via KycLoader
+    const current = await loader.loadField(entityId, fieldNo, entityType);
+
+    // 2. Get History from MasterDataEvent
+    // We need to resolve to LegalEntity ID first because events are linked to LE
+    let resolvedLeId = entityId;
+    if (entityType === 'CLIENT_LE') {
+        const identity = await prisma.identityProfile.findUnique({
+            where: { clientLEId: entityId },
+            select: { legalEntityId: true }
         });
-
-        console.log(`[getFieldDetail] Profile record found: ${!!record}`);
-
-        let current = null;
-        if (record) {
-            // Assume 'meta' exists on all profiles
-            const meta = (record.meta as Record<string, ProvenanceMetadata>) || {};
-            const fieldMeta = meta[def.field!] || {};
-
-            current = {
-                value: record[def.field!],
-                source: fieldMeta.source || 'UNKNOWN',
-                timestamp: fieldMeta.timestamp ? new Date(fieldMeta.timestamp) : null,
-                verifiedBy: fieldMeta.verified_by,
-                confidence: fieldMeta.confidence
+        if (identity?.legalEntityId) {
+            resolvedLeId = identity.legalEntityId;
+        } else {
+            // If no LE exists, there is no history
+            return {
+                current: null,
+                history: [],
+                candidates: []
             };
         }
+    }
 
-        // 2. Fetch History from MasterDataEvent
-        console.log(`[getFieldDetail] Fetching history...`);
-        // @ts-ignore
-        const historyEvents = await prisma.masterDataEvent.findMany({
-            where: {
-                legalEntityId,
-                fieldNo
+    const history = await prisma.masterDataEvent.findMany({
+        where: {
+            legalEntityId: resolvedLeId,
+            fieldNo: fieldNo
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 20
+    });
+
+    // 3. Get Candidates (Placeholder for now - requires reprocessing EvidenceStore)
+    // TODO: Re-implement candidate fetching using EvidenceService.reprocess(evidenceId)
+    const candidates: any[] = [];
+
+    return {
+        current: current ? {
+            value: current.value,
+            source: current.source as ProvenanceSource,
+            timestamp: current.updatedAt,
+            confidence: current.confidence
+        } : null,
+        history,
+        candidates
+    };
+    return {
+        current: current ? {
+            value: current.value,
+            source: current.source as ProvenanceSource,
+            timestamp: current.updatedAt,
+            confidence: current.confidence
+        } : null,
+        history,
+        candidates
+    };
+}
+
+// --- Console Question Fetcher ---
+
+export type ConsoleQuestion = {
+    id: string;
+    text: string;
+    category: string;
+    masterFieldNo?: number | null;
+    masterQuestionGroupId?: string | null;
+    status: "OPEN" | "ANSWERED";
+    questionnaireName: string;
+};
+
+export async function getConsoleQuestions(leId: string): Promise<ConsoleQuestion[]> {
+    // 1. Find all active Engagements for this ClientLE
+    const engagements = await prisma.fIEngagement.findMany({
+        where: {
+            clientLEId: leId,
+            status: { not: 'ARCHIVED' }
+        },
+        include: {
+            // Check both templates and instances
+            questionnaires: {
+                include: {
+                    questions: {
+                        where: { isLocked: false }, // Only show active/unlocked questions?
+                        orderBy: { order: 'asc' }
+                    }
+                }
             },
-            orderBy: {
-                timestamp: 'desc'
-            },
-            take: 20 // Limit history
-        });
+            questionnaireInstances: {
+                include: {
+                    questions: {
+                        where: { isLocked: false },
+                        orderBy: { order: 'asc' }
+                    }
+                }
+            }
+        }
+    });
 
-        const history = historyEvents.map((evt: any) => ({
-            id: evt.id,
-            oldValue: evt.oldValue,
-            newValue: evt.newValue,
-            source: evt.source,
-            reason: evt.reason,
-            actorId: evt.actorId,
-            timestamp: evt.timestamp
-        }));
+    const consoleQuestions: ConsoleQuestion[] = [];
+    const seenQuestionIds = new Set<string>();
 
-        // 3. Derive Candidates from Evidence (e.g. GLEIF)
-        console.log(`[getFieldDetail] Fetching candidates...`);
-        const candidates: any[] = [];
+    // 2. Flatten and Map
+    for (const eng of engagements) {
+        // Process Templates
+        for (const qnaire of eng.questionnaires) {
+            for (const q of qnaire.questions) {
+                if (seenQuestionIds.has(q.id)) continue;
+                seenQuestionIds.add(q.id);
 
-        // @ts-ignore
-        const identityProfile = await prisma.identityProfile.findUnique({
-            where: { legalEntityId },
-            include: { clientLE: true }
-        });
-
-        if (identityProfile?.clientLE?.gleifData) {
-            // @ts-ignore
-            const gleifPayload = identityProfile.clientLE.gleifData;
-
-            const gleifCandidates = mapGleifPayloadToFieldCandidates(
-                gleifPayload,
-                'LATEST_STORED_GLEIF'
-            );
-
-            const relevant = gleifCandidates.filter((c: any) => c.fieldNo === fieldNo);
-
-            relevant.forEach((c: any) => {
-                candidates.push({
-                    fieldNo: c.fieldNo,
-                    source: c.source,
-                    value: c.value,
-                    confidence: c.confidence,
-                    evidenceId: c.evidenceId
+                consoleQuestions.push({
+                    id: q.id,
+                    text: q.text,
+                    category: qnaire.name, // Use Questionnaire Name as category for now
+                    masterFieldNo: q.masterFieldNo,
+                    masterQuestionGroupId: q.masterQuestionGroupId,
+                    status: q.answer ? "ANSWERED" : "OPEN",
+                    questionnaireName: qnaire.name
                 });
-            });
+            }
         }
 
+        // Process Instances (Snapshots)
+        // Logic: specific instances might override templates. 
+        // For simplicity, we just add them too, assuming they are distinct sets or snapshots.
+        for (const qnaire of eng.questionnaireInstances) {
+            for (const q of qnaire.questions) {
+                if (seenQuestionIds.has(q.id)) continue;
+                seenQuestionIds.add(q.id);
 
-        console.log(`[getFieldDetail] Success. Returning data.`);
-
-        // Ensure serialization safety (replace undefined with null)
-        const safeDefinition = JSON.parse(JSON.stringify(def));
-
-        return {
-            fieldNo,
-            definition: safeDefinition,
-            current,
-            history: history.map((h: any) => ({
-                ...h,
-                reason: h.reason ?? null,
-                actorId: h.actorId ?? null
-            })),
-            candidates: candidates.map((c: any) => ({
-                ...c,
-                evidenceId: c.evidenceId ?? null
-            }))
-        };
-
-    } catch (error) {
-        console.error(`[getFieldDetail] CRITICAL ERROR:`, error);
-        throw error;
+                consoleQuestions.push({
+                    id: q.id,
+                    text: q.text,
+                    category: qnaire.name,
+                    masterFieldNo: q.masterFieldNo,
+                    masterQuestionGroupId: q.masterQuestionGroupId,
+                    status: q.answer ? "ANSWERED" : "OPEN",
+                    questionnaireName: qnaire.name
+                });
+            }
+        }
     }
+
+    return consoleQuestions;
 }

@@ -12,6 +12,7 @@ export interface ExtractedItem {
     text: string;
     neutralText?: string;
     masterKey?: string;
+    masterQuestionGroupId?: string;
     category?: string;
     confidence: number;
     answer?: string;
@@ -24,6 +25,8 @@ import PDFParser from 'pdf2json';
 
 // LOGGING INTERFACE
 type Logger = (message: string, stage?: string, level?: "INFO" | "ERROR" | "SUCCESS") => Promise<void>;
+
+import { FIELD_GROUPS } from "@/domain/kyc/FieldGroups";
 
 // 1. Process Document: Convert to Base64 (Images/PDF) or Text (Docx/Txt)
 export async function parseDocument(formData: FormData, logger?: Logger): Promise<{ content: string | string[], type: "image" | "text", mime: string }> {
@@ -99,6 +102,11 @@ export async function extractQuestionnaireItems(input: { content: string | strin
     const fields = (masterSchema?.definition as any)?.fields || [];
     const schemaDesc = fields.map((f: any) => `${f.key} (${f.label})`).join('\n');
 
+    // Prepare Field Groups Description
+    const fieldGroupsDesc = Object.values(FIELD_GROUPS).map(g =>
+        `GROUP: ${g.id} ("${g.label}") - Covers: ${g.description || "Composite field"}`
+    ).join('\n');
+
     // B. Construct Message
     const userContent: any[] = [
         {
@@ -107,7 +115,10 @@ export async function extractQuestionnaireItems(input: { content: string | strin
             
             RULES FOR QUESTIONS:
             1. EVERY Question MUST be assigned one of the STANDARD CATEGORIES. This is MANDATORY.
-            2. If a question specifically matches a MASTER SCHEMA FIELD, assign the Master Key as well.
+            2. MASTER MAPPING PRIORITY:
+               a. FIRST check if the question matches a FIELD GROUP (e.g. "Registered Address"). If so, assign the GROUP ID to 'masterQuestionGroupId'.
+               b. IF NO group matches, check if it matches a specific MASTER SCHEMA FIELD. If so, assign the key to 'masterKey'.
+               c. PREFER GROUPS over single fields for composite concepts (Addresses, Persons, Bank Details).
             3. Priority: Categorization is CRITICAL for UI grouping. Master Mapping is secondary but important for automation.
 
             OUTPUT COLUMNS:
@@ -115,9 +126,13 @@ export async function extractQuestionnaireItems(input: { content: string | strin
             2. Text: Exact text from document.
             3. Neutral Text (Questions Only): The question re-phrased to be generic.
             4. Master Key (Questions Only): Best guess match from the provided Master Schema list (Optional).
-            5. Category (Questions Only): The standard category this question belongs to (MANDATORY).
+            5. Master Question Group ID (Questions Only): Best guess match from the provided Field Groups (Optional).
+            6. Category (Questions Only): The standard category this question belongs to (MANDATORY).
  
-            MASTER SCHEMA FIELDS:
+            FIELD GROUPS (HIGH PRIORITY):
+            ${fieldGroupsDesc}
+
+            MASTER SCHEMA FIELDS (LOWER PRIORITY):
             ${schemaDesc}
  
             STANDARD CATEGORIES:
@@ -178,6 +193,7 @@ export async function extractQuestionnaireItems(input: { content: string | strin
                     text: z.string().describe("The exact text content"),
                     neutralText: z.string().nullable().optional().describe("Neutralized question text (optional)"),
                     masterKey: z.string().nullable().optional().describe("Matching master schema key (optional)"),
+                    masterQuestionGroupId: z.string().nullable().optional().describe("Matching master field group ID (optional)"),
                     category: z.string().nullable().optional().describe("The standard category for this question (Recommended)"),
                     confidence: z.number().optional().describe("Confidence score 0-1")
                 }))
@@ -200,6 +216,7 @@ export async function extractQuestionnaireItems(input: { content: string | strin
                 type: type as "question" | "section" | "instruction" | "note",
                 neutralText: item.neutralText || undefined,
                 masterKey: item.masterKey || undefined,
+                masterQuestionGroupId: item.masterQuestionGroupId || undefined,
                 category: item.category || undefined,
                 confidence: item.confidence ?? 0,
                 order: 0 // Will be populated by index

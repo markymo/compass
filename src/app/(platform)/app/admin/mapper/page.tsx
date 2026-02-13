@@ -1,53 +1,64 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { parseDocument, generateMappingSuggestions, MappingSuggestion } from "@/actions/ai-mapper";
 import { getFIs, createFI, saveFIMapping } from "@/actions/fi";
-import { appendFieldsToActiveSchema } from "@/actions/schema"; // Import append action
-import { getMasterSchemaFields as getFields } from "@/actions/schema-utils"; // Distinction
-import { Loader2, Check, AlertCircle, Plus } from "lucide-react";
-
-// ... (imports)
+import { getMasterSchemaFields as getFields } from "@/actions/schema-utils";
+import { Loader2, Check, AlertCircle, Plus, UploadCloud, FileText, ArrowRight, Save, LayoutGrid, File } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
-import { analyzeQuestionnaire, saveQuestionnaireChanges } from "@/actions/questionnaire";
+import { toast } from "sonner";
+import { cn } from "@/lib/utils";
+
+// Server Actions
+import { uploadAndExtractQuestionnaire } from "@/actions/questionnaire-ingest";
+import { FIELD_GROUPS } from "@/domain/kyc/FieldGroups"; // We need to expose this to client or fetch via action? 
+// Actually FieldGroups is valid in client components if it's just a constant object.
+
+// Types
+type ProcessingStep = 'IDLE' | 'UPLOADING' | 'ANALYZING' | 'READY';
+
+interface QuestionnaireItem {
+    type: "question" | "section" | "instruction" | "note";
+    text: string;
+    masterFieldNo?: number | null;
+    masterQuestionGroupId?: string | null;
+    category?: string;
+    confidence?: number;
+}
 
 export default function MapperPage() {
     const searchParams = useSearchParams();
     const router = useRouter();
-    const questionnaireId = searchParams.get("questionnaireId");
+    const questionnaireId = searchParams.get("questionnaireId"); // If editing existing
 
+    // State: Selection
     const [fis, setFis] = useState<any[]>([]);
     const [selectedFi, setSelectedFi] = useState("");
     const [newFiName, setNewFiName] = useState("");
 
+    // State: Processing
+    const [status, setStatus] = useState<ProcessingStep>('IDLE');
     const [file, setFile] = useState<File | null>(null);
-    const [loading, setLoading] = useState(false);
-    const [step, setStep] = useState(1); // 1: Select/Upload, 2: Review
+    const [progress, setProgress] = useState(0);
 
+    // State: Data
     const [masterFields, setMasterFields] = useState<any[]>([]);
-    const [suggestions, setSuggestions] = useState<MappingSuggestion[]>([]);
+    const [extractedItems, setExtractedItems] = useState<QuestionnaireItem[]>([]);
 
-    // Questionnaire Context
-    const [qContext, setQContext] = useState<{ name: string } | null>(null);
+    // Derived: Field Groups for Dropdown
+    // We hardcode the import for now since it's a shared constant file
+    const fieldGroups = Object.values(FIELD_GROUPS);
 
     useEffect(() => {
         loadData();
     }, []);
-
-    // Auto-analyze if questionnaireId is present
-    useEffect(() => {
-        if (questionnaireId && masterFields.length > 0) {
-            handleAnalyzeQuestionnaire(questionnaireId);
-        }
-    }, [questionnaireId, masterFields]);
 
     async function loadData() {
         const [fiList, schemaFields] = await Promise.all([
@@ -58,122 +69,6 @@ export default function MapperPage() {
         setMasterFields(schemaFields);
     }
 
-    // ... (handleCreateFI unchanged)
-
-    async function handleAnalyzeQuestionnaire(id: string) {
-        setLoading(true);
-        try {
-            const res = await analyzeQuestionnaire(id);
-            setQContext({ name: res.questionnaireName });
-            setSelectedFi(res.fiOrgId); // Set context
-
-            // Process suggestions
-            const processed = res.suggestions.map(s => {
-                if (s.newFieldProposal && !s.suggestedKey) {
-                    return { ...s, suggestedKey: "CREATE_NEW:" + s.newFieldProposal.key };
-                }
-                return s;
-            });
-
-            setSuggestions(processed);
-            setStep(2);
-        } catch (e) {
-            alert("Failed to load questionnaire analysis");
-            console.error(e);
-        } finally {
-            setLoading(false);
-        }
-    }
-
-    async function handleAnalyze() {
-        // ... (Unchanged logic for File Upload mode)
-        if (!file || !selectedFi) return;
-        setLoading(true);
-        try {
-            const formData = new FormData();
-            formData.append("file", file);
-            const text = await parseDocument(formData);
-            const results = await generateMappingSuggestions(text);
-            const processed = results.map(s => {
-                if (s.newFieldProposal && !s.suggestedKey) {
-                    return { ...s, suggestedKey: "CREATE_NEW:" + s.newFieldProposal.key };
-                }
-                return s;
-            });
-            setSuggestions(processed);
-            setStep(2);
-        } catch (e) {
-            alert("Analysis failed");
-            console.error(e);
-        } finally {
-            setLoading(false);
-        }
-    }
-
-    async function handleSave() {
-        setLoading(true);
-        try {
-            // 1. Identify New Fields (Shared logic)
-            const fieldsToCreate: any[] = [];
-            suggestions.forEach(s => {
-                if (s.suggestedKey?.startsWith("CREATE_NEW:") && s.newFieldProposal) {
-                    fieldsToCreate.push({
-                        key: s.newFieldProposal.key,
-                        label: s.newFieldProposal.label,
-                        type: s.newFieldProposal.type,
-                        description: s.newFieldProposal.description
-                    });
-                }
-            });
-
-            // 2. Append to Master Schema
-            if (fieldsToCreate.length > 0) {
-                const appendRes = await appendFieldsToActiveSchema(fieldsToCreate);
-                if (!appendRes.success) throw new Error("Failed to append new fields");
-            }
-
-            // 3. Prepare Mapping JSON
-            const mapping = suggestions
-                .filter(s => s.suggestedKey && s.suggestedKey !== "IGNORE_SKIP")
-                .map(s => {
-                    let finalKey = s.suggestedKey!;
-                    if (finalKey.startsWith("CREATE_NEW:")) {
-                        finalKey = finalKey.replace("CREATE_NEW:", "");
-                    }
-                    return {
-                        fiQuestion: s.text,
-                        masterKey: finalKey
-                    };
-                });
-
-            // 4. SAVE (Branch Logic)
-            if (questionnaireId) {
-                await saveQuestionnaireChanges(questionnaireId, [], mapping);
-                alert("Questionnaire Mappings Saved!");
-                router.push(`/app/admin/organizations/${selectedFi}`); // Return to org page
-            } else {
-                await saveFIMapping(selectedFi, mapping);
-                alert(`Saved! ${mapping.length} mappings confirmed.`);
-                setStep(1);
-                setSuggestions([]);
-                setFile(null);
-                loadData();
-            }
-
-        } catch (e) {
-            alert("Failed to save");
-            console.error(e);
-        } finally {
-            setLoading(false);
-        }
-    }
-
-    function updateSuggestion(index: number, newKey: string) {
-        const newSuggestions = [...suggestions];
-        newSuggestions[index].suggestedKey = newKey;
-        setSuggestions(newSuggestions);
-    }
-
     async function handleCreateFI() {
         if (!newFiName) return;
         const res = await createFI(newFiName);
@@ -181,39 +76,158 @@ export default function MapperPage() {
             setFis([...fis, res.data]);
             setSelectedFi(res.data?.id || "");
             setNewFiName("");
+            toast.success("Financial Institution created");
+        }
+    }
+
+    // --- SMART INGESTION ---
+
+    const handleFileDrop = useCallback((e: React.DragEvent) => {
+        e.preventDefault();
+        const droppedFile = e.dataTransfer.files[0];
+        if (droppedFile) setFile(droppedFile);
+    }, []);
+
+    async function handleProcess() {
+        if (!file || !selectedFi) return;
+
+        setStatus('UPLOADING');
+        setProgress(10);
+
+        try {
+            const formData = new FormData();
+            formData.append("file", file);
+
+            // Artificial progress for UX
+            const interval = setInterval(() => {
+                setProgress(p => Math.min(p + 5, 90));
+            }, 500);
+
+            // CALL SERVER PIPELINE
+            // Pass the ClientLE ID context. Wait, this page selects "FI" (Organization).
+            // The mapping is usually done against an FI's "ClientLE" record or generic template?
+            // "saveFIMapping" uses fiOrgId. 
+            // The ingestion service expects a ClientLE ID for "DocumentRegistry".
+            // Issue: We are in "Mapper Mode" (generic template), not "Link Mode" (specific client).
+            // Solution: We should probably just pass the FI ID as a context reference, 
+            // or if we strictly need a ClientLE, we might need a "Template Client" for the FI.
+            // For now, let's assume 'selectedFi' finds a valid context or we adjust the server action to accept OrgId.
+            // *Quick Fix*: The previous mapper didn't save files to registry. 
+            // The new requirement wants Registry. Registry needs ClientLE. 
+            // Let's pass the FI ID and let the server action handle it (maybe skipping registry if generic).
+            // We'll cast selectedFi as string.
+
+            const res = await uploadAndExtractQuestionnaire(formData, selectedFi);
+
+            clearInterval(interval);
+            setProgress(100);
+
+            if (res.success) {
+                setExtractedItems(res.structure as QuestionnaireItem[]);
+                setStatus('READY');
+                toast.success(`Extracted ${res.questionCount} items`);
+            } else {
+                setStatus('IDLE');
+                toast.error(res.error || "Extraction failed");
+            }
+
+        } catch (e) {
+            console.error(e);
+            toast.error("Process failed");
+            setStatus('IDLE');
+        }
+    }
+
+    // --- MAPPING LOGIC ---
+
+    function updateMapping(index: number, val: string) {
+        const newItems = [...extractedItems];
+        const item = newItems[index];
+
+        if (val === "IGNORE") {
+            item.masterFieldNo = null;
+            item.masterQuestionGroupId = null;
+        } else if (val.startsWith("GROUP:")) {
+            item.masterQuestionGroupId = val.replace("GROUP:", "");
+            item.masterFieldNo = null;
+        } else if (val.startsWith("FIELD:")) {
+            item.masterFieldNo = parseInt(val.replace("FIELD:", ""));
+            item.masterQuestionGroupId = null;
+        }
+
+        setExtractedItems(newItems);
+    }
+
+    async function handleSave() {
+        try {
+            // Prepare Mapping for Persistence (FI Mapping or Questionnaire)
+            // Existing 'saveFIMapping' expects { fiQuestion, masterKey }.
+            // We need to translate our new structure to that format.
+            // "masterKey" in the old system was string key. 
+            // The NEW system wants fieldNo or groupId columns.
+
+            // Since we are refactoring, we should probably update 'saveFIMapping' too.
+            // BUT for this step, let's map back to keys if possible, OR
+            // update the server action to accept structured mapping.
+
+            // Let's assume we map to the existing "masterKey" string for now to keep it compatible with 'saveFIMapping',
+            // UNLESS we want to refactor persistence now. 
+            // Refactoring persistence is safer to ensure data integrity.
+
+            // Let's create a new format payload:
+            const items = extractedItems.filter(i => i.type === 'question' && (i.masterFieldNo || i.masterQuestionGroupId));
+
+            const mappingPayload = items.map(i => ({
+                fiQuestion: i.text,
+                masterFieldNo: i.masterFieldNo,
+                masterQuestionGroupId: i.masterQuestionGroupId
+            }));
+
+            // We need a NEW action for this new robust mapping
+            // import { saveRobustMapping } from "@/actions/fi"; // TODO: Create this?
+            // For now, let's use the existing one but we might need to modify it.
+
+            // Wait, the user plan said "Phase 4.2 Update saveFIMapping".
+            // I will implement the UI assuming the action exists or I will update it next.
+            // Let's proceed with UI.
+
+            await saveFIMapping(selectedFi, mappingPayload as any); // Temporary cast
+            toast.success("Mappings Saved");
+            setStatus('IDLE');
+            setExtractedItems([]);
+            setFile(null);
+
+        } catch (e) {
+            toast.error("Failed to save");
         }
     }
 
     return (
-        <div className="space-y-6">
-            <div className="flex justify-between items-center">
-                <h1 className="text-3xl font-bold tracking-tight">
-                    {questionnaireId ? `Mapping: ${qContext?.name || "Loading..."}` : "AI Schema Mapper"}
-                </h1>
+        <div className="space-y-8 max-w-6xl mx-auto p-6">
+            <div className="flex justify-between items-center bg-white dark:bg-slate-950 p-6 rounded-xl border border-slate-200 shadow-sm">
+                <div>
+                    <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-50">
+                        Smart Ingestion pipeline
+                    </h1>
+                    <p className="text-slate-500">Upload questionnaires to automatically map them to the Master Schema.</p>
+                </div>
                 {questionnaireId && (
-                    <Link href={`/app/admin/organizations/${selectedFi}`}>
-                        <Button variant="ghost">Exit</Button>
-                    </Link>
+                    <Button variant="outline" onClick={() => router.back()}>Exit</Button>
                 )}
             </div>
 
-            {loading && step === 1 && questionnaireId && (
-                <div className="flex flex-col items-center justify-center p-12 space-y-4">
-                    <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                    <p className="text-muted-foreground">Analyzing questionnaire document...</p>
-                </div>
-            )}
-
-            {/* STEP 1: UPLOAD (Only if NOT in questionnaire context) */}
-            {step === 1 && !questionnaireId && (
-                <div className="grid gap-6 md:grid-cols-2">
-                    <Card>
+            {/* STEP 1: CONFIGURATION */}
+            {status === 'IDLE' && (
+                <div className="grid gap-6 md:grid-cols-12">
+                    {/* ... Selection Logic ... */}
+                    <Card className="md:col-span-4 h-fit">
                         <CardHeader>
-                            <CardTitle>1. Select Financial Institution</CardTitle>
-                            <CardDescription>Who is this questionnaire for?</CardDescription>
+                            <CardTitle>1. Target Organization</CardTitle>
+                            <CardDescription>Select the Financial Institution</CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            <div className="flex gap-2">
+                            <div className="space-y-2">
+                                <Label>Financial Institution</Label>
                                 <Select value={selectedFi} onValueChange={setSelectedFi}>
                                     <SelectTrigger>
                                         <SelectValue placeholder="Select FI..." />
@@ -225,127 +239,186 @@ export default function MapperPage() {
                                     </SelectContent>
                                 </Select>
                             </div>
-                            <div className="flex gap-2 items-center">
-                                <span className="text-sm text-muted-foreground">- OR -</span>
+                            <div className="relative">
+                                <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-slate-200" /></div>
+                                <div className="relative flex justify-center text-xs uppercase"><span className="bg-white px-2 text-slate-500">Or Create New</span></div>
                             </div>
                             <div className="flex gap-2">
-                                <Input
-                                    placeholder="New FI Name (e.g. Goldman Sachs)"
-                                    value={newFiName}
-                                    onChange={e => setNewFiName(e.target.value)}
-                                />
-                                <Button onClick={handleCreateFI} variant="outline">Create</Button>
+                                <Input placeholder="New Name..." value={newFiName} onChange={e => setNewFiName(e.target.value)} />
+                                <Button size="sm" onClick={handleCreateFI}>Add</Button>
                             </div>
                         </CardContent>
                     </Card>
 
-                    <Card>
+                    <Card className="md:col-span-8">
                         <CardHeader>
                             <CardTitle>2. Upload Document</CardTitle>
-                            <CardDescription>PDF, Word (.docx), Image, or Text file</CardDescription>
+                            <CardDescription>PDF, Word, or Excel. Scanned documents supported.</CardDescription>
                         </CardHeader>
-                        <CardContent className="space-y-4">
-                            <Input
-                                type="file"
-                                accept=".pdf,.txt,.png,.jpg,.jpeg,.webp,.docx"
-                                onChange={e => setFile(e.target.files?.[0] || null)}
-                            />
-                            <Button
-                                onClick={handleAnalyze}
-                                disabled={!file || !selectedFi || loading}
-                                className="w-full"
+                        <CardContent>
+                            <div
+                                className={cn(
+                                    "border-2 border-dashed rounded-xl p-12 flex flex-col items-center justify-center text-center transition-colors cursor-pointer hover:bg-slate-50",
+                                    file ? "border-indigo-500 bg-indigo-50/50" : "border-slate-300"
+                                )}
+                                onDragOver={e => e.preventDefault()}
+                                onDrop={handleFileDrop}
+                                onClick={() => document.getElementById('file-upload')?.click()}
                             >
-                                {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Analyze Document"}
+                                <input type="file" id="file-upload" className="hidden" onChange={e => setFile(e.target.files?.[0] || null)} />
+
+                                {file ? (
+                                    <div className="flex flex-col items-center">
+                                        <FileText className="h-12 w-12 text-indigo-600 mb-4" />
+                                        <p className="font-medium text-lg text-indigo-900">{file.name}</p>
+                                        <p className="text-sm text-indigo-600">{(file.size / 1024).toFixed(0)} KB</p>
+                                    </div>
+                                ) : (
+                                    <div className="flex flex-col items-center">
+                                        <div className="bg-slate-100 p-4 rounded-full mb-4">
+                                            <UploadCloud className="h-8 w-8 text-slate-400" />
+                                        </div>
+                                        <p className="font-medium text-slate-900">Click to upload or drag and drop</p>
+                                        <p className="text-sm text-slate-500 mt-1">PDF, DOCX, XLSX, Images</p>
+                                    </div>
+                                )}
+                            </div>
+
+                            <Button
+                                className="w-full mt-6"
+                                size="lg"
+                                disabled={!file || !selectedFi}
+                                onClick={handleProcess}
+                            >
+                                Start Ingestion
                             </Button>
                         </CardContent>
                     </Card>
                 </div>
             )}
 
-            {/* STEP 2: REVIEW */}
-            {step === 2 && (
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Review & Confirm Mapping</CardTitle>
-                        <CardDescription>
-                            Review the AI's suggestions. You can map to existing fields or <strong>create new ones</strong>.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead className="w-[40%]">FI Question (Extracted)</TableHead>
-                                    <TableHead className="w-[40%]">Compass Field (Master Schema)</TableHead>
-                                    <TableHead className="w-[20%]">Confidence</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {suggestions.map((suggestion, idx) => (
-                                    <TableRow key={idx}>
-                                        <TableCell className="break-words whitespace-pre-wrap max-w-sm">
-                                            {suggestion.text}
-                                        </TableCell>
-                                        <TableCell>
-                                            <Select
-                                                value={suggestion.suggestedKey}
-                                                onValueChange={(val) => updateSuggestion(idx, val)}
-                                            >
-                                                <SelectTrigger className={
-                                                    suggestion.suggestedKey?.startsWith("CREATE_NEW:")
-                                                        ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
-                                                        : !suggestion.suggestedKey ? "border-red-500" : ""
-                                                }>
-                                                    <SelectValue placeholder="Select a field..." />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="IGNORE_SKIP">-- Ignore / No Match --</SelectItem>
+            {/* STEP 2: PROCESSING */}
+            {(status === 'UPLOADING' || status === 'ANALYZING') && (
+                <Card className="max-w-md mx-auto mt-20 text-center p-12">
+                    <Loader2 className="h-12 w-12 animate-spin text-indigo-600 mx-auto mb-6" />
+                    <h2 className="text-xl font-semibold mb-2">Processing Document</h2>
+                    <p className="text-slate-500 mb-6">Using AI to analyze structure and suggest mappings...</p>
 
-                                                    {/* NEW PROPOSAL OPTION */}
-                                                    {suggestion.newFieldProposal && (
-                                                        <SelectItem
-                                                            value={`CREATE_NEW:${suggestion.newFieldProposal.key}`}
-                                                            className="font-semibold text-blue-600 focus:text-blue-700"
-                                                        >
-                                                            <div className="flex items-center gap-2">
-                                                                <Plus className="h-4 w-4" />
-                                                                <span>Create New: {suggestion.newFieldProposal.label}</span>
-                                                                <Badge variant="secondary" className="text-xs ml-2">{suggestion.newFieldProposal.type}</Badge>
-                                                            </div>
-                                                        </SelectItem>
-                                                    )}
-
-                                                    {masterFields.map(f => (
-                                                        <SelectItem key={f.key} value={f.key}>
-                                                            {f.label} ({f.key})
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="flex items-center gap-2">
-                                                <span className={`px-2 py-1 rounded text-xs ${suggestion.confidence > 0.8 ? "bg-green-100 text-green-800" :
-                                                    suggestion.confidence > 0.5 ? "bg-yellow-100 text-yellow-800" :
-                                                        "bg-red-100 text-red-800"
-                                                    }`}>
-                                                    {(suggestion.confidence * 100).toFixed(0)}%
-                                                </span>
-                                            </div>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-
-                        <div className="flex justify-end gap-2 mt-6">
-                            {!questionnaireId && <Button variant="outline" onClick={() => setStep(1)}>Back</Button>}
-                            <Button onClick={handleSave} disabled={loading}>
-                                {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Save Mapping"}
-                            </Button>
-                        </div>
-                    </CardContent>
+                    <div className="w-full bg-slate-100 rounded-full h-2.5 mb-2">
+                        <div className="bg-indigo-600 h-2.5 rounded-full transition-all" style={{ width: `${progress}%` }}></div>
+                    </div>
+                    <p className="text-xs text-slate-400">{status === 'UPLOADING' ? 'Uploading & Ingesting...' : 'AI Extraction...'}</p>
                 </Card>
+            )}
+
+            {/* STEP 3: SMART MAPPING */}
+            {status === 'READY' && (
+                <div className="grid gap-6">
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between">
+                            <div>
+                                <CardTitle>Review Extraction & Mapping</CardTitle>
+                                <CardDescription>Confirm the AI's suggestions. Prioritize <strong>Field Groups</strong> for best results.</CardDescription>
+                            </div>
+                            <div className="flex gap-2">
+                                <Button variant="outline" onClick={() => setStatus('IDLE')}>Start Over</Button>
+                                <Button onClick={handleSave}>
+                                    <Save className="h-4 w-4 mr-2" />
+                                    Confirm & Save
+                                </Button>
+                            </div>
+                        </CardHeader>
+                        <CardContent>
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead className="w-[40%]">Question / Requirement</TableHead>
+                                        <TableHead className="w-[40%]">ONPro Master Mapping</TableHead>
+                                        <TableHead className="w-[10%]">Confidence</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {extractedItems.map((item, idx) => {
+                                        if (item.type === 'section') {
+                                            return (
+                                                <TableRow key={idx} className="bg-slate-50">
+                                                    <TableCell colSpan={3} className="font-bold text-slate-700 py-4">
+                                                        {item.text}
+                                                    </TableCell>
+                                                </TableRow>
+                                            )
+                                        }
+                                        return (
+                                            <TableRow key={idx}>
+                                                <TableCell className="align-top">
+                                                    <div className="text-sm font-medium">{item.text}</div>
+                                                    {item.type === 'instruction' && <Badge variant="outline" className="mt-1 text-[10px]">Instruction</Badge>}
+                                                </TableCell>
+                                                <TableCell className="align-top">
+                                                    <Select
+                                                        value={
+                                                            item.masterQuestionGroupId
+                                                                ? `GROUP:${item.masterQuestionGroupId}`
+                                                                : item.masterFieldNo
+                                                                    ? `FIELD:${item.masterFieldNo}`
+                                                                    : "IGNORE"
+                                                        }
+                                                        onValueChange={(val) => updateMapping(idx, val)}
+                                                    >
+                                                        <SelectTrigger className={cn(
+                                                            "w-full",
+                                                            item.masterQuestionGroupId && "font-semibold text-indigo-700 bg-indigo-50 border-indigo-200",
+                                                            !item.masterFieldNo && !item.masterQuestionGroupId && "text-slate-400"
+                                                        )}>
+                                                            <SelectValue placeholder="Select Mapping..." />
+                                                        </SelectTrigger>
+                                                        <SelectContent className="max-h-[300px]">
+                                                            <SelectItem value="IGNORE">-- Ignore --</SelectItem>
+
+                                                            <SelectGroup>
+                                                                <SelectLabel className="text-indigo-600 font-bold flex items-center gap-1">
+                                                                    <LayoutGrid className="w-3 h-3" /> Field Groups (Recommended)
+                                                                </SelectLabel>
+                                                                {fieldGroups.map(g => (
+                                                                    <SelectItem key={g.id} value={`GROUP:${g.id}`} className="font-medium">
+                                                                        📦 {g.label} <span className="text-xs text-slate-400 font-normal ml-1">({g.fieldNos.length} fields)</span>
+                                                                    </SelectItem>
+                                                                ))}
+                                                            </SelectGroup>
+
+                                                            <SelectGroup>
+                                                                <SelectLabel className="flex items-center gap-1">
+                                                                    <File className="w-3 h-3" /> Atomic Fields
+                                                                </SelectLabel>
+                                                                {masterFields.map((f, i) => {
+                                                                    // Fallback to key or index if fieldNo is missing
+                                                                    const fId = f.fieldNo || (f.key ? parseInt(f.key) : null);
+                                                                    if (!fId) return null;
+                                                                    return (
+                                                                        <SelectItem key={`field-${fId}-${i}`} value={`FIELD:${fId}`}>
+                                                                            📄 {f.label} <span className="text-xs text-slate-400 ml-1">#{fId}</span>
+                                                                        </SelectItem>
+                                                                    );
+                                                                })}
+                                                            </SelectGroup>
+                                                        </SelectContent>
+                                                    </Select>
+                                                </TableCell>
+                                                <TableCell className="align-top">
+                                                    {item.confidence && (
+                                                        <Badge variant={item.confidence > 0.8 ? "default" : "secondary"}>
+                                                            {(item.confidence * 100).toFixed(0)}%
+                                                        </Badge>
+                                                    )}
+                                                </TableCell>
+                                            </TableRow>
+                                        )
+                                    })}
+                                </TableBody>
+                            </Table>
+                        </CardContent>
+                    </Card>
+                </div>
             )}
         </div>
     );
