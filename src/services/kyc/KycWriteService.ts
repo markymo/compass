@@ -30,7 +30,7 @@ export class KycWriteService {
             candidate.value,
             {
                 source: candidate.source,
-                evidenceId: candidate.evidenceId,
+                evidenceId: candidate.evidenceId || undefined,
                 verifiedBy: userId,
                 confidence: candidate.confidence
             },
