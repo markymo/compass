@@ -88,12 +88,22 @@ function TreeRow({ item, level }: { item: TreeItemFn; level: number }) {
 
                     <RowIcon type={item.type} />
 
-                    <span className="truncate" title={item.name}>
-                        {item.name}
-                        {item.type === "LE" && item.metadata?.status === "ARCHIVED" && (
-                            <span className="ml-2 text-xs text-slate-400 italic">(archived)</span>
-                        )}
-                    </span>
+                    {item.type === "CLIENT" ? (
+                        <Link href={`/app/clients/${item.id}`} className="truncate hover:underline hover:text-blue-600 cursor-pointer text-sm font-medium" title={item.name}>
+                            {item.name}
+                        </Link>
+                    ) : item.type === "LE" ? (
+                        <Link href={`/app/le/${item.id}`} className="truncate hover:underline hover:text-blue-600 cursor-pointer text-sm font-medium" title={item.name}>
+                            {item.name}
+                            {item.metadata?.status === "ARCHIVED" && (
+                                <span className="ml-2 text-xs text-slate-400 italic no-underline">(archived)</span>
+                            )}
+                        </Link>
+                    ) : (
+                        <span className="truncate" title={item.name}>
+                            {item.name}
+                        </span>
+                    )}
 
                     {/* Action Buttons (Mock based on screenshot gear/image icons) */}
                     <div className="ml-auto opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity">
