@@ -80,7 +80,7 @@ export async function refreshGleifProposals(legalEntityId: string): Promise<{ su
                 proposed: {
                     value: candidate.value,
                     source: 'GLEIF',
-                    evidenceId: candidate.evidenceId,
+                    evidenceId: candidate.evidenceId || undefined,
                     timestamp: new Date().toISOString()
                 },
                 action: evaluation.action,
