@@ -11,6 +11,10 @@ import {
 import { createMetaEntry, MetaEntry } from '@/domain/kyc/schemas/MetaSchema';
 import { Prisma } from '@prisma/client';
 import { FieldCandidate } from './normalization/types';
+import { FIELD_GROUPS } from '@/domain/kyc/FieldGroups';
+import { KycLoader } from './KycLoader';
+
+const loader = new KycLoader();
 
 export class KycWriteService {
 
@@ -170,6 +174,15 @@ export class KycWriteService {
                 }
             }
         });
+
+        // 4. Propagate to Questions (Fire and Forget or Await?)
+        // We await to ensure consistency for the user's immediate view.
+        await this.propagateToQuestions(
+            resolvedEntityId,
+            fieldNo,
+            value,
+            provenance.verifiedBy || 'SYSTEM'
+        );
 
         return true;
     }
@@ -463,5 +476,162 @@ export class KycWriteService {
             },
         });
         return result.id;
+    }
+    /**
+     * Propagates a Master Data change to all linked Questions in active Engagements.
+     */
+    private async propagateToQuestions(
+        leId: string,
+        fieldNo: number,
+        newValue: any,
+        actorId: string
+    ) {
+        // 1. Find directly mapped questions
+        // @ts-ignore
+        const directQuestions = await prisma.question.findMany({
+            where: {
+                masterFieldNo: fieldNo,
+                questionnaire: {
+                    // Ideally filtered by Active Engagements, but for now global for this LE
+                    // Wait, questions don't have direct link to LE unless via QuestionnaireInstance -> Engagement -> LE
+                    // OR via Questionnaire -> Engagement -> LE
+                    // We need to trace back to THIS LE.
+                    // Option A: Find Engagements for this LE, then find Questions in them.
+                }
+            },
+            include: {
+                questionnaire: {
+                    include: {
+                        fiEngagement: true // For Instance
+                    }
+                }
+            }
+        });
+
+        // The query above is inefficient/hard because of the deep nesting and polymorphic reuse of Templates.
+        // Better: Find Active Engagements for this LE, then find relevant Questions.
+
+        const engagements = await prisma.fIEngagement.findMany({
+            where: { clientLEId: leId, status: { not: 'ARCHIVED' } },
+            include: {
+                // @ts-ignore
+                questionnaireInstances: {
+                    // @ts-ignore
+                    include: { questions: { where: { masterFieldNo: fieldNo } } }
+                },
+                // @ts-ignore
+                questionnaires: {
+                    // @ts-ignore
+                    include: { questions: { where: { masterFieldNo: fieldNo } } }
+                }
+            }
+        });
+
+        for (const eng of engagements) {
+            const allQuestions = [
+                ...eng.questionnaireInstances.flatMap(qi => qi.questions),
+                ...eng.questionnaires.flatMap(q => q.questions)
+            ];
+
+            for (const q of allQuestions) {
+                if (q.answer === newValue) continue; // No change needed
+
+                await prisma.question.update({
+                    where: { id: q.id },
+                    data: {
+                        answer: String(newValue), // Naive string conversion for now
+                        status: 'INTERNAL_REVIEW', // Auto-move to valid status
+                    }
+                });
+
+                await prisma.questionActivity.create({
+                    data: {
+                        questionId: q.id,
+                        userId: actorId, // Or a specific System User ID
+                        type: 'AUTO_ANSWERED_BY_MASTER_DATA',
+                        details: {
+                            fieldNo,
+                            value: newValue
+                        }
+                    }
+                });
+            }
+        }
+
+        // 2. Check for Group Propagation
+        // If this field is part of a group, we must update questions mapped to that Group.
+        for (const group of Object.values(FIELD_GROUPS)) {
+            if (group.fieldNos.includes(fieldNo)) {
+                await this.propagateGroupToQuestions(leId, group.id, actorId);
+            }
+        }
+    }
+
+    private async propagateGroupToQuestions(
+        leId: string,
+        groupId: string,
+        actorId: string
+    ) {
+        // 1. Load full group data
+        const groupData = await loader.loadGroup(leId, groupId, 'CLIENT_LE');
+
+        // 2. Format Answer (JSON for now?)
+        // The Question likely expects a specific format.
+        // For simplicity, we jsonify the values: { fieldNo: value, ... }
+        const answerPayload: Record<string, any> = {};
+        for (const [fNo, val] of Object.entries(groupData)) {
+            if (val && val.value !== null) {
+                answerPayload[fNo] = val.value;
+            }
+        }
+        const answerString = JSON.stringify(answerPayload, null, 2);
+
+        // 3. Find Questions mapped to this Group
+        const engagements = await prisma.fIEngagement.findMany({
+            where: { clientLEId: leId, status: { not: 'ARCHIVED' } },
+            include: {
+                // @ts-ignore
+                questionnaireInstances: {
+                    // @ts-ignore
+                    include: { questions: { where: { masterQuestionGroupId: groupId } } }
+                },
+                // @ts-ignore
+                questionnaires: {
+                    // @ts-ignore
+                    include: { questions: { where: { masterQuestionGroupId: groupId } } }
+                }
+            }
+        });
+
+        for (const eng of engagements) {
+            const allQuestions = [
+                ...eng.questionnaireInstances.flatMap(qi => qi.questions),
+                ...eng.questionnaires.flatMap(q => q.questions)
+            ];
+
+            for (const q of allQuestions) {
+                if (q.answer === answerString) continue;
+
+                await prisma.question.update({
+                    where: { id: q.id },
+                    data: {
+                        answer: answerString,
+                        status: 'INTERNAL_REVIEW'
+                    }
+                });
+
+                await prisma.questionActivity.create({
+                    data: {
+                        questionId: q.id,
+                        userId: actorId,
+                        type: 'AUTO_ANSWERED_BY_MASTER_DATA',
+                        details: {
+                            groupId,
+                            value: answerPayload
+                        }
+                    }
+                });
+            }
+        }
     }
 }

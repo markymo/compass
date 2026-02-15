@@ -1,11 +1,6 @@
-// Use dynamic import for pdfjs inside the method to avoid build-time worker issues
-// import { pdfToText } from "pdfjs-dist/legacy/build/pdf"; remove this line
-
 import * as mammoth from "mammoth";
 import * as XLSX from "xlsx";
-import { v4 as uuidv4 } from 'uuid';
-import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs"; // Try standard import if available, or rely on dynamic.
-
+import PDFParser from "pdf2json";
 
 // Types
 export type IngestionStrategy = 'text' | 'vision';
@@ -69,71 +64,66 @@ export class DocumentIngestionService {
 
     /**
      * PDF Processing Strategy
-     * 1. Try to extract meaningful text.
-     * 2. If text is sparse (scanned), return strategy='vision'.
+     * Uses pdf2json which is more stable in Node.js serverless/Next.js environments than pdfjs-dist.
      */
     private async processPDF(buffer: Buffer): Promise<ExtractResult> {
-        // Dynamic import to avoid build issues if we are in environment without strict standard lib
-        const pdfJS = await import("pdfjs-dist/legacy/build/pdf.mjs");
+        try {
+            // @ts-ignore
+            const pdfParser = new PDFParser(null, 1); // 1 = Raw Text Mode
 
-        // Polyfill standard font/canvas if needed, but for text-only extract usually simple load works
-        const data = new Uint8Array(buffer);
-        const loadingTask = pdfJS.getDocument({ data });
-        const pdfDocument = await loadingTask.promise;
-
-        let fullText = "";
-        const pages: PageMeta[] = [];
-        let totalChars = 0;
-        let totalUnprintable = 0;
-
-        for (let i = 1; i <= pdfDocument.numPages; i++) {
-            const page = await pdfDocument.getPage(i);
-            const content = await page.getTextContent();
-
-            const pageStrings = content.items.map((item: any) => item.str);
-            const pageText = pageStrings.join(" "); // Space delimiter
-
-            fullText += pageText + "\n\n";
-            pages.push({
-                pageNumber: i,
-                text: pageText,
-                wordCount: pageText.split(/\s+/).length
+            const rawText = await new Promise<string>((resolve, reject) => {
+                pdfParser.on("pdfParser_dataError", (errData: any) => reject(errData.parserError));
+                pdfParser.on("pdfParser_dataReady", () => resolve(pdfParser.getRawTextContent()));
+                pdfParser.parseBuffer(buffer);
             });
 
-            totalChars += pageText.length;
-            // Simple heuristic for "gibberish" or "encoding errors"
-            // Count characters that are not alphanumeric or basic punctuation
-            const unprintableMatches = pageText.match(/[^\x20-\x7E\n\r\t]/g);
-            if (unprintableMatches) {
-                totalUnprintable += unprintableMatches.length;
+            // Clean up the text
+            // pdf2json output often has "----------------Page (1) Break----------------"
+            // We can use this to split pages or just remove it for the full text.
+            const fullText = rawText.replace(/----------------Page \(\d+\) Break----------------/g, "\n\n").trim();
+
+            // Attempt to reconstruct pages
+            const rawPages = rawText.split(/----------------Page \(\d+\) Break----------------/g);
+            // The split might result in an empty first element or similar artifacts, filter them
+            const pages: PageMeta[] = rawPages
+                .map((text, index) => {
+                    const clean = text.trim();
+                    return {
+                        pageNumber: index + 1, // Approximation
+                        text: clean,
+                        wordCount: clean.split(/\s+/).length
+                    };
+                })
+                .filter(p => p.text.length > 0);
+
+            // Quality Heuristic
+            const totalChars = fullText.length;
+            const avgChars = pages.length > 0 ? totalChars / pages.length : 0;
+            const isScanned = totalChars < 100 || avgChars < 50;
+
+            if (isScanned) {
+                console.warn(`[Ingestion] Low text density (${avgChars}/page). Marking as scanned.`);
             }
+
+            return {
+                text: fullText,
+                strategy: isScanned ? 'vision' : 'text',
+                quality: isScanned ? 0.1 : 0.9,
+                pages: pages,
+                mime: 'application/pdf'
+            };
+
+        } catch (error) {
+            console.error("[Ingestion] PDF Parse Error:", error);
+            // Fallback for corrupt PDFs
+            return {
+                text: "",
+                strategy: 'vision', // Force vision/OCR downstream if text fails
+                quality: 0,
+                pages: [],
+                mime: 'application/pdf'
+            };
         }
-
-        // Quality Heuristic
-        // If < 50 chars per page on average, probably scanned.
-        const avgChars = totalChars / pdfDocument.numPages;
-        const gibberishRatio = totalChars > 0 ? (totalUnprintable / totalChars) : 0;
-
-        let strategy: IngestionStrategy = 'text';
-        let quality = 1.0;
-
-        if (avgChars < 50) {
-            console.warn(`[Ingestion] Low text density (${avgChars}/page). Marking as scanned.`);
-            strategy = 'vision';
-            quality = 0.1;
-        } else if (gibberishRatio > 0.2) {
-            console.warn(`[Ingestion] High gibberish ratio (${gibberishRatio}). Marking as likely scanned/corrupted.`);
-            strategy = 'vision';
-            quality = 0.3;
-        }
-
-        return {
-            text: fullText,
-            strategy,
-            quality,
-            pages,
-            mime: 'application/pdf'
-        };
     }
 
     private async processDOCX(buffer: Buffer): Promise<ExtractResult> {

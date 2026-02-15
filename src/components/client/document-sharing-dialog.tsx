@@ -30,20 +30,17 @@ interface Engagement {
 interface DocumentSharingDialogProps {
     docId: string;
     docName: string;
-    // Current list of engagements this doc is shared with. 
-    // We will use this to determine initial switch state.
     initialSharedWith: { id: string }[];
-    // All available engagements for this LE
     allEngagements: Engagement[];
     onUpdate: () => void;
+    trigger?: React.ReactNode;
 }
 
-export function DocumentSharingDialog({ docId, docName, initialSharedWith, allEngagements, onUpdate }: DocumentSharingDialogProps) {
+export function DocumentSharingDialog({ docId, docName, initialSharedWith, allEngagements, onUpdate, trigger }: DocumentSharingDialogProps) {
     const [open, setOpen] = useState(false);
     const [loadingMap, setLoadingMap] = useState<Record<string, boolean>>({});
 
     // Derive state from props (simple sync)
-    // We check if an engagement ID exists in the sharedWith array
     const isShared = (engId: string) => initialSharedWith.some(share => share.id === engId);
 
     const handleToggle = async (engId: string, currentState: boolean) => {
@@ -51,16 +48,14 @@ export function DocumentSharingDialog({ docId, docName, initialSharedWith, allEn
         try {
             let res;
             if (currentState) {
-                // Currently shared, so revoke
                 res = await revokeDocumentAccess(docId, engId);
             } else {
-                // Currently not shared, so grant
                 res = await shareDocument(docId, engId);
             }
 
             if (res.success) {
                 toast.success(currentState ? "Access revoked" : "Document shared");
-                onUpdate(); // Trigger parent refresh
+                onUpdate();
             } else {
                 toast.error("Failed to update permissions");
             }
@@ -75,10 +70,12 @@ export function DocumentSharingDialog({ docId, docName, initialSharedWith, allEn
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-8 px-2 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50">
-                    <Share2 className="w-3.5 h-3.5 mr-1.5" />
-                    Share
-                </Button>
+                {trigger ? trigger : (
+                    <Button variant="ghost" size="sm" className="h-8 px-2 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50">
+                        <Share2 className="w-3.5 h-3.5 mr-1.5" />
+                        Share
+                    </Button>
+                )}
             </DialogTrigger>
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>

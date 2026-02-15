@@ -25,8 +25,13 @@ import { deleteQuestionnaire } from "@/actions/questionnaire"; // Import Delete 
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { MoreHorizontal, Settings, Trash2 } from "lucide-react";
+import { QuestionnaireManageDialog } from "./questionnaire-manage-dialog";
+
 export function EngagementDetailView({ le, engagement, questionnaires, sharedDocuments, initialTab }: EngagementDetailViewProps) {
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+    const [manageQuestionnaireId, setManageQuestionnaireId] = useState<string | null>(null);
     const [refreshKey, setRefreshKey] = useState(0);
     const router = useRouter();
 
@@ -109,7 +114,7 @@ export function EngagementDetailView({ le, engagement, questionnaires, sharedDoc
                         className="relative gap-2 px-6 py-3 rounded-t-xl border border-b-0 border-slate-200 bg-slate-50 text-slate-500 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:border-slate-200 data-[state=active]:border-b-white data-[state=active]:-mb-[1px] data-[state=active]:z-10 transition-all shadow-none"
                     >
                         <FileText className="h-4 w-4" />
-                        Manage Engagement
+                        Questionnaires
                     </TabsTrigger>
                     <TabsTrigger
                         value="documents"
@@ -181,14 +186,23 @@ export function EngagementDetailView({ le, engagement, questionnaires, sharedDoc
                                                     </div>
                                                 </div>
                                                 <div className="flex items-center gap-2">
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                                                        onClick={() => handleDeleteQuestionnaire(q.id, q.name)}
-                                                    >
-                                                        Remove
-                                                    </Button>
+                                                    <DropdownMenu>
+                                                        <DropdownMenuTrigger asChild>
+                                                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                                                <MoreHorizontal className="h-4 w-4" />
+                                                            </Button>
+                                                        </DropdownMenuTrigger>
+                                                        <DropdownMenuContent align="end">
+                                                            <DropdownMenuItem onClick={() => setManageQuestionnaireId(q.id)}>
+                                                                <Settings className="h-4 w-4 mr-2" />
+                                                                Manage & Map
+                                                            </DropdownMenuItem>
+                                                            <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteQuestionnaire(q.id, q.name)}>
+                                                                <Trash2 className="h-4 w-4 mr-2" />
+                                                                Remove
+                                                            </DropdownMenuItem>
+                                                        </DropdownMenuContent>
+                                                    </DropdownMenu>
                                                 </div>
                                             </div>
                                         ))}
@@ -247,6 +261,15 @@ export function EngagementDetailView({ le, engagement, questionnaires, sharedDoc
                 onAdd={handleAdd}
                 engagementId={engagement.id}
             />
+
+            {manageQuestionnaireId && (
+                <QuestionnaireManageDialog
+                    open={!!manageQuestionnaireId}
+                    onOpenChange={(val) => !val && setManageQuestionnaireId(null)}
+                    questionnaireId={manageQuestionnaireId}
+                    onUpdate={() => router.refresh()}
+                />
+            )}
         </div>
     );
 }

@@ -252,31 +252,40 @@ export function MissionControl({ metrics, leId, engagements }: MissionControlPro
             </Card>
 
             {/* BOTTOM ROW: Activity Feed */}
-            <Card className="border-slate-200 shadow-sm">
-                <CardHeader>
+            <Card className="border-slate-200 shadow-sm relative overflow-hidden">
+                <CardHeader className="flex flex-row items-center justify-between">
                     <CardTitle className="text-base font-semibold flex items-center gap-2">
                         <Activity className="h-4 w-4 text-slate-500" />
                         Live Activity Pulse
                     </CardTitle>
+                    <Badge variant="outline" className="text-[10px] bg-slate-50 text-slate-400 border-slate-200">
+                        Design Pending
+                    </Badge>
                 </CardHeader>
                 <CardContent>
                     <div className="space-y-6">
-                        {metrics.activity.map((log, i) => (
-                            <div key={log.id} className="flex gap-4">
-                                <div className="flex flex-col items-center">
-                                    <div className="w-2 h-2 rounded-full bg-indigo-500 mt-2" />
-                                    {i < metrics.activity.length - 1 && <div className="w-px h-full bg-slate-100 my-1" />}
-                                </div>
-                                <div className="pb-2">
-                                    <p className="text-sm font-medium text-slate-900">
-                                        <span className="font-bold">{log.user}</span> {log.action.toLowerCase().replace(/_/g, ' ')}
-                                    </p>
-                                    <p className="text-xs text-slate-500">
-                                        {new Date(log.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · {new Date(log.time).toLocaleDateString()}
-                                    </p>
-                                </div>
+                        {metrics.activity.length === 0 ? (
+                            <div className="text-center text-slate-400 text-sm py-8 italic">
+                                No recent activity recorded.
                             </div>
-                        ))}
+                        ) : (
+                            metrics.activity.map((log, i) => (
+                                <div key={log.id} className="flex gap-4">
+                                    <div className="flex flex-col items-center">
+                                        <div className="w-2 h-2 rounded-full bg-indigo-500 mt-2" />
+                                        {i < metrics.activity.length - 1 && <div className="w-px h-full bg-slate-100 my-1" />}
+                                    </div>
+                                    <div className="pb-2">
+                                        <p className="text-sm font-medium text-slate-900">
+                                            <span className="font-bold">{log.user}</span> {log.action.toLowerCase().replace(/_/g, ' ')}
+                                        </p>
+                                        <p className="text-xs text-slate-500">
+                                            {new Date(log.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · {new Date(log.time).toLocaleDateString()}
+                                        </p>
+                                    </div>
+                                </div>
+                            ))
+                        )}
                     </div>
                 </CardContent>
             </Card>

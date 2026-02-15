@@ -28,6 +28,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Filter } from "lucide-react";
+import { QuestionnaireExportButton } from "@/components/fi/engagement/questionnaire-export-button";
 
 // ... existing imports
 
@@ -158,8 +159,17 @@ export function KanbanBoard({ engagementId, clientLEId, fiName = "Bank", questio
                         </SelectContent>
                     </Select>
                 </div>
-                <div className="text-xs text-slate-400">
-                    Showing {filteredTasks.length} tasks
+                <div className="flex items-center gap-2">
+                    <div className="text-xs text-slate-400 hidden sm:block">
+                        Showing {filteredTasks.length} tasks
+                    </div>
+                    {engagementId && (
+                        <QuestionnaireExportButton
+                            engagementId={engagementId}
+                            questionnaireId={selectedQuestionnaireId}
+                            className="h-9"
+                        />
+                    )}
                 </div>
             </div>
 
@@ -184,6 +194,6 @@ export function KanbanBoard({ engagementId, clientLEId, fiName = "Bank", questio
                     clientLEId={clientLEId}
                 />
             </DragDropContext>
-        </div>
+        </div >
     );
 }

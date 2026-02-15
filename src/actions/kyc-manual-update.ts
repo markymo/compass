@@ -44,6 +44,21 @@ export async function updateFieldManually(
 }
 
 /**
+ * Alias for updateFieldManually to match frontend usage
+ */
+export async function applyManualOverride(
+    leId: string,
+    fieldNo: string | number, // Frontend passes string sometimes?
+    value: any,
+    reason: string
+) {
+    // Basic userId for now (TODO: get from session)
+    const userId = "SYSTEM_USER";
+
+    return updateFieldManually(leId, Number(fieldNo), value, reason, userId);
+}
+
+/**
  * Reverts/Applies a specific candidate value.
  * This effectively "Accepts" a candidate.
  */
@@ -71,4 +86,12 @@ export async function applyCandidate(
         console.error("applyCandidate error:", error);
         return { success: false, message: error.message };
     }
+}
+
+export async function applyFieldCandidate(
+    leId: string,
+    candidate: any,
+    userId: string = "SYSTEM"
+) {
+    return applyCandidate(leId, candidate, userId);
 }

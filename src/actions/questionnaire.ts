@@ -386,11 +386,37 @@ export async function analyzeQuestionnaire(id: string) {
     if (!(await canManageQuestionnaire(id))) {
         throw new Error("Unauthorized");
     }
-    const q = await prisma.questionnaire.findUnique({ where: { id } });
-    if (!q || !q.fileContent) throw new Error("Questionnaire not found");
+    const q = await prisma.questionnaire.findUnique({
+        where: { id },
+        include: { questions: true }
+    });
+
+    if (!q) throw new Error("Questionnaire not found");
 
     try {
-        const processed = await processDocumentBuffer(Buffer.from(q.fileContent), q.fileType!, q.fileName!);
+        let processed;
+
+        // Optimized Path: Use File if available
+        if (q.fileContent && q.fileType && q.fileName) {
+            processed = await processDocumentBuffer(Buffer.from(q.fileContent), q.fileType, q.fileName);
+        } else {
+            // Fallback: Construct "processed" object from existing questions
+            // This allows "Auto-Map" to work on manually created questionnaires or legacy imports
+            const questionsText = q.questions.length > 0
+                ? q.questions.map(q => `${q.order}. ${q.text}`).join("\n")
+                : (q.extractedContent as any[] || []).filter((i: any) => i.type === 'question').map((i: any) => `${i.order || ''}. ${i.text}`).join("\n");
+
+            if (!questionsText) {
+                throw new Error("No content found to analyze (No file and no existing questions).");
+            }
+
+            processed = {
+                content: questionsText,
+                type: 'text' as const,
+                mime: 'text/plain'
+            };
+        }
+
         const suggestions = await generateMappingSuggestions(processed);
 
         return {
@@ -399,7 +425,7 @@ export async function analyzeQuestionnaire(id: string) {
             questionnaireName: q.name
         };
     } catch (e: any) {
-        // If scanned PDF, we can't do much in this legacy function yet, just rethrow
+        console.error("Analysis failed:", e);
         throw e;
     }
 }

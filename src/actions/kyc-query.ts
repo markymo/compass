@@ -2,6 +2,8 @@
 
 import { KycLoader } from "@/services/kyc/KycLoader";
 import { FIELD_GROUPS } from "@/domain/kyc/FieldGroups";
+import { FIELD_DEFINITIONS, FieldDefinition } from "@/domain/kyc/FieldDefinitions";
+import { ProvenanceSource } from "@/domain/kyc/types/ProvenanceTypes";
 
 const loader = new KycLoader();
 
@@ -69,7 +71,7 @@ export async function resolveMasterData(
 // --- Field Detail Inspector (Restored) ---
 
 import prisma from "@/lib/prisma";
-import { ProvenanceSource } from "@/domain/kyc/types/ProvenanceTypes";
+// import { ProvenanceSource } from "@/domain/kyc/types/ProvenanceTypes";
 
 export interface FieldDetailData {
     current: {
@@ -138,14 +140,16 @@ export async function getFieldDetail(
 
 // --- Console Question Fetcher ---
 
-export type ConsoleQuestion = {
+export interface ConsoleQuestion {
     id: string;
     text: string;
     category: string;
     masterFieldNo?: number | null;
     masterQuestionGroupId?: string | null;
-    status: "OPEN" | "ANSWERED";
+    status: "OPEN" | "ANSWERED" | "SKIPPED";
     questionnaireName: string;
+    answer?: string | null;
+    engagementOrgName?: string;
 };
 
 export async function getConsoleQuestions(leId: string): Promise<ConsoleQuestion[]> {
@@ -156,6 +160,9 @@ export async function getConsoleQuestions(leId: string): Promise<ConsoleQuestion
             status: { not: 'ARCHIVED' }
         },
         include: {
+            org: {
+                select: { name: true }
+            },
             // Check both templates and instances
             questionnaires: {
                 include: {
@@ -183,7 +190,8 @@ export async function getConsoleQuestions(leId: string): Promise<ConsoleQuestion
     for (const eng of engagements) {
         // Process Templates
         for (const qnaire of eng.questionnaires) {
-            for (const q of qnaire.questions) {
+            for (const qRaw of qnaire.questions) {
+                const q = qRaw as any; // Cast to any to bypass Prisma Client type lag
                 if (seenQuestionIds.has(q.id)) continue;
                 seenQuestionIds.add(q.id);
 
@@ -194,7 +202,9 @@ export async function getConsoleQuestions(leId: string): Promise<ConsoleQuestion
                     masterFieldNo: q.masterFieldNo,
                     masterQuestionGroupId: q.masterQuestionGroupId,
                     status: q.answer ? "ANSWERED" : "OPEN",
-                    questionnaireName: qnaire.name
+                    questionnaireName: qnaire.name,
+                    answer: q.answer,
+                    engagementOrgName: eng.org.name
                 });
             }
         }
@@ -203,7 +213,8 @@ export async function getConsoleQuestions(leId: string): Promise<ConsoleQuestion
         // Logic: specific instances might override templates. 
         // For simplicity, we just add them too, assuming they are distinct sets or snapshots.
         for (const qnaire of eng.questionnaireInstances) {
-            for (const q of qnaire.questions) {
+            for (const qRaw of qnaire.questions) {
+                const q = qRaw as any; // Cast to any to bypass Prisma Client type lag
                 if (seenQuestionIds.has(q.id)) continue;
                 seenQuestionIds.add(q.id);
 
@@ -214,11 +225,145 @@ export async function getConsoleQuestions(leId: string): Promise<ConsoleQuestion
                     masterFieldNo: q.masterFieldNo,
                     masterQuestionGroupId: q.masterQuestionGroupId,
                     status: q.answer ? "ANSWERED" : "OPEN",
-                    questionnaireName: qnaire.name
+                    questionnaireName: qnaire.name,
+                    answer: q.answer,
+                    engagementOrgName: eng.org.name
                 });
             }
         }
     }
 
     return consoleQuestions;
+}
+
+// --- Workbench Aggregator (Field-Centric) ---
+
+export type WorkbenchField = {
+    type: 'SINGLE' | 'GROUP';
+    key: string; // fieldNo (as string) or groupId
+    label: string;
+
+    // For Single Field
+    fieldNo?: number;
+    definition?: FieldDefinition;
+
+    // For Group
+    groupId?: string;
+    groupFieldNos?: number[];
+
+    currentValue: any; // Single value or Record<number, any> for group
+    currentSource?: ProvenanceSource;
+    lastUpdated?: Date;
+
+    linkedQuestions: ConsoleQuestion[];
+};
+
+export async function getWorkbenchFields(leId: string): Promise<WorkbenchField[]> {
+    const questions = await getConsoleQuestions(leId);
+
+    // Map to aggregate
+    const fieldMap = new Map<string, WorkbenchField>();
+
+    // 1. Group Questions by Master Data Target
+    for (const q of questions) {
+        let key = '';
+        let type: 'SINGLE' | 'GROUP' = 'SINGLE';
+
+        if (q.masterQuestionGroupId) {
+            key = q.masterQuestionGroupId;
+            type = 'GROUP';
+        } else if (q.masterFieldNo) {
+            key = q.masterFieldNo.toString();
+            type = 'SINGLE';
+        } else {
+            key = 'UNMAPPED';
+            type = 'GROUP';
+        }
+
+        if (!fieldMap.has(key)) {
+            if (key === 'UNMAPPED') {
+                fieldMap.set(key, {
+                    type: 'GROUP',
+                    key: 'UNMAPPED',
+                    label: 'Additional Questions', // Friendly Label
+                    currentValue: null,
+                    linkedQuestions: []
+                });
+            } else if (type === 'GROUP') {
+                const group = FIELD_GROUPS[key];
+                if (group) {
+                    fieldMap.set(key, {
+                        type: 'GROUP',
+                        key: key,
+                        label: group.label,
+                        groupId: key,
+                        groupFieldNos: group.fieldNos,
+                        currentValue: {}, // To be loaded
+                        linkedQuestions: []
+                    });
+                }
+            } else {
+                const fieldNo = parseInt(key);
+                const def = FIELD_DEFINITIONS[fieldNo];
+                if (def) {
+                    fieldMap.set(key, {
+                        type: 'SINGLE',
+                        key: key,
+                        label: def.fieldName,
+                        fieldNo: fieldNo,
+                        definition: def,
+                        currentValue: null,
+                        linkedQuestions: []
+                    });
+                }
+            }
+        }
+
+        const entry = fieldMap.get(key);
+        if (entry) {
+            entry.linkedQuestions.push(q);
+        }
+    }
+
+    // 2. Load Current Values (Batched-ish)
+    // We could optimize this to load all fields in one query ideally, but KycLoader is granular.
+    const results: WorkbenchField[] = [];
+
+    for (const entry of Array.from(fieldMap.values())) {
+        if (entry.type === 'SINGLE' && entry.fieldNo) {
+            const loaded = await loader.loadField(leId, entry.fieldNo, 'CLIENT_LE');
+            if (loaded) {
+                entry.currentValue = loaded.value;
+                entry.currentSource = loaded.source as ProvenanceSource;
+                entry.lastUpdated = loaded.updatedAt || undefined;
+            }
+        } else if (entry.type === 'GROUP' && entry.groupId && entry.groupId !== 'UNMAPPED') {
+            const loadedGroup = await loader.loadGroup(leId, entry.groupId, 'CLIENT_LE');
+            // Transform Record<fieldNo, LoadedValue> to simple value object for UI
+            const groupValue: Record<number, any> = {};
+            // Determine "primary" source/date? taking latest?
+            let latestDate = new Date(0);
+            let primarySource: ProvenanceSource | undefined;
+
+            for (const [fNoStr, val] of Object.entries(loadedGroup)) {
+                if (val && val.value !== null) {
+                    groupValue[parseInt(fNoStr)] = val.value;
+                    if (val.updatedAt && val.updatedAt > latestDate) {
+                        latestDate = val.updatedAt;
+                        primarySource = val.source as ProvenanceSource;
+                    }
+                }
+            }
+            entry.currentValue = groupValue;
+            if (latestDate.getTime() > 0) {
+                entry.lastUpdated = latestDate;
+                entry.currentSource = primarySource;
+            }
+        }
+
+        results.push(entry);
+    }
+
+    // 3. Sort? Maybe by Label or ID
+    return results.sort((a, b) => a.label.localeCompare(b.label));
 }

@@ -712,11 +712,33 @@ export async function getDashboardMetrics(leId: string) {
         ? (answeredQuestions / totalQuestions) * 40
         : 0;
 
-    // C. Activity Feed
+    // C. Activity Feed (Team-wide, filtered by this LE)
+    // 1. Get all users associated with this LE to map names
+    // We already got some from memberships if we fetched them, but LE object doesn't have them all loaded in the findUnique above.
+    // Let's fetch memberships for this LE to get user names.
+    const memberships = await prisma.membership.findMany({
+        where: { clientLEId: leId },
+        include: { user: true }
+    });
+
+    // Create a map of UserId -> Name
+    const userMap = new Map<string, string>();
+    memberships.forEach(m => {
+        if (m.user) userMap.set(m.userId, m.user.name || m.user.email);
+    });
+    // Add current user to map if missing (e.g. Org Admin not explicit LE member)
+    if (!userMap.has(userId) && identity) {
+        userMap.set(userId, identity.email || "You");
+    }
+
+    // 2. Fetch Logs for this LE context
+    // We filter by path containing the LE ID, which is a strong signal for LE-specific activity.
     const logs = await prisma.usageLog.findMany({
-        where: { userId },
+        where: {
+            path: { contains: leId }
+        },
         orderBy: { createdAt: 'desc' },
-        take: 5
+        take: 10
     });
 
     return {
@@ -741,7 +763,7 @@ export async function getDashboardMetrics(leId: string) {
             id: l.id,
             action: l.action,
             time: l.createdAt,
-            user: "You"
+            user: (l.userId === userId ? "You" : userMap.get(l.userId)) || "Unknown User"
         }))
     };
 }

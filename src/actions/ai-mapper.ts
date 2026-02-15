@@ -27,6 +27,7 @@ import PDFParser from 'pdf2json';
 type Logger = (message: string, stage?: string, level?: "INFO" | "ERROR" | "SUCCESS") => Promise<void>;
 
 import { FIELD_GROUPS } from "@/domain/kyc/FieldGroups";
+import { FIELD_DEFINITIONS } from "@/domain/kyc/FieldDefinitions";
 
 // 1. Process Document: Convert to Base64 (Images/PDF) or Text (Docx/Txt)
 export async function parseDocument(formData: FormData, logger?: Logger): Promise<{ content: string | string[], type: "image" | "text", mime: string }> {
@@ -95,49 +96,45 @@ export async function extractQuestionnaireItems(input: { content: string | strin
 
     if (logger) await logger(`Preparing AI Extraction Context. Mode: ${type}`, "AI_PREP");
 
-    // A. Fetch Master Schema
-    const masterSchema = await prisma.masterSchema.findFirst({
-        where: { isActive: true },
-    });
-    const fields = (masterSchema?.definition as any)?.fields || [];
-    const schemaDesc = fields.map((f: any) => `${f.key} (${f.label})`).join('\n');
+    // B. Construct Message with robust context
+    let schemaContext = "";
 
-    // Prepare Field Groups Description
-    const fieldGroupsDesc = Object.values(FIELD_GROUPS).map(g =>
-        `GROUP: ${g.id} ("${g.label}") - Covers: ${g.description || "Composite field"}`
-    ).join('\n');
+    // 1. Field Groups
+    const groups = Object.values(FIELD_GROUPS);
+    if (groups.length > 0) {
+        schemaContext += "MASTER FIELD GROUPS (Composite - Prefer these):\n";
+        schemaContext += groups.map(g => `- GroupID: "${g.id}" Label: "${g.label}" (Fields: ${g.fieldNos.join(',')})`).join('\n');
+        schemaContext += "\n\n";
+    }
 
-    // B. Construct Message
+    // 2. Atomic Fields
+    const fields = Object.values(FIELD_DEFINITIONS);
+    if (fields.length > 0) {
+        schemaContext += "MASTER ATOMIC FIELDS:\n";
+        schemaContext += fields.map(f => `- Field ${f.fieldNo} (Key: "${f.fieldNo}"): ${f.fieldName} (${f.dataType}) - ${f.notes || ''}`).join('\n');
+        schemaContext += "\n\n";
+    } else {
+        // Fallback if definitions are missing
+        schemaContext += "MASTER FIELDS: No strict schema provided. Please infer best-guess standard KYC field names (e.g. 'legal_name', 'incorporation_date').\n\n";
+    }
+
+    // 3. Categories
+    schemaContext += `STANDARD CATEGORIES:\n${STANDARD_CATEGORIES.join(', ')}\n`;
+
+
     const userContent: any[] = [
         {
             type: "text",
             text: `Extract all structural elements (Questions, Sections, Instructions, Notes) from the provided document content.
             
-            RULES FOR QUESTIONS:
-            1. EVERY Question MUST be assigned one of the STANDARD CATEGORIES. This is MANDATORY.
-            2. MASTER MAPPING PRIORITY:
-               a. FIRST check if the question matches a FIELD GROUP (e.g. "Registered Address"). If so, assign the GROUP ID to 'masterQuestionGroupId'.
-               b. IF NO group matches, check if it matches a specific MASTER SCHEMA FIELD. If so, assign the key to 'masterKey'.
-               c. PREFER GROUPS over single fields for composite concepts (Addresses, Persons, Bank Details).
-            3. Priority: Categorization is CRITICAL for UI grouping. Master Mapping is secondary but important for automation.
-
-            OUTPUT COLUMNS:
-            1. Type: "question", "section", "instruction", "note".
-            2. Text: Exact text from document.
-            3. Neutral Text (Questions Only): The question re-phrased to be generic.
-            4. Master Key (Questions Only): Best guess match from the provided Master Schema list (Optional).
-            5. Master Question Group ID (Questions Only): Best guess match from the provided Field Groups (Optional).
-            6. Category (Questions Only): The standard category this question belongs to (MANDATORY).
- 
-            FIELD GROUPS (HIGH PRIORITY):
-            ${fieldGroupsDesc}
-
-            MASTER SCHEMA FIELDS (LOWER PRIORITY):
-            ${schemaDesc}
- 
-            STANDARD CATEGORIES:
-            ${STANDARD_CATEGORIES.join(', ')}
-            `
+            CRITICAL MAPPING RULES:
+            1. Assign 'category' from the Standard List provided.
+            2. Try to map each Question to a Master Field or Group.
+            3. PREFER 'masterQuestionGroupId' for composite concepts (Address, Person, UBO).
+            4. Use 'masterKey' (Field No) only for atomic fields (Name, Date, Status).
+            
+            CONTEXT:
+            ${schemaContext}`
         }
     ];
 
@@ -147,9 +144,8 @@ export async function extractQuestionnaireItems(input: { content: string | strin
             text: `DOCUMENT CONTENT:\n\n${content}`
         });
     } else {
-        // Image Mode (Single or Multiple)
+        // Image Mode
         if (Array.isArray(content)) {
-            // Multiple images (e.g. Scanned PDF pages)
             content.forEach((b64) => {
                 userContent.push({
                     type: "image",
@@ -158,7 +154,6 @@ export async function extractQuestionnaireItems(input: { content: string | strin
                 });
             });
         } else {
-            // Single image
             userContent.push({
                 type: "image",
                 // @ts-ignore
@@ -192,7 +187,7 @@ export async function extractQuestionnaireItems(input: { content: string | strin
                     type: z.string().describe("The structural type: question, section, instruction, or note"),
                     text: z.string().describe("The exact text content"),
                     neutralText: z.string().nullable().optional().describe("Neutralized question text (optional)"),
-                    masterKey: z.string().nullable().optional().describe("Matching master schema key (optional)"),
+                    masterKey: z.string().nullable().optional().describe("Matching master schema key (Field No) (optional)"),
                     masterQuestionGroupId: z.string().nullable().optional().describe("Matching master field group ID (optional)"),
                     category: z.string().nullable().optional().describe("The standard category for this question (Recommended)"),
                     confidence: z.number().optional().describe("Confidence score 0-1")

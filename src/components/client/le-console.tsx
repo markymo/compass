@@ -1,220 +1,246 @@
 "use client";
 
-import { Card, CardContent } from "@/components/ui/card";
+import { useEffect, useState } from "react";
+import { getWorkbenchFields, WorkbenchField } from "@/actions/kyc-query";
+import { WorkbenchFieldCard } from "./workbench/workbench-field-card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
+import { LayoutDashboard, Database, Link as LinkIcon, Users, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
-import { TrendingDown, Clock, AlertCircle, Save } from "lucide-react";
-import { FIELD_GROUPS } from "@/domain/kyc/FieldGroups";
-import { FIELD_DEFINITIONS } from "@/domain/kyc/FieldDefinitions";
-import { useState, useEffect } from "react";
-import { resolveMasterData, getConsoleQuestions, ConsoleQuestion, ResolverResponse } from "@/actions/kyc-query";
 
 interface LEConsoleProps {
     leId: string;
 }
 
+// Map Models to Friendly Categories
+const MODEL_CATEGORIES: Record<string, string> = {
+    'IdentityProfile': 'Identity',
+    'EntityInfoProfile': 'Entity Info',
+    'RelationshipProfile': 'Relationships',
+    'ConstitutionalProfile': 'Constitutional',
+    'ComplianceProfile': 'Compliance',
+    'TaxProfile': 'Tax',
+    'FinancialProfile': 'Financial',
+    'TradingProfile': 'Trading',
+    'LeiRegistration': 'LEI Data',
+};
+
 export function LEConsole({ leId }: LEConsoleProps) {
-    // Real Data State
-    const [questions, setQuestions] = useState<ConsoleQuestion[]>([]);
+    const [fields, setFields] = useState<WorkbenchField[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [activeCategory, setActiveCategory] = useState<string>("All");
 
-    // Mock Data for Boilerplate Stats (Keep for now until we compute real stats)
-    const totalQuestions = questions.length;
-    const answeredQuestions = questions.filter(q => q.status === "ANSWERED").length;
-    const progressPercentage = totalQuestions > 0 ? (answeredQuestions / totalQuestions) * 100 : 0;
+    const loadData = async () => {
+        setIsLoading(true);
+        try {
+            const data = await getWorkbenchFields(leId);
+            setFields(data);
+        } catch (error) {
+            console.error("Failed to load workbench fields", error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
-    // State for inputs (mocking form state)
-    const [formState, setFormState] = useState<Record<string, string>>({});
-    const [hydrated, setHydrated] = useState<ResolverResponse>({}); // Track which fields are from Master Data
-
-    // Hydration Effect
     useEffect(() => {
-        const loadData = async () => {
-            setIsLoading(true);
-            try {
-                // 1. Fetch Questions
-                const fetchedQuestions = await getConsoleQuestions(leId);
-                setQuestions(fetchedQuestions);
-
-                if (fetchedQuestions.length === 0) {
-                    setIsLoading(false);
-                    return;
-                }
-
-                // 2. Prepare Hydration Request
-                const request = fetchedQuestions.map(q => ({
-                    questionId: q.id,
-                    masterFieldNo: q.masterFieldNo,
-                    masterQuestionGroupId: q.masterQuestionGroupId
-                }));
-
-                // 3. Hydrate from Master Data
-                const resolved = await resolveMasterData(leId, request);
-                setHydrated(resolved);
-            } catch (error) {
-                console.error("Failed to load console data", error);
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
         loadData();
     }, [leId]);
 
-    const handleInputChange = (fieldNo: number, value: string) => {
-        setFormState(prev => ({ ...prev, [fieldNo]: value }));
-    };
+    // Grouping Logic
+    const groupedFields = fields.reduce((acc, field) => {
+        let category = "Other";
+        if (field.type === 'GROUP') {
+            // Hardcoded group categories for now, or derive from ID?
+            if (field.key.includes('ADDRESS')) category = 'Addresses';
+            else if (field.key === 'UNMAPPED') category = 'Unmapped';
+            else category = 'Groups';
+        } else if (field.definition?.model) {
+            category = MODEL_CATEGORIES[field.definition.model] || 'Other';
+        }
+
+        if (!acc[category]) acc[category] = [];
+        acc[category].push(field);
+        return acc;
+    }, {} as Record<string, WorkbenchField[]>);
+
+    const unmappedField = groupedFields['Unmapped']?.[0];
+    const unmappedCount = unmappedField?.linkedQuestions.length || 0;
+
+    // Remove Unmapped from standard categories
+    const masterDataCategories = ["All", ...Object.keys(groupedFields).filter(c => c !== 'Unmapped').sort()];
 
     if (isLoading) {
-        return <div className="p-10 text-center text-slate-400">Loading console...</div>;
+        return (
+            <div className="space-y-4 p-6">
+                <Skeleton className="h-10 w-48 mb-6" />
+                <div className="flex gap-6">
+                    <Skeleton className="h-full w-64 hidden md:block" />
+                    <div className="flex-1 space-y-4">
+                        <Skeleton className="h-32 w-full" />
+                        <Skeleton className="h-32 w-full" />
+                    </div>
+                </div>
+            </div>
+        );
     }
 
     return (
-        <div className="space-y-6">
-            {/* Top Stats Bar */}
-            <div className="grid grid-cols-12 gap-4 h-32">
-                <Card className="col-span-3 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 flex flex-col justify-center">
-                    <CardContent className="p-5 space-y-3">
-                        <div className="flex justify-between items-end">
-                            <div>
-                                <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Completion</p>
-                                <div className="text-3xl font-bold text-slate-800 dark:text-slate-100 mt-1">
-                                    {answeredQuestions} <span className="text-slate-300 text-lg">/ {totalQuestions}</span>
-                                </div>
-                            </div>
-                            <div className="text-right">
-                                <span className="text-2xl font-bold text-blue-600">{Math.round(progressPercentage)}%</span>
-                            </div>
-                        </div>
-                        <Progress value={progressPercentage} className="h-2 bg-slate-100" />
-                    </CardContent>
-                </Card>
-
-                <Card className="col-span-5 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 relative overflow-hidden">
-                    <CardContent className="p-5 h-full flex flex-col justify-between">
-                        <div className="flex justify-between items-start z-10">
-                            <div className="flex items-center gap-2">
-                                <TrendingDown className="h-4 w-4 text-emerald-500" />
-                                <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Burndown Velocity</p>
-                            </div>
-                            <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200">On Track</Badge>
-                        </div>
-                        <div className="absolute bottom-0 left-0 right-0 h-20 opacity-80">
-                            <div className="w-full h-full bg-gradient-to-t from-blue-50 to-transparent" />
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <Card className="col-span-4 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
-                    <CardContent className="p-5 h-full flex items-center justify-center text-slate-400 text-sm">
-                        Recent Activity Placeholder
-                    </CardContent>
-                </Card>
-            </div>
-
-            {/* Main Console Workspace */}
-            <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                    <h2 className="text-xl font-semibold tracking-tight">Incoming Questions</h2>
-                    <Badge variant="secondary">{questions.filter(q => q.status === "OPEN").length} Pending</Badge>
+        <div className="h-[calc(100vh-140px)] flex flex-col">
+            <Tabs defaultValue="master-data" className="flex-1 flex flex-col overflow-hidden">
+                <div className="px-6 py-2 border-b bg-white flex items-center justify-between shrink-0">
+                    <TabsList>
+                        <TabsTrigger value="master-data" className="gap-2">
+                            <Database className="w-4 h-4" />
+                            Master Data
+                            <Badge variant="secondary" className="ml-1 text-[10px]">
+                                {fields.length - (unmappedField ? 1 : 0)}
+                            </Badge>
+                        </TabsTrigger>
+                        <TabsTrigger value="unmapped" className="gap-2">
+                            <LinkIcon className="w-4 h-4" />
+                            Unmapped Questions
+                            {unmappedCount > 0 && (
+                                <Badge variant="destructive" className="ml-1 text-[10px]">
+                                    {unmappedCount}
+                                </Badge>
+                            )}
+                        </TabsTrigger>
+                    </TabsList>
+                    <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-xs font-normal text-slate-500">
+                            {leId.split('-')[0]}
+                        </Badge>
+                    </div>
                 </div>
 
-                <div className="grid gap-4">
-                    {questions.map((question) => {
-                        // 1. Resolve Mapping Target
-                        let fieldsToRender: number[] = [];
-                        let mappingType: "SINGLE" | "GROUP" | "NONE" = "NONE";
-                        let mappingLabel = "Unmapped";
-
-                        if (question.masterQuestionGroupId) {
-                            const group = FIELD_GROUPS[question.masterQuestionGroupId];
-                            if (group) {
-                                fieldsToRender = group.fieldNos;
-                                mappingType = "GROUP";
-                                mappingLabel = `Group: ${group.label}`;
-                            }
-                        } else if (question.masterFieldNo) {
-                            fieldsToRender = [question.masterFieldNo];
-                            mappingType = "SINGLE";
-                            mappingLabel = `Field: ${FIELD_DEFINITIONS[question.masterFieldNo]?.fieldName || question.masterFieldNo}`;
-                        }
-
-                        return (
-                            <Card key={question.id} className="border-slate-200 shadow-sm overflow-hidden">
-                                <div className="flex">
-                                    {/* Left: Question Context */}
-                                    <div className="w-1/3 bg-slate-50 dark:bg-slate-900/50 p-6 border-r border-slate-100 dark:border-slate-800">
-                                        <Badge variant="outline" className="mb-2 text-xs font-mono text-slate-500">
-                                            {question.category}
+                {/* TAB 1: MASTER DATA (Matched Fields) */}
+                <TabsContent value="master-data" className="flex-1 flex overflow-hidden mt-0">
+                    {/* Sidebar / Category Nav */}
+                    <div className="w-64 border-r border-slate-200 bg-slate-50/50 flex flex-col hidden md:flex overflow-y-auto">
+                        <div className="p-4 space-y-1">
+                            <h3 className="mb-2 px-2 text-xs font-semibold uppercase text-slate-500 tracking-wider">
+                                Domain Categories
+                            </h3>
+                            {masterDataCategories.map(cat => (
+                                <Button
+                                    key={cat}
+                                    variant={activeCategory === cat ? "secondary" : "ghost"}
+                                    className="w-full justify-start text-sm mb-1"
+                                    onClick={() => setActiveCategory(cat)}
+                                >
+                                    {cat}
+                                    {cat !== "All" && (
+                                        <Badge variant="secondary" className="ml-auto text-[10px] h-5 px-1.5 bg-slate-200/50">
+                                            {groupedFields[cat]?.length || 0}
                                         </Badge>
-                                        <p className="font-medium text-slate-800 dark:text-slate-200">{question.text}</p>
+                                    )}
+                                </Button>
+                            ))}
+                        </div>
+                    </div>
 
-                                        <div className="mt-4 flex items-center gap-2 text-xs text-slate-500">
-                                            <div className={`w-2 h-2 rounded-full ${mappingType !== "NONE" ? "bg-green-500" : "bg-amber-500"}`} />
-                                            <span>{mappingLabel}</span>
+                    {/* Main Content */}
+                    <ScrollArea className="flex-1 bg-slate-50/30">
+                        <div className="p-8 pb-20 max-w-5xl mx-auto">
+                            <div className="mb-6">
+                                <h2 className="text-xl font-semibold text-slate-900">Mapped Master Data</h2>
+                                <p className="text-slate-500 text-sm">
+                                    Approved "Golden Record" fields sourced from questionnaires and external data.
+                                </p>
+                            </div>
+
+                            <div className="space-y-6">
+                                {activeCategory === "All"
+                                    ? Object.entries(groupedFields)
+                                        .filter(([cat]) => cat !== 'Unmapped')
+                                        .map(([cat, catFields]) => (
+                                            <div key={cat} className="space-y-4">
+                                                <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider pl-1 border-b pb-1 mb-2">
+                                                    {cat}
+                                                </h3>
+                                                {catFields.map(field => (
+                                                    <WorkbenchFieldCard
+                                                        key={field.key}
+                                                        field={field}
+                                                        leId={leId}
+                                                        onUpdate={loadData}
+                                                    />
+                                                ))}
+                                            </div>
+                                        ))
+                                    : (groupedFields[activeCategory] || []).map(field => (
+                                        <WorkbenchFieldCard
+                                            key={field.key}
+                                            field={field}
+                                            leId={leId}
+                                            onUpdate={loadData}
+                                        />
+                                    ))
+                                }
+
+                                {(!fields.length || (fields.length === 1 && unmappedField)) && (
+                                    <div className="text-center py-20">
+                                        <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-slate-100 mb-4">
+                                            <Database className="w-6 h-6 text-slate-400" />
                                         </div>
+                                        <h3 className="text-lg font-medium text-slate-900">No Mapped Data Yet</h3>
+                                        <p className="text-slate-500 max-w-sm mx-auto mt-2">
+                                            Questions have not been mapped to Master Data fields provided yet.
+                                            Check the "Unmapped Questions" tab to map them.
+                                        </p>
                                     </div>
+                                )}
+                            </div>
+                        </div>
+                    </ScrollArea>
+                </TabsContent>
 
-                                    {/* Right: Working Area */}
-                                    <div className="w-2/3 p-6 space-y-4">
-                                        {mappingType === "NONE" ? (
-                                            <div className="text-center py-8 text-slate-400 bg-slate-50/50 rounded-lg border-2 border-dashed">
-                                                No Master Data mapping found.
-                                                <Button size="sm" variant="link" className="text-blue-600">Map via AI</Button>
-                                            </div>
-                                        ) : (
-                                            <div className="space-y-4">
-                                                {/* Composite Field Inputs */}
-                                                <div className="grid gap-4">
-                                                    {fieldsToRender.map(fieldNo => {
-                                                        const def = FIELD_DEFINITIONS[fieldNo];
-                                                        return (
-                                                            <div key={fieldNo} className="grid grid-cols-12 gap-4 items-center">
-                                                                <Label className="col-span-4 text-xs font-medium text-slate-500 text-right uppercase tracking-wide">
-                                                                    {def?.fieldName || `Field ${fieldNo}`}
-                                                                </Label>
-                                                                <div className="col-span-8">
-                                                                    <Input
-                                                                        placeholder={`Enter ${def?.fieldName}...`}
-                                                                        className="h-9"
-                                                                        value={formState[fieldNo] || ""}
-                                                                        onChange={(e) => handleInputChange(fieldNo, e.target.value)}
-                                                                    />
-                                                                </div>
-                                                            </div>
-                                                        )
-                                                    })}
-                                                </div>
+                {/* TAB 2: UNMAPPED QUESTIONS */}
+                <TabsContent value="unmapped" className="flex-1 overflow-hidden mt-0">
+                    <ScrollArea className="h-full bg-slate-50/30">
+                        <div className="p-8 max-w-4xl mx-auto">
+                            <div className="mb-6">
+                                <h2 className="text-xl font-semibold text-slate-900">Unmapped Questions</h2>
+                                <p className="text-slate-500 text-sm">
+                                    Questions from engagements that are not linked to any Master Data field.
+                                </p>
+                            </div>
 
-                                                <Separator />
-
-                                                <div className="flex justify-between items-center bg-blue-50/50 p-3 rounded-md border border-blue-100">
-                                                    <div className="flex items-center gap-2 text-sm text-blue-700">
-                                                        <AlertCircle className="h-4 w-4" />
-                                                        <span>
-                                                            {mappingType === "GROUP"
-                                                                ? "Updates Master Data for all fields in this group."
-                                                                : "Updates Master Data for this single field."}
-                                                        </span>
-                                                    </div>
-                                                    <Button size="sm" className="bg-blue-600 hover:bg-blue-700 gap-2">
-                                                        <Save className="h-4 w-4" />
-                                                        Apply & Resolve
-                                                    </Button>
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
+                            {unmappedCount === 0 ? (
+                                <div className="text-center py-20 text-slate-400 bg-white border-2 border-dashed border-slate-200 rounded-lg">
+                                    <Check className="w-12 h-12 mx-auto mb-2 opacity-20" />
+                                    <p>All questions are mapped!</p>
                                 </div>
-                            </Card>
-                        );
-                    })}
-                </div>
-            </div>
+                            ) : (
+                                <div className="space-y-4">
+                                    {unmappedField?.linkedQuestions.map(q => (
+                                        <div key={q.id} className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm flex flex-col gap-2">
+                                            <div className="flex justify-between gap-4">
+                                                <p className="font-medium text-slate-900">{q.text}</p>
+                                                <Badge variant="outline" className="shrink-0 h-6">
+                                                    {q.questionnaireName}
+                                                </Badge>
+                                            </div>
+                                            {q.answer && (
+                                                <div className="bg-slate-50 p-2 rounded text-sm text-slate-700 font-mono">
+                                                    {q.answer}
+                                                </div>
+                                            )}
+                                            <div className="flex justify-end pt-2">
+                                                <Button size="sm" variant="outline" className="text-xs">
+                                                    Map to Field
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </ScrollArea>
+                </TabsContent>
+            </Tabs>
         </div>
     );
 }

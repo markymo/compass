@@ -135,7 +135,7 @@ export class QuestionnaireExtractorService {
 
         // 3. Definitions (Summarized - just key/label to save tokens)
         const fields = Object.values(FIELD_DEFINITIONS).map((f: FieldDefinition) =>
-            `- Field ${f.fieldNo}: ${f.fieldName} (${f.dataType})`
+            `- Field ${f.fieldNo} (Key: "${f.fieldNo}"): ${f.fieldName} (${f.dataType}) - ${f.notes || ''}`
         ).join("\n");
 
         return `

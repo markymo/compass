@@ -16,6 +16,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Filter, Loader2, Layout } from "lucide-react";
+import { QuestionnaireExportButton } from "./questionnaire-export-button";
 
 export function FIKanbanBoard({ engagementId, clientName = "Client" }: { engagementId: string; clientName?: string }) {
     const [enabled, setEnabled] = useState(false);
@@ -157,10 +158,18 @@ export function FIKanbanBoard({ engagementId, clientName = "Client" }: { engagem
                             </SelectContent>
                         </Select>
                     </div>
+
                 </div>
-                <div className="text-xs font-medium text-slate-500 bg-slate-100 px-3 py-1.5 rounded-full">
-                    {filteredTasks.length} Items
-                    {loading && <Loader2 className="ml-2 h-3 w-3 animate-spin inline" />}
+                <div className="flex items-center gap-2">
+                    <div className="text-xs font-medium text-slate-500 bg-slate-100 px-3 py-1.5 rounded-full">
+                        {filteredTasks.length} Items
+                        {loading && <Loader2 className="ml-2 h-3 w-3 animate-spin inline" />}
+                    </div>
+                    <QuestionnaireExportButton
+                        engagementId={engagementId}
+                        questionnaireId={selectedQuestionnaireId}
+                        className="h-8"
+                    />
                 </div>
             </div>
 
