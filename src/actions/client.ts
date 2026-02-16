@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { can, Action, UserWithMemberships } from "@/lib/auth/permissions";
 
 import { cookies } from "next/headers";
+import { emptyMetrics, calculateEngagementMetrics, rollupMetrics, DashboardMetric } from "@/lib/metrics-calc";
 
 // --- Authorization Helper ---
 async function ensureAuthorization(action: Action, context: { partyId?: string, clientLEId?: string, engagementId?: string }) {
@@ -440,6 +441,7 @@ export async function createClientLE(data: { name: string; jurisdiction: string;
 // 3. Get Full Data (Schema + Answers) for an LE
 export async function getClientLEData(leId: string) {
     // Check Auth - Wrap in try/catch to handle deleted/unauthorized gracefully
+    if (!leId) return null;
     try {
         await ensureAuthorization(Action.LE_VIEW_DATA, { clientLEId: leId });
     } catch (e) {
@@ -641,76 +643,63 @@ export async function getDashboardMetrics(leId: string) {
     let answeredQuestions = 0;
 
     // CP Tracker Buckets
-    let cpStatus = {
-        draft: 0,           // Internal: Drafting
-        internalReview: 0,  // Internal: Reviewing
-        shared: 0,          // External: With Bank
-        done: 0             // Complete
-    };
+    // Use the shared metric structure
+    const leMetrics = emptyMetrics();
 
     const engagementStats = new Map<string, { total: number, answered: number }>();
 
     for (const eng of le.fiEngagements) {
-        let engTotal = 0;
-        let engAnswered = 0;
+        // Calculate Metrics using shared logic
+        const m = await calculateEngagementMetrics(eng.id);
 
-        for (const q of eng.questionnaires) {
-            // Use Relation-based questions if available (The new Kanban way)
-            if (q.questions && q.questions.length > 0) {
-                for (const task of q.questions) {
-                    totalQuestions++;
-                    engTotal++;
-                    const s = task.status;
-                    const isAnswered = s === "SUPPLIER_SIGNED_OFF" ||
-                        s === "CLIENT_SIGNED_OFF" ||
-                        s === "SHARED" ||
-                        s === "SUPPLIER_REVIEW" ||
-                        s === "INTERNAL_REVIEW" ||
-                        task.isLocked;
+        // Accumulate to LE level
+        rollupMetrics(leMetrics, m);
 
-                    if (isAnswered) {
-                        answeredQuestions++;
-                        engAnswered++;
-                    }
+        // Calculate "Total/Answered" for Progress Bar / Score
+        // Approximation based on buckets:
+        // Total = sum of all buckets
+        // Answered = Approved + Released + Acknowledged + (maybe Drafted if answered?)
+        // The old logic counted "isAnswered" if status was significant or if it had an answer.
+        // Our new logic puts things in buckets based on status.
+        // Let's rely on the buckets for the score to be consistent.
 
-                    // Bucketing Logic
-                    if (s === "SUPPLIER_SIGNED_OFF") {
-                        cpStatus.done++;
-                    } else if (s === "SHARED" || s === "SUPPLIER_REVIEW" || s === "CLIENT_SIGNED_OFF") {
-                        // Waiting on Supplier or in shared state
-                        cpStatus.shared++;
-                    } else if (s === "INTERNAL_REVIEW" || s === "QUERY") {
-                        cpStatus.internalReview++;
-                    } else {
-                        // DRAFT or others
-                        cpStatus.draft++;
-                    }
-                }
-            }
-            // Fallback for Legacy/Imported data (Extracted Content JSON)
-            else if (q.extractedContent && Array.isArray(q.extractedContent)) {
-                const items = q.extractedContent as any[];
-                const questions = items.filter(i => (i.type || "").toLowerCase() === "question");
-                const qCount = questions.length;
-                const qAnswered = questions.filter(i => !!i.answer).length;
+        const eTotal = m.noData + m.drafted + m.approved + m.released + m.acknowledged;
+        // Strict answered: Approved, Released, Ack. 
+        // Drafted might be "In Progress".
+        // Old logic: "answeredQuestions" included Internal Review.
+        const eAnswered = m.approved + m.released + m.acknowledged + (m.drafted > 0 ? m.drafted : 0);
+        // Wait, 'drafted' bucket in new logic includes DRAFT and INTERNAL_REVIEW.
+        // In old logic, DRAFT with no answer was valid?
+        // Old logic: `isAnswered = ... || INTERNAL_REVIEW || ...`
+        // We should probably refine `calculateEngagementMetrics` to be more granular if we want exact score match,
+        // but for now, let's treat "Drafted" as "Has Attention" or similar?
+        // Actually, the Score is arbitrary. Let's make it: Approved + Released + Ack.
 
-                totalQuestions += qCount;
-                answeredQuestions += qAnswered;
+        // Re-reading old logic: 
+        // isAnswered = SUPPLIER_SIGNED_OFF || CLIENT_SIGNED_OFF || SHARED || SUPPLIER_REVIEW || INTERNAL_REVIEW || isLocked
+        // This maps to: Acknowledged, Approved, Released, Drafted (partial).
+        // Let's include Drafted in 'Answered' for the score if we want to be generous, or exclude it.
+        // Given "Readiness", Drafted usually implies some work done.
 
-                engTotal += qCount;
-                engAnswered += qAnswered;
+        const effectiveAnswered = m.approved + m.released + m.acknowledged + m.drafted; // Drafted includes internal review
 
-                // Estimate status for legacy items
-                cpStatus.done += qAnswered;
-                cpStatus.draft += (qCount - qAnswered);
-            }
-        }
-        engagementStats.set(eng.id, { total: engTotal, answered: engAnswered });
+        engagementStats.set(eng.id, { total: eTotal, answered: effectiveAnswered });
+
+        totalQuestions += eTotal;
+        answeredQuestions += effectiveAnswered;
     }
 
     const questionnaireScore = totalQuestions > 0
         ? (answeredQuestions / totalQuestions) * 40
         : 0;
+
+    // Map back to 'cpStatus' for frontend compatibility
+    const cpStatus = {
+        draft: leMetrics.noData + leMetrics.prepopulated + leMetrics.systemUpdated,
+        internalReview: leMetrics.drafted,
+        shared: leMetrics.released,
+        done: leMetrics.approved + leMetrics.acknowledged
+    };
 
     // C. Activity Feed (Team-wide, filtered by this LE)
     // 1. Get all users associated with this LE to map names
@@ -751,7 +740,8 @@ export async function getDashboardMetrics(leId: string) {
                 questionsAnswered: answeredQuestions,
                 totalQuestions: totalQuestions,
                 cpStatus // Return the buckets
-            }
+            },
+            metrics: leMetrics // New Standardized Metrics
         },
         pipeline: le.fiEngagements.map(e => ({
             id: e.id,

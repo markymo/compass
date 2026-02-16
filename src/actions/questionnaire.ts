@@ -183,6 +183,51 @@ export async function getQuestionnaires(orgId: string) {
     return qs;
 }
 
+export async function getOrgCustomFields(orgId: string) {
+    // Basic auth check
+    if (!orgId) return [];
+
+    return await prisma.customFieldDefinition.findMany({
+        where: { orgId },
+        orderBy: { label: 'asc' }
+    });
+}
+
+export async function createCustomFieldDefinition(orgId: string, label: string, dataType: string = "Text") {
+    // Basic auth/security check
+    if (!orgId) return { success: false, error: "Organization ID required" };
+
+    try {
+        // Generate a machine-readable key
+        let key = label.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+        if (!key) key = "custom_field"; // Fallback
+
+        // Check for collision (simple suffixing)
+        const existing = await prisma.customFieldDefinition.findUnique({
+            where: { orgId_key: { orgId, key } }
+        });
+        if (existing) {
+            key = `${key}_${Date.now()}`;
+        }
+
+        const field = await prisma.customFieldDefinition.create({
+            data: {
+                orgId,
+                key, // Added key
+                label,
+                dataType,
+                status: "ACTIVE"
+            }
+        });
+
+        revalidatePath(`/app/admin/organizations/${orgId}`);
+        return { success: true, data: field };
+    } catch (e: any) {
+        console.error("Failed to create Custom Field:", e);
+        return { success: false, error: e.message };
+    }
+}
+
 /**
  * Creates a questionnaire manually with a list of questions.
  */
@@ -372,7 +417,8 @@ export async function getQuestionnaireById(id: string) {
         include: {
             fiOrg: true,
             questions: {
-                orderBy: { order: 'asc' }
+                orderBy: { order: 'asc' },
+                include: { customFieldDefinition: true }
             }
         }
     });
@@ -761,7 +807,8 @@ async function syncQuestionsToDatabase(id: string, items: any[]) {
                 status: "DRAFT" as const,
                 // NEW: Persist Mapping
                 masterFieldNo: item.masterFieldNo || null,
-                masterQuestionGroupId: item.masterQuestionGroupId || null
+                masterQuestionGroupId: item.masterQuestionGroupId || null,
+                customFieldDefinitionId: item.customFieldDefinitionId || null
             };
         });
 

@@ -13,6 +13,7 @@ export interface GuideBreadcrumbItem {
     label: string;
     href?: string; // If undefined, it's the current page
     icon?: LucideIcon;
+    iconName?: string;
 }
 
 interface GuideHeaderProps {

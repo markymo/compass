@@ -98,6 +98,8 @@ model Organization {
   ownedLEs       ClientLEOwner[]
   
   invitations    Invitation[]
+  
+  customFieldDefinitions CustomFieldDefinition[]
 }
 
 // POLYMORPHIC MEMBERSHIP (Party OR Workspace)
@@ -142,6 +144,22 @@ model FISchema {
   overlayDefinition Json
   fi                Organization @relation(fields: [fiOrgId], references: [id])
   masterSchema      MasterSchema @relation(fields: [masterSchemaId], references: [id])
+}
+
+model CustomFieldDefinition {
+  id             String        @id @default(uuid())
+  orgId          String
+  key            String        // Machine-readable key (e.g. "esg_score")
+  label          String        // Human-readable label (e.g. "ESG Score")
+  dataType       String        // "STRING", "NUMBER", "DATE", "BOOLEAN"
+  description    String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  organization   Organization  @relation(fields: [orgId], references: [id])
+  questions      Question[]
+
+  @@unique([orgId, key])
 }
 
 model StandingDataSection {
@@ -191,6 +209,8 @@ model ClientLE {
   owners        ClientLEOwner[]
   
   invitations   Invitation[]
+  
+  customData    Json?
 }
 
 model ClientLEOwner {
@@ -324,6 +344,10 @@ model Question {
   // Link to Master Data
   masterFieldNo          Int?               // Direct 1:1 link to FieldDefinitions
   masterQuestionGroupId  String?            // Composite 1:N link to FieldGroups
+
+  // Link to Ad-Hoc Custom Data
+  customFieldDefinitionId String?
+  customFieldDefinition   CustomFieldDefinition? @relation(fields: [customFieldDefinitionId], references: [id])
 
   // Link to Standing Data (if auto-filled)
   sourceSectionId String?

@@ -1,25 +1,70 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Fingerprint, RefreshCcw, ArrowRight, ShieldCheck, ShieldAlert, Ban, Info } from "lucide-react";
+import { Fingerprint, RefreshCcw, ArrowRight, ShieldCheck, ShieldAlert, Ban, Info, Building2, FileText, Users, Globe } from "lucide-react";
 import { toast } from "sonner";
 import { refreshGleifProposals, acceptProposal } from "@/actions/kyc-proposals";
 import { FieldProposal, ProvenanceSource } from "@/domain/kyc/types/ProposalTypes";
 import { cn } from "@/lib/utils";
 import { FieldDetailPanel } from "./inspection/field-detail-panel";
+import { FIELD_DEFINITIONS, FieldDefinition } from "@/domain/kyc/FieldDefinitions";
+import { FIELD_GROUPS } from "@/domain/kyc/FieldGroups";
 
 interface DataSchemaTabProps {
     leId: string;
-    identityProfile: any;
+    masterData: Record<number, { value: any; source?: string }>;
 }
 
-export function DataSchemaTab({ leId, identityProfile }: DataSchemaTabProps) {
+export function DataSchemaTab({ leId, masterData }: DataSchemaTabProps) {
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [proposals, setProposals] = useState<FieldProposal[] | null>(null);
     const [selectedField, setSelectedField] = useState<{ fieldNo: number; name: string } | null>(null);
+
+    // Dynamic Grouping Logic
+    const groupedFields = useMemo(() => {
+        const groups: Record<string, { title: string; icon: any; fields: FieldDefinition[] }> = {};
+        const assignedFieldNos = new Set<number>();
+
+        // 1. High Priority Defined Groups (Addresses)
+        Object.values(FIELD_GROUPS).forEach(group => {
+            groups[group.id] = {
+                title: group.label,
+                icon: Globe, // Default icon for groups
+                fields: []
+            };
+            group.fieldNos.forEach(fNo => {
+                if (FIELD_DEFINITIONS[fNo]) {
+                    groups[group.id].fields.push(FIELD_DEFINITIONS[fNo]);
+                    assignedFieldNos.add(fNo);
+                }
+            });
+        });
+
+        // 2. Group Remaining Fields by Model
+        Object.values(FIELD_DEFINITIONS).forEach(def => {
+            if (assignedFieldNos.has(def.fieldNo)) return;
+            if (def.isRepeating) return; // Skip repeating fields for now (Stakeholders, etc - explicit handling later)
+
+            const modelKey = def.model || "Other";
+            if (!groups[modelKey]) {
+                let title = modelKey.replace(/([A-Z])/g, ' $1').trim(); // PascalCase to Title Case
+                let icon = FileText;
+
+                if (modelKey === 'IdentityProfile') { icon = Fingerprint; title = "Identity Profile"; }
+                if (modelKey === 'ConstitutionalProfile') { icon = Building2; title = "Constitutional Profile"; }
+                if (modelKey === 'RelationshipProfile') { icon = Users; title = "Relationship Profile"; }
+                if (modelKey === 'LeiRegistration') { icon = ShieldCheck; title = "LEI Registration"; }
+
+                groups[modelKey] = { title, icon, fields: [] };
+            }
+            groups[modelKey].fields.push(def);
+        });
+
+        return groups;
+    }, []);
 
     const handleRefreshGleif = async () => {
         setIsRefreshing(true);
@@ -49,8 +94,8 @@ export function DataSchemaTab({ leId, identityProfile }: DataSchemaTabProps) {
             const result = await acceptProposal(leId, proposal.fieldNo, proposal.proposed.evidenceId);
             if (result.success) {
                 toast.success(`Field ${proposal.fieldNo} updated successfully`);
-                // Remove accepted proposal from list
                 setProposals(prev => prev ? prev.filter(p => p.fieldNo !== proposal.fieldNo) : null);
+                // Ideally refresh page here or update local state
             } else {
                 toast.error(result.message || "Update failed");
             }
@@ -61,80 +106,46 @@ export function DataSchemaTab({ leId, identityProfile }: DataSchemaTabProps) {
 
     return (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Left Column: Master Record */}
-            <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h2 className="text-2xl font-semibold tracking-tight">Master Record</h2>
-                        <p className="text-slate-500 text-sm mt-1">
-                            Current verified data in the Master Schema. Click a field to inspect history.
-                        </p>
-                    </div>
+            {/* Left Column: Master Record - Dynamic Groups */}
+            <div className="space-y-8">
+                <div>
+                    <h2 className="text-2xl font-semibold tracking-tight">Master Record</h2>
+                    <p className="text-slate-500 text-sm mt-1">
+                        Current verified data in the Master Schema. Click a field to inspect history.
+                    </p>
                 </div>
 
-                <Card className="border-l-4 border-l-blue-500 shadow-sm">
-                    <CardHeader className="pb-4 border-b border-slate-100 dark:border-slate-800">
-                        <CardTitle className="flex items-center gap-2 text-lg">
-                            <Fingerprint className="h-5 w-5 text-blue-600" />
-                            Identity Profile
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="pt-6 space-y-6">
-                        {/* Iterate over known identity fields */}
-                        {/* We manually list them or map them. For now, manual listing for layout control */}
-
-                        <MasterFieldDisplay
-                            label="LEI Code"
-                            fieldNo={2}
-                            value={identityProfile?.leiCode}
-                            meta={identityProfile?.meta?.leiCode}
-                            onClick={() => setSelectedField({ fieldNo: 2, name: "LEI Code" })}
-                        />
-                        <MasterFieldDisplay
-                            label="Legal Name"
-                            fieldNo={3}
-                            value={identityProfile?.legalName}
-                            meta={identityProfile?.meta?.legalName}
-                            onClick={() => setSelectedField({ fieldNo: 3, name: "Legal Name" })}
-                        />
-                        <MasterFieldDisplay
-                            label="Legal Form"
-                            fieldNo={26} // Entity Status / Form
-                            value={identityProfile?.entityStatus}
-                            meta={identityProfile?.meta?.entityStatus}
-                            onClick={() => setSelectedField({ fieldNo: 26, name: "Legal Form" })}
-                        />
-                        <MasterFieldDisplay
-                            label="Entity Creation Date"
-                            fieldNo={27}
-                            value={identityProfile?.entityCreationDate ? new Date(identityProfile.entityCreationDate).toLocaleDateString() : null}
-                            meta={identityProfile?.meta?.entityCreationDate}
-                            onClick={() => setSelectedField({ fieldNo: 27, name: "Entity Creation Date" })}
-                        />
-                        <MasterFieldDisplay
-                            label="Registered Address"
-                            fieldNo={6}
-                            value={identityProfile?.regAddressLine1}
-                            meta={identityProfile?.meta?.regAddressLine1}
-                            onClick={() => setSelectedField({ fieldNo: 6, name: "Registered Address" })}
-                        />
-                        <MasterFieldDisplay
-                            label="City"
-                            fieldNo={7}
-                            value={identityProfile?.regAddressCity}
-                            meta={identityProfile?.meta?.regAddressCity}
-                            onClick={() => setSelectedField({ fieldNo: 7, name: "City" })}
-                        />
-                        <MasterFieldDisplay
-                            label="Country"
-                            fieldNo={9}
-                            value={identityProfile?.regAddressCountry}
-                            meta={identityProfile?.meta?.regAddressCountry}
-                            onClick={() => setSelectedField({ fieldNo: 9, name: "Country" })}
-                        />
-
-                    </CardContent>
-                </Card>
+                {Object.entries(groupedFields).map(([key, group]) => {
+                    const Icon = group.icon;
+                    return (
+                        <Card key={key} className="border-l-4 border-l-blue-500 shadow-sm overflow-hidden">
+                            <CardHeader className="pb-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50">
+                                <CardTitle className="flex items-center gap-2 text-lg">
+                                    <Icon className="h-5 w-5 text-blue-600" />
+                                    {group.title}
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="pt-6 space-y-4">
+                                {group.fields.map(field => {
+                                    const data = masterData[field.fieldNo];
+                                    return (
+                                        <MasterFieldDisplay
+                                            key={field.fieldNo}
+                                            label={field.fieldName}
+                                            fieldNo={field.fieldNo}
+                                            value={data?.value}
+                                            source={data?.source as any}
+                                            onClick={() => setSelectedField({ fieldNo: field.fieldNo, name: field.fieldName })}
+                                        />
+                                    );
+                                })}
+                                {group.fields.length === 0 && (
+                                    <p className="text-sm text-slate-400 italic">No fields in this group.</p>
+                                )}
+                            </CardContent>
+                        </Card>
+                    );
+                })}
             </div>
 
             {/* Right Column: Review & Proposals */}
@@ -207,7 +218,7 @@ export function DataSchemaTab({ leId, identityProfile }: DataSchemaTabProps) {
             <FieldDetailPanel
                 open={!!selectedField}
                 onOpenChange={(open) => !open && setSelectedField(null)}
-                legalEntityId={identityProfile?.legalEntityId || ""} // Ensure we pass LegalEntity ID
+                legalEntityId={leId} // Assuming leId passed is clientLEId, but DetailPanel might need resolving to Real LE. Inspect Panel should handle ClientLEId.
                 fieldNo={selectedField?.fieldNo || 0}
                 fieldName={selectedField?.name || ""}
             />
@@ -215,8 +226,28 @@ export function DataSchemaTab({ leId, identityProfile }: DataSchemaTabProps) {
     );
 }
 
-function MasterFieldDisplay({ label, fieldNo, value, meta, onClick }: { label: string, fieldNo: number, value: any, meta: any, onClick?: () => void }) {
+function MasterFieldDisplay({ label, fieldNo, value, source, onClick }: { label: string, fieldNo: number, value: any, source?: ProvenanceSource, onClick?: () => void }) {
     const hasValue = value !== null && value !== undefined && value !== "";
+
+    // Format Value for Display
+    let displayValue = value;
+
+    if (hasValue) {
+        if (value instanceof Date) {
+            displayValue = value.toLocaleDateString();
+        } else if (typeof value === 'boolean') {
+            displayValue = value ? 'Yes' : 'No';
+        } else if (typeof value === 'object') {
+            // Handle JSON/Arrays
+            displayValue = JSON.stringify(value);
+        } else if (typeof value === 'string' && value.match(/^\d{4}-\d{2}-\d{2}T/)) {
+            // Handle ISO Strings
+            const d = new Date(value);
+            if (!isNaN(d.getTime())) {
+                displayValue = d.toLocaleDateString();
+            }
+        }
+    }
 
     return (
         <div
@@ -235,10 +266,13 @@ function MasterFieldDisplay({ label, fieldNo, value, meta, onClick }: { label: s
                 onClick && "group-hover:border-blue-200 group-hover:bg-white group-hover:shadow-sm"
             )}>
                 <div className="font-mono text-sm truncate max-w-[200px]" title={String(value)}>
-                    {hasValue ? value : <span className="text-slate-400 italic">Empty</span>}
+                    {hasValue ? displayValue : <span className="text-slate-400 italic">Empty</span>}
                 </div>
-                {hasValue && meta && (
-                    <SourceBadge source={meta.source} timestamp={meta.timestamp} />
+                {hasValue && (
+                    <div className="flex items-center gap-2">
+                        {/* If we had meta timestamp, we'd pass it. For now just source if available. */}
+                        {source && <SourceBadge source={source} />}
+                    </div>
                 )}
                 {!hasValue && (
                     <div className="opacity-0 group-hover:opacity-100 text-xs text-blue-500 flex items-center gap-1 transition-opacity">
@@ -251,15 +285,16 @@ function MasterFieldDisplay({ label, fieldNo, value, meta, onClick }: { label: s
 }
 
 function SourceBadge({ source, timestamp }: { source: ProvenanceSource, timestamp?: string }) {
-    const colorMap: Record<ProvenanceSource, string> = {
+    const colorMap: Record<string, string> = {
         'GLEIF': 'bg-orange-100 text-orange-700 border-orange-200',
         'COMPANIES_HOUSE': 'bg-blue-100 text-blue-700 border-blue-200',
         'USER_INPUT': 'bg-purple-100 text-purple-700 border-purple-200',
-        'SYSTEM': 'bg-gray-100 text-gray-700 border-gray-200'
+        'SYSTEM': 'bg-gray-100 text-gray-700 border-gray-200',
+        'MASTER_RECORD': 'bg-slate-100 text-slate-700 border-slate-200'
     };
 
     return (
-        <Badge variant="outline" className={cn("text-[10px] h-5", colorMap[source])}>
+        <Badge variant="outline" className={cn("text-[10px] h-5", colorMap[source] || colorMap['SYSTEM'])}>
             {source}
             {timestamp && <span className="ml-1 opacity-50">· {new Date(timestamp).toLocaleDateString()}</span>}
         </Badge>
@@ -270,10 +305,19 @@ function ProposalCard({ proposal, onAccept }: { proposal: FieldProposal, onAccep
     const isBlocked = proposal.action === 'BLOCKED';
     const isNoChange = proposal.action === 'NO_CHANGE';
 
-    // If NO_CHANGE, we might decide not to render it at all in the list to reduce noise, 
-    // or render it in a collapsed low-priority way.
-    // For now, let's skip NO_CHANGE items unless we want to show everything.
     if (isNoChange) return null;
+
+    const formatValue = (val: any) => {
+        if (val === null || val === undefined) return '-';
+        if (val instanceof Date) return val.toLocaleDateString();
+        if (typeof val === 'boolean') return val ? 'Yes' : 'No';
+        if (typeof val === 'object') return JSON.stringify(val);
+        if (typeof val === 'string' && val.match(/^\d{4}-\d{2}-\d{2}T/)) {
+            const d = new Date(val);
+            if (!isNaN(d.getTime())) return d.toLocaleDateString();
+        }
+        return String(val);
+    };
 
     return (
         <Card className={cn(
@@ -305,14 +349,14 @@ function ProposalCard({ proposal, onAccept }: { proposal: FieldProposal, onAccep
                 <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-center text-sm mb-4">
                     <div className="bg-slate-50 p-2 rounded border border-slate-100">
                         <div className="text-[10px] text-slate-400 mb-1">CURRENT ({proposal.current?.source || 'EMPTY'})</div>
-                        <div className="font-mono truncate" title={String(proposal.current?.value)}>{proposal.current?.value || '-'}</div>
+                        <div className="font-mono truncate" title={String(proposal.current?.value)}>{formatValue(proposal.current?.value)}</div>
                     </div>
 
                     <ArrowRight className="h-4 w-4 text-slate-300" />
 
                     <div className="bg-green-50 p-2 rounded border border-green-100">
                         <div className="text-[10px] text-green-600 mb-1">PROPOSED ({proposal.proposed?.source})</div>
-                        <div className="font-mono font-medium truncate" title={String(proposal.proposed?.value)}>{proposal.proposed?.value}</div>
+                        <div className="font-mono font-medium truncate" title={String(proposal.proposed?.value)}>{formatValue(proposal.proposed?.value)}</div>
                     </div>
                 </div>
 

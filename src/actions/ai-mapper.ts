@@ -17,6 +17,10 @@ export interface ExtractedItem {
     confidence: number;
     answer?: string;
     order?: number;
+    newFieldProposal?: {
+        label: string;
+        type: string;
+    }
 }
 
 import { STANDARD_CATEGORIES } from "@/lib/constants";
@@ -132,6 +136,8 @@ export async function extractQuestionnaireItems(input: { content: string | strin
             2. Try to map each Question to a Master Field or Group.
             3. PREFER 'masterQuestionGroupId' for composite concepts (Address, Person, UBO).
             4. Use 'masterKey' (Field No) only for atomic fields (Name, Date, Status).
+            5. ESTIMATE 'confidence' (0.0 to 1.0) based on semantic similarity of the text to the Master Field label.
+            6. If NO Master Field matches (Confidence < 0.5), PROPOSE a 'newFieldProposal' with a clear Label and Type (text/number/date).
             
             CONTEXT:
             ${schemaContext}`
@@ -190,7 +196,11 @@ export async function extractQuestionnaireItems(input: { content: string | strin
                     masterKey: z.string().nullable().optional().describe("Matching master schema key (Field No) (optional)"),
                     masterQuestionGroupId: z.string().nullable().optional().describe("Matching master field group ID (optional)"),
                     category: z.string().nullable().optional().describe("The standard category for this question (Recommended)"),
-                    confidence: z.number().optional().describe("Confidence score 0-1")
+                    confidence: z.number().describe("Confidence score 0.0 to 1.0"),
+                    newFieldProposal: z.object({
+                        label: z.string().describe("Proposed label for the new custom field"),
+                        type: z.enum(["text", "number", "date", "boolean"]).describe("Data type of the new field")
+                    }).optional().nullable().describe("Propose a new field if no master match found")
                 }))
             }),
             messages: [{ role: "user", content: userContent }]
@@ -210,10 +220,11 @@ export async function extractQuestionnaireItems(input: { content: string | strin
                 ...item,
                 type: type as "question" | "section" | "instruction" | "note",
                 neutralText: item.neutralText || undefined,
-                masterKey: item.masterKey || undefined,
-                masterQuestionGroupId: item.masterQuestionGroupId || undefined,
-                category: item.category || undefined,
+                masterKey: item.masterKey ?? undefined,
+                masterQuestionGroupId: item.masterQuestionGroupId ?? undefined,
+                category: item.category ?? undefined,
                 confidence: item.confidence ?? 0,
+                newFieldProposal: item.newFieldProposal || undefined,
                 order: 0 // Will be populated by index
             };
         }).map((item, idx) => ({ ...item, order: idx + 1 }));
@@ -245,8 +256,14 @@ export async function generateMappingSuggestions(input: { content: string | stri
         .filter(i => i.type === "question")
         .map(i => ({
             text: i.text,
-            suggestedKey: i.masterKey,
-            confidence: i.confidence || 0
+            suggestedKey: i.masterQuestionGroupId || i.masterKey,
+            confidence: i.confidence || 0,
+            newFieldProposal: i.newFieldProposal ? {
+                key: `NEW_${i.order}`, // Temporary key for UI
+                label: i.newFieldProposal.label,
+                type: i.newFieldProposal.type,
+                description: "AI Proposed Field"
+            } : undefined
         }));
 }
 

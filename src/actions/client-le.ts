@@ -5,7 +5,10 @@ import { EngagementStatus } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { ExtractedItem } from "./ai-mapper"; // Importing type
 import { MasterSchemaDefinition } from "@/types/schema";
+import { Action, can } from "@/lib/auth/permissions";
+import { FIELD_DEFINITIONS } from "@/domain/kyc/FieldDefinitions";
 import { getIdentity } from "@/lib/auth";
+import { calculateEngagementMetrics } from "@/lib/metrics-calc";
 
 export async function createLegalEntity(data: { name: string; jurisdiction: string; clientOrgId: string }) {
     if (!data.name || !data.clientOrgId) {
@@ -332,10 +335,14 @@ export async function getEngagementDetails(engagementId: string) {
             ).values()
         );
 
+        // Calculate Metrics
+        const metrics = await calculateEngagementMetrics(engagementId);
+
         return {
             success: true,
             engagement,
-            questionnaires: combinedQuestionnaires
+            questionnaires: combinedQuestionnaires,
+            metrics
         };
     } catch (error) {
         console.error("Error fetching engagement details:", error);
@@ -392,4 +399,70 @@ export async function createFIEngagement(clientLEId: string, fiName: string) {
         console.error("Failed to create engagement:", error);
         return { success: false, error: "Failed to create engagement" };
     }
+}
+// ... (previous code)
+
+/**
+ * Fetches all Master Data values for an LE, flattened by Field Number.
+ * This is used for the Questionnaire Mapper to show existing values.
+ */
+export async function getFullMasterData(clientLEId: string) {
+    // 1. Fetch ClientLE and IdentityProfile (link to LegalEntity)
+    const clientLE = await prisma.clientLE.findUnique({
+        where: { id: clientLEId },
+        include: {
+            identityProfile: true,
+        }
+    });
+
+    if (!clientLE) return { success: false, data: {} };
+
+    // 2. Resolve LegalEntity ID
+    const legalEntityId = clientLE.identityProfile?.legalEntityId;
+    let legalEntity: any = null;
+
+    if (legalEntityId) {
+        legalEntity = await prisma.legalEntity.findUnique({
+            where: { id: legalEntityId },
+            include: {
+                constitutionalProfile: true,
+                entityInfoProfile: true,
+                leiRegistration: true,
+                relationshipProfile: true,
+                // Add other profiles as needed based on Schema
+            }
+        });
+    }
+
+    const flattened: Record<number, { value: any, source?: string }> = {};
+
+    for (const def of Object.values(FIELD_DEFINITIONS)) {
+        if (!def.model || !def.field) continue;
+        if (def.isRepeating) continue; // Skip repeating fields for now
+
+        let val: any = undefined;
+
+        // Route lookup based on Model
+        if (def.model === 'IdentityProfile') {
+            // IdentityProfile is on ClientLE (and LegalEntity, but ClientLE is entry)
+            val = clientLE.identityProfile ? (clientLE.identityProfile as any)[def.field] : undefined;
+        }
+        else if (legalEntity) {
+            // Other profiles are on LegalEntity
+            const profileKey = def.model.charAt(0).toLowerCase() + def.model.slice(1);
+            const profile = legalEntity[profileKey];
+            if (profile) {
+                val = profile[def.field];
+            }
+        }
+
+        if (val !== undefined && val !== null) {
+            flattened[def.fieldNo] = {
+                value: val,
+                source: 'MASTER_RECORD'
+            };
+        }
+    }
+
+    return { success: true, data: flattened };
 }

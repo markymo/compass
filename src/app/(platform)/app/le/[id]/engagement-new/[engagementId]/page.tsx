@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
-import { getEngagementDetails } from "@/actions/client-le";
+import { getEngagementDetails, getFullMasterData } from "@/actions/client-le";
 import { EngagementDetailView } from "@/components/client/engagement/engagement-detail-view";
+import { SetPageBreadcrumbs } from "@/context/breadcrumb-context";
 
 
 interface PageProps {
@@ -15,7 +16,7 @@ export default async function EngagementPage({ params, searchParams }: PageProps
     const { id, engagementId } = await params;
     const { tab } = await searchParams;
 
-    const { success, engagement, questionnaires } = await getEngagementDetails(engagementId);
+    const { success, engagement, questionnaires, metrics } = await getEngagementDetails(engagementId);
 
     if (!success || !engagement) {
         return notFound();
@@ -31,17 +32,24 @@ export default async function EngagementPage({ params, searchParams }: PageProps
     // But runtime it should avail.
     const sharedDocuments = (engagement as any).sharedDocuments || [];
 
+    // Fetch Master Data Values (Standing Data)
+    const { data: standingData } = await getFullMasterData(le.id);
+
     return (
         <div className="w-full px-6 space-y-6 pb-20 pt-6">
-            {/* Breadcrumb Navigation */}
-
-
+            <SetPageBreadcrumbs
+                items={[
+                    { label: fiName, iconName: "link-2" }
+                ]}
+            />
             <EngagementDetailView
                 le={le}
                 engagement={engagement}
                 questionnaires={questionnaires || []}
                 sharedDocuments={sharedDocuments}
                 initialTab={activeTab}
+                metrics={metrics}
+                standingData={standingData}
             />
         </div>
     );

@@ -17,7 +17,7 @@ export async function populateQuestionsFromExtraction(questionnaireId: string) {
 
     const questionnaire = await prisma.questionnaire.findUnique({
         where: { id: questionnaireId },
-        select: { extractedContent: true, id: true }
+        select: { extractedContent: true, id: true, fiOrgId: true }
     });
 
     if (!questionnaire || !questionnaire.extractedContent) {
@@ -26,39 +26,84 @@ export async function populateQuestionsFromExtraction(questionnaireId: string) {
 
     try {
         const content: any = questionnaire.extractedContent;
-        // Assuming extractedContent structure has 'fields' or 'questions' array
-        // Fallback to strict schema if needed, but flex handling for now
         const questionsToCreate: any[] = [];
-
         let orderCounter = 0;
 
-        // Helper to extract questions recursively or from flat list
+        // 1. Collect all potential new fields
+        const newFieldsToCreate: Map<string, { label: string, type: string }> = new Map();
+
+        const collectFields = (items: any[]) => {
+            for (const item of items) {
+                if (item.newFieldProposal && !item.masterKey) {
+                    const key = item.newFieldProposal.label.toLowerCase().replace(/[^a-z0-9]/g, '_');
+                    newFieldsToCreate.set(key, item.newFieldProposal);
+                }
+                if (item.children) collectFields(item.children);
+            }
+        };
+
+        if (Array.isArray(content)) collectFields(content);
+        else if (content.fields) collectFields(content.fields);
+        else if (content.questions) collectFields(content.questions);
+
+        // 2. Upsert CustomFieldDefinitions
+        const customFieldIdMap = new Map<string, string>(); // key -> id
+
+        if (newFieldsToCreate.size > 0) {
+            for (const [key, proposal] of newFieldsToCreate) {
+                // We upsert to ensure we don't duplicate if it already exists for this Org
+                const cf = await prisma.customFieldDefinition.upsert({
+                    where: {
+                        orgId_key: {
+                            orgId: questionnaire.fiOrgId,
+                            key: key
+                        }
+                    },
+                    update: {}, // No update if exists
+                    create: {
+                        orgId: questionnaire.fiOrgId,
+                        key: key,
+                        label: proposal.label,
+                        dataType: proposal.type.toUpperCase(),
+                        description: "Auto-created from AI extraction"
+                    }
+                });
+                customFieldIdMap.set(key, cf.id);
+            }
+        }
+
+        // 3. Create Questions with Links
         const extract = (items: any[]) => {
             for (const item of items) {
                 const type = item.type?.toLowerCase();
                 if (type === 'question' || item.question) {
+                    let customFieldId = null;
+                    if (item.newFieldProposal && !item.masterKey) {
+                        const key = item.newFieldProposal.label.toLowerCase().replace(/[^a-z0-9]/g, '_');
+                        customFieldId = customFieldIdMap.get(key) || null;
+                    }
+
                     questionsToCreate.push({
                         questionnaireId: questionnaire.id,
                         text: item.text || item.question || item.originalText || "Untitled Question",
                         compactText: item.compactText || null,
                         order: item.order ?? orderCounter++,
                         status: 'DRAFT' as QuestionStatus,
-                        sourceSectionId: item.section || null // simplified
+                        sourceSectionId: item.section || null,
+
+                        // MAP AI FIELDS
+                        masterFieldNo: item.masterKey ? parseInt(item.masterKey) : null,
+                        masterQuestionGroupId: item.masterQuestionGroupId || null,
+                        customFieldDefinitionId: customFieldId
                     });
                 }
-                // Handle nested sections if they exist in your extraction schema
                 if (item.children) extract(item.children);
             }
         };
 
-        // If extraction is just an array
-        if (Array.isArray(content)) {
-            extract(content);
-        } else if (content.fields) {
-            extract(content.fields);
-        } else if (content.questions) {
-            extract(content.questions);
-        }
+        if (Array.isArray(content)) extract(content);
+        else if (content.fields) extract(content.fields);
+        else if (content.questions) extract(content.questions);
 
         if (questionsToCreate.length === 0) {
             return { success: false, error: "No questions found in extraction" };

@@ -202,7 +202,7 @@ export function EngagementManager({ leId, initialEngagements }: EngagementManage
                                         disabled={eng.id.startsWith("temp-")}
                                         className="text-slate-600 hover:text-indigo-600 hover:bg-slate-50"
                                     >
-                                        Manage Engagement
+                                        Manage Questionnaire(s)
                                     </Button>
                                 </Link>
                                 <Link href={eng.id.startsWith("temp-") ? "#" : `/app/le/${leId}/engagement-new/${eng.id}?tab=workbench`}>

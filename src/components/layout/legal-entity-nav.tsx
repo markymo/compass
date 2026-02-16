@@ -5,11 +5,11 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
     LayoutDashboard,
-    Terminal,
     Database,
     Library,
-    Building2,
-    Users
+    Users,
+    Clipboard,
+    Link2
 } from "lucide-react";
 
 interface LegalEntityNavProps {
@@ -43,13 +43,13 @@ export function LegalEntityNav({ leId }: LegalEntityNavProps) {
         {
             label: "Workbench",
             href: `${baseUrl}/workbench`,
-            icon: Terminal,
+            icon: Clipboard,
             isActive: (path: string) => path.startsWith(`${baseUrl}/workbench`)
         },
         {
             label: "Relationships",
             href: `${baseUrl}/relationships`,
-            icon: Building2,
+            icon: Link2,
             isActive: (path: string) => path.startsWith(`${baseUrl}/relationships`) || path.startsWith(`${baseUrl}/engagement-new`) // Handle existing sub-routes if any
         },
         {

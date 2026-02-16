@@ -12,12 +12,17 @@ import { AddQuestionnaireDialog } from "./add-questionnaire-dialog";
 import { KanbanBoard } from "./kanban-board";
 import { EngagementDocumentManager } from "./engagement-document-manager";
 
+import { ProgressTracker } from "@/components/shared/progress-tracker";
+import { DashboardMetric } from "@/lib/metrics-calc";
+
 interface EngagementDetailViewProps {
     le: any;
-    engagement: any;
+    engagement: any; // Type should be inferred or defined
     questionnaires: any[];
     sharedDocuments: any[];
     initialTab?: string;
+    metrics?: DashboardMetric;
+    standingData?: any;
 }
 
 import { instantiateQuestionnaire, generateEngagementAnswers } from "@/actions/kanban-actions";
@@ -27,9 +32,10 @@ import { useRouter } from "next/navigation";
 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, Settings, Trash2 } from "lucide-react";
-import { QuestionnaireManageDialog } from "./questionnaire-manage-dialog";
 
-export function EngagementDetailView({ le, engagement, questionnaires, sharedDocuments, initialTab }: EngagementDetailViewProps) {
+import { QuestionnaireMapper } from "./questionnaire-mapper";
+
+export function EngagementDetailView({ le, engagement, questionnaires, sharedDocuments, initialTab, metrics, standingData }: EngagementDetailViewProps) {
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
     const [manageQuestionnaireId, setManageQuestionnaireId] = useState<string | null>(null);
     const [refreshKey, setRefreshKey] = useState(0);
@@ -90,8 +96,23 @@ export function EngagementDetailView({ le, engagement, questionnaires, sharedDoc
                 <div>
                     <h1 className="text-2xl font-bold text-slate-900">{engagement.org.name}</h1>
                 </div>
-
+                {metrics && (
+                    <div className="hidden md:block">
+                        <ProgressTracker metrics={metrics} variant="header" />
+                    </div>
+                )}
             </div>
+
+            {/* Mobile / Tablet Tracker fallback if needed, or kept hidden/responsive in header */}
+            {metrics && (
+                <div className="md:hidden">
+                    <Card>
+                        <CardContent className="p-4 flex justify-center">
+                            <ProgressTracker metrics={metrics} variant="header" />
+                        </CardContent>
+                    </Card>
+                </div>
+            )}
 
             <Tabs id="engagement-tabs" defaultValue={initialTab || "workbench"} className="w-full space-y-0">
                 <TabsList className="bg-transparent p-0 flex justify-start h-auto gap-0.5 border-b-0 space-x-1">
@@ -146,70 +167,80 @@ export function EngagementDetailView({ le, engagement, questionnaires, sharedDoc
                     </TabsContent>
 
                     <TabsContent value="manage" className="mt-0 space-y-4">
-                        <div className="flex justify-between items-center">
-                            <h2 className="text-lg font-semibold text-slate-900">Questionnaires</h2>
-                            <Button onClick={() => setIsAddDialogOpen(true)}>
-                                <Plus className="h-4 w-4 mr-2" />
-                                Add Questionnaire
-                            </Button>
-                        </div>
+                        {manageQuestionnaireId ? (
+                            <QuestionnaireMapper
+                                questionnaireId={manageQuestionnaireId}
+                                onBack={() => setManageQuestionnaireId(null)}
+                                standingData={standingData}
+                            />
+                        ) : (
+                            <>
+                                <div className="flex justify-between items-center">
+                                    <h2 className="text-lg font-semibold text-slate-900">Questionnaires</h2>
+                                    <Button onClick={() => setIsAddDialogOpen(true)}>
+                                        <Plus className="h-4 w-4 mr-2" />
+                                        Add Questionnaire
+                                    </Button>
+                                </div>
 
-                        <Card>
-                            <CardContent className="p-0">
-                                {questionnaires.length === 0 ? (
-                                    <div className="text-center py-12">
-                                        <FileText className="h-8 w-8 mx-auto text-slate-300 mb-2" />
-                                        <h3 className="font-medium text-slate-900">No questionnaires linked</h3>
-                                        <p className="text-slate-500 text-sm mb-4">Link a questionnaire to this engagement to start tracking answers.</p>
-                                    </div>
-                                ) : (
-                                    <div className="divide-y divide-slate-100">
-                                        {questionnaires.map((q) => (
-                                            <div key={q.id} className="p-4 flex items-center justify-between hover:bg-slate-50/50">
-                                                <div className="flex items-center gap-4">
-                                                    <div className="h-10 w-10 bg-indigo-50 text-indigo-600 rounded flex items-center justify-center">
-                                                        <FileText className="h-5 w-5" />
-                                                    </div>
-                                                    <div>
-                                                        <h3 className="font-medium text-slate-900">{q.name}</h3>
-                                                        <div className="flex items-center gap-2 mt-1">
-                                                            {q.status === 'DIGITIZING' ? (
-                                                                <Badge variant="outline" className="text-xs bg-indigo-50 text-indigo-600 border-indigo-200 animate-pulse">
-                                                                    Digitizing...
-                                                                </Badge>
-                                                            ) : (
-                                                                <Badge variant="secondary" className="text-[10px]">
-                                                                    {q.mappings ? 'Standard' : 'Custom'}
-                                                                </Badge>
-                                                            )}
+                                <Card>
+                                    <CardContent className="p-0">
+                                        {questionnaires.length === 0 ? (
+                                            <div className="text-center py-12">
+                                                <FileText className="h-8 w-8 mx-auto text-slate-300 mb-2" />
+                                                <h3 className="font-medium text-slate-900">No questionnaires linked</h3>
+                                                <p className="text-slate-500 text-sm mb-4">Link a questionnaire to this engagement to start tracking answers.</p>
+                                            </div>
+                                        ) : (
+                                            <div className="divide-y divide-slate-100">
+                                                {questionnaires.map((q) => (
+                                                    <div key={q.id} className="p-4 flex items-center justify-between hover:bg-slate-50/50">
+                                                        <div className="flex items-center gap-4">
+                                                            <div className="h-10 w-10 bg-indigo-50 text-indigo-600 rounded flex items-center justify-center">
+                                                                <FileText className="h-5 w-5" />
+                                                            </div>
+                                                            <div>
+                                                                <h3 className="font-medium text-slate-900">{q.name}</h3>
+                                                                <div className="flex items-center gap-2 mt-1">
+                                                                    {q.status === 'DIGITIZING' ? (
+                                                                        <Badge variant="outline" className="text-xs bg-indigo-50 text-indigo-600 border-indigo-200 animate-pulse">
+                                                                            Digitizing...
+                                                                        </Badge>
+                                                                    ) : (
+                                                                        <Badge variant="secondary" className="text-[10px]">
+                                                                            {q.mappings ? 'Standard' : 'Custom'}
+                                                                        </Badge>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex items-center gap-2">
+                                                            <Button onClick={() => setManageQuestionnaireId(q.id)} variant="outline" size="sm">
+                                                                <Settings className="h-4 w-4 mr-2" />
+                                                                Manage
+                                                            </Button>
+                                                            <DropdownMenu>
+                                                                <DropdownMenuTrigger asChild>
+                                                                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                                                        <MoreHorizontal className="h-4 w-4" />
+                                                                    </Button>
+                                                                </DropdownMenuTrigger>
+                                                                <DropdownMenuContent align="end">
+                                                                    <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteQuestionnaire(q.id, q.name)}>
+                                                                        <Trash2 className="h-4 w-4 mr-2" />
+                                                                        Remove
+                                                                    </DropdownMenuItem>
+                                                                </DropdownMenuContent>
+                                                            </DropdownMenu>
                                                         </div>
                                                     </div>
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                    <DropdownMenu>
-                                                        <DropdownMenuTrigger asChild>
-                                                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                                                <MoreHorizontal className="h-4 w-4" />
-                                                            </Button>
-                                                        </DropdownMenuTrigger>
-                                                        <DropdownMenuContent align="end">
-                                                            <DropdownMenuItem onClick={() => setManageQuestionnaireId(q.id)}>
-                                                                <Settings className="h-4 w-4 mr-2" />
-                                                                Manage & Map
-                                                            </DropdownMenuItem>
-                                                            <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteQuestionnaire(q.id, q.name)}>
-                                                                <Trash2 className="h-4 w-4 mr-2" />
-                                                                Remove
-                                                            </DropdownMenuItem>
-                                                        </DropdownMenuContent>
-                                                    </DropdownMenu>
-                                                </div>
+                                                ))}
                                             </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
+                                        )}
+                                    </CardContent>
+                                </Card>
+                            </>
+                        )}
                     </TabsContent>
 
                     <TabsContent value="documents" className="mt-0">
@@ -262,14 +293,7 @@ export function EngagementDetailView({ le, engagement, questionnaires, sharedDoc
                 engagementId={engagement.id}
             />
 
-            {manageQuestionnaireId && (
-                <QuestionnaireManageDialog
-                    open={!!manageQuestionnaireId}
-                    onOpenChange={(val) => !val && setManageQuestionnaireId(null)}
-                    questionnaireId={manageQuestionnaireId}
-                    onUpdate={() => router.refresh()}
-                />
-            )}
+
         </div>
     );
 }
