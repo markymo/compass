@@ -32,7 +32,7 @@ export default async function ClientDashboardPage({ params }: ClientDashboardPag
         <div className="flex flex-col min-h-screen">
             <GuideHeader
                 breadcrumbs={[
-                    { label: "My Universe", href: "/app", icon: Home },
+                    { label: "", href: "/app", icon: Home },
                     { label: org.name, icon: Building2 }
                 ]}
             />

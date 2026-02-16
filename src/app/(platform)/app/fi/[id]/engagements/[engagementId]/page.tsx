@@ -25,7 +25,7 @@ export default async function FIEngagementOverviewPage({ params }: { params: Pro
         <div className="flex flex-col min-h-screen">
             <GuideHeader
                 breadcrumbs={[
-                    { label: "My Universe", href: "/app", icon: Home },
+                    { label: "", href: "/app", icon: Home },
                     { label: engagement.org.name, href: `/app/fi/${id}`, icon: Landmark },
                     { label: engagement.clientLE.name, icon: Building2 }
                 ]}

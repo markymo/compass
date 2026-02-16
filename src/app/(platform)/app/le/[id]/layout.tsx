@@ -46,7 +46,7 @@ export default async function LegalEntityLayout({ children, params }: LayoutProp
 
             <GuideHeader
                 breadcrumbs={[
-                    { label: "My Universe", href: "/app", icon: Home },
+                    { label: "", href: "/app", icon: Home },
                     { label: ownerName || "Client", href: ownerId ? `/app/clients/${ownerId}` : "/app", icon: Building2 },
                     { label: le.name, icon: Briefcase }
                 ]}
