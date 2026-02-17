@@ -11,7 +11,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import { Loader2, History, Database, Edit, CheckCircle, AlertTriangle } from "lucide-react";
 import { getFieldDetail, FieldDetailData } from "@/actions/kyc-query";
-import { updateFieldManually, applyCandidate } from "@/actions/kyc-manual-update";
+import { updateFieldManually, applyCandidate, updateCustomFieldManually } from "@/actions/kyc-manual-update";
 
 interface FieldDetailPanelProps {
     open: boolean;
@@ -19,9 +19,10 @@ interface FieldDetailPanelProps {
     legalEntityId: string; // Or ClientLE ID? The actions handle both but prefer LE ID.
     fieldNo: number;
     fieldName: string;
+    customFieldId?: string;
 }
 
-export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, fieldName }: FieldDetailPanelProps) {
+export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, fieldName, customFieldId }: FieldDetailPanelProps) {
     const [data, setData] = useState<FieldDetailData | null>(null);
     const [loading, setLoading] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
@@ -32,15 +33,15 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
     const [isSaving, setIsSaving] = useState(false);
 
     useEffect(() => {
-        if (open && fieldNo) {
+        if (open && (fieldNo || customFieldId)) {
             loadData();
         }
-    }, [open, fieldNo, legalEntityId]);
+    }, [open, fieldNo, customFieldId, legalEntityId]);
 
     const loadData = async () => {
         setLoading(true);
         try {
-            const result = await getFieldDetail(legalEntityId, fieldNo);
+            const result = await getFieldDetail(legalEntityId, fieldNo, 'CLIENT_LE', customFieldId);
             setData(result);
         } catch (error) {
             console.error("Error loading field details:", error);
@@ -68,7 +69,13 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
             // Better: update server action to use auth() internally. 
             // But for now, I'll use a placeholder "CURRENT_USER" if prop missing.
 
-            const result = await updateFieldManually(legalEntityId, fieldNo, manualValue, manualReason, "CURRENT_USER_ID");
+            let result;
+
+            if (customFieldId) {
+                result = await updateCustomFieldManually(legalEntityId, customFieldId, manualValue, manualReason, "CURRENT_USER_ID");
+            } else {
+                result = await updateFieldManually(legalEntityId, fieldNo, manualValue, manualReason, "CURRENT_USER_ID");
+            }
 
             if (result.success) {
                 toast.success("Field updated successfully");

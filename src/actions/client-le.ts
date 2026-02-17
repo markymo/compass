@@ -8,6 +8,7 @@ import { MasterSchemaDefinition } from "@/types/schema";
 import { Action, can } from "@/lib/auth/permissions";
 import { FIELD_DEFINITIONS } from "@/domain/kyc/FieldDefinitions";
 import { getIdentity } from "@/lib/auth";
+import { getUserFIOrg } from "./security";
 import { calculateEngagementMetrics } from "@/lib/metrics-calc";
 
 export async function createLegalEntity(data: { name: string; jurisdiction: string; clientOrgId: string }) {
@@ -464,5 +465,53 @@ export async function getFullMasterData(clientLEId: string) {
         }
     }
 
-    return { success: true, data: flattened };
+    // 3. Custom Data
+    const customData = (clientLE.customData as Record<string, any>) || {};
+    let customDefinitions: any[] = [];
+
+    // Strategy: Fetch definitions from:
+    // A. The Client LE's Owner (The "Host")
+    // B. The Current User's FI (The "Viewer/Editor")
+    // C. Any field IDs already present in customData (Data Integrity)
+
+    const owner = await prisma.clientLEOwner.findFirst({
+        where: { clientLEId, endAt: null },
+        orderBy: { startAt: 'asc' }
+    });
+
+    const userFI = await getUserFIOrg();
+
+    // Collect Org IDs to fetch
+    const targetOrgIds = new Set<string>();
+    if (owner) targetOrgIds.add(owner.partyId);
+    if (userFI) targetOrgIds.add(userFI.id);
+
+    // Collect Field IDs from the Data itself (The "Stored at LE Level" truth)
+    const targetDefIds = new Set<string>();
+    Object.keys(customData).forEach(key => {
+        // Simple uuid check or length check to avoid junk
+        if (key.length > 20) targetDefIds.add(key);
+    });
+
+    if (targetOrgIds.size > 0 || targetDefIds.size > 0) {
+        customDefinitions = await prisma.customFieldDefinition.findMany({
+            where: {
+                OR: [
+                    { orgId: { in: Array.from(targetOrgIds) } },
+                    { id: { in: Array.from(targetDefIds) } }
+                ]
+            },
+            orderBy: { label: 'asc' }
+        });
+    }
+
+    // IF `customData` has keys that we missed (e.g. from previous owners), we could fetch them here.
+    // For now, let's stick to active contexts.
+
+    return {
+        success: true,
+        data: flattened,
+        customData,
+        customDefinitions
+    };
 }

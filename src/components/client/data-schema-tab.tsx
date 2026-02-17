@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Fingerprint, RefreshCcw, ArrowRight, ShieldCheck, ShieldAlert, Ban, Info, Building2, FileText, Users, Globe } from "lucide-react";
+import { Fingerprint, RefreshCcw, ArrowRight, ShieldCheck, ShieldAlert, Ban, Info, Building2, FileText, Users, Globe, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { refreshGleifProposals, acceptProposal } from "@/actions/kyc-proposals";
 import { FieldProposal, ProvenanceSource } from "@/domain/kyc/types/ProposalTypes";
@@ -16,12 +16,14 @@ import { FIELD_GROUPS } from "@/domain/kyc/FieldGroups";
 interface DataSchemaTabProps {
     leId: string;
     masterData: Record<number, { value: any; source?: string }>;
+    customData?: Record<string, any>;
+    customDefinitions?: any[];
 }
 
-export function DataSchemaTab({ leId, masterData }: DataSchemaTabProps) {
+export function DataSchemaTab({ leId, masterData, customData = {}, customDefinitions = [] }: DataSchemaTabProps) {
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [proposals, setProposals] = useState<FieldProposal[] | null>(null);
-    const [selectedField, setSelectedField] = useState<{ fieldNo: number; name: string } | null>(null);
+    const [selectedField, setSelectedField] = useState<{ fieldNo: number; name: string; customFieldId?: string } | null>(null);
 
     // Dynamic Grouping Logic
     const groupedFields = useMemo(() => {
@@ -111,9 +113,46 @@ export function DataSchemaTab({ leId, masterData }: DataSchemaTabProps) {
                 <div>
                     <h2 className="text-2xl font-semibold tracking-tight">Master Record</h2>
                     <p className="text-slate-500 text-sm mt-1">
-                        Current verified data in the Master Schema. Click a field to inspect history.
+                        Verified Golden Source record for this entity. Click a field to inspect history.
                     </p>
                 </div>
+
+                {/* Custom Fields - Top Priority */}
+                {customDefinitions.length > 0 && (
+                    <Card className="border-l-4 border-l-purple-500 shadow-sm overflow-hidden">
+                        <CardHeader className="pb-4 border-b border-slate-100 dark:border-slate-800 bg-purple-50/30">
+                            <CardTitle className="flex items-center gap-2 text-lg text-purple-900">
+                                <Sparkles className="h-5 w-5 text-purple-600" />
+                                Custom Fields
+                            </CardTitle>
+                            <CardDescription className="text-purple-700/70">
+                                Organization-specific data points
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="pt-6 space-y-4">
+                            {customDefinitions.map((def: any) => {
+                                // Value logic: Try by ID (most robust) or Key
+                                const value = customData[def.id] || customData[def.key];
+                                return (
+                                    <MasterFieldDisplay
+                                        key={def.id}
+                                        label={def.label}
+                                        fieldNo={0} // Custom fields don't have standard numbers
+                                        value={value?.value || value} // Handle {value, status} or raw value
+                                        source={value?.source || 'USER_INPUT'}
+                                        description={def.description}
+                                        isCustom={true}
+                                        onClick={() => setSelectedField({
+                                            fieldNo: 0,
+                                            name: def.label,
+                                            customFieldId: def.id
+                                        })}
+                                    />
+                                );
+                            })}
+                        </CardContent>
+                    </Card>
+                )}
 
                 {Object.entries(groupedFields).map(([key, group]) => {
                     const Icon = group.icon;
@@ -221,12 +260,21 @@ export function DataSchemaTab({ leId, masterData }: DataSchemaTabProps) {
                 legalEntityId={leId} // Assuming leId passed is clientLEId, but DetailPanel might need resolving to Real LE. Inspect Panel should handle ClientLEId.
                 fieldNo={selectedField?.fieldNo || 0}
                 fieldName={selectedField?.name || ""}
+                customFieldId={selectedField?.customFieldId}
             />
         </div>
     );
 }
 
-function MasterFieldDisplay({ label, fieldNo, value, source, onClick }: { label: string, fieldNo: number, value: any, source?: ProvenanceSource, onClick?: () => void }) {
+function MasterFieldDisplay({ label, fieldNo, value, source, onClick, description, isCustom }: {
+    label: string,
+    fieldNo: number,
+    value: any,
+    source?: ProvenanceSource,
+    onClick?: () => void,
+    description?: string,
+    isCustom?: boolean
+}) {
     const hasValue = value !== null && value !== undefined && value !== "";
 
     // Format Value for Display
@@ -255,10 +303,24 @@ function MasterFieldDisplay({ label, fieldNo, value, source, onClick }: { label:
             onClick={onClick}
         >
             <div className="flex items-center justify-between mb-1">
-                <label className={cn("text-sm font-medium text-slate-700", onClick && "group-hover:text-blue-600 transition-colors")}>{label}</label>
-                <Badge variant="outline" className="text-[10px] bg-slate-50 text-slate-500 group-hover:bg-blue-50 group-hover:text-blue-600 group-hover:border-blue-200 transition-colors">
-                    Field {fieldNo}
-                </Badge>
+                <div className="flex flex-col">
+                    <label className={cn("text-sm font-medium text-slate-700", onClick && "group-hover:text-blue-600 transition-colors")}>
+                        {label}
+                    </label>
+                    {description && (
+                        <span className="text-[10px] text-slate-400 italic font-normal">{description}</span>
+                    )}
+                </div>
+                {!isCustom && (
+                    <Badge variant="outline" className="text-[10px] bg-slate-50 text-slate-500 group-hover:bg-blue-50 group-hover:text-blue-600 group-hover:border-blue-200 transition-colors">
+                        Field {fieldNo}
+                    </Badge>
+                )}
+                {isCustom && (
+                    <Badge variant="outline" className="text-[10px] bg-purple-50 text-purple-600 border-purple-200">
+                        Custom
+                    </Badge>
+                )}
             </div>
 
             <div className={cn(
@@ -274,7 +336,7 @@ function MasterFieldDisplay({ label, fieldNo, value, source, onClick }: { label:
                         {source && <SourceBadge source={source} />}
                     </div>
                 )}
-                {!hasValue && (
+                {!hasValue && !isCustom && (
                     <div className="opacity-0 group-hover:opacity-100 text-xs text-blue-500 flex items-center gap-1 transition-opacity">
                         <Info className="h-3 w-3" /> Inspect
                     </div>

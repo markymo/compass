@@ -6,15 +6,24 @@ export default async function MasterRecordPage({ params }: { params: Promise<{ i
     const { id } = await params;
 
     // Fetch flattened master data from all profiles
-    const { success, data } = await getFullMasterData(id);
+    const { success, data: masterData, customData, customDefinitions } = await getFullMasterData(id);
 
     if (!success) return notFound();
 
     return (
-        <div className="bg-white rounded-xl min-h-[600px] p-8 border border-slate-200">
+        <div className="p-6 max-w-[1600px] mx-auto">
+            <div className="mb-8">
+                <h1 className="text-3xl font-bold tracking-tight text-slate-900">Master Data</h1>
+                <p className="text-slate-500 mt-2">
+                    Verified Golden Source record for this entity.
+                </p>
+            </div>
+
             <DataSchemaTab
                 leId={id}
-                masterData={data}
+                masterData={masterData || {}}
+                customData={customData || {}}
+                customDefinitions={customDefinitions || []}
             />
         </div>
     );

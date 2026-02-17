@@ -216,7 +216,6 @@ export async function createCustomFieldDefinition(orgId: string, label: string, 
                 key, // Added key
                 label,
                 dataType,
-                status: "ACTIVE"
             }
         });
 

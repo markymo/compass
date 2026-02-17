@@ -1,7 +1,9 @@
 "use server";
 
 import { KycWriteService } from "@/services/kyc/KycWriteService";
+import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { isValidFieldNo } from "@/domain/kyc/FieldDefinitions";
 
 const kycWriteService = new KycWriteService();
 
@@ -44,7 +46,8 @@ export async function updateFieldManually(
 }
 
 /**
- * Alias for updateFieldManually to match frontend usage
+ * Alias for updateFieldManually to match frontend usage.
+ * ROUTING LOGIC: Checks if 'fieldNo' refers to a Standard Field or Custom Field.
  */
 export async function applyManualOverride(
     leId: string,
@@ -55,7 +58,20 @@ export async function applyManualOverride(
     // Basic userId for now (TODO: get from session)
     const userId = "SYSTEM_USER";
 
-    return updateFieldManually(leId, Number(fieldNo), value, reason, userId);
+    const num = Number(fieldNo);
+
+    // 1. Try Standard Field Update
+    // We check if it's a valid number AND exists in definitions.
+    // Logging for debug:
+    console.log(`[applyManualOverride] Input: ${fieldNo}, Parsed: ${num}, IsValid: ${isValidFieldNo(num)}`);
+
+    if (!isNaN(num) && num > 0 && isValidFieldNo(num)) {
+        return updateFieldManually(leId, num, value, reason, userId);
+    }
+
+    // 2. Fallback to Custom Field Update
+    // If not a standard field ID, assume it's a Custom Field Key.
+    return updateCustomFieldManually(leId, String(fieldNo), value, reason, userId);
 }
 
 /**
@@ -94,4 +110,42 @@ export async function applyFieldCandidate(
     userId: string = "SYSTEM"
 ) {
     return applyCandidate(leId, candidate, userId);
+}
+export async function updateCustomFieldManually(
+    clientLEId: string,
+    fieldKey: string,
+    value: any,
+    reason: string,
+    userId: string
+) {
+    try {
+        const le = await prisma.clientLE.findUnique({ where: { id: clientLEId } });
+        if (!le) return { success: false, message: "LE not found" };
+
+        const currentData = (le.customData as Record<string, any>) || {};
+
+        // Update structure
+        const newData = {
+            ...currentData,
+            [fieldKey]: {
+                value: value,
+                source: "USER_INPUT",
+                timestamp: new Date().toISOString(),
+                updatedBy: userId,
+                reason: reason
+            }
+        };
+
+        await prisma.clientLE.update({
+            where: { id: clientLEId },
+            data: { customData: newData }
+        });
+
+        revalidatePath(`/app/le/${clientLEId}`);
+        return { success: true };
+
+    } catch (e: any) {
+        console.error("Failed to update custom field:", e);
+        return { success: false, message: e.message };
+    }
 }

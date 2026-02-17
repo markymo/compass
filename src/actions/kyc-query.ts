@@ -87,8 +87,46 @@ export interface FieldDetailData {
 export async function getFieldDetail(
     entityId: string,
     fieldNo: number,
-    entityType: 'LEGAL_ENTITY' | 'CLIENT_LE' = 'LEGAL_ENTITY'
+    entityType: 'LEGAL_ENTITY' | 'CLIENT_LE' = 'LEGAL_ENTITY',
+    customFieldId?: string
 ): Promise<FieldDetailData> {
+
+    // --- Custom Field Path ---
+    if (customFieldId) {
+        // Fetch ClientLE directly
+        const le = await prisma.clientLE.findUnique({
+            where: { id: entityId },
+            select: { customData: true }
+        });
+
+        if (!le) throw new Error("Entity not found");
+
+        const data = (le.customData as Record<string, any>) || {};
+        const val = data[customFieldId]; // Expecting { value, source, timestamp } or just value
+
+        let currentVal = val;
+        let source: ProvenanceSource = "USER_INPUT";
+        let timestamp = new Date(); // Default if not tracked
+
+        if (val && typeof val === 'object' && 'value' in val) {
+            currentVal = val.value;
+            source = val.source || "USER_INPUT";
+            timestamp = val.timestamp ? new Date(val.timestamp) : new Date();
+        }
+
+        return {
+            current: {
+                value: currentVal,
+                source,
+                timestamp,
+                confidence: 1.0
+            },
+            history: [], // No history for custom fields yet (schema limitation)
+            candidates: []
+        };
+    }
+
+    // --- Standard Field Path ---
     // 1. Get Current Value via KycLoader
     const current = await loader.loadField(entityId, fieldNo, entityType);
 
