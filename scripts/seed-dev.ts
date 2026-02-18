@@ -97,28 +97,40 @@ async function seedDemoTenants() {
 
     // --- Organizations ---
     // 1. Acme Hedge Fund (Client)
-    const acme = await prisma.organization.upsert({
-        where: { name: 'Acme Hedge Fund' }, // Note: unique name not enforced by schema but used here for convention
-        update: { types: ['CLIENT'], domain: 'acme.com', status: 'ACTIVE' },
-        create: {
-            name: 'Acme Hedge Fund',
-            types: ['CLIENT'],
-            domain: 'acme.com',
-            status: 'ACTIVE'
-        }
-    });
+    let acme = await prisma.organization.findFirst({ where: { name: 'Acme Hedge Fund' } });
+    if (acme) {
+        acme = await prisma.organization.update({
+            where: { id: acme.id },
+            data: { types: ['CLIENT'], domain: 'acme.com', status: 'ACTIVE' }
+        });
+    } else {
+        acme = await prisma.organization.create({
+            data: {
+                name: 'Acme Hedge Fund',
+                types: ['CLIENT'],
+                domain: 'acme.com',
+                status: 'ACTIVE'
+            }
+        });
+    }
 
     // 2. G-SIB Bank (FI)
-    const gsib = await prisma.organization.upsert({
-        where: { name: 'G-SIB Bank' },
-        update: { types: ['FI'], domain: 'gsib.com', status: 'ACTIVE' },
-        create: {
-            name: 'G-SIB Bank',
-            types: ['FI'],
-            domain: 'gsib.com',
-            status: 'ACTIVE'
-        }
-    });
+    let gsib = await prisma.organization.findFirst({ where: { name: 'G-SIB Bank' } });
+    if (gsib) {
+        gsib = await prisma.organization.update({
+            where: { id: gsib.id },
+            data: { types: ['FI'], domain: 'gsib.com', status: 'ACTIVE' }
+        });
+    } else {
+        gsib = await prisma.organization.create({
+            data: {
+                name: 'G-SIB Bank',
+                types: ['FI'],
+                domain: 'gsib.com',
+                status: 'ACTIVE'
+            }
+        });
+    }
 
     // --- Users ---
     // 1. Alice (Client Admin)
