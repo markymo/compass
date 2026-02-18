@@ -69,13 +69,11 @@ export async function acceptInvitation(token: string) {
         // `invite.fiEngagement.fiOrgId`.
 
         // Let's check if they are already a member of the Supplier Org.
-        const existingMembership = await prisma.membership.findUnique({
+        const existingMembership = await prisma.membership.findFirst({
             where: {
-                userId_organizationId_clientLEId: {
-                    userId: user.id,
-                    organizationId: invite.fiEngagement.fiOrgId,
-                    clientLEId: null // Org-level membership
-                }
+                userId: user.id,
+                organizationId: invite.fiEngagement.fiOrgId,
+                clientLEId: null
             }
         });
 
