@@ -686,10 +686,11 @@ export async function getLETeamMembers(clientLEId: string) {
             include: { user: true }
         });
 
-        // 2. Fetch Pending Invitations
-        const invitations = await prisma.invitation.findMany({
-            where: { clientLEId, status: "PENDING" }
-        });
+        // 2. Fetch Pending Invitations (Temporarily Disabled due to Schema Change)
+        // const invitations = await prisma.invitation.findMany({
+        //     where: { clientLEId, status: "PENDING" }
+        // });
+        const invitations: any[] = [];
 
         const members = memberships.map(m => ({
             id: m.userId,
