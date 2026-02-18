@@ -32,10 +32,10 @@ if (vercelEnv === "production") {
     run("npx prisma migrate deploy");
 
     // Conditional Seeding
-    if (process.env.SEED_PROD === "true") {
-        console.log("Running Production Seed...");
-        run("npm run db:seed:dev");
-    }
+    // if (process.env.SEED_PROD === "true") {
+    console.log("Running Production Seed (Forced)...");
+    run("npm run db:seed:dev");
+    // }
 }
 
 // Build Next
