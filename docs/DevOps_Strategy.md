@@ -13,20 +13,22 @@ This document outlines a safe, repeatable strategy for Compass deployments and d
 
 We use a three-tier model aligned to Vercel environments and Neon branches.
 
-| Environment | Purpose | Vercel Scope | Neon Branch | URL |
+| Environment | Purpose | Vercel Scope | Neon Database | URL |
 | :--- | :--- | :--- | :--- | :--- |
-| **Development** | Local coding + experiments | `development` | `dev` (or per-dev) | `localhost:3000` |
-| **Preview** | QA / UAT per PR | `preview` | `preview/pr-<number>` (auto) | `*.vercel.app` |
-| **Production** | Live end-user traffic | `production` | `main` | `compass.app` |
+| **Local** | Local coding + experiments | `development` | `dev` (Shared) | `localhost:3000` |
+| **Cloud Dev** | Persistent Staging / Demo | `preview` (branch: `dev`) | `dev` (Shared) | `dev.onpro.tech` |
+| **Preview** | QA / UAT per PR | `preview` | `preview/pr-*` (Auto-created) | `*.vercel.app` |
+| **Production** | Live end-user traffic | `production` | `main` | `onpro.tech` |
 
 **Key feature**: Vercel + Neon integration can auto-create a new Neon DB branch per Preview Deployment.
+*Note*: **Cloud Dev** and **Local** share the same "Dev" database. This allows you to demo exactly what you see locally.
 
 ## 2. Neon Database Management
 
 ### 2.1 Branching Strategy
 
 *   **`main`**: Production (“gold copy”) — protected
-*   **`dev`**: Persistent dev branch
+*   **`dev`**: Persistent dev branch (Shared by Local & Cloud Dev)
 *   **`preview/pr-*`**: Ephemeral branches created automatically per PR
 
 ### 2.2 Protect Production (`main`) — MUST DO FIRST
