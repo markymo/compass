@@ -23,6 +23,12 @@ run("npx prisma generate");
 if (vercelEnv === "preview") {
     console.log("Running Preview migrations…");
     run("npx prisma migrate deploy");
+
+    // Seed automatically for 'dev' branch or if forced
+    if (process.env.VERCEL_GIT_COMMIT_REF === "dev" || process.env.SEED_PREVIEW === "true") {
+        console.log("Running Preview Seed (Auto-detected 'dev' branch)...");
+        run("npm run db:seed:dev");
+    }
 }
 
 // Production migrations are gated (prevents accidental prod schema changes)
