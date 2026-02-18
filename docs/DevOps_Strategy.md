@@ -235,14 +235,40 @@ Set per environment:
 2.  **Local never has prod credentials.**
 3.  **Runtime DB user cannot do DDL.**
 4.  **Schema changes only via migrations.**
-## 10. Verification Log
+## 10. Developer Workflow (The "Golden Path")
+
+### Daily Work (The "Fiddling" Phase)
+1.  **Work on `dev` locally**: `git checkout dev`
+2.  **Code & Test**: Run `npm run dev` and check `localhost:3000`.
+3.  **Save & Deploy to Cloud Dev**:
+    ```bash
+    git add .
+    git commit -m "feature description"
+    git push origin dev
+    ```
+    *   **Result**: Updates `dev.onpro.tech`. Safe to break.
+
+### Feature Previews (Optional / Advanced)
+If you want to test something risky without breaking Cloud Dev:
+1.  **Branch off**: `git checkout -b experiment/new-ui`
+2.  **Push**: `git push origin experiment/new-ui`
+3.  **Result**: Vercel creates a **unique URL** (e.g., `compass-git-experiment-new-ui...vercel.app`) with its **own fresh database**.
+4.  **Merge**: When happy, merge into `dev`.
+
+### Shipping to Production
+1.  **Go to GitHub**.
+2.  Open **Pull Request**: `dev` -> `main`.
+3.  **Merge**.
+    *   **Result**: Updates `onpro.tech` (Production).
+
+## 11. Verification Log
 ### 2026-02-17 Vercel Build Script
 - **Action**: Ran `npm run vercel:build` locally.
 - **Result**: Success. Correctly skipped migrations (VERCEL_ENV unset) and ran `next build`.
 ### 2026-02-17 Unified Seeder
 - **Action**: Ran `npm run db:seed:dev`.
 - **Result**: Success. Restored FIs, Clients (Acme), Suppliers (G-SIB), and Users.
-## 11. Appendix: Vercel Configuration Guide (Novice Friendly)
+## 12. Appendix: Vercel Configuration Guide (Novice Friendly)
 
 Follow these exact steps to enable the "Hardened" DevOps pipeline.
 
