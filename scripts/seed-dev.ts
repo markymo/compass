@@ -132,7 +132,7 @@ async function seedDemoTenants() {
             isDemoActor: true
         }
     });
-    await ensureMembership(alice.id, acme.id, 'ADMIN');
+    await ensureMembership(alice.id, acme.id, 'ORG_ADMIN');
 
     // 2. Bob (FI Lead)
     const bob = await prisma.user.upsert({
@@ -145,7 +145,7 @@ async function seedDemoTenants() {
             isDemoActor: true
         }
     });
-    await ensureMembership(bob.id, gsib.id, 'ADMIN');
+    await ensureMembership(bob.id, gsib.id, 'ORG_ADMIN');
 
     // 3. Charlie (Member)
     const charlie = await prisma.user.upsert({
@@ -158,7 +158,7 @@ async function seedDemoTenants() {
             isDemoActor: true
         }
     });
-    await ensureMembership(charlie.id, acme.id, 'MEMBER');
+    await ensureMembership(charlie.id, acme.id, 'ORG_MEMBER');
 }
 
 async function ensureMembership(userId, orgId, role) {
