@@ -925,6 +925,9 @@ export async function forceDeleteClientLE(leId: string) {
                 // Delete Queries
                 await tx.query.deleteMany({ where: { fiEngagementId: { in: engIds } } });
 
+                // Delete Invitations
+                await tx.invitation.deleteMany({ where: { fiEngagementId: { in: engIds } } });
+
                 // Delete FIEngagements
                 await tx.fIEngagement.deleteMany({ where: { clientLEId: leId } });
             }
@@ -938,8 +941,7 @@ export async function forceDeleteClientLE(leId: string) {
             // 4. Delete StandingDataSections (Has Cascade, but explicit is safer for force)
             await tx.standingDataSection.deleteMany({ where: { clientLEId: leId } });
 
-            // 5. Delete Invitations
-            await tx.invitation.deleteMany({ where: { clientLEId: leId } });
+            // 5. Delete Invitations (Handled above in step 1.1)
 
             // 6. Delete Memberships (Direct Workspace Access)
             await tx.membership.deleteMany({ where: { clientLEId: leId } });
