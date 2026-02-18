@@ -378,12 +378,36 @@ export async function createFIEngagement(clientLEId: string, fiName: string) {
             });
         }
 
-        // 2. Create the Engagement
+        // 2. Check for Existing Engagement
+        const existingEngagement = await prisma.fIEngagement.findUnique({
+            where: {
+                fiOrgId_clientLEId: {
+                    fiOrgId: fiOrg.id,
+                    clientLEId: clientLEId
+                }
+            }
+        });
+
+        if (existingEngagement) {
+            // Be idempotent: If it's already there, just return it!
+            // Optionally check isDeleted and restore?
+            if (existingEngagement.isDeleted) {
+                const restored = await prisma.fIEngagement.update({
+                    where: { id: existingEngagement.id },
+                    data: { isDeleted: false, status: EngagementStatus.INVITED }
+                });
+                revalidatePath(`/app/le/${clientLEId}/v2`);
+                return { success: true, engagement: restored };
+            }
+            return { success: true, engagement: existingEngagement };
+        }
+
+        // 3. Create the Engagement
         const engagement = await prisma.fIEngagement.create({
             data: {
                 clientLEId: clientLEId,
                 fiOrgId: fiOrg.id,
-                status: EngagementStatus.INVITED,
+                status: EngagementStatus.PREPARATION,
                 activities: {
                     create: {
                         userId: userId,

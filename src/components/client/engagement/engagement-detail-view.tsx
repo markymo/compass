@@ -14,6 +14,7 @@ import { EngagementDocumentManager } from "./engagement-document-manager";
 
 import { ProgressTracker } from "@/components/shared/progress-tracker";
 import { DashboardMetric } from "@/lib/metrics-calc";
+import { InviteSupplierDialog } from "./invite-supplier-dialog";
 
 interface EngagementDetailViewProps {
     le: any;
@@ -37,6 +38,7 @@ import { QuestionnaireMapper } from "./questionnaire-mapper";
 
 export function EngagementDetailView({ le, engagement, questionnaires, sharedDocuments, initialTab, metrics, standingData }: EngagementDetailViewProps) {
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+    const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
     const [manageQuestionnaireId, setManageQuestionnaireId] = useState<string | null>(null);
     const [refreshKey, setRefreshKey] = useState(0);
     const router = useRouter();
@@ -94,7 +96,18 @@ export function EngagementDetailView({ le, engagement, questionnaires, sharedDoc
         <div className="space-y-6">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-900">{engagement.org.name}</h1>
+                    <div className="flex items-center gap-4">
+                        <h1 className="text-2xl font-bold text-slate-900">{engagement.org.name}</h1>
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-2 text-indigo-600 border-indigo-200 bg-indigo-50 hover:bg-indigo-100"
+                            onClick={() => setIsInviteDialogOpen(true)}
+                        >
+                            <Users className="h-4 w-4" />
+                            Invite Supplier
+                        </Button>
+                    </div>
                 </div>
                 {metrics && (
                     <div className="hidden md:block">
@@ -291,6 +304,13 @@ export function EngagementDetailView({ le, engagement, questionnaires, sharedDoc
                 onOpenChange={setIsAddDialogOpen}
                 onAdd={handleAdd}
                 engagementId={engagement.id}
+            />
+
+            <InviteSupplierDialog
+                open={isInviteDialogOpen}
+                onOpenChange={setIsInviteDialogOpen}
+                engagementId={engagement.id}
+                orgName={engagement.org.name}
             />
 
 

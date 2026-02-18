@@ -97,7 +97,7 @@ model Organization {
   // New Ownership Model
   ownedLEs       ClientLEOwner[]
   
-  invitations    Invitation[]
+
   
   customFieldDefinitions CustomFieldDefinition[]
 }
@@ -208,7 +208,7 @@ model ClientLE {
   // Ownership History (New Multi-Owner Model)
   owners        ClientLEOwner[]
   
-  invitations   Invitation[]
+
   
   customData    Json?
 }
@@ -257,6 +257,7 @@ model FIEngagement {
   @@unique([fiOrgId, clientLEId])
   sharedDocuments Document[] @relation("SharedDocuments") // Access Granted
   activities      EngagementActivity[]
+  invitations     Invitation[]
 }
 
 model EngagementActivity {
@@ -483,30 +484,39 @@ enum AdminTodoStatus {
   DONE
 }
 
+  // Organization invitations relation removed
+  // clientLE invitations relation removed
+  // fiEngagement invitations relation updated to match new field name if needed (it was fiEngagementId, so it's fine)
+
+  // Actually, I can just remove the relation fields in Org/ClientLE.
+
 model Invitation {
-  id             String           @id @default(uuid())
-  email          String
-  token          String           @unique
-  organizationId String
-  clientLEId     String?
-  role           String
-  invitedBy      String
-  status         InvitationStatus @default(PENDING)
-  expiresAt      DateTime
-  createdAt      DateTime         @default(now())
+  id                String   @id @default(uuid())
 
-  organization Organization  @relation(fields: [organizationId], references: [id])
-  clientLE     ClientLE?     @relation(fields: [clientLEId], references: [id])
+  fiEngagementId    String
+  fiEngagement      FIEngagement @relation(fields: [fiEngagementId], references: [id], onDelete: Cascade)
 
-  @@index([email])
-  @@index([token])
+  sentToEmail       String
+  role              String   // e.g. "Contact", "Compliance", "Reviewer"
+
+  tokenHash         String   @unique
+  expiresAt         DateTime
+  usedAt            DateTime?
+  revokedAt         DateTime?
+
+  createdByUserId   String
+  acceptedByUserId  String?
+
+  createdAt         DateTime @default(now())
+  
+  // Relations to User for audit? 
+  // User spec didn't strictly ask for FKs to User, just IDs. 
+  // Given "Relationship exists before users", maybe invitedBy is a valid User.
+  // I'll stick to String IDs to avoid circular deps or complex delete cascades for now, unless User spec implied FK. 
+  // "createdByUserId String" suggests scalar.
 }
 
-enum InvitationStatus {
-  PENDING
-  ACCEPTED
-  EXPIRED
-}
+
 
 model AuditLog {
   id        String   @id @default(uuid())

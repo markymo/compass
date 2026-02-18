@@ -44,7 +44,7 @@ export function EngagementManager({ leId, initialEngagements }: EngagementManage
         const tempId = `temp-${Date.now()}`;
         const newEng = {
             id: tempId,
-            status: "INVITED", // New status
+            status: "PREPARATION", // New status
             org: { name: fiName },
             questionnaires: []
         };
@@ -185,9 +185,9 @@ export function EngagementManager({ leId, initialEngagements }: EngagementManage
                                             "text-[10px] uppercase font-bold",
                                             eng.status === 'INVITED' ? "bg-blue-50 text-blue-700 border-blue-200" :
                                                 eng.status === 'CONNECTED' ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
-                                                    "text-slate-500"
+                                                    "bg-slate-100 text-slate-600 border-slate-200"
                                         )}>
-                                            {eng.status}
+                                            {eng.status === 'PREPARATION' ? 'DRAFT' : eng.status}
                                         </Badge>
 
                                         <span className="text-slate-400 text-xs">•</span>

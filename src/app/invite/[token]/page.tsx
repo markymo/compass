@@ -1,11 +1,13 @@
-import { acceptInvitation } from "@/actions/invitations";
+import { acceptInvitation } from "@/actions/accept-invitation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { CheckCircle2, AlertCircle, Building2, ArrowRight } from "lucide-react";
+import { AlertCircle, Building2, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getIdentity } from "@/lib/auth";
 import { Badge } from "@/components/ui/badge";
+import crypto from "crypto";
+import prisma from "@/lib/prisma";
 
 // This is a Public Page (outside (platform) layout)
 export default async function InvitationPage({ params }: { params: { token: string } }) {
@@ -13,22 +15,26 @@ export default async function InvitationPage({ params }: { params: { token: stri
     const identity = await getIdentity();
     const userId = identity?.userId;
 
-    // 1. validate token via action (dry run)
-    // We can't really "dry run" nicely without a specific read-only method or reusing logic.
-    // For simplicity, let's try to "Accept" and generic-handle the "Requires Auth" response.
-    // BUT `acceptInvitation` is a mutation. We shouldn't call it on GET.
-    // Refactor: We need a `getInvitationByToken` read-only action. 
-    // For now, I'll inline the read logic here since it's a server component (secure).
+    // 1. Hash Token for Lookup
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
 
-    // START INLINE READ (Refactor to data layer later)
-    const prisma = (await import("@/lib/prisma")).default;
+    // 2. Fetch Invitation
     const invite = await prisma.invitation.findUnique({
-        where: { token },
-        include: { organization: true, clientLE: true }
+        where: { tokenHash },
+        include: {
+            fiEngagement: {
+                include: {
+                    org: true,
+                    clientLE: true
+                }
+            }
+        }
     });
-    // END INLINE READ
 
-    if (!invite || invite.status !== "PENDING" || new Date() > invite.expiresAt) {
+    // 3. Validate
+    const isValid = invite && !invite.revokedAt && !invite.usedAt && new Date() < invite.expiresAt;
+
+    if (!isValid || !invite) {
         return (
             <div className="flex min-h-screen items-center justify-center bg-slate-50 p-4">
                 <Card className="w-full max-w-md border-red-200 bg-red-50">
@@ -53,6 +59,8 @@ export default async function InvitationPage({ params }: { params: { token: stri
 
     // Determine correct action based on auth state
     const isLoggedIn = !!userId;
+    const orgName = invite.fiEngagement.org.name;
+    const clientLEName = invite.fiEngagement.clientLE.name;
 
     return (
         <div className="flex min-h-screen flex-col items-center justify-center bg-slate-50 p-4">
@@ -72,32 +80,30 @@ export default async function InvitationPage({ params }: { params: { token: stri
                         <CardTitle>You've been invited!</CardTitle>
                         <CardDescription>
                             Accept the invitation below to join <br />
-                            <span className="font-semibold text-slate-900 text-lg">{invite.organization.name}</span>
+                            <span className="font-semibold text-slate-900 text-lg">{orgName}</span>
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
                         <div className="bg-slate-50 p-4 rounded-lg border border-slate-100 space-y-3">
                             <div className="flex justify-between items-center text-sm">
                                 <span className="text-slate-500">Invited Email:</span>
-                                <span className="font-medium text-slate-900">{invite.email}</span>
+                                <span className="font-medium text-slate-900">{invite.sentToEmail}</span>
                             </div>
                             <div className="flex justify-between items-center text-sm">
                                 <span className="text-slate-500">Role:</span>
                                 <Badge variant="secondary">{invite.role}</Badge>
                             </div>
-                            {invite.clientLE && (
-                                <div className="flex justify-between items-center text-sm">
-                                    <span className="text-slate-500">Access Scope:</span>
-                                    <Badge variant="outline" className="border-indigo-200 bg-indigo-50 text-indigo-700">
-                                        {invite.clientLE.name}
-                                    </Badge>
-                                </div>
-                            )}
+                            <div className="flex justify-between items-center text-sm">
+                                <span className="text-slate-500">Access Scope:</span>
+                                <Badge variant="outline" className="border-indigo-200 bg-indigo-50 text-indigo-700">
+                                    {clientLEName}
+                                </Badge>
+                            </div>
                         </div>
 
                         {!isLoggedIn && (
                             <div className="text-sm text-slate-500 text-center bg-yellow-50 p-3 rounded text-yellow-800 border border-yellow-100">
-                                You must sign in with <strong>{invite.email}</strong> to accept this invitation.
+                                You must sign in with <strong>{invite.sentToEmail}</strong> to accept this invitation.
                             </div>
                         )}
                     </CardContent>
@@ -112,19 +118,19 @@ export default async function InvitationPage({ params }: { params: { token: stri
                                     // For now, redirecting to error or throwing simple error
                                     throw new Error(res.error);
                                 }
-                            }}>
+                            }} className="w-full">
                                 <Button className="w-full gap-2 text-lg py-6" size="lg">
                                     Accept Invitation <ArrowRight className="w-5 h-5" />
                                 </Button>
                             </form>
                         ) : (
                             <div className="w-full grid gap-3">
-                                <Link href={`https://accounts.30ram6.com/sign-in?redirect_url=${process.env.NEXT_PUBLIC_APP_URL}/invite/${token}`}>
+                                <Link href={`/login?callbackUrl=${encodeURIComponent(`/invite/${token}`)}`}>
                                     <Button className="w-full gap-2" variant="default">
                                         Sign In to Accept
                                     </Button>
                                 </Link>
-                                <Link href={`https://accounts.30ram6.com/sign-up?redirect_url=${process.env.NEXT_PUBLIC_APP_URL}/invite/${token}`}>
+                                <Link href={`/register?callbackUrl=${encodeURIComponent(`/invite/${token}`)}&email=${encodeURIComponent(invite.sentToEmail)}`}>
                                     <Button className="w-full gap-2" variant="outline">
                                         Create Account
                                     </Button>
