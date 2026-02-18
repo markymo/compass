@@ -48,7 +48,7 @@ export default function About() {
 
                                 <div className="space-y-4 text-slate-600 text-lg leading-relaxed">
                                     <p>
-                                        Rob brings over 20 years of experience in derivatives markets to ONpro, with a specialized focus on infrastructure, structured trade, and export finance.
+                                        Rob brings over 20 years of experience in derivatives markets to ONpro, with a specialized focus on infrastructure, structured trade, and export finance..
                                     </p>
                                     <p>
                                         Before establishing Riskbridge in 2017, Rob was a Managing Director at <strong>Chatham Financial</strong>, where he founded and led the Global Infrastructure and Project Finance Advisory Team. Previously, as a Director at <strong>Barclays Capital</strong>, he led derivatives coverage for the Infrastructure and PFI/PPP sectors.
