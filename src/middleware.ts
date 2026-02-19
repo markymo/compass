@@ -11,5 +11,5 @@ export default middleware((req) => {
 })
 
 export const config = {
-    matcher: ["/((?!api|_next/static|_next/image|favicon.ico|login|how-it-works|about|$).*)"],
+    matcher: ["/((?!api|_next/static|_next/image|favicon.ico|login|how-it-works|about|welcome).*)"],
 }

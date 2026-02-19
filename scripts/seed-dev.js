@@ -17,6 +17,7 @@ async function main() {
 
     // --- 1. Organizations ---
     console.log('\n--- 1. Organizations ---');
+    const systemOrg = await ensureOrg('ONpro System', 'SYSTEM', 'onpro.tech');
     const acme = await ensureOrg('Acme Hedge Fund', 'CLIENT', 'acme.com');
     const gsib = await ensureOrg('G-SIB Bank', 'FI', 'gsib.com');
 
@@ -25,13 +26,18 @@ async function main() {
 
     // --- 2. Users ---
     console.log('\n--- 2. Users ---');
-    const mark = await ensureUser('mark@30gram6.com', 'Mark Lissaman', passwordHash, true);
+    const mark = await ensureUser('mark@30gram6.com', 'Mark Lissaman', passwordHash, false);
+    const rob = await ensureUser('ddortonduff@riskbridge.com', 'Rob Dornton-Duff', passwordHash, false);
     const alice = await ensureUser('demo.alice@example.com', 'Alice Admin (Demo)', passwordHash, true);
     const bob = await ensureUser('demo.bob@example.com', 'Bob Banker (Demo)', passwordHash, true);
     const charlie = await ensureUser('demo.charlie@example.com', 'Charlie Consultant (Demo)', passwordHash, true);
 
     // --- 3. Memberships (Party Level) ---
     console.log('\n--- 3. Memberships ---');
+    // System Admins
+    await ensureMembership(mark.id, systemOrg.id, 'ORG_ADMIN');
+    await ensureMembership(rob.id, systemOrg.id, 'ORG_ADMIN');
+
     // Mark -> Admin at Acme (and effectively System Admin via DB check)
     await ensureMembership(mark.id, acme.id, 'ORG_ADMIN');
 
@@ -49,6 +55,25 @@ async function main() {
     const fund1 = await ensureClientLE('Acme Global Fund I', acme.id, 'Cayman Islands');
     const fund2 = await ensureClientLE('Acme European Credit Fund', acme.id, 'Luxembourg');
     const spv1 = await ensureClientLE('Acme Trading SPV Ltd', acme.id, 'UK');
+
+    // Orsted
+    const orsted = await ensureOrg('Orsted', 'CLIENT', 'orsted.com');
+    await ensureClientLE('Hornsea 4', orsted.id, 'UK');
+    await ensureClientLE('Hornsea 3', orsted.id, 'UK');
+    await ensureClientLE('Greater Changhua 2b', orsted.id, 'Taiwan');
+    await ensureClientLE('Ocean Wind 1', orsted.id, 'USA');
+    await ensureClientLE('South Fork Wind', orsted.id, 'USA');
+    await ensureClientLE('Greater Changhua 2a', orsted.id, 'Taiwan');
+    await ensureClientLE('Greater Changhua 1', orsted.id, 'Taiwan');
+    await ensureClientLE('Borssele 1 & 2', orsted.id, 'Netherlands');
+    await ensureClientLE('Gode Wind 3', orsted.id, 'Germany');
+    await ensureClientLE('Hornsea 2', orsted.id, 'UK');
+
+    // Orsted Memberships
+    await ensureMembership(mark.id, orsted.id, 'ORG_ADMIN');
+    await ensureMembership(rob.id, orsted.id, 'ORG_ADMIN');
+    await ensureMembership(alice.id, orsted.id, 'ORG_ADMIN');
+    await ensureMembership(charlie.id, orsted.id, 'ORG_MEMBER');
 
     // --- 5. Relationships (FIEngagements) ---
     console.log('\n--- 5. Relationships (FIEngagements) ---');

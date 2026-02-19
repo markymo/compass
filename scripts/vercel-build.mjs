@@ -33,15 +33,19 @@ if (vercelEnv === "preview") {
 
 // Production migrations are gated (prevents accidental prod schema changes)
 if (vercelEnv === "production") {
-    // TEMPORARY: Force migrations for initial setup
-    console.log("Running Production migrations (Initial Setup)...");
-    run("npx prisma migrate deploy");
+    // Production migrations are gated (prevents accidental prod schema changes)
+    if (process.env.ALLOW_PROD_MIGRATIONS === "true") {
+        console.log("Running Production migrations...");
+        run("npx prisma migrate deploy");
+    } else {
+        console.log("Skipping Production migrations (ALLOW_PROD_MIGRATIONS != true).");
+    }
 
     // Conditional Seeding
-    // if (process.env.SEED_PROD === "true") {
-    console.log("Running Production Seed (Forced)...");
-    run("npm run db:seed:dev");
-    // }
+    if (process.env.SEED_PROD === "true") {
+        console.log("Running Production Seed...");
+        run("npm run db:seed:dev");
+    }
 }
 
 // Build Next

@@ -73,10 +73,16 @@ Prisma has 3 parts:
 
 | Environment | Command | Status |
 | :--- | :--- | :--- |
-| **Dev** | `prisma migrate dev` | ✅ Allowed |
-| **Preview/Prod** | `prisma migrate deploy` | ✅ Allowed |
+| **Dev (Local)** | `prisma migrate dev` | ✅ **Master Command** (Creates migrations + Updates Shared DB) |
+| **Cloud Dev** | `prisma migrate deploy` | ℹ️ **Redundant but Safe** (Build script runs this; usually finds "No changes" if Local already finished) |
+| **Preview/Prod** | `prisma migrate deploy` | ✅ **Required** (Applies migrations to isolated DBs) |
 | **Prod** | `prisma db push` | ❌ NEVER |
-| **Shared Dev** | `prisma db push` | ❌ Avoid (allowed only for throwaway DBs) |
+
+> **Shared DB Workflow**: Since Local and Cloud Dev share the *same* database:
+> 1. Run `prisma migrate dev` **Locally**. This updates the DB *and* generates migration files.
+> 2. Commit `prisma/migrations`.
+> 3. Push to `dev`.
+> 4. Vercel deployment runs. It attempts `migrate deploy`, sees the DB is already up-to-date, and proceeds. This is perfect.
 
 ### 3.2 Connection URLs
 
@@ -192,7 +198,8 @@ Set per environment:
 **Production**
 *   `DATABASE_URL` (points to `main`)
 *   `DIRECT_URL` (direct connection; recommended)
-*   `ALLOW_PROD_MIGRATIONS=false` by default (set to `true` only when ready)
+*   `ALLOW_PROD_MIGRATIONS`: `false` (Default). Set to `true` ONLY when running a migration.
+*   `SEED_PROD`: `false` (Default). Set to `true` ONLY if you need to re-seed reference data.
 
 **Policy**: local `.env` must never contain prod credentials.
 
