@@ -1,93 +1,230 @@
-# Supplier Onboarding & Relationship Activation Workflow
+# Supplier Onboarding & Relationship Activation Workflow  
+*(Revised – Internal First, Collaborative Later)*
 
 ## Overview
-This workflow describes how a Client (LE Admin) onboards a Supplier (e.g., a Bank) to the Compass platform. 
-The design prioritizes **low friction** and **immediate utility**. Users can start managing a relationship instantly without requiring the supplier's active participation (Scenario 1). The relationship can be "upgraded" to a collaborative state (Scenario 2) at any time via an explicit invitation.
+This workflow describes how a Client (LE Admin) establishes and manages a relationship with a Supplier (e.g. a Bank) on the ONpro platform.
 
-## Core Philosophy: "Internal First, Collaborative Later"
+The design prioritises **low friction**, **immediate utility**, and **controlled collaboration**.  
+Clients can begin managing a relationship unilaterally, without supplier involvement.  
+Collaboration is an **optional upgrade**, activated explicitly and safely when needed.
 
-Instead of asking the user to choose between "Internal" or "Collaborative" modes upfront, the system **always** starts in Internal Mode. The "Collaboration" features are treated as an optional layer that can be activated when needed.
+---
+
+## Core Philosophy: Internal First, Collaborative Later
+
+The system **always starts in a private, client-only mode**.  
+Collaboration is layered on top, rather than being a prerequisite.
+
+This reflects real-world compliance workflows:
+- Relationships exist before users
+- Work begins before permissions are negotiated
+- External parties may never log in
+
+---
+
+## Key Design Principles
+
+* No external dependency to create value
+* No irreversible actions
+* Clear separation between **entity**, **relationship**, and **users**
+* Explicit consent and auditability for all external access
 
 ---
 
 ## Workflow Stages
 
-### Stage 1: Identification & Internal Setup (Immediate)
-**Goal:** Allow the LE Admin to start working immediately.
-**Trigger:** User clicks `+ Relationship` on the Legal Entity Relationships tab.
+---
 
-1.  **Search & Select**:
-    *   User searches the global directory (GLEIF, Companies House, or existing local database) for the Supplier (e.g., "Barclays Bank").
-    *   *Fallback*: If not found, User creates a "Stub Entity" (Name, Country, optional domain).
-2.  **Creation**:
-    *   System creates a `Relationship` record linking the Client LE to the Supplier.
-    *   **Status**: `INTERNAL_MANAGED` (or `DRAFT`).
-    *   **Visibility**: Visible ONLY to the Client. The Supplier is NOT notified.
-3.  **Immediate Access**:
-    *   User is redirected to the **Relationship Dashboard**.
-    *   User can now:
-        *   Upload existing PDF/Excel questionnaires.
-        *   Map internal data to Master Schema.
-        *   Add private notes and tasks.
+## Stage 1: Identification & Private Setup (Immediate)
 
-*Value Prop*: The system is immediately useful as a "Digital Filing Cabinet" and "Compliance Tracker" even if the bank never logs in.
+**Goal:** Allow the LE Admin to start working instantly.  
+**Trigger:** User clicks `+ Relationship` on the Legal Entity → Relationships tab.
+
+### 1. Search & Select Supplier
+- User searches a global directory (GLEIF, Companies House, internal entities).
+- **Default path:** Create a **Stub Entity** if no clean match exists.
+  - Required: Name, Country
+  - Optional: Domain
+
+> Stub entities are first-class citizens, not a fallback.
 
 ---
 
-### Stage 2: Activation / Deepening the Relationship (Optional)
-**Goal:** Invite the supplier to collaborate directly (e.g., to fill out a digital questionnaire or review documents).
-**Trigger:** User clicks prominent `Connect with Supplier` or `Invite Contact` button on the Relationship Dashboard.
-
-1.  **Permissions Check**:
-    *   System verifies the current user has `LE_ADMIN` role. (Regular users cannot inititate external contact).
-2.  **Invitation Form**:
-    *   User enters the **Email Address** of the supplier contact (e.g., `onboarding@barclays.com`).
-    *   *Optional*: User adds a personal message.
-3.  **Confirmation & Audit**:
-    *   System displays a clear warning: *"This will invite [Email] to view shared documents and questionnaires. Ensure you have authority to contact this individual."*
-    *   User confirms.
-4.  **Execution**:
-    *   System sends a secure email invitation.
-    *   **Status**: Updates to `INVITE_SENT`.
-    *   **Audit Log**: Records `[User ID]` invited `[Email]` at `[Timestamp]`.
+### 2. Relationship Creation
+- System creates a `Relationship` record linking:
+  - Client Legal Entity
+  - Supplier Entity
+- **State:** `CLIENT_ONLY`
+- **Visibility:** Client users only  
+- **Supplier is not notified**
 
 ---
 
-### Stage 3: Connection Established
-**Goal:** Supplier joins and data exchange becomes bidirectional.
-**Trigger:** Supplier clicks the link in the email and registers/logs in.
+### 3. Immediate Access
+User is redirected to the **Relationship Dashboard** and can immediately:
 
-1.  **Onboarding**: Supplier creates an account (if new) or links the relationship to their existing workspace.
-2.  **Status Update**:
-    *   **Status**: Updates to `ACTIVE` / `COLLABORATIVE`.
-3.  **Shared Workspace**:
-    *   A generic "Shared" area becomes available.
-    *   Items marked as "Shared with Supplier" become visible to them.
-    *   Internal notes and private documents remain hidden.
+- Upload legacy PDFs / Excel questionnaires
+- Map internal data to the Master Schema
+- Track status, tasks, deadlines
+- Add private notes and internal-only commentary
+
+**Value:**  
+ONpro is immediately useful as a **Digital Filing Cabinet**, **Compliance Tracker**, and **Single Source of Truth**, even if the supplier never joins.
 
 ---
 
-## User Experience (UX) Highlights
+## Stage 2: Activation / External Invitation (Optional)
 
-### The "Connect" Call-to-Action
-On the Dashboard of an `INTERNAL_MANAGED` relationship, a prominent card or banner encourages connection without blocking work:
+**Goal:** Invite a supplier contact to collaborate directly.  
+**Trigger:** User clicks `Invite Supplier` on the Relationship Dashboard.
 
-> **Manage this Relationship Online?**
-> Invite your contact at **Barclays** to exchange documents and questionnaires directly securely.
+---
+
+### 1. Permissions Gate
+- System verifies user has `LE_ADMIN` role.
+- Non-admin users cannot initiate external contact.
+
+---
+
+### 2. Invitation Form
+User provides:
+- **Email address** of supplier contact
+- **Contact role** (e.g. Onboarding, Compliance, Legal)
+- Optional personal message
+
+Invitation metadata is stored independently of the relationship.
+
+### 3. External View Preview
+Before sending, the system shows a **Supplier View Preview**:
+
+- ✔ Shared documents (count)
+- ✔ Questionnaires / sections visible
+- ✖ Internal notes (hidden)
+- ✖ Private tasks (hidden)
+
+This builds confidence and prevents accidental oversharing.
+
+---
+
+### 4. Confirmation & Audit Warning
+User must explicitly confirm:
+
+> *This will invite [email] to access shared documents and questionnaires for this relationship.  
+> Ensure you are authorised to contact this individual.*
+
+---
+
+### 5. Invitation Sent
+- Secure email invitation is sent
+- **Relationship State:** `PENDING_EXTERNAL`
+- Immutable audit log entry:
+[UserID] invited [email] as [role] at [timestamp]
+
+
+Client may resend or revoke the invitation while pending.
+
+---
+
+## Stage 3: Connection Established
+
+**Goal:** Enable controlled, bidirectional collaboration.  
+**Trigger:** Supplier accepts the invitation and registers/logs in.
+
+---
+
+### 1. Supplier Onboarding
+- Supplier creates an account or links to an existing workspace.
+- Invitation is bound to:
+- Relationship
+- Role
+- Scoped permissions
+
+---
+
+### 2. Relationship State Update
+- **State:** `CONNECTED`
+
+---
+
+### 3. Shared Workspace Activation
+A shared layer becomes available:
+
+- Documents, questionnaires, or fields explicitly marked as **Shared** become visible
+- Supplier can:
+- Complete assigned questionnaires
+- Upload requested documents
+- Respond to structured data requests
+
+**Internal-only items remain hidden by default.**
+
+---
+
+## Relationship State Model
+
+| State | Visibility | Description |
+|------|-----------|-------------|
+| **CLIENT_ONLY** | Client only | Internal filing, mapping, notes, legacy document management |
+| **PENDING_EXTERNAL** | Client only | Invitation sent, awaiting supplier action |
+| **CONNECTED** | Client + Supplier | Controlled collaboration via shared artefacts |
+| **ARCHIVED** | Client only | Closed or historic relationship |
+
+All state transitions are reversible except archival.
+
+---
+
+## Artefact-Level Visibility
+
+Collaboration is **not all-or-nothing**.
+
+Each artefact (document, questionnaire, data field) is independently scoped as:
+
+- **Private** – client-only
+- **Shared** – visible to supplier
+- **Requested** – supplier must provide or complete
+
+This supports partial, real-world workflows.
+
+---
+
+## Security & Audit Controls
+
+- Only `LE_ADMIN` users can:
+- Invite suppliers
+- Revoke access
+- Modify sharing scope
+- Every invitation, acceptance, revocation, and scope change is:
+- Timestamped
+- User-attributed
+- Immutable in audit logs
+- Supplier access can be revoked at any time, reverting the relationship to `CLIENT_ONLY`.
+
+---
+
+## UX Highlight: Connect Call-to-Action
+
+On `CLIENT_ONLY` relationships, a non-blocking prompt is shown:
+
+> **Manage this relationship online?**  
+> Invite your contact at **Barclays** to exchange documents and questionnaires securely.  
 > [ Invite Supplier ]
 
-### Audit & Security
-*   **Gatekeeper**: Only `LE_ADMIN` can send invites.
-*   **Traceability**: Every invitation is an immutable audit log event.
-*   **Revocation**: The LE Admin can "Disconnect" the supplier at any time, reverting the relationship to `INTERNAL_MANAGED` and revoking external access.
+This encourages collaboration without interrupting work.
 
 ---
 
-## Summary of States
+## Summary
 
-| State | Who sees it? | Activity |
-| :--- | :--- | :--- |
-| **Internal Managed** | Client Only | Internal filing, mapping legacy docs, private notes. |
-| **Invite Sent** | Client Only | Waiting for supplier. Client can resend/cancel invite. |
-| **Active / Connected** | Client & Supplier | Shared documents, digital questionnaire filling, messaging. |
+This workflow ensures:
+
+- Immediate value without external dependency
+- Safe, auditable collaboration when required
+- Alignment with real compliance behaviour
+- Scalability from unilateral use to networked reuse
+
+ONpro works **even when counterparties do not**, and becomes more powerful when they do.
+Do you like this personality?
+
+
+
+
 

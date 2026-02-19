@@ -1,0 +1,7 @@
+1) Adding a supplier:  Frome a Legal Entity, click on Relationships, then "+ Relationship".
+a) User selects the bank.  User has a PDF/EXCEL/... version of questionnaire and wishes to upload it (User needs to Map these to a Master Schema)
+b) User selcts the bank, and is presented with a list of pre digitized questionnaires (These have already been mapped to Master Schema)
+c) User invites the bank, the bank then "deals with" the sorting out the correct questionnaire(s)
+
+
+2) Answering questionnaires
