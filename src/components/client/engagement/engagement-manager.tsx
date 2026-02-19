@@ -177,7 +177,12 @@ export function EngagementManager({ leId, initialEngagements }: EngagementManage
                                 </div>
                                 <div>
                                     <h3 className="font-bold text-lg text-slate-900">
-                                        {typeof eng.org === 'string' ? eng.org : eng.org?.name}
+                                        <Link
+                                            href={eng.id.startsWith("temp-") ? "#" : `/app/le/${leId}/engagement-new/${eng.id}?tab=overview`}
+                                            className="hover:underline hover:text-indigo-600 transition-colors"
+                                        >
+                                            {typeof eng.org === 'string' ? eng.org : eng.org?.name}
+                                        </Link>
                                     </h3>
                                     <div className="flex items-center gap-2 mt-0.5">
                                         {/* Status Badge */}

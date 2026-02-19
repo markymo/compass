@@ -2,8 +2,8 @@ import { ImageResponse } from 'next/og'
 
 // Image metadata
 export const size = {
-    width: 32,
-    height: 32,
+    width: 512,
+    height: 512,
 }
 export const contentType = 'image/png'
 
@@ -14,28 +14,20 @@ export default function Icon() {
             // ImageResponse JSX element
             <div
                 style={{
-                    fontSize: 18,
                     background: '#0f172a', // slate-900
                     width: '100%',
                     height: '100%',
                     display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: 'white',
-                    borderRadius: '6px',
-                    fontFamily: 'sans-serif',
-                    fontWeight: 800,
+                    alignItems: 'flex-end',
+                    justifyContent: 'flex-end',
+                    padding: '40px', // Slight padding (approx 1.25px in 16x16 scale)
                 }}
             >
-                <div style={{ display: 'flex', alignItems: 'baseline', position: 'relative', top: '1px' }}>
-                    <span>ON</span>
-                    <div style={{
-                        width: '4px',
-                        height: '4px',
-                        backgroundColor: '#f59e0b', // amber-500
-                        marginLeft: '1px',
-                    }} />
-                </div>
+                <div style={{
+                    width: '200px', // Approx 6.25px in 16x16 scale (under 7px/25%)
+                    height: '200px',
+                    backgroundColor: '#f59e0b', // amber-500
+                }} />
             </div>
         ),
         {
