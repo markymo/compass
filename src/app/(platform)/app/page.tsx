@@ -12,19 +12,8 @@ export const metadata = {
 
 export default async function ScoutPage() {
     return (
-        <div className="h-full flex flex-col">
-            <div className="p-6 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 flex justify-between items-center">
-                <div>
-                    <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-50 font-serif">
-                        Scout
-                    </h1>
-                    <p className="text-sm text-slate-500">
-                        Hierarchical overview of all your organizations and projects.
-                    </p>
-                </div>
-            </div>
-
-            <div className="flex-1 overflow-auto p-6 bg-slate-50/50 dark:bg-slate-950/50">
+        <div className="h-full flex flex-col bg-slate-50/50 dark:bg-slate-950/50">
+            <div className="flex-1 overflow-auto p-4 md:p-6">
                 <Suspense fallback={<TreeSkeleton />}>
                     <DashboardTreeLoader />
                 </Suspense>

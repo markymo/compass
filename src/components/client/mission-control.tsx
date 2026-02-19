@@ -54,12 +54,15 @@ export function MissionControl({ metrics, leId, engagements }: MissionControlPro
             {/* TOP ROW: Progress Tracker */}
             {/* TOP ROW: Progress Tracker */}
             {/* TOP ROW: Progress Tracker */}
-            <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-4 flex items-center justify-center">
-                {metrics.readiness.metrics ? (
-                    <ProgressTracker metrics={metrics.readiness.metrics} variant="header" className="w-full max-w-5xl" />
-                ) : (
-                    <div className="text-center text-slate-400 text-sm">Loading metrics...</div>
-                )}
+            {/* TOP ROW: Progress Tracker */}
+            <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-4">
+                <div className="overflow-x-auto pb-2 -mb-2"> {/* Expand scroll area */}
+                    {metrics.readiness.metrics ? (
+                        <ProgressTracker metrics={metrics.readiness.metrics} variant="header" className="min-w-[600px] w-full max-w-5xl mx-auto" />
+                    ) : (
+                        <div className="text-center text-slate-400 text-sm">Loading metrics...</div>
+                    )}
+                </div>
             </div>
 
             {/* MIDDLE ROW: Pipeline Visualization */}
@@ -70,41 +73,46 @@ export function MissionControl({ metrics, leId, engagements }: MissionControlPro
                         Supplier Relationship Pipeline
                     </CardTitle>
                 </CardHeader>
-                <CardContent className="p-8">
-                    <div className="relative flex justify-between">
-                        {/* Connecting Line */}
-                        <div className="absolute top-[15px] left-0 w-full h-0.5 bg-slate-200 -z-10" />
+                <CardContent className="p-4 md:p-8">
+                    <div className="relative flex flex-col md:flex-row justify-between gap-8 md:gap-0">
+                        {/* Connecting Line (Desktop) */}
+                        <div className="hidden md:block absolute top-[15px] left-0 w-full h-0.5 bg-slate-200 -z-10" />
+                        {/* Connecting Line (Mobile) */}
+                        <div className="md:hidden absolute left-[15px] top-0 h-full w-0.5 bg-slate-200 -z-10" />
 
                         {pipelineStages.map((stage, idx) => {
                             const banksInStage = metrics.pipeline.filter(p => getStageForStatus(p.status) === stage.id);
                             const Icon = stage.icon;
 
                             return (
-                                <div key={stage.id} className="flex flex-col items-center flex-1">
+                                <div key={stage.id} className="flex flex-row md:flex-col items-start md:items-center flex-1 gap-4 md:gap-0">
                                     {/* Stage Node */}
-                                    <div className="w-8 h-8 rounded-full bg-white border-2 border-slate-300 flex items-center justify-center mb-4 z-10 shadow-sm">
+                                    <div className="w-8 h-8 rounded-full bg-white border-2 border-slate-300 flex items-center justify-center mb-0 md:mb-4 z-10 shadow-sm shrink-0">
                                         <div className="w-2.5 h-2.5 rounded-full bg-slate-300" />
                                     </div>
-                                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-4">{stage.label}</h4>
 
-                                    {/* Banks Cards Stack */}
-                                    <div className="space-y-2 w-full px-4">
-                                        {banksInStage.length === 0 ? (
-                                            <div className="h-12 border-2 border-dashed border-slate-100 rounded-lg flex items-center justify-center text-[10px] text-slate-300">
-                                                No Banks
-                                            </div>
-                                        ) : (
-                                            banksInStage.map(bank => (
-                                                <div key={bank.id} className="bg-white border hover:border-indigo-300 shadow-sm p-3 rounded-lg flex items-center gap-3 transition-all cursor-pointer group">
-                                                    <div className="h-8 w-8 rounded bg-slate-100 flex items-center justify-center text-slate-600 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
-                                                        <Building2 className="h-4 w-4" />
-                                                    </div>
-                                                    <div className="text-sm font-semibold text-slate-700 group-hover:text-slate-900">
-                                                        {bank.fiName}
-                                                    </div>
+                                    <div className="flex-1 w-full">
+                                        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 md:mb-4 mt-1.5 md:mt-0 md:text-center">{stage.label}</h4>
+
+                                        {/* Banks Cards Stack */}
+                                        <div className="space-y-2 w-full md:px-4">
+                                            {banksInStage.length === 0 ? (
+                                                <div className="h-12 border-2 border-dashed border-slate-100 rounded-lg flex items-center justify-center text-[10px] text-slate-300">
+                                                    No Banks
                                                 </div>
-                                            ))
-                                        )}
+                                            ) : (
+                                                banksInStage.map(bank => (
+                                                    <div key={bank.id} className="bg-white border hover:border-indigo-300 shadow-sm p-3 rounded-lg flex items-center gap-3 transition-all cursor-pointer group">
+                                                        <div className="h-8 w-8 rounded bg-slate-100 flex items-center justify-center text-slate-600 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors shrink-0">
+                                                            <Building2 className="h-4 w-4" />
+                                                        </div>
+                                                        <div className="text-sm font-semibold text-slate-700 group-hover:text-slate-900 truncate">
+                                                            {bank.fiName}
+                                                        </div>
+                                                    </div>
+                                                ))
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             );
