@@ -21,6 +21,10 @@ We use a three-tier model aligned to Vercel environments and Neon branches.
 | **Production** | Live end-user traffic | `production` | `main` | `onpro.tech` |
 
 **Key feature**: Vercel + Neon integration can auto-create a new Neon DB branch per Preview Deployment.
+> [!WARNING]
+> **Critical Gotcha**: The Vercel-Neon Integration tends to override manual `DATABASE_URL` settings for Preview deployments by automatically creating ephemeral branches (e.g., `preview/dev`).
+> For **Cloud Dev** to be persistent (connecting to `dev`), you must **Disable "Automatically create a branch for every deploy"** in the Vercel Integration settings, or explicitly exclude the `dev` branch if the UI allows. If you cannot disable it per-branch, you may need to Unlink the integration and manage `DATABASE_URL` manually for total control.
+
 *Note*: **Cloud Dev** and **Local** share the same "Dev" database. This allows you to demo exactly what you see locally.
 
 ## 2. Neon Database Management
