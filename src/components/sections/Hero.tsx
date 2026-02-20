@@ -13,24 +13,15 @@ export function Hero() {
             <div className="absolute top-0 right-0 -translate-y-12 translate-x-1/4 w-[600px] h-[600px] bg-slate-200/50 rounded-full blur-3xl opacity-50 pointer-events-none"></div>
 
             <div className="container relative mx-auto px-4 text-center md:px-6">
-                <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.5 }}
-                >
-                    <div className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold uppercase tracking-wider text-slate-900 shadow-sm mb-8">
-                        The Standard for Capital Markets
-                    </div>
-                </motion.div>
-
                 <motion.h1
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.5, delay: 0.1 }}
-                    className="text-5xl font-bold tracking-tight text-slate-900 md:text-7xl font-serif"
+                    className="mx-auto w-fit text-left text-5xl font-bold tracking-tight text-slate-900 md:text-7xl font-serif"
                 >
-                    Better for Borrowers. <br />
-                    <span className="text-amber-700">Confidence for Lenders.</span>
+                    <span className="text-amber-500">ON</span>boarding<br />
+                    <span className="text-amber-500">ON</span>going<br />
+                    <span className="text-amber-500">ON</span>pro
                 </motion.h1>
 
                 <motion.p
