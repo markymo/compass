@@ -13,20 +13,26 @@ This document outlines a safe, repeatable strategy for Compass deployments and d
 
 We use a three-tier model aligned to Vercel environments and Neon branches.
 
-| Environment | Purpose | Vercel Scope | Neon Branch | URL |
+| Environment | Purpose | Vercel Scope | Neon Database | URL |
 | :--- | :--- | :--- | :--- | :--- |
-| **Development** | Local coding + experiments | `development` | `dev` (or per-dev) | `localhost:3000` |
-| **Preview** | QA / UAT per PR | `preview` | `preview/pr-<number>` (auto) | `*.vercel.app` |
-| **Production** | Live end-user traffic | `production` | `main` | `compass.app` |
+| **Local** | Local coding + experiments | `development` | `dev` (Shared) | `localhost:3000` |
+| **Cloud Dev** | Persistent Staging / Demo | `preview` (branch: `dev`) | `dev` (Shared) | `dev.onpro.tech` |
+| **Preview** | QA / UAT per PR | `preview` | `preview/pr-*` (Auto-created) | `*.vercel.app` |
+| **Production** | Live end-user traffic | `production` | `main` | `onpro.tech` |
 
 **Key feature**: Vercel + Neon integration can auto-create a new Neon DB branch per Preview Deployment.
+> [!WARNING]
+> **Critical Gotcha**: The Vercel-Neon Integration tends to override manual `DATABASE_URL` settings for Preview deployments by automatically creating ephemeral branches (e.g., `preview/dev`).
+> For **Cloud Dev** to be persistent (connecting to `dev`), you must **Disable "Automatically create a branch for every deploy"** in the Vercel Integration settings, or explicitly exclude the `dev` branch if the UI allows. If you cannot disable it per-branch, you may need to Unlink the integration and manage `DATABASE_URL` manually for total control.
+
+*Note*: **Cloud Dev** and **Local** share the same "Dev" database. This allows you to demo exactly what you see locally.
 
 ## 2. Neon Database Management
 
 ### 2.1 Branching Strategy
 
 *   **`main`**: Production (“gold copy”) — protected
-*   **`dev`**: Persistent dev branch
+*   **`dev`**: Persistent dev branch (Shared by Local & Cloud Dev)
 *   **`preview/pr-*`**: Ephemeral branches created automatically per PR
 
 ### 2.2 Protect Production (`main`) — MUST DO FIRST
@@ -67,10 +73,16 @@ Prisma has 3 parts:
 
 | Environment | Command | Status |
 | :--- | :--- | :--- |
-| **Dev** | `prisma migrate dev` | ✅ Allowed |
-| **Preview/Prod** | `prisma migrate deploy` | ✅ Allowed |
+| **Dev (Local)** | `prisma migrate dev` | ✅ **Master Command** (Creates migrations + Updates Shared DB) |
+| **Cloud Dev** | `prisma migrate deploy` | ℹ️ **Redundant but Safe** (Build script runs this; usually finds "No changes" if Local already finished) |
+| **Preview/Prod** | `prisma migrate deploy` | ✅ **Required** (Applies migrations to isolated DBs) |
 | **Prod** | `prisma db push` | ❌ NEVER |
-| **Shared Dev** | `prisma db push` | ❌ Avoid (allowed only for throwaway DBs) |
+
+> **Shared DB Workflow**: Since Local and Cloud Dev share the *same* database:
+> 1. Run `prisma migrate dev` **Locally**. This updates the DB *and* generates migration files.
+> 2. Commit `prisma/migrations`.
+> 3. Push to `dev`.
+> 4. Vercel deployment runs. It attempts `migrate deploy`, sees the DB is already up-to-date, and proceeds. This is perfect.
 
 ### 3.2 Connection URLs
 
@@ -186,7 +198,8 @@ Set per environment:
 **Production**
 *   `DATABASE_URL` (points to `main`)
 *   `DIRECT_URL` (direct connection; recommended)
-*   `ALLOW_PROD_MIGRATIONS=false` by default (set to `true` only when ready)
+*   `ALLOW_PROD_MIGRATIONS`: `false` (Default). Set to `true` ONLY when running a migration.
+*   `SEED_PROD`: `false` (Default). Set to `true` ONLY if you need to re-seed reference data.
 
 **Policy**: local `.env` must never contain prod credentials.
 
@@ -233,14 +246,40 @@ Set per environment:
 2.  **Local never has prod credentials.**
 3.  **Runtime DB user cannot do DDL.**
 4.  **Schema changes only via migrations.**
-## 10. Verification Log
+## 10. Developer Workflow (The "Golden Path")
+
+### Daily Work (The "Fiddling" Phase)
+1.  **Work on `dev` locally**: `git checkout dev`
+2.  **Code & Test**: Run `npm run dev` and check `localhost:3000`.
+3.  **Save & Deploy to Cloud Dev**:
+    ```bash
+    git add .
+    git commit -m "feature description"
+    git push origin dev
+    ```
+    *   **Result**: Updates `dev.onpro.tech`. Safe to break.
+
+### Feature Previews (Optional / Advanced)
+If you want to test something risky without breaking Cloud Dev:
+1.  **Branch off**: `git checkout -b experiment/new-ui`
+2.  **Push**: `git push origin experiment/new-ui`
+3.  **Result**: Vercel creates a **unique URL** (e.g., `compass-git-experiment-new-ui...vercel.app`) with its **own fresh database**.
+4.  **Merge**: When happy, merge into `dev`.
+
+### Shipping to Production
+1.  **Go to GitHub**.
+2.  Open **Pull Request**: `dev` -> `main`.
+3.  **Merge**.
+    *   **Result**: Updates `onpro.tech` (Production).
+
+## 11. Verification Log
 ### 2026-02-17 Vercel Build Script
 - **Action**: Ran `npm run vercel:build` locally.
 - **Result**: Success. Correctly skipped migrations (VERCEL_ENV unset) and ran `next build`.
 ### 2026-02-17 Unified Seeder
 - **Action**: Ran `npm run db:seed:dev`.
 - **Result**: Success. Restored FIs, Clients (Acme), Suppliers (G-SIB), and Users.
-## 11. Appendix: Vercel Configuration Guide (Novice Friendly)
+## 12. Appendix: Vercel Configuration Guide (Novice Friendly)
 
 Follow these exact steps to enable the "Hardened" DevOps pipeline.
 

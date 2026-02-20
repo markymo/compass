@@ -68,7 +68,7 @@ export function CreateLEDialog({ orgId }: { orgId?: string }) {
             <DialogTrigger asChild>
                 <Button>Add Legal Entity</Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="sm:max-w-md max-w-[95vw] rounded-xl">
                 <DialogHeader>
                     <DialogTitle>Add New Legal Entity</DialogTitle>
                     <DialogDescription>Create a managed entity to start inputting data.</DialogDescription>

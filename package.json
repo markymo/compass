@@ -11,7 +11,7 @@
     "db:migrate:dev": "prisma migrate dev",
     "db:migrate:deploy": "prisma migrate deploy",
     "db:studio": "prisma studio",
-    "db:seed:dev": "ts-node -r tsconfig-paths/register scripts/seed-dev.ts",
+    "db:seed:dev": "node scripts/seed-dev.js",
     "db:seed:preview": "ts-node -r tsconfig-paths/register scripts/seed-preview.ts",
     "vercel:build": "node scripts/vercel-build.mjs"
   },

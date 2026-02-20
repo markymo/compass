@@ -28,23 +28,23 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <AuthSessionProvider>
-      <html lang="en" suppressHydrationWarning>
-        <body
-          suppressHydrationWarning
-          className={cn(
-            outfit.variable,
-            inter.variable,
-            "antialiased min-h-screen bg-background text-foreground font-sans"
-          )}
-        >
+    <html lang="en" suppressHydrationWarning>
+      <body
+        suppressHydrationWarning
+        className={cn(
+          outfit.variable,
+          inter.variable,
+          "antialiased min-h-screen bg-background text-foreground font-sans"
+        )}
+      >
+        <AuthSessionProvider>
           <Suspense fallback={null}>
             <UsageTracker />
           </Suspense>
           {children}
           <Toaster />
-        </body>
-      </html>
-    </AuthSessionProvider>
+        </AuthSessionProvider>
+      </body>
+    </html>
   );
 }

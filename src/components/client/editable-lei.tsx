@@ -69,7 +69,7 @@ export function EditableLEI({ leId, initialLei, initialFetchedAt }: EditableLEIP
     }
 
     return (
-        <div className="group flex items-center gap-3 py-1">
+        <div className="group flex flex-wrap items-center gap-2 sm:gap-3 py-1">
             <div className={cn(
                 "flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm font-mono transition-colors",
                 lei

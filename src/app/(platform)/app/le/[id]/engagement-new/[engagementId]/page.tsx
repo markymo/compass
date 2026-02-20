@@ -36,7 +36,7 @@ export default async function EngagementPage({ params, searchParams }: PageProps
     const { data: standingData } = await getFullMasterData(le.id);
 
     return (
-        <div className="w-full px-6 space-y-6 pb-20 pt-6">
+        <div className="w-full px-2 md:px-6 space-y-6 pb-20 pt-6">
             <SetPageBreadcrumbs
                 items={[
                     { label: fiName, iconName: "link-2" }

@@ -23,19 +23,29 @@ run("npx prisma generate");
 if (vercelEnv === "preview") {
     console.log("Running Preview migrations…");
     run("npx prisma migrate deploy");
+
+    // Seed automatically for 'dev' branch or if forced
+    if (process.env.VERCEL_GIT_COMMIT_REF === "dev" || process.env.SEED_PREVIEW === "true") {
+        console.log("Running Preview Seed (Auto-detected 'dev' branch)...");
+        run("npm run db:seed:dev");
+    }
 }
 
 // Production migrations are gated (prevents accidental prod schema changes)
 if (vercelEnv === "production") {
-    // TEMPORARY: Force migrations for initial setup
-    console.log("Running Production migrations (Initial Setup)...");
-    run("npx prisma migrate deploy");
+    // Production migrations are gated (prevents accidental prod schema changes)
+    if (process.env.ALLOW_PROD_MIGRATIONS === "true") {
+        console.log("Running Production migrations...");
+        run("npx prisma migrate deploy");
+    } else {
+        console.log("Skipping Production migrations (ALLOW_PROD_MIGRATIONS != true).");
+    }
 
     // Conditional Seeding
-    // if (process.env.SEED_PROD === "true") {
-    console.log("Running Production Seed (Forced)...");
-    run("npm run db:seed:dev");
-    // }
+    if (process.env.SEED_PROD === "true") {
+        console.log("Running Production Seed...");
+        run("npm run db:seed:dev");
+    }
 }
 
 // Build Next

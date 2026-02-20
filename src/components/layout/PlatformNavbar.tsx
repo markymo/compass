@@ -14,8 +14,8 @@ export function PlatformNavbar({ isSystemAdmin = false }: PlatformNavbarProps) {
             <div className="container mx-auto flex h-20 items-center justify-between px-4 md:px-6">
                 <div className="flex items-center gap-8">
                     <Link href="/app" className="flex items-center gap-1">
-                        <span className="text-xl font-bold tracking-tight text-slate-900 font-sans">
-                            ONpro<span className="text-amber-500 text-2xl leading-none">.</span>
+                        <span className="text-xl font-bold tracking-tight text-slate-900 font-sans flex items-baseline gap-1">
+                            ONpro<span className="inline-block w-2.5 h-2.5 bg-amber-500" />
                         </span>
                     </Link>
                 </div>

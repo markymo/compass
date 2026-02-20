@@ -1,5 +1,6 @@
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
+//comment for deploy
 
 export default function About() {
     return (
@@ -51,7 +52,7 @@ export default function About() {
                                         Rob brings over 20 years of experience in derivatives markets to ONpro, with a specialized focus on infrastructure, structured trade, and export finance.
                                     </p>
                                     <p>
-                                        Before establishing Riskbridge in 2017, Rob was a Managing Director at <strong>Chatham Financial</strong>, where he founded and led the Global Infrastructure and Project Finance Advisory Team. Previously, as a Director at <strong>Barclays Capital</strong>, he led derivatives coverage for the Infrastructure and PFI/PPP sectors.
+                                        Before establishing Riskbridge in 2017, Rob was a Managing Director at <strong>Chatham Financial</strong>, where he founded and led the Global Infrastructure and Project Finance Advisory Team. Previously, as a Director at <strong>Barclays Capital</strong>, he led derivatives coverage for the Infrastructure and PFI/PPP sectors..
                                     </p>
                                     <p>
                                         He has overseen hedging processes for more than <strong>£40bn</strong> of infrastructure debt issuance, executing some of the largest trades in the market. It is this deep operational experience that drives the ONpro mission: to eliminate the administrative overhead that burdens modern capital markets.

@@ -40,10 +40,10 @@ import {
 } from "@/actions/questionnaire";
 import { ExtractedItem } from "@/actions/ai-mapper";
 
-// We don't use the steps anymore
 // import { ExtractTextStep } from "./extract-text-step";
 // import { ParseStructureStep } from "./parse-structure-step";
-import { MappingWorkbench } from "./mapping-workbench";
+// import { MappingWorkbench } from "./mapping-workbench";
+import { QuestionnaireMapper } from "@/components/client/engagement/questionnaire-mapper";
 
 interface QuestionnaireManagerProps {
     questionnaire: any;
@@ -394,24 +394,10 @@ export function QuestionnaireManager({ questionnaire: initialQ, masterFields }: 
                 ) : (
                     // The Mapping Workbench fills the area
                     <div className="flex-1 overflow-hidden h-full">
-                        <MappingWorkbench
-                            items={items}
-                            masterFields={masterFields}
-                            onUpdateItem={(idx, field, val) => {
-                                const newItems = [...items];
-                                newItems[idx] = { ...newItems[idx], [field]: val };
-                                setItems(newItems);
-                            }}
-                            onAddItem={() => {
-                                const newItem: any = {
-                                    type: "QUESTION",
-                                    originalText: "New Question",
-                                    confidence: 0,
-                                    order: items.length + 1,
-                                    category: "CORE",
-                                };
-                                setItems([...items, newItem]);
-                            }}
+                        <QuestionnaireMapper
+                            questionnaireId={questionnaire.id}
+                            onBack={() => router.push('/app/admin/questionnaires')}
+                            standingData={undefined}
                         />
                     </div>
                 )}

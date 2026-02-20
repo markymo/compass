@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { FileText, ArrowRight, Building2 } from "lucide-react";
+import { FileText, ArrowRight } from "lucide-react";
 import Link from "next/link";
 
 import { CreateManualDialog } from "@/components/admin/create-manual-dialog";
@@ -31,7 +31,6 @@ export default async function AdminQuestionnairesPage() {
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead>Institution</TableHead>
                                 <TableHead>Name</TableHead>
                                 <TableHead>Status</TableHead>
                                 <TableHead>Mapping</TableHead>
@@ -48,12 +47,6 @@ export default async function AdminQuestionnairesPage() {
                             ) : (
                                 questionnaires.map((q) => (
                                     <TableRow key={q.id}>
-                                        <TableCell>
-                                            <div className="flex items-center gap-2">
-                                                <Building2 className="h-4 w-4 text-slate-500" />
-                                                {q.fiOrg.name}
-                                            </div>
-                                        </TableCell>
                                         <TableCell>
                                             <div className="font-medium">{q.name}</div>
                                             <div className="text-xs text-muted-foreground">{q.fileName}</div>
