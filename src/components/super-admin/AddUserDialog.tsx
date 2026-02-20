@@ -28,7 +28,7 @@ export function AddUserDialog({ clientId, onSuccess }: AddUserDialogProps) {
     const [loading, setLoading] = useState(false);
     const [email, setEmail] = useState("");
     const [name, setName] = useState("");
-    const [role, setRole] = useState("MEMBER");
+    const [role, setRole] = useState("ORG_MEMBER");
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
@@ -48,7 +48,7 @@ export function AddUserDialog({ clientId, onSuccess }: AddUserDialogProps) {
             setOpen(false);
             setEmail("");
             setName("");
-            setRole("MEMBER");
+            setRole("ORG_MEMBER");
             onSuccess();
         } else {
             toast.error(res.error || "Failed to add user");
@@ -106,8 +106,8 @@ export function AddUserDialog({ clientId, onSuccess }: AddUserDialogProps) {
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="MEMBER">Member (Lobby Only)</SelectItem>
-                                <SelectItem value="ADMIN">Client Admin</SelectItem>
+                                <SelectItem value="ORG_MEMBER">Member (Lobby Only)</SelectItem>
+                                <SelectItem value="ORG_ADMIN">Client Admin</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>

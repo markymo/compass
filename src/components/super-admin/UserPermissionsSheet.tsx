@@ -59,7 +59,7 @@ export function UserPermissionsSheet({ isOpen, onClose, user, clientName, client
     }
 
     // Checking effective permissions for warnings
-    const isClientAdmin = user.clientRole === "ADMIN";
+    const isClientAdmin = user.clientRole === "ORG_ADMIN";
 
     return (
         <Sheet open={isOpen} onOpenChange={(o) => !o && onClose()}>
@@ -91,8 +91,8 @@ export function UserPermissionsSheet({ isOpen, onClose, user, clientName, client
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="NONE">No Direct Access</SelectItem>
-                                    <SelectItem value="MEMBER">Member (Lobby)</SelectItem>
-                                    <SelectItem value="ADMIN">Admin (Keymaster)</SelectItem>
+                                    <SelectItem value="ORG_MEMBER">Member (Lobby)</SelectItem>
+                                    <SelectItem value="ORG_ADMIN">Admin (Keymaster)</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
@@ -140,11 +140,8 @@ export function UserPermissionsSheet({ isOpen, onClose, user, clientName, client
                                                     </SelectTrigger>
                                                     <SelectContent>
                                                         <SelectItem value="NONE">No Access</SelectItem>
-                                                        <SelectItem value="VIEWER">Viewer</SelectItem>
-                                                        <SelectItem value="EDITOR">Editor</SelectItem>
-                                                        {/* Optional: LE Admin? For now just Editor/Viewer map to Member */}
-                                                        {/* Our backend only stores role string. "Member" usually implies edit effectively in current simplistic model. */}
-                                                        <SelectItem value="MEMBER">Member</SelectItem>
+                                                        <SelectItem value="LE_USER">Viewer / User</SelectItem>
+                                                        <SelectItem value="LE_ADMIN">LE Admin / Editor</SelectItem>
                                                     </SelectContent>
                                                 </Select>
                                             </div>

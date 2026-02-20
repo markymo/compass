@@ -29,7 +29,7 @@ export async function createFI(name: string) {
             memberships: {
                 create: {
                     userId,
-                    role: "ADMIN"
+                    role: "ORG_ADMIN"
                 }
             }
         }

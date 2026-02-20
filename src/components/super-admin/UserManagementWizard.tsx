@@ -104,7 +104,7 @@ export function UserManagementWizard() {
                                                 </TableCell>
                                                 <TableCell>
                                                     {u.clientRole ? (
-                                                        <Badge variant={u.clientRole === 'ADMIN' ? 'default' : 'secondary'}>
+                                                        <Badge variant={u.clientRole === 'ORG_ADMIN' ? 'default' : 'secondary'}>
                                                             {u.clientRole}
                                                         </Badge>
                                                     ) : (
@@ -116,7 +116,7 @@ export function UserManagementWizard() {
                                                         <Badge variant="outline">{leCount} Entities</Badge>
                                                         {leCount > 0 && (
                                                             <span className="text-xs text-muted-foreground">
-                                                                {Object.values(u.leRoles).includes("EDITOR") || Object.values(u.leRoles).includes("ADMIN") ? "Has Edit Rights" : "View Only"}
+                                                                {Object.values(u.leRoles).includes("LE_ADMIN") ? "Has Edit Rights" : "View Only"}
                                                             </span>
                                                         )}
                                                     </div>

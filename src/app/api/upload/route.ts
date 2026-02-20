@@ -20,7 +20,7 @@ export async function POST(request: Request): Promise<NextResponse> {
                 // For now, we trust authenticated users
 
                 return {
-                    allowedContentTypes: ['application/pdf', 'image/jpeg', 'image/png'],
+                    allowedContentTypes: ['application/pdf', 'image/jpeg', 'image/png', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain'],
                     tokenPayload: JSON.stringify({
                         userId,
                         clientPayload

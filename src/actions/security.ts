@@ -85,7 +85,7 @@ export async function canManageQuestionnaire(questionnaireId: string) {
     const userClientMemberships = await prisma.membership.findMany({
         where: {
             userId: identity.userId,
-            role: "ADMIN",
+            role: "ORG_ADMIN",
             organization: { types: { has: "CLIENT" } }
         },
         select: { organizationId: true }

@@ -97,14 +97,14 @@ export async function updateUserOrg(targetUserId: string, targetOrgId: string, f
         if (existing) {
             await tx.membership.update({
                 where: { id: existing.id },
-                data: { role: "ADMIN" }
+                data: { role: "ORG_ADMIN" }
             });
         } else {
             await tx.membership.create({
                 data: {
                     userId: targetUserId,
                     organizationId: targetOrgId,
-                    role: "ADMIN"
+                    role: "ORG_ADMIN"
                 }
             });
         }
@@ -146,10 +146,51 @@ export async function getAllQuestionnaires() {
             createdAt: true,
             mappings: true,
             fileName: true,
+            fileUrl: true,
             ownerOrgId: true,
             fiOrg: {
                 select: { name: true }
             }
         }
     });
+}
+
+interface UploadMetadata {
+    name: string;
+    type: string;
+    fileUrl: string;
+    size: number;
+}
+
+// 6. Save Uploaded Source Document Metadata
+export async function uploadSourceDocument(data: UploadMetadata) {
+    const isAdmin = await isSystemAdmin();
+    if (!isAdmin) return { success: false, error: "Unauthorized" };
+
+    if (!data.fileUrl) return { success: false, error: "No file URL provided" };
+
+    try {
+        // 1. Get System Org ID (Default Owner since uploaded by Admin)
+        const sysOrg = await bootstrapSystemOrg();
+
+        // 2. Save File Metadata to Database
+        const questionnaire = await prisma.questionnaire.create({
+            data: {
+                name: data.name.replace(/\.[^/.]+$/, ""), // Strip extension
+                fileName: data.name,
+                fileType: data.type,
+                fileUrl: data.fileUrl,
+                fiOrgId: sysOrg.id, // For now, assign to system
+                ownerOrgId: sysOrg.id,
+                status: "UPLOADED" // Distinct status for raw files
+            }
+        });
+
+        revalidatePath("/app/admin/questionnaires");
+        return { success: true, questionnaireId: questionnaire.id, questionnaireName: questionnaire.name };
+
+    } catch (error: any) {
+        console.error("Upload save failed:", error);
+        return { success: false, error: error.message || "Upload save failed" };
+    }
 }

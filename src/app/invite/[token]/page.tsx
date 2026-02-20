@@ -18,10 +18,12 @@ export default async function InvitationPage({ params }: { params: { token: stri
     // 1. Hash Token for Lookup
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
 
-    // 2. Fetch Invitation
-    const invite = await prisma.invitation.findUnique({
+    // 2. Fetch Invitation — cast to any to handle new polymorphic fields (Prisma client cache lag)
+    const invite = await (prisma.invitation.findUnique as any)({
         where: { tokenHash },
         include: {
+            organization: { select: { name: true } },
+            clientLE: { select: { name: true } },
             fiEngagement: {
                 include: {
                     org: true,
@@ -29,7 +31,7 @@ export default async function InvitationPage({ params }: { params: { token: stri
                 }
             }
         }
-    });
+    }) as any;
 
     // 3. Validate
     const isValid = invite && !invite.revokedAt && !invite.usedAt && new Date() < invite.expiresAt;
@@ -57,10 +59,16 @@ export default async function InvitationPage({ params }: { params: { token: stri
         );
     }
 
-    // Determine correct action based on auth state
+    // Determine context display based on scope type
     const isLoggedIn = !!userId;
-    const orgName = invite.fiEngagement.org.name;
-    const clientLEName = invite.fiEngagement.clientLE.name;
+    const orgName =
+        invite.organization?.name ??
+        invite.fiEngagement?.org?.name ??
+        "Your Organization";
+    const clientLEName =
+        invite.clientLE?.name ??
+        invite.fiEngagement?.clientLE?.name ??
+        null;
 
     return (
         <div className="flex min-h-screen flex-col items-center justify-center bg-slate-50 p-4">

@@ -37,8 +37,15 @@ export function UserNav() {
                     </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => signOut({ callbackUrl: "/" })}>
-                    Log out
+                <DropdownMenuItem asChild>
+                    <a href="/app/account" className="cursor-pointer">Account settings</a>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                    <a href="/app/help" className="cursor-pointer">Help</a>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => signOut({ callbackUrl: "/" })} className="cursor-pointer text-red-600 focus:text-red-600">
+                    Sign out
                 </DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>

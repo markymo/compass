@@ -32,7 +32,7 @@ export function UserPermissionEditor({ profile, userId }: UserPermissionEditorPr
     const [orgSearchOpen, setOrgSearchOpen] = useState(false);
     const [orgSearchResults, setOrgSearchResults] = useState<any[]>([]);
     const [selectedOrg, setSelectedOrg] = useState<any>(null);
-    const [addRole, setAddRole] = useState("MEMBER");
+    const [addRole, setAddRole] = useState("ORG_MEMBER");
     const [adding, setAdding] = useState(false);
 
     // Reset Password State
@@ -219,7 +219,7 @@ export function UserPermissionEditor({ profile, userId }: UserPermissionEditorPr
                                                 <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                             </Button>
                                         </PopoverTrigger>
-                                        <PopoverContent className="p-0 w-[400px]">
+                                        <PopoverContent className="p-0 w-[400px] bg-white dark:bg-slate-950 z-50 shadow-md border">
                                             <Command shouldFilter={false}>
                                                 <CommandInput placeholder="Search clients..." onValueChange={handleSearch} />
                                                 <CommandList>
@@ -254,8 +254,8 @@ export function UserPermissionEditor({ profile, userId }: UserPermissionEditorPr
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="MEMBER">Member (Standard)</SelectItem>
-                                            <SelectItem value="ADMIN">Admin (Full Control)</SelectItem>
+                                            <SelectItem value="ORG_MEMBER">Member (Standard)</SelectItem>
+                                            <SelectItem value="ORG_ADMIN">Admin (Full Control)</SelectItem>
                                         </SelectContent>
                                     </Select>
                                 </div>

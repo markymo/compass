@@ -10,6 +10,8 @@ import { FIELD_DEFINITIONS } from "@/domain/kyc/FieldDefinitions";
 import { getIdentity } from "@/lib/auth";
 import { getUserFIOrg } from "./security";
 import { calculateEngagementMetrics } from "@/lib/metrics-calc";
+import { generateText } from 'ai';
+import { createOpenAI } from '@ai-sdk/openai';
 
 export async function createLegalEntity(data: { name: string; jurisdiction: string; clientOrgId: string }) {
     if (!data.name || !data.clientOrgId) {
@@ -17,10 +19,26 @@ export async function createLegalEntity(data: { name: string; jurisdiction: stri
     }
 
     try {
+        // Fetch Client Org name for AI Prompt
+        const clientOrg = await prisma.organization.findUnique({
+            where: { id: data.clientOrgId },
+            select: { name: true }
+        });
+
+        // Generate preliminary description using AI
+        let aiDescription = null;
+        if (clientOrg) {
+            const descResult = await generateLEDescription(clientOrg.name, data.name);
+            if (descResult.success) {
+                aiDescription = descResult.description;
+            }
+        }
+
         const le = await prisma.clientLE.create({
             data: {
                 name: data.name,
                 jurisdiction: data.jurisdiction,
+                description: aiDescription,
                 status: "ACTIVE",
                 owners: {
                     create: {
@@ -371,7 +389,7 @@ export async function createFIEngagement(clientLEId: string, fiName: string) {
                     memberships: {
                         create: {
                             userId: userId,
-                            role: "ADMIN"
+                            role: "ORG_ADMIN"
                         }
                     }
                 }
@@ -538,4 +556,26 @@ export async function getFullMasterData(clientLEId: string) {
         customData,
         customDefinitions
     };
+}
+
+export async function generateLEDescription(clientOrgName: string, leName: string) {
+    try {
+        const key = process.env.OPENAI_API_KEY;
+        if (!key) throw new Error("Server Misconfiguration: OPENAI_API_KEY is missing.");
+
+        const openai = createOpenAI({ apiKey: key });
+
+        const prompt = `Generate a single, factual, unemotional sentence describing a financial or corporate project involving the client '${clientOrgName}' and the legal entity '${leName}'. If possible, infer or include relevant dates and geography from their names. Do not use marketing speak or subjective terms like 'exciting'. Just state the facts of the relationship/project. Do not include introductory phrases. Just the sentence itself.`;
+
+        const { text } = await generateText({
+            model: openai('gpt-4o'),
+            prompt: prompt,
+            temperature: 0.7 // add a bit of variety
+        });
+
+        return { success: true, description: text.trim().replace(/^"|"$/g, '') }; // Clean up quotes if generated
+    } catch (e: any) {
+        console.error("[generateLEDescription Error]", e);
+        return { success: false, error: e.message };
+    }
 }

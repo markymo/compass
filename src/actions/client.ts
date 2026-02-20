@@ -143,25 +143,8 @@ export async function ensureUserOrg(userId: string, userEmail: string = "") {
         }
     }
 
-    // Creating a default org if NONE exist is arguably still useful for new users to have a playground,
-    // but in Global Context, we might just let them see an empty dashboard with "Create Client" button.
-    // For legacy compatibility, let's keep creating it if they have absolutely nothing, but don't return it.
-
-    const count = await prisma.membership.count({ where: { userId } });
-    if (count === 0) {
-        await prisma.organization.create({
-            data: {
-                name: userEmail ? `${userEmail.split('@')[0]}'s Corp` : "My Demo Client",
-                types: ["CLIENT"],
-                memberships: {
-                    create: {
-                        userId: userId,
-                        role: "ADMIN"
-                    }
-                }
-            }
-        });
-    }
+    // Removed auto-creation of personal organizations for new users.
+    // They will now land on an empty dashboard state until invited to an organization.
 }
 
 
@@ -278,7 +261,7 @@ export async function createClientLE(data: { name: string; jurisdiction: string;
         const adminMemberships = await prisma.membership.findMany({
             where: {
                 userId,
-                role: "ADMIN",
+                role: "ORG_ADMIN",
                 organization: { types: { has: "CLIENT" } }
             },
             select: { organizationId: true }
@@ -1192,59 +1175,10 @@ export async function getLEUsers(leId: string): Promise<LEUser[]> {
     }));
 }
 
-// 13. Invite User to LE
+// 13. Invite User to LE — DEPRECATED: Use inviteUser from src/actions/invitations.ts
+// This shim is kept temporarily for any remaining call sites and delegates to the unified system.
+/** @deprecated Use inviteUser from src/actions/invitations.ts instead. */
 export async function inviteUserToLE(leId: string, email: string, role: string) {
-    try {
-        await ensureAuthorization(Action.LE_MANAGE_USERS, { clientLEId: leId });
-    } catch (e) {
-        return { success: false, error: "Unauthorized: You do not have permission to invite users." };
-    }
-
-    // Role Validation
-    if (!["LE_ADMIN", "LE_USER"].includes(role)) {
-        return { success: false, error: "Invalid role." };
-    }
-
-    // 1. Find or Create User (Placeholder)
-    let user = await prisma.user.findUnique({ where: { email } });
-    if (!user) {
-        const { v4: uuidv4 } = require('uuid');
-        // We create a simpler placeholder if not exists
-        // Ideally use a specialized seed or invite flow, but auto-create works for now
-        user = await prisma.user.create({
-            data: {
-                id: `invite_${uuidv4()}`,
-                email,
-                name: email.split("@")[0]
-            }
-        });
-    }
-
-    // 2. Add Membership (Upsert)
-    // Check if member already
-    const existing = await prisma.membership.findFirst({
-        where: { userId: user.id, clientLEId: leId }
-    });
-
-    if (existing) {
-        if (existing.role === role) {
-            return { success: false, error: "User is already a member with this role." };
-        }
-        // Update role
-        await prisma.membership.update({
-            where: { id: existing.id },
-            data: { role }
-        });
-    } else {
-        await prisma.membership.create({
-            data: {
-                userId: user.id,
-                clientLEId: leId,
-                role
-            }
-        });
-    }
-
-    revalidatePath(`/app/le/${leId}`);
-    return { success: true };
+    const { inviteUser } = await import("@/actions/invitations");
+    return inviteUser({ email, role, clientLEId: leId });
 }

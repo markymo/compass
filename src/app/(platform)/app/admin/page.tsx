@@ -39,13 +39,7 @@ export default async function AdminDashboardPage() {
             color: "text-green-500",
             stat: userCount
         },
-        {
-            title: "Master Schema",
-            description: "Define the core data dictionary",
-            href: "/app/admin/schema",
-            icon: Database,
-            color: "text-purple-500",
-        },
+
         {
             title: "AI Mapper",
             description: "Test and configure document mapping AI",
@@ -61,13 +55,7 @@ export default async function AdminDashboardPage() {
             color: "text-pink-500",
             stat: uniqueQCount
         },
-        {
-            title: "League Tables",
-            description: "View Bank Target Lists (UK/EU)",
-            href: "/app/admin/league-tables",
-            icon: BarChart3,
-            color: "text-indigo-500",
-        },
+
         {
             title: "Demo Room",
             description: "Manage and impersonate demo actors",

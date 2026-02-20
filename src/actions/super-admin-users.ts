@@ -17,10 +17,11 @@ async function ensureAdmin() {
 export async function searchClients(query: string) {
     await ensureAdmin();
 
-    // Find organizations matching query (CLIENT or FI)
+    // Find organizations matching query (CLIENT only)
     const clients = await prisma.organization.findMany({
         where: {
-            name: { contains: query, mode: "insensitive" }
+            name: { contains: query, mode: "insensitive" },
+            types: { has: "CLIENT" }
         },
         take: 10,
         orderBy: { name: 'asc' }
@@ -72,7 +73,7 @@ export async function getClientUsers(clientId: string) {
         if (!userMap.has(m.userId)) {
             userMap.set(m.userId, {
                 user: { id: m.user.id, name: m.user.name, email: m.user.email },
-                clientRole: m.role, // "ADMIN" | "MEMBER"
+                clientRole: m.role, // "ORG_ADMIN" | "ORG_MEMBER"
                 leRoles: {}
             });
         } else {

@@ -69,7 +69,7 @@ export async function getOrganizationDetails(orgId: string) {
 }
 
 // 4. Add Member to Organization (Admin Only)
-export async function addMemberToOrg(orgId: string, email: string, role: "ADMIN" | "MEMBER" | "VIEWER" = "MEMBER") {
+export async function addMemberToOrg(orgId: string, email: string, role: "ORG_ADMIN" | "ORG_MEMBER" = "ORG_MEMBER") {
     const isAdmin = await isSystemAdmin();
     if (!isAdmin) return { success: false, error: "Unauthorized" };
 

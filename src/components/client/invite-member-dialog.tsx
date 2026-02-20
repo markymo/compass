@@ -47,22 +47,30 @@ export function InviteMemberDialog({ orgId }: { orgId: string }) {
         e.preventDefault();
         setLoading(true);
 
-        const res = await inviteUser({
-            email,
-            role: permLevel,
-            organizationId: orgId,
-            clientLEId: undefined, // Legacy field unused
-            clientLEIds: isLeLevel ? selectedLEs : [] // Send array for LE roles
-        });
-
-        setLoading(false);
-        if (res.success) {
-            setOpen(false);
-            setEmail("");
-            setSelectedLEs([]);
-        } else {
-            alert(res.error);
+        if (isOrgLevel) {
+            // Single org-level invite
+            const res = await inviteUser({ email, role: permLevel, organizationId: orgId });
+            setLoading(false);
+            if (res.success) { setOpen(false); setEmail(""); setSelectedLEs([]); }
+            else alert(res.error);
+            return;
         }
+
+        // Multi LE: fire one invite per LE
+        const lesToInvite = selectedLEs.length > 0 ? selectedLEs : [];
+        if (lesToInvite.length === 0) { setLoading(false); return; }
+
+        const results = await Promise.all(
+            lesToInvite.map(leId => inviteUser({ email, role: permLevel, clientLEId: leId }))
+        );
+        setLoading(false);
+
+        const firstError = results.find(r => !r.success);
+        if (firstError) { alert(firstError.error); return; }
+
+        setOpen(false);
+        setEmail("");
+        setSelectedLEs([]);
     }
 
     const toggleLE = (id: string) => {
