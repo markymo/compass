@@ -3,14 +3,16 @@ import prisma from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Users, Building2, Database, Wand2, FileText, AlertCircle, ShieldCheck, BarChart3, UserCheck } from "lucide-react";
 import Link from "next/link";
-import { Badge } from "@/components/ui/badge";
 
 export default async function AdminDashboardPage() {
     // Fetch stats
-    const [userCount, orgCount, draftQCount] = await Promise.all([
+    const [userCount, orgCount, uniqueQCount] = await Promise.all([
         prisma.user.count(),
         prisma.organization.count(),
-        prisma.questionnaire.count({ where: { status: "DRAFT" } })
+        prisma.questionnaire.findMany({ // Get unique questionnaires by name
+            distinct: ['name'],
+            select: { id: true }
+        }).then(qs => qs.length)
     ]);
 
     const cards = [
@@ -57,8 +59,7 @@ export default async function AdminDashboardPage() {
             href: "/app/admin/questionnaires",
             icon: FileText,
             color: "text-pink-500",
-            stat: draftQCount,
-            badge: draftQCount > 0 ? "Pending Mapping" : null
+            stat: uniqueQCount
         },
         {
             title: "League Tables",
@@ -127,11 +128,6 @@ export default async function AdminDashboardPage() {
                                     <div className="text-2xl font-bold text-slate-900 dark:text-white">
                                         {card.stat !== undefined ? card.stat : "-"}
                                     </div>
-                                    {card.badge && (
-                                        <Badge variant="outline" className="text-[10px] bg-red-50 text-red-600 border-red-100 animate-pulse">
-                                            {card.badge}
-                                        </Badge>
-                                    )}
                                 </div>
                                 <CardDescription className="text-xs font-medium text-slate-500 line-clamp-2">
                                     {card.description}

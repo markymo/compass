@@ -174,7 +174,7 @@ export function KanbanBoard({ engagementId, clientLEId, fiName = "Bank", questio
             </div>
 
             <DragDropContext onDragEnd={onDragEnd}>
-                <div className="flex min-h-full gap-6 pb-4 overflow-x-auto">
+                <div className="flex min-h-full gap-4 md:gap-6 pb-4 overflow-x-auto snap-x snap-mandatory px-4 md:px-0">
                     {columns.map((col) => (
                         <KanbanColumn
                             key={col.id}

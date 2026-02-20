@@ -170,13 +170,13 @@ export function EngagementManager({ leId, initialEngagements }: EngagementManage
             <div className="grid gap-4">
                 {engagements.map((eng) => (
                     <Card key={eng.id} className="hover:border-indigo-300 transition-colors group border-slate-200 shadow-sm">
-                        <CardContent className="p-6 flex items-center justify-between">
-                            <div className="flex items-center gap-5">
-                                <div className="h-12 w-12 rounded bg-slate-100 flex items-center justify-center">
-                                    <Building2 className="h-6 w-6 text-slate-400" />
+                        <CardContent className="p-4 md:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div className="flex items-start md:items-center gap-4">
+                                <div className="h-10 w-10 md:h-12 md:w-12 rounded bg-slate-100 flex items-center justify-center shrink-0">
+                                    <Building2 className="h-5 w-5 md:h-6 md:w-6 text-slate-400" />
                                 </div>
-                                <div>
-                                    <h3 className="font-bold text-lg text-slate-900">
+                                <div className="min-w-0">
+                                    <h3 className="font-bold text-base md:text-lg text-slate-900 truncate">
                                         <Link
                                             href={eng.id.startsWith("temp-") ? "#" : `/app/le/${leId}/engagement-new/${eng.id}?tab=overview`}
                                             className="hover:underline hover:text-indigo-600 transition-colors"
@@ -184,10 +184,10 @@ export function EngagementManager({ leId, initialEngagements }: EngagementManage
                                             {typeof eng.org === 'string' ? eng.org : eng.org?.name}
                                         </Link>
                                     </h3>
-                                    <div className="flex items-center gap-2 mt-0.5">
+                                    <div className="flex flex-wrap items-center gap-2 mt-1">
                                         {/* Status Badge */}
                                         <Badge variant="outline" className={cn(
-                                            "text-[10px] uppercase font-bold",
+                                            "text-[10px] uppercase font-bold px-1.5 py-0",
                                             eng.status === 'INVITED' ? "bg-blue-50 text-blue-700 border-blue-200" :
                                                 eng.status === 'CONNECTED' ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
                                                     "bg-slate-100 text-slate-600 border-slate-200"
@@ -195,36 +195,38 @@ export function EngagementManager({ leId, initialEngagements }: EngagementManage
                                             {eng.status === 'PREPARATION' ? 'DRAFT' : eng.status}
                                         </Badge>
 
-                                        <span className="text-slate-400 text-xs">•</span>
+                                        <span className="text-slate-400 text-xs hidden md:inline">•</span>
                                         <span className="text-xs text-slate-500">{eng.questionnaires?.length || 0} Questionnaires</span>
                                     </div>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                                <Link href={eng.id.startsWith("temp-") ? "#" : `/app/le/${leId}/engagement-new/${eng.id}?tab=manage`}>
+
+                            {/* Actions / Buttons */}
+                            <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto pb-1 md:pb-0 no-scrollbar">
+                                <Link href={eng.id.startsWith("temp-") ? "#" : `/app/le/${leId}/engagement-new/${eng.id}?tab=manage`} className="flex-1 md:flex-none">
                                     <Button
                                         variant="ghost"
                                         disabled={eng.id.startsWith("temp-")}
-                                        className="text-slate-600 hover:text-indigo-600 hover:bg-slate-50"
+                                        className="w-full md:w-auto text-slate-600 hover:text-indigo-600 hover:bg-slate-50 text-xs md:text-sm whitespace-nowrap"
                                     >
-                                        Manage Questionnaire(s)
+                                        Manage Qs
                                     </Button>
                                 </Link>
-                                <Link href={eng.id.startsWith("temp-") ? "#" : `/app/le/${leId}/engagement-new/${eng.id}?tab=workbench`}>
+                                <Link href={eng.id.startsWith("temp-") ? "#" : `/app/le/${leId}/engagement-new/${eng.id}?tab=workbench`} className="flex-1 md:flex-none">
                                     <Button
                                         variant="outline"
                                         disabled={eng.id.startsWith("temp-")}
-                                        className="gap-2 group-hover:bg-indigo-50 group-hover:text-indigo-600 group-hover:border-indigo-200"
+                                        className="w-full md:w-auto gap-2 group-hover:bg-indigo-50 group-hover:text-indigo-600 group-hover:border-indigo-200 text-xs md:text-sm whitespace-nowrap"
                                     >
                                         {eng.id.startsWith("temp-") ? (
                                             <>
-                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                                <Loader2 className="h-3 w-3 animate-spin" />
                                                 Creating...
                                             </>
                                         ) : (
                                             <>
-                                                Open Workbench
-                                                <ArrowUpRight className="h-4 w-4" />
+                                                Workbench
+                                                <ArrowUpRight className="h-3 w-3" />
                                             </>
                                         )}
                                     </Button>
@@ -232,7 +234,7 @@ export function EngagementManager({ leId, initialEngagements }: EngagementManage
 
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
                                             <MoreVertical className="h-4 w-4" />
                                         </Button>
                                     </DropdownMenuTrigger>
@@ -260,6 +262,6 @@ export function EngagementManager({ leId, initialEngagements }: EngagementManage
                     </div>
                 )}
             </div>
-        </div>
+        </div >
     );
 }

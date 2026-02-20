@@ -128,7 +128,7 @@ export function EngagementDetailView({ le, engagement, questionnaires, sharedDoc
             )}
 
             <Tabs id="engagement-tabs" defaultValue={initialTab || "workbench"} className="w-full space-y-0">
-                <TabsList className="bg-transparent p-0 flex justify-start h-auto gap-0.5 border-b-0 space-x-1">
+                <TabsList className="bg-transparent p-0 flex justify-start h-auto gap-0.5 border-b-0 space-x-1 overflow-x-auto no-scrollbar mask-fade-right">
                     <TabsTrigger
                         value="overview"
                         className="relative gap-2 px-6 py-3 rounded-t-xl border border-b-0 border-slate-200 bg-slate-50 text-slate-500 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:border-slate-200 data-[state=active]:border-b-white data-[state=active]:-mb-[1px] data-[state=active]:z-10 transition-all shadow-none"
@@ -166,7 +166,7 @@ export function EngagementDetailView({ le, engagement, questionnaires, sharedDoc
                     </TabsTrigger>
                 </TabsList>
 
-                <div className="bg-white border border-slate-200 rounded-b-xl rounded-tr-xl p-8 relative min-h-[600px]">
+                <div className="bg-white border border-slate-200 rounded-b-xl rounded-tr-xl p-0 md:p-8 relative min-h-[600px]">
 
                     <TabsContent value="overview" className="mt-0">
                         <Card>
@@ -263,8 +263,8 @@ export function EngagementDetailView({ le, engagement, questionnaires, sharedDoc
                         />
                     </TabsContent>
 
-                    <TabsContent value="workbench" className="mt-6">
-                        <div className="flex justify-between items-center mb-4">
+                    <TabsContent value="workbench" className="mt-6 md:mt-0 p-4 md:p-0">
+                        <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-4 gap-4">
                             <div className="space-y-1">
                                 <h3 className="text-lg font-medium text-slate-900">Task Board</h3>
                                 <p className="text-sm text-slate-500">Manage questions and track progress</p>
@@ -274,7 +274,7 @@ export function EngagementDetailView({ le, engagement, questionnaires, sharedDoc
                                 Draft Answers for All
                             </Button>
                         </div>
-                        <div className="min-h-[calc(100vh-250px)] w-full border rounded-lg bg-slate-50/50 p-4">
+                        <div className="min-h-[calc(100vh-250px)] w-full md:border md:rounded-lg bg-slate-50/50 md:p-4">
                             <KanbanBoard
                                 key={refreshKey}
                                 engagementId={engagement.id}

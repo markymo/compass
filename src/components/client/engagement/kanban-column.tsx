@@ -14,7 +14,7 @@ interface KanbanColumnProps {
 
 export function KanbanColumn({ id, title, description, tasks, onTaskClick }: KanbanColumnProps) {
     return (
-        <div className="flex flex-col h-full w-[300px] shrink-0">
+        <div className="flex flex-col h-full w-[85vw] md:w-[300px] shrink-0 snap-center snap-always">
             {/* Header */}
             <div className="mb-3 px-1">
                 <div className="flex items-center justify-between">
