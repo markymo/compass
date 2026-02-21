@@ -114,10 +114,10 @@ export function InviteMemberDialog({ orgId }: { orgId: string }) {
                     <div className="space-y-2">
                         <Label>Permission Level</Label>
                         <Select value={permLevel} onValueChange={setPermLevel}>
-                            <SelectTrigger>
+                            <SelectTrigger className="bg-white">
                                 <SelectValue />
                             </SelectTrigger>
-                            <SelectContent>
+                            <SelectContent className="bg-white">
                                 {PERM_LEVELS.map(p => (
                                     <SelectItem key={p.value} value={p.value}>
                                         {p.label}

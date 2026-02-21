@@ -6,6 +6,9 @@ import { getIdentity } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { Action, can } from "@/lib/auth/permissions";
 import { isSystemAdmin } from "@/actions/security";
+import { Resend } from "resend";
+import { render } from "@react-email/render";
+import { TeamInviteEmail } from "@/components/emails/team-invite-email";
 
 // ============================================================================
 // Types
@@ -155,9 +158,39 @@ export async function inviteUser(payload: InvitePayload) {
         },
     });
 
-    // 7. Send email (console mock for now — replace with Resend/SendGrid in prod)
+    // 7. Send invitation email via Resend
     const acceptUrl = `${process.env.NEXT_PUBLIC_APP_URL}/invite/${rawToken}`;
-    console.log(`[INVITE EMAIL]\n  To: ${payload.email}\n  Role: ${payload.role}\n  Scope: ${scopeType}\n  Accept URL: ${acceptUrl}`);
+
+    try {
+        // Resolve human-readable scope label and inviter name for the email
+        let scopeLabel = "ONpro";
+        if (payload.organizationId) {
+            const org = await prisma.organization.findUnique({ where: { id: payload.organizationId }, select: { name: true } });
+            if (org) scopeLabel = org.name;
+        } else if (payload.clientLEId) {
+            const le = await prisma.clientLE.findUnique({ where: { id: payload.clientLEId }, select: { name: true } });
+            if (le) scopeLabel = le.name;
+        } else if (payload.fiEngagementId) {
+            const eng = await prisma.fIEngagement.findUnique({ where: { id: payload.fiEngagementId }, include: { clientLE: { select: { name: true } } } });
+            if (eng) scopeLabel = eng.clientLE.name;
+        }
+
+        const inviter = await prisma.user.findUnique({ where: { id: userId }, select: { name: true, email: true } });
+        const inviterName = inviter?.name || inviter?.email || "A team member";
+
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        const html = await render(TeamInviteEmail({ inviterName, scopeLabel, role: payload.role, inviteLink: acceptUrl, recipientEmail: payload.email }));
+
+        await resend.emails.send({
+            from: "ONpro <noreply@onpro.io>",
+            to: payload.email,
+            subject: `You've been invited to join ${scopeLabel}`,
+            html,
+        });
+    } catch (emailErr) {
+        // Don't fail the whole invite if email delivery fails — log and continue.
+        console.error("[Resend] Failed to send invitation email:", emailErr);
+    }
 
     // Revalidate relevant pages
     if (payload.organizationId) revalidatePath(`/app/clients/${payload.organizationId}/team`);
@@ -249,8 +282,4 @@ export async function revokeInvitation(invitationId: string) {
     return { success: true };
 }
 
-// ============================================================================
-// acceptInvitation — exposed for the accept route but canonical logic
-//   is in accept-invitation.ts; re-export here for convenience.
-// ============================================================================
-export { acceptInvitation } from "@/actions/accept-invitation";
+
