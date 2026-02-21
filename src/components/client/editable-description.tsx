@@ -3,15 +3,18 @@
 
 import { useState, useRef, useEffect } from "react";
 import { updateClientLE } from "@/actions/client";
-import { Pencil, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { generateLEDescription } from "@/actions/client-le";
+import { Pencil, Loader2, CheckCircle2, AlertCircle, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface EditableDescriptionProps {
     leId: string;
     initialValue: string | null;
+    leName?: string;
+    clientOrgName?: string;
 }
 
-export function EditableDescription({ leId, initialValue }: EditableDescriptionProps) {
+export function EditableDescription({ leId, initialValue, leName, clientOrgName }: EditableDescriptionProps) {
     const [isEditing, setIsEditing] = useState(false);
     const [value, setValue] = useState(initialValue || "");
     const [isSaving, setIsSaving] = useState(false);
@@ -42,6 +45,35 @@ export function EditableDescription({ leId, initialValue }: EditableDescriptionP
             if (result.success) {
                 setSaveStatus("success");
                 setIsEditing(false);
+            } else {
+                setSaveStatus("error");
+            }
+        } catch (error) {
+            setSaveStatus("error");
+        } finally {
+            setIsSaving(false);
+            setTimeout(() => setSaveStatus("idle"), 3000);
+        }
+    };
+
+    const handleRefresh = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!leName || !clientOrgName) return;
+
+        setIsSaving(true);
+        setSaveStatus("idle");
+
+        try {
+            const result = await generateLEDescription(clientOrgName, leName);
+            if (result.success && result.description) {
+                setValue(result.description);
+                // Immediately save the generated description
+                const saveResult = await updateClientLE(leId, { description: result.description });
+                if (saveResult.success) {
+                    setSaveStatus("success");
+                } else {
+                    setSaveStatus("error");
+                }
             } else {
                 setSaveStatus("error");
             }
@@ -90,7 +122,23 @@ export function EditableDescription({ leId, initialValue }: EditableDescriptionP
                 <div className="flex items-center gap-2 mt-1">
                     {saveStatus === "success" && <CheckCircle2 className="h-4 w-4 text-green-500" />}
                     {saveStatus === "error" && <AlertCircle className="h-4 w-4 text-red-500" />}
-                    <Pencil className="h-4 w-4 text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+
+                    {/* Only show refresh if we know the names and aren't saving */}
+                    {leName && clientOrgName && !isSaving && (
+                        <button
+                            type="button"
+                            onClick={handleRefresh}
+                            className="p-1 hover:bg-slate-100 rounded text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity"
+                            title="Generate an alternative description with AI"
+                        >
+                            <RefreshCw className="h-3.5 w-3.5" />
+                        </button>
+                    )}
+                    {isSaving && <Loader2 className="h-4 w-4 animate-spin text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />}
+
+                    <button className="p-1 text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Pencil className="h-3.5 w-3.5" />
+                    </button>
                 </div>
             </div>
 

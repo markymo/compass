@@ -62,7 +62,7 @@ export async function onboardClient(data: { name: string, adminEmail: string }) 
             data: {
                 userId: user.id,
                 organizationId: org.id,
-                role: "ADMIN"
+                role: "ORG_ADMIN"
             }
         });
 

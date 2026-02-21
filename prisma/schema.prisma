@@ -59,6 +59,11 @@ model User {
   // Replaced orgRoles with polymorphic memberships
   memberships Membership[]
   
+  // V1 Account Settings
+  jobTitle    String?
+  phone       String?
+  notificationPrefs Json?
+
   comments  Comment[]
   activities QuestionActivity[]
   
@@ -84,7 +89,7 @@ model Organization {
   logoUrl        String?
   description    String?         @db.Text
   status         String          @default("ACTIVE") // ACTIVE, ARCHIVED
-  metadata       Json?           // Flexible store for stats (League Tables etc)
+  metadata       Json?           // Flexible store for stats
   // clientLEs replaced by ownedLEs
   engagements    FIEngagement[]
   fiSchemas      FISchema[]
@@ -97,7 +102,8 @@ model Organization {
   // New Ownership Model
   ownedLEs       ClientLEOwner[]
   
-
+  // Invitation System
+  invitations    Invitation[]
   
   customFieldDefinitions CustomFieldDefinition[]
 }
@@ -208,8 +214,9 @@ model ClientLE {
   // Ownership History (New Multi-Owner Model)
   owners        ClientLEOwner[]
   
+  // Invitation System
+  invitations   Invitation[]
 
-  
   customData    Json?
 }
 
@@ -312,6 +319,7 @@ model Questionnaire {
   fileName         String?
   fileType         String?
   fileContent      Bytes?
+  fileUrl          String?        // For external storage like Vercel Blob
   mappings         Json?
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
@@ -490,30 +498,41 @@ enum AdminTodoStatus {
 
   // Actually, I can just remove the relation fields in Org/ClientLE.
 
+// POLYMORPHIC INVITATION (Organization | ClientLE | FIEngagement scope)
+// Exactly one scope field must be non-null — enforced in server actions.
 model Invitation {
   id                String   @id @default(uuid())
 
-  fiEngagementId    String
-  fiEngagement      FIEngagement @relation(fields: [fiEngagementId], references: [id], onDelete: Cascade)
+  // ---- Scope (exactly ONE must be non-null) ----
+  organizationId    String?
+  organization      Organization?   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
+  clientLEId        String?
+  clientLE          ClientLE?       @relation(fields: [clientLEId], references: [id], onDelete: Cascade)
+
+  fiEngagementId    String?
+  fiEngagement      FIEngagement?   @relation(fields: [fiEngagementId], references: [id], onDelete: Cascade)
+
+  // ---- Invite details ----
   sentToEmail       String
-  role              String   // e.g. "Contact", "Compliance", "Reviewer"
+  role              String   // e.g. "ORG_ADMIN", "LE_ADMIN", "LE_USER", "SUPPLIER_CONTACT"
 
   tokenHash         String   @unique
   expiresAt         DateTime
+
+  // ---- Lifecycle ----
   usedAt            DateTime?
   revokedAt         DateTime?
+  createdAt         DateTime @default(now())
 
+  // ---- Audit (scalar IDs — FK avoided to prevent cascade complexity) ----
   createdByUserId   String
   acceptedByUserId  String?
 
-  createdAt         DateTime @default(now())
-  
-  // Relations to User for audit? 
-  // User spec didn't strictly ask for FKs to User, just IDs. 
-  // Given "Relationship exists before users", maybe invitedBy is a valid User.
-  // I'll stick to String IDs to avoid circular deps or complex delete cascades for now, unless User spec implied FK. 
-  // "createdByUserId String" suggests scalar.
+  @@index([organizationId])
+  @@index([clientLEId])
+  @@index([fiEngagementId])
+  @@index([sentToEmail])
 }
 
 

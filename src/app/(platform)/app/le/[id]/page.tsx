@@ -30,7 +30,12 @@ export default async function LEDashboardPage({ params }: { params: Promise<{ id
                         </h1>
 
                         <div className="max-w-2xl">
-                            <EditableDescription leId={le.id} initialValue={(le as any).description} />
+                            <EditableDescription
+                                leId={le.id}
+                                initialValue={(le as any).description}
+                                leName={le.name}
+                                clientOrgName={le.owners?.[0]?.party?.name || "Client"}
+                            />
                             <div className="mt-4">
                                 <EditableLEI
                                     leId={le.id}
