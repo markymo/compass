@@ -93,12 +93,22 @@ Prisma has 3 parts:
 
 ### Current state
 
-Your build script is `"build": "prisma generate && next build"`.
+Your current build script is `"build": "prisma generate && next build"`.
 So Vercel currently runs:
 1.  `prisma generate`
 2.  `next build`
 
 …but does not run migrations.
+
+### Target state
+
+Update `package.json` build script to:
+
+```json
+"build": "prisma migrate deploy && next build"
+```
+
+This ensures **every Vercel deploy automatically applies any pending migrations** before the app starts.
 
 ### Target state
 
@@ -246,6 +256,52 @@ Set per environment:
 2.  **Local never has prod credentials.**
 3.  **Runtime DB user cannot do DDL.**
 4.  **Schema changes only via migrations.**
+
+---
+
+## 9b. Current State & One-Time Migration Catch-Up
+
+> [!IMPORTANT]
+> During early dev, we used `prisma db push` for speed. This means our `prisma/migrations/` folder is behind the actual database schema. Before fully adopting the migration workflow, complete these one-time steps.
+
+### Step 1 — Baseline the existing schema as a migration
+
+This creates a migration file that matches the current state of your **dev** database:
+
+```bash
+# From the repo root, with your dev DATABASE_URL active
+npx prisma migrate dev --name baseline_current_schema
+```
+
+Commit the resulting files in `prisma/migrations/`.
+
+### Step 2 — Mark prod as already up-to-date
+
+Prod already has the correct schema (pushed manually via `db push`). Tell Prisma to skip re-applying the baseline:
+
+```bash
+DATABASE_URL="<prod_url>" npx prisma migrate resolve --applied <migration_name>
+```
+
+Where `<migration_name>` is the folder name created in Step 1 (e.g. `20260221120000_baseline_current_schema`).
+
+### Step 3 — Update the build script
+
+In `package.json`:
+```json
+"build": "prisma migrate deploy && next build"
+```
+
+### Going forward — the correct dev loop
+
+| Before (ad-hoc) | Now (disciplined) |
+|---|---|
+| Edit schema → `prisma db push` | Edit schema → `prisma migrate dev --name describe_change` |
+| Commit code | Commit code + `prisma/migrations/` |
+| Deploy → manually run `db push` on prod | Deploy → `migrate deploy` runs automatically in build |
+
+> [!NOTE]
+> `prisma migrate deploy` is **safe and idempotent** — it only applies migrations that haven't been run yet. Running it on every deploy costs ~100ms and prevents the "forgot to migrate prod" problem permanently.
 ## 10. Developer Workflow (The "Golden Path")
 
 ### Daily Work (The "Fiddling" Phase)
@@ -267,10 +323,11 @@ If you want to test something risky without breaking Cloud Dev:
 4.  **Merge**: When happy, merge into `dev`.
 
 ### Shipping to Production
-1.  **Go to GitHub**.
-2.  Open **Pull Request**: `dev` -> `main`.
-3.  **Merge**.
-    *   **Result**: Updates `onpro.tech` (Production).
+1.  **Check for schema changes**: if `prisma/schema.prisma` was modified, ensure `prisma migrate dev` was run locally and the migration files are committed.
+2.  **Go to GitHub**.
+3.  Open **Pull Request**: `dev` → `main`.
+4.  **Merge**.
+    *   **Result**: Vercel runs `prisma migrate deploy && next build`, applies any pending migrations, then deploys. `onpro.tech` is updated automatically.
 
 ## 11. Verification Log
 ### 2026-02-17 Vercel Build Script

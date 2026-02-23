@@ -1,6 +1,7 @@
 import { handleUpload, type HandleUploadBody } from '@vercel/blob/client';
 import { NextResponse } from 'next/server';
 import { getIdentity } from "@/lib/auth";
+import { recordActivity, LEActivityType } from "@/lib/le-activity";
 
 export async function POST(request: Request): Promise<NextResponse> {
     const body = (await request.json()) as HandleUploadBody;
@@ -16,21 +17,28 @@ export async function POST(request: Request): Promise<NextResponse> {
                 }
                 const { userId } = identity;
 
-                // Ideally, check if user has access to the clientLE referenced in clientPayload
-                // For now, we trust authenticated users
-
                 return {
                     allowedContentTypes: ['application/pdf', 'image/jpeg', 'image/png', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain'],
-                    tokenPayload: JSON.stringify({
-                        userId,
-                        clientPayload
-                    }),
+                    tokenPayload: JSON.stringify({ userId, clientPayload }),
                 };
             },
             onUploadCompleted: async ({ blob, tokenPayload }) => {
-                // This is called when upload happens successfully
-                // We can log it or do background processing here
-                console.log('Upload completed:', blob, tokenPayload);
+                try {
+                    const payload = JSON.parse(tokenPayload || "{}");
+                    const { userId } = payload;
+                    const clientData = payload.clientPayload ? JSON.parse(payload.clientPayload) : {};
+                    const leId = clientData?.leId;
+
+                    if (leId && userId) {
+                        recordActivity(leId, userId, LEActivityType.DOC_UPLOADED, {
+                            docName: blob.pathname.split("/").pop() ?? blob.pathname,
+                            blobUrl: blob.url,
+                        });
+                    }
+                    console.log('Upload completed:', blob.pathname);
+                } catch (e) {
+                    console.error('Upload activity log failed:', e);
+                }
             },
         });
 
@@ -38,7 +46,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     } catch (error) {
         return NextResponse.json(
             { error: (error as Error).message },
-            { status: 400 }, // The webhook will retry 5 times automatically if the status code is 500
+            { status: 400 },
         );
     }
 }

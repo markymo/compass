@@ -530,21 +530,24 @@ function FieldSelector({ value, onSelect, customFields, compact = false }: {
         value: `master:${f.fieldNo}`,
         label: f.fieldName,
         type: 'master',
-        meta: `Standard Field ${f.fieldNo}`
+        meta: `Standard Field ${f.fieldNo}`,
+        description: f.notes
     })), []);
 
     const groupOptions = useMemo(() => Object.values(FIELD_GROUPS).map(g => ({
         value: `group:${g.id}`,
         label: g.label,
         type: 'group',
-        meta: 'Composite Field'
+        meta: 'Composite Field',
+        description: g.description
     })), []);
 
     const customOptions = useMemo(() => customFields.map(f => ({
         value: `custom:${f.id}`,
         label: f.label,
         type: 'custom',
-        meta: `Custom Field (${f.dataType})`
+        meta: `Custom Field (${f.dataType})`,
+        description: f.description
     })), [customFields]);
 
     const allOptions = [...groupOptions, ...masterOptions, ...customOptions];
@@ -608,7 +611,11 @@ function FieldSelector({ value, onSelect, customFields, compact = false }: {
 
                         {/* Filter Logic since we disabled default cmdk filtering for custom create logic */}
                         {(() => {
-                            const filtered = allOptions.filter(o => o.label.toLowerCase().includes(search.toLowerCase()) || o.meta.toLowerCase().includes(search.toLowerCase()));
+                            const filtered = allOptions.filter(o =>
+                                o.label.toLowerCase().includes(search.toLowerCase()) ||
+                                o.meta.toLowerCase().includes(search.toLowerCase()) ||
+                                (o.description && o.description.toLowerCase().includes(search.toLowerCase()))
+                            );
                             if (filtered.length === 0) return null;
 
                             return (

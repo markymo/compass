@@ -40,55 +40,99 @@ export function DashboardTree({ items }: DashboardTreeProps) {
     );
 }
 
+const DASHBOARD_GRID = "grid-cols-[minmax(350px,1fr)_100px_repeat(9,80px)]";
+
 function ClientSection({ item }: { item: TreeItemFn }) {
-    // Determine headers based on desktop grid
-    // Grid: [Name(1fr) Role(100px) ...metrics(9x80px)]
+    const [isOpen, setIsOpen] = useState(true);
+
     return (
-        <div className="border rounded-xl bg-white shadow-sm dark:bg-slate-950 dark:border-slate-800 overflow-hidden">
-            {/* Desktop Header - Hidden on Mobile */}
-            <div className="hidden md:grid grid-cols-[minmax(350px,1fr)_100px_repeat(9,80px)] items-center px-4 py-3 bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider dark:bg-slate-900 dark:border-slate-800">
-                <div>{item.name}</div>
-                <div>Role</div>
-                <div className="text-right">No Data</div>
-                <div className="text-right">Prepop</div>
-                <div className="text-right">System</div>
-                <div className="text-right">Drafted</div>
-                <div className="text-right">Approved</div>
-                <div className="text-right">Released</div>
-                <div className="text-right">Ack</div>
-                <div className="text-right">Last Edit</div>
-                <div className="text-right">Target</div>
-            </div>
+        <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+            <div className="border rounded-xl bg-white shadow-sm dark:bg-slate-950 dark:border-slate-800 overflow-hidden">
 
-            {/* Mobile Header - Just the Client Name */}
-            <div className="md:hidden px-4 py-3 bg-slate-50 border-b border-slate-200 font-semibold text-slate-700 dark:bg-slate-900 dark:border-slate-800">
-                {item.name}
-            </div>
+                {/* ── Row 1: Column headers — inside title area, above border ── */}
+                <div className={`hidden md:grid ${DASHBOARD_GRID} items-center px-4 pt-2.5 pb-0.5 bg-slate-50 text-[9px] font-semibold text-slate-400 uppercase tracking-wider dark:bg-slate-900`}>
+                    <div className="pl-[44px]">Name</div>
+                    <div /> {/* empty — badge is inline with name */}
+                    <div className="text-right pr-2">No Data</div>
+                    <div className="text-right pr-2">Prepop</div>
+                    <div className="text-right pr-2">System</div>
+                    <div className="text-right pr-2">Drafted</div>
+                    <div className="text-right pr-2">Approved</div>
+                    <div className="text-right pr-2">Released</div>
+                    <div className="text-right pr-2">Ack</div>
+                    <div className="text-right pr-2">Last Edit</div>
+                    <div className="text-right pr-2">Target</div>
+                </div>
 
-            {/* Tree Rows (Starting with the Client Itself? Or just children? 
-               Usually the "Section" IS the Client. So we should render the Client Row first? 
-               actually, if the section is the client, maybe we just render items.
-               Wait, the previous logic rendered the Client AS a row. 
-               Let's keep rendering the Client as a row, but inside this wrapper?
-               OR, if the section header IS the client info, we might duplicate.
-               
-               Let's stick to the previous recursion: <TreeRow item={item} />
-               But visually, we want the Client Row to look like the "Root".
-            */}
-            <TreeRow item={item} level={0} isRoot={true} />
-        </div>
+                {/* ── Row 2: Client data — clickable, border-b at bottom ── */}
+                <CollapsibleTrigger asChild>
+                    <div className={`hidden md:grid ${DASHBOARD_GRID} items-center px-4 pt-0.5 pb-2.5 bg-slate-50 border-b border-slate-200 cursor-pointer hover:bg-slate-100/70 transition-colors group dark:bg-slate-900 dark:border-slate-800`}>
+                        {/* Name cell — badge lives here, right next to name */}
+                        <div className="flex items-center gap-2 overflow-hidden">
+                            <div className="shrink-0 text-slate-400">
+                                {isOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                            </div>
+                            <Building2 className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                            <Link
+                                href={`/app/clients/${item.id}`}
+                                onClick={e => e.stopPropagation()}
+                                className="font-semibold text-sm text-slate-800 hover:text-indigo-600 hover:underline truncate dark:text-slate-200"
+                            >
+                                {item.name}
+                            </Link>
+                            <RoleBadge role={item.role} />
+                            <span
+                                className="opacity-0 group-hover:opacity-100 transition-opacity duration-100 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] text-indigo-500 bg-white border border-indigo-200 hover:bg-indigo-50 cursor-pointer whitespace-nowrap shrink-0"
+                                onClick={e => e.stopPropagation()}
+                            >
+                                <Plus className="h-2.5 w-2.5" /> LE
+                            </span>
+                        </div>
+                        {/* Role column — empty, badge is already in name cell */}
+                        <div />
+                        {/* Consolidated metrics */}
+                        <MetricCell value={item.metrics.noData} />
+                        <MetricCell value={item.metrics.prepopulated} />
+                        <MetricCell value={item.metrics.systemUpdated} />
+                        <MetricCell value={item.metrics.drafted} />
+                        <MetricCell value={item.metrics.approved} />
+                        <MetricCell value={item.metrics.released} />
+                        <MetricCell value={item.metrics.acknowledged} />
+                        <div className="text-right text-xs text-slate-500 whitespace-nowrap">
+                            {item.metrics.lastEdit ? format(new Date(item.metrics.lastEdit), "dd MMM yy") : "-"}
+                        </div>
+                        <div className="text-right text-xs text-slate-500 whitespace-nowrap">
+                            {item.metrics.targetCompletion ? format(new Date(item.metrics.targetCompletion), "dd MMM yy") : "-"}
+                        </div>
+                    </div>
+                </CollapsibleTrigger>
+
+                {/* ── Mobile header ── */}
+                <CollapsibleTrigger asChild>
+                    <div className="md:hidden px-4 py-3 bg-slate-50 border-b border-slate-200 font-semibold text-slate-700 flex items-center gap-2 cursor-pointer dark:bg-slate-900 dark:border-slate-800 dark:text-slate-200">
+                        {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                        {item.name}
+                    </div>
+                </CollapsibleTrigger>
+
+                {/* ── Children (LE rows) ── */}
+                <CollapsibleContent>
+                    {item.children.map(child => (
+                        <TreeRow key={child.id} item={child} level={1} />
+                    ))}
+                </CollapsibleContent>
+
+            </div>
+        </Collapsible>
     );
 }
+
 
 function TreeRow({ item, level, isRoot = false }: { item: TreeItemFn; level: number; isRoot?: boolean }) {
     const [isOpen, setIsOpen] = useState(level < 2);
     const [showMobileDetails, setShowMobileDetails] = useState(false);
 
     const canExpand = item.children && item.children.length > 0;
-
-    // Mobile: Flex row with Name + Toggle Details
-    // Desktop: Grid
-    const desktopGrid = "md:grid md:grid-cols-[minmax(350px,1fr)_100px_repeat(9,80px)]";
 
     return (
         <Collapsible open={isOpen} onOpenChange={setIsOpen}>
@@ -101,7 +145,7 @@ function TreeRow({ item, level, isRoot = false }: { item: TreeItemFn; level: num
                     level === 2 && "bg-orange-50/30 dark:bg-orange-950/10"
                 )}
             >
-                <div className={cn("flex flex-wrap items-center gap-2 p-3 md:px-4 md:py-2", desktopGrid)}>
+                <div className={cn("flex flex-wrap items-center gap-2 p-3 md:px-4 md:py-2 md:grid md:gap-0", DASHBOARD_GRID)}>
 
                     {/* Primary Info (Mobile: Full Width row 1) */}
                     <div className="flex items-center gap-2 overflow-hidden flex-1 md:flex-none" style={{ paddingLeft: `${level * 24}px` }}>
@@ -117,16 +161,25 @@ function TreeRow({ item, level, isRoot = false }: { item: TreeItemFn; level: num
 
                         <RowIcon type={item.type} />
 
-                        {item.type === "CLIENT" ? (
-                            <Link href={`/app/clients/${item.id}`} className="truncate hover:underline hover:text-blue-600 cursor-pointer text-sm font-medium" title={item.name}>
+                        {item.type === "LE" ? (
+                            <>
+                                <Link href={`/app/le/${item.id}`} className="truncate hover:underline hover:text-blue-600 cursor-pointer text-sm font-medium" title={item.name}>
+                                    {item.name}
+                                    {item.metadata?.status === "ARCHIVED" && (
+                                        <span className="ml-2 text-xs text-slate-400 italic no-underline">(archived)</span>
+                                    )}
+                                </Link>
+                                <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-100 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] text-indigo-500 bg-indigo-50 hover:bg-indigo-100 cursor-pointer whitespace-nowrap shrink-0">
+                                    <Plus className="h-2.5 w-2.5" /> Relationship
+                                </span>
+                            </>
+                        ) : item.type === "ENGAGEMENT" ? (
+                            <Link
+                                href={`/app/le/${item.metadata?.leId}/engagement-new/${item.id}?tab=overview`}
+                                className="truncate hover:underline hover:text-blue-600 cursor-pointer text-sm font-medium"
+                                title={item.name}
+                            >
                                 {item.name}
-                            </Link>
-                        ) : item.type === "LE" ? (
-                            <Link href={`/app/le/${item.id}`} className="truncate hover:underline hover:text-blue-600 cursor-pointer text-sm font-medium" title={item.name}>
-                                {item.name}
-                                {item.metadata?.status === "ARCHIVED" && (
-                                    <span className="ml-2 text-xs text-slate-400 italic no-underline">(archived)</span>
-                                )}
                             </Link>
                         ) : (
                             <span className="truncate text-sm" title={item.name}>
@@ -201,17 +254,7 @@ function TreeRow({ item, level, isRoot = false }: { item: TreeItemFn; level: num
                     <TreeRow key={child.id} item={child} level={level + 1} />
                 ))}
 
-                {/* "Add New" placeholder rows */}
-                {level === 0 && (
-                    <div className="pl-12 py-3 text-xs text-slate-400 hover:text-indigo-600 cursor-pointer flex items-center gap-1 border-b border-slate-100 dark:border-slate-800">
-                        <Plus className="h-3 w-3" /> New Legal Entity
-                    </div>
-                )}
-                {level === 1 && (
-                    <div className="pl-[72px] py-2 text-xs text-slate-400 hover:text-indigo-600 cursor-pointer flex items-center gap-1 border-b border-slate-100 dark:border-slate-800 bg-orange-50/10">
-                        <Plus className="h-3 w-3" /> New Relationship
-                    </div>
-                )}
+
             </CollapsibleContent>
         </Collapsible>
     );

@@ -139,7 +139,7 @@ async function fetchClientChildren(clientNode: TreeItemFn, isAdmin: boolean, use
                 role: role, // Inherits LE role usually
                 metrics: metrics,
                 children: [],
-                metadata: { status: eng.status }
+                metadata: { status: eng.status, leId: le.id }
             };
 
             leNode.children.push(engNode);
