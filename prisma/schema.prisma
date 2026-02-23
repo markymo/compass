@@ -79,6 +79,7 @@ model User {
   isDemoActor     Boolean        @default(false)
   
   assignedQuestions Question[] @relation("AssignedQuestions")
+  leActivities      LEActivity[]
 }
 
 model Organization {
@@ -216,6 +217,9 @@ model ClientLE {
   
   // Invitation System
   invitations   Invitation[]
+
+  // Activity Timeline
+  leActivities  LEActivity[]
 
   customData    Json?
 }
@@ -549,6 +553,26 @@ model AuditLog {
 
   @@index([userId])
   @@index([entityId])
+}
+
+// LE-scoped activity timeline
+// type values: QUESTION_ANSWERED, QUESTION_UPDATED, DOC_UPLOADED, DOC_DELETED,
+//              BANK_INVITED, BANK_CONNECTED, TEAM_MEMBER_INVITED, TEAM_MEMBER_JOINED,
+//              LEI_VERIFIED, REGISTRY_REFRESHED, QUESTIONNAIRE_ASSIGNED, QUESTIONNAIRE_SUBMITTED,
+//              ENGAGEMENT_STATUS_CHANGED, STANDING_DATA_UPDATED
+model LEActivity {
+  id        String    @id @default(uuid())
+  leId      String
+  userId    String
+  type      String    // See type values above
+  details   Json?     // { label, questionId, docName, bankName, role, ... }
+  createdAt DateTime  @default(now())
+
+  clientLE  ClientLE  @relation(fields: [leId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id])
+
+  @@index([leId, createdAt(sort: Desc)])
+  @@index([userId])
 }
 
 // ============================================================================

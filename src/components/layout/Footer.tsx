@@ -12,8 +12,9 @@ export function Footer() {
                         </span>
                     </Link>
                     <p className="max-w-sm text-sm leading-relaxed text-slate-300">
-                        The operating system for corporate debt finance onboarding.
-                        Standardizing the future of capital markets through a single, verifiable source of truth.
+                        The operating system for onboarding.{" "}
+                        Built for compliance.{" "}
+                        Built for long-term trust.
                     </p>
                 </div>
 

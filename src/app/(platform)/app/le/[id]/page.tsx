@@ -3,13 +3,15 @@ import { notFound } from "next/navigation";
 import { EditableDescription } from "@/components/client/editable-description";
 import { EditableLEI } from "@/components/client/editable-lei";
 import { MissionControl } from "@/components/client/mission-control";
+import { getRecentLEActivity } from "@/lib/le-activity";
 
 export default async function LEDashboardPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
 
-    const [data, metrics] = await Promise.all([
+    const [data, metrics, activity] = await Promise.all([
         getClientLEData(id),
-        getDashboardMetrics(id)
+        getDashboardMetrics(id),
+        getRecentLEActivity(id, 15),
     ]);
 
     if (!data) {
@@ -52,6 +54,7 @@ export default async function LEDashboardPage({ params }: { params: Promise<{ id
                                 metrics={metrics}
                                 leId={le.id}
                                 engagements={(le as any).fiEngagements || []}
+                                activity={activity}
                             />
                         ) : (
                             <div className="p-8 text-center border-2 border-dashed border-slate-200 rounded-lg text-slate-500">

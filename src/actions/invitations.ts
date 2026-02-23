@@ -9,6 +9,7 @@ import { isSystemAdmin } from "@/actions/security";
 import { Resend } from "resend";
 import { render } from "@react-email/render";
 import { TeamInviteEmail } from "@/components/emails/team-invite-email";
+import { recordActivity, LEActivityType } from "@/lib/le-activity";
 
 // ============================================================================
 // Types
@@ -190,6 +191,14 @@ export async function inviteUser(payload: InvitePayload) {
     } catch (emailErr) {
         // Don't fail the whole invite if email delivery fails — log and continue.
         console.error("[Resend] Failed to send invitation email:", emailErr);
+    }
+
+    // Fire LEActivity for LE-scoped invites (fire-and-forget)
+    if (payload.clientLEId) {
+        recordActivity(payload.clientLEId, userId, LEActivityType.TEAM_MEMBER_INVITED, {
+            invitedEmail: payload.email,
+            role: payload.role,
+        });
     }
 
     // Revalidate relevant pages

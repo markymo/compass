@@ -95,9 +95,9 @@ export function LEUsersTab({ leId }: LEUsersTabProps) {
                                 <SelectTrigger className="w-[110px] h-9">
                                     <SelectValue />
                                 </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="LE_USER">User</SelectItem>
-                                    <SelectItem value="LE_ADMIN">Admin</SelectItem>
+                                <SelectContent className="bg-white">
+                                    <SelectItem value="LE_USER">LE User</SelectItem>
+                                    <SelectItem value="LE_ADMIN">LE Admin</SelectItem>
                                 </SelectContent>
                             </Select>
                             <Button type="submit" size="sm" disabled={inviting} className="h-9">
@@ -160,7 +160,7 @@ export function LEUsersTab({ leId }: LEUsersTabProps) {
                                             }
                                         >
                                             {user.role === "LE_ADMIN" && <Shield className="h-3 w-3 mr-1" />}
-                                            {user.role.replace("LE_", "")}
+                                            {user.role === "LE_ADMIN" ? "LE Admin" : "LE User"}
                                         </Badge>
                                     </TableCell>
                                     <TableCell>

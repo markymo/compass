@@ -5,6 +5,7 @@ import prisma from "@/lib/prisma";
 import { QuestionStatus } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { generateAIAnswers, learnFromAnswer } from "./ai-autofill";
+import { recordActivity, LEActivityType } from "@/lib/le-activity";
 
 /**
  * Parses the 'extractedContent' JSON of a Questionnaire and creates individual Question records.
@@ -307,6 +308,15 @@ export async function updateAnswer(questionId: string, answer: string) {
             },
             include: { user: true }
         });
+
+        // Fire LEActivity (LE-level timeline)
+        if (clientLEId) {
+            const wasFirstAnswer = !questionData?.answer; // answered fresh
+            recordActivity(clientLEId, userId,
+                wasFirstAnswer ? LEActivityType.QUESTION_ANSWERED : LEActivityType.QUESTION_UPDATED,
+                { questionId, questionText: questionData?.text?.slice(0, 80) }
+            ); // fire-and-forget
+        }
 
         // TRIGGER LEARNING LOOP (Fire and forget, or await?)
         // Let's await to ensure it runs, but wrap in try-catch so it doesn't block success
