@@ -94,6 +94,7 @@ export async function createQuestionnaire(identifier: string | null | undefined,
                 name: name,
                 status: "DIGITIZING", // Async Step 1: Start as "Digitizing"
                 fiEngagementId: engagementId || null, // Link if provided
+                isTemplate: engagementId ? false : true, // If linked to an engagement, it's an instance. Otherwise, a master template.
                 ...fileData
             },
         });
@@ -818,7 +819,8 @@ async function syncQuestionsToDatabase(id: string, items: any[]) {
                 // NEW: Persist Mapping
                 masterFieldNo: item.masterFieldNo || null,
                 masterQuestionGroupId: item.masterQuestionGroupId || null,
-                customFieldDefinitionId: item.customFieldDefinitionId || null
+                customFieldDefinitionId: item.customFieldDefinitionId || null,
+                prefilledValue: item.prefilledValue || null
             };
         });
 

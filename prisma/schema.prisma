@@ -341,6 +341,7 @@ model Questionnaire {
   ownerOrgId       String?
   ownerOrg         Organization?  @relation("OwnedQuestionnaires", fields: [ownerOrgId], references: [id])
   isGlobal         Boolean        @default(false)
+  isTemplate       Boolean        @default(false)
   versions         QuestionnaireVersion[]
   questions        Question[]
 }
@@ -351,6 +352,7 @@ model Question {
   text            String
   compactText     String?            // Compact version (≤20 chars) for kanban display
   answer          String?            @db.Text
+  prefilledValue  String?            @db.Text
   status          QuestionStatus     @default(DRAFT)
   isLocked        Boolean            @default(false)
   order           Int                @default(0)
