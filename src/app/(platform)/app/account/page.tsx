@@ -1,16 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getAccountSettings, updateAccountSettings } from "@/actions/account";
+import { getAccountSettings, updateAccountSettings, getUserPermissions } from "@/actions/account";
 import { GuideHeader } from "@/components/layout/GuideHeader";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, Shield, User, Bell } from "lucide-react";
+import { Loader2, Shield, User, Bell, Home, Key, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 export default function AccountSettingsPage() {
     const router = useRouter();
@@ -23,6 +24,7 @@ export default function AccountSettingsPage() {
     const [jobTitle, setJobTitle] = useState("");
     const [phone, setPhone] = useState("");
     const [emailEnabled, setEmailEnabled] = useState(true);
+    const [permissions, setPermissions] = useState<any[]>([]);
 
     useEffect(() => {
         async function fetchSettings() {
@@ -42,7 +44,16 @@ export default function AccountSettingsPage() {
             }
             setLoading(false);
         }
+
+        async function fetchPermissions() {
+            const res = await getUserPermissions();
+            if (res.success && res.data) {
+                setPermissions(res.data);
+            }
+        }
+
         fetchSettings();
+        fetchPermissions();
     }, []);
 
     const handleSaveProfile = async (e: React.FormEvent) => {
@@ -81,7 +92,7 @@ export default function AccountSettingsPage() {
         <div className="space-y-6 max-w-4xl mx-auto pb-12">
             <GuideHeader
                 breadcrumbs={[
-                    { label: "My Universe", href: "/app" },
+                    { label: "", href: "/app", icon: Home },
                     { label: "Account Settings" }
                 ]}
             />
@@ -175,6 +186,69 @@ export default function AccountSettingsPage() {
                             </div>
                         </CardContent>
                     </Card>
+
+                    {/* Permissions */}
+                    <Card>
+                        <CardHeader>
+                            <div className="flex items-center gap-2">
+                                <Key className="h-5 w-5 text-blue-500" />
+                                <CardTitle>Permissions</CardTitle>
+                            </div>
+                            <CardDescription>Review your access and roles across the platform.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="p-0">
+                            {permissions.length === 0 ? (
+                                <div className="p-6 text-center text-sm text-muted-foreground italic">
+                                    No specific memberships or permissions found.
+                                </div>
+                            ) : (
+                                <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                                    {permissions.reduce((acc: any[], item: any, index: number) => {
+                                        const prevItem = index > 0 ? permissions[index - 1] : null;
+                                        const showHeader = !prevItem || prevItem.priority !== item.priority;
+
+                                        if (showHeader) {
+                                            acc.push(
+                                                <div key={`header-${item.priority}`} className="bg-slate-50/80 dark:bg-slate-900/80 px-6 py-2 border-y border-slate-100 dark:border-slate-800 first:border-t-0">
+                                                    <h4 className="text-[11px] font-semibold text-slate-500">
+                                                        {item.priority === 1 ? "Clients" :
+                                                            item.priority === 2 ? "Legal Entities" :
+                                                                item.priority === 3 ? "Financial Institutions" : "Other Organizations"}
+                                                    </h4>
+                                                </div>
+                                            );
+                                        }
+
+                                        acc.push(
+                                            <div key={item.id} className="flex items-center justify-between p-4 px-6 hover:bg-slate-50/50 dark:hover:bg-slate-900/50 transition-colors group">
+                                                <div className="space-y-1">
+                                                    <div className="flex items-center gap-2">
+                                                        {item.parentName && (
+                                                            <span className="text-[11px] text-slate-400">
+                                                                {item.parentName}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <Link
+                                                        href={item.href}
+                                                        className="font-medium text-slate-900 dark:text-slate-100 flex items-center gap-1.5 hover:text-indigo-600 transition-colors"
+                                                    >
+                                                        {item.name}
+                                                        <ExternalLink className="h-3 w-3 opacity-30 group-hover:opacity-100 transition-opacity" />
+                                                    </Link>
+                                                </div>
+                                                <div className="px-3 py-1 bg-slate-100 dark:bg-slate-800 rounded text-xs font-mono font-medium text-slate-600 dark:text-slate-400 uppercase">
+                                                    {item.role.replace(/_/g, " ")}
+                                                </div>
+                                            </div>
+                                        );
+                                        return acc;
+                                    }, [])}
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+
 
                 </div>
 

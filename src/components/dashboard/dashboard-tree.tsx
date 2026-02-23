@@ -40,18 +40,34 @@ export function DashboardTree({ items }: DashboardTreeProps) {
     );
 }
 
+const DASHBOARD_GRID = "grid-cols-[minmax(350px,1fr)_100px_repeat(9,80px)]";
+
 function ClientSection({ item }: { item: TreeItemFn }) {
     const [isOpen, setIsOpen] = useState(true);
-    const GRID = "grid-cols-[minmax(350px,1fr)_100px_repeat(9,80px)]";
 
     return (
         <Collapsible open={isOpen} onOpenChange={setIsOpen}>
             <div className="border rounded-xl bg-white shadow-sm dark:bg-slate-950 dark:border-slate-800 overflow-hidden">
 
-                {/* ── Client header row (desktop) — always visible, shows consolidated metrics ── */}
+                {/* ── Row 1: Column headers — inside title area, above border ── */}
+                <div className={`hidden md:grid ${DASHBOARD_GRID} items-center px-4 pt-2.5 pb-0.5 bg-slate-50 text-[9px] font-semibold text-slate-400 uppercase tracking-wider dark:bg-slate-900`}>
+                    <div className="pl-[44px]">Name</div>
+                    <div /> {/* empty — badge is inline with name */}
+                    <div className="text-right pr-2">No Data</div>
+                    <div className="text-right pr-2">Prepop</div>
+                    <div className="text-right pr-2">System</div>
+                    <div className="text-right pr-2">Drafted</div>
+                    <div className="text-right pr-2">Approved</div>
+                    <div className="text-right pr-2">Released</div>
+                    <div className="text-right pr-2">Ack</div>
+                    <div className="text-right pr-2">Last Edit</div>
+                    <div className="text-right pr-2">Target</div>
+                </div>
+
+                {/* ── Row 2: Client data — clickable, border-b at bottom ── */}
                 <CollapsibleTrigger asChild>
-                    <div className={`hidden md:grid ${GRID} items-center px-4 py-2.5 bg-slate-50 border-b border-slate-200 cursor-pointer hover:bg-slate-100/70 transition-colors group dark:bg-slate-900 dark:border-slate-800`}>
-                        {/* Name cell */}
+                    <div className={`hidden md:grid ${DASHBOARD_GRID} items-center px-4 pt-0.5 pb-2.5 bg-slate-50 border-b border-slate-200 cursor-pointer hover:bg-slate-100/70 transition-colors group dark:bg-slate-900 dark:border-slate-800`}>
+                        {/* Name cell — badge lives here, right next to name */}
                         <div className="flex items-center gap-2 overflow-hidden">
                             <div className="shrink-0 text-slate-400">
                                 {isOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
@@ -64,6 +80,7 @@ function ClientSection({ item }: { item: TreeItemFn }) {
                             >
                                 {item.name}
                             </Link>
+                            <RoleBadge role={item.role} />
                             <span
                                 className="opacity-0 group-hover:opacity-100 transition-opacity duration-100 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] text-indigo-500 bg-white border border-indigo-200 hover:bg-indigo-50 cursor-pointer whitespace-nowrap shrink-0"
                                 onClick={e => e.stopPropagation()}
@@ -71,8 +88,8 @@ function ClientSection({ item }: { item: TreeItemFn }) {
                                 <Plus className="h-2.5 w-2.5" /> LE
                             </span>
                         </div>
-                        {/* Role */}
-                        <div><RoleBadge role={item.role} /></div>
+                        {/* Role column — empty, badge is already in name cell */}
+                        <div />
                         {/* Consolidated metrics */}
                         <MetricCell value={item.metrics.noData} />
                         <MetricCell value={item.metrics.prepopulated} />
@@ -89,21 +106,6 @@ function ClientSection({ item }: { item: TreeItemFn }) {
                         </div>
                     </div>
                 </CollapsibleTrigger>
-
-                {/* ── Column label row (desktop) — always visible so numbers stay legible ── */}
-                <div className={`hidden md:grid ${GRID} items-center px-4 py-1 border-b border-slate-100 bg-white text-[9px] font-semibold text-slate-400 uppercase tracking-wider dark:border-slate-800 dark:bg-slate-950`}>
-                    <div className="pl-9">Name</div>
-                    <div>Role</div>
-                    <div className="text-right">No Data</div>
-                    <div className="text-right">Prepop</div>
-                    <div className="text-right">System</div>
-                    <div className="text-right">Drafted</div>
-                    <div className="text-right">Approved</div>
-                    <div className="text-right">Released</div>
-                    <div className="text-right">Ack</div>
-                    <div className="text-right">Last Edit</div>
-                    <div className="text-right">Target</div>
-                </div>
 
                 {/* ── Mobile header ── */}
                 <CollapsibleTrigger asChild>
@@ -125,15 +127,12 @@ function ClientSection({ item }: { item: TreeItemFn }) {
     );
 }
 
+
 function TreeRow({ item, level, isRoot = false }: { item: TreeItemFn; level: number; isRoot?: boolean }) {
     const [isOpen, setIsOpen] = useState(level < 2);
     const [showMobileDetails, setShowMobileDetails] = useState(false);
 
     const canExpand = item.children && item.children.length > 0;
-
-    // Mobile: Flex row with Name + Toggle Details
-    // Desktop: Grid
-    const desktopGrid = "md:grid md:grid-cols-[minmax(350px,1fr)_100px_repeat(9,80px)]";
 
     return (
         <Collapsible open={isOpen} onOpenChange={setIsOpen}>
@@ -146,7 +145,7 @@ function TreeRow({ item, level, isRoot = false }: { item: TreeItemFn; level: num
                     level === 2 && "bg-orange-50/30 dark:bg-orange-950/10"
                 )}
             >
-                <div className={cn("flex flex-wrap items-center gap-2 p-3 md:px-4 md:py-2", desktopGrid)}>
+                <div className={cn("flex flex-wrap items-center gap-2 p-3 md:px-4 md:py-2 md:grid md:gap-0", DASHBOARD_GRID)}>
 
                     {/* Primary Info (Mobile: Full Width row 1) */}
                     <div className="flex items-center gap-2 overflow-hidden flex-1 md:flex-none" style={{ paddingLeft: `${level * 24}px` }}>
@@ -174,6 +173,14 @@ function TreeRow({ item, level, isRoot = false }: { item: TreeItemFn; level: num
                                     <Plus className="h-2.5 w-2.5" /> Relationship
                                 </span>
                             </>
+                        ) : item.type === "ENGAGEMENT" ? (
+                            <Link
+                                href={`/app/le/${item.metadata?.leId}/engagement-new/${item.id}?tab=overview`}
+                                className="truncate hover:underline hover:text-blue-600 cursor-pointer text-sm font-medium"
+                                title={item.name}
+                            >
+                                {item.name}
+                            </Link>
                         ) : (
                             <span className="truncate text-sm" title={item.name}>
                                 {item.name}
