@@ -31,6 +31,12 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
+import {
+    Accordion,
+    AccordionContent,
+    AccordionItem,
+    AccordionTrigger,
+} from "@/components/ui/accordion";
 
 import {
     saveQuestionnaireChanges,
@@ -100,12 +106,6 @@ export function QuestionnaireManager({ questionnaire: initialQ, masterFields }: 
         try {
             // 1. Try Server-Side Text Extraction
             console.log("Attempting server-side extraction...");
-
-            // If we already have rawText, we technically only need to parse it, 
-            // but `extractDetailedContent` is our main robust entry point. 
-            // Ideally, we'd have a `parseOnly` flag, but for now, re-running is safer checksum.
-            // (Future optimization: pass skipExtraction=true)
-            const res = await extractRawText(questionnaire.id);
 
             // Actually, let's just use the robust `extractDetailedContent` which handles the chain
             const chainRes = await extractDetailedContent(questionnaire.id);
@@ -271,42 +271,77 @@ export function QuestionnaireManager({ questionnaire: initialQ, masterFields }: 
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
-                    {/* Document Options */}
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                                <MoreVertical className="w-4 h-4 text-slate-500" />
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                            <DropdownMenuLabel>Document Options</DropdownMenuLabel>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={() => window.open(iframeSrc, '_blank')}>
-                                <Download className="w-4 h-4 mr-2" />
-                                Download Original
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setShowSource(true)}>
-                                <FileSearch className="w-4 h-4 mr-2" />
-                                View Source PDF
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setShowRawText(true)}>
-                                <FileText className="w-4 h-4 mr-2" />
-                                View Extracted Text
-                            </DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
 
-                    <Button
-                        variant={saving ? "secondary" : "default"}
-                        onClick={handleSaveItems}
-                        disabled={saving}
-                        className={saving ? "opacity-80" : ""}
-                    >
-                        {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
-                        Save Progress
-                    </Button>
+
+                    {items.length === 0 && (
+                        <Button
+                            variant={saving ? "secondary" : "default"}
+                            onClick={handleSaveItems}
+                            disabled={saving}
+                            className={saving ? "opacity-80" : ""}
+                        >
+                            {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
+                            {saving ? "Saving..." : "Save Progress"}
+                        </Button>
+                    )}
                 </div>
             </header>
+
+            {/* Digitization Journey Accordion */}
+            <Accordion type="single" collapsible className="w-full flex-none bg-white border-b px-6 shadow-sm z-20">
+                <AccordionItem value="journey" className="border-none">
+                    <AccordionTrigger className="py-3 text-sm font-semibold text-slate-700 hover:no-underline">
+                        Digitization Journey & Source Files
+                    </AccordionTrigger>
+                    <AccordionContent className="pb-4 pt-2 flex flex-col md:flex-row gap-6">
+                        {/* Process Logs */}
+                        <div className="flex-1">
+                            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Process Logs</h4>
+                            <div className="h-40 overflow-y-auto bg-slate-900 rounded-md p-4 font-mono text-[10px] shadow-inner">
+                                {(!questionnaire.processingLogs || questionnaire.processingLogs.length === 0) ? (
+                                    <span className="text-slate-500">No logs available yet.</span>
+                                ) : (
+                                    questionnaire.processingLogs.map((log: any, i: number) => (
+                                        <div key={i} className="mb-1 flex gap-2">
+                                            <span className="text-slate-500 shrink-0">{new Date(log.timestamp).toLocaleTimeString()}</span>
+                                            <span className={
+                                                log.level === 'ERROR' ? 'text-red-400 font-bold' :
+                                                    log.level === 'SUCCESS' ? 'text-emerald-400' : 'text-slate-300'
+                                            }>
+                                                {log.message}
+                                            </span>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Document Actions */}
+                        <div className="w-full md:w-64 flex flex-col gap-2">
+                            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Source Assets</h4>
+                            {hasFile ? (
+                                <>
+                                    <Button variant="outline" size="sm" onClick={() => setShowSource(true)} className="w-full justify-start text-slate-600">
+                                        <FileSearch className="w-4 h-4 mr-2" /> View Source Document
+                                    </Button>
+                                    <Button variant="outline" size="sm" onClick={() => window.open(iframeSrc, '_blank')} className="w-full justify-start text-slate-600">
+                                        <Download className="w-4 h-4 mr-2" /> Download Original
+                                    </Button>
+                                    {rawText && (
+                                        <Button variant="outline" size="sm" onClick={() => setShowRawText(true)} className="w-full justify-start text-slate-600">
+                                            <CheckCircle2 className="w-4 h-4 mr-2" /> View Extracted Text
+                                        </Button>
+                                    )}
+                                </>
+                            ) : (
+                                <div className="text-sm text-slate-500 p-4 border rounded-md border-dashed text-center bg-slate-50">
+                                    No source file attached.
+                                </div>
+                            )}
+                        </div>
+                    </AccordionContent>
+                </AccordionItem>
+            </Accordion>
 
             {/* Main Content: Data First Editor */}
             <main className="flex-1 overflow-hidden flex flex-col relative bg-slate-50">
@@ -332,68 +367,35 @@ export function QuestionnaireManager({ questionnaire: initialQ, masterFields }: 
 
                         <div className="max-w-md text-center">
                             <h2 className="text-lg font-semibold text-slate-800">
-                                {extractionError ? "Digitization Failed" : "Start Digitization"}
+                                {extractionError ? "Digitization Failed" : (hasFile ? "Start Digitization" : "Start Building")}
                             </h2>
                             <p className="text-slate-500 mt-2">
                                 {extractionError
                                     ? `We encountered an issue during extraction. You can retry with the AI or check the raw text.`
-                                    : "We couldn't automatically read this document yet. You can retry the AI extraction or start manually."}
+                                    : (hasFile ? "We couldn't automatically read this document yet. You can retry the AI extraction or start manually." : "Start building your questionnaire by adding your first question.")}
                             </p>
                         </div>
 
-                        {/* Log Display for Debugging */}
-                        {(questionnaire.processingLogs && questionnaire.processingLogs.length > 0) && (
-                            <div className="w-full max-w-lg bg-slate-900 rounded-md p-4 text-left shadow-sm">
-                                <div className="flex items-center justify-between mb-2">
-                                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Process Logs</h4>
-                                    <span className="text-[10px] text-slate-500">Live</span>
-                                </div>
-                                <div className="h-32 overflow-y-auto font-mono text-[10px]">
-                                    {questionnaire.processingLogs.map((log: any, i: number) => (
-                                        <div key={i} className="mb-1 flex gap-2">
-                                            <span className="text-slate-500 shrink-0">{new Date(log.timestamp).toLocaleTimeString()}</span>
-                                            <span className={
-                                                log.level === 'ERROR' ? 'text-red-400 font-bold' :
-                                                    log.level === 'SUCCESS' ? 'text-emerald-400' : 'text-slate-300'
-                                            }>
-                                                {log.message}
-                                            </span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
                         <div className="flex items-center gap-3">
-                            <Button onClick={handleExtractText} variant="default" className="w-[160px]">
-                                <Play className="w-4 h-4 mr-2" />
-                                {extractionError ? "Retry AI" : "Run Extraction"}
-                            </Button>
+                            {hasFile && (
+                                <>
+                                    <Button onClick={handleExtractText} variant="default" className="w-[160px]">
+                                        <Play className="w-4 h-4 mr-2" />
+                                        {extractionError ? "Retry AI" : "Run Extraction"}
+                                    </Button>
 
-                            <span className="text-slate-300 text-sm">or</span>
-
-                            <Button onClick={handleStartManually} variant="secondary">
+                                    <span className="text-slate-300 text-sm">or</span>
+                                </>
+                            )}
+                            <Button onClick={handleStartManually} variant={hasFile ? "secondary" : "default"}>
                                 <Keyboard className="w-4 h-4 mr-2" />
                                 Start Manually
                             </Button>
                         </div>
-
-                        <div className="flex gap-4">
-                            {rawText && (
-                                <Button variant="link" size="sm" onClick={() => setShowRawText(true)} className="text-indigo-600">
-                                    <CheckCircle2 className="w-3 h-3 mr-1" /> View Extracted Text
-                                </Button>
-                            )}
-                            {hasFile && (
-                                <Button variant="link" size="sm" onClick={() => setShowSource(true)} className="text-slate-400">
-                                    View Source PDF
-                                </Button>
-                            )}
-                        </div>
                     </div>
                 ) : (
-                    // The Mapping Workbench fills the area
-                    <div className="flex-1 overflow-hidden h-full">
+                    // The Mapping Workbench fills the area smoothly
+                    <div className="flex-1 pb-12">
                         <QuestionnaireMapper
                             questionnaireId={questionnaire.id}
                             onBack={() => router.push('/app/admin/questionnaires')}

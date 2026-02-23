@@ -113,10 +113,10 @@ export async function getUserPermissions() {
             let scopeLabel = "Organization";
             let priority = 4;
 
-            if (m.organization.types.includes("CLIENT" as any)) {
+            if (m.organization.types?.includes("CLIENT" as any)) {
                 scopeLabel = "Client";
                 priority = 1;
-            } else if (m.organization.types.includes("FI" as any)) {
+            } else if (m.organization.types?.includes("FI" as any)) {
                 scopeLabel = "Financial Institution";
                 priority = 3;
             }

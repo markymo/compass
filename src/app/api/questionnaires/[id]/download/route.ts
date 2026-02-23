@@ -12,8 +12,12 @@ export async function GET(
         where: { id },
     });
 
-    if (!questionnaire || !questionnaire.fileContent) {
+    if (!questionnaire || (!questionnaire.fileContent && !questionnaire.fileUrl)) {
         return new NextResponse("File not found", { status: 404 });
+    }
+
+    if (!questionnaire.fileContent && questionnaire.fileUrl) {
+        return NextResponse.redirect(questionnaire.fileUrl);
     }
 
     // 2. Prepare headers

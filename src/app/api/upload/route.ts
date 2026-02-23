@@ -20,6 +20,7 @@ export async function POST(request: Request): Promise<NextResponse> {
                 return {
                     allowedContentTypes: ['application/pdf', 'image/jpeg', 'image/png', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain'],
                     tokenPayload: JSON.stringify({ userId, clientPayload }),
+                    addRandomSuffix: true,
                 };
             },
             onUploadCompleted: async ({ blob, tokenPayload }) => {

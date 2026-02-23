@@ -10,9 +10,63 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
-import { Loader2, Save, Sparkles, AlertCircle, CheckCircle2, ChevronRight, Search, LayoutList, LayoutTemplate, Check, Plus, Settings } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Loader2, Save, Sparkles, AlertCircle, CheckCircle2, ChevronRight, Search, LayoutList, LayoutTemplate, Check, Plus, Settings, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+
+// --- Inline Text Editor Component ---
+function InlineTextEditor({ value, onSave, className }: { value: string, onSave: (val: string) => void, className?: string }) {
+    const [isEditing, setIsEditing] = useState(false);
+    const [editValue, setEditValue] = useState(value);
+
+    // Sync if external value changes while not editing
+    useEffect(() => {
+        if (!isEditing) setEditValue(value);
+    }, [value, isEditing]);
+
+    const handleSave = () => {
+        setIsEditing(false);
+        if (editValue.trim() && editValue !== value) {
+            onSave(editValue.trim());
+        } else {
+            setEditValue(value); // Revert on empty or unchanged
+        }
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+        if (e.key === 'Enter') handleSave();
+        if (e.key === 'Escape') {
+            setIsEditing(false);
+            setEditValue(value);
+        }
+    };
+
+    if (isEditing) {
+        return (
+            <input
+                autoFocus
+                value={editValue}
+                onChange={(e) => setEditValue(e.target.value)}
+                onBlur={handleSave}
+                onKeyDown={handleKeyDown}
+                className={cn("w-full bg-slate-50 border border-indigo-300 rounded px-2 py-1 outline-none focus:ring-2 focus:ring-indigo-100", className)}
+            />
+        );
+    }
+
+    return (
+        <div
+            onClick={() => setIsEditing(true)}
+            className={cn("cursor-text hover:bg-slate-100/50 rounded px-1 -mx-1 transition-colors group relative", className)}
+            title="Click to edit"
+        >
+            {value}
+            <Pencil className="w-3 h-3 text-slate-300 opacity-0 group-hover:opacity-100 absolute -right-4 top-1" />
+        </div>
+    );
+}
+// ------------------------------------
 
 // Server Actions
 import { saveQuestionnaireChanges, analyzeQuestionnaire, getOrgCustomFields, getQuestionnaireById, createCustomFieldDefinition } from "@/actions/questionnaire";
@@ -89,7 +143,7 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
                 type: "question",
                 text: q.text,
                 originalText: q.originalText || q.text,
-                compactText: q.compactText,
+                compactText: q.compactText || q.text.substring(0, 20),
                 order: q.order,
                 masterFieldNo: q.masterFieldNo,
                 masterQuestionGroupId: q.masterQuestionGroupId,
@@ -186,6 +240,78 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
         }));
     };
 
+    const handleAddQuestion = () => {
+        const newOrder = questions.length > 0 ? Math.max(...questions.map(q => q.order)) + 1 : 1;
+        const newQuestion: any = {
+            id: `temp-${Date.now()}`,
+            text: "New Question",
+            originalText: "New Question",
+            compactText: "New Question",
+            order: newOrder,
+            questionnaireId: questionnaire.id,
+        };
+        setQuestions([...questions, newQuestion]);
+    };
+
+    const handleRemoveQuestion = (id: string) => {
+        setQuestions(prev => {
+            const index = prev.findIndex(q => q.id === id);
+            if (index === -1) return prev;
+
+            const newQuestions = prev.filter(q => q.id !== id);
+
+            // Re-order remaining questions
+            const reordered = newQuestions.map((q, i) => ({
+                ...q,
+                order: i + 1
+            }));
+
+            // If the deleted question was selected, clear selection or select another
+            if (selectedQuestionId === id) {
+                if (reordered.length === 0) {
+                    setSelectedQuestionId('');
+                } else {
+                    const nextToSelect = Math.min(index, reordered.length - 1);
+                    setSelectedQuestionId(reordered[nextToSelect].id);
+                }
+            }
+
+            return reordered;
+        });
+    };
+
+    const handleMoveQuestionUp = (id: string) => {
+        setQuestions(prev => {
+            const index = prev.findIndex(q => q.id === id);
+            if (index <= 0) return prev; // Already at top
+
+            const newQuestions = [...prev];
+            // Swap with previous
+            const temp = newQuestions[index - 1];
+            newQuestions[index - 1] = newQuestions[index];
+            newQuestions[index] = temp;
+
+            // Re-assign orders based on new array position
+            return newQuestions.map((q, i) => ({ ...q, order: i + 1 }));
+        });
+    };
+
+    const handleMoveQuestionDown = (id: string) => {
+        setQuestions(prev => {
+            const index = prev.findIndex(q => q.id === id);
+            if (index === -1 || index >= prev.length - 1) return prev; // Already at bottom
+
+            const newQuestions = [...prev];
+            // Swap with next
+            const temp = newQuestions[index + 1];
+            newQuestions[index + 1] = newQuestions[index];
+            newQuestions[index] = temp;
+
+            // Re-assign orders based on new array position
+            return newQuestions.map((q, i) => ({ ...q, order: i + 1 }));
+        });
+    };
+
     const handleCreateCustomField = async (label: string) => {
         if (!questionnaire?.fiOrgId) return;
         const toastId = toast.loading("Creating field...");
@@ -231,7 +357,7 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
     // ... existing render logic ...
 
     return (
-        <div className="flex flex-col h-[calc(100vh-220px)] border rounded-xl overflow-hidden bg-white shadow-sm">
+        <div className="flex flex-col flex-1 border rounded-xl overflow-hidden bg-white shadow-sm mb-12">
             {/* HEADER */}
             <div className="flex items-center justify-between p-4 border-b bg-slate-50/50">
                 <div className="flex items-center gap-4">
@@ -315,11 +441,12 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
                         </div>
 
                         {/* Table Header */}
-                        <div className="grid grid-cols-[60px_1fr_300px_100px] gap-4 px-6 py-3 bg-slate-50 border-b text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                        <div className="grid grid-cols-[60px_1fr_300px_100px_120px] gap-4 px-6 py-3 bg-slate-50 border-b text-xs font-semibold text-slate-500 uppercase tracking-wider">
                             <div>Order</div>
                             <div>Question Text</div>
                             <div>Mapping</div>
                             <div>Status</div>
+                            <div className="text-right">Actions</div>
                         </div>
 
                         {/* Table Body */}
@@ -336,9 +463,15 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
                                                     null;
 
                                     return (
-                                        <div key={q.id} className="grid grid-cols-[60px_1fr_300px_100px] gap-4 px-6 py-3 items-center hover:bg-white transition-colors group">
+                                        <div key={q.id} className="grid grid-cols-[60px_1fr_300px_100px_120px] gap-4 px-6 py-3 items-center hover:bg-white transition-colors group">
                                             <div className="text-xs text-slate-400 font-mono">#{q.order}</div>
-                                            <div className="text-sm text-slate-700 font-medium line-clamp-2 pr-4">{q.text}</div>
+                                            <div className="text-sm text-slate-700 font-medium pr-8 relative">
+                                                <InlineTextEditor
+                                                    value={q.text || ""}
+                                                    onSave={(newText) => updateQuestion(q.id, { text: newText })}
+                                                    className="line-clamp-2"
+                                                />
+                                            </div>
                                             <div>
                                                 <FieldSelector
                                                     value={mappingValue}
@@ -353,7 +486,7 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
                                                     compact
                                                 />
                                             </div>
-                                            <div className="flex items-center">
+                                            <div className="flex items-center gap-2">
                                                 {isMapped ? (
                                                     <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 gap-1 pl-1 pr-2 py-0.5 h-6">
                                                         <CheckCircle2 className="h-3 w-3" />
@@ -363,9 +496,26 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
                                                     <span className="text-xs text-slate-400 group-hover:text-slate-500">-</span>
                                                 )}
                                             </div>
+                                            <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-slate-600" onClick={() => handleMoveQuestionUp(q.id)}>
+                                                    <ChevronRight className="h-4 w-4 -rotate-90" />
+                                                </Button>
+                                                <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-slate-600" onClick={() => handleMoveQuestionDown(q.id)}>
+                                                    <ChevronRight className="h-4 w-4 rotate-90" />
+                                                </Button>
+                                                <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:text-red-500 hover:bg-red-50" onClick={() => handleRemoveQuestion(q.id)}>
+                                                    <svg width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-4 w-4"><path d="M5.5 1C5.22386 1 5 1.22386 5 1.5C5 1.77614 5.22386 2 5.5 2H9.5C9.77614 2 10 1.77614 10 1.5C10 1.22386 9.77614 1 9.5 1H5.5ZM3 3.5C3 3.22386 3.22386 3 3.5 3H11.5C11.7761 3 12 3.22386 12 3.5C12 3.77614 11.7761 4 11.5 4H11V12C11 12.5523 10.5523 13 10 13H5C4.44772 13 4 12.5523 4 12V4H3.5C3.22386 4 3 3.77614 3 3.5ZM5 4H10V12H5V4Z" fill="currentColor" fillRule="evenodd" clipRule="evenodd"></path></svg>
+                                                </Button>
+                                            </div>
                                         </div>
                                     );
                                 })}
+                            </div>
+                            <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/50">
+                                <Button variant="outline" size="sm" onClick={handleAddQuestion} className="w-full border-dashed border-slate-300 text-slate-500 hover:text-slate-800 hover:border-slate-400 bg-transparent h-10">
+                                    <Plus className="h-4 w-4 mr-2" />
+                                    Add Question Manually
+                                </Button>
                             </div>
                         </div>
                     </div>
@@ -401,19 +551,19 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
                                             >
                                                 {selectedQuestionId === q.id && <div className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-500" />}
                                                 <span className="font-mono text-slate-400 text-xs mt-0.5 opacity-70 w-6 shrink-0">#{q.order}</span>
-                                                <div className="flex-1 min-w-0">
-                                                    <p className={cn("line-clamp-2 leading-relaxed", selectedQuestionId === q.id ? "text-slate-900 font-medium" : "text-slate-600")}>
+                                                <div className="flex-1 min-w-0 pr-16 relative">
+                                                    <p className={cn("line-clamp-2 leading-relaxed transition-all", selectedQuestionId === q.id ? "text-slate-900 font-medium" : "text-slate-600 group-hover:pr-12")}>
                                                         {q.text}
                                                     </p>
                                                     {isMapped && (
                                                         <div className="mt-2 flex items-center gap-2">
-                                                            <Badge variant="secondary" className="h-5 px-1.5 text-[10px] font-normal bg-green-50 text-green-700 border-green-100 gap-1">
+                                                            <Badge variant="secondary" className="h-5 px-1.5 text-[10px] font-normal bg-green-50 text-green-700 border-green-100 gap-1 opacity-90">
                                                                 <CheckCircle2 className="h-3 w-3" />
                                                                 Mapped
                                                             </Badge>
                                                             {q.aiConfidence && (
                                                                 <span className={cn(
-                                                                    "text-[10px]",
+                                                                    "text-[10px] font-medium opacity-80",
                                                                     q.aiConfidence >= 80 ? "text-green-600" : "text-yellow-600"
                                                                 )}>
                                                                     {Math.round(q.aiConfidence)}% match
@@ -422,11 +572,33 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
                                                         </div>
                                                     )}
                                                 </div>
+
+                                                {/* Hover Actions */}
+                                                <div
+                                                    className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center opacity-0 group-hover:opacity-100 transition-all bg-gradient-to-l from-white via-white to-transparent pl-4"
+                                                    onClick={(e) => e.stopPropagation()} /* Prevent row selection when clicking buttons */
+                                                >
+                                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-slate-600" onClick={() => handleMoveQuestionUp(q.id)} title="Move Up">
+                                                        <ChevronRight className="h-3.5 w-3.5 -rotate-90" />
+                                                    </Button>
+                                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-slate-600" onClick={() => handleMoveQuestionDown(q.id)} title="Move Down">
+                                                        <ChevronRight className="h-3.5 w-3.5 rotate-90" />
+                                                    </Button>
+                                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-red-400 hover:text-red-500 hover:bg-red-50 ml-0.5" onClick={() => handleRemoveQuestion(q.id)} title="Delete Question">
+                                                        <svg width="12" height="12" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-3 w-3"><path d="M5.5 1C5.22386 1 5 1.22386 5 1.5C5 1.77614 5.22386 2 5.5 2H9.5C9.77614 2 10 1.77614 10 1.5C10 1.22386 9.77614 1 9.5 1H5.5ZM3 3.5C3 3.22386 3.22386 3 3.5 3H11.5C11.7761 3 12 3.22386 12 3.5C12 3.77614 11.7761 4 11.5 4H11V12C11 12.5523 10.5523 13 10 13H5C4.44772 13 4 12.5523 4 12V4H3.5C3.22386 4 3 3.77614 3 3.5ZM5 4H10V12H5V4Z" fill="currentColor" fillRule="evenodd" clipRule="evenodd"></path></svg>
+                                                    </Button>
+                                                </div>
                                             </button>
                                         );
                                     })}
                                 </div>
                             </ScrollArea>
+                            <div className="p-3 border-t bg-white">
+                                <Button variant="outline" size="sm" onClick={handleAddQuestion} className="w-full border-dashed border-slate-300 text-slate-500 hover:text-slate-800 hover:border-slate-400 bg-transparent">
+                                    <Plus className="h-3.5 w-3.5 mr-2" />
+                                    Add Question
+                                </Button>
+                            </div>
                             {/* Stats Footer */}
                             <div className="p-3 border-t bg-slate-100/50 flex justify-between items-center text-xs text-slate-500 font-medium">
                                 <span>{filteredQuestions.length} Questions</span>
@@ -437,7 +609,7 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
                         {/* RIGHT: EDITOR */}
                         <div className="flex-1 flex flex-col bg-slate-50/30">
                             {selectedQuestion ? (
-                                <div className="flex-1 overflow-y-auto p-8">
+                                <div className="flex-1 overflow-y-auto p-8" >
                                     <div className="max-w-2xl mx-auto space-y-8">
                                         <div className="space-y-4">
                                             <Badge variant="outline" className="bg-white text-slate-500 border-slate-200 shadow-sm">
@@ -445,8 +617,11 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
                                             </Badge>
                                             <div className="space-y-3">
                                                 <Label className="text-slate-500 uppercase text-xs font-bold tracking-wider">Question Text</Label>
-                                                <div className="p-6 bg-white rounded-xl border shadow-sm text-lg font-medium text-slate-900 leading-relaxed">
-                                                    {selectedQuestion.text}
+                                                <div className="p-6 bg-white rounded-xl border shadow-sm text-lg font-medium text-slate-900 leading-relaxed group relative pr-10">
+                                                    <InlineTextEditor
+                                                        value={selectedQuestion.text || ""}
+                                                        onSave={(newText) => updateQuestion(selectedQuestion.id, { text: newText })}
+                                                    />
                                                 </div>
                                             </div>
                                         </div>
@@ -513,176 +688,175 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
             </div>
         </div>
     );
-}
 
-// SUB-COMPONENT: UNIFIED FIELD SELECTOR
-function FieldSelector({ value, onSelect, customFields, compact = false }: {
-    value: string | null,
-    onSelect: (val: string, type: 'master' | 'group' | 'custom' | 'create' | 'clear', label?: string) => void,
-    customFields: any[],
-    compact?: boolean
-}) {
-    const [open, setOpen] = useState(false);
-    const [search, setSearch] = useState("");
+    // SUB-COMPONENT: UNIFIED FIELD SELECTOR
+    function FieldSelector({ value, onSelect, customFields, compact = false }: {
+        value: string | null;
+        onSelect: (val: string, type: 'master' | 'group' | 'custom' | 'create' | 'clear', label?: string) => void;
+        customFields: any[];
+        compact?: boolean;
+    }) {
+        const [open, setOpen] = useState(false);
+        const [search, setSearch] = useState("");
+        // Flatten Options
+        const masterOptions = useMemo(() => Object.values(FIELD_DEFINITIONS).map(f => ({
+            value: `master:${f.fieldNo.toString()}`,
+            label: f.fieldName,
+            type: 'master',
+            meta: `Standard Field ${f.fieldNo}`,
+            description: f.notes
+        })), []);
 
-    // Flatten Options
-    const masterOptions = useMemo(() => Object.values(FIELD_DEFINITIONS).map(f => ({
-        value: `master:${f.fieldNo}`,
-        label: f.fieldName,
-        type: 'master',
-        meta: `Standard Field ${f.fieldNo}`,
-        description: f.notes
-    })), []);
+        const groupOptions = useMemo(() => Object.values(FIELD_GROUPS).map(g => ({
+            value: `group:${g.id}`,
+            label: g.label,
+            type: 'group',
+            meta: 'Composite Field',
+            description: g.description
+        })), []);
 
-    const groupOptions = useMemo(() => Object.values(FIELD_GROUPS).map(g => ({
-        value: `group:${g.id}`,
-        label: g.label,
-        type: 'group',
-        meta: 'Composite Field',
-        description: g.description
-    })), []);
+        const customOptions = useMemo(() => customFields.map(f => ({
+            value: `custom:${f.id}`,
+            label: f.label,
+            type: 'custom',
+            meta: `Custom Field (${f.dataType})`,
+            description: f.description
+        })), [customFields]);
 
-    const customOptions = useMemo(() => customFields.map(f => ({
-        value: `custom:${f.id}`,
-        label: f.label,
-        type: 'custom',
-        meta: `Custom Field (${f.dataType})`,
-        description: f.description
-    })), [customFields]);
+        const allOptions = [...groupOptions, ...masterOptions, ...customOptions];
+        const selectedOption = allOptions.find(o => o.value === value);
 
-    const allOptions = [...groupOptions, ...masterOptions, ...customOptions];
-    const selectedOption = allOptions.find(o => o.value === value);
-
-    return (
-        <Popover open={open} onOpenChange={setOpen}>
-            <PopoverTrigger asChild>
-                <Button
-                    variant="ghost"
-                    role="combobox"
-                    aria-expanded={open}
-                    className={cn(
-                        "w-full justify-between font-normal text-left hover:bg-slate-50",
-                        compact ? "h-8 px-2 py-0" : "h-auto py-3 px-4"
-                    )}
-                >
-                    {selectedOption ? (
-                        <div className={cn("flex items-start gap-0.5 min-w-0 flex-1", compact ? "flex-row items-center gap-2" : "flex-col")}>
-                            <span className={cn("font-medium text-slate-900 truncate", compact ? "text-xs" : "")}>{selectedOption.label}</span>
-                            {!compact && <span className="text-xs text-slate-400">{selectedOption.meta}</span>}
-                        </div>
-                    ) : (
-                        <span className="text-slate-400 truncate">Select field...</span>
-                    )}
-                    <ChevronRight className="ml-2 h-4 w-4 shrink-0 opacity-50 rotate-90" />
-                </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-[400px] p-0 bg-white shadow-xl z-50 max-h-[400px]" align="start">
-                <Command shouldFilter={false} className="max-h-[400px]">
-                    <CommandInput
-                        placeholder="Search fields..."
-                        value={search}
-                        onValueChange={setSearch}
-                    />
-                    <CommandList className="max-h-[360px] overflow-y-auto">
-                        <CommandEmpty className="py-6 text-center text-sm text-slate-500">
-                            <div className="mb-2">No matching fields found.</div>
-                            {search && (
-                                <Button size="sm" variant="secondary" onClick={() => {
-                                    onSelect(search, 'create', search);
-                                    setOpen(false);
-                                    setSearch("");
-                                }}>
-                                    <Plus className="h-3 w-3 mr-2" />
-                                    Create "{search}" as new field
-                                </Button>
-                            )}
-                        </CommandEmpty>
-
-                        {value && (
-                            <CommandGroup>
-                                <CommandItem onSelect={() => { onSelect("", 'clear'); setOpen(false); }}>
-                                    <div className="flex items-center gap-2 text-slate-500">
-                                        <span className="w-4 h-4 flex items-center justify-center border rounded-full text-[10px]">✕</span>
-                                        Clear Selection
-                                    </div>
-                                </CommandItem>
-                            </CommandGroup>
+        return (
+            <Popover open={open} onOpenChange={setOpen}>
+                <PopoverTrigger asChild>
+                    <Button
+                        variant="ghost"
+                        role="combobox"
+                        aria-expanded={open}
+                        className={cn(
+                            "w-full justify-between font-normal text-left hover:bg-slate-50",
+                            compact ? "h-8 px-2 py-0" : "h-auto py-3 px-4"
                         )}
+                    >
+                        {selectedOption ? (
+                            <div className={cn("flex items-start gap-0.5 min-w-0 flex-1", compact ? "flex-row items-center gap-2" : "flex-col")}>
+                                <span className={cn("font-medium text-slate-900 truncate", compact ? "text-xs" : "")}>{selectedOption.label}</span>
+                                {!compact && <span className="text-xs text-slate-400">{selectedOption.meta}</span>}
+                            </div>
+                        ) : (
+                            <span className="text-slate-400 truncate">Select field...</span>
+                        )}
+                        <ChevronRight className="ml-2 h-4 w-4 shrink-0 opacity-50 rotate-90" />
+                    </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[400px] p-0 bg-white shadow-xl z-50 max-h-[400px]" align="start">
+                    <Command shouldFilter={false} className="max-h-[400px]">
+                        <CommandInput
+                            placeholder="Search fields..."
+                            value={search}
+                            onValueChange={setSearch}
+                        />
+                        <CommandList className="max-h-[360px] overflow-y-auto">
+                            <CommandEmpty className="py-6 text-center text-sm text-slate-500">
+                                <div className="mb-2">No matching fields found.</div>
+                                {search && (
+                                    <Button size="sm" variant="secondary" onClick={() => {
+                                        onSelect(search, 'create', search);
+                                        setOpen(false);
+                                        setSearch("");
+                                    }}>
+                                        <Plus className="h-3 w-3 mr-2" />
+                                        Create "{search}" as new field
+                                    </Button>
+                                )}
+                            </CommandEmpty>
 
-                        {/* Filter Logic since we disabled default cmdk filtering for custom create logic */}
-                        {(() => {
-                            const filtered = allOptions.filter(o =>
-                                o.label.toLowerCase().includes(search.toLowerCase()) ||
-                                o.meta.toLowerCase().includes(search.toLowerCase()) ||
-                                (o.description && o.description.toLowerCase().includes(search.toLowerCase()))
-                            );
-                            if (filtered.length === 0) return null;
+                            {value && (
+                                <CommandGroup>
+                                    <CommandItem onSelect={() => { onSelect("", 'clear'); setOpen(false); }}>
+                                        <div className="flex items-center gap-2 text-slate-500">
+                                            <span className="w-4 h-4 flex items-center justify-center border rounded-full text-[10px]">✕</span>
+                                            Clear Selection
+                                        </div>
+                                    </CommandItem>
+                                </CommandGroup>
+                            )}
 
-                            return (
-                                <>
-                                    <CommandGroup heading="Field Groups (Recommended)">
-                                        {filtered.filter(o => o.type === 'group').map(option => (
-                                            <CommandItem
-                                                key={option.value}
-                                                value={option.label}
-                                                onSelect={() => {
-                                                    onSelect(option.value.split(':')[1], 'group');
-                                                    setOpen(false);
-                                                }}
-                                            >
-                                                <Check className={cn("mr-2 h-4 w-4", value === option.value ? "opacity-100" : "opacity-0")} />
-                                                <div className="flex flex-col">
-                                                    <span>{option.label}</span>
-                                                    <span className="text-xs text-slate-400">{option.meta}</span>
-                                                </div>
-                                            </CommandItem>
-                                        ))}
-                                    </CommandGroup>
-                                    <CommandSeparator />
-                                    <CommandGroup heading="Standard Fields">
-                                        {filtered.filter(o => o.type === 'master').map(option => (
-                                            <CommandItem
-                                                key={option.value}
-                                                value={option.label} // Use label for cmdk internal keying
-                                                onSelect={() => {
-                                                    onSelect(option.value.split(':')[1], 'master');
-                                                    setOpen(false);
-                                                }}
-                                            >
-                                                <Check className={cn("mr-2 h-4 w-4", value === option.value ? "opacity-100" : "opacity-0")} />
-                                                <div className="flex flex-col">
-                                                    <span>{option.label}</span>
-                                                    <span className="text-xs text-slate-400">{option.meta}</span>
-                                                </div>
-                                            </CommandItem>
-                                        ))}
-                                    </CommandGroup>
-                                    <CommandSeparator />
-                                    <CommandGroup heading="Custom Fields">
-                                        {filtered.filter(o => o.type === 'custom').map(option => (
-                                            <CommandItem
-                                                key={option.value}
-                                                value={option.label}
-                                                onSelect={() => {
-                                                    onSelect(option.value.split(':')[1], 'custom');
-                                                    setOpen(false);
-                                                }}
-                                            >
-                                                <Check className={cn("mr-2 h-4 w-4", value === option.value ? "opacity-100" : "opacity-0")} />
-                                                <div className="flex flex-col">
-                                                    <span>{option.label}</span>
-                                                    <span className="text-xs text-slate-400">{option.meta}</span>
-                                                </div>
-                                            </CommandItem>
-                                        ))}
-                                    </CommandGroup>
-                                </>
-                            );
-                        })()}
-                    </CommandList>
-                </Command>
-            </PopoverContent>
-        </Popover>
-    );
+                            {/* Filter Logic since we disabled default cmdk filtering for custom create logic */}
+                            {(() => {
+                                const filtered = allOptions.filter(o =>
+                                    o.label.toLowerCase().includes(search.toLowerCase()) ||
+                                    o.meta.toLowerCase().includes(search.toLowerCase()) ||
+                                    (o.description && o.description.toLowerCase().includes(search.toLowerCase()))
+                                );
+                                if (filtered.length === 0) return null;
+
+                                return (
+                                    <>
+                                        <CommandGroup heading="Field Groups (Recommended)">
+                                            {filtered.filter(o => o.type === 'group').map(option => (
+                                                <CommandItem
+                                                    key={option.value}
+                                                    value={option.label}
+                                                    onSelect={() => {
+                                                        onSelect(option.value.split(':')[1], 'group');
+                                                        setOpen(false);
+                                                    }}
+                                                >
+                                                    <Check className={cn("mr-2 h-4 w-4", value === option.value ? "opacity-100" : "opacity-0")} />
+                                                    <div className="flex flex-col">
+                                                        <span>{option.label}</span>
+                                                        <span className="text-xs text-slate-400">{option.meta}</span>
+                                                    </div>
+                                                </CommandItem>
+                                            ))}
+                                        </CommandGroup>
+                                        <CommandSeparator />
+                                        <CommandGroup heading="Standard Fields">
+                                            {filtered.filter(o => o.type === 'master').map(option => (
+                                                <CommandItem
+                                                    key={option.value}
+                                                    value={option.label} // Use label for cmdk internal keying
+                                                    onSelect={() => {
+                                                        onSelect(option.value.split(':')[1], 'master');
+                                                        setOpen(false);
+                                                    }}
+                                                >
+                                                    <Check className={cn("mr-2 h-4 w-4", value === option.value ? "opacity-100" : "opacity-0")} />
+                                                    <div className="flex flex-col">
+                                                        <span>{option.label}</span>
+                                                        <span className="text-xs text-slate-400">{option.meta}</span>
+                                                    </div>
+                                                </CommandItem>
+                                            ))}
+                                        </CommandGroup>
+                                        <CommandSeparator />
+                                        <CommandGroup heading="Custom Fields">
+                                            {filtered.filter(o => o.type === 'custom').map(option => (
+                                                <CommandItem
+                                                    key={option.value}
+                                                    value={option.label}
+                                                    onSelect={() => {
+                                                        onSelect(option.value.split(':')[1], 'custom');
+                                                        setOpen(false);
+                                                    }}
+                                                >
+                                                    <Check className={cn("mr-2 h-4 w-4", value === option.value ? "opacity-100" : "opacity-0")} />
+                                                    <div className="flex flex-col">
+                                                        <span>{option.label}</span>
+                                                        <span className="text-xs text-slate-400">{option.meta}</span>
+                                                    </div>
+                                                </CommandItem>
+                                            ))}
+                                        </CommandGroup>
+                                    </>
+                                );
+                            })()}
+                        </CommandList>
+                    </Command>
+                </PopoverContent>
+            </Popover>
+        );
+    }
 }
 

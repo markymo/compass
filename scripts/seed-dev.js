@@ -20,6 +20,10 @@ async function main() {
     const systemOrg = await ensureOrg('ONpro System', 'SYSTEM', 'onpro.tech');
     const acme = await ensureOrg('Acme Hedge Fund', 'CLIENT', 'acme.com');
     const gsib = await ensureOrg('G-SIB Bank', 'FI', 'gsib.com');
+    const barclays = await ensureOrg('Barclays', 'FI', 'barclays.com');
+    const natwest = await ensureOrg('NatWest Group', 'FI', 'natwest.com');
+    const rabobank = await ensureOrg('Rabobank', 'FI', 'rabobank.com');
+    const fintech = await ensureOrg('Startup Fintech', 'CLIENT', 'fintech.com');
 
     // Load external FIs from CSV if available
     await seedFinancialInstitutionsCSV();
@@ -27,7 +31,7 @@ async function main() {
     // --- 2. Users ---
     console.log('\n--- 2. Users ---');
     const mark = await ensureUser('mark@30gram6.com', 'Mark Lissaman', passwordHash, false);
-    const rob = await ensureUser('ddortonduff@riskbridge.com', 'Rob Dornton-Duff', passwordHash, false);
+    const rob = await ensureUser('rdorntonduff@riskbridge.com', 'Rob Dornton-Duff', passwordHash, false);
     const alice = await ensureUser('demo.alice@example.com', 'Alice Admin (Demo)', passwordHash, true);
     const bob = await ensureUser('demo.bob@example.com', 'Bob Banker (Demo)', passwordHash, true);
     const charlie = await ensureUser('demo.charlie@example.com', 'Charlie Consultant (Demo)', passwordHash, true);
@@ -81,6 +85,18 @@ async function main() {
     const eng1 = await ensureEngagement(fund1.id, gsib.id, 'CONNECTED');
     // Fund 2 <-> G-SIB (Preparation)
     const eng2 = await ensureEngagement(fund2.id, gsib.id, 'PREPARATION');
+
+    // Orsted Engagements
+    const hornsea2 = await prisma.clientLE.findFirst({ where: { name: 'Hornsea 2' } });
+    const southFork = await prisma.clientLE.findFirst({ where: { name: 'South Fork Wind' } });
+    const godeWind = await prisma.clientLE.findFirst({ where: { name: 'Gode Wind 3' } });
+
+    if (hornsea2) await ensureEngagement(hornsea2.id, natwest.id, 'PREPARATION');
+    if (southFork) {
+        await ensureEngagement(southFork.id, barclays.id, 'PREPARATION');
+        await ensureEngagement(southFork.id, rabobank.id, 'PREPARATION');
+    }
+    if (godeWind) await ensureEngagement(godeWind.id, rabobank.id, 'PREPARATION');
 
     // --- 6. Supplier Scenarios ---
     console.log('\n--- 6. Supplier Scenarios ---');

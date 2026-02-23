@@ -489,9 +489,9 @@ export async function extractRawText(id: string, images?: string[]) {
         await appendProcessingLog(id, msg, stage, level);
     };
 
-    if (!q.fileContent) {
+    if (!q.fileContent && !q.fileUrl) {
         if (!images || images.length === 0) {
-            await logger("No file content found to extract.", "INIT", "ERROR");
+            await logger("No file content or URL found to extract.", "INIT", "ERROR");
             return { success: false, error: "NO_FILE", status: "NO_FILE" };
         }
     }
@@ -507,9 +507,20 @@ export async function extractRawText(id: string, images?: string[]) {
         }
 
         // Standard File Processing
-        if (q.fileContent && q.fileType && q.fileName) {
+        let bufferToProcess: Buffer | null = null;
+        if (q.fileContent) {
+            bufferToProcess = Buffer.from(q.fileContent);
+        } else if (q.fileUrl) {
+            await logger(`Downloading file from URL for extraction...`, "INIT");
+            const fetchRes = await fetch(q.fileUrl);
+            if (!fetchRes.ok) throw new Error(`Failed to download file: ${fetchRes.statusText}`);
+            const arrayBuffer = await fetchRes.arrayBuffer();
+            bufferToProcess = Buffer.from(arrayBuffer);
+        }
+
+        if (bufferToProcess && q.fileType && q.fileName) {
             await logger(`Starting text extraction for ${q.fileName}`, "INIT");
-            const processed = await processDocumentBuffer(Buffer.from(q.fileContent), q.fileType, q.fileName, logger);
+            const processed = await processDocumentBuffer(bufferToProcess, q.fileType, q.fileName, logger);
 
             if (processed.type === 'text') {
                 textContent = processed.content as string;
