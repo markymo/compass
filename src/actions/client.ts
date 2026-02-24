@@ -610,6 +610,11 @@ export async function getDashboardMetrics(leId: string) {
                         include: {
                             questions: true // Fetch individual questions for "Closing Tracker"
                         }
+                    },
+                    invitations: true,
+                    activities: {
+                        orderBy: { createdAt: 'asc' },
+                        take: 1
                     }
                 }
             }
@@ -726,12 +731,34 @@ export async function getDashboardMetrics(leId: string) {
             },
             metrics: leMetrics // New Standardized Metrics
         },
-        pipeline: le.fiEngagements.map(e => ({
-            id: e.id,
-            fiName: e.org.name,
-            status: e.status,
-            stats: engagementStats.get(e.id) || { total: 0, answered: 0 }
-        })),
+        pipeline: le.fiEngagements.map(e => {
+            // Find earliest invitation date
+            const earliestInvite = e.invitations.length > 0
+                ? e.invitations.reduce((min: any, inv: any) => inv.createdAt < min.createdAt ? inv : min, e.invitations[0])
+                : null;
+
+            // Find earliest accepted date (usedAt or accepted by user)
+            const acceptedInvites = e.invitations.filter((i: any) => i.usedAt !== null || i.acceptedByUserId !== null);
+            const earliestAccepted = acceptedInvites.length > 0
+                ? acceptedInvites.reduce((min: any, inv: any) => {
+                    const minDate = min.usedAt || min.updatedAt;
+                    const invDate = inv.usedAt || inv.updatedAt;
+                    return invDate < minDate ? inv : min;
+                }, acceptedInvites[0])
+                : null;
+
+            return {
+                id: e.id,
+                fiName: e.org.name,
+                status: e.status,
+                stats: engagementStats.get(e.id) || { total: 0, answered: 0 },
+                isInvited: e.invitations.length > 0,
+                isAccepted: acceptedInvites.length > 0,
+                addedDate: e.activities[0]?.createdAt || null,
+                invitedDate: earliestInvite?.createdAt || null,
+                acceptedDate: earliestAccepted ? (earliestAccepted.usedAt || earliestAccepted.updatedAt) : null
+            };
+        }),
         activity: logs.map(l => ({
             id: l.id,
             action: l.action,
