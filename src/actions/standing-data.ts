@@ -149,3 +149,49 @@ export async function getMasterFieldDocuments(leId: string, fieldKey: string) {
     }
 }
 
+/**
+ * Assign a Master Data field to a user within the ClientLE workspace.
+ */
+export async function setMasterFieldAssignment(leId: string, fieldNo: number, assignedToUserId: string | null) {
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+
+    try {
+        if (!assignedToUserId) {
+            // Unassign
+            await prisma.masterFieldAssignment.deleteMany({
+                where: {
+                    clientLEId: leId,
+                    fieldNo: fieldNo
+                }
+            });
+        } else {
+            // Assign / Reassign
+            await prisma.masterFieldAssignment.upsert({
+                where: {
+                    clientLEId_fieldNo: {
+                        clientLEId: leId,
+                        fieldNo: fieldNo
+                    }
+                },
+                update: {
+                    assignedToUserId,
+                    assignedByUserId: identity.userId,
+                },
+                create: {
+                    clientLEId: leId,
+                    fieldNo: fieldNo,
+                    assignedToUserId,
+                    assignedByUserId: identity.userId,
+                }
+            });
+        }
+
+        revalidatePath(`/app/le/${leId}/master`);
+        return { success: true };
+    } catch (error: any) {
+        console.error("[setMasterFieldAssignment]", error);
+        return { success: false, error: "Failed to set assignment" };
+    }
+}
+

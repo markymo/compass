@@ -92,6 +92,9 @@ export async function populateQuestionsFromExtraction(questionnaireId: string) {
                         status: 'DRAFT' as QuestionStatus,
                         sourceSectionId: item.section || null,
 
+                        // COORDINATOR WORKFLOW: Initially assign to the triggering LE Admin
+                        assignedToUserId: userId,
+
                         // MAP AI FIELDS
                         masterFieldNo: item.masterKey ? parseInt(item.masterKey) : null,
                         masterQuestionGroupId: item.masterQuestionGroupId || null,
@@ -828,6 +831,7 @@ export async function assignQuestion(questionId: string, assignee: { userId?: st
             where: { id: questionId },
             data: {
                 assignedToUserId: assignee?.userId || null,
+                assignedByUserId: actorId, // Audit: who made the assignment
                 assignedEmail: assignee?.email || null
             }
         });
@@ -838,10 +842,11 @@ export async function assignQuestion(questionId: string, assignee: { userId?: st
                 questionId,
                 userId: actorId,
                 type: "ASSIGNED",
+                // @ts-ignore
                 details: {
-                    assignedToUserId: null,
-                    // @ts-ignore
-                    assignedEmail: nullassignee?.email
+                    assignedToUserId: assignee?.userId || null,
+                    assignedByUserId: actorId,
+                    assignedEmail: assignee?.email || null
                 }
             },
             include: { user: true }

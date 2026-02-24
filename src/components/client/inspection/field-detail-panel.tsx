@@ -9,10 +9,18 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
-import { Loader2, History, Database, Edit, CheckCircle, AlertTriangle, Paperclip, FileText, Download, X } from "lucide-react";
+import { Loader2, History, Database, Edit, CheckCircle, AlertTriangle, Paperclip, FileText, Download, X, User as UserIcon } from "lucide-react";
 import { getFieldDetail, FieldDetailData } from "@/actions/kyc-query";
 import { updateFieldManually, applyCandidate, updateCustomFieldManually } from "@/actions/kyc-manual-update";
-import { getMasterFieldDocuments } from "@/actions/standing-data";
+import { getMasterFieldDocuments, setMasterFieldAssignment } from "@/actions/standing-data";
+import { getLETeamMembers } from "@/actions/kanban-actions";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface FieldDetailPanelProps {
     open: boolean;
@@ -38,6 +46,9 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
     const [isLoadingEvidence, setIsLoadingEvidence] = useState(false);
     const [isUploadingEvidence, setIsUploadingEvidence] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    // Team/Assignment State
+    const [team, setTeam] = useState<any[]>([]);
+    const [isAssigning, setIsAssigning] = useState(false);
 
     const fieldKey = String(fieldNo || customFieldId || "");
 
@@ -45,8 +56,16 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
         if (open && (fieldNo || customFieldId)) {
             loadData();
             loadEvidence();
+            loadTeam();
         }
     }, [open, fieldNo, customFieldId, legalEntityId]);
+
+    const loadTeam = async () => {
+        const res = await getLETeamMembers(legalEntityId);
+        if (res.success && res.team) {
+            setTeam(res.team);
+        }
+    };
 
     const loadData = async () => {
         setLoading(true);
@@ -166,19 +185,112 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
         }
     };
 
+    const handleAssign = async (userId: string | null) => {
+        if (customFieldId) {
+            toast.error("Assignments on custom fields are not yet supported.");
+            return;
+        }
+
+        setIsAssigning(true);
+        try {
+            const res = await setMasterFieldAssignment(legalEntityId, fieldNo, userId);
+            if (res.success) {
+                toast.success(userId ? "Field assigned successfully" : "Assignment removed");
+                await loadData();
+            } else {
+                toast.error(res.error || "Failed to assign field");
+            }
+        } catch (e) {
+            toast.error("An error occurred during assignment.");
+        } finally {
+            setIsAssigning(false);
+        }
+    };
+
     if (!open) return null;
 
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
             <SheetContent className="w-[600px] sm:w-[540px] flex flex-col h-full">
-                <SheetHeader className="pb-4 border-b">
-                    <SheetTitle className="flex items-center gap-2">
-                        {fieldName}
-                        {fieldNo > 0 && <Badge variant="outline">Field {fieldNo}</Badge>}
-                    </SheetTitle>
-                    <SheetDescription>
-                        Audit history, candidates, and evidence for {fieldName}.
-                    </SheetDescription>
+                <SheetHeader className="pb-4 border-b flex flex-row items-start justify-between">
+                    <div>
+                        <SheetTitle className="flex items-center gap-2">
+                            {fieldName}
+                            {fieldNo > 0 && <Badge variant="outline">Field {fieldNo}</Badge>}
+                        </SheetTitle>
+                        <SheetDescription>
+                            Audit history, candidates, and evidence for {fieldName}.
+                        </SheetDescription>
+                    </div>
+
+                    {/* Assignment UI */}
+                    <div className="flex items-center mt-1 mr-8">
+                        {isAssigning ? (
+                            <div className="flex items-center px-3 py-1.5 text-xs text-slate-500 gap-2 border rounded-md">
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                Assigning...
+                            </div>
+                        ) : (
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="outline" size="sm" className="h-8 shadow-sm group">
+                                        {data?.assignment?.assignedUser ? (
+                                            <>
+                                                <Avatar className="h-5 w-5 mr-1.5 border">
+                                                    <AvatarFallback className="text-[9px] bg-indigo-50 text-indigo-700 font-semibold">
+                                                        {(data.assignment.assignedUser.name || data.assignment.assignedUser.email || "U").substring(0, 2).toUpperCase()}
+                                                    </AvatarFallback>
+                                                </Avatar>
+                                                <span className="text-xs truncate max-w-[100px] font-medium text-slate-700">
+                                                    {data.assignment.assignedUser.name || data.assignment.assignedUser.email}
+                                                </span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <UserIcon className="h-3.5 w-3.5 mr-1.5 text-slate-400 group-hover:text-slate-700 transition-colors" />
+                                                <span className="text-xs text-slate-500 group-hover:text-slate-800 transition-colors font-medium">Unassigned</span>
+                                            </>
+                                        )}
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-[220px]">
+                                    <div className="px-2 py-1.5 text-xs font-semibold text-slate-500 bg-slate-50 border-b mb-1">Assign to Team Member</div>
+                                    <div className="max-h-[200px] overflow-y-auto">
+                                        <DropdownMenuItem
+                                            className="text-xs py-2 cursor-pointer"
+                                            onClick={() => handleAssign(null)}
+                                        >
+                                            <div className="flex items-center gap-2 text-slate-500">
+                                                <UserIcon className="h-4 w-4" />
+                                                <span>Unassigned</span>
+                                            </div>
+                                        </DropdownMenuItem>
+                                        {team.map((user) => (
+                                            <DropdownMenuItem
+                                                key={user.id}
+                                                className="text-xs py-2 cursor-pointer focus:bg-indigo-50"
+                                                onClick={() => handleAssign(user.id)}
+                                            >
+                                                <div className="flex items-center gap-2 w-full">
+                                                    <Avatar className="h-5 w-5 shrink-0">
+                                                        <AvatarFallback className="text-[9px] bg-slate-100 text-slate-600">
+                                                            {user.name?.substring(0, 2).toUpperCase() || user.email?.substring(0, 2).toUpperCase()}
+                                                        </AvatarFallback>
+                                                    </Avatar>
+                                                    <div className="flex flex-col min-w-0">
+                                                        <span className="font-medium text-slate-900 truncate">{user.name}</span>
+                                                        {(user.name && user.name !== user.email) && (
+                                                            <span className="text-[10px] text-slate-500 truncate">{user.email}</span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </DropdownMenuItem>
+                                        ))}
+                                    </div>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        )}
+                    </div>
                 </SheetHeader>
 
                 <div className="flex-1 overflow-hidden flex flex-col pt-4 gap-4">

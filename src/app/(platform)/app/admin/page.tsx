@@ -1,7 +1,7 @@
 
 import prisma from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Users, Building2, Database, Wand2, FileText, AlertCircle, ShieldCheck, BarChart3, UserCheck } from "lucide-react";
+import { Users, Building2, Database, Wand2, FileText, AlertCircle, ShieldCheck, BarChart3, UserCheck, MessageSquarePlus } from "lucide-react";
 import Link from "next/link";
 
 export default async function AdminDashboardPage() {
@@ -62,6 +62,13 @@ export default async function AdminDashboardPage() {
             href: "/app/admin/demo",
             icon: UserCheck,
             color: "text-amber-600",
+        },
+        {
+            title: "Product Feedback",
+            description: "Review notes from product review sessions",
+            href: "/app/admin/feedback",
+            icon: MessageSquarePlus,
+            color: "text-indigo-600",
         },
     ];
 

@@ -6,6 +6,7 @@ import { UsageTracker } from "@/components/usage-tracker";
 import { AuthSessionProvider } from "@/components/providers/session-provider";
 import { Suspense } from "react";
 import { Toaster } from "@/components/ui/sonner";
+import { DevFeedbackGate } from "@/components/dev/dev-feedback-gate";
 
 const outfit = Outfit({
   variable: "--font-heading",
@@ -43,6 +44,7 @@ export default function RootLayout({
           </Suspense>
           {children}
           <Toaster />
+          <DevFeedbackGate />
         </AuthSessionProvider>
       </body>
     </html>

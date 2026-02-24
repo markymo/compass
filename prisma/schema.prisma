@@ -8,18 +8,18 @@ datasource db {
 }
 
 model Account {
-  id                 String  @id @default(cuid())
-  userId             String
-  type               String
-  provider           String
-  providerAccountId  String
-  refresh_token      String? @db.Text
-  access_token       String? @db.Text
-  expires_at         Int?
-  token_type         String?
-  scope              String?
-  id_token           String? @db.Text
-  session_state      String?
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -43,92 +43,95 @@ model VerificationToken {
 }
 
 model User {
-  id        String       @id @default(uuid())
-  email     String       @unique
-  name      String?
-  description String?    @db.Text
-  createdAt DateTime     @default(now())
-  
+  id          String   @id @default(uuid())
+  email       String   @unique
+  name        String?
+  description String?  @db.Text
+  createdAt   DateTime @default(now())
+
   // Auth.js support
   password      String?
   emailVerified DateTime?
   image         String?
   accounts      Account[]
   sessions      Session[]
-  
+
   // Replaced orgRoles with polymorphic memberships
   memberships Membership[]
-  
+
   // V1 Account Settings
-  jobTitle    String?
-  phone       String?
+  jobTitle          String?
+  phone             String?
   notificationPrefs Json?
 
-  comments  Comment[]
+  comments   Comment[]
   activities QuestionActivity[]
-  
+
   // Admin Todo Relations
-  assignedTodos AdminTodo[] @relation("AssignedTodos")
-  createdTodos  AdminTodo[] @relation("CreatedTodos")
+  assignedTodos AdminTodo[]        @relation("AssignedTodos")
+  createdTodos  AdminTodo[]        @relation("CreatedTodos")
   adminComments AdminTodoComment[]
-  
+
   engagementActivities EngagementActivity[]
-  auditLogs       AuditLog[]
-  
+  auditLogs            AuditLog[]
+
   // Demo Capability
-  isDemoActor     Boolean        @default(false)
-  
-  assignedQuestions Question[] @relation("AssignedQuestions")
-  leActivities      LEActivity[]
+  isDemoActor Boolean @default(false)
+
+  assignedQuestions             Question[]              @relation("AssignedQuestions")
+  questionsAssignedBy           Question[]              @relation("QuestionsAssignedBy")
+  assignedMasterFields          MasterFieldAssignment[] @relation("AssignedMasterFields")
+  masterFieldAssignmentsCreated MasterFieldAssignment[] @relation("MasterFieldAssignmentsCreated")
+  leActivities                  LEActivity[]
 }
 
 model Organization {
-  id             String          @id @default(uuid())
-  name           String
-  types          OrgType[]
-  domain         String?
-  logoUrl        String?
-  description    String?         @db.Text
-  status         String          @default("ACTIVE") // ACTIVE, ARCHIVED
-  metadata       Json?           // Flexible store for stats
+  id                  String          @id @default(uuid())
+  name                String
+  types               OrgType[]
+  domain              String?
+  logoUrl             String?
+  description         String?         @db.Text
+  status              String          @default("ACTIVE") // ACTIVE, ARCHIVED
+  metadata            Json? // Flexible store for stats
   // clientLEs replaced by ownedLEs
-  engagements    FIEngagement[]
-  fiSchemas      FISchema[]
-  questionnaires      Questionnaire[] 
+  engagements         FIEngagement[]
+  fiSchemas           FISchema[]
+  questionnaires      Questionnaire[]
   ownedQuestionnaires Questionnaire[] @relation("OwnedQuestionnaires")
-  
+
   // Replaced members with memberships (Party Scope)
-  memberships    Membership[]
+  memberships Membership[]
 
   // New Ownership Model
-  ownedLEs       ClientLEOwner[]
-  
+  ownedLEs ClientLEOwner[]
+
   // Invitation System
-  invitations    Invitation[]
-  
+  invitations Invitation[]
+
   customFieldDefinitions CustomFieldDefinition[]
 }
 
 // POLYMORPHIC MEMBERSHIP (Party OR Workspace)
 model Membership {
-  id             String        @id @default(uuid())
-  userId         String
-  
+  id     String @id @default(uuid())
+  userId String
+
   // Scope A: Organization (The Party: Client or Supplier)
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id])
-  
+
   // Scope B: ClientLE (The Workspace: Project Company / SPV)
-  clientLEId     String?
-  clientLE       ClientLE?     @relation(fields: [clientLEId], references: [id])
-  
-  role           String        // e.g. "REV_ADMIN", "CONTRIBUTOR", "AID_ADVISOR"
-  permissions    Json?         // Optional granular overrides
-  
-  user           User          @relation(fields: [userId], references: [id])
-  
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  clientLEId String?
+  clientLE   ClientLE? @relation(fields: [clientLEId], references: [id])
+
+  role        String // e.g. "REV_ADMIN", "CONTRIBUTOR", "AID_ADVISOR"
+  permissions Json? // Optional granular overrides
+
+  user User @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // A user can have only one role per scope instance
   @@unique([userId, organizationId, clientLEId])
@@ -154,89 +157,92 @@ model FISchema {
 }
 
 model CustomFieldDefinition {
-  id             String        @id @default(uuid())
-  orgId          String
-  key            String        // Machine-readable key (e.g. "esg_score")
-  label          String        // Human-readable label (e.g. "ESG Score")
-  dataType       String        // "STRING", "NUMBER", "DATE", "BOOLEAN"
-  description    String?
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  id          String   @id @default(uuid())
+  orgId       String
+  key         String // Machine-readable key (e.g. "esg_score")
+  label       String // Human-readable label (e.g. "ESG Score")
+  dataType    String // "STRING", "NUMBER", "DATE", "BOOLEAN"
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  organization   Organization  @relation(fields: [orgId], references: [id])
-  questions      Question[]
+  organization Organization @relation(fields: [orgId], references: [id])
+  questions    Question[]
 
   @@unique([orgId, key])
 }
 
 model StandingDataSection {
-  id        String   @id @default(uuid())
+  id         String   @id @default(uuid())
   clientLEId String
   clientLE   ClientLE @relation(fields: [clientLEId], references: [id], onDelete: Cascade)
-  category  String   // E.g., "CORE", "STRUCTURE", "GEOGRAPHY", etc.
-  content   String   @db.Text // Markdown content
-  updatedAt DateTime @updatedAt
-  
+  category   String // E.g., "CORE", "STRUCTURE", "GEOGRAPHY", etc.
+  content    String   @db.Text // Markdown content
+  updatedAt  DateTime @updatedAt
+
   @@unique([clientLEId, category])
 }
 
 model ClientLE {
-  id           String             @id @default(uuid())
-  name         String
-  description  String?            @db.Text
-  jurisdiction String?
-  status       String             @default("ACTIVE")
-  isDeleted    Boolean            @default(false)
-  createdAt    DateTime           @default(now())
-  updatedAt    DateTime           @updatedAt
-  records      ClientLERecord[]
-  fiEngagements FIEngagement[]
+  id                   String                @id @default(uuid())
+  name                 String
+  description          String?               @db.Text
+  jurisdiction         String?
+  status               String                @default("ACTIVE")
+  isDeleted            Boolean               @default(false)
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  records              ClientLERecord[]
+  fiEngagements        FIEngagement[]
   standingDataSections StandingDataSection[]
-  documents     Document[]
-  
+  documents            Document[]
+
   // LEI & GLEIF Integration
-  lei           String?            @unique
-  gleifData     Json?              // Raw/Canonical response from GLEIF
+  lei            String?   @unique
+  gleifData      Json? // Raw/Canonical response from GLEIF
   gleifFetchedAt DateTime?
-  
+
   // Phase 2 Bridge
   identityProfile IdentityProfile?
 
   // National Registry Data (e.g. Companies House)
-  nationalRegistryData Json?     // "Mother" Directory Data
+  nationalRegistryData Json? // "Mother" Directory Data
   registryFetchedAt    DateTime?
-  
+
   // Billing & Invoicing
-  billingDetails       Json?     // Flexible store for Address, VAT, PO, Contacts
-  
+  billingDetails Json? // Flexible store for Address, VAT, PO, Contacts
+
   // Workspace Memberships (Direct Access)
-  memberships   Membership[]
+  memberships Membership[]
 
   // Ownership History (New Multi-Owner Model)
-  owners        ClientLEOwner[]
-  
+  owners ClientLEOwner[]
+
   // Invitation System
-  invitations   Invitation[]
+  invitations Invitation[]
 
   // Activity Timeline
-  leActivities  LEActivity[]
+  leActivities LEActivity[]
 
-  customData    Json?
+  // Master Field Assignments
+  masterFieldAssignments MasterFieldAssignment[]
+
+  customData Json?
 }
 
 model ClientLEOwner {
-  id           String       @id @default(uuid())
-  clientLEId   String
-  clientLE     ClientLE     @relation(fields: [clientLEId], references: [id], onDelete: Cascade)
-  
-  partyId      String       // The Client Org
-  party        Organization @relation(fields: [partyId], references: [id])
-  
-  startAt      DateTime     @default(now())
-  endAt        DateTime?    // Null = Current Owner
-  
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
+  id         String   @id @default(uuid())
+  clientLEId String
+  clientLE   ClientLE @relation(fields: [clientLEId], references: [id], onDelete: Cascade)
+
+  partyId String // The Client Org
+  party   Organization @relation(fields: [partyId], references: [id])
+
+  startAt DateTime  @default(now())
+  endAt   DateTime? // Null = Current Owner
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([clientLEId])
   @@index([partyId])
@@ -254,63 +260,63 @@ model ClientLERecord {
 }
 
 model FIEngagement {
-  id             String           @id @default(uuid())
-  fiOrgId        String
-  clientLEId     String
-  status         EngagementStatus
-  isDeleted      Boolean          @default(false)
-  clientLE       ClientLE         @relation(fields: [clientLEId], references: [id])
-  org            Organization     @relation(fields: [fiOrgId], references: [id])
-  queries        Query[]
-  questionnaires Questionnaire[]  @relation("FIEngagementToQuestionnaire") // Templates
-  questionnaireInstances Questionnaire[] @relation("QuestionnaireInstance") // Instances
+  id                     String               @id @default(uuid())
+  fiOrgId                String
+  clientLEId             String
+  status                 EngagementStatus
+  isDeleted              Boolean              @default(false)
+  clientLE               ClientLE             @relation(fields: [clientLEId], references: [id])
+  org                    Organization         @relation(fields: [fiOrgId], references: [id])
+  queries                Query[]
+  questionnaires         Questionnaire[]      @relation("FIEngagementToQuestionnaire") // Templates
+  questionnaireInstances Questionnaire[]      @relation("QuestionnaireInstance") // Instances
+  sharedDocuments        Document[]           @relation("SharedDocuments") // Access Granted
+  activities             EngagementActivity[]
+  invitations            Invitation[]
 
   @@unique([fiOrgId, clientLEId])
-  sharedDocuments Document[] @relation("SharedDocuments") // Access Granted
-  activities      EngagementActivity[]
-  invitations     Invitation[]
 }
 
 model EngagementActivity {
-  id             String       @id @default(uuid())
+  id             String   @id @default(uuid())
   fiEngagementId String
   userId         String
-  type           String       // INVITE_SENT, CONNECTED, SNAPSHOT_CHANGE
+  type           String // INVITE_SENT, CONNECTED, SNAPSHOT_CHANGE
   details        Json?
-  createdAt      DateTime     @default(now())
+  createdAt      DateTime @default(now())
 
-  engagement     FIEngagement @relation(fields: [fiEngagementId], references: [id], onDelete: Cascade)
-  user           User         @relation(fields: [userId], references: [id])
+  engagement FIEngagement @relation(fields: [fiEngagementId], references: [id], onDelete: Cascade)
+  user       User         @relation(fields: [userId], references: [id])
 }
 
 model Document {
-  id              String         @id @default(uuid())
-  clientLEId      String
-  name            String
-  fileUrl         String         // Path to storage (or mock URL)
-  fileType        String         // mime type e.g. 'application/pdf'
-  kbSize          Int?           // Size in KB
-  docType         String?        // 'IDENTITY', 'CORPORATE'
-  metadata        Json?          // { expiry: "2025-12-31" }
-  isVerified      Boolean        @default(false)
-  isDeleted       Boolean        @default(false)
-  
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
+  id         String  @id @default(uuid())
+  clientLEId String
+  name       String
+  fileUrl    String // Path to storage (or mock URL)
+  fileType   String // mime type e.g. 'application/pdf'
+  kbSize     Int? // Size in KB
+  docType    String? // 'IDENTITY', 'CORPORATE'
+  metadata   Json? // { expiry: "2025-12-31" }
+  isVerified Boolean @default(false)
+  isDeleted  Boolean @default(false)
 
-  clientLE        ClientLE       @relation(fields: [clientLEId], references: [id])
-  sharedWith      FIEngagement[] @relation("SharedDocuments")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  clientLE   ClientLE       @relation(fields: [clientLEId], references: [id])
+  sharedWith FIEngagement[] @relation("SharedDocuments")
 
   // Link to Engagement-specific Questionnaire 
-  questionId             String?
-  question               Question?     @relation("QuestionDocuments", fields: [questionId], references: [id])
-  
+  questionId String?
+  question   Question? @relation("QuestionDocuments", fields: [questionId], references: [id])
+
   // Link to Canonical Master LE Questionnaire (Prefills)
   prefilledForQuestionId String?
-  prefilledForQuestion   Question?     @relation("PrefilledQuestionDocuments", fields: [prefilledForQuestionId], references: [id])
+  prefilledForQuestion   Question? @relation("PrefilledQuestionDocuments", fields: [prefilledForQuestionId], references: [id])
 
   // Link to a Master Data Field (e.g. "56" for Constitutional & Formation Documents)
-  masterFieldKey         String?
+  masterFieldKey String?
 }
 
 model Query {
@@ -334,44 +340,44 @@ model Questionnaire {
   fileName         String?
   fileType         String?
   fileContent      Bytes?
-  fileUrl          String?        // For external storage like Vercel Blob
+  fileUrl          String? // For external storage like Vercel Blob
   mappings         Json?
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
   extractedContent Json?
   rawText          String?        @db.Text
-  processingLogs   Json?          // Array of { timestamp, stage, message, level }
+  processingLogs   Json? // Array of { timestamp, stage, message, level }
   fiOrg            Organization   @relation(fields: [fiOrgId], references: [id])
   engagements      FIEngagement[] @relation("FIEngagementToQuestionnaire")
 
   // Link to Engagement (For Instances/Snapshots)
-  fiEngagementId   String?
-  fiEngagement     FIEngagement?  @relation("QuestionnaireInstance", fields: [fiEngagementId], references: [id])
-  
+  fiEngagementId String?
+  fiEngagement   FIEngagement? @relation("QuestionnaireInstance", fields: [fiEngagementId], references: [id])
+
   // Privacy: If set, this questionnaire is only visible to this Org (and System Admins)
-  ownerOrgId       String?
-  ownerOrg         Organization?  @relation("OwnedQuestionnaires", fields: [ownerOrgId], references: [id])
-  isGlobal         Boolean        @default(false)
-  isTemplate       Boolean        @default(false)
-  versions         QuestionnaireVersion[]
-  questions        Question[]
+  ownerOrgId String?
+  ownerOrg   Organization?          @relation("OwnedQuestionnaires", fields: [ownerOrgId], references: [id])
+  isGlobal   Boolean                @default(false)
+  isTemplate Boolean                @default(false)
+  versions   QuestionnaireVersion[]
+  questions  Question[]
 }
 
 model Question {
-  id              String             @id @default(uuid())
-  questionnaireId String
-  text            String
-  compactText     String?            // Compact version (≤20 chars) for kanban display
-  answer          String?            @db.Text
-  prefilledValue  String?            @db.Text
-  expectedDataType String            @default("TEXT")
-  allowAttachments Boolean           @default(false)
-  status          QuestionStatus     @default(DRAFT)
-  isLocked        Boolean            @default(false)
-  order           Int                @default(0)
+  id                    String         @id @default(uuid())
+  questionnaireId       String
+  text                  String
+  compactText           String? // Compact version (≤20 chars) for kanban display
+  answer                String?        @db.Text
+  prefilledValue        String?        @db.Text
+  expectedDataType      String         @default("TEXT")
+  allowAttachments      Boolean        @default(false)
+  status                QuestionStatus @default(DRAFT)
+  isLocked              Boolean        @default(false)
+  order                 Int            @default(0)
   // Link to Master Data
-  masterFieldNo          Int?               // Direct 1:1 link to FieldDefinitions
-  masterQuestionGroupId  String?            // Composite 1:N link to FieldGroups
+  masterFieldNo         Int? // Direct 1:1 link to FieldDefinitions
+  masterQuestionGroupId String? // Composite 1:N link to FieldGroups
 
   // Link to Ad-Hoc Custom Data
   customFieldDefinitionId String?
@@ -379,21 +385,23 @@ model Question {
 
   // Link to Standing Data (if auto-filled)
   sourceSectionId String?
-  
+
   assignedToUserId String?
-  assignedToUser   User?              @relation("AssignedQuestions", fields: [assignedToUserId], references: [id])
+  assignedToUser   User?   @relation("AssignedQuestions", fields: [assignedToUserId], references: [id])
+  assignedByUserId String?
+  assignedByUser   User?   @relation("QuestionsAssignedBy", fields: [assignedByUserId], references: [id])
   assignedEmail    String?
-  
-  questionnaire   Questionnaire      @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
-  comments        Comment[]
-  activities      QuestionActivity[]
-  
+
+  questionnaire Questionnaire      @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
+  comments      Comment[]
+  activities    QuestionActivity[]
+
   // Attached Evidence Documents
   documents          Document[] @relation("QuestionDocuments")
   prefilledDocuments Document[] @relation("PrefilledQuestionDocuments")
-  
-  createdAt       DateTime           @default(now())
-  updatedAt       DateTime           @updatedAt
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Comment {
@@ -403,21 +411,39 @@ model Comment {
   text       String   @db.Text
   type       String   @default("USER") // USER, AI, SYSTEM
   createdAt  DateTime @default(now())
-  
-  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  user       User     @relation(fields: [userId], references: [id])
+
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id])
 }
 
 model QuestionActivity {
   id         String   @id @default(uuid())
   questionId String
   userId     String
-  type       String   // AI_GENERATED, ANSWER_UPDATED, LOCKED, UNLOCKED, ASSIGNED
-  details    Json?    // Store 'previousValue', 'newValue', 'confidence', etc.
+  type       String // AI_GENERATED, ANSWER_UPDATED, LOCKED, UNLOCKED, ASSIGNED
+  details    Json? // Store 'previousValue', 'newValue', 'confidence', etc.
   createdAt  DateTime @default(now())
 
-  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  user       User     @relation(fields: [userId], references: [id])
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id])
+}
+
+model MasterFieldAssignment {
+  id               String @id @default(uuid())
+  clientLEId       String // The workspace context
+  fieldNo          Int // The universal identifier for the Master Data Field
+  assignedToUserId String // The user responsible
+  assignedByUserId String // Audit: who performed the assignment
+
+  clientLE       ClientLE @relation(fields: [clientLEId], references: [id], onDelete: Cascade)
+  assignedUser   User     @relation("AssignedMasterFields", fields: [assignedToUserId], references: [id])
+  assignedByUser User     @relation("MasterFieldAssignmentsCreated", fields: [assignedByUserId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([clientLEId, fieldNo])
+  @@map("master_field_assignments")
 }
 
 enum QuestionStatus {
@@ -477,35 +503,35 @@ model UsageLog {
 }
 
 model AdminTodo {
-  id               String             @id @default(uuid())
+  id               String          @id @default(uuid())
   title            String
-  description      String?            @db.Text
-  status           AdminTodoStatus    @default(BACKLOG)
+  description      String?         @db.Text
+  status           AdminTodoStatus @default(BACKLOG)
   dueDate          DateTime?
   assignedToUserId String?
   createdByUserId  String
-  
-  assignedToUser   User?              @relation("AssignedTodos", fields: [assignedToUserId], references: [id])
-  createdByUser    User               @relation("CreatedTodos", fields: [createdByUserId], references: [id])
-  
-  comments         AdminTodoComment[]
-  
-  createdAt        DateTime           @default(now())
-  updatedAt        DateTime           @updatedAt
-  
-  isDeleted        Boolean            @default(false)
-  isArchived       Boolean            @default(false)
+
+  assignedToUser User? @relation("AssignedTodos", fields: [assignedToUserId], references: [id])
+  createdByUser  User  @relation("CreatedTodos", fields: [createdByUserId], references: [id])
+
+  comments AdminTodoComment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  isDeleted  Boolean @default(false)
+  isArchived Boolean @default(false)
 }
 
 model AdminTodoComment {
-  id          String    @id @default(uuid())
+  id          String   @id @default(uuid())
   adminTodoId String
   userId      String
-  text        String    @db.Text
-  createdAt   DateTime  @default(now())
-  
-  adminTodo   AdminTodo @relation(fields: [adminTodoId], references: [id], onDelete: Cascade)
-  user        User      @relation(fields: [userId], references: [id])
+  text        String   @db.Text
+  createdAt   DateTime @default(now())
+
+  adminTodo AdminTodo @relation(fields: [adminTodoId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id])
 }
 
 enum AdminTodoStatus {
@@ -515,50 +541,48 @@ enum AdminTodoStatus {
   DONE
 }
 
-  // Organization invitations relation removed
-  // clientLE invitations relation removed
-  // fiEngagement invitations relation updated to match new field name if needed (it was fiEngagementId, so it's fine)
+// Organization invitations relation removed
+// clientLE invitations relation removed
+// fiEngagement invitations relation updated to match new field name if needed (it was fiEngagementId, so it's fine)
 
-  // Actually, I can just remove the relation fields in Org/ClientLE.
+// Actually, I can just remove the relation fields in Org/ClientLE.
 
 // POLYMORPHIC INVITATION (Organization | ClientLE | FIEngagement scope)
 // Exactly one scope field must be non-null — enforced in server actions.
 model Invitation {
-  id                String   @id @default(uuid())
+  id String @id @default(uuid())
 
   // ---- Scope (exactly ONE must be non-null) ----
-  organizationId    String?
-  organization      Organization?   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  clientLEId        String?
-  clientLE          ClientLE?       @relation(fields: [clientLEId], references: [id], onDelete: Cascade)
+  clientLEId String?
+  clientLE   ClientLE? @relation(fields: [clientLEId], references: [id], onDelete: Cascade)
 
-  fiEngagementId    String?
-  fiEngagement      FIEngagement?   @relation(fields: [fiEngagementId], references: [id], onDelete: Cascade)
+  fiEngagementId String?
+  fiEngagement   FIEngagement? @relation(fields: [fiEngagementId], references: [id], onDelete: Cascade)
 
   // ---- Invite details ----
-  sentToEmail       String
-  role              String   // e.g. "ORG_ADMIN", "LE_ADMIN", "LE_USER", "SUPPLIER_CONTACT"
+  sentToEmail String
+  role        String // e.g. "ORG_ADMIN", "LE_ADMIN", "LE_USER", "SUPPLIER_CONTACT"
 
-  tokenHash         String   @unique
-  expiresAt         DateTime
+  tokenHash String   @unique
+  expiresAt DateTime
 
   // ---- Lifecycle ----
-  usedAt            DateTime?
-  revokedAt         DateTime?
-  createdAt         DateTime @default(now())
+  usedAt    DateTime?
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
 
   // ---- Audit (scalar IDs — FK avoided to prevent cascade complexity) ----
-  createdByUserId   String
-  acceptedByUserId  String?
+  createdByUserId  String
+  acceptedByUserId String?
 
   @@index([organizationId])
   @@index([clientLEId])
   @@index([fiEngagementId])
   @@index([sentToEmail])
 }
-
-
 
 model AuditLog {
   id        String   @id @default(uuid())
@@ -568,7 +592,7 @@ model AuditLog {
   details   Json?
   createdAt DateTime @default(now())
 
-  user      User     @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id])
 
   @@index([userId])
   @@index([entityId])
@@ -580,15 +604,15 @@ model AuditLog {
 //              LEI_VERIFIED, REGISTRY_REFRESHED, QUESTIONNAIRE_ASSIGNED, QUESTIONNAIRE_SUBMITTED,
 //              ENGAGEMENT_STATUS_CHANGED, STANDING_DATA_UPDATED
 model LEActivity {
-  id        String    @id @default(uuid())
+  id        String   @id @default(uuid())
   leId      String
   userId    String
-  type      String    // See type values above
-  details   Json?     // { label, questionId, docName, bankName, role, ... }
-  createdAt DateTime  @default(now())
+  type      String // See type values above
+  details   Json? // { label, questionId, docName, bankName, role, ... }
+  createdAt DateTime @default(now())
 
-  clientLE  ClientLE  @relation(fields: [leId], references: [id], onDelete: Cascade)
-  user      User      @relation(fields: [userId], references: [id])
+  clientLE ClientLE @relation(fields: [leId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id])
 
   @@index([leId, createdAt(sort: Desc)])
   @@index([userId])
@@ -670,7 +694,7 @@ model LegalEntity {
 
   // Documents
   documents DocumentRegistry[]
-  
+
   // Audit Log
   masterDataEvents MasterDataEvent[]
 
@@ -705,7 +729,7 @@ model DocumentRegistry {
   filePath      String // S3 key or storage reference
   fileName      String
   mimeType      String
-  uploadedAt    DateTime @default(now())
+  uploadedAt    DateTime          @default(now())
   uploadedBy    String // User ID
 
   legalEntity LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
@@ -724,7 +748,7 @@ model DocumentRegistry {
 // ----------------------------------------------------------------------------
 
 model IdentityProfile {
-  id            String @id @default(uuid())
+  id            String  @id @default(uuid())
   legalEntityId String? @unique
 
   // Fields 1-3, 6-10, 11-15, 26-27
@@ -751,7 +775,7 @@ model IdentityProfile {
   legalEntity LegalEntity? @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
 
   // Bridge for Hybrid Adoption (Phase 2E)
-  clientLEId String? @unique
+  clientLEId String?   @unique
   clientLE   ClientLE? @relation(fields: [clientLEId], references: [id])
 
   @@map("identity_profiles")
@@ -762,12 +786,12 @@ model EntityInfoProfile {
   legalEntityId String @unique
 
   // Fields 19-25
-  gleifEntityCategory                   String?
-  entityLegalFormCode                   String? // ELF
-  countryOfFormation                    String?
-  countryCode                           String? // ISO 3166-1
-  entityLegalFormLocalName              String?
-  entityLegalFormTransliteratedName     String?
+  gleifEntityCategory               String?
+  entityLegalFormCode               String? // ELF
+  countryOfFormation                String?
+  countryCode                       String? // ISO 3166-1
+  entityLegalFormLocalName          String?
+  entityLegalFormTransliteratedName String?
 
   meta      Json     @default("{}")
   createdAt DateTime @default(now())
@@ -783,14 +807,14 @@ model LeiRegistration {
   legalEntityId String @unique
 
   // Fields 28-35
-  leiRegistrationDate       DateTime?
-  leiRegistrationUpdateDate DateTime?
-  leiRegistrationStatus     String?
+  leiRegistrationDate        DateTime?
+  leiRegistrationUpdateDate  DateTime?
+  leiRegistrationStatus      String?
   leiRegistrationNextRenewal DateTime?
-  leiIssuerLei              String?
-  leiIssuer                 String?
-  leiCorroborationLevel     String?
-  leiCorroborationSource    String?
+  leiIssuerLei               String?
+  leiIssuer                  String?
+  leiCorroborationLevel      String?
+  leiCorroborationSource     String?
 
   meta      Json     @default("{}")
   createdAt DateTime @default(now())
@@ -939,8 +963,8 @@ model TradingProfile {
   legalEntityId String @unique
 
   // Fields 102-103 (board minute references)
-  boardMinuteAuthorisingIndividualsRef   String? // Doc ID
-  boardMinuteAuthorisingTransactionsRef  String? // Doc ID
+  boardMinuteAuthorisingIndividualsRef  String? // Doc ID
+  boardMinuteAuthorisingTransactionsRef String? // Doc ID
 
   meta      Json     @default("{}")
   createdAt DateTime @default(now())
@@ -1126,7 +1150,7 @@ model SettlementInstruction {
 }
 
 model MasterDataEvent {
-  id            String           @id @default(uuid())
+  id            String   @id @default(uuid())
   legalEntityId String
   fieldNo       Int
   oldValue      Json?
@@ -1135,7 +1159,7 @@ model MasterDataEvent {
   evidenceId    String?
   actorId       String?
   reason        String?
-  timestamp     DateTime         @default(now())
+  timestamp     DateTime @default(now())
 
   legalEntity LegalEntity    @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
   evidence    EvidenceStore? @relation(fields: [evidenceId], references: [id])
@@ -1144,3 +1168,21 @@ model MasterDataEvent {
   @@index([evidenceId])
   @@map("master_data_events")
 }
+
+// ---------------------------------------------------------------------------
+// Dev / Staging Feedback Tool
+// ---------------------------------------------------------------------------
+
+model FeedbackNote {
+  id          String   @id @default(uuid())
+  pageUrl     String
+  note        String   @db.Text
+  category    String   @default("general") // "bug" | "feature" | "general"
+  authorEmail String?
+  sessionTag  String?  // e.g. "Product Review 2026-02-24" — groups notes per session
+  createdAt   DateTime @default(now())
+
+  @@index([sessionTag, createdAt(sort: Desc)])
+  @@map("feedback_notes")
+}
+

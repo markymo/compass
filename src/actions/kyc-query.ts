@@ -80,6 +80,13 @@ export interface FieldDetailData {
         timestamp: Date | null;
         confidence: number | null;
     } | null;
+    assignment: {
+        id: string;
+        assignedToUserId: string;
+        assignedByUserId: string;
+        assignedUser?: { name: string | null; email: string };
+        createdAt: Date;
+    } | null;
     history: any[]; // MasterDataEvent[]
     candidates: any[]; // FieldCandidate[]
 }
@@ -121,6 +128,7 @@ export async function getFieldDetail(
                 timestamp,
                 confidence: 1.0
             },
+            assignment: null,
             history: [], // No history for custom fields yet (schema limitation)
             candidates: []
         };
@@ -144,6 +152,7 @@ export async function getFieldDetail(
             // If no LE exists, there is no history
             return {
                 current: null,
+                assignment: null,
                 history: [],
                 candidates: []
             };
@@ -163,12 +172,34 @@ export async function getFieldDetail(
     // TODO: Re-implement candidate fetching using EvidenceService.reprocess(evidenceId)
     const candidates: any[] = [];
 
+    // 4. Get Current Assignment
+    const assignment = await prisma.masterFieldAssignment.findUnique({
+        where: {
+            clientLEId_fieldNo: {
+                clientLEId: entityId,
+                fieldNo: fieldNo
+            }
+        },
+        include: {
+            assignedUser: {
+                select: { name: true, email: true }
+            }
+        }
+    });
+
     return {
         current: current ? {
             value: current.value,
             source: current.source as ProvenanceSource,
             timestamp: current.updatedAt,
             confidence: current.confidence
+        } : null,
+        assignment: assignment ? {
+            id: assignment.id,
+            assignedToUserId: assignment.assignedToUserId,
+            assignedByUserId: assignment.assignedByUserId,
+            assignedUser: assignment.assignedUser,
+            createdAt: assignment.createdAt
         } : null,
         history,
         candidates
@@ -402,6 +433,147 @@ export async function getWorkbenchFields(leId: string): Promise<WorkbenchField[]
         results.push(entry);
     }
 
-    // 3. Sort? Maybe by Label or ID
     return results.sort((a, b) => a.label.localeCompare(b.label));
+}
+
+// --- User Assignments Aggregator ---
+
+export interface UserAssignmentAgg {
+    questions: {
+        id: string;
+        text: string;
+        status: string;
+        questionnaireName: string;
+        engagementOrgName?: string;
+        clientLEId?: string;
+        engagementId?: string;
+        assignedByUserName?: string;
+        createdAt: Date;
+    }[];
+    masterFields: {
+        id: string;
+        fieldNo: number;
+        fieldName: string;
+        clientLEId: string;
+        engagementOrgName?: string; // Best effort resolution
+        assignedByUserName?: string;
+        createdAt: Date;
+    }[];
+}
+
+export async function getUserAssignments(userId: string): Promise<UserAssignmentAgg> {
+    // 1. Fetch Assigned Questions
+    const questionsRaw = await prisma.question.findMany({
+        where: {
+            assignedToUserId: userId,
+            // Only fetch active questions
+            status: { not: "CLIENT_SIGNED_OFF" },
+            questionnaire: {
+                isDeleted: false
+            }
+        },
+        include: {
+            questionnaire: {
+                include: {
+                    engagements: { include: { org: true } },
+                    fiEngagement: { include: { org: true } }
+                }
+            },
+            assignedToUser: { select: { name: true, email: true } }
+        },
+        orderBy: { createdAt: 'desc' }
+    });
+
+    const questions = questionsRaw.map((q: any) => {
+        // Resolve Org/LE Context
+        let orgName = "Unknown Org";
+        let leId = undefined;
+        let engId = undefined;
+
+        const m2mEng = q.questionnaire?.engagements?.[0];
+        const dirEng = q.questionnaire?.fiEngagement;
+
+        if (dirEng) {
+            orgName = dirEng.org?.name || orgName;
+            leId = dirEng.clientLEId;
+            engId = dirEng.id;
+        } else if (m2mEng) {
+            orgName = m2mEng.org?.name || orgName;
+            leId = m2mEng.clientLEId;
+            engId = m2mEng.id;
+        }
+
+        return {
+            id: q.id,
+            text: q.text,
+            status: q.status,
+            questionnaireName: q.questionnaire?.name || "Unknown Questionnaire",
+            engagementOrgName: orgName,
+            clientLEId: leId,
+            engagementId: engId,
+            assignedByUserName: q.assignedToUser?.name || q.assignedToUser?.email || "System",
+            createdAt: q.createdAt
+        };
+    });
+
+    // 2. Fetch Assigned Master Fields
+    const fieldsRaw = await prisma.masterFieldAssignment.findMany({
+        where: {
+            assignedToUserId: userId
+        },
+        include: {
+            clientLE: {
+                include: {
+                    fiEngagements: {
+                        include: { org: true },
+                        take: 1
+                    }
+                }
+            },
+            assignedUser: { select: { name: true, email: true } }
+        },
+        orderBy: { createdAt: 'desc' }
+    });
+
+    const masterFields = fieldsRaw.map((f: any) => {
+        // Resolve Schema Definition Label
+        const fieldNo = parseInt(f.fieldNo.toString());
+        const def = FIELD_DEFINITIONS[fieldNo];
+        const fieldName = def ? def.fieldName : `Field ${fieldNo}`;
+
+        // Best effort org resolution
+        const eng = f.clientLE?.fiEngagements?.[0];
+        const orgName = eng?.org?.name || "Workspace";
+
+        return {
+            id: f.id,
+            fieldNo: f.fieldNo,
+            fieldName,
+            clientLEId: f.clientLEId,
+            engagementOrgName: orgName,
+            assignedByUserName: f.assignedUser?.name || f.assignedUser?.email || "System",
+            createdAt: f.createdAt
+        };
+    });
+
+    return {
+        questions,
+        masterFields
+    };
+}
+
+export async function getUserAssignmentCount(userId: string): Promise<number> {
+    const [qCount, fCount] = await Promise.all([
+        prisma.question.count({
+            where: {
+                assignedToUserId: userId,
+                status: { not: "CLIENT_SIGNED_OFF" },
+                questionnaire: { isDeleted: false }
+            }
+        }),
+        prisma.masterFieldAssignment.count({
+            where: { assignedToUserId: userId }
+        })
+    ]);
+    return qCount + fCount;
 }
