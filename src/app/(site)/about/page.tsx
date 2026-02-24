@@ -25,7 +25,7 @@ export default function About() {
                             <p>
                                 We believe there is a better way. By creating a unified <strong>Master Schema</strong> for
                                 onboarding data, we can eliminate duplication, reduce errors, and dramatically speed up
-                                time-to-execution for deals.
+                                time-to-execution for deals..
                             </p>
                         </div>
                     </div>
