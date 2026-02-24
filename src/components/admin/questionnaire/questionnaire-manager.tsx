@@ -4,14 +4,16 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
-import { updateQuestionnaireFile, toggleQuestionnaireStatus, updateQuestionnaireName } from "@/actions/questionnaire";
+import { updateQuestionnaireFile, toggleQuestionnaireStatus, updateQuestionnaireName, toggleQuestionnaireGlobal, getQuestionnaireSnapshots } from "@/actions/questionnaire";
 import {
     ArrowLeft, Loader2, Play, AlertCircle, CheckCircle2,
-    FileText, Save, LayoutTemplate, Pencil, MoreVertical, Download, Eye, FileSearch, Keyboard
+    FileText, Save, LayoutTemplate, Pencil, MoreVertical, Download, Eye, FileSearch, Keyboard, Globe
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import {
     Select, SelectContent, SelectItem,
     SelectTrigger, SelectValue
@@ -31,6 +33,12 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
+import {
+    Accordion,
+    AccordionContent,
+    AccordionItem,
+    AccordionTrigger,
+} from "@/components/ui/accordion";
 
 import {
     saveQuestionnaireChanges,
@@ -67,6 +75,10 @@ export function QuestionnaireManager({ questionnaire: initialQ, masterFields }: 
     const [showRawText, setShowRawText] = useState(false);
     const [showSource, setShowSource] = useState(false);
 
+    // Snapshot State
+    const [snapshots, setSnapshots] = useState<any[]>([]);
+    const [loadingSnapshots, setLoadingSnapshots] = useState(false);
+
     // accessors
     const hasFile = !!questionnaire.fileType;
     const isPDF = questionnaire.fileType === "application/pdf";
@@ -79,6 +91,21 @@ export function QuestionnaireManager({ questionnaire: initialQ, masterFields }: 
             handleExtractText();
         }
     }, []); // Run once on mount
+
+    // --- Fetch Snapshots ---
+    useEffect(() => {
+        let mounted = true;
+        async function fetchSnapshots() {
+            setLoadingSnapshots(true);
+            const res = await getQuestionnaireSnapshots(questionnaire.id);
+            if (mounted && res.success) {
+                setSnapshots(res.data || []);
+            }
+            if (mounted) setLoadingSnapshots(false);
+        }
+        fetchSnapshots();
+        return () => { mounted = false; };
+    }, [questionnaire.id]);
 
     const handleNameSave = async () => {
         setIsEditingName(false);
@@ -100,12 +127,6 @@ export function QuestionnaireManager({ questionnaire: initialQ, masterFields }: 
         try {
             // 1. Try Server-Side Text Extraction
             console.log("Attempting server-side extraction...");
-
-            // If we already have rawText, we technically only need to parse it, 
-            // but `extractDetailedContent` is our main robust entry point. 
-            // Ideally, we'd have a `parseOnly` flag, but for now, re-running is safer checksum.
-            // (Future optimization: pass skipExtraction=true)
-            const res = await extractRawText(questionnaire.id);
 
             // Actually, let's just use the robust `extractDetailedContent` which handles the chain
             const chainRes = await extractDetailedContent(questionnaire.id);
@@ -185,6 +206,20 @@ export function QuestionnaireManager({ questionnaire: initialQ, masterFields }: 
         }
     };
 
+    const handleGlobalToggle = async (checked: boolean) => {
+        setQuestionnaire({ ...questionnaire, isGlobal: checked });
+        try {
+            const res = await toggleQuestionnaireGlobal(questionnaire.id, checked);
+            if (!res.success) {
+                alert("Failed to update visibility: " + res.error);
+                fetchQ(); // Revert
+            }
+        } catch (e) {
+            console.error(e);
+            fetchQ();
+        }
+    };
+
     const handleSaveItems = async () => {
         setSaving(true);
         try {
@@ -233,29 +268,21 @@ export function QuestionnaireManager({ questionnaire: initialQ, masterFields }: 
                         </Button>
                     </Link>
                     <div>
-                        <div className="flex items-center gap-3">
-                            {isEditingName ? (
-                                <Input
-                                    value={questionnaire.name}
-                                    onChange={(e) => setQuestionnaire({ ...questionnaire, name: e.target.value })}
-                                    onBlur={handleNameSave}
-                                    onKeyDown={(e) => e.key === 'Enter' && handleNameSave()}
-                                    className="h-8 w-64 font-semibold text-lg"
-                                    autoFocus
-                                />
-                            ) : (
-                                <h1
-                                    className="text-lg font-semibold tracking-tight flex items-center gap-2 text-slate-900 cursor-pointer group hover:text-indigo-600 transition-colors"
-                                    onClick={() => setIsEditingName(true)}
-                                    title="Click to rename"
-                                >
-                                    {questionnaire.name}
-                                    <Pencil className="w-3 h-3 text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
-                                </h1>
-                            )}
+                        <div className="flex items-center gap-4 border border-transparent hover:border-slate-200 rounded-lg p-1 transition-colors">
+                            <Input
+                                value={questionnaire.name}
+                                onChange={(e) => setQuestionnaire({ ...questionnaire, name: e.target.value })}
+                                onBlur={handleNameSave}
+                                onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+                                className="h-9 w-72 font-semibold text-lg border-transparent hover:border-slate-200 focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100 px-2 shadow-none bg-transparent transition-all"
+                                placeholder="Questionnaire Name"
+                                title="Edit Name"
+                            />
+
+                            <div className="h-6 w-px bg-slate-200" />
 
                             <Select value={questionnaire.status} onValueChange={handleStatusChange}>
-                                <SelectTrigger className={`h-6 text-[10px] w-auto border-none shadow-none px-2 rounded-full font-bold uppercase tracking-wider ${questionnaire.status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' :
+                                <SelectTrigger className={`h-7 text-xs w-auto border-none shadow-none px-3 rounded-full font-bold uppercase tracking-wider ${questionnaire.status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' :
                                     questionnaire.status === 'ARCHIVED' ? 'bg-amber-100 text-amber-700 hover:bg-amber-200' :
                                         'bg-slate-100 text-slate-600 hover:bg-slate-200'
                                     }`}>
@@ -267,46 +294,152 @@ export function QuestionnaireManager({ questionnaire: initialQ, masterFields }: 
                                     <SelectItem value="ARCHIVED">Archived</SelectItem>
                                 </SelectContent>
                             </Select>
+
+                            <div className="h-6 w-px bg-slate-200" />
+
+                            <div className="flex items-center gap-2 px-2" title="If enabled, this questionnaire is available to all Client ORGs as a template.">
+                                <Globe className="w-4 h-4 text-slate-400" />
+                                <Label className="text-sm font-medium text-slate-600 cursor-pointer">Global Template</Label>
+                                <Switch
+                                    checked={questionnaire.isGlobal || false}
+                                    onCheckedChange={handleGlobalToggle}
+                                    className="scale-90 ml-1"
+                                />
+                            </div>
                         </div>
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
-                    {/* Document Options */}
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                                <MoreVertical className="w-4 h-4 text-slate-500" />
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                            <DropdownMenuLabel>Document Options</DropdownMenuLabel>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={() => window.open(iframeSrc, '_blank')}>
-                                <Download className="w-4 h-4 mr-2" />
-                                Download Original
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setShowSource(true)}>
-                                <FileSearch className="w-4 h-4 mr-2" />
-                                View Source PDF
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setShowRawText(true)}>
-                                <FileText className="w-4 h-4 mr-2" />
-                                View Extracted Text
-                            </DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
 
-                    <Button
-                        variant={saving ? "secondary" : "default"}
-                        onClick={handleSaveItems}
-                        disabled={saving}
-                        className={saving ? "opacity-80" : ""}
-                    >
-                        {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
-                        Save Progress
-                    </Button>
+
+                    {items.length === 0 && (
+                        <Button
+                            variant={saving ? "secondary" : "default"}
+                            onClick={handleSaveItems}
+                            disabled={saving}
+                            className={saving ? "opacity-80" : ""}
+                        >
+                            {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
+                            {saving ? "Saving..." : "Save Progress"}
+                        </Button>
+                    )}
                 </div>
             </header>
+
+            {/* Digitization Journey Accordion */}
+            <Accordion type="single" collapsible className="w-full flex-none bg-white border-b px-6 shadow-sm z-20">
+                <AccordionItem value="journey" className="border-none">
+                    <AccordionTrigger className="py-3 text-sm font-semibold text-slate-700 hover:no-underline">
+                        Digitization Journey & Source Files
+                    </AccordionTrigger>
+                    <AccordionContent className="pb-4 pt-2 flex flex-col md:flex-row gap-6">
+                        {/* Process Logs */}
+                        <div className="flex-1">
+                            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Process Logs</h4>
+                            <div className="h-40 overflow-y-auto bg-slate-900 rounded-md p-4 font-mono text-[10px] shadow-inner">
+                                {(!questionnaire.processingLogs || questionnaire.processingLogs.length === 0) ? (
+                                    <span className="text-slate-500">No logs available yet.</span>
+                                ) : (
+                                    questionnaire.processingLogs.map((log: any, i: number) => (
+                                        <div key={i} className="mb-1 flex gap-2">
+                                            <span className="text-slate-500 shrink-0">{new Date(log.timestamp).toLocaleTimeString()}</span>
+                                            <span className={
+                                                log.level === 'ERROR' ? 'text-red-400 font-bold' :
+                                                    log.level === 'SUCCESS' ? 'text-emerald-400' : 'text-slate-300'
+                                            }>
+                                                {log.message}
+                                            </span>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Document Actions */}
+                        <div className="w-full md:w-64 flex flex-col gap-2">
+                            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Source Assets</h4>
+                            {hasFile ? (
+                                <>
+                                    <Button variant="outline" size="sm" onClick={() => setShowSource(true)} className="w-full justify-start text-slate-600">
+                                        <FileSearch className="w-4 h-4 mr-2" /> View Source Document
+                                    </Button>
+                                    <Button variant="outline" size="sm" onClick={() => window.open(iframeSrc, '_blank')} className="w-full justify-start text-slate-600">
+                                        <Download className="w-4 h-4 mr-2" /> Download Original
+                                    </Button>
+                                    {rawText && (
+                                        <Button variant="outline" size="sm" onClick={() => setShowRawText(true)} className="w-full justify-start text-slate-600">
+                                            <CheckCircle2 className="w-4 h-4 mr-2" /> View Extracted Text
+                                        </Button>
+                                    )}
+                                </>
+                            ) : (
+                                <div className="text-sm text-slate-500 p-4 border rounded-md border-dashed text-center bg-slate-50">
+                                    No source file attached.
+                                </div>
+                            )}
+                        </div>
+                    </AccordionContent>
+                </AccordionItem>
+
+                <AccordionItem value="instances" className="border-none">
+                    <AccordionTrigger className="hover:no-underline py-3 text-sm font-semibold text-slate-700">
+                        <div className="flex items-center gap-2">
+                            Active Instances & Snapshots
+                            <Badge variant="secondary" className="ml-2 px-1.5 py-0 h-5 text-xs font-normal">
+                                {snapshots.length}
+                            </Badge>
+                        </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="pb-4 pt-2">
+                        <div className="bg-slate-50 border rounded-md overflow-hidden max-h-[300px] overflow-y-auto">
+                            {loadingSnapshots ? (
+                                <div className="p-4 text-center text-slate-500 text-sm">Loading instances...</div>
+                            ) : snapshots.length === 0 ? (
+                                <div className="p-6 text-center text-slate-500 text-sm flex flex-col items-center">
+                                    <Globe className="w-8 h-8 text-slate-200 mb-2" />
+                                    No active instances of this questionnaire template found.
+                                </div>
+                            ) : (
+                                <table className="w-full text-left text-sm whitespace-nowrap">
+                                    <thead className="bg-slate-100 text-slate-500 sticky top-0 shadow-sm">
+                                        <tr>
+                                            <th className="font-semibold px-4 py-2 text-xs uppercase tracking-wider">Client LE</th>
+                                            <th className="font-semibold px-4 py-2 text-xs uppercase tracking-wider">Supplier</th>
+                                            <th className="font-semibold px-4 py-2 text-xs uppercase tracking-wider">Instance Name</th>
+                                            <th className="font-semibold px-4 py-2 text-xs uppercase tracking-wider">Snapshot Taken</th>
+                                            <th className="font-semibold px-4 py-2 text-xs uppercase tracking-wider">Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y text-slate-700">
+                                        {snapshots.map((s, i) => (
+                                            <tr key={i} className="hover:bg-white transition-colors bg-slate-50/50">
+                                                <td className="px-4 py-2 font-medium">
+                                                    <Link href={`/app/le/${s.fiEngagement?.clientLE?.id}/v2`} className="hover:underline hover:text-indigo-600">
+                                                        {s.fiEngagement?.clientLE?.name || "Unknown"}
+                                                    </Link>
+                                                </td>
+                                                <td className="px-4 py-2">{s.fiEngagement?.org?.name || "Unknown"}</td>
+                                                <td className="px-4 py-2 text-slate-500 truncate max-w-[200px]" title={s.name}>{s.name}</td>
+                                                <td className="px-4 py-2 text-slate-500">
+                                                    {new Date(s.createdAt).toLocaleString(undefined, {
+                                                        year: 'numeric', month: 'short', day: 'numeric',
+                                                        hour: '2-digit', minute: '2-digit'
+                                                    })}
+                                                </td>
+                                                <td className="px-4 py-2">
+                                                    <Badge variant="outline" className="text-[10px] bg-white">
+                                                        {s.status}
+                                                    </Badge>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            )}
+                        </div>
+                    </AccordionContent>
+                </AccordionItem>
+            </Accordion>
 
             {/* Main Content: Data First Editor */}
             <main className="flex-1 overflow-hidden flex flex-col relative bg-slate-50">
@@ -332,68 +465,35 @@ export function QuestionnaireManager({ questionnaire: initialQ, masterFields }: 
 
                         <div className="max-w-md text-center">
                             <h2 className="text-lg font-semibold text-slate-800">
-                                {extractionError ? "Digitization Failed" : "Start Digitization"}
+                                {extractionError ? "Digitization Failed" : (hasFile ? "Start Digitization" : "Start Building")}
                             </h2>
                             <p className="text-slate-500 mt-2">
                                 {extractionError
                                     ? `We encountered an issue during extraction. You can retry with the AI or check the raw text.`
-                                    : "We couldn't automatically read this document yet. You can retry the AI extraction or start manually."}
+                                    : (hasFile ? "We couldn't automatically read this document yet. You can retry the AI extraction or start manually." : "Start building your questionnaire by adding your first question.")}
                             </p>
                         </div>
 
-                        {/* Log Display for Debugging */}
-                        {(questionnaire.processingLogs && questionnaire.processingLogs.length > 0) && (
-                            <div className="w-full max-w-lg bg-slate-900 rounded-md p-4 text-left shadow-sm">
-                                <div className="flex items-center justify-between mb-2">
-                                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Process Logs</h4>
-                                    <span className="text-[10px] text-slate-500">Live</span>
-                                </div>
-                                <div className="h-32 overflow-y-auto font-mono text-[10px]">
-                                    {questionnaire.processingLogs.map((log: any, i: number) => (
-                                        <div key={i} className="mb-1 flex gap-2">
-                                            <span className="text-slate-500 shrink-0">{new Date(log.timestamp).toLocaleTimeString()}</span>
-                                            <span className={
-                                                log.level === 'ERROR' ? 'text-red-400 font-bold' :
-                                                    log.level === 'SUCCESS' ? 'text-emerald-400' : 'text-slate-300'
-                                            }>
-                                                {log.message}
-                                            </span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
                         <div className="flex items-center gap-3">
-                            <Button onClick={handleExtractText} variant="default" className="w-[160px]">
-                                <Play className="w-4 h-4 mr-2" />
-                                {extractionError ? "Retry AI" : "Run Extraction"}
-                            </Button>
+                            {hasFile && (
+                                <>
+                                    <Button onClick={handleExtractText} variant="default" className="w-[160px]">
+                                        <Play className="w-4 h-4 mr-2" />
+                                        {extractionError ? "Retry AI" : "Run Extraction"}
+                                    </Button>
 
-                            <span className="text-slate-300 text-sm">or</span>
-
-                            <Button onClick={handleStartManually} variant="secondary">
+                                    <span className="text-slate-300 text-sm">or</span>
+                                </>
+                            )}
+                            <Button onClick={handleStartManually} variant={hasFile ? "secondary" : "default"}>
                                 <Keyboard className="w-4 h-4 mr-2" />
                                 Start Manually
                             </Button>
                         </div>
-
-                        <div className="flex gap-4">
-                            {rawText && (
-                                <Button variant="link" size="sm" onClick={() => setShowRawText(true)} className="text-indigo-600">
-                                    <CheckCircle2 className="w-3 h-3 mr-1" /> View Extracted Text
-                                </Button>
-                            )}
-                            {hasFile && (
-                                <Button variant="link" size="sm" onClick={() => setShowSource(true)} className="text-slate-400">
-                                    View Source PDF
-                                </Button>
-                            )}
-                        </div>
                     </div>
                 ) : (
-                    // The Mapping Workbench fills the area
-                    <div className="flex-1 overflow-hidden h-full">
+                    // The Mapping Workbench fills the area smoothly
+                    <div className="flex-1 pb-12">
                         <QuestionnaireMapper
                             questionnaireId={questionnaire.id}
                             onBack={() => router.push('/app/admin/questionnaires')}

@@ -94,6 +94,7 @@ export async function createQuestionnaire(identifier: string | null | undefined,
                 name: name,
                 status: "DIGITIZING", // Async Step 1: Start as "Digitizing"
                 fiEngagementId: engagementId || null, // Link if provided
+                isTemplate: engagementId ? false : true, // If linked to an engagement, it's an instance. Otherwise, a master template.
                 ...fileData
             },
         });
@@ -320,15 +321,17 @@ export async function compactifyQuestion(fullQuestion: string): Promise<{
 
         const { text } = await generateText({
             model: openai('gpt-4o-mini'),
-            prompt: `Shorten this question to exactly 20 characters or less. Be concise and specific. Use abbreviations if needed. Return ONLY the shortened text, nothing else.
+            prompt: `Extract the core concept of this question as a short label. It must be exactly 20 characters or less. Be concise and highly specific to what is being asked for. 
+DO NOT just truncate the beginning of the question. Extract the main noun phrase or core requirement. Use abbreviations if needed. Return ONLY the short label, nothing else.
 
 Examples:
 "Please provide the full legal entity name" → "Entity Name"
 "What is the incorporation date?" → "Inc. Date"  
 "List all beneficial owners over 25%" → "Beneficial Owners"
 "Upload Certificate of Incorporation" → "Incorporation Cert"
+"Confirm if German tax resident, and provide German Taxpayer Identification Number (TIN) (“Steuer-ID” or “Steuer-Identifikationsnummer”)" → "German TIN"
 
-Question to shorten:
+Question to extract label from:
 ${fullQuestion}`,
             temperature: 0.3,
         });
@@ -489,9 +492,9 @@ export async function extractRawText(id: string, images?: string[]) {
         await appendProcessingLog(id, msg, stage, level);
     };
 
-    if (!q.fileContent) {
+    if (!q.fileContent && !q.fileUrl) {
         if (!images || images.length === 0) {
-            await logger("No file content found to extract.", "INIT", "ERROR");
+            await logger("No file content or URL found to extract.", "INIT", "ERROR");
             return { success: false, error: "NO_FILE", status: "NO_FILE" };
         }
     }
@@ -507,9 +510,20 @@ export async function extractRawText(id: string, images?: string[]) {
         }
 
         // Standard File Processing
-        if (q.fileContent && q.fileType && q.fileName) {
+        let bufferToProcess: Buffer | null = null;
+        if (q.fileContent) {
+            bufferToProcess = Buffer.from(q.fileContent);
+        } else if (q.fileUrl) {
+            await logger(`Downloading file from URL for extraction...`, "INIT");
+            const fetchRes = await fetch(q.fileUrl);
+            if (!fetchRes.ok) throw new Error(`Failed to download file: ${fetchRes.statusText}`);
+            const arrayBuffer = await fetchRes.arrayBuffer();
+            bufferToProcess = Buffer.from(arrayBuffer);
+        }
+
+        if (bufferToProcess && q.fileType && q.fileName) {
             await logger(`Starting text extraction for ${q.fileName}`, "INIT");
-            const processed = await processDocumentBuffer(Buffer.from(q.fileContent), q.fileType, q.fileName, logger);
+            const processed = await processDocumentBuffer(bufferToProcess, q.fileType, q.fileName, logger);
 
             if (processed.type === 'text') {
                 textContent = processed.content as string;
@@ -704,6 +718,23 @@ export async function toggleQuestionnaireStatus(id: string, newStatus: "ACTIVE" 
     return { success: true };
 }
 
+export async function toggleQuestionnaireGlobal(id: string, isGlobal: boolean) {
+    if (!(await canManageQuestionnaire(id))) {
+        return { success: false, error: "Unauthorized" };
+    }
+    const q = await prisma.questionnaire.findUnique({ where: { id } });
+    if (!q) throw new Error("Questionnaire not found");
+
+    await prisma.questionnaire.update({
+        where: { id },
+        data: { isGlobal }
+    });
+
+    revalidatePath(`/app/admin/questionnaires/${id}`);
+    revalidatePath(`/app/admin/organizations/${q.fiOrgId}`);
+    return { success: true };
+}
+
 export async function updateQuestionnaireName(id: string, newName: string) {
     if (!(await canManageQuestionnaire(id))) {
         return { success: false, error: "Unauthorized" };
@@ -807,7 +838,8 @@ async function syncQuestionsToDatabase(id: string, items: any[]) {
                 // NEW: Persist Mapping
                 masterFieldNo: item.masterFieldNo || null,
                 masterQuestionGroupId: item.masterQuestionGroupId || null,
-                customFieldDefinitionId: item.customFieldDefinitionId || null
+                customFieldDefinitionId: item.customFieldDefinitionId || null,
+                prefilledValue: item.prefilledValue || null
             };
         });
 
@@ -817,3 +849,36 @@ async function syncQuestionsToDatabase(id: string, items: any[]) {
         });
     }
 }
+
+export async function getQuestionnaireSnapshots(templateId: string) {
+    if (!(await canManageQuestionnaire(templateId))) {
+        return { success: false, error: "Unauthorized" };
+    }
+    const template = await prisma.questionnaire.findUnique({ where: { id: templateId } });
+    if (!template) return { success: false, error: "Template not found" };
+
+    try {
+        const snapshots = await prisma.questionnaire.findMany({
+            where: {
+                name: template.name,
+                fiEngagementId: { not: null },
+                isDeleted: false
+            },
+            include: {
+                fiEngagement: {
+                    include: {
+                        clientLE: true,
+                        org: true
+                    }
+                }
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+
+        return { success: true, data: snapshots };
+    } catch (e: any) {
+        console.error("Failed to get snapshots:", e);
+        return { success: false, error: "Database error" };
+    }
+}
+

@@ -136,6 +136,10 @@ export async function getAllQuestionnaires() {
     if (!isAdmin) return [];
 
     return await prisma.questionnaire.findMany({
+        where: {
+            isDeleted: false,
+            status: { not: "ARCHIVED" }
+        },
         distinct: ['name'],
         orderBy: { updatedAt: 'desc' },
         select: {

@@ -137,7 +137,8 @@ export async function extractQuestionnaireItems(input: { content: string | strin
             3. PREFER 'masterQuestionGroupId' for composite concepts (Address, Person, UBO).
             4. Use 'masterKey' (Field No) only for atomic fields (Name, Date, Status).
             5. ESTIMATE 'confidence' (0.0 to 1.0) based on semantic similarity of the text to the Master Field label.
-            6. If NO Master Field matches (Confidence < 0.5), PROPOSE a 'newFieldProposal' with a clear Label and Type (text/number/date).
+            6. If NO Master Field matches (Confidence < 0.5), PROPOSE a 'newFieldProposal' with a clear Label and Type.
+            7. For questions, ALWAYS extract the core concept into a 'compactText' label strictly under 20 characters (e.g. "German TIN", NOT "Confirm if..."). Do not just truncate.
             
             CONTEXT:
             ${schemaContext}`
@@ -190,16 +191,17 @@ export async function extractQuestionnaireItems(input: { content: string | strin
             schemaDescription: 'A list of all questions, sections, and notes extracted from the document',
             schema: z.object({
                 items: z.array(z.object({
-                    type: z.string().describe("The structural type: question, section, instruction, or note"),
+                    type: z.string().describe("The structural type: question, section, instruction, or note").catch("question"),
                     text: z.string().describe("The exact text content"),
+                    compactText: z.string().describe("The core concept of the question extracted as a short label, strictly under 20 chars (e.g. 'Entity Name' or 'German TIN'). Never just truncate.").optional().nullable(),
                     neutralText: z.string().nullable().optional().describe("Neutralized question text (optional)"),
-                    masterKey: z.string().nullable().optional().describe("Matching master schema key (Field No) (optional)"),
+                    masterKey: z.union([z.string(), z.number()]).transform(v => v !== null && v !== undefined ? String(v) : undefined).nullable().optional().describe("Matching master schema key (Field No) (optional)"),
                     masterQuestionGroupId: z.string().nullable().optional().describe("Matching master field group ID (optional)"),
                     category: z.string().nullable().optional().describe("The standard category for this question (Recommended)"),
-                    confidence: z.number().describe("Confidence score 0.0 to 1.0"),
+                    confidence: z.number().optional().catch(0).describe("Confidence score 0.0 to 1.0"),
                     newFieldProposal: z.object({
                         label: z.string().describe("Proposed label for the new custom field"),
-                        type: z.enum(["text", "number", "date", "boolean"]).describe("Data type of the new field")
+                        type: z.string().describe("Data type of the new field")
                     }).optional().nullable().describe("Propose a new field if no master match found")
                 }))
             }),
@@ -219,6 +221,7 @@ export async function extractQuestionnaireItems(input: { content: string | strin
             return {
                 ...item,
                 type: type as "question" | "section" | "instruction" | "note",
+                compactText: item.compactText || undefined,
                 neutralText: item.neutralText || undefined,
                 masterKey: item.masterKey ?? undefined,
                 masterQuestionGroupId: item.masterQuestionGroupId ?? undefined,

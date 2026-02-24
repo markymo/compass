@@ -8,6 +8,7 @@ import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
 
 import { CreateQuestionnaireWizard } from "@/components/admin/questionnaire/create-questionnaire-wizard";
+import { QuestionnaireRowActions } from "@/components/admin/questionnaire/questionnaire-row-actions";
 
 export const dynamic = 'force-dynamic';
 
@@ -37,8 +38,7 @@ export default async function AdminQuestionnairesPage() {
                     <Table>
                         <TableHeader className="bg-slate-50/80">
                             <TableRow>
-                                <TableHead className="w-[40%]">Name / Source</TableHead>
-                                <TableHead>Type</TableHead>
+                                <TableHead className="w-[50%]">Name / Source</TableHead>
                                 <TableHead>Status</TableHead>
                                 <TableHead>Mapping</TableHead>
                                 <TableHead className="text-right">Actions</TableHead>
@@ -57,6 +57,7 @@ export default async function AdminQuestionnairesPage() {
                                 </TableRow>
                             ) : (
                                 allItems.map((q) => {
+                                    const isFileBased = !!q.fileUrl;
                                     const isSourceDoc = q.status === "UPLOADED";
 
                                     return (
@@ -65,24 +66,17 @@ export default async function AdminQuestionnairesPage() {
                                                 <div className="flex items-start gap-3">
                                                     <div className={cn(
                                                         "mt-0.5 p-2 rounded-lg shrink-0",
-                                                        isSourceDoc ? "bg-blue-50 text-blue-600" : "bg-indigo-50 text-indigo-600"
+                                                        isFileBased ? "bg-blue-50 text-blue-600" : "bg-indigo-50 text-indigo-600"
                                                     )}>
-                                                        {isSourceDoc ? <FileType2 className="h-4 w-4" /> : <FileText className="h-4 w-4" />}
+                                                        {isFileBased ? <FileType2 className="h-4 w-4" /> : <FileText className="h-4 w-4" />}
                                                     </div>
                                                     <div>
-                                                        <div className="font-semibold text-slate-900">{isSourceDoc ? q.fileName : q.name}</div>
+                                                        <div className="font-semibold text-slate-900">{isFileBased && q.name === "Untitled Questionnaire" ? q.fileName : q.name}</div>
                                                         <div className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
-                                                            {isSourceDoc ? `Uploaded ${formatDistanceToNow(new Date(q.createdAt), { addSuffix: true })}` : (q.fileName || "Manual Entry")}
+                                                            {isFileBased ? (`Source: ${q.fileName} • Uploaded ${formatDistanceToNow(new Date(q.createdAt), { addSuffix: true })}`) : ("Manual Entry")}
                                                         </div>
                                                     </div>
                                                 </div>
-                                            </TableCell>
-                                            <TableCell>
-                                                {isSourceDoc ? (
-                                                    <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">Raw Document</Badge>
-                                                ) : (
-                                                    <Badge variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-200">Questionnaire</Badge>
-                                                )}
                                             </TableCell>
                                             <TableCell>
                                                 <Badge variant={q.status === 'ACTIVE' ? 'default' : 'secondary'} className={cn(
@@ -103,21 +97,27 @@ export default async function AdminQuestionnairesPage() {
                                                 )}
                                             </TableCell>
                                             <TableCell className="text-right">
-                                                {isSourceDoc ? (
-                                                    q.fileUrl && (
+                                                <div className="flex items-center justify-end gap-2">
+                                                    {isFileBased && q.fileUrl && (
                                                         <Button variant="ghost" size="sm" asChild className="hover:bg-blue-50 hover:text-blue-600">
-                                                            <a href={q.fileUrl} target="_blank" rel="noopener noreferrer">
-                                                                View File
+                                                            <a href={q.fileUrl} target="_blank" rel="noopener noreferrer" title="View Source File">
+                                                                Source
                                                             </a>
                                                         </Button>
-                                                    )
-                                                ) : (
+                                                    )}
                                                     <Link href={`/app/admin/questionnaires/${q.id}`}>
                                                         <Button size="sm" variant="ghost" className="hover:bg-indigo-50 hover:text-indigo-600 transition-colors">
                                                             Manage <ArrowRight className="ml-2 h-4 w-4" />
                                                         </Button>
                                                     </Link>
-                                                )}
+
+                                                    {/* Row Actions Dropdown */}
+                                                    <QuestionnaireRowActions
+                                                        questionnaireId={q.id}
+                                                        questionnaireName={q.fileName || q.name}
+                                                        status={q.status}
+                                                    />
+                                                </div>
                                             </TableCell>
                                         </TableRow>
                                     );

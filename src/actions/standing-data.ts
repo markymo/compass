@@ -88,3 +88,64 @@ export async function updateStandingDataSection(leId: string, category: string, 
         return { success: false, error: error.message || "Failed to update section" };
     }
 }
+
+/**
+ * Attach a file to a specific Master Data field as evidence.
+ * Creates a Document record with docType = "EVIDENCE" and masterFieldKey set.
+ */
+export async function attachDocumentToMasterField(
+    leId: string,
+    fieldKey: string,
+    fileUrl: string,
+    fileName: string,
+    fileSize?: number
+) {
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+
+    try {
+        const document = await prisma.document.create({
+            data: {
+                clientLEId: leId,
+                name: fileName,
+                fileUrl: fileUrl,
+                fileType: fileName.split('.').pop() || 'unknown',
+                kbSize: fileSize ? Math.round(fileSize / 1024) : null,
+                docType: 'EVIDENCE',
+                masterFieldKey: fieldKey,
+            }
+        });
+
+        revalidatePath(`/app/le/${leId}/master`);
+        revalidatePath(`/app/le/${leId}/sources/vault`);
+        return { success: true, document };
+    } catch (error: any) {
+        console.error("[attachDocumentToMasterField]", error);
+        return { success: false, error: error.message || "Failed to attach document" };
+    }
+}
+
+/**
+ * Fetch all documents attached to a specific Master Data field.
+ */
+export async function getMasterFieldDocuments(leId: string, fieldKey: string) {
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized", documents: [] };
+
+    try {
+        const documents = await prisma.document.findMany({
+            where: {
+                clientLEId: leId,
+                masterFieldKey: fieldKey,
+                isDeleted: false,
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+
+        return { success: true, documents };
+    } catch (error: any) {
+        console.error("[getMasterFieldDocuments]", error);
+        return { success: false, error: "Failed to fetch documents", documents: [] };
+    }
+}
+

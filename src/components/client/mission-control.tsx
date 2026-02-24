@@ -42,7 +42,7 @@ interface MissionControlProps {
             details: any;
             metrics?: DashboardMetric;
         };
-        pipeline: Array<{ id: string; fiName: string; status: string }>;
+        pipeline: Array<{ id: string; fiName: string; status: string; isInvited?: boolean; isAccepted?: boolean; addedDate?: Date | null; invitedDate?: Date | null; acceptedDate?: Date | null }>;
         activity: Array<{ id: string; action: string; time: Date; user: string }>;
     };
 }
@@ -121,46 +121,78 @@ export function MissionControl({ metrics, leId, engagements, activity = [] }: Mi
                 </div>
             </div>
 
-            {/* Pipeline */}
+            {/* Relationships */}
             <Card className="border-slate-200 shadow-sm overflow-hidden">
                 <CardHeader className="bg-slate-50/50 border-b pb-4">
                     <CardTitle className="text-base font-semibold flex items-center gap-2">
-                        <LayoutDashboard className="h-4 w-4 text-slate-500" />
-                        Supplier Relationship Pipeline
+                        <Users className="h-4 w-4 text-slate-500" />
+                        Relationships
                     </CardTitle>
                 </CardHeader>
-                <CardContent className="p-4 md:p-8">
-                    <div className="relative flex flex-col md:flex-row justify-between gap-8 md:gap-0">
-                        <div className="hidden md:block absolute top-[15px] left-0 w-full h-0.5 bg-slate-200 -z-10" />
-                        <div className="md:hidden absolute left-[15px] top-0 h-full w-0.5 bg-slate-200 -z-10" />
-                        {pipelineStages.map((stage) => {
-                            const banksInStage = metrics.pipeline.filter(p => getStageForStatus(p.status) === stage.id);
-                            const Icon = stage.icon;
-                            return (
-                                <div key={stage.id} className="flex flex-row md:flex-col items-start md:items-center flex-1 gap-4 md:gap-0">
-                                    <div className="w-8 h-8 rounded-full bg-white border-2 border-slate-300 flex items-center justify-center mb-0 md:mb-4 z-10 shadow-sm shrink-0">
-                                        <div className="w-2.5 h-2.5 rounded-full bg-slate-300" />
-                                    </div>
-                                    <div className="flex-1 w-full">
-                                        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 md:mb-4 mt-1.5 md:mt-0 md:text-center">{stage.label}</h4>
-                                        <div className="space-y-2 w-full md:px-4">
-                                            {banksInStage.length === 0 ? (
-                                                <div className="h-12 border-2 border-dashed border-slate-100 rounded-lg flex items-center justify-center text-[10px] text-slate-300">No Banks</div>
-                                            ) : (
-                                                banksInStage.map(bank => (
-                                                    <div key={bank.id} className="bg-white border hover:border-indigo-300 shadow-sm p-3 rounded-lg flex items-center gap-3 transition-all cursor-pointer group">
-                                                        <div className="h-8 w-8 rounded bg-slate-100 flex items-center justify-center text-slate-600 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors shrink-0">
-                                                            <Building2 className="h-4 w-4" />
-                                                        </div>
-                                                        <div className="text-sm font-semibold text-slate-700 group-hover:text-slate-900 truncate">{bank.fiName}</div>
-                                                    </div>
-                                                ))
-                                            )}
-                                        </div>
-                                    </div>
+                <CardContent className="p-0">
+                    <div className="flex flex-col">
+                        {metrics.pipeline.length === 0 ? (
+                            <div className="text-center py-6 text-slate-400 text-sm m-4 border-2 border-dashed border-slate-100 rounded-lg">
+                                No relationships yet.
+                            </div>
+                        ) : (
+                            <>
+                                {/* Table Header */}
+                                <div className="grid grid-cols-[1fr_120px_120px_120px] gap-4 px-6 py-3 bg-slate-50 border-b text-xs font-semibold text-slate-500 uppercase tracking-wider items-center">
+                                    <div>Supplier</div>
+                                    <div className="text-center">Added</div>
+                                    <div className="text-center">Invited</div>
+                                    <div className="text-center">Accepted</div>
                                 </div>
-                            );
-                        })}
+                                {/* Table Body */}
+                                <div className="divide-y divide-slate-100">
+                                    {metrics.pipeline.map(bank => (
+                                        <div key={bank.id} className="grid grid-cols-[1fr_120px_120px_120px] gap-4 px-6 py-4 items-center hover:bg-slate-50 transition-colors">
+                                            <div className="flex items-center gap-3 min-w-0">
+                                                <div className="h-9 w-9 rounded-lg bg-white flex items-center justify-center text-slate-600 shrink-0 border border-slate-200 shadow-sm">
+                                                    <Building2 className="h-4 w-4" />
+                                                </div>
+                                                <div className="font-medium text-slate-900 truncate">
+                                                    {bank.fiName}
+                                                </div>
+                                            </div>
+
+                                            {/* Added */}
+                                            <div className="flex justify-center text-sm text-slate-500">
+                                                {bank.addedDate ? new Date(bank.addedDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'}
+                                            </div>
+
+                                            {/* Invited */}
+                                            <div className="flex justify-center flex-col items-center">
+                                                {bank.isInvited ? (
+                                                    <span className="text-sm font-medium text-slate-700">
+                                                        {bank.invitedDate ? new Date(bank.invitedDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Yes'}
+                                                    </span>
+                                                ) : (
+                                                    <Badge variant="outline" className="bg-slate-100/50 text-slate-400 border-dashed border-slate-200 font-normal">
+                                                        Waitlist
+                                                    </Badge>
+                                                )}
+                                            </div>
+
+                                            {/* Accepted */}
+                                            <div className="flex justify-center flex-col items-center">
+                                                {bank.isAccepted ? (
+                                                    <span className="text-sm font-medium text-emerald-600 flex items-center gap-1">
+                                                        <CheckCircle2 className="h-3 w-3" />
+                                                        {bank.acceptedDate ? new Date(bank.acceptedDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Yes'}
+                                                    </span>
+                                                ) : bank.isInvited ? (
+                                                    <span className="text-xs text-slate-400 italic">Pending</span>
+                                                ) : (
+                                                    <span className="text-sm text-slate-300">-</span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </>
+                        )}
                     </div>
                 </CardContent>
             </Card>

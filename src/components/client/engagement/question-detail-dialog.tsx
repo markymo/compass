@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Bot, User, Send, History, MessageSquare, Sparkles, Lock, Unlock, Loader2, Database, UserPlus } from "lucide-react";
+import { Bot, User, Send, History, MessageSquare, Sparkles, Lock, Unlock, Loader2, Database, UserPlus, Paperclip, FileText, Download, Trash2 } from "lucide-react";
 import { QuestionTask } from "./question-card";
 import { cn } from "@/lib/utils";
 import {
@@ -23,6 +23,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { upload } from "@vercel/blob/client";
 
 interface QuestionDetailDialogProps {
     open: boolean;
@@ -31,19 +32,22 @@ interface QuestionDetailDialogProps {
     clientLEId?: string;
 }
 
-import { updateAnswer, addComment, generateSingleQuestionAnswer, toggleQuestionLock, getLETeamMembers, assignQuestion } from "@/actions/kanban-actions";
+import { updateAnswer, addComment, generateSingleQuestionAnswer, toggleQuestionLock, getLETeamMembers, assignQuestion, attachDocumentToQuestion } from "@/actions/kanban-actions";
 import { toast } from "sonner";
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 // ... existing imports
 
 export function QuestionDetailDialog({ open, onOpenChange, task, clientLEId }: QuestionDetailDialogProps) {
+    const router = useRouter();
     const [comment, setComment] = useState("");
     const [answer, setAnswer] = useState("");
     const [isSaving, setIsSaving] = useState(false);
     const [isGenerating, setIsGenerating] = useState(false);
     const [isLocked, setIsLocked] = useState(false);
     const [isAssigning, setIsAssigning] = useState(false);
+    const [isUploadingFile, setIsUploadingFile] = useState(false);
     const [teamMembers, setTeamMembers] = useState<any[]>([]);
 
     // Optimistic Activities
@@ -67,6 +71,13 @@ export function QuestionDetailDialog({ open, onOpenChange, task, clientLEId }: Q
         } else {
             setLocalComments([]);
         }
+    }, [task]);
+
+    // Optimistic documents (initially from task, then appended after upload)
+    const [localDocuments, setLocalDocuments] = useState<any[]>([]);
+
+    useEffect(() => {
+        setLocalDocuments(task?.documents || []);
     }, [task]);
 
     // Fetch Team for Assignment
@@ -270,6 +281,118 @@ export function QuestionDetailDialog({ open, onOpenChange, task, clientLEId }: Q
                                 <p className="text-xs text-slate-400 mt-2 text-right">
                                     Last auto-save: Just now
                                 </p>
+                            </div>
+
+                            {/* Documents Section */}
+                            <div className="space-y-4 pt-4 border-t border-slate-100">
+                                <div className="flex items-center gap-2">
+                                    <Paperclip className="h-4 w-4 text-indigo-600" />
+                                    <h4 className="text-sm font-semibold text-slate-900">Supporting Documents</h4>
+                                </div>
+                                <div className="bg-slate-50/50 rounded-xl border border-slate-200 p-4 space-y-4">
+
+                                    {/* File List */}
+                                    {localDocuments.length > 0 && (
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+                                            {localDocuments.map((doc: any) => (
+                                                <div key={doc.id} className="bg-white border text-sm rounded-lg p-3 flex items-start gap-3 shadow-sm group">
+                                                    <div className="h-8 w-8 rounded bg-indigo-50 flex items-center justify-center shrink-0">
+                                                        <FileText className="h-4 w-4 text-indigo-600" />
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="font-medium text-slate-900 truncate">{doc.name}</p>
+                                                        <p className="text-xs text-slate-500">{doc.kbSize ? `${doc.kbSize} KB • ` : ''} {doc.fileType}</p>
+                                                    </div>
+                                                    <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-indigo-600" asChild>
+                                                            <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer">
+                                                                <Download className="h-3 w-3" />
+                                                            </a>
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    {/* Uploader */}
+                                    {!isLocked && (
+                                        <div className="flex flex-col gap-2">
+                                            <input
+                                                type="file"
+                                                id={`file-upload-${task.id}`}
+                                                className="hidden"
+                                                disabled={isUploadingFile}
+                                                onChange={async (e) => {
+                                                    const file = e.target.files?.[0];
+                                                    if (!file || !clientLEId) return;
+
+                                                    setIsUploadingFile(true);
+                                                    try {
+                                                        // Step 1: Upload file to Vercel Blob storage
+                                                        // We pass an empty clientPayload here since we'll call
+                                                        // attachDocumentToQuestion directly (more reliable than onUploadCompleted)
+                                                        const newBlob = await upload(file.name, file, {
+                                                            access: 'public',
+                                                            handleUploadUrl: '/api/upload',
+                                                        });
+
+                                                        // Step 2: Directly call the server action to link the doc to the DB.
+                                                        // This is more reliable than the Vercel Blob onUploadCompleted callback
+                                                        // which does not fire reliably in local development.
+                                                        const res = await attachDocumentToQuestion(
+                                                            task.id,
+                                                            newBlob.url,
+                                                            file.name,
+                                                            file.size
+                                                        );
+
+                                                        if (!res.success) {
+                                                            console.error("DB link failed:", res.error);
+                                                            toast.error(`Upload failed: ${res.error}`);
+                                                            return;
+                                                        }
+
+                                                        // Optimistically update local docs list
+                                                        setLocalDocuments(prev => [
+                                                            ...prev,
+                                                            {
+                                                                id: (res as any).document?.id || newBlob.url,
+                                                                name: file.name,
+                                                                fileUrl: newBlob.url,
+                                                                fileType: file.name.split('.').pop() || 'file',
+                                                                kbSize: Math.round(file.size / 1024),
+                                                            }
+                                                        ]);
+                                                        toast.success("Document attached");
+                                                        router.refresh(); // Sync server-side Documents tab
+                                                    } catch (error) {
+                                                        console.error("Upload error", error);
+                                                        toast.error("Failed to upload document");
+                                                    } finally {
+                                                        setIsUploadingFile(false);
+                                                        // Reset input
+                                                        e.target.value = '';
+                                                    }
+                                                }}
+                                            />
+                                            <Button
+                                                variant="outline"
+                                                className="w-full border-dashed"
+                                                disabled={isUploadingFile}
+                                                onClick={() => document.getElementById(`file-upload-${task.id}`)?.click()}
+                                            >
+                                                {isUploadingFile ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Paperclip className="h-4 w-4 mr-2" />}
+                                                {isUploadingFile ? "Uploading..." : "Attach Document"}
+                                            </Button>
+                                        </div>
+                                    )}
+                                    {isLocked && localDocuments.length === 0 && (
+                                        <div className="text-center py-6">
+                                            <p className="text-sm text-slate-500">No documents attached.</p>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
 
                             <div className="bg-slate-50 rounded-lg p-4 border border-slate-100">

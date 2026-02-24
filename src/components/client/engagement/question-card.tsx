@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Draggable } from "@hello-pangea/dnd";
 import { Card } from "@/components/ui/card";
-import { Sparkles, Loader2, Check, X } from "lucide-react";
+import { Sparkles, Loader2, Check, X, Paperclip } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { updateAnswer, generateSingleQuestionAnswer } from "@/actions/kanban-actions";
 
@@ -25,6 +25,8 @@ export interface QuestionTask {
     activities?: any[];
     hasFlag?: boolean;
     isLocked?: boolean;
+    allowAttachments?: boolean;
+    documents?: any[];
     comments?: Array<{
         id: string;
         text: string;
@@ -126,25 +128,29 @@ export function QuestionCard({ task, index, onClick }: QuestionCardProps) {
                             >
                                 {task.compactText || task.question.slice(0, 20)}
                             </p>
-
-                            {/* AI Generation Button */}
-                            <button
-                                onClick={handleAIGenerate}
-                                disabled={aiState === 'generating' || task.isLocked}
-                                className={cn(
-                                    "w-5 h-5 flex-shrink-0 flex items-center justify-center rounded transition-all",
-                                    "disabled:cursor-not-allowed",
-                                    aiState === 'idle' && "opacity-40 hover:opacity-100 hover:scale-110 text-purple-600",
-                                    aiState === 'generating' && "opacity-100 text-purple-600",
-                                    aiState === 'success' && "opacity-100 text-emerald-600",
-                                    aiState === 'error' && "opacity-100 text-red-600"
+                            <div className="flex items-center gap-1">
+                                {(task.allowAttachments || (task.documents && task.documents.length > 0)) && (
+                                    <Paperclip className={cn("h-3.5 w-3.5 flex-shrink-0", task.documents && task.documents.length > 0 ? "text-indigo-600" : "text-slate-400")} />
                                 )}
-                            >
-                                {aiState === 'generating' && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                                {aiState === 'success' && <Check className="h-3.5 w-3.5" />}
-                                {aiState === 'error' && <X className="h-3.5 w-3.5" />}
-                                {aiState === 'idle' && <Sparkles className="h-3.5 w-3.5" />}
-                            </button>
+                                {/* AI Generation Button */}
+                                <button
+                                    onClick={handleAIGenerate}
+                                    disabled={aiState === 'generating' || task.isLocked}
+                                    className={cn(
+                                        "w-5 h-5 flex-shrink-0 flex items-center justify-center rounded transition-all",
+                                        "disabled:cursor-not-allowed",
+                                        aiState === 'idle' && "opacity-40 hover:opacity-100 hover:scale-110 text-purple-600",
+                                        aiState === 'generating' && "opacity-100 text-purple-600",
+                                        aiState === 'success' && "opacity-100 text-emerald-600",
+                                        aiState === 'error' && "opacity-100 text-red-600"
+                                    )}
+                                >
+                                    {aiState === 'generating' && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                                    {aiState === 'success' && <Check className="h-3.5 w-3.5" />}
+                                    {aiState === 'error' && <X className="h-3.5 w-3.5" />}
+                                    {aiState === 'idle' && <Sparkles className="h-3.5 w-3.5" />}
+                                </button>
+                            </div>
                         </div>
 
                         {/* Line 2: Answer field */}

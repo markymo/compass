@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { getEngagementDetails, getFullMasterData } from "@/actions/client-le";
+import { getEngagementEvidenceDocuments } from "@/actions/kanban-actions";
 import { EngagementDetailView } from "@/components/client/engagement/engagement-detail-view";
 import { SetPageBreadcrumbs } from "@/context/breadcrumb-context";
 
@@ -16,7 +17,12 @@ export default async function EngagementPage({ params, searchParams }: PageProps
     const { id, engagementId } = await params;
     const { tab } = await searchParams;
 
-    const { success, engagement, questionnaires, metrics } = await getEngagementDetails(engagementId);
+    const [detailsRes, evidenceRes] = await Promise.all([
+        getEngagementDetails(engagementId),
+        getEngagementEvidenceDocuments(engagementId),
+    ]);
+
+    const { success, engagement, questionnaires, invitations, members, metrics } = detailsRes;
 
     if (!success || !engagement) {
         return notFound();
@@ -27,10 +33,8 @@ export default async function EngagementPage({ params, searchParams }: PageProps
     const fiName = engagement.org.name;
     const activeTab = typeof tab === 'string' ? tab : undefined;
 
-    // Check if sharedDocuments is array, if not empty
-    // Typescript might complain if engagement type is not inferred fully yet due to pending generation
-    // But runtime it should avail.
     const sharedDocuments = (engagement as any).sharedDocuments || [];
+    const evidenceDocuments = evidenceRes.success ? (evidenceRes.documents || []) : [];
 
     // Fetch Master Data Values (Standing Data)
     const { data: standingData } = await getFullMasterData(le.id);
@@ -47,6 +51,9 @@ export default async function EngagementPage({ params, searchParams }: PageProps
                 engagement={engagement}
                 questionnaires={questionnaires || []}
                 sharedDocuments={sharedDocuments}
+                evidenceDocuments={evidenceDocuments}
+                invitations={invitations || []}
+                members={members || []}
                 initialTab={activeTab}
                 metrics={metrics}
                 standingData={standingData}

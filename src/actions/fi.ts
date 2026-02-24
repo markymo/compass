@@ -497,6 +497,7 @@ export async function assignQuestionnaireToEngagement(engagementId: string, temp
                 questions: {
                     create: template.questions.map(q => ({
                         text: q.text,
+                        compactText: q.compactText,
                         order: q.order,
                         status: "DRAFT",
                         sourceSectionId: q.sourceSectionId,

@@ -354,6 +354,35 @@ export async function getEngagementDetails(engagementId: string) {
             ).values()
         );
 
+        // Fetch Pending Invitations
+        const rawInvitations = await prisma.invitation.findMany({
+            where: {
+                fiEngagementId: engagementId,
+                usedAt: null,
+                revokedAt: null
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+
+        // Manually fetch and attach the creator User details (no direct relation in schema)
+        const creatorIds = [...new Set(rawInvitations.map(inv => inv.createdByUserId))];
+        const creators = await prisma.user.findMany({
+            where: { id: { in: creatorIds } },
+            select: { id: true, name: true, email: true }
+        });
+
+        const invitations = rawInvitations.map(inv => ({
+            ...inv,
+            createdByUser: creators.find(c => c.id === inv.createdByUserId) || null
+        }));
+
+        // Fetch Active Members (Scoped to the LE for now, as Suppliers are invited to the LE or Org)
+        const members = await prisma.membership.findMany({
+            where: { clientLEId: engagement.clientLEId },
+            include: { user: { select: { name: true, email: true, image: true } } },
+            orderBy: { createdAt: 'desc' }
+        });
+
         // Calculate Metrics
         const metrics = await calculateEngagementMetrics(engagementId);
 
@@ -361,6 +390,8 @@ export async function getEngagementDetails(engagementId: string) {
             success: true,
             engagement,
             questionnaires: combinedQuestionnaires,
+            invitations,
+            members,
             metrics
         };
     } catch (error) {
