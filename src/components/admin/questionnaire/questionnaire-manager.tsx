@@ -4,14 +4,16 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
-import { updateQuestionnaireFile, toggleQuestionnaireStatus, updateQuestionnaireName } from "@/actions/questionnaire";
+import { updateQuestionnaireFile, toggleQuestionnaireStatus, updateQuestionnaireName, toggleQuestionnaireGlobal, getQuestionnaireSnapshots } from "@/actions/questionnaire";
 import {
     ArrowLeft, Loader2, Play, AlertCircle, CheckCircle2,
-    FileText, Save, LayoutTemplate, Pencil, MoreVertical, Download, Eye, FileSearch, Keyboard
+    FileText, Save, LayoutTemplate, Pencil, MoreVertical, Download, Eye, FileSearch, Keyboard, Globe
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import {
     Select, SelectContent, SelectItem,
     SelectTrigger, SelectValue
@@ -73,6 +75,10 @@ export function QuestionnaireManager({ questionnaire: initialQ, masterFields }: 
     const [showRawText, setShowRawText] = useState(false);
     const [showSource, setShowSource] = useState(false);
 
+    // Snapshot State
+    const [snapshots, setSnapshots] = useState<any[]>([]);
+    const [loadingSnapshots, setLoadingSnapshots] = useState(false);
+
     // accessors
     const hasFile = !!questionnaire.fileType;
     const isPDF = questionnaire.fileType === "application/pdf";
@@ -85,6 +91,21 @@ export function QuestionnaireManager({ questionnaire: initialQ, masterFields }: 
             handleExtractText();
         }
     }, []); // Run once on mount
+
+    // --- Fetch Snapshots ---
+    useEffect(() => {
+        let mounted = true;
+        async function fetchSnapshots() {
+            setLoadingSnapshots(true);
+            const res = await getQuestionnaireSnapshots(questionnaire.id);
+            if (mounted && res.success) {
+                setSnapshots(res.data || []);
+            }
+            if (mounted) setLoadingSnapshots(false);
+        }
+        fetchSnapshots();
+        return () => { mounted = false; };
+    }, [questionnaire.id]);
 
     const handleNameSave = async () => {
         setIsEditingName(false);
@@ -185,6 +206,20 @@ export function QuestionnaireManager({ questionnaire: initialQ, masterFields }: 
         }
     };
 
+    const handleGlobalToggle = async (checked: boolean) => {
+        setQuestionnaire({ ...questionnaire, isGlobal: checked });
+        try {
+            const res = await toggleQuestionnaireGlobal(questionnaire.id, checked);
+            if (!res.success) {
+                alert("Failed to update visibility: " + res.error);
+                fetchQ(); // Revert
+            }
+        } catch (e) {
+            console.error(e);
+            fetchQ();
+        }
+    };
+
     const handleSaveItems = async () => {
         setSaving(true);
         try {
@@ -233,29 +268,21 @@ export function QuestionnaireManager({ questionnaire: initialQ, masterFields }: 
                         </Button>
                     </Link>
                     <div>
-                        <div className="flex items-center gap-3">
-                            {isEditingName ? (
-                                <Input
-                                    value={questionnaire.name}
-                                    onChange={(e) => setQuestionnaire({ ...questionnaire, name: e.target.value })}
-                                    onBlur={handleNameSave}
-                                    onKeyDown={(e) => e.key === 'Enter' && handleNameSave()}
-                                    className="h-8 w-64 font-semibold text-lg"
-                                    autoFocus
-                                />
-                            ) : (
-                                <h1
-                                    className="text-lg font-semibold tracking-tight flex items-center gap-2 text-slate-900 cursor-pointer group hover:text-indigo-600 transition-colors"
-                                    onClick={() => setIsEditingName(true)}
-                                    title="Click to rename"
-                                >
-                                    {questionnaire.name}
-                                    <Pencil className="w-3 h-3 text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
-                                </h1>
-                            )}
+                        <div className="flex items-center gap-4 border border-transparent hover:border-slate-200 rounded-lg p-1 transition-colors">
+                            <Input
+                                value={questionnaire.name}
+                                onChange={(e) => setQuestionnaire({ ...questionnaire, name: e.target.value })}
+                                onBlur={handleNameSave}
+                                onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+                                className="h-9 w-72 font-semibold text-lg border-transparent hover:border-slate-200 focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100 px-2 shadow-none bg-transparent transition-all"
+                                placeholder="Questionnaire Name"
+                                title="Edit Name"
+                            />
+
+                            <div className="h-6 w-px bg-slate-200" />
 
                             <Select value={questionnaire.status} onValueChange={handleStatusChange}>
-                                <SelectTrigger className={`h-6 text-[10px] w-auto border-none shadow-none px-2 rounded-full font-bold uppercase tracking-wider ${questionnaire.status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' :
+                                <SelectTrigger className={`h-7 text-xs w-auto border-none shadow-none px-3 rounded-full font-bold uppercase tracking-wider ${questionnaire.status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' :
                                     questionnaire.status === 'ARCHIVED' ? 'bg-amber-100 text-amber-700 hover:bg-amber-200' :
                                         'bg-slate-100 text-slate-600 hover:bg-slate-200'
                                     }`}>
@@ -267,6 +294,18 @@ export function QuestionnaireManager({ questionnaire: initialQ, masterFields }: 
                                     <SelectItem value="ARCHIVED">Archived</SelectItem>
                                 </SelectContent>
                             </Select>
+
+                            <div className="h-6 w-px bg-slate-200" />
+
+                            <div className="flex items-center gap-2 px-2" title="If enabled, this questionnaire is available to all Client ORGs as a template.">
+                                <Globe className="w-4 h-4 text-slate-400" />
+                                <Label className="text-sm font-medium text-slate-600 cursor-pointer">Global Template</Label>
+                                <Switch
+                                    checked={questionnaire.isGlobal || false}
+                                    onCheckedChange={handleGlobalToggle}
+                                    className="scale-90 ml-1"
+                                />
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -337,6 +376,65 @@ export function QuestionnaireManager({ questionnaire: initialQ, masterFields }: 
                                 <div className="text-sm text-slate-500 p-4 border rounded-md border-dashed text-center bg-slate-50">
                                     No source file attached.
                                 </div>
+                            )}
+                        </div>
+                    </AccordionContent>
+                </AccordionItem>
+
+                <AccordionItem value="instances" className="border-none">
+                    <AccordionTrigger className="hover:no-underline py-3 text-sm font-semibold text-slate-700">
+                        <div className="flex items-center gap-2">
+                            Active Instances & Snapshots
+                            <Badge variant="secondary" className="ml-2 px-1.5 py-0 h-5 text-xs font-normal">
+                                {snapshots.length}
+                            </Badge>
+                        </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="pb-4 pt-2">
+                        <div className="bg-slate-50 border rounded-md overflow-hidden max-h-[300px] overflow-y-auto">
+                            {loadingSnapshots ? (
+                                <div className="p-4 text-center text-slate-500 text-sm">Loading instances...</div>
+                            ) : snapshots.length === 0 ? (
+                                <div className="p-6 text-center text-slate-500 text-sm flex flex-col items-center">
+                                    <Globe className="w-8 h-8 text-slate-200 mb-2" />
+                                    No active instances of this questionnaire template found.
+                                </div>
+                            ) : (
+                                <table className="w-full text-left text-sm whitespace-nowrap">
+                                    <thead className="bg-slate-100 text-slate-500 sticky top-0 shadow-sm">
+                                        <tr>
+                                            <th className="font-semibold px-4 py-2 text-xs uppercase tracking-wider">Client LE</th>
+                                            <th className="font-semibold px-4 py-2 text-xs uppercase tracking-wider">Supplier</th>
+                                            <th className="font-semibold px-4 py-2 text-xs uppercase tracking-wider">Instance Name</th>
+                                            <th className="font-semibold px-4 py-2 text-xs uppercase tracking-wider">Snapshot Taken</th>
+                                            <th className="font-semibold px-4 py-2 text-xs uppercase tracking-wider">Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y text-slate-700">
+                                        {snapshots.map((s, i) => (
+                                            <tr key={i} className="hover:bg-white transition-colors bg-slate-50/50">
+                                                <td className="px-4 py-2 font-medium">
+                                                    <Link href={`/app/le/${s.fiEngagement?.clientLE?.id}/v2`} className="hover:underline hover:text-indigo-600">
+                                                        {s.fiEngagement?.clientLE?.name || "Unknown"}
+                                                    </Link>
+                                                </td>
+                                                <td className="px-4 py-2">{s.fiEngagement?.org?.name || "Unknown"}</td>
+                                                <td className="px-4 py-2 text-slate-500 truncate max-w-[200px]" title={s.name}>{s.name}</td>
+                                                <td className="px-4 py-2 text-slate-500">
+                                                    {new Date(s.createdAt).toLocaleString(undefined, {
+                                                        year: 'numeric', month: 'short', day: 'numeric',
+                                                        hour: '2-digit', minute: '2-digit'
+                                                    })}
+                                                </td>
+                                                <td className="px-4 py-2">
+                                                    <Badge variant="outline" className="text-[10px] bg-white">
+                                                        {s.status}
+                                                    </Badge>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
                             )}
                         </div>
                     </AccordionContent>

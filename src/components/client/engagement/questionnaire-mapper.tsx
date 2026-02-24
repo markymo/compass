@@ -442,10 +442,14 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
                         </div>
 
                         {/* Table Header */}
-                        <div className="grid grid-cols-[60px_1fr_300px_100px_120px] gap-4 px-6 py-3 bg-slate-50 border-b text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                        <div className="grid grid-cols-[60px_1fr_180px_200px_60px_100px_120px] gap-4 px-6 py-3 bg-slate-50 border-b text-xs font-semibold text-slate-500 uppercase tracking-wider items-center">
                             <div>Order</div>
                             <div>Question Text</div>
+                            <div>Compact Label</div>
                             <div>Mapping</div>
+                            <div className="flex justify-center" title="Allow File Attachments">
+                                <Paperclip className="h-4 w-4" />
+                            </div>
                             <div>Status</div>
                             <div className="text-right">Actions</div>
                         </div>
@@ -464,13 +468,20 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
                                                     null;
 
                                     return (
-                                        <div key={q.id} className="grid grid-cols-[60px_1fr_300px_100px_120px] gap-4 px-6 py-3 items-center hover:bg-white transition-colors group">
+                                        <div key={q.id} className="grid grid-cols-[60px_1fr_180px_200px_60px_100px_120px] gap-4 px-6 py-3 items-center hover:bg-white transition-colors group">
                                             <div className="text-xs text-slate-400 font-mono">#{q.order}</div>
                                             <div className="text-sm text-slate-700 font-medium pr-8 relative">
                                                 <InlineTextEditor
                                                     value={q.text || ""}
                                                     onSave={(newText) => updateQuestion(q.id, { text: newText })}
                                                     className="line-clamp-2"
+                                                />
+                                            </div>
+                                            <div className="text-sm text-slate-700 font-medium relative pr-4">
+                                                <InlineTextEditor
+                                                    value={q.compactText || ""}
+                                                    onSave={(newText) => updateQuestion(q.id, { compactText: newText })}
+                                                    className="line-clamp-1 italic text-slate-500 text-xs"
                                                 />
                                             </div>
                                             <div>
@@ -485,6 +496,13 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
                                                     }}
                                                     customFields={customFields}
                                                     compact
+                                                />
+                                            </div>
+                                            <div className="flex justify-center">
+                                                <Switch
+                                                    checked={q.allowAttachments || false}
+                                                    onCheckedChange={(checked) => updateQuestion(q.id, { allowAttachments: checked })}
+                                                    className="scale-75"
                                                 />
                                             </div>
                                             <div className="flex items-center gap-2">
@@ -694,6 +712,23 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
                                                 <Switch
                                                     checked={selectedQuestion.allowAttachments || false}
                                                     onCheckedChange={(checked) => updateQuestion(selectedQuestion.id, { allowAttachments: checked })}
+                                                />
+                                            </div>
+
+                                            <div className="bg-white rounded-xl border shadow-sm p-5 flex flex-col gap-3">
+                                                <div className="space-y-1">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="font-medium text-slate-900">Compact Label (Kanban Display)</span>
+                                                    </div>
+                                                    <p className="text-sm text-slate-500">
+                                                        A short description of the question (max ~30 chars) used for the kanban card headers.
+                                                    </p>
+                                                </div>
+                                                <Input
+                                                    value={selectedQuestion.compactText || ""}
+                                                    onChange={(e) => updateQuestion(selectedQuestion.id, { compactText: e.target.value })}
+                                                    placeholder="E.g. Code of Conduct Policy"
+                                                    className="max-w-md"
                                                 />
                                             </div>
                                         </div>

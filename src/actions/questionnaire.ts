@@ -716,6 +716,23 @@ export async function toggleQuestionnaireStatus(id: string, newStatus: "ACTIVE" 
     return { success: true };
 }
 
+export async function toggleQuestionnaireGlobal(id: string, isGlobal: boolean) {
+    if (!(await canManageQuestionnaire(id))) {
+        return { success: false, error: "Unauthorized" };
+    }
+    const q = await prisma.questionnaire.findUnique({ where: { id } });
+    if (!q) throw new Error("Questionnaire not found");
+
+    await prisma.questionnaire.update({
+        where: { id },
+        data: { isGlobal }
+    });
+
+    revalidatePath(`/app/admin/questionnaires/${id}`);
+    revalidatePath(`/app/admin/organizations/${q.fiOrgId}`);
+    return { success: true };
+}
+
 export async function updateQuestionnaireName(id: string, newName: string) {
     if (!(await canManageQuestionnaire(id))) {
         return { success: false, error: "Unauthorized" };
@@ -830,3 +847,36 @@ async function syncQuestionsToDatabase(id: string, items: any[]) {
         });
     }
 }
+
+export async function getQuestionnaireSnapshots(templateId: string) {
+    if (!(await canManageQuestionnaire(templateId))) {
+        return { success: false, error: "Unauthorized" };
+    }
+    const template = await prisma.questionnaire.findUnique({ where: { id: templateId } });
+    if (!template) return { success: false, error: "Template not found" };
+
+    try {
+        const snapshots = await prisma.questionnaire.findMany({
+            where: {
+                name: template.name,
+                fiEngagementId: { not: null },
+                isDeleted: false
+            },
+            include: {
+                fiEngagement: {
+                    include: {
+                        clientLE: true,
+                        org: true
+                    }
+                }
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+
+        return { success: true, data: snapshots };
+    } catch (e: any) {
+        console.error("Failed to get snapshots:", e);
+        return { success: false, error: "Database error" };
+    }
+}
+
