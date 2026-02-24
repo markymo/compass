@@ -10,8 +10,9 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Loader2, Save, Sparkles, AlertCircle, CheckCircle2, ChevronRight, Search, LayoutList, LayoutTemplate, Check, Plus, Settings, Pencil } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
+import { Loader2, Save, Sparkles, AlertCircle, CheckCircle2, ChevronRight, Search, LayoutList, LayoutTemplate, Check, Plus, Settings, Pencil, Paperclip } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
@@ -672,6 +673,31 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
                                                 </div>
                                             )}
                                         </div>
+
+                                        {/* Configuration Details */}
+                                        <div className="space-y-4 pt-4 border-t border-slate-100">
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <Settings className="h-5 w-5 text-indigo-600" />
+                                                <h3 className="font-semibold text-slate-900">Question Settings</h3>
+                                            </div>
+
+                                            <div className="bg-white rounded-xl border shadow-sm p-5 flex items-center justify-between">
+                                                <div className="space-y-1">
+                                                    <div className="flex items-center gap-2">
+                                                        <Paperclip className="h-4 w-4 text-slate-500" />
+                                                        <span className="font-medium text-slate-900">Allow File Attachments</span>
+                                                    </div>
+                                                    <p className="text-sm text-slate-500 max-w-sm">
+                                                        Enable suppliers to upload supporting documents alongside their text answer.
+                                                    </p>
+                                                </div>
+                                                <Switch
+                                                    checked={selectedQuestion.allowAttachments || false}
+                                                    onCheckedChange={(checked) => updateQuestion(selectedQuestion.id, { allowAttachments: checked })}
+                                                />
+                                            </div>
+                                        </div>
+
                                     </div>
                                 </div>
                             ) : (
@@ -766,7 +792,7 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
                                         setSearch("");
                                     }}>
                                         <Plus className="h-3 w-3 mr-2" />
-                                        Create "{search}" as new field
+                                        Create &quot;{search}&quot; as new field
                                     </Button>
                                 )}
                             </CommandEmpty>
@@ -853,9 +879,9 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
                                 );
                             })()}
                         </CommandList>
-                    </Command>
-                </PopoverContent>
-            </Popover>
+                    </Command >
+                </PopoverContent >
+            </Popover >
         );
     }
 }

@@ -24,10 +24,13 @@ interface EngagementDetailViewProps {
     initialTab?: string;
     metrics?: DashboardMetric;
     standingData?: any;
+    invitations: any[];
+    members: any[];
 }
 
 import { instantiateQuestionnaire, generateEngagementAnswers } from "@/actions/kanban-actions";
 import { deleteQuestionnaire } from "@/actions/questionnaire"; // Import Delete action
+import { revokeInvitation } from "@/actions/invitations";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
@@ -36,7 +39,7 @@ import { MoreHorizontal, Settings, Trash2 } from "lucide-react";
 
 import { QuestionnaireMapper } from "./questionnaire-mapper";
 
-export function EngagementDetailView({ le, engagement, questionnaires, sharedDocuments, initialTab, metrics, standingData }: EngagementDetailViewProps) {
+export function EngagementDetailView({ le, engagement, questionnaires, sharedDocuments, invitations, members, initialTab, metrics, standingData }: EngagementDetailViewProps) {
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
     const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
     const [manageQuestionnaireId, setManageQuestionnaireId] = useState<string | null>(null);
@@ -90,6 +93,19 @@ export function EngagementDetailView({ le, engagement, questionnaires, sharedDoc
                 error: (err) => `Failed: ${err.message}`
             }
         );
+    };
+
+    const handleRevokeInvite = async (invitationId: string) => {
+        if (!confirm("Are you sure you want to revoke this invitation?")) return;
+
+        toast.promise(revokeInvitation(invitationId), {
+            loading: "Revoking invitation...",
+            success: () => {
+                router.refresh();
+                return "Invitation revoked";
+            },
+            error: "Failed to revoke invitation"
+        });
     };
 
     return (
@@ -285,14 +301,82 @@ export function EngagementDetailView({ le, engagement, questionnaires, sharedDoc
                         </div>
                     </TabsContent>
 
-                    <TabsContent value="team" className="mt-0">
+                    <TabsContent value="team" className="mt-0 space-y-6">
+                        {/* Active Members Card */}
                         <Card>
-                            <CardHeader>
-                                <CardTitle>Team Members</CardTitle>
-                                <CardDescription>Manage access to this engagement.</CardDescription>
+                            <CardHeader className="pb-3 border-b border-slate-100 mb-4">
+                                <CardTitle className="text-lg text-slate-800">Active Team Members</CardTitle>
+                                <CardDescription>Users who have access to this engagement.</CardDescription>
                             </CardHeader>
-                            <CardContent>
-                                <p className="text-slate-500 text-sm">Team management functionality coming soon.</p>
+                            <CardContent className="p-0">
+                                {members.length === 0 ? (
+                                    <div className="p-6 text-center text-slate-500 text-sm">No active members found.</div>
+                                ) : (
+                                    <div className="divide-y divide-slate-100">
+                                        {members.map((member) => (
+                                            <div key={member.id} className="p-4 flex items-center justify-between hover:bg-slate-50">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="h-10 w-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 font-medium">
+                                                        {member.user.name ? member.user.name.charAt(0).toUpperCase() : member.user.email.charAt(0).toUpperCase()}
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-medium text-slate-900">{member.user.name || 'Unknown User'}</p>
+                                                        <p className="text-sm text-slate-500">{member.user.email}</p>
+                                                    </div>
+                                                </div>
+                                                <Badge variant="secondary" className="text-xs">{member.role}</Badge>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+
+                        {/* Pending Invitations Card */}
+                        <Card>
+                            <CardHeader className="pb-3 border-b border-slate-100 mb-4">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <CardTitle className="text-lg text-slate-800">Pending Invitations</CardTitle>
+                                        <CardDescription>Invitations sent but not yet accepted.</CardDescription>
+                                    </div>
+                                    <Button size="sm" onClick={() => setIsInviteDialogOpen(true)} variant="outline" className="gap-2">
+                                        <Plus className="h-4 w-4" /> Invite
+                                    </Button>
+                                </div>
+                            </CardHeader>
+                            <CardContent className="p-0">
+                                {invitations.length === 0 ? (
+                                    <div className="p-6 text-center text-slate-500 text-sm">No pending invitations.</div>
+                                ) : (
+                                    <div className="divide-y divide-slate-100">
+                                        {invitations.map((invite) => (
+                                            <div key={invite.id} className="p-4 flex items-center justify-between hover:bg-slate-50">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="h-10 w-10 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600">
+                                                        <Users className="h-4 w-4" />
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-medium text-slate-900">{invite.sentToEmail}</p>
+                                                        <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-500">
+                                                            <Badge variant="outline" className="text-[10px] font-normal">{invite.role}</Badge>
+                                                            <span>•</span>
+                                                            <span>Sent by {invite.createdByUser?.name || invite.createdByUser?.email || 'Unknown'}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                                    onClick={() => handleRevokeInvite(invite.id)}
+                                                >
+                                                    Revoke
+                                                </Button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </CardContent>
                         </Card>
                     </TabsContent>

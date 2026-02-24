@@ -16,7 +16,7 @@ export default async function EngagementPage({ params, searchParams }: PageProps
     const { id, engagementId } = await params;
     const { tab } = await searchParams;
 
-    const { success, engagement, questionnaires, metrics } = await getEngagementDetails(engagementId);
+    const { success, engagement, questionnaires, invitations, members, metrics } = await getEngagementDetails(engagementId);
 
     if (!success || !engagement) {
         return notFound();
@@ -47,6 +47,8 @@ export default async function EngagementPage({ params, searchParams }: PageProps
                 engagement={engagement}
                 questionnaires={questionnaires || []}
                 sharedDocuments={sharedDocuments}
+                invitations={invitations || []}
+                members={members || []}
                 initialTab={activeTab}
                 metrics={metrics}
                 standingData={standingData}

@@ -300,6 +300,14 @@ model Document {
 
   clientLE        ClientLE       @relation(fields: [clientLEId], references: [id])
   sharedWith      FIEngagement[] @relation("SharedDocuments")
+
+  // Link to Engagement-specific Questionnaire 
+  questionId             String?
+  question               Question?     @relation("QuestionDocuments", fields: [questionId], references: [id])
+  
+  // Link to Canonical Master LE Questionnaire (Prefills)
+  prefilledForQuestionId String?
+  prefilledForQuestion   Question?     @relation("PrefilledQuestionDocuments", fields: [prefilledForQuestionId], references: [id])
 }
 
 model Query {
@@ -353,6 +361,8 @@ model Question {
   compactText     String?            // Compact version (≤20 chars) for kanban display
   answer          String?            @db.Text
   prefilledValue  String?            @db.Text
+  expectedDataType String            @default("TEXT")
+  allowAttachments Boolean           @default(false)
   status          QuestionStatus     @default(DRAFT)
   isLocked        Boolean            @default(false)
   order           Int                @default(0)
@@ -374,6 +384,10 @@ model Question {
   questionnaire   Questionnaire      @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
   comments        Comment[]
   activities      QuestionActivity[]
+  
+  // Attached Evidence Documents
+  documents          Document[] @relation("QuestionDocuments")
+  prefilledDocuments Document[] @relation("PrefilledQuestionDocuments")
   
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt

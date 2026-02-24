@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Bot, User, Send, History, MessageSquare, Sparkles, Lock, Unlock, Loader2, Database, UserPlus } from "lucide-react";
+import { Bot, User, Send, History, MessageSquare, Sparkles, Lock, Unlock, Loader2, Database, UserPlus, Paperclip, FileText, Download, Trash2 } from "lucide-react";
 import { QuestionTask } from "./question-card";
 import { cn } from "@/lib/utils";
 import {
@@ -44,6 +44,7 @@ export function QuestionDetailDialog({ open, onOpenChange, task, clientLEId }: Q
     const [isGenerating, setIsGenerating] = useState(false);
     const [isLocked, setIsLocked] = useState(false);
     const [isAssigning, setIsAssigning] = useState(false);
+    const [isUploadingFile, setIsUploadingFile] = useState(false);
     const [teamMembers, setTeamMembers] = useState<any[]>([]);
 
     // Optimistic Activities
@@ -271,6 +272,98 @@ export function QuestionDetailDialog({ open, onOpenChange, task, clientLEId }: Q
                                     Last auto-save: Just now
                                 </p>
                             </div>
+
+                            {/* Documents Section (Conditional) */}
+                            {task.allowAttachments && (
+                                <div className="space-y-4 pt-4 border-t border-slate-100">
+                                    <div className="flex items-center gap-2">
+                                        <Paperclip className="h-4 w-4 text-indigo-600" />
+                                        <h4 className="text-sm font-semibold text-slate-900">Supporting Documents</h4>
+                                    </div>
+                                    <div className="bg-slate-50/50 rounded-xl border border-slate-200 p-4 space-y-4">
+
+                                        {/* File List */}
+                                        {task.documents && task.documents.length > 0 && (
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+                                                {task.documents.map((doc: any) => (
+                                                    <div key={doc.id} className="bg-white border text-sm rounded-lg p-3 flex items-start gap-3 shadow-sm group">
+                                                        <div className="h-8 w-8 rounded bg-indigo-50 flex items-center justify-center shrink-0">
+                                                            <FileText className="h-4 w-4 text-indigo-600" />
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="font-medium text-slate-900 truncate">{doc.name}</p>
+                                                            <p className="text-xs text-slate-500">{doc.kbSize ? `${doc.kbSize} KB • ` : ''} {doc.fileType}</p>
+                                                        </div>
+                                                        <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                                            <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-indigo-600" asChild>
+                                                                <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer">
+                                                                    <Download className="h-3 w-3" />
+                                                                </a>
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        {/* Uploader */}
+                                        {!isLocked && (
+                                            <div className="flex flex-col gap-2">
+                                                <input
+                                                    type="file"
+                                                    id={`file-upload-${task.id}`}
+                                                    className="hidden"
+                                                    disabled={isUploadingFile}
+                                                    onChange={async (e) => {
+                                                        const file = e.target.files?.[0];
+                                                        if (!file || !clientLEId) return;
+
+                                                        setIsUploadingFile(true);
+                                                        try {
+                                                            const formData = new FormData();
+                                                            formData.append('file', file);
+                                                            formData.append('leId', clientLEId);
+                                                            formData.append('questionId', task.id); // Triggers attachDocumentToQuestion
+
+                                                            const response = await fetch('/api/upload', {
+                                                                method: 'POST',
+                                                                body: formData,
+                                                            });
+
+                                                            if (!response.ok) throw new Error('Upload failed');
+
+                                                            toast.success("Document attached successfully");
+                                                            // We should ideally reload the task data here, 
+                                                            // but for now relying on the optimistic or subsequent reloads
+                                                        } catch (error) {
+                                                            console.error("Upload error", error);
+                                                            toast.error("Failed to upload document");
+                                                        } finally {
+                                                            setIsUploadingFile(false);
+                                                            // Reset input
+                                                            e.target.value = '';
+                                                        }
+                                                    }}
+                                                />
+                                                <Button
+                                                    variant="outline"
+                                                    className="w-full border-dashed"
+                                                    disabled={isUploadingFile}
+                                                    onClick={() => document.getElementById(`file-upload-${task.id}`)?.click()}
+                                                >
+                                                    {isUploadingFile ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Paperclip className="h-4 w-4 mr-2" />}
+                                                    {isUploadingFile ? "Uploading..." : "Attach Document"}
+                                                </Button>
+                                            </div>
+                                        )}
+                                        {isLocked && task.documents?.length === 0 && (
+                                            <div className="text-center py-6">
+                                                <p className="text-sm text-slate-500">No documents attached.</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
 
                             <div className="bg-slate-50 rounded-lg p-4 border border-slate-100">
                                 <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Activity History</h4>

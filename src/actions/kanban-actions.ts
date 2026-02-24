@@ -161,7 +161,9 @@ export async function getBoardQuestions(engagementId: string) {
             activities: {
                 orderBy: { createdAt: 'desc' },
                 include: { user: true }
-            }
+            },
+            // @ts-ignore: schema additions
+            documents: true
         }
     });
 
@@ -177,10 +179,10 @@ export async function getBoardQuestions(engagementId: string) {
         assignedToUserId: q.assignedToUserId,
         assignedEmail: (q as any).assignedEmail,
         assignee: q.assignedToUserId
-            ? { name: q.assignedToUser?.name || q.assignedToUser?.email || 'User', type: 'USER' }
+            ? { name: (q as any).assignedToUser?.name || (q as any).assignedToUser?.email || 'User', type: 'USER' }
             : ((q as any).assignedEmail ? { name: (q as any).assignedEmail, type: 'INVITEE' } : undefined),
-        commentCount: q.comments.length,
-        comments: q.comments.map(c => ({
+        commentCount: (q as any).comments?.length || 0,
+        comments: ((q as any).comments || []).map((c: any) => ({
             id: c.id,
             text: c.text,
             author: c.user?.name || "User",
@@ -194,6 +196,16 @@ export async function getBoardQuestions(engagementId: string) {
             details: a.details,
             userName: a.user.name || "User",
             createdAt: a.createdAt
+        })) : [],
+        // @ts-ignore
+        allowAttachments: q.allowAttachments,
+        // @ts-ignore
+        documents: q.documents ? q.documents.map((d: any) => ({
+            id: d.id,
+            name: d.name,
+            fileType: d.fileType,
+            fileUrl: d.fileUrl,
+            kbSize: d.kbSize
         })) : []
     }));
 }
@@ -347,6 +359,64 @@ export async function updateAnswer(questionId: string, answer: string) {
         return { success: false, error: "Failed to save answer" };
     }
 }
+
+/**
+ * Attach an uploaded file to a Question as a Document record
+ */
+export async function attachDocumentToQuestion(questionId: string, fileUrl: string, fileName: string, fileSize?: number) {
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+    const { userId } = identity;
+
+    try {
+        // Fetch question context to know which LE owns the Document
+        const questionData = await prisma.question.findUnique({
+            where: { id: questionId },
+            include: {
+                questionnaire: {
+                    include: { engagements: true }
+                }
+            }
+        });
+
+        if (!questionData) return { success: false, error: "Question not found" };
+
+        const engagement = questionData.questionnaire.engagements[0];
+        const clientLEId = engagement?.clientLEId;
+
+        if (!clientLEId) return { success: false, error: "Client LE context missing for document" };
+
+        // Create the Document and link it to the Question
+        const document = await prisma.document.create({
+            data: {
+                name: fileName,
+                fileUrl: fileUrl,
+                fileType: fileName.split('.').pop() || 'unknown',
+                kbSize: fileSize ? Math.round(fileSize / 1024) : null,
+                clientLEId: clientLEId,
+                questionId: questionId,
+            }
+        });
+
+        // Log Activity
+        await prisma.questionActivity.create({
+            data: {
+                questionId,
+                userId,
+                type: "DOC_UPLOADED",
+                details: { documentId: document.id, documentName: document.name }
+            }
+        });
+
+        revalidatePath("/(platform)/app/le/[id]/engagement-new/[engagementId]", "page");
+
+        return { success: true, document };
+    } catch (e) {
+        console.error("Attach Document Error:", e);
+        return { success: false, error: "Failed to attach document" };
+    }
+}
+
 
 /**
  * Toggle lock status
