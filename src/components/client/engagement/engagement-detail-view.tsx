@@ -18,9 +18,10 @@ import { InviteSupplierDialog } from "./invite-supplier-dialog";
 
 interface EngagementDetailViewProps {
     le: any;
-    engagement: any; // Type should be inferred or defined
+    engagement: any;
     questionnaires: any[];
     sharedDocuments: any[];
+    evidenceDocuments?: any[];
     initialTab?: string;
     metrics?: DashboardMetric;
     standingData?: any;
@@ -39,7 +40,7 @@ import { MoreHorizontal, Settings, Trash2 } from "lucide-react";
 
 import { QuestionnaireMapper } from "./questionnaire-mapper";
 
-export function EngagementDetailView({ le, engagement, questionnaires, sharedDocuments, invitations, members, initialTab, metrics, standingData }: EngagementDetailViewProps) {
+export function EngagementDetailView({ le, engagement, questionnaires, sharedDocuments, evidenceDocuments = [], invitations, members, initialTab, metrics, standingData }: EngagementDetailViewProps) {
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
     const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
     const [manageQuestionnaireId, setManageQuestionnaireId] = useState<string | null>(null);
@@ -276,6 +277,7 @@ export function EngagementDetailView({ le, engagement, questionnaires, sharedDoc
                         <EngagementDocumentManager
                             engagementId={engagement.id}
                             documents={sharedDocuments || []}
+                            evidenceDocuments={evidenceDocuments}
                         />
                     </TabsContent>
 

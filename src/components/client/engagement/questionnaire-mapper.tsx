@@ -12,7 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, Save, Sparkles, AlertCircle, CheckCircle2, ChevronRight, Search, LayoutList, LayoutTemplate, Check, Plus, Settings, Pencil, Paperclip } from "lucide-react";
+import { Loader2, Save, Sparkles, AlertCircle, CheckCircle2, ChevronRight, Search, LayoutList, LayoutTemplate, Check, Plus, Settings, Pencil, Paperclip, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
@@ -59,10 +59,10 @@ function InlineTextEditor({ value, onSave, className }: { value: string, onSave:
     return (
         <div
             onClick={() => setIsEditing(true)}
-            className={cn("cursor-text hover:bg-slate-100/50 rounded px-1 -mx-1 transition-colors group relative", className)}
-            title="Click to edit"
+            className={cn("cursor-text hover:bg-slate-100/50 rounded px-1 -mx-1 transition-colors group relative min-h-[20px] min-w-[50px] inline-block", className)}
+            title="Click to edit short name"
         >
-            {value}
+            {value || <span className="text-slate-400/60 italic text-xs">Add short name...</span>}
             <Pencil className="w-3 h-3 text-slate-300 opacity-0 group-hover:opacity-100 absolute -right-4 top-1" />
         </div>
     );
@@ -70,7 +70,7 @@ function InlineTextEditor({ value, onSave, className }: { value: string, onSave:
 // ------------------------------------
 
 // Server Actions
-import { saveQuestionnaireChanges, analyzeQuestionnaire, getOrgCustomFields, getQuestionnaireById, createCustomFieldDefinition } from "@/actions/questionnaire";
+import { saveQuestionnaireChanges, analyzeQuestionnaire, getOrgCustomFields, getQuestionnaireById, createCustomFieldDefinition, compactifyQuestion } from "@/actions/questionnaire";
 import { FIELD_DEFINITIONS } from "@/domain/kyc/FieldDefinitions";
 import { FIELD_GROUPS } from "@/domain/kyc/FieldGroups";
 
@@ -97,6 +97,9 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
 
     // Custom Fields
     const [customFields, setCustomFields] = useState<any[]>([]);
+
+    // Generation State
+    const [generatingCompact, setGeneratingCompact] = useState<Record<string, boolean>>({});
 
     useEffect(() => {
         loadData();
@@ -134,6 +137,39 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
         }
     };
 
+    // Auto-generate missing compact texts after load
+    useEffect(() => {
+        if (!loading && questions.length > 0) {
+            const missing = questions.filter(q => !q.compactText && q.text);
+            if (missing.length > 0) {
+                missing.forEach((q, idx) => {
+                    // Stagger generation slightly to avoid hammering the server all at exactly same ms
+                    setTimeout(() => {
+                        handleGenerateCompactText(q.id, q.text, true);
+                    }, idx * 500);
+                });
+            }
+        }
+    }, [loading, questions.length]); // Only trigger once load finishes
+
+    const handleGenerateCompactText = async (id: string, text: string, silent: boolean = false) => {
+        if (!text) return;
+        setGeneratingCompact(prev => ({ ...prev, [id]: true }));
+        try {
+            const result = await compactifyQuestion(text);
+            if (result.success && result.compactText) {
+                updateQuestion(id, { compactText: result.compactText });
+                if (!silent) toast.success("Generated short name");
+            } else if (!silent) {
+                toast.error(result.error || "Failed to generate");
+            }
+        } catch (e) {
+            if (!silent) toast.error("Error generating short name");
+        } finally {
+            setGeneratingCompact(prev => ({ ...prev, [id]: false }));
+        }
+    };
+
     const handleSave = async () => {
         setSaving(true);
         try {
@@ -144,7 +180,7 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
                 type: "question",
                 text: q.text,
                 originalText: q.originalText || q.text,
-                compactText: q.compactText || q.text.substring(0, 20),
+                compactText: q.compactText || null, // DO NOT hard-save substring fallback
                 order: q.order,
                 masterFieldNo: q.masterFieldNo,
                 masterQuestionGroupId: q.masterQuestionGroupId,
@@ -247,7 +283,7 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
             id: `temp-${Date.now()}`,
             text: "New Question",
             originalText: "New Question",
-            compactText: "New Question",
+            compactText: null, // Default to null so UI falls back
             order: newOrder,
             questionnaireId: questionnaire.id,
         };
@@ -477,12 +513,31 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
                                                     className="line-clamp-2"
                                                 />
                                             </div>
-                                            <div className="text-sm text-slate-700 font-medium relative pr-4">
-                                                <InlineTextEditor
-                                                    value={q.compactText || ""}
-                                                    onSave={(newText) => updateQuestion(q.id, { compactText: newText })}
-                                                    className="line-clamp-1 italic text-slate-500 text-xs"
-                                                />
+                                            <div className="text-sm text-slate-700 font-medium relative pr-8 pl-1">
+                                                <div className="flex items-center gap-1 group/compact w-full relative">
+                                                    <InlineTextEditor
+                                                        value={q.compactText || ""}
+                                                        onSave={(newText) => updateQuestion(q.id, { compactText: newText })}
+                                                        className="line-clamp-1 italic text-slate-500 text-xs flex-1 max-w-[calc(100%-24px)]"
+                                                    />
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className={cn(
+                                                            "h-6 w-6 absolute right-0 transition-opacity",
+                                                            q.compactText ? "opacity-0 group-hover/compact:opacity-100" : "opacity-100"
+                                                        )}
+                                                        onClick={() => handleGenerateCompactText(q.id, q.text)}
+                                                        disabled={generatingCompact[q.id] || !q.text}
+                                                        title="Generate Short Name via AI"
+                                                    >
+                                                        {generatingCompact[q.id] ? (
+                                                            <Loader2 className="h-3 w-3 animate-spin text-indigo-500" />
+                                                        ) : (
+                                                            <RefreshCw className="h-3 w-3 text-slate-400 hover:text-indigo-600" />
+                                                        )}
+                                                    </Button>
+                                                </div>
                                             </div>
                                             <div>
                                                 <FieldSelector
@@ -724,12 +779,28 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
                                                         A short description of the question (max ~30 chars) used for the kanban card headers.
                                                     </p>
                                                 </div>
-                                                <Input
-                                                    value={selectedQuestion.compactText || ""}
-                                                    onChange={(e) => updateQuestion(selectedQuestion.id, { compactText: e.target.value })}
-                                                    placeholder="E.g. Code of Conduct Policy"
-                                                    className="max-w-md"
-                                                />
+                                                <div className="flex items-center gap-2 max-w-md">
+                                                    <Input
+                                                        value={selectedQuestion.compactText || ""}
+                                                        onChange={(e) => updateQuestion(selectedQuestion.id, { compactText: e.target.value })}
+                                                        placeholder="E.g. Code of Conduct Policy"
+                                                        className="flex-1"
+                                                    />
+                                                    <Button
+                                                        variant="outline"
+                                                        size="icon"
+                                                        className="shrink-0"
+                                                        onClick={() => handleGenerateCompactText(selectedQuestion.id, selectedQuestion.text)}
+                                                        disabled={generatingCompact[selectedQuestion.id] || !selectedQuestion.text}
+                                                        title="Auto-generate with AI"
+                                                    >
+                                                        {generatingCompact[selectedQuestion.id] ? (
+                                                            <Loader2 className="h-4 w-4 animate-spin text-indigo-500" />
+                                                        ) : (
+                                                            <RefreshCw className="h-4 w-4 text-slate-500" />
+                                                        )}
+                                                    </Button>
+                                                </div>
                                             </div>
                                         </div>
 

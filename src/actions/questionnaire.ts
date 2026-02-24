@@ -321,15 +321,17 @@ export async function compactifyQuestion(fullQuestion: string): Promise<{
 
         const { text } = await generateText({
             model: openai('gpt-4o-mini'),
-            prompt: `Shorten this question to exactly 20 characters or less. Be concise and specific. Use abbreviations if needed. Return ONLY the shortened text, nothing else.
+            prompt: `Extract the core concept of this question as a short label. It must be exactly 20 characters or less. Be concise and highly specific to what is being asked for. 
+DO NOT just truncate the beginning of the question. Extract the main noun phrase or core requirement. Use abbreviations if needed. Return ONLY the short label, nothing else.
 
 Examples:
 "Please provide the full legal entity name" → "Entity Name"
 "What is the incorporation date?" → "Inc. Date"  
 "List all beneficial owners over 25%" → "Beneficial Owners"
 "Upload Certificate of Incorporation" → "Incorporation Cert"
+"Confirm if German tax resident, and provide German Taxpayer Identification Number (TIN) (“Steuer-ID” or “Steuer-Identifikationsnummer”)" → "German TIN"
 
-Question to shorten:
+Question to extract label from:
 ${fullQuestion}`,
             temperature: 0.3,
         });

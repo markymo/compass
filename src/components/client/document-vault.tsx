@@ -71,7 +71,7 @@ interface DocumentVaultProps {
 }
 
 type ViewMode = 'grid' | 'list';
-type FilterType = 'ALL' | 'CORPORATE' | 'IDENTITY' | 'FINANCIAL' | 'OTHER' | 'SHARED';
+type FilterType = 'ALL' | 'CORPORATE' | 'IDENTITY' | 'FINANCIAL' | 'OTHER' | 'SHARED' | 'EVIDENCE';
 
 export function DocumentVault({ leId }: DocumentVaultProps) {
     const [documents, setDocuments] = useState<any[]>([]);
@@ -224,6 +224,7 @@ export function DocumentVault({ leId }: DocumentVaultProps) {
                         <FilterPill type="CORPORATE" label="Corporate" icon={FileText} />
                         <FilterPill type="IDENTITY" label="Identity" icon={File} />
                         <FilterPill type="FINANCIAL" label="Financial" icon={FileText} />
+                        <FilterPill type="EVIDENCE" label="Evidence" icon={ShieldCheck} />
                         <FilterPill type="SHARED" label="Shared" icon={Building2} />
                     </div>
                 </div>

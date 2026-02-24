@@ -136,6 +136,7 @@ export async function getBoardQuestions(engagementId: string) {
             OR: [
                 {
                     questionnaire: {
+                        isDeleted: false,
                         engagements: {
                             some: { id: engagementId }
                         }
@@ -143,6 +144,7 @@ export async function getBoardQuestions(engagementId: string) {
                 },
                 {
                     questionnaire: {
+                        isDeleted: false,
                         fiEngagementId: engagementId
                     }
                 }
@@ -361,7 +363,9 @@ export async function updateAnswer(questionId: string, answer: string) {
 }
 
 /**
- * Attach an uploaded file to a Question as a Document record
+ * Attach an uploaded file to a Question as a Document record.
+ * Can be called either from onUploadCompleted (Vercel Blob) or directly from
+ * the client after a successful blob upload (more reliable in local dev).
  */
 export async function attachDocumentToQuestion(questionId: string, fileUrl: string, fileName: string, fileSize?: number) {
     const identity = await getIdentity();
@@ -369,22 +373,36 @@ export async function attachDocumentToQuestion(questionId: string, fileUrl: stri
     const { userId } = identity;
 
     try {
-        // Fetch question context to know which LE owns the Document
+        // Fetch question with BOTH engagement relations:
+        // 1. Many-to-many (engagements) — used for templates
+        // 2. Direct (fiEngagement via fiEngagementId) — used for instantiated questionnaires
         const questionData = await prisma.question.findUnique({
             where: { id: questionId },
             include: {
                 questionnaire: {
-                    include: { engagements: true }
+                    include: {
+                        engagements: true,      // many-to-many relation
+                        fiEngagement: true,      // direct QuestionnaireInstance relation
+                    }
                 }
             }
         });
 
         if (!questionData) return { success: false, error: "Question not found" };
 
-        const engagement = questionData.questionnaire.engagements[0];
-        const clientLEId = engagement?.clientLEId;
+        // Try both relations to find the linked engagement
+        const engagementFromM2M = (questionData.questionnaire as any).engagements?.[0];
+        const engagementFromDirect = (questionData.questionnaire as any).fiEngagement;
+        const clientLEId =
+            engagementFromM2M?.clientLEId ??
+            engagementFromDirect?.clientLEId ??
+            null;
 
-        if (!clientLEId) return { success: false, error: "Client LE context missing for document" };
+        if (!clientLEId) {
+            console.error("attachDocumentToQuestion: could not resolve clientLEId for question", questionId,
+                { m2m: engagementFromM2M, direct: engagementFromDirect });
+            return { success: false, error: "Client LE context missing for document" };
+        }
 
         // Create the Document and link it to the Question
         const document = await prisma.document.create({
@@ -842,5 +860,60 @@ export async function assignQuestion(questionId: string, assignee: { userId?: st
     } catch (e) {
         console.error("Failed to assign question:", e);
         return { success: false, error: "Assignment failed" };
+    }
+}
+
+/**
+ * Fetch all documents attached to questions within an engagement,
+ * grouped with their question+answer context for the Documents tab.
+ */
+export async function getEngagementEvidenceDocuments(engagementId: string) {
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized", documents: [] };
+
+    try {
+        // Gather all questions in this engagement that have at least one document attached
+        const questions = await prisma.question.findMany({
+            where: {
+                OR: [
+                    {
+                        questionnaire: {
+                            isDeleted: false,
+                            engagements: { some: { id: engagementId } }
+                        }
+                    },
+                    {
+                        questionnaire: {
+                            isDeleted: false,
+                            fiEngagementId: engagementId
+                        }
+                    }
+                ],
+                documents: { some: { isDeleted: false } }
+            },
+            select: {
+                id: true,
+                text: true,
+                compactText: true,
+                answer: true,
+                status: true,
+                documents: {
+                    where: { isDeleted: false },
+                    select: {
+                        id: true,
+                        name: true,
+                        fileUrl: true,
+                        fileType: true,
+                        kbSize: true,
+                        createdAt: true,
+                    }
+                }
+            }
+        });
+
+        return { success: true, documents: questions };
+    } catch (e) {
+        console.error("Evidence documents fetch error:", e);
+        return { success: false, error: "Failed to fetch evidence documents", documents: [] };
     }
 }

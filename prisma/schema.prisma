@@ -308,6 +308,9 @@ model Document {
   // Link to Canonical Master LE Questionnaire (Prefills)
   prefilledForQuestionId String?
   prefilledForQuestion   Question?     @relation("PrefilledQuestionDocuments", fields: [prefilledForQuestionId], references: [id])
+
+  // Link to a Master Data Field (e.g. "56" for Constitutional & Formation Documents)
+  masterFieldKey         String?
 }
 
 model Query {

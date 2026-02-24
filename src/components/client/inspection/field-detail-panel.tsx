@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -9,14 +9,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
-import { Loader2, History, Database, Edit, CheckCircle, AlertTriangle } from "lucide-react";
+import { Loader2, History, Database, Edit, CheckCircle, AlertTriangle, Paperclip, FileText, Download, X } from "lucide-react";
 import { getFieldDetail, FieldDetailData } from "@/actions/kyc-query";
 import { updateFieldManually, applyCandidate, updateCustomFieldManually } from "@/actions/kyc-manual-update";
+import { getMasterFieldDocuments } from "@/actions/standing-data";
 
 interface FieldDetailPanelProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    legalEntityId: string; // Or ClientLE ID? The actions handle both but prefer LE ID.
+    legalEntityId: string;
     fieldNo: number;
     fieldName: string;
     customFieldId?: string;
@@ -32,9 +33,18 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
     const [manualReason, setManualReason] = useState("");
     const [isSaving, setIsSaving] = useState(false);
 
+    // Evidence State
+    const [evidenceDocs, setEvidenceDocs] = useState<any[]>([]);
+    const [isLoadingEvidence, setIsLoadingEvidence] = useState(false);
+    const [isUploadingEvidence, setIsUploadingEvidence] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const fieldKey = String(fieldNo || customFieldId || "");
+
     useEffect(() => {
         if (open && (fieldNo || customFieldId)) {
             loadData();
+            loadEvidence();
         }
     }, [open, fieldNo, customFieldId, legalEntityId]);
 
@@ -51,6 +61,65 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
         }
     };
 
+    const loadEvidence = async () => {
+        if (!fieldKey) return;
+        setIsLoadingEvidence(true);
+        try {
+            const res = await getMasterFieldDocuments(legalEntityId, fieldKey);
+            setEvidenceDocs(res.documents || []);
+        } catch (e) {
+            console.error("Evidence load failed:", e);
+        } finally {
+            setIsLoadingEvidence(false);
+        }
+    };
+
+    const handleEvidenceUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setIsUploadingEvidence(true);
+        try {
+            // Use a simple FormData POST to the server-side upload route.
+            // This avoids the @vercel/blob/client two-step handshake which
+            // has Turbopack dev compatibility issues.
+            const form = new FormData();
+            form.append('file', file);
+            form.append('leId', legalEntityId);
+            form.append('fieldKey', fieldKey);
+
+            const res = await fetch('/api/upload-evidence', {
+                method: 'POST',
+                body: form,
+            });
+
+            const data = await res.json();
+
+            if (!res.ok || !data.success) {
+                toast.error(`Upload failed: ${data.error || 'Unknown error'}`);
+                return;
+            }
+
+            // Optimistic update
+            setEvidenceDocs(prev => [{
+                id: data.document?.id || data.url,
+                name: file.name,
+                fileUrl: data.url,
+                fileType: file.name.split('.').pop() || 'file',
+                kbSize: Math.round(file.size / 1024),
+                createdAt: new Date(),
+            }, ...prev]);
+
+            toast.success("Evidence attached");
+        } catch (error) {
+            console.error("Upload error", error);
+            toast.error("Failed to upload evidence");
+        } finally {
+            setIsUploadingEvidence(false);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+    };
+
     const handleManualSave = async () => {
         if (!manualValue || !manualReason) {
             toast.error("Value and Reason are required");
@@ -59,18 +128,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
 
         setIsSaving(true);
         try {
-            // Need User ID? Ideally passed via props or from session in Server Action?
-            // The Server Action needs userId. We can get it from session on server side usually, 
-            // but updateFieldManually signature asks for userId.
-            // For now, let's hardcode a placeholder or assume the server action handles session.
-            // Wait, server action signature IS (..., userId).
-            // We should use a hook useSession() here or pass currentUser from parent.
-            // Let's assume parent passes currentUserId or we fetch it. 
-            // Better: update server action to use auth() internally. 
-            // But for now, I'll use a placeholder "CURRENT_USER" if prop missing.
-
             let result;
-
             if (customFieldId) {
                 result = await updateCustomFieldManually(legalEntityId, customFieldId, manualValue, manualReason, "CURRENT_USER_ID");
             } else {
@@ -81,7 +139,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                 toast.success("Field updated successfully");
                 setIsEditing(false);
                 setManualReason("");
-                await loadData(); // Reload data to show new history
+                await loadData();
             } else {
                 toast.error(result.message || "Update failed");
             }
@@ -116,21 +174,18 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                 <SheetHeader className="pb-4 border-b">
                     <SheetTitle className="flex items-center gap-2">
                         {fieldName}
-                        <Badge variant="outline">Field {fieldNo}</Badge>
+                        {fieldNo > 0 && <Badge variant="outline">Field {fieldNo}</Badge>}
                     </SheetTitle>
                     <SheetDescription>
-                        Audit history and candidate sources for {fieldName}.
+                        Audit history, candidates, and evidence for {fieldName}.
                     </SheetDescription>
                 </SheetHeader>
 
                 <div className="flex-1 overflow-hidden flex flex-col pt-4 gap-4">
                     {/* Current Value Card */}
                     <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
-                        <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 flex justify-between">
-                            <span>Current Authoritative Value</span>
-                            {/* <Button variant="link" size="sm" className="h-auto p-0 text-blue-600" onClick={() => setIsEditing(!isEditing)}>
-                                Override
-                            </Button> */}
+                        <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
+                            Current Authoritative Value
                         </div>
                         {loading ? (
                             <div className="flex items-center gap-2 text-slate-400">
@@ -197,12 +252,87 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                         )}
                     </div>
 
-                    <Tabs defaultValue="history" className="flex-1 flex flex-col overflow-hidden">
-                        <TabsList className="grid w-full grid-cols-2">
+                    <Tabs defaultValue="evidence" className="flex-1 flex flex-col overflow-hidden">
+                        <TabsList className="grid w-full grid-cols-3">
+                            <TabsTrigger value="evidence" className="gap-1.5">
+                                <Paperclip className="h-3.5 w-3.5" />
+                                Evidence
+                                {evidenceDocs.length > 0 && (
+                                    <span className="ml-1 bg-indigo-100 text-indigo-700 text-[10px] px-1.5 rounded-full font-medium">
+                                        {evidenceDocs.length}
+                                    </span>
+                                )}
+                            </TabsTrigger>
                             <TabsTrigger value="history">History Log</TabsTrigger>
-                            <TabsTrigger value="candidates">Available Candidates</TabsTrigger>
+                            <TabsTrigger value="candidates">Candidates</TabsTrigger>
                         </TabsList>
 
+                        {/* ─── Evidence Tab ─── */}
+                        <TabsContent value="evidence" className="flex-1 overflow-hidden mt-4 flex flex-col gap-3">
+                            {/* Upload button */}
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                className="hidden"
+                                disabled={isUploadingEvidence}
+                                onChange={handleEvidenceUpload}
+                            />
+                            <Button
+                                variant="outline"
+                                className="w-full border-dashed gap-2 h-9"
+                                disabled={isUploadingEvidence}
+                                onClick={() => fileInputRef.current?.click()}
+                            >
+                                {isUploadingEvidence
+                                    ? <><Loader2 className="h-4 w-4 animate-spin" /> Uploading...</>
+                                    : <><Paperclip className="h-4 w-4" /> Attach Evidence File</>
+                                }
+                            </Button>
+
+                            <ScrollArea className="flex-1 rounded-md border">
+                                {isLoadingEvidence ? (
+                                    <div className="flex items-center justify-center py-10 gap-2 text-slate-400">
+                                        <Loader2 className="h-4 w-4 animate-spin" /> Loading evidence...
+                                    </div>
+                                ) : evidenceDocs.length === 0 ? (
+                                    <div className="text-center py-10 text-slate-400">
+                                        <Paperclip className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                                        <p className="text-sm italic">No evidence attached yet.</p>
+                                        <p className="text-xs mt-1">Upload supporting documents above.</p>
+                                    </div>
+                                ) : (
+                                    <div className="divide-y divide-slate-100">
+                                        {evidenceDocs.map((doc) => (
+                                            <div key={doc.id} className="flex items-center gap-3 p-3 hover:bg-slate-50 group">
+                                                <div className="h-8 w-8 rounded bg-indigo-50 flex items-center justify-center shrink-0">
+                                                    <FileText className="h-4 w-4 text-indigo-600" />
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-sm font-medium text-slate-900 truncate">{doc.name}</p>
+                                                    <p className="text-xs text-slate-400">
+                                                        {doc.fileType?.toUpperCase()}
+                                                        {doc.kbSize ? ` · ${doc.kbSize} KB` : ''}
+                                                        {doc.createdAt ? ` · ${new Date(doc.createdAt).toLocaleDateString()}` : ''}
+                                                    </p>
+                                                </div>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-7 w-7 text-slate-400 hover:text-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                    asChild
+                                                >
+                                                    <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer">
+                                                        <Download className="h-3.5 w-3.5" />
+                                                    </a>
+                                                </Button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </ScrollArea>
+                        </TabsContent>
+
+                        {/* ─── History Tab ─── */}
                         <TabsContent value="history" className="flex-1 overflow-hidden relative mt-4">
                             <ScrollArea className="h-[300px] w-full rounded-md border p-4">
                                 <div className="relative border-l border-slate-200 ml-3 space-y-6">
@@ -239,6 +369,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                             </ScrollArea>
                         </TabsContent>
 
+                        {/* ─── Candidates Tab ─── */}
                         <TabsContent value="candidates" className="flex-1 overflow-hidden mt-4">
                             <ScrollArea className="h-[300px] w-full rounded-md border p-4">
                                 <div className="space-y-3">
@@ -282,7 +413,6 @@ function SourceBadge({ source }: { source: string }) {
         'SYSTEM': 'bg-gray-100 text-gray-700 border-gray-200'
     };
 
-    // Default fallback
     const classes = colorMap[source] || 'bg-gray-100 text-gray-700 border-gray-200';
 
     return (

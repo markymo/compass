@@ -129,8 +129,8 @@ export function QuestionCard({ task, index, onClick }: QuestionCardProps) {
                                 {task.compactText || task.question.slice(0, 20)}
                             </p>
                             <div className="flex items-center gap-1">
-                                {task.allowAttachments && (
-                                    <Paperclip className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+                                {(task.allowAttachments || (task.documents && task.documents.length > 0)) && (
+                                    <Paperclip className={cn("h-3.5 w-3.5 flex-shrink-0", task.documents && task.documents.length > 0 ? "text-indigo-600" : "text-slate-400")} />
                                 )}
                                 {/* AI Generation Button */}
                                 <button
