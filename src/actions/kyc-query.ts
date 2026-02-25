@@ -16,6 +16,7 @@ export type ResolverRequest = {
 export type HydratedValue = {
     value: any;
     source: string | null;
+    updatedAt?: Date | null;
     isSynced: boolean; // True if value exists in Master Data
 };
 
@@ -46,6 +47,7 @@ export async function resolveMasterData(
                         response[q.questionId][fieldNo] = {
                             value: loaded.value,
                             source: loaded.source,
+                            updatedAt: loaded.updatedAt,
                             isSynced: true
                         };
                     }
@@ -59,6 +61,7 @@ export async function resolveMasterData(
                 response[q.questionId][q.masterFieldNo] = {
                     value: loaded.value,
                     source: loaded.source,
+                    updatedAt: loaded.updatedAt,
                     isSynced: true
                 };
             }
@@ -74,7 +77,11 @@ import prisma from "@/lib/prisma";
 // import { ProvenanceSource } from "@/domain/kyc/types/ProvenanceTypes";
 
 export interface FieldDetailData {
-    current: {
+    fieldNo?: number;
+    isRepeating: boolean;
+    dataType: string;
+    options?: string[];
+    current?: {
         value: any;
         source: ProvenanceSource;
         timestamp: Date | null;
@@ -89,6 +96,7 @@ export interface FieldDetailData {
     } | null;
     history: any[]; // MasterDataEvent[]
     candidates: any[]; // FieldCandidate[]
+    rows?: { id: string; value: any; source: string; timestamp: Date; label?: string }[];
 }
 
 export async function getFieldDetail(
@@ -122,6 +130,9 @@ export async function getFieldDetail(
         }
 
         return {
+            fieldNo: 0, // Custom fields don't have a fieldNo
+            isRepeating: false,
+            dataType: 'text',
             current: {
                 value: currentVal,
                 source,
@@ -135,8 +146,64 @@ export async function getFieldDetail(
     }
 
     // --- Standard Field Path ---
+    const def = FIELD_DEFINITIONS[fieldNo];
+
     // 1. Get Current Value via KycLoader
     const current = await loader.loadField(entityId, fieldNo, entityType);
+
+    // 2. Load Rows if repeating
+    let rows: { id: string; value: any; source: string; timestamp: Date }[] | undefined = undefined;
+    if (def?.isRepeating) {
+        // Resolve Entity ID for direct model query
+        let leId = entityId;
+        if (entityType === 'CLIENT_LE' && def.model !== 'IdentityProfile') {
+            const identity = await prisma.identityProfile.findUnique({
+                where: { clientLEId: entityId },
+                select: { legalEntityId: true }
+            });
+            if (identity?.legalEntityId) leId = identity.legalEntityId;
+        }
+
+        const prismaKey = def.model.charAt(0).toLowerCase() + def.model.slice(1);
+        // @ts-ignore
+        const delegate = prisma[prismaKey];
+        const idField = (entityType === 'CLIENT_LE' && def.model === 'IdentityProfile') ? 'clientLEId' : 'legalEntityId';
+
+        const records = await delegate.findMany({
+            where: { [idField]: leId },
+            orderBy: { createdAt: 'asc' }
+        });
+
+        rows = records.map((r: any) => {
+            const meta = (r.meta as Record<string, any>)?.[def.field!];
+
+            // Resolve a descriptive label for the row
+            let label = undefined;
+            if (def.model === 'Stakeholder') {
+                label = r.fullName || r.legalName || r.role;
+            } else if (def.model === 'EntityName') {
+                label = r.name;
+            } else if (def.model === 'TaxRegistration') {
+                label = `${r.taxId} (${r.country})`;
+            } else if (def.model === 'AuthorizedTrader') {
+                label = r.fullName;
+            } else if (def.model === 'Contact') {
+                label = r.contactType;
+            } else if (def.model === 'IndustryClassification') {
+                label = `${r.scheme}: ${r.code}`;
+            } else if (def.model === 'SettlementInstruction') {
+                label = `${r.currency} - ${r.accountName}`;
+            }
+
+            return {
+                id: r.id,
+                value: r[def.field!],
+                source: meta?.source || 'UNKNOWN',
+                timestamp: r.updatedAt,
+                label
+            };
+        });
+    }
 
     // 2. Get History from MasterDataEvent
     // We need to resolve to LegalEntity ID first because events are linked to LE
@@ -151,6 +218,9 @@ export async function getFieldDetail(
         } else {
             // If no LE exists, there is no history
             return {
+                fieldNo,
+                isRepeating: def?.isRepeating || false,
+                dataType: def?.dataType || 'string',
                 current: null,
                 assignment: null,
                 history: [],
@@ -188,6 +258,10 @@ export async function getFieldDetail(
     });
 
     return {
+        fieldNo,
+        isRepeating: def?.isRepeating || false,
+        dataType: def?.dataType || 'string',
+        options: def?.options,
         current: current ? {
             value: current.value,
             source: current.source as ProvenanceSource,
@@ -202,7 +276,8 @@ export async function getFieldDetail(
             createdAt: assignment.createdAt
         } : null,
         history,
-        candidates
+        candidates,
+        rows
     };
 
 }
@@ -215,10 +290,14 @@ export interface ConsoleQuestion {
     category: string;
     masterFieldNo?: number | null;
     masterQuestionGroupId?: string | null;
+    customFieldDefinitionId?: string | null;
     status: "OPEN" | "ANSWERED" | "SKIPPED";
     questionnaireName: string;
     answer?: string | null;
     engagementOrgName?: string;
+    masterDataValue?: any;
+    masterDataSource?: string | null;
+    masterDataUpdatedAt?: Date | null;
 };
 
 export async function getConsoleQuestions(leId: string): Promise<ConsoleQuestion[]> {
@@ -270,6 +349,7 @@ export async function getConsoleQuestions(leId: string): Promise<ConsoleQuestion
                     category: qnaire.name, // Use Questionnaire Name as category for now
                     masterFieldNo: q.masterFieldNo,
                     masterQuestionGroupId: q.masterQuestionGroupId,
+                    customFieldDefinitionId: q.customFieldDefinitionId,
                     status: q.answer ? "ANSWERED" : "OPEN",
                     questionnaireName: qnaire.name,
                     answer: q.answer,
@@ -293,6 +373,7 @@ export async function getConsoleQuestions(leId: string): Promise<ConsoleQuestion
                     category: qnaire.name,
                     masterFieldNo: q.masterFieldNo,
                     masterQuestionGroupId: q.masterQuestionGroupId,
+                    customFieldDefinitionId: q.customFieldDefinitionId,
                     status: q.answer ? "ANSWERED" : "OPEN",
                     questionnaireName: qnaire.name,
                     answer: q.answer,

@@ -11,16 +11,24 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import { Loader2, History, Database, Edit, CheckCircle, AlertTriangle, Paperclip, FileText, Download, X, User as UserIcon } from "lucide-react";
 import { getFieldDetail, FieldDetailData } from "@/actions/kyc-query";
-import { updateFieldManually, applyCandidate, updateCustomFieldManually } from "@/actions/kyc-manual-update";
+import { updateFieldManually, applyCandidate, updateCustomFieldManually, createRepeatingFieldRow } from "@/actions/kyc-manual-update";
 import { getMasterFieldDocuments, setMasterFieldAssignment } from "@/actions/standing-data";
 import { getLETeamMembers } from "@/actions/kanban-actions";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { cn } from "@/lib/utils";
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 
 interface FieldDetailPanelProps {
     open: boolean;
@@ -29,9 +37,10 @@ interface FieldDetailPanelProps {
     fieldNo: number;
     fieldName: string;
     customFieldId?: string;
+    onUpdate?: (value: any, source: string, updatedAt: Date) => void;
 }
 
-export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, fieldName, customFieldId }: FieldDetailPanelProps) {
+export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, fieldName, customFieldId, onUpdate }: FieldDetailPanelProps) {
     const [data, setData] = useState<FieldDetailData | null>(null);
     const [loading, setLoading] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
@@ -39,6 +48,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
     // Manual Edit State
     const [manualValue, setManualValue] = useState("");
     const [manualReason, setManualReason] = useState("");
+    const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
     const [isSaving, setIsSaving] = useState(false);
 
     // Evidence State
@@ -139,9 +149,41 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
         }
     };
 
+    const handleAddEntry = async () => {
+        setIsSaving(true);
+        try {
+            const res = await createRepeatingFieldRow(legalEntityId, fieldNo);
+            if (res.success && res.rowId) {
+                toast.success("New entry created. You can now override it.");
+                await loadData();
+                setSelectedRowId(res.rowId);
+                setManualValue("");
+                setIsEditing(true);
+            } else {
+                toast.error(res.message || "Failed to create entry");
+            }
+        } catch (e) {
+            toast.error("An error occurred");
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
     const handleManualSave = async () => {
         if (!manualValue || !manualReason) {
             toast.error("Value and Reason are required");
+            return;
+        }
+
+        // 1. Repeating Field Check
+        if (data?.isRepeating && !selectedRowId) {
+            toast.error("Please select a specific row to override.");
+            return;
+        }
+
+        // 2. Document Field Check
+        if (data?.dataType === 'document') {
+            toast.error("Document fields cannot be updated with text. Use the Evidence tab.");
             return;
         }
 
@@ -151,14 +193,18 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
             if (customFieldId) {
                 result = await updateCustomFieldManually(legalEntityId, customFieldId, manualValue, manualReason, "CURRENT_USER_ID");
             } else {
-                result = await updateFieldManually(legalEntityId, fieldNo, manualValue, manualReason, "CURRENT_USER_ID");
+                result = await updateFieldManually(legalEntityId, fieldNo, manualValue, manualReason, "CURRENT_USER_ID", selectedRowId || undefined);
             }
 
             if (result.success) {
                 toast.success("Field updated successfully");
                 setIsEditing(false);
                 setManualReason("");
-                await loadData();
+                const refreshed = await getFieldDetail(legalEntityId, fieldNo, 'CLIENT_LE', customFieldId);
+                setData(refreshed);
+                if (onUpdate && refreshed.current) {
+                    onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
+                }
             } else {
                 toast.error(result.message || "Update failed");
             }
@@ -175,7 +221,11 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                 const result = await applyCandidate(legalEntityId, candidate, "CURRENT_USER_ID");
                 if (result.success) {
                     toast.success("Candidate applied");
-                    await loadData();
+                    const refreshed = await getFieldDetail(legalEntityId, fieldNo, 'CLIENT_LE', customFieldId);
+                    setData(refreshed);
+                    if (onUpdate && refreshed.current) {
+                        onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
+                    }
                 } else {
                     toast.error(result.message || "Failed to apply candidate");
                 }
@@ -211,7 +261,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
 
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
-            <SheetContent className="w-[600px] sm:w-[540px] flex flex-col h-full">
+            <SheetContent className="w-[900px] sm:max-w-[800px] flex flex-col h-full">
                 <SheetHeader className="pb-4 border-b flex flex-row items-start justify-between">
                     <div>
                         <SheetTitle className="flex items-center gap-2">
@@ -305,53 +355,169 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                             </div>
                         ) : (
                             <div>
-                                <div className="text-lg font-mono font-medium break-all">
-                                    {data?.current?.value || <span className="text-slate-400 italic">Empty</span>}
-                                </div>
-                                <div className="mt-2 flex items-center gap-2">
-                                    <SourceBadge source={data?.current?.source || 'UNKNOWN'} />
-                                    <span className="text-xs text-slate-400">
-                                        Updated: {data?.current?.timestamp ? new Date(data.current.timestamp).toLocaleString() : 'Never'}
-                                    </span>
-                                </div>
+                                {data?.isRepeating && data.rows && data.rows.length > 0 ? (
+                                    <div className="space-y-3">
+                                        {data.rows.map((row, i) => (
+                                            <div
+                                                key={row.id}
+                                                className={cn(
+                                                    "p-3 rounded-lg border bg-white transition-all",
+                                                    selectedRowId === row.id ? "ring-2 ring-indigo-500 border-transparent shadow-sm" : "border-slate-200 hover:border-slate-300"
+                                                )}
+                                            >
+                                                <div className="flex justify-between items-start">
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-center gap-2 mb-1">
+                                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">
+                                                                {row.label || `Entry #${i + 1}`}
+                                                            </span>
+                                                            <SourceBadge source={row.source as any} />
+                                                        </div>
+                                                        <div className="text-sm font-mono font-medium text-slate-900 break-all leading-relaxed">
+                                                            {String(row.value) || <span className="text-slate-400 italic">Empty</span>}
+                                                        </div>
+                                                        <div className="mt-1.5 text-[10px] text-slate-400">
+                                                            Last Sync: {row.timestamp ? new Date(row.timestamp).toLocaleString() : 'Never'}
+                                                        </div>
+                                                    </div>
+                                                    {!isEditing && (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="h-8 px-2 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
+                                                            onClick={() => {
+                                                                setSelectedRowId(row.id);
+                                                                setManualValue(String(row.value));
+                                                                setIsEditing(true);
+                                                            }}
+                                                        >
+                                                            <Edit className="h-3.5 w-3.5 mr-1.5" />
+                                                            Override
+                                                        </Button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
+                                        <div className="flex gap-2 pt-1">
+                                            {!isEditing && (
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="w-full border-dashed text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+                                                    onClick={handleAddEntry}
+                                                    disabled={isSaving}
+                                                >
+                                                    {isSaving ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : <Edit className="h-3 w-3 mr-2" />}
+                                                    Add New Entry
+                                                </Button>
+                                            )}
+                                        </div>
+                                        {!isEditing && (
+                                            <div className="text-[10px] text-slate-400 italic px-1 pt-1">
+                                                * This is a repeating field. Each entry above manages a different aspect of the Master Data (e.g. a different Stakeholder).
+                                            </div>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <div>
+                                        <div className="text-lg font-mono font-medium break-all">
+                                            {data?.current?.value || <span className="text-slate-400 italic">Empty</span>}
+                                        </div>
+                                        <div className="mt-2 flex items-center gap-2">
+                                            <SourceBadge source={data?.current?.source || 'UNKNOWN'} />
+                                            <span className="text-xs text-slate-400">
+                                                Updated: {data?.current?.timestamp ? new Date(data.current.timestamp).toLocaleString() : 'Never'}
+                                            </span>
+                                        </div>
+                                        {data?.isRepeating && !isEditing && (
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="mt-4 w-full border-dashed text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+                                                onClick={handleAddEntry}
+                                                disabled={isSaving}
+                                            >
+                                                {isSaving ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : <Edit className="h-3 w-3 mr-2" />}
+                                                Add First Entry
+                                            </Button>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                         )}
 
-                        {!isEditing && (
+                        {!isEditing && !data?.isRepeating && (
                             <Button
                                 variant="outline"
                                 size="sm"
                                 className="mt-3 w-full border-dashed text-slate-500 hover:text-slate-800"
+                                disabled={data?.dataType === 'document'}
+                                title={data?.dataType === 'document' ? "Document fields must be updated via Evidence tab" : ""}
                                 onClick={() => {
                                     setManualValue(String(data?.current?.value || ""));
                                     setIsEditing(true);
                                 }}
                             >
                                 <Edit className="h-3 w-3 mr-2" />
-                                Manually Edit / Override
+                                {data?.dataType === 'document' ? 'Use Evidence Tab for Documents' : 'Manually Edit / Override'}
                             </Button>
                         )}
 
                         {isEditing && (
                             <div className="mt-4 pt-4 border-t border-slate-200 animate-in fade-in slide-in-from-top-2">
-                                <div className="space-y-3">
-                                    <div>
-                                        <label className="text-xs font-medium mb-1 block">New Value</label>
-                                        <Input
-                                            value={manualValue}
-                                            onChange={(e) => setManualValue(e.target.value)}
-                                            placeholder="Enter new value..."
-                                        />
+                                <div className="space-y-4">
+                                    {selectedRowId && (
+                                        <div className="bg-indigo-50 p-2 rounded text-[10px] font-medium text-indigo-700 flex items-center justify-between">
+                                            <span>
+                                                EDITING ENTRY: {data?.rows?.find(r => r.id === selectedRowId)?.label || "Specific Row"}
+                                            </span>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-auto p-0 text-[10px] hover:bg-transparent hover:underline"
+                                                onClick={() => {
+                                                    setSelectedRowId(null);
+                                                    setIsEditing(false);
+                                                }}
+                                            >
+                                                Cancel Edit
+                                            </Button>
+                                        </div>
+                                    )}
+
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Manual Override Value</label>
+                                        {data?.options && data.options.length > 0 ? (
+                                            <Select value={manualValue} onValueChange={setManualValue}>
+                                                <SelectTrigger className="w-full h-10 border-slate-200 focus:border-indigo-500 focus:ring-indigo-500">
+                                                    <SelectValue placeholder="Select authoritative value..." />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {data.options.map((opt: string) => (
+                                                        <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        ) : (
+                                            <Textarea
+                                                value={manualValue}
+                                                onChange={(e) => setManualValue(e.target.value)}
+                                                placeholder="Enter authoritative value..."
+                                                className="min-h-[100px] border-slate-200 focus:border-indigo-500 focus:ring-indigo-500 resize-none font-mono text-sm"
+                                            />
+                                        )}
                                     </div>
+
                                     <div>
-                                        <label className="text-xs font-medium mb-1 block">Reason for Change (Required)</label>
+                                        <label className="text-xs font-semibold text-slate-600 mb-1.5 block uppercase tracking-tight">Audit Reason (Required)</label>
                                         <Textarea
                                             value={manualReason}
                                             onChange={(e) => setManualReason(e.target.value)}
-                                            placeholder="Why are you overriding this value?"
-                                            className="h-20"
+                                            placeholder="Explain why this override is necessary for compliance/audit purposes..."
+                                            className="h-24 bg-white border-slate-300 focus:ring-indigo-500 shadow-sm"
                                         />
                                     </div>
+
                                     <div className="flex gap-2 justify-end">
                                         <Button variant="ghost" size="sm" onClick={() => setIsEditing(false)}>Cancel</Button>
                                         <Button size="sm" onClick={handleManualSave} disabled={isSaving}>
@@ -362,7 +528,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                 </div>
                             </div>
                         )}
-                    </div>
+                    </div> {/* Closes the "Current Value Card" div */}
 
                     <Tabs defaultValue="evidence" className="flex-1 flex flex-col overflow-hidden">
                         <TabsList className="grid w-full grid-cols-3">
@@ -381,7 +547,6 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
 
                         {/* ─── Evidence Tab ─── */}
                         <TabsContent value="evidence" className="flex-1 overflow-hidden mt-4 flex flex-col gap-3">
-                            {/* Upload button */}
                             <input
                                 ref={fileInputRef}
                                 type="file"
@@ -446,10 +611,10 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
 
                         {/* ─── History Tab ─── */}
                         <TabsContent value="history" className="flex-1 overflow-hidden relative mt-4">
-                            <ScrollArea className="h-[300px] w-full rounded-md border p-4">
+                            <ScrollArea className="h-full w-full rounded-md border p-4">
                                 <div className="relative border-l border-slate-200 ml-3 space-y-6">
                                     {data?.history && data.history.length > 0 ? (
-                                        data.history.map((item, i) => (
+                                        data.history.map((item) => (
                                             <div key={item.id} className="relative pl-6">
                                                 <div className="absolute -left-1.5 top-1.5 h-3 w-3 rounded-full border border-white bg-slate-300 ring-4 ring-white" />
                                                 <div className="flex flex-col gap-1">
@@ -483,7 +648,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
 
                         {/* ─── Candidates Tab ─── */}
                         <TabsContent value="candidates" className="flex-1 overflow-hidden mt-4">
-                            <ScrollArea className="h-[300px] w-full rounded-md border p-4">
+                            <ScrollArea className="h-full w-full rounded-md border p-4">
                                 <div className="space-y-3">
                                     {data?.candidates && data.candidates.length > 0 ? (
                                         data.candidates.map((cand, i) => (
@@ -528,7 +693,7 @@ function SourceBadge({ source }: { source: string }) {
     const classes = colorMap[source] || 'bg-gray-100 text-gray-700 border-gray-200';
 
     return (
-        <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border ${classes}`}>
+        <span className={cn("inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border", classes)}>
             {source}
         </span>
     );

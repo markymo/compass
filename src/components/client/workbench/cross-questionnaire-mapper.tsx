@@ -1,0 +1,512 @@
+"use client";
+
+import { useState, useMemo, useTransition } from "react";
+import { Workbench4Data, mapQuestionToField } from "@/actions/kyc-workbench";
+import { ConsoleQuestion } from "@/actions/kyc-query";
+import { createCustomFieldDefinition } from "@/actions/questionnaire";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue
+} from "@/components/ui/select";
+import { SuperFieldSelector } from "./super-field-selector";
+import {
+    Search,
+    Filter,
+    Building2,
+    FileText,
+    Link as LinkIcon,
+    Unlink,
+    Plus,
+    CheckCircle2,
+    AlertCircle,
+    MoreHorizontal
+} from "lucide-react";
+import { toast } from "sonner";
+import { cn } from "@/lib/utils";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { FieldDetailPanel } from "../inspection/field-detail-panel";
+
+interface Props {
+    leId: string;
+    initialData: Workbench4Data;
+}
+
+export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
+    const [data, setData] = useState<Workbench4Data>(initialData);
+    const [search, setSearch] = useState("");
+    const [relFilter, setRelFilter] = useState<string>("ALL");
+    const [qFilter, setQFilter] = useState<string>("ALL");
+    const [mappingTypeFilter, setMappingTypeFilter] = useState<string>("ALL"); // ALL, MAPPED, UNMAPPED
+    const [pinnedIds, setPinnedIds] = useState<Set<string>>(new Set());
+
+    const [isPending, startTransition] = useTransition();
+    const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+    const [newFieldName, setNewFieldName] = useState("");
+    const [newFieldType, setNewFieldType] = useState("Text");
+    const [activeQuestionId, setActiveQuestionId] = useState<string | null>(null);
+
+    // Inspection Drawer State
+    const [selectedInspectionField, setSelectedInspectionField] = useState<{ fieldNo: number; name: string; customFieldId?: string } | null>(null);
+
+    // 1. Filtering Logic
+    const filteredQuestions = useMemo(() => {
+        return data.questions.filter(q => {
+            const matchesSearch = q.text.toLowerCase().includes(search.toLowerCase());
+            const matchesRel = relFilter === "ALL" || (q.engagementOrgName || "Unknown") === relFilter;
+            const matchesQ = qFilter === "ALL" || q.questionnaireName === qFilter;
+
+            const isMapped = !!(q.masterFieldNo || q.masterQuestionGroupId || (q as any).customFieldDefinitionId);
+            const matchesMapping = mappingTypeFilter === "ALL" ||
+                (mappingTypeFilter === "MAPPED" && isMapped) ||
+                (mappingTypeFilter === "UNMAPPED" && !isMapped);
+
+            const isPinned = pinnedIds.has(q.id);
+
+            return matchesSearch && matchesRel && matchesQ && (matchesMapping || isPinned);
+        });
+    }, [data.questions, search, relFilter, qFilter, mappingTypeFilter, pinnedIds]);
+
+    // 2. Handlers
+    const clearPinned = () => {
+        if (pinnedIds.size > 0) setPinnedIds(new Set());
+    };
+
+    const handleFilterChange = (setter: (v: string) => void) => (val: string) => {
+        setter(val);
+        clearPinned();
+    };
+
+    const handleMap = async (questionId: string, val: string) => {
+        if (val === "CREATE_NEW") {
+            setActiveQuestionId(questionId);
+            setIsCreateDialogOpen(true);
+            return;
+        }
+
+        const question = data.questions.find(q => q.id === questionId);
+        if (!question) return;
+
+        startTransition(async () => {
+            let mapping: { fieldNo?: number | null; customFieldId?: string | null; groupId?: string | null } = {};
+
+            if (val === "UNMAP") {
+                mapping = { fieldNo: null, customFieldId: null, groupId: null };
+            } else if (val.startsWith("CUSTOM_")) {
+                mapping = { customFieldId: val.replace("CUSTOM_", "") };
+            } else if (val.startsWith("GROUP_")) {
+                mapping = { groupId: val.replace("GROUP_", "") };
+            } else {
+                mapping = { fieldNo: parseInt(val) };
+            }
+
+            const res = await mapQuestionToField(leId, questionId, mapping);
+            if (res.success) {
+                toast.success("Mapping updated");
+                // Local state update for snappy UI
+                setData(prev => ({
+                    ...prev,
+                    questions: prev.questions.map(q =>
+                        q.id === questionId
+                            ? {
+                                ...q,
+                                masterFieldNo: mapping.fieldNo ?? null,
+                                masterQuestionGroupId: mapping.groupId ?? null,
+                                customFieldDefinitionId: mapping.customFieldId ?? null,
+                                masterDataValue: (res as any).newValue,
+                                masterDataSource: (res as any).newSource,
+                                masterDataUpdatedAt: (res as any).newUpdatedAt
+                            } as any
+                            : q
+                    )
+                }));
+                // Pin the item so it doesn't vanish if we are in UNMAPPED filter
+                setPinnedIds(prev => new Set(prev).add(questionId));
+            } else {
+                toast.error(res.error || "Failed to update mapping");
+            }
+        });
+    };
+
+    const handleFieldUpdate = (fieldNo: number, customFieldId: string | undefined, newValue: any, newSource: string, newUpdatedAt: Date) => {
+        setData(prev => ({
+            ...prev,
+            questions: prev.questions.map(q => {
+                const isMatch = customFieldId
+                    ? (q as any).customFieldDefinitionId === customFieldId
+                    : q.masterFieldNo === fieldNo;
+
+                if (isMatch) {
+                    return {
+                        ...q,
+                        masterDataValue: newValue,
+                        masterDataSource: newSource,
+                        masterDataUpdatedAt: newUpdatedAt
+                    };
+                }
+                return q;
+            })
+        }));
+    };
+
+    const handleCreateCustomField = async () => {
+        if (!newFieldName) return;
+
+        startTransition(async () => {
+            if (!data.ownerOrgId) {
+                toast.error("Cannot create field: Owner organization not found");
+                return;
+            }
+
+            const res = await createCustomFieldDefinition(data.ownerOrgId, newFieldName, newFieldType);
+            if (res.success && res.data) {
+                toast.success("New field created");
+                setData(prev => ({
+                    ...prev,
+                    customFields: [...prev.customFields, { id: res.data.id, label: res.data.label }].sort((a, b) => a.label.localeCompare(b.label))
+                }));
+
+                if (activeQuestionId) {
+                    // Update: mapQuestionToField is called inside handleMap
+                    await handleMap(activeQuestionId, `CUSTOM_${res.data.id}`);
+                }
+                setIsCreateDialogOpen(false);
+                setNewFieldName("");
+                setActiveQuestionId(null);
+            } else {
+                toast.error("Failed to create field");
+            }
+        });
+    };
+
+    return (
+        <div className="space-y-6">
+            {/* Toolbar */}
+            <div className="flex flex-wrap items-center gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                <div className="relative flex-1 min-w-[300px]">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                    <Input
+                        placeholder="Search questions..."
+                        className="pl-9 bg-slate-50/50 border-slate-200"
+                        value={search}
+                        onChange={(e) => {
+                            setSearch(e.target.value);
+                            clearPinned();
+                        }}
+                    />
+                </div>
+
+                <div className="flex items-center gap-2">
+                    <Filter className="h-4 w-4 text-slate-500 mr-1" />
+
+                    <Select value={relFilter} onValueChange={handleFilterChange(setRelFilter)}>
+                        <SelectTrigger className="w-[180px] bg-slate-50/50">
+                            <SelectValue placeholder="Relationship" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="ALL">All Relationships</SelectItem>
+                            {data.relationships.map(r => (
+                                <SelectItem key={r} value={r}>{r}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+
+                    <Select value={qFilter} onValueChange={handleFilterChange(setQFilter)}>
+                        <SelectTrigger className="w-[200px] bg-slate-50/50">
+                            <SelectValue placeholder="Questionnaire" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="ALL">All Questionnaires</SelectItem>
+                            {data.questionnaires.map(q => (
+                                <SelectItem key={q} value={q}>{q}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+
+                    <Select value={mappingTypeFilter} onValueChange={handleFilterChange(setMappingTypeFilter)}>
+                        <SelectTrigger className="w-[150px] bg-slate-50/50">
+                            <SelectValue placeholder="Mapping" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="ALL">All Statuses</SelectItem>
+                            <SelectItem value="MAPPED">Mapped</SelectItem>
+                            <SelectItem value="UNMAPPED">Unmapped</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+            </div>
+
+            {/* Results Counters */}
+            <div className="flex items-center justify-between px-2">
+                <div className="text-sm text-slate-500">
+                    Showing <span className="font-semibold text-slate-900">{filteredQuestions.length}</span> questions
+                    {mappingTypeFilter !== "ALL" && ` (${mappingTypeFilter.toLowerCase()})`}
+                </div>
+            </div>
+
+            {/* Question List */}
+            <div className="space-y-3">
+                {filteredQuestions.map((q) => (
+                    <QuestionCard
+                        key={q.id}
+                        question={q}
+                        masterFields={data.masterFields}
+                        customFields={data.customFields}
+                        onMap={(val) => handleMap(q.id, val)}
+                        onInspect={(fieldNo, name, customFieldId) => {
+                            setSelectedInspectionField({ fieldNo, name, customFieldId });
+                        }}
+                        disabled={isPending}
+                        isPinned={pinnedIds.has(q.id)}
+                    />
+                ))}
+
+                {filteredQuestions.length === 0 && (
+                    <div className="py-20 text-center bg-white rounded-xl border border-dashed border-slate-300">
+                        <AlertCircle className="h-10 w-10 text-slate-300 mx-auto mb-3" />
+                        <h3 className="text-lg font-medium text-slate-900">No questions found</h3>
+                        <p className="text-slate-500 mt-1">Try adjusting your filters or search terms.</p>
+                    </div>
+                )}
+            </div>
+
+            <FieldDetailPanel
+                open={!!selectedInspectionField}
+                onOpenChange={(open) => !open && setSelectedInspectionField(null)}
+                legalEntityId={leId}
+                fieldNo={selectedInspectionField?.fieldNo || 0}
+                fieldName={selectedInspectionField?.name || ""}
+                customFieldId={selectedInspectionField?.customFieldId}
+                onUpdate={(val, src, date) => {
+                    handleFieldUpdate(
+                        selectedInspectionField?.fieldNo || 0,
+                        selectedInspectionField?.customFieldId,
+                        val,
+                        src,
+                        date
+                    );
+                }}
+            />
+
+            {/* Create Custom Field Dialog */}
+            <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+                <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                        <DialogTitle>Create New Master Data Field</DialogTitle>
+                        <DialogDescription>
+                            Define a new field to capture this information across all future requests.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <div className="grid gap-2">
+                            <Label htmlFor="name">Field Name</Label>
+                            <Input
+                                id="name"
+                                placeholder="e.g. Board Diversity Policy"
+                                value={newFieldName}
+                                onChange={(e) => setNewFieldName(e.target.value)}
+                            />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="type">Data Type</Label>
+                            <Select value={newFieldType} onValueChange={setNewFieldType}>
+                                <SelectTrigger>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="Text">Text (Paragraphs)</SelectItem>
+                                    <SelectItem value="Boolean">Boolean (Yes/No)</SelectItem>
+                                    <SelectItem value="Date">Date</SelectItem>
+                                    <SelectItem value="Number">Number</SelectItem>
+                                    <SelectItem value="Document">Document Upload</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>Cancel</Button>
+                        <Button
+                            onClick={handleCreateCustomField}
+                            disabled={!newFieldName || isPending}
+                            className="bg-indigo-600 hover:bg-indigo-700"
+                        >
+                            {isPending ? "Creating..." : "Create & Map"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </div>
+    );
+}
+
+function QuestionCard({
+    question,
+    masterFields,
+    customFields,
+    onMap,
+    onInspect,
+    disabled,
+    isPinned
+}: {
+    question: ConsoleQuestion;
+    masterFields: Array<{ fieldNo: number; label: string }>;
+    customFields: Array<{ id: string; label: string }>;
+    onMap: (val: string) => void;
+    onInspect: (fieldNo: number, name: string, customFieldId?: string) => void;
+    disabled?: boolean;
+    isPinned?: boolean;
+}) {
+    const isMapped = !!(question.masterFieldNo || question.masterQuestionGroupId || (question as any).customFieldDefinitionId);
+
+    // Find current mapping label
+    let currentMappingLabel = "Unmapped";
+
+    if (question.masterFieldNo) {
+        currentMappingLabel = masterFields.find(f => f.fieldNo === question.masterFieldNo)?.label || `Field ${question.masterFieldNo}`;
+    } else if ((question as any).customFieldDefinitionId) {
+        currentMappingLabel = customFields.find(f => f.id === (question as any).customFieldDefinitionId)?.label || "Custom Field";
+    }
+
+    return (
+        <Card className={cn(
+            "group transition-all hover:border-slate-300 shadow-sm overflow-hidden",
+            isPinned ? "border-green-400 ring-2 ring-green-50 z-10 scale-[1.01]" : "",
+            isMapped ? "bg-white" : "bg-slate-50/50 border-dashed"
+        )}>
+            <CardContent className="p-0">
+                <div className="flex items-stretch min-h-[100px]">
+                    {/* Left Side: Context */}
+                    <div className={cn(
+                        "w-[300px] border-r border-slate-100 p-4 space-y-2 shrink-0 transition-colors",
+                        isPinned ? "bg-green-50/30" : ""
+                    )}>
+                        <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                            <Building2 className="h-3 w-3" />
+                            {question.engagementOrgName || "Unknown Relationship"}
+                        </div>
+                        <div className="flex items-center gap-2 text-xs font-semibold text-slate-600">
+                            <FileText className="h-3.5 w-3.5 text-slate-400" />
+                            <span className="truncate" title={question.questionnaireName}>
+                                {question.questionnaireName}
+                            </span>
+                        </div>
+                        <div className="pt-1 flex items-center gap-2">
+                            {isMapped ? (
+                                <Badge variant="secondary" className="bg-green-50 text-green-700 border-green-100 gap-1 px-1.5 py-0">
+                                    <CheckCircle2 className="h-3 w-3" />
+                                    {isPinned ? "Just Mapped" : "Mapped"}
+                                </Badge>
+                            ) : (
+                                <Badge variant="secondary" className="bg-amber-50 text-amber-700 border-amber-100 gap-1 px-1.5 py-0">
+                                    <AlertCircle className="h-3 w-3" />
+                                    Unmapped
+                                </Badge>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Middle: Question Text */}
+                    <div className="flex-1 p-4 flex flex-col justify-center space-y-3">
+                        <div className="flex items-start gap-2">
+                            <span className="text-slate-400 font-bold text-sm shrink-0 mt-0.5">Q:</span>
+                            <h4 className="text-sm font-medium text-slate-900 leading-snug">
+                                {question.text}
+                            </h4>
+                        </div>
+
+                        <div
+                            className="flex flex-col gap-1.5 pt-2 border-t border-slate-50 cursor-pointer group/ans"
+                            onClick={() => {
+                                const fNo = question.masterFieldNo || 0;
+                                const customId = (question as any).customFieldDefinitionId;
+                                onInspect(fNo, question.text, customId);
+                            }}
+                        >
+                            <div className="flex items-start gap-2">
+                                <span className="text-indigo-400 font-bold text-sm shrink-0 mt-0.5">A:</span>
+                                <div className="text-sm text-slate-700 bg-slate-50/50 px-2 py-1.5 rounded border border-slate-100/50 w-full font-medium group-hover/ans:border-indigo-200 group-hover/ans:bg-indigo-50/30 transition-all relative">
+                                    {typeof question.masterDataValue === 'object'
+                                        ? JSON.stringify(question.masterDataValue)
+                                        : String(question.masterDataValue)}
+
+                                    <div className="absolute right-2 top-1.5 opacity-0 group-hover/ans:opacity-100 transition-opacity">
+                                        <Badge variant="outline" className="bg-white text-indigo-600 border-indigo-200 text-[9px] px-1 py-0 h-4">
+                                            Inspect Audit
+                                        </Badge>
+                                    </div>
+                                </div>
+                            </div>
+                            {(question.masterDataSource || question.masterDataUpdatedAt) && (
+                                <div className="flex items-center gap-3 pl-6 text-[10px] text-slate-400 font-medium">
+                                    {question.masterDataSource && (
+                                        <div className="flex items-center gap-1 bg-slate-100/50 px-1.5 py-0.5 rounded border border-slate-200/50">
+                                            <span className="opacity-60 uppercase tracking-tighter">Source:</span>
+                                            <span className="text-slate-600 font-bold uppercase">{question.masterDataSource}</span>
+                                        </div>
+                                    )}
+                                    {question.masterDataUpdatedAt && (
+                                        <div className="flex items-center gap-1">
+                                            <span className="opacity-60 uppercase tracking-tighter text-[9px]">Last Updated:</span>
+                                            <span className="text-slate-500 font-semibold">{new Date(question.masterDataUpdatedAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}</span>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Right Side: Mapping Controls */}
+                    <div className="w-[320px] p-4 flex flex-col justify-center gap-2 bg-slate-50/30">
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                            Master Data Mapping
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                            <SuperFieldSelector
+                                value={
+                                    question.masterFieldNo
+                                        ? `master:${question.masterFieldNo}`
+                                        : question.masterQuestionGroupId
+                                            ? `group:${question.masterQuestionGroupId}`
+                                            : (question as any).customFieldDefinitionId
+                                                ? `custom:${(question as any).customFieldDefinitionId}`
+                                                : null
+                                }
+                                onSelect={(val, type, label) => {
+                                    if (type === 'clear') onMap("UNMAP");
+                                    else if (type === 'create') onMap("CREATE_NEW");
+                                    else if (type === 'master') onMap(val);
+                                    else if (type === 'group') onMap(`GROUP_${val}`);
+                                    else if (type === 'custom') onMap(`CUSTOM_${val}`);
+                                }}
+                                customFields={customFields}
+                                questionText={question.text}
+                                disabled={disabled}
+                            />
+
+                            {isMapped && (
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-9 w-9 text-slate-400 hover:text-red-500 hover:bg-red-50 shrink-0"
+                                    onClick={() => onMap("UNMAP")}
+                                    disabled={disabled}
+                                    title="Unmap field"
+                                >
+                                    <Unlink className="h-4 w-4" />
+                                </Button>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </CardContent>
+        </Card>
+    );
+}

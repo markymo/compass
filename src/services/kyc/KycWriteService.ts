@@ -196,7 +196,9 @@ export class KycWriteService {
         fieldNo: number,
         value: any,
         reason: string,
-        userId: string
+        userId: string,
+        rowId?: string,
+        entityType: 'LEGAL_ENTITY' | 'CLIENT_LE' = 'CLIENT_LE'
     ): Promise<boolean> {
         return this.updateField(
             legalEntityId,
@@ -208,12 +210,8 @@ export class KycWriteService {
                 reason: reason,
                 confidence: 1.0
             },
-            undefined,
-            'LEGAL_ENTITY' // Assuming passed ID is always LegalEntity ID (or handle ClientLE if needed?)
-            // Actually, for safety, let's allow the caller to pass explicit entity Type or assume LE.
-            // But the UI usually works with ClientLE ID if it's the "App" context.
-            // Let's assume the caller resolves it or passes the correct ID.
-            // Wait, if I pass ClientLE ID, I should pass 'CLIENT_LE'.
+            rowId,
+            entityType
         );
     }
 
@@ -225,6 +223,7 @@ export class KycWriteService {
         legalEntityId: string,
         candidate: FieldCandidate,
         userId: string,
+        rowId?: string,
         entityType: 'LEGAL_ENTITY' | 'CLIENT_LE' = 'LEGAL_ENTITY'
     ): Promise<boolean> {
         // When a user manually applies a candidate, we treat it as a Manual Override (USER_INPUT).
@@ -242,7 +241,7 @@ export class KycWriteService {
                 confidence: 1.0,
                 reason: `Manual application of candidate from ${candidate.source}`
             },
-            undefined,
+            rowId,
             entityType
         );
     }

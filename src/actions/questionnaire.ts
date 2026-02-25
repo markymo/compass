@@ -199,6 +199,8 @@ export async function createCustomFieldDefinition(orgId: string, label: string, 
     if (!orgId) return { success: false, error: "Organization ID required" };
 
     try {
+        console.log(`[createCustomFieldDefinition] Attempting to create field for Org: ${orgId}, Label: ${label}`);
+
         // Generate a machine-readable key
         let key = label.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
         if (!key) key = "custom_field"; // Fallback
@@ -220,10 +222,11 @@ export async function createCustomFieldDefinition(orgId: string, label: string, 
             }
         });
 
+        console.log(`[createCustomFieldDefinition] SUCCESS: Created field ${field.id} (${field.key})`);
         revalidatePath(`/app/admin/organizations/${orgId}`);
         return { success: true, data: field };
     } catch (e: any) {
-        console.error("Failed to create Custom Field:", e);
+        console.error(`[createCustomFieldDefinition] ERROR for Org ${orgId}:`, e);
         return { success: false, error: e.message };
     }
 }

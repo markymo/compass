@@ -55,8 +55,33 @@ export class KycLoader {
         // For hydration of a "General" questionnaire, we might default to the "Primary" row? 
         // Or return all? For now, let's focus on 1:1 Profiles.
         if (def.isRepeating) {
-            console.warn(`[KycLoader] Repeating field ${fieldNo} hydration not yet fully supported (needs row selection logic). returning null.`);
-            return null;
+            // If no specific row is requested, return a summary of all rows
+            // @ts-ignore
+            const records = await delegate.findMany({
+                where: { [idField]: resolvedEntityId },
+                orderBy: { createdAt: 'asc' }
+            });
+
+            if (records.length === 0) return null;
+
+            // Simple comma-separated summary for the workbench view
+            const values = records
+                .map((r: any) => r[def.field!])
+                .filter((v: any) => v !== null && v !== undefined);
+
+            if (values.length === 0) return null;
+
+            // For repeating fields, we return the first record's meta as the "primary" provenance for now
+            const firstRecord = records[0];
+            const meta = (firstRecord.meta as Record<string, MetaEntry>)?.[def.field!];
+
+            return {
+                value: values.join(", "),
+                source: meta?.source as ProvenanceSource || null,
+                confidence: meta?.confidence || null,
+                verifiedBy: meta?.verified_by || null,
+                updatedAt: firstRecord.updatedAt || null
+            };
         }
 
         const record = await delegate.findUnique({

@@ -18,6 +18,7 @@ export type FieldDefinition = {
     dbTable?: string; // Database table name (snake_case) - reference only
     dbColumn?: string; // Database column name (snake_case) - reference only
     notes?: string;
+    options?: string[]; // Enum/Dropdown options
 };
 
 export const FIELD_DEFINITIONS: Record<number, FieldDefinition> = {
@@ -675,6 +676,7 @@ export const FIELD_DEFINITIONS: Record<number, FieldDefinition> = {
         dbTable: 'stakeholders',
         dbColumn: 'role',
         notes: 'Role = UBO',
+        options: ['DIRECTOR', 'UBO', 'CONTROLLER'],
     },
     63: {
         fieldNo: 63,
@@ -686,6 +688,7 @@ export const FIELD_DEFINITIONS: Record<number, FieldDefinition> = {
         dbTable: 'stakeholders',
         dbColumn: 'role',
         notes: 'Role = DIRECTOR',
+        options: ['DIRECTOR', 'UBO', 'CONTROLLER'],
     },
     64: {
         fieldNo: 64,
@@ -697,6 +700,7 @@ export const FIELD_DEFINITIONS: Record<number, FieldDefinition> = {
         dbTable: 'stakeholders',
         dbColumn: 'role',
         notes: 'Role = CONTROLLER',
+        options: ['DIRECTOR', 'UBO', 'CONTROLLER'],
     },
     65: {
         fieldNo: 65,
