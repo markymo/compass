@@ -18,12 +18,14 @@ interface DataSchemaTabProps {
     masterData: Record<number, { value: any; source?: string }>;
     customData?: Record<string, any>;
     customDefinitions?: any[];
+    gleifLastSynced?: Date;
 }
 
-export function DataSchemaTab({ leId, masterData, customData = {}, customDefinitions = [] }: DataSchemaTabProps) {
+export function DataSchemaTab({ leId, masterData, customData = {}, customDefinitions = [], gleifLastSynced }: DataSchemaTabProps) {
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [proposals, setProposals] = useState<FieldProposal[] | null>(null);
     const [selectedField, setSelectedField] = useState<{ fieldNo: number; name: string; customFieldId?: string } | null>(null);
+    const [lastRefreshed, setLastRefreshed] = useState<Date | undefined>(gleifLastSynced);
 
     // Dynamic Grouping Logic
     const groupedFields = useMemo(() => {
@@ -86,6 +88,7 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
             toast.error("An error occurred while refreshing");
         } finally {
             setIsRefreshing(false);
+            setLastRefreshed(new Date());
         }
     };
 
@@ -107,8 +110,78 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
     };
 
     return (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Left Column: Master Record - Dynamic Groups */}
+        <div className="space-y-8">
+            {/* External Sources — compact full-width bar at the top */}
+            <div className="rounded-xl border border-slate-200 bg-white shadow-sm p-4">
+                <div className="flex items-center justify-between flex-wrap gap-4">
+                    <div>
+                        <h2 className="text-base font-semibold text-slate-800">External Sources</h2>
+                        <p className="text-slate-500 text-xs mt-0.5">
+                            Compare and accept updates from trusted providers.
+                        </p>
+                    </div>
+
+                    {/* GLEIF Source */}
+                    <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-3">
+                            <div className="h-9 w-9 rounded-full bg-orange-100 flex items-center justify-center text-orange-600 font-bold text-sm shrink-0">
+                                GL
+                            </div>
+                            <div>
+                                <div className="font-medium text-sm">Global LEI Index (GLEIF)</div>
+                                <div className="text-xs text-slate-500">
+                                    {lastRefreshed
+                                        ? <>Last synced: <span className="font-medium text-slate-700">{lastRefreshed.toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" })}</span> at <span className="font-medium text-slate-700">{lastRefreshed.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}</span></>
+                                        : "Never synced"}
+                                </div>
+                            </div>
+                        </div>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleRefreshGleif}
+                            disabled={isRefreshing}
+                        >
+                            <RefreshCcw className={cn("mr-2 h-4 w-4", isRefreshing && "animate-spin")} />
+                            {isRefreshing ? "Checking..." : "Check for Updates"}
+                        </Button>
+                    </div>
+                </div>
+
+                {/* Proposals List — shown inline below the bar when triggered */}
+                {proposals && (
+                    <div className="mt-5 pt-5 border-t border-slate-100 space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                        <div className="flex items-center justify-between">
+                            <h3 className="text-sm font-medium text-slate-700 uppercase tracking-wider">
+                                Proposals ({proposals.length})
+                            </h3>
+                            {proposals.length > 0 && (
+                                <Badge variant="secondary" className="bg-blue-100 text-blue-700">
+                                    {proposals.filter(p => p.action === 'PROPOSE_UPDATE').length} Actionable
+                                </Badge>
+                            )}
+                        </div>
+
+                        {proposals.length === 0 && (
+                            <div className="text-center py-6 text-slate-500 bg-slate-50 rounded-lg border border-dashed">
+                                No differences found. Master record is in sync with GLEIF.
+                            </div>
+                        )}
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {proposals.map((proposal) => (
+                                <ProposalCard
+                                    key={proposal.fieldNo}
+                                    proposal={proposal}
+                                    onAccept={() => handleAccept(proposal)}
+                                />
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {/* Master Record — full width */}
             <div className="space-y-8">
                 <div>
                     <h2 className="text-2xl font-semibold tracking-tight">Master Record</h2>
@@ -131,14 +204,13 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                         </CardHeader>
                         <CardContent className="pt-6 space-y-4">
                             {customDefinitions.map((def: any) => {
-                                // Value logic: Try by ID (most robust) or Key
                                 const value = customData[def.id] || customData[def.key];
                                 return (
                                     <MasterFieldDisplay
                                         key={def.id}
                                         label={def.label}
-                                        fieldNo={0} // Custom fields don't have standard numbers
-                                        value={value?.value || value} // Handle {value, status} or raw value
+                                        fieldNo={0}
+                                        value={value?.value || value}
                                         source={value?.source || 'USER_INPUT'}
                                         description={def.description}
                                         isCustom={true}
@@ -154,110 +226,46 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                     </Card>
                 )}
 
-                {Object.entries(groupedFields).map(([key, group]) => {
-                    const Icon = group.icon;
-                    return (
-                        <Card key={key} className="border-l-4 border-l-blue-500 shadow-sm overflow-hidden">
-                            <CardHeader className="pb-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50">
-                                <CardTitle className="flex items-center gap-2 text-lg">
-                                    <Icon className="h-5 w-5 text-blue-600" />
-                                    {group.title}
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="pt-6 space-y-4">
-                                {group.fields.map(field => {
-                                    const data = masterData[field.fieldNo];
-                                    return (
-                                        <MasterFieldDisplay
-                                            key={field.fieldNo}
-                                            label={field.fieldName}
-                                            fieldNo={field.fieldNo}
-                                            value={data?.value}
-                                            source={data?.source as any}
-                                            onClick={() => setSelectedField({ fieldNo: field.fieldNo, name: field.fieldName })}
-                                        />
-                                    );
-                                })}
-                                {group.fields.length === 0 && (
-                                    <p className="text-sm text-slate-400 italic">No fields in this group.</p>
-                                )}
-                            </CardContent>
-                        </Card>
-                    );
-                })}
-            </div>
-
-            {/* Right Column: Review & Proposals */}
-            <div className="space-y-6">
-                <div>
-                    <h2 className="text-2xl font-semibold tracking-tight">External Sources</h2>
-                    <p className="text-slate-500 text-sm mt-1">
-                        Compare and accept updates from trusted providers.
-                    </p>
+                <div className="space-y-6">
+                    {Object.entries(groupedFields).map(([key, group]) => {
+                        const Icon = group.icon;
+                        return (
+                            <Card key={key} className="border-l-4 border-l-blue-500 shadow-sm overflow-hidden">
+                                <CardHeader className="pb-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50">
+                                    <CardTitle className="flex items-center gap-2 text-lg">
+                                        <Icon className="h-5 w-5 text-blue-600" />
+                                        {group.title}
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="pt-6 space-y-4">
+                                    {group.fields.map(field => {
+                                        const data = masterData[field.fieldNo];
+                                        return (
+                                            <MasterFieldDisplay
+                                                key={field.fieldNo}
+                                                label={field.fieldName}
+                                                fieldNo={field.fieldNo}
+                                                value={data?.value}
+                                                source={data?.source as any}
+                                                onClick={() => setSelectedField({ fieldNo: field.fieldNo, name: field.fieldName })}
+                                            />
+                                        );
+                                    })}
+                                    {group.fields.length === 0 && (
+                                        <p className="text-sm text-slate-400 italic">No fields in this group.</p>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        );
+                    })}
                 </div>
-
-                {/* Source Control Panel */}
-                <Card>
-                    <CardContent className="pt-6">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center text-orange-600 font-bold text-sm">
-                                    GL
-                                </div>
-                                <div>
-                                    <div className="font-medium">Global LEI Index (GLEIF)</div>
-                                    <div className="text-xs text-slate-500">Authoritative Source</div>
-                                </div>
-                            </div>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={handleRefreshGleif}
-                                disabled={isRefreshing}
-                            >
-                                <RefreshCcw className={cn("mr-2 h-4 w-4", isRefreshing && "animate-spin")} />
-                                {isRefreshing ? "Checking..." : "Check for Updates"}
-                            </Button>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                {/* Proposals List */}
-                {proposals && (
-                    <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                        <div className="flex items-center justify-between">
-                            <h3 className="text-sm font-medium text-slate-700 uppercase tracking-wider">
-                                Proposals ({proposals.length})
-                            </h3>
-                            {proposals.length > 0 && (
-                                <Badge variant="secondary" className="bg-blue-100 text-blue-700">
-                                    {proposals.filter(p => p.action === 'PROPOSE_UPDATE').length} Actionable
-                                </Badge>
-                            )}
-                        </div>
-
-                        {proposals.length === 0 && (
-                            <div className="text-center py-8 text-slate-500 bg-slate-50 rounded-lg border border-dashed">
-                                No differences found. Master record is in sync with GLEIF.
-                            </div>
-                        )}
-
-                        {proposals.map((proposal) => (
-                            <ProposalCard
-                                key={proposal.fieldNo}
-                                proposal={proposal}
-                                onAccept={() => handleAccept(proposal)}
-                            />
-                        ))}
-                    </div>
-                )}
             </div>
 
             {/* Inspector Panel */}
             <FieldDetailPanel
                 open={!!selectedField}
                 onOpenChange={(open) => !open && setSelectedField(null)}
-                legalEntityId={leId} // Assuming leId passed is clientLEId, but DetailPanel might need resolving to Real LE. Inspect Panel should handle ClientLEId.
+                legalEntityId={leId}
                 fieldNo={selectedField?.fieldNo || 0}
                 fieldName={selectedField?.name || ""}
                 customFieldId={selectedField?.customFieldId}

@@ -581,11 +581,26 @@ export async function getFullMasterData(clientLEId: string) {
     // IF `customData` has keys that we missed (e.g. from previous owners), we could fetch them here.
     // For now, let's stick to active contexts.
 
+    // 4. Find most recent GLEIF-sourced event for this legal entity
+    let gleifLastSynced: Date | null = null;
+    if (legalEntityId) {
+        const lastGleifEvent = await prisma.masterDataEvent.findFirst({
+            where: {
+                legalEntityId,
+                source: "GLEIF"
+            },
+            orderBy: { timestamp: "desc" },
+            select: { timestamp: true }
+        });
+        gleifLastSynced = lastGleifEvent?.timestamp ?? null;
+    }
+
     return {
         success: true,
         data: flattened,
         customData,
-        customDefinitions
+        customDefinitions,
+        gleifLastSynced
     };
 }
 
