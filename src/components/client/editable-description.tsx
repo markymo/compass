@@ -3,7 +3,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { updateClientLE } from "@/actions/client";
-import { generateLEDescription } from "@/actions/client-le";
+import { generateLEDescription } from "@/actions/ai-actions";
 import { Pencil, Loader2, CheckCircle2, AlertCircle, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 

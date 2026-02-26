@@ -10,18 +10,18 @@ import { refreshGleifProposals, acceptProposal } from "@/actions/kyc-proposals";
 import { FieldProposal, ProvenanceSource } from "@/domain/kyc/types/ProposalTypes";
 import { cn } from "@/lib/utils";
 import { FieldDetailPanel } from "./inspection/field-detail-panel";
-import { FIELD_DEFINITIONS, FieldDefinition } from "@/domain/kyc/FieldDefinitions";
-import { FIELD_GROUPS } from "@/domain/kyc/FieldGroups";
 
 interface DataSchemaTabProps {
     leId: string;
-    masterData: Record<number, { value: any; source?: string }>;
+    masterData: Record<number, { value: any; source?: string; sourceReference?: string }>;
     customData?: Record<string, any>;
     customDefinitions?: any[];
     gleifLastSynced?: Date;
+    masterFields: any[];
+    masterGroups: any[];
 }
 
-export function DataSchemaTab({ leId, masterData, customData = {}, customDefinitions = [], gleifLastSynced }: DataSchemaTabProps) {
+export function DataSchemaTab({ leId, masterData, customData = {}, customDefinitions = [], gleifLastSynced, masterFields = [], masterGroups = [] }: DataSchemaTabProps) {
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [proposals, setProposals] = useState<FieldProposal[] | null>(null);
     const [selectedField, setSelectedField] = useState<{ fieldNo: number; name: string; customFieldId?: string } | null>(null);
@@ -29,30 +29,32 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
 
     // Dynamic Grouping Logic
     const groupedFields = useMemo(() => {
-        const groups: Record<string, { title: string; icon: any; fields: FieldDefinition[] }> = {};
+        const groups: Record<string, { title: string; icon: any; fields: any[] }> = {};
         const assignedFieldNos = new Set<number>();
 
         // 1. High Priority Defined Groups (Addresses)
-        Object.values(FIELD_GROUPS).forEach(group => {
-            groups[group.id] = {
-                title: group.label,
+        masterGroups.forEach(group => {
+            groups[group.key] = {
+                title: group.fieldName || group.key,
                 icon: Globe, // Default icon for groups
                 fields: []
             };
-            group.fieldNos.forEach(fNo => {
-                if (FIELD_DEFINITIONS[fNo]) {
-                    groups[group.id].fields.push(FIELD_DEFINITIONS[fNo]);
+            const fieldNos: number[] = group.fieldNos || [];
+            fieldNos.forEach(fNo => {
+                const def = masterFields.find(f => f.fieldNo === fNo);
+                if (def) {
+                    groups[group.key].fields.push(def);
                     assignedFieldNos.add(fNo);
                 }
             });
         });
 
         // 2. Group Remaining Fields by Model
-        Object.values(FIELD_DEFINITIONS).forEach(def => {
+        masterFields.forEach(def => {
             if (assignedFieldNos.has(def.fieldNo)) return;
             if (def.isRepeating) return; // Skip repeating fields for now (Stakeholders, etc - explicit handling later)
 
-            const modelKey = def.model || "Other";
+            const modelKey = def.category || "Other";
             if (!groups[modelKey]) {
                 let title = modelKey.replace(/([A-Z])/g, ' $1').trim(); // PascalCase to Title Case
                 let icon = FileText;
@@ -68,7 +70,7 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
         });
 
         return groups;
-    }, []);
+    }, [masterFields, masterGroups]);
 
     const handleRefreshGleif = async () => {
         setIsRefreshing(true);
@@ -153,7 +155,7 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                     <div className="mt-5 pt-5 border-t border-slate-100 space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
                         <div className="flex items-center justify-between">
                             <h3 className="text-sm font-medium text-slate-700 uppercase tracking-wider">
-                                Proposals ({proposals.length})
+                                Proposals ({proposals.filter(p => p.action !== 'NO_CHANGE').length})
                             </h3>
                             {proposals.length > 0 && (
                                 <Badge variant="secondary" className="bg-blue-100 text-blue-700">
@@ -162,14 +164,14 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                             )}
                         </div>
 
-                        {proposals.length === 0 && (
+                        {proposals.filter(p => p.action !== 'NO_CHANGE').length === 0 && (
                             <div className="text-center py-6 text-slate-500 bg-slate-50 rounded-lg border border-dashed">
                                 No differences found. Master record is in sync with GLEIF.
                             </div>
                         )}
 
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {proposals.map((proposal) => (
+                            {proposals.filter(p => p.action !== 'NO_CHANGE').map((proposal) => (
                                 <ProposalCard
                                     key={proposal.fieldNo}
                                     proposal={proposal}
@@ -247,6 +249,7 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                                                 fieldNo={field.fieldNo}
                                                 value={data?.value}
                                                 source={data?.source as any}
+                                                sourceReference={data?.sourceReference}
                                                 onClick={() => setSelectedField({ fieldNo: field.fieldNo, name: field.fieldName })}
                                             />
                                         );
@@ -274,11 +277,12 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
     );
 }
 
-function MasterFieldDisplay({ label, fieldNo, value, source, onClick, description, isCustom }: {
+function MasterFieldDisplay({ label, fieldNo, value, source, sourceReference, onClick, description, isCustom }: {
     label: string,
     fieldNo: number,
     value: any,
     source?: ProvenanceSource,
+    sourceReference?: string,
     onClick?: () => void,
     description?: string,
     isCustom?: boolean
@@ -341,7 +345,7 @@ function MasterFieldDisplay({ label, fieldNo, value, source, onClick, descriptio
                 {hasValue && (
                     <div className="flex items-center gap-2">
                         {/* If we had meta timestamp, we'd pass it. For now just source if available. */}
-                        {source && <SourceBadge source={source} />}
+                        {source && <SourceBadge source={source} sourceReference={sourceReference} />}
                     </div>
                 )}
                 {!hasValue && !isCustom && (
@@ -354,7 +358,7 @@ function MasterFieldDisplay({ label, fieldNo, value, source, onClick, descriptio
     );
 }
 
-function SourceBadge({ source, timestamp }: { source: ProvenanceSource, timestamp?: string }) {
+function SourceBadge({ source, sourceReference, timestamp }: { source: ProvenanceSource, sourceReference?: string, timestamp?: string }) {
     const colorMap: Record<string, string> = {
         'GLEIF': 'bg-orange-100 text-orange-700 border-orange-200',
         'COMPANIES_HOUSE': 'bg-blue-100 text-blue-700 border-blue-200',
@@ -366,6 +370,7 @@ function SourceBadge({ source, timestamp }: { source: ProvenanceSource, timestam
     return (
         <Badge variant="outline" className={cn("text-[10px] h-5", colorMap[source] || colorMap['SYSTEM'])}>
             {source}
+            {sourceReference && <span className="ml-1 opacity-50">· {sourceReference}</span>}
             {timestamp && <span className="ml-1 opacity-50">· {new Date(timestamp).toLocaleDateString()}</span>}
         </Badge>
     );

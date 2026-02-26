@@ -30,8 +30,7 @@ import PDFParser from 'pdf2json';
 // LOGGING INTERFACE
 type Logger = (message: string, stage?: string, level?: "INFO" | "ERROR" | "SUCCESS") => Promise<void>;
 
-import { FIELD_GROUPS } from "@/domain/kyc/FieldGroups";
-import { FIELD_DEFINITIONS } from "@/domain/kyc/FieldDefinitions";
+import { listAllMasterFields, listAllMasterGroupsWithItems } from "@/services/masterData/definitionService";
 
 // 1. Process Document: Convert to Base64 (Images/PDF) or Text (Docx/Txt)
 export async function parseDocument(formData: FormData, logger?: Logger): Promise<{ content: string | string[], type: "image" | "text", mime: string }> {
@@ -104,18 +103,21 @@ export async function extractQuestionnaireItems(input: { content: string | strin
     let schemaContext = "";
 
     // 1. Field Groups
-    const groups = Object.values(FIELD_GROUPS);
+    const [groups, fields] = await Promise.all([
+        listAllMasterGroupsWithItems(),
+        listAllMasterFields()
+    ]);
+
     if (groups.length > 0) {
         schemaContext += "MASTER FIELD GROUPS (Composite - Prefer these):\n";
-        schemaContext += groups.map(g => `- GroupID: "${g.id}" Label: "${g.label}" (Fields: ${g.fieldNos.join(',')})`).join('\n');
+        schemaContext += groups.map(g => `- GroupKey: "${g.key}" Label: "${g.label}" (Fields: ${g.fieldNos.join(',')})`).join('\n');
         schemaContext += "\n\n";
     }
 
     // 2. Atomic Fields
-    const fields = Object.values(FIELD_DEFINITIONS);
     if (fields.length > 0) {
         schemaContext += "MASTER ATOMIC FIELDS:\n";
-        schemaContext += fields.map(f => `- Field ${f.fieldNo} (Key: "${f.fieldNo}"): ${f.fieldName} (${f.dataType}) - ${f.notes || ''}`).join('\n');
+        schemaContext += fields.map(f => `- Field ${f.fieldNo} (Key: "${f.fieldNo}"): ${f.fieldName} (${f.appDataType}) - ${f.notes || ''}`).join('\n');
         schemaContext += "\n\n";
     } else {
         // Fallback if definitions are missing

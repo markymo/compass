@@ -7,13 +7,14 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Loader2, Sparkles, Plus, Check, ChevronRight, XCircle } from "lucide-react";
 import { getAISemanticMatch } from "@/actions/kyc-workbench";
-import { FIELD_DEFINITIONS } from "@/domain/kyc/FieldDefinitions";
-import { FIELD_GROUPS } from "@/domain/kyc/FieldGroups";
+// FIELD_DEFINITIONS and FIELD_GROUPS removed
 import { toast } from "sonner";
 
 interface Props {
     value: string | null;
     onSelect: (val: string, type: 'master' | 'group' | 'custom' | 'create' | 'clear', label?: string) => void;
+    masterFields: Array<{ fieldNo: number; label: string }>;
+    masterGroups: Array<{ key: string; label: string }>;
     customFields: Array<{ id: string; label: string }>;
     questionText: string;
     compact?: boolean;
@@ -23,6 +24,8 @@ interface Props {
 export function SuperFieldSelector({
     value,
     onSelect,
+    masterFields,
+    masterGroups,
     customFields,
     questionText,
     compact = false,
@@ -34,19 +37,19 @@ export function SuperFieldSelector({
     const [aiSuggestions, setAiSuggestions] = useState<Array<{ id: string; confidence: number; reasoning: string }>>([]);
 
     // 1. Prepare Local Options
-    const masterOptions = useMemo(() => Object.values(FIELD_DEFINITIONS).map(f => ({
+    const masterOptions = useMemo(() => masterFields.map(f => ({
         value: `master:${f.fieldNo}`,
-        label: f.fieldName,
+        label: f.label,
         type: 'master' as const,
         meta: `Standard Field ${f.fieldNo}`,
-    })), []);
+    })), [masterFields]);
 
-    const groupOptions = useMemo(() => Object.values(FIELD_GROUPS).map(g => ({
-        value: `group:${g.id}`,
+    const groupOptions = useMemo(() => masterGroups.map(g => ({
+        value: `group:${g.key}`,
         label: g.label,
         type: 'group' as const,
         meta: 'Composite Group',
-    })), []);
+    })), [masterGroups]);
 
     const customOptions = useMemo(() => customFields.map(f => ({
         value: `custom:${f.id}`,

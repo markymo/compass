@@ -11,7 +11,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import { Loader2, History, Database, Edit, CheckCircle, AlertTriangle, Paperclip, FileText, Download, X, User as UserIcon } from "lucide-react";
 import { getFieldDetail, FieldDetailData } from "@/actions/kyc-query";
-import { FIELD_DEFINITIONS } from "@/domain/kyc/FieldDefinitions";
+// FIELD_DEFINITIONS removed
 import { updateFieldManually, applyCandidate, updateCustomFieldManually, createRepeatingFieldRow, applyBulkOverride } from "@/actions/kyc-manual-update";
 import { getMasterFieldDocuments, setMasterFieldAssignment } from "@/actions/standing-data";
 import { getLETeamMembers } from "@/actions/kanban-actions";
@@ -157,7 +157,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
             const row = data.rows.find(r => r.id === selectedRowId);
             if (row && row.data) {
                 // Determine model and relevant fields
-                const model = data?.fieldNo ? FIELD_DEFINITIONS[data.fieldNo]?.model : null;
+                const model = data?.category;
                 const related: Record<string, any> = {};
 
                 if (model === 'Stakeholder') {
@@ -173,7 +173,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
         } else {
             setRelatedValues({});
         }
-    }, [selectedRowId, data?.rows, data?.fieldNo]);
+    }, [selectedRowId, data?.rows, data?.category]);
 
     const handleAddEntry = async () => {
         setIsSaving(true);
@@ -185,7 +185,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                 setSelectedRowId(res.rowId);
 
                 // Set default manual value based on model context
-                const model = fieldNo ? FIELD_DEFINITIONS[fieldNo]?.model : null;
+                const model = data?.category;
                 if (model === 'Stakeholder') {
                     setManualValue("UBO");
                 } else if (model === 'Contact') {
@@ -235,11 +235,10 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                 }
                 // Determine if we need bulk update
                 const row = data.rows?.find((r: any) => r.id === selectedRowId);
-                const model = data.fieldNo ? FIELD_DEFINITIONS[data.fieldNo as keyof typeof FIELD_DEFINITIONS]?.model : null;
+                const model = data.category;
 
                 if (row && model && Object.keys(relatedValues).length > 0) {
-                    const fieldDef = FIELD_DEFINITIONS[data.fieldNo as keyof typeof FIELD_DEFINITIONS];
-                    const fieldNameInModel = fieldDef.field!;
+                    const fieldNameInModel = data.modelField!;
                     const updates = {
                         [fieldNameInModel]: manualValue,
                         ...relatedValues
@@ -428,7 +427,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">
                                                                 {row.label || `Entry #${i + 1}`}
                                                             </span>
-                                                            <SourceBadge source={row.source as any} />
+                                                            <SourceBadge source={row.source as any} sourceReference={row.sourceReference} />
                                                         </div>
                                                         <div className="text-sm font-mono font-medium text-slate-900 break-all leading-relaxed">
                                                             {String(row.value) || <span className="text-slate-400 italic">Empty</span>}
@@ -481,7 +480,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                             {data?.current?.value || <span className="text-slate-400 italic">Empty</span>}
                                         </div>
                                         <div className="mt-2 flex items-center gap-2">
-                                            <SourceBadge source={data?.current?.source || 'UNKNOWN'} />
+                                            <SourceBadge source={data?.current?.source || 'UNKNOWN'} sourceReference={data?.current?.sourceReference} />
                                             <span className="text-xs text-slate-400">
                                                 Updated: {data?.current?.timestamp ? new Date(data.current.timestamp).toLocaleString() : 'Never'}
                                             </span>
@@ -549,13 +548,13 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                             <label className="text-xs font-semibold text-slate-600 uppercase tracking-tight">
                                                 {fieldName} (Primary Value)
                                             </label>
-                                            {fieldNo && FIELD_DEFINITIONS[fieldNo]?.options ? (
+                                            {data?.options && data.options.length > 0 ? (
                                                 <Select value={manualValue} onValueChange={setManualValue}>
                                                     <SelectTrigger className="w-full bg-white border-slate-300">
                                                         <SelectValue placeholder={`Select ${fieldName}...`} />
                                                     </SelectTrigger>
                                                     <SelectContent>
-                                                        {FIELD_DEFINITIONS[fieldNo].options!.map((opt: string) => (
+                                                        {data.options.map((opt: string) => (
                                                             <SelectItem key={opt} value={opt}>{opt}</SelectItem>
                                                         ))}
                                                     </SelectContent>
@@ -744,7 +743,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                         Changed value to <span className="font-mono bg-slate-100 px-1 rounded">{String(item.newValue)}</span>
                                                     </div>
                                                     <div className="text-xs text-slate-500 flex items-center gap-1">
-                                                        via <SourceBadge source={item.source} />
+                                                        via <SourceBadge source={item.source} sourceReference={item.actor} />
                                                     </div>
                                                     {item.reason && (
                                                         <div className="mt-1 text-xs bg-yellow-50 text-yellow-800 p-2 rounded border border-yellow-100 italic">
@@ -799,19 +798,28 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
     );
 }
 
-function SourceBadge({ source }: { source: string }) {
+function SourceBadge({ source, sourceReference }: { source: string; sourceReference?: string }) {
     const colorMap: Record<string, string> = {
         'GLEIF': 'bg-orange-100 text-orange-700 border-orange-200',
         'COMPANIES_HOUSE': 'bg-blue-100 text-blue-700 border-blue-200',
         'USER_INPUT': 'bg-purple-100 text-purple-700 border-purple-200',
-        'SYSTEM': 'bg-gray-100 text-gray-700 border-gray-200'
+        'SYSTEM': 'bg-gray-100 text-gray-700 border-gray-200',
+        'SYSTEM_DERIVED': 'bg-gray-100 text-gray-700 border-gray-200',
+        'AI_EXTRACTION': 'bg-emerald-100 text-emerald-700 border-emerald-200'
     };
 
     const classes = colorMap[source] || 'bg-gray-100 text-gray-700 border-gray-200';
 
     return (
-        <span className={cn("inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border", classes)}>
-            {source}
-        </span>
+        <div className="flex items-center gap-1.5">
+            <span className={cn("inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border", classes)}>
+                {source === 'SYSTEM_DERIVED' ? 'SYSTEM' : source}
+            </span>
+            {sourceReference && (
+                <span className="text-[10px] text-slate-400 font-mono">
+                    ({sourceReference})
+                </span>
+            )}
+        </div>
     );
 }

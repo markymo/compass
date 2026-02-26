@@ -1,17 +1,17 @@
-"use server";
-
 import prisma from "@/lib/prisma";
-import { EngagementStatus } from "@prisma/client";
+import { EngagementStatus, SourceType } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { ExtractedItem } from "./ai-mapper"; // Importing type
 import { MasterSchemaDefinition } from "@/types/schema";
 import { Action, can } from "@/lib/auth/permissions";
-import { FIELD_DEFINITIONS } from "@/domain/kyc/FieldDefinitions";
+import { getMasterFieldDefinition, listAllMasterFields, listAllMasterGroups } from "@/services/masterData/definitionService";
 import { getIdentity } from "@/lib/auth";
 import { getUserFIOrg } from "./security";
 import { calculateEngagementMetrics } from "@/lib/metrics-calc";
 import { generateText } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
+import { KycStateService } from "@/lib/kyc/KycStateService";
+import { FieldClaimService } from "@/lib/kyc/FieldClaimService";
 
 export async function createLegalEntity(data: { name: string; jurisdiction: string; clientOrgId: string }) {
     if (!data.name || !data.clientOrgId) {
@@ -239,44 +239,63 @@ export async function getLEEngagements(clientLEId: string) {
 }
 
 export async function updateStandingDataProperty(clientLEId: string, propertyKey: string, payload: { value: any, status?: string }) {
-    // For Demo: Use a hardcoded schema ID or find the first one
-    const masterSchema = await prisma.masterSchema.findFirst() || { id: "demo-schema-id" };
-
     try {
-        let record = await prisma.clientLERecord.findFirst({
-            where: { clientLEId }
-        });
+        // 1. Resolve fieldNo from the propertyKey (if numeric) or find in definitions
+        let fieldNo = parseInt(propertyKey);
+        if (isNaN(fieldNo)) {
+            const allFields = await listAllMasterFields();
+            const def = allFields.find(f => (f as any).modelField === propertyKey || f.fieldName === propertyKey);
+            if (!def) return { success: false, error: `Unknown property: ${propertyKey}` };
+            fieldNo = def.fieldNo;
+        }
 
-        const propertyData = {
-            value: payload.value,
-            status: payload.status || "VERIFIED",
-            updatedAt: new Date().toISOString()
+        // 2. Resolve Subject and Scope
+        const clientLE = await prisma.clientLE.findUnique({
+            where: { id: clientLEId },
+            include: { identityProfile: true }
+        });
+        const subjectLeId = clientLE?.identityProfile?.legalEntityId;
+        const ownerScopeId = await KycStateService.resolveScopeId(clientLEId);
+
+        if (!subjectLeId) return { success: false, error: "Subject not resolved" };
+
+        const def = await getMasterFieldDefinition(fieldNo);
+        const claimInput: any = {
+            fieldNo,
+            subjectLeId,
+            ownerScopeId,
+            sourceType: SourceType.USER_INPUT,
+            sourceReference: "Manual UI Update",
         };
 
-        if (!record) {
-            await prisma.clientLERecord.create({
-                data: {
-                    clientLEId,
-                    masterSchemaId: masterSchema.id,
-                    data: { [propertyKey]: propertyData },
-                    status: "DRAFT"
-                }
-            });
-        } else {
-            const currentData = (record.data as Record<string, any>) || {};
-            const newData = {
-                ...currentData,
-                [propertyKey]: propertyData
-            };
+        // Assign value to the correct slot
+        switch (def.appDataType) {
+            case 'TEXT': claimInput.valueText = payload.value; break;
+            case 'NUMBER': claimInput.valueNumber = payload.value; break;
+            case 'DATE':
+            case 'DATETIME': claimInput.valueDate = new Date(payload.value); break;
+            case 'PERSON_REF': claimInput.valuePersonId = payload.value; break;
+            case 'ORG_REF': claimInput.valueLeId = payload.value; break;
+            case 'DOCUMENT_REF': claimInput.valueDocId = payload.value; break;
+            case 'JSONB': claimInput.valueJson = payload.value; break;
+        }
 
-            await prisma.clientLERecord.update({
-                where: { id: record.id },
-                data: { data: newData }
-            });
+        const claim = await FieldClaimService.assertClaim(claimInput);
+
+        // If status is provided, and it's VERIFIED, we can auto-verify (for legacy compatibility)
+        if (payload.status === "VERIFIED") {
+            await FieldClaimService.verifyClaim(claim.id, "SYSTEM_USER");
         }
 
         revalidatePath(`/app/le/${clientLEId}`);
-        return { success: true, propertyData };
+        return {
+            success: true,
+            propertyData: {
+                value: payload.value,
+                status: payload.status || "VERIFIED",
+                updatedAt: new Date().toISOString()
+            }
+        };
     } catch (error) {
         console.error("Failed to update standing data property:", error);
         return { success: false, error: "Update failed" };
@@ -491,50 +510,30 @@ export async function getFullMasterData(clientLEId: string) {
 
     if (!clientLE) return { success: false, data: {} };
 
-    // 2. Resolve LegalEntity ID
-    const legalEntityId = clientLE.identityProfile?.legalEntityId;
-    let legalEntity: any = null;
+    // 2. Resolve Subject and Scope
+    const subjectLeId = clientLE.identityProfile?.legalEntityId;
+    const ownerScopeId = await KycStateService.resolveScopeId(clientLEId);
 
-    if (legalEntityId) {
-        legalEntity = await prisma.legalEntity.findUnique({
-            where: { id: legalEntityId },
-            include: {
-                constitutionalProfile: true,
-                entityInfoProfile: true,
-                leiRegistration: true,
-                relationshipProfile: true,
-                // Add other profiles as needed based on Schema
+    const flattened: Record<number, { value: any, source?: string, sourceReference?: string }> = {};
+
+    if (subjectLeId) {
+        const allFields = await listAllMasterFields();
+        for (const def of allFields) {
+            if (def.isMultiValue) continue; // Skip repeating fields for now
+
+            const derived = await KycStateService.getAuthoritativeValue(
+                { subjectLeId },
+                def.fieldNo,
+                ownerScopeId || undefined
+            );
+
+            if (derived) {
+                flattened[def.fieldNo] = {
+                    value: derived.value,
+                    source: derived.isScoped ? 'USER_INPUT' : (derived.evidenceProvider || derived.sourceType || 'MASTER_RECORD'),
+                    sourceReference: derived.sourceReference ?? undefined
+                };
             }
-        });
-    }
-
-    const flattened: Record<number, { value: any, source?: string }> = {};
-
-    for (const def of Object.values(FIELD_DEFINITIONS)) {
-        if (!def.model || !def.field) continue;
-        if (def.isRepeating) continue; // Skip repeating fields for now
-
-        let val: any = undefined;
-
-        // Route lookup based on Model
-        if (def.model === 'IdentityProfile') {
-            // IdentityProfile is on ClientLE (and LegalEntity, but ClientLE is entry)
-            val = clientLE.identityProfile ? (clientLE.identityProfile as any)[def.field] : undefined;
-        }
-        else if (legalEntity) {
-            // Other profiles are on LegalEntity
-            const profileKey = def.model.charAt(0).toLowerCase() + def.model.slice(1);
-            const profile = legalEntity[profileKey];
-            if (profile) {
-                val = profile[def.field];
-            }
-        }
-
-        if (val !== undefined && val !== null) {
-            flattened[def.fieldNo] = {
-                value: val,
-                source: 'MASTER_RECORD'
-            };
         }
     }
 
@@ -583,16 +582,9 @@ export async function getFullMasterData(clientLEId: string) {
 
     // 4. Find most recent GLEIF-sourced event for this legal entity
     let gleifLastSynced: Date | null = null;
-    if (legalEntityId) {
-        const lastGleifEvent = await prisma.masterDataEvent.findFirst({
-            where: {
-                legalEntityId,
-                source: "GLEIF"
-            },
-            orderBy: { timestamp: "desc" },
-            select: { timestamp: true }
-        });
-        gleifLastSynced = lastGleifEvent?.timestamp ?? null;
+    if (subjectLeId) {
+        // GLEIF Audit Trail logic will be moved to FieldClaim lineage in Step 2/4
+        const lastGleifDate = null;
     }
 
     return {
@@ -600,28 +592,12 @@ export async function getFullMasterData(clientLEId: string) {
         data: flattened,
         customData,
         customDefinitions,
-        gleifLastSynced
+        gleifLastSynced,
+        masterFields: await listAllMasterFields(), // Already fetched above, but for clarity
+        masterGroups: await listAllMasterGroups()
     };
 }
 
-export async function generateLEDescription(clientOrgName: string, leName: string) {
-    try {
-        const key = process.env.OPENAI_API_KEY;
-        if (!key) throw new Error("Server Misconfiguration: OPENAI_API_KEY is missing.");
+import { generateLEDescription } from "./ai-actions";
 
-        const openai = createOpenAI({ apiKey: key });
-
-        const prompt = `Generate a single, factual, unemotional sentence describing a financial or corporate project involving the client '${clientOrgName}' and the legal entity '${leName}'. If possible, infer or include relevant dates and geography from their names. Do not use marketing speak or subjective terms like 'exciting'. Just state the facts of the relationship/project. Do not include introductory phrases. Just the sentence itself.`;
-
-        const { text } = await generateText({
-            model: openai('gpt-4o'),
-            prompt: prompt,
-            temperature: 0.7 // add a bit of variety
-        });
-
-        return { success: true, description: text.trim().replace(/^"|"$/g, '') }; // Clean up quotes if generated
-    } catch (e: any) {
-        console.error("[generateLEDescription Error]", e);
-        return { success: false, error: e.message };
-    }
-}
+// generateLEDescription moved to ai-actions.ts

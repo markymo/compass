@@ -2,8 +2,7 @@
 
 import prisma from "@/lib/prisma";
 import { getConsoleQuestions, ConsoleQuestion, resolveMasterData } from "./kyc-query";
-import { FIELD_DEFINITIONS } from "@/domain/kyc/FieldDefinitions";
-import { FIELD_GROUPS } from "@/domain/kyc/FieldGroups";
+import { listAllMasterFields, listAllMasterGroups, getMasterFieldGroup } from "@/services/masterData/definitionService";
 import { revalidatePath } from "next/cache";
 import { generateObject } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
@@ -12,6 +11,7 @@ import { z } from 'zod';
 export interface Workbench4Data {
     questions: ConsoleQuestion[];
     masterFields: Array<{ fieldNo: number; label: string }>;
+    masterGroups: Array<{ key: string; label: string }>;
     customFields: Array<{ id: string; label: string }>;
     relationships: string[];
     questionnaires: string[];
@@ -27,15 +27,23 @@ export interface Workbench4Data {
 export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
     const questions = await getConsoleQuestions(leId);
 
-    // 1. Get standard Master Fields
-    const masterFields = Object.values(FIELD_DEFINITIONS).map(def => ({
+    // 1. Get standard Master Fields & Groups
+    const [allFields, allGroups] = await Promise.all([
+        listAllMasterFields(),
+        listAllMasterGroups()
+    ]);
+
+    const masterFields = allFields.map(def => ({
         fieldNo: def.fieldNo,
         label: def.fieldName
     })).sort((a, b) => a.label.localeCompare(b.label));
 
+    const masterGroups = allGroups.map(g => ({
+        key: g.key,
+        label: g.label
+    })).sort((a, b) => a.label.localeCompare(b.label));
+
     // 2. Get Custom Fields available to this LE (context of owners or current user FI)
-    // For simplicity, we fetch all custom fields linked to this LE's questionnaire questions
-    // or we could fetch based on Org context like getFullMasterData does.
     const customFieldsRaw = await prisma.customFieldDefinition.findMany({
         orderBy: { label: 'asc' }
     });
@@ -96,6 +104,7 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
     return {
         questions,
         masterFields,
+        masterGroups,
         customFields,
         relationships,
         questionnaires,
@@ -174,10 +183,15 @@ export async function getAISemanticMatch(questionText: string, searchTerm?: stri
 
         const openai = createOpenAI({ apiKey: key });
 
+        const [allGroups, allFields] = await Promise.all([
+            listAllMasterGroups(),
+            listAllMasterFields()
+        ]);
+
         // Prepare schema context
         const schemaItems = [
-            ...Object.values(FIELD_GROUPS).map(g => ({ id: `group:${g.id}`, label: g.label, desc: g.description })),
-            ...Object.values(FIELD_DEFINITIONS).map(f => ({ id: `master:${f.fieldNo}`, label: f.fieldName, desc: f.notes }))
+            ...allGroups.map(g => ({ id: `group:${g.key}`, label: g.label, desc: g.description })),
+            ...allFields.map(f => ({ id: `master:${f.fieldNo}`, label: f.fieldName, desc: f.notes }))
         ];
 
         const { object } = await generateObject({

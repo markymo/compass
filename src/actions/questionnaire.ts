@@ -7,6 +7,14 @@ import { canManageQuestionnaire, isSystemAdmin, getUserOrgRole } from "./securit
 import { logActivity } from "./logging";
 
 import { getUserFIOrg } from "./security";
+import { listAllMasterFields, listAllMasterGroups } from "@/services/masterData/definitionService";
+
+export async function getMasterSchemaContext() {
+    return {
+        masterFields: await listAllMasterFields(),
+        masterGroups: await listAllMasterGroups()
+    };
+}
 
 export async function createQuestionnaire(identifier: string | null | undefined, formData: FormData) {
     const name = formData.get("name") as string;

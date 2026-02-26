@@ -1,11 +1,11 @@
 "use server";
 
-import { KycLoader } from "@/services/kyc/KycLoader";
-import { FIELD_GROUPS } from "@/domain/kyc/FieldGroups";
-import { FIELD_DEFINITIONS, FieldDefinition } from "@/domain/kyc/FieldDefinitions";
+import { KycStateService } from "@/lib/kyc/KycStateService";
+import { getMasterFieldDefinition, getMasterFieldGroup } from "@/services/masterData/definitionService";
 import { ProvenanceSource } from "@/domain/kyc/types/ProvenanceTypes";
+import prisma from "@/lib/prisma";
 
-const loader = new KycLoader();
+// KycLoader is deprecated in favor of KycStateService
 
 export type ResolverRequest = {
     questionId: string;
@@ -28,40 +28,57 @@ export async function resolveMasterData(
 ): Promise<ResolverResponse> {
     const response: ResolverResponse = {};
 
-    // Group by requested fields to optimize? 
-    // For now, straightforward iteration.
+    // 0. Resolve Subject and Scope
+    const clientLE = await prisma.clientLE.findUnique({
+        where: { id: leId },
+        include: { identityProfile: true }
+    });
+    const subjectLeId = clientLE?.identityProfile?.legalEntityId;
+    const ownerScopeId = await KycStateService.resolveScopeId(leId);
 
     for (const q of questions) {
         response[q.questionId] = {};
 
         // A. Handle Group Mapping
         if (q.masterQuestionGroupId) {
-            const group = FIELD_GROUPS[q.masterQuestionGroupId];
-            if (group) {
-                const results = await loader.loadGroup(leId, q.masterQuestionGroupId, 'CLIENT_LE'); // ID is likely ClientLE ID in this context
+            try {
+                const group = await getMasterFieldGroup(q.masterQuestionGroupId);
+                if (subjectLeId) {
+                    for (const item of group.items) {
+                        const fieldNo = item.fieldNo;
+                        const derived = await KycStateService.getAuthoritativeValue(
+                            { subjectLeId },
+                            fieldNo,
+                            ownerScopeId || undefined
+                        );
 
-                // Map results to { [fieldNo]: HydratedValue }
-                for (const fieldNo of group.fieldNos) {
-                    const loaded = results[fieldNo];
-                    if (loaded && loaded.value !== null) {
-                        response[q.questionId][fieldNo] = {
-                            value: loaded.value,
-                            source: loaded.source,
-                            updatedAt: loaded.updatedAt,
-                            isSynced: true
-                        };
+                        if (derived) {
+                            response[q.questionId][fieldNo] = {
+                                value: derived.value,
+                                source: derived.isScoped ? 'USER_INPUT' : (derived.evidenceProvider || 'MASTER_RECORD'),
+                                updatedAt: derived.assertedAt,
+                                isSynced: true
+                            };
+                        }
                     }
                 }
+            } catch (e) {
+                console.warn(`[resolveMasterData] Group ${q.masterQuestionGroupId} not found or inactive.`);
             }
         }
         // B. Handle Single Field Mapping
-        else if (q.masterFieldNo) {
-            const loaded = await loader.loadField(leId, q.masterFieldNo, 'CLIENT_LE');
-            if (loaded && loaded.value !== null) {
+        else if (q.masterFieldNo && subjectLeId) {
+            const derived = await KycStateService.getAuthoritativeValue(
+                { subjectLeId },
+                q.masterFieldNo,
+                ownerScopeId || undefined
+            );
+
+            if (derived) {
                 response[q.questionId][q.masterFieldNo] = {
-                    value: loaded.value,
-                    source: loaded.source,
-                    updatedAt: loaded.updatedAt,
+                    value: derived.value,
+                    source: derived.isScoped ? 'USER_INPUT' : (derived.evidenceProvider || 'MASTER_RECORD'),
+                    updatedAt: derived.assertedAt,
                     isSynced: true
                 };
             }
@@ -73,19 +90,21 @@ export async function resolveMasterData(
 
 // --- Field Detail Inspector (Restored) ---
 
-import prisma from "@/lib/prisma";
-// import { ProvenanceSource } from "@/domain/kyc/types/ProvenanceTypes";
-
 export interface FieldDetailData {
     fieldNo?: number;
+    fieldName?: string;
     isRepeating: boolean;
     dataType: string;
+    category?: string;
+    modelField?: string;
     options?: string[];
-    current?: {
+    notes?: string;
+    current: {
         value: any;
         source: ProvenanceSource;
         timestamp: Date | null;
         confidence: number | null;
+        sourceReference?: string;
     } | null;
     assignment: {
         id: string;
@@ -94,9 +113,9 @@ export interface FieldDetailData {
         assignedUser?: { name: string | null; email: string };
         createdAt: Date;
     } | null;
-    history: any[]; // MasterDataEvent[]
+    history: any[]; // Lineage will be derived from FieldClaims
     candidates: any[]; // FieldCandidate[]
-    rows?: { id: string; value: any; source: string; timestamp: Date; label?: string; data?: any }[];
+    rows?: { id: string; value: any; source: string; timestamp: Date; instanceId?: string; data?: any; label?: string; sourceReference?: string }[];
 }
 
 export async function getFieldDetail(
@@ -125,7 +144,7 @@ export async function getFieldDetail(
 
         if (val && typeof val === 'object' && 'value' in val) {
             currentVal = val.value;
-            source = val.source || "USER_INPUT";
+            source = (val.source as ProvenanceSource) || "USER_INPUT";
             timestamp = val.timestamp ? new Date(val.timestamp) : new Date();
         }
 
@@ -146,101 +165,96 @@ export async function getFieldDetail(
     }
 
     // --- Standard Field Path ---
-    const def = FIELD_DEFINITIONS[fieldNo];
+    const def = await getMasterFieldDefinition(fieldNo);
 
-    // 1. Get Current Value via KycLoader
-    const current = await loader.loadField(entityId, fieldNo, entityType);
+    // 0. Resolve Subject and Scope
+    let subjectLeId = entityId;
+    let ownerScopeId: string | undefined = undefined;
+
+    if (entityType === 'CLIENT_LE') {
+        const clientLE = await prisma.clientLE.findUnique({
+            where: { id: entityId },
+            include: { identityProfile: true }
+        });
+        subjectLeId = clientLE?.identityProfile?.legalEntityId || "";
+        ownerScopeId = (await KycStateService.resolveScopeId(entityId)) || undefined;
+    }
+
+    if (!subjectLeId) {
+        throw new Error("Could not resolve LegalEntity subject for this request.");
+    }
+
+    // 1. Get Current Value via KycStateService
+    const derived = await KycStateService.getAuthoritativeValue({ subjectLeId }, fieldNo, ownerScopeId);
 
     // 2. Load Rows if repeating
-    let rows: { id: string; value: any; source: string; timestamp: Date }[] | undefined = undefined;
-    if (def?.isRepeating) {
-        // Resolve Entity ID for direct model query
-        let leId = entityId;
-        if (entityType === 'CLIENT_LE' && def.model !== 'IdentityProfile') {
-            const identity = await prisma.identityProfile.findUnique({
-                where: { clientLEId: entityId },
-                select: { legalEntityId: true }
-            });
-            if (identity?.legalEntityId) leId = identity.legalEntityId;
-        }
+    let rows: { id: string; value: any; source: string; timestamp: Date; instanceId?: string; data?: any }[] | undefined = undefined;
 
-        const prismaKey = def.model.charAt(0).toLowerCase() + def.model.slice(1);
+    if (def?.isMultiValue && def.category) {
+        const collection = await KycStateService.getAuthoritativeCollection({ subjectLeId }, fieldNo, ownerScopeId);
+
+        // Fetch full records for this model to provide context to the UI
+        const prismaClientKey = def.category.charAt(0).toLowerCase() + def.category.slice(1);
         // @ts-ignore
-        const delegate = prisma[prismaKey];
-        const idField = (entityType === 'CLIENT_LE' && def.model === 'IdentityProfile') ? 'clientLEId' : 'legalEntityId';
-
-        const records = await delegate.findMany({
-            where: { [idField]: leId },
-            orderBy: { createdAt: 'asc' }
+        const allRecords = await prisma[prismaClientKey].findMany({
+            where: { legalEntityId: subjectLeId }
         });
 
-        rows = records.map((r: any) => {
-            const meta = (r.meta as Record<string, any>)?.[def.field!];
+        rows = collection.map(c => {
+            // Find the record matching this instance (or by value for some simple collections?)
+            // Usually repeating fields have an 'id' that maps to instanceId
+            const record = allRecords.find((r: any) => r.id === c.instanceId);
 
-            // Resolve a descriptive label for the row
+            // Generate a friendly label for the row if possible
             let label = undefined;
-            if (def.model === 'Stakeholder') {
-                label = r.fullName || r.legalName || r.role;
-            } else if (def.model === 'EntityName') {
-                label = r.name;
-            } else if (def.model === 'TaxRegistration') {
-                label = `${r.taxId} (${r.country})`;
-            } else if (def.model === 'AuthorizedTrader') {
-                label = r.fullName;
-            } else if (def.model === 'Contact') {
-                label = r.contactType;
-            } else if (def.model === 'IndustryClassification') {
-                label = `${r.scheme}: ${r.code}`;
-            } else if (def.model === 'SettlementInstruction') {
-                label = `${r.currency} - ${r.accountName}`;
+            if (record) {
+                label = record.fullName || record.legalName || record.name || record.email || record.partyId;
             }
 
             return {
-                id: r.id,
-                value: r[def.field!],
-                source: meta?.source || 'UNKNOWN',
-                timestamp: r.updatedAt,
-                label,
-                data: r
+                id: c.claimId,
+                value: c.value,
+                source: c.isScoped ? 'USER_INPUT' : (c.evidenceProvider || 'SYSTEM'),
+                sourceReference: c.sourceReference || undefined,
+                timestamp: c.assertedAt,
+                instanceId: c.instanceId,
+                data: record || undefined,
+                label
             };
         });
     }
 
-    // 2. Get History from MasterDataEvent
-    // We need to resolve to LegalEntity ID first because events are linked to LE
-    let resolvedLeId = entityId;
-    if (entityType === 'CLIENT_LE') {
-        const identity = await prisma.identityProfile.findUnique({
-            where: { clientLEId: entityId },
-            select: { legalEntityId: true }
-        });
-        if (identity?.legalEntityId) {
-            resolvedLeId = identity.legalEntityId;
-        } else {
-            // If no LE exists, there is no history
-            return {
-                fieldNo,
-                isRepeating: def?.isRepeating || false,
-                dataType: def?.dataType || 'string',
-                current: null,
-                assignment: null,
-                history: [],
-                candidates: []
-            };
-        }
-    }
-
-    const history = await prisma.masterDataEvent.findMany({
+    // 2. Get History (Lineage)
+    const claims = await prisma.fieldClaim.findMany({
         where: {
-            legalEntityId: resolvedLeId,
-            fieldNo: fieldNo
+            fieldNo,
+            subjectLeId: subjectLeId,
+            OR: [
+                { ownerScopeId: null },
+                { ownerScopeId: ownerScopeId }
+            ]
         },
-        orderBy: { timestamp: 'desc' },
+        include: {
+            verifiedBy: {
+                select: { name: true, email: true }
+            }
+        },
+        orderBy: { assertedAt: 'desc' },
         take: 20
     });
 
-    // 3. Get Candidates (Placeholder for now - requires reprocessing EvidenceStore)
-    // TODO: Re-implement candidate fetching using EvidenceService.reprocess(evidenceId)
+    const history = claims.map((c: any) => ({
+        id: c.id,
+        newValue: (c.valueText ?? c.valueNumber ?? c.valueDate ?? c.valueJson ?? c.valueLeId ?? c.valuePersonId ?? c.valueOrgId ?? c.valueDocId) ?? null,
+        source: c.sourceType,
+        timestamp: c.assertedAt,
+        actorId: c.verifiedBy?.name || c.verifiedBy?.email || "System",
+        actor: c.sourceReference, // Use sourceReference for reference detail (reason/LEI)
+        status: c.status,
+        isScoped: c.ownerScopeId !== null
+    }));
+
+    // 3. Get Candidates (Placeholder for now)
     const candidates: any[] = [];
 
     // 4. Get Current Assignment
@@ -260,14 +274,19 @@ export async function getFieldDetail(
 
     return {
         fieldNo,
-        isRepeating: def?.isRepeating || false,
-        dataType: def?.dataType || 'string',
-        options: def?.options,
-        current: current ? {
-            value: current.value,
-            source: current.source as ProvenanceSource,
-            timestamp: current.updatedAt,
-            confidence: current.confidence
+        fieldName: def?.fieldName,
+        isRepeating: def?.isMultiValue || false,
+        dataType: def?.appDataType || 'string',
+        category: def?.category || undefined,
+        modelField: (def as any).modelField || undefined, // We'll need to check how this is stored in DB
+        options: def?.options || [],
+        notes: def?.notes || undefined,
+        current: derived ? {
+            value: derived.value,
+            source: (derived.isScoped ? 'USER_INPUT' : (derived.evidenceProvider || 'SYSTEM')) as ProvenanceSource,
+            sourceReference: derived.sourceReference || undefined,
+            timestamp: derived.assertedAt,
+            confidence: derived.confidenceScore || 1.0
         } : null,
         assignment: assignment ? {
             id: assignment.id,
@@ -280,7 +299,6 @@ export async function getFieldDetail(
         candidates,
         rows
     };
-
 }
 
 // --- Console Question Fetcher ---
@@ -312,11 +330,10 @@ export async function getConsoleQuestions(leId: string): Promise<ConsoleQuestion
             org: {
                 select: { name: true }
             },
-            // Check both templates and instances
             questionnaires: {
                 include: {
                     questions: {
-                        where: { isLocked: false }, // Only show active/unlocked questions?
+                        where: { isLocked: false },
                         orderBy: { order: 'asc' }
                     }
                 }
@@ -340,14 +357,14 @@ export async function getConsoleQuestions(leId: string): Promise<ConsoleQuestion
         // Process Templates
         for (const qnaire of eng.questionnaires) {
             for (const qRaw of qnaire.questions) {
-                const q = qRaw as any; // Cast to any to bypass Prisma Client type lag
+                const q = qRaw as any;
                 if (seenQuestionIds.has(q.id)) continue;
                 seenQuestionIds.add(q.id);
 
                 consoleQuestions.push({
                     id: q.id,
                     text: q.text,
-                    category: qnaire.name, // Use Questionnaire Name as category for now
+                    category: qnaire.name,
                     masterFieldNo: q.masterFieldNo,
                     masterQuestionGroupId: q.masterQuestionGroupId,
                     customFieldDefinitionId: q.customFieldDefinitionId,
@@ -360,11 +377,9 @@ export async function getConsoleQuestions(leId: string): Promise<ConsoleQuestion
         }
 
         // Process Instances (Snapshots)
-        // Logic: specific instances might override templates. 
-        // For simplicity, we just add them too, assuming they are distinct sets or snapshots.
         for (const qnaire of eng.questionnaireInstances) {
             for (const qRaw of qnaire.questions) {
-                const q = qRaw as any; // Cast to any to bypass Prisma Client type lag
+                const q = qRaw as any;
                 if (seenQuestionIds.has(q.id)) continue;
                 seenQuestionIds.add(q.id);
 
@@ -391,12 +406,12 @@ export async function getConsoleQuestions(leId: string): Promise<ConsoleQuestion
 
 export type WorkbenchField = {
     type: 'SINGLE' | 'GROUP';
-    key: string; // fieldNo (as string) or groupId
+    key: string;
     label: string;
 
     // For Single Field
     fieldNo?: number;
-    definition?: FieldDefinition;
+    definition?: any; // Generic for now to avoid Prisma lag
 
     // For Group
     groupId?: string;
@@ -436,36 +451,40 @@ export async function getWorkbenchFields(leId: string): Promise<WorkbenchField[]
                 fieldMap.set(key, {
                     type: 'GROUP',
                     key: 'UNMAPPED',
-                    label: 'Additional Questions', // Friendly Label
+                    label: 'Additional Questions',
                     currentValue: null,
                     linkedQuestions: []
                 });
             } else if (type === 'GROUP') {
-                const group = FIELD_GROUPS[key];
-                if (group) {
+                try {
+                    const group = await getMasterFieldGroup(key);
                     fieldMap.set(key, {
                         type: 'GROUP',
                         key: key,
                         label: group.label,
                         groupId: key,
-                        groupFieldNos: group.fieldNos,
-                        currentValue: {}, // To be loaded
+                        groupFieldNos: group.items.map(i => i.fieldNo),
+                        currentValue: {},
                         linkedQuestions: []
                     });
+                } catch (e) {
+                    console.warn(`[getWorkbenchFields] Group ${key} not found.`);
                 }
-            } else {
+            } else if (type === 'SINGLE') {
                 const fieldNo = parseInt(key);
-                const def = FIELD_DEFINITIONS[fieldNo];
-                if (def) {
+                try {
+                    const def = await getMasterFieldDefinition(fieldNo);
                     fieldMap.set(key, {
                         type: 'SINGLE',
                         key: key,
                         label: def.fieldName,
                         fieldNo: fieldNo,
-                        definition: def,
+                        definition: def as any,
                         currentValue: null,
                         linkedQuestions: []
                     });
+                } catch (e) {
+                    console.warn(`[getWorkbenchFields] Field ${fieldNo} not found.`);
                 }
             }
         }
@@ -476,40 +495,62 @@ export async function getWorkbenchFields(leId: string): Promise<WorkbenchField[]
         }
     }
 
-    // 2. Load Current Values (Batched-ish)
-    // We could optimize this to load all fields in one query ideally, but KycLoader is granular.
+    // 2. Load Current Values (Derived from FieldClaims)
     const results: WorkbenchField[] = [];
+
+    // Resolve Subject and Scope once for the whole leId
+    const clientLE = await prisma.clientLE.findUnique({
+        where: { id: leId },
+        include: { identityProfile: true }
+    });
+    const subjectLeId = clientLE?.identityProfile?.legalEntityId || "";
+    const ownerScopeId = await KycStateService.resolveScopeId(leId);
+
+    if (!subjectLeId) return [];
 
     for (const entry of Array.from(fieldMap.values())) {
         if (entry.type === 'SINGLE' && entry.fieldNo) {
-            const loaded = await loader.loadField(leId, entry.fieldNo, 'CLIENT_LE');
-            if (loaded) {
-                entry.currentValue = loaded.value;
-                entry.currentSource = loaded.source as ProvenanceSource;
-                entry.lastUpdated = loaded.updatedAt || undefined;
+            const derived = await KycStateService.getAuthoritativeValue(
+                { subjectLeId },
+                entry.fieldNo,
+                ownerScopeId || undefined
+            );
+
+            if (derived) {
+                entry.currentValue = derived.value;
+                entry.currentSource = (derived.isScoped ? 'USER_INPUT' : 'MASTER_RECORD') as ProvenanceSource;
+                entry.lastUpdated = derived.assertedAt;
             }
         } else if (entry.type === 'GROUP' && entry.groupId && entry.groupId !== 'UNMAPPED') {
-            const loadedGroup = await loader.loadGroup(leId, entry.groupId, 'CLIENT_LE');
-            // Transform Record<fieldNo, LoadedValue> to simple value object for UI
-            const groupValue: Record<number, any> = {};
-            // Determine "primary" source/date? taking latest?
-            let latestDate = new Date(0);
-            let primarySource: ProvenanceSource | undefined;
+            try {
+                const group = await getMasterFieldGroup(entry.groupId);
+                const groupValue: Record<number, any> = {};
+                let latestDate = new Date(0);
+                let primarySource: ProvenanceSource | undefined;
 
-            for (const [fNoStr, val] of Object.entries(loadedGroup)) {
-                if (val && val.value !== null) {
-                    groupValue[parseInt(fNoStr)] = val.value;
-                    if (val.updatedAt && val.updatedAt > latestDate) {
-                        latestDate = val.updatedAt;
-                        primarySource = val.source as ProvenanceSource;
+                for (const item of group.items) {
+                    const fieldNo = item.fieldNo;
+                    const derived = await KycStateService.getAuthoritativeValue(
+                        { subjectLeId },
+                        fieldNo,
+                        ownerScopeId || undefined
+                    );
+
+                    if (derived) {
+                        groupValue[fieldNo] = derived.value;
+                        if (derived.assertedAt > latestDate) {
+                            latestDate = derived.assertedAt;
+                            primarySource = (derived.isScoped ? 'USER_INPUT' : 'MASTER_RECORD') as ProvenanceSource;
+                        }
                     }
                 }
-            }
-            entry.currentValue = groupValue;
-            if (latestDate.getTime() > 0) {
-                entry.lastUpdated = latestDate;
-                entry.currentSource = primarySource;
-            }
+
+                entry.currentValue = groupValue;
+                if (latestDate.getTime() > 0) {
+                    entry.lastUpdated = latestDate;
+                    entry.currentSource = primarySource;
+                }
+            } catch (e) { }
         }
 
         results.push(entry);
@@ -537,22 +578,18 @@ export interface UserAssignmentAgg {
         fieldNo: number;
         fieldName: string;
         clientLEId: string;
-        engagementOrgName?: string; // Best effort resolution
+        engagementOrgName?: string;
         assignedByUserName?: string;
         createdAt: Date;
     }[];
 }
 
 export async function getUserAssignments(userId: string): Promise<UserAssignmentAgg> {
-    // 1. Fetch Assigned Questions
     const questionsRaw = await prisma.question.findMany({
         where: {
             assignedToUserId: userId,
-            // Only fetch active questions
             status: { not: "CLIENT_SIGNED_OFF" },
-            questionnaire: {
-                isDeleted: false
-            }
+            questionnaire: { isDeleted: false }
         },
         include: {
             questionnaire: {
@@ -567,7 +604,6 @@ export async function getUserAssignments(userId: string): Promise<UserAssignment
     });
 
     const questions = questionsRaw.map((q: any) => {
-        // Resolve Org/LE Context
         let orgName = "Unknown Org";
         let leId = undefined;
         let engId = undefined;
@@ -598,18 +634,12 @@ export async function getUserAssignments(userId: string): Promise<UserAssignment
         };
     });
 
-    // 2. Fetch Assigned Master Fields
     const fieldsRaw = await prisma.masterFieldAssignment.findMany({
-        where: {
-            assignedToUserId: userId
-        },
+        where: { assignedToUserId: userId },
         include: {
             clientLE: {
                 include: {
-                    fiEngagements: {
-                        include: { org: true },
-                        take: 1
-                    }
+                    fiEngagements: { include: { org: true }, take: 1 }
                 }
             },
             assignedUser: { select: { name: true, email: true } }
@@ -617,13 +647,14 @@ export async function getUserAssignments(userId: string): Promise<UserAssignment
         orderBy: { createdAt: 'desc' }
     });
 
-    const masterFields = fieldsRaw.map((f: any) => {
-        // Resolve Schema Definition Label
+    const masterFields = await Promise.all(fieldsRaw.map(async (f: any) => {
         const fieldNo = parseInt(f.fieldNo.toString());
-        const def = FIELD_DEFINITIONS[fieldNo];
-        const fieldName = def ? def.fieldName : `Field ${fieldNo}`;
+        let fieldName = `Field ${fieldNo}`;
+        try {
+            const def = await getMasterFieldDefinition(fieldNo);
+            fieldName = def.fieldName;
+        } catch (e) { }
 
-        // Best effort org resolution
         const eng = f.clientLE?.fiEngagements?.[0];
         const orgName = eng?.org?.name || "Workspace";
 
@@ -636,12 +667,9 @@ export async function getUserAssignments(userId: string): Promise<UserAssignment
             assignedByUserName: f.assignedUser?.name || f.assignedUser?.email || "System",
             createdAt: f.createdAt
         };
-    });
+    }));
 
-    return {
-        questions,
-        masterFields
-    };
+    return { questions, masterFields };
 }
 
 export async function getUserAssignmentCount(userId: string): Promise<number> {

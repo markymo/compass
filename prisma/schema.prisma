@@ -64,6 +64,8 @@ model User {
   phone             String?
   notificationPrefs Json?
 
+  verifiedClaims    FieldClaim[]
+
   comments   Comment[]
   activities QuestionActivity[]
 
@@ -110,6 +112,11 @@ model Organization {
   invitations Invitation[]
 
   customFieldDefinitions CustomFieldDefinition[]
+
+  // Scoped Claims
+  claims             FieldClaim[] @relation("OrganizationSubject")
+  referencedInClaims FieldClaim[] @relation("OrganizationValue")
+  ownedClaims        FieldClaim[] @relation("OrganizationOwnerScope")
 }
 
 // POLYMORPHIC MEMBERSHIP (Party OR Workspace)
@@ -202,6 +209,10 @@ model ClientLE {
   gleifData      Json? // Raw/Canonical response from GLEIF
   gleifFetchedAt DateTime?
 
+  // Relational Bridge (Phase 1A)
+  legalEntityId String?
+  legalEntity   LegalEntity? @relation(fields: [legalEntityId], references: [id])
+
   // Phase 2 Bridge
   identityProfile IdentityProfile?
 
@@ -228,6 +239,8 @@ model ClientLE {
   masterFieldAssignments MasterFieldAssignment[]
 
   customData Json?
+
+  @@index([legalEntityId])
 }
 
 model ClientLEOwner {
@@ -683,6 +696,9 @@ model LegalEntity {
   tradingProfile        TradingProfile?
   contactProfile        ContactProfile?
 
+  // Relational Bridge (Phase 1A)
+  clientLEs ClientLE[]
+
   // 1:N Repeating
   entityNames             EntityName[]
   industryClassifications IndustryClassification[]
@@ -696,7 +712,11 @@ model LegalEntity {
   documents DocumentRegistry[]
 
   // Audit Log
-  masterDataEvents MasterDataEvent[]
+
+
+  // Scoped Claims
+  claims             FieldClaim[] @relation("LegalEntitySubject")
+  referencedInClaims FieldClaim[] @relation("LegalEntityValue")
 
   @@map("legal_entities")
 }
@@ -713,7 +733,10 @@ model EvidenceStore {
   createdAt DateTime @default(now())
 
   // Audit Log
-  masterDataEvents MasterDataEvent[]
+
+
+  // Scoped Claims
+  claims FieldClaim[]
 
   @@index([hash])
   @@index([provider])
@@ -733,6 +756,9 @@ model DocumentRegistry {
   uploadedBy    String // User ID
 
   legalEntity LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
+
+  // Scoped Claims
+  referencedInClaims FieldClaim[]
 
   @@index([legalEntityId])
   @@index([ownerType, ownerId])
@@ -1149,25 +1175,7 @@ model SettlementInstruction {
   @@map("settlement_instructions")
 }
 
-model MasterDataEvent {
-  id            String   @id @default(uuid())
-  legalEntityId String
-  fieldNo       Int
-  oldValue      Json?
-  newValue      Json?
-  source        String
-  evidenceId    String?
-  actorId       String?
-  reason        String?
-  timestamp     DateTime @default(now())
-
-  legalEntity LegalEntity    @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
-  evidence    EvidenceStore? @relation(fields: [evidenceId], references: [id])
-
-  @@index([legalEntityId, fieldNo, timestamp(sort: Desc)])
-  @@index([evidenceId])
-  @@map("master_data_events")
-}
+// MasterDataEvent removed in favor of FieldClaim journal
 
 // ---------------------------------------------------------------------------
 // Dev / Staging Feedback Tool
@@ -1184,5 +1192,181 @@ model FeedbackNote {
 
   @@index([sessionTag, createdAt(sort: Desc)])
   @@map("feedback_notes")
+}
+
+// ============================================================================
+// Scoped Claim-Based Architecture (Master Data)
+// ============================================================================
+
+enum ClaimStatus {
+  ASSERTED     // Proposed by AI or User
+  VERIFIED     // Promoted to "Authority" by LE Admin
+  REJECTED     // Explicitly dismissed
+}
+
+enum SourceType {
+  USER_INPUT
+  GLEIF
+  COMPANIES_HOUSE
+  AI_EXTRACTION
+  SYSTEM_DERIVED
+}
+
+enum SubjectType {
+  LEGAL_ENTITY
+  PERSON
+  ORGANIZATION
+}
+
+model Person {
+  id                   String   @id @default(uuid())
+  firstName            String?
+  lastName             String?
+  middleName           String?
+  dateOfBirth          DateTime?
+  placeOfBirth         String?
+  primaryNationality   String?
+  isPublicFigure       Boolean  @default(false)
+  
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  // Claims where this person is the subject
+  claims               FieldClaim[] @relation("PersonSubject")
+  
+  // Claims where this person is the VALUE (e.g. "Director of LE X")
+  referencedInClaims   FieldClaim[] @relation("PersonValue")
+
+  @@map("persons")
+}
+
+model FieldClaim {
+  id               String      @id @default(uuid())
+  
+  // Fact Definition
+  fieldNo          Int         // Maps to FieldDefinitions.ts
+  
+  // Explicit Subject FKs (exactly one must be set)
+  subjectLeId      String?
+  subjectLe        LegalEntity? @relation("LegalEntitySubject", fields: [subjectLeId], references: [id])
+  subjectPersonId  String?
+  subjectPerson    Person?      @relation("PersonSubject", fields: [subjectPersonId], references: [id])
+  subjectOrgId     String?
+  subjectOrg       Organization? @relation("OrganizationSubject", fields: [subjectOrgId], references: [id])
+  
+  // Multi-value support (Identity keys)
+  collectionId     String?     // Logical group (e.g. "Board of Directors")
+  instanceId       String?     // Stable key per list item (e.g. "Director_A_ID")
+
+  // The Values (Polymorphic Slots)
+  valueText        String?     @db.Text
+  valueNumber      Decimal?
+  valueDate        DateTime?
+  valueJson        Json?
+  
+  // Typed Relational Slots
+  valuePersonId    String?
+  valuePerson      Person?       @relation("PersonValue", fields: [valuePersonId], references: [id])
+  valueLeId        String?
+  valueLe          LegalEntity?  @relation("LegalEntityValue", fields: [valueLeId], references: [id])
+  valueOrgId       String?
+  valueOrg         Organization? @relation("OrganizationValue", fields: [valueOrgId], references: [id])
+  valueDocId       String?
+  valueDoc         DocumentRegistry? @relation(fields: [valueDocId], references: [id])
+  
+  // Governance & Scope
+  status           ClaimStatus @default(ASSERTED)
+  ownerScopeId     String?     // Null = System-owned Baseline
+  ownerScope       Organization? @relation("OrganizationOwnerScope", fields: [ownerScopeId], references: [id])
+  
+  // Provenance
+  sourceType       SourceType
+  sourceReference  String?     // Source identifier
+  evidenceId       String?
+  evidence         EvidenceStore? @relation(fields: [evidenceId], references: [id])
+  assertedAt       DateTime    @default(now()) // System assertion time
+  
+  // Lineage & Temporal Window
+  supersedesId     String?
+  supersedes       FieldClaim? @relation("Lineage", fields: [supersedesId], references: [id])
+  supersededBy     FieldClaim[] @relation("Lineage")
+  effectiveFrom    DateTime?   // Real-world start
+  effectiveTo      DateTime?   // Real-world end
+  
+  // Audit
+  confidenceScore  Float?      // AI confidence 0-1
+  verifiedByUserId String?
+  verifiedBy       User?       @relation(fields: [verifiedByUserId], references: [id])
+  verifiedAt       DateTime?
+
+  @@index([subjectLeId, fieldNo])
+  @@index([subjectPersonId, fieldNo])
+  @@index([subjectOrgId, fieldNo])
+  @@index([ownerScopeId])
+  @@index([fieldNo])
+  @@index([supersedesId])
+  @@index([subjectLeId, ownerScopeId, fieldNo, collectionId])
+  @@index([collectionId, instanceId])
+  @@map("field_claims")
+}
+
+model MasterFieldDefinition {
+  fieldNo      Int      @id
+  fieldName    String
+  appDataType  String
+  isMultiValue Boolean  @default(false)
+  options      String[] @default([])
+  notes        String?
+  category     String?
+  modelField   String?
+  isActive     Boolean  @default(true)
+  order        Int      @default(0)
+
+  groupItems   MasterFieldGroupItem[]
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("master_field_definitions")
+  @@index([isActive, order])
+}
+
+model MasterFieldGroup {
+  id          String   @id @default(uuid())
+  key         String   @unique // e.g. "GROUP_HQ_ADDRESS"
+  label       String
+  description String?  // Helper text for Admin/UX
+  category    String?
+  isActive    Boolean  @default(true)
+  order       Int      @default(0)
+
+  items       MasterFieldGroupItem[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("master_field_groups")
+  @@index([isActive, order])
+  @@index([category])
+}
+
+model MasterFieldGroupItem {
+  id                  String  @id @default(uuid())
+  groupId             String
+  fieldNo             Int
+  hideFromFieldPicker Boolean @default(true)
+  order               Int     @default(0)
+
+  group               MasterFieldGroup     @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  field               MasterFieldDefinition @relation(fields: [fieldNo], references: [fieldNo], onDelete: Restrict)
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@map("master_field_group_items")
+  @@unique([groupId, fieldNo])
+  @@index([groupId, order])
+  @@index([fieldNo])
+  @@index([hideFromFieldPicker])
 }
 

@@ -258,6 +258,7 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
                         key={q.id}
                         question={q}
                         masterFields={data.masterFields}
+                        masterGroups={data.masterGroups}
                         customFields={data.customFields}
                         onMap={(val) => handleMap(q.id, val)}
                         onInspect={(fieldNo, name, customFieldId) => {
@@ -349,6 +350,7 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
 function QuestionCard({
     question,
     masterFields,
+    masterGroups,
     customFields,
     onMap,
     onInspect,
@@ -357,6 +359,7 @@ function QuestionCard({
 }: {
     question: ConsoleQuestion;
     masterFields: Array<{ fieldNo: number; label: string }>;
+    masterGroups: Array<{ key: string; label: string }>;
     customFields: Array<{ id: string; label: string }>;
     onMap: (val: string) => void;
     onInspect: (fieldNo: number, name: string, customFieldId?: string) => void;
@@ -486,6 +489,8 @@ function QuestionCard({
                                     else if (type === 'group') onMap(`GROUP_${val}`);
                                     else if (type === 'custom') onMap(`CUSTOM_${val}`);
                                 }}
+                                masterFields={masterFields}
+                                masterGroups={masterGroups}
                                 customFields={customFields}
                                 questionText={question.text}
                                 disabled={disabled}

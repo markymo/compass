@@ -70,9 +70,7 @@ function InlineTextEditor({ value, onSave, className }: { value: string, onSave:
 // ------------------------------------
 
 // Server Actions
-import { saveQuestionnaireChanges, analyzeQuestionnaire, getOrgCustomFields, getQuestionnaireById, createCustomFieldDefinition, compactifyQuestion } from "@/actions/questionnaire";
-import { FIELD_DEFINITIONS } from "@/domain/kyc/FieldDefinitions";
-import { FIELD_GROUPS } from "@/domain/kyc/FieldGroups";
+import { saveQuestionnaireChanges, analyzeQuestionnaire, getOrgCustomFields, getQuestionnaireById, createCustomFieldDefinition, compactifyQuestion, getMasterSchemaContext } from "@/actions/questionnaire";
 
 interface QuestionnaireMapperProps {
     questionnaireId: string;
@@ -98,6 +96,10 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
     // Custom Fields
     const [customFields, setCustomFields] = useState<any[]>([]);
 
+    // Master Schema Context
+    const [masterFields, setMasterFields] = useState<any[]>([]);
+    const [masterGroups, setMasterGroups] = useState<any[]>([]);
+
     // Generation State
     const [generatingCompact, setGeneratingCompact] = useState<Record<string, boolean>>({});
 
@@ -108,21 +110,30 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
     const loadData = async () => {
         setLoading(true);
         try {
-            const data = (await getQuestionnaireById(questionnaireId)) as any;
-            if (data) {
-                setQuestionnaire(data);
+            const [qData, schemaContext] = await Promise.all([
+                getQuestionnaireById(questionnaireId),
+                getMasterSchemaContext()
+            ]);
+
+            if (qData) {
+                setQuestionnaire(qData);
                 // Sort by order
-                const sorted = [...(data.questions || [])].sort((a: any, b: any) => a.order - b.order);
+                const sorted = [...(qData.questions || [])].sort((a: any, b: any) => a.order - b.order);
                 setQuestions(sorted);
                 if (sorted.length > 0) setSelectedQuestionId(sorted[0].id);
 
                 // Fetch custom fields
-                if (data.fiOrgId) {
-                    loadCustomFields(data.fiOrgId);
+                if (qData.fiOrgId) {
+                    loadCustomFields(qData.fiOrgId);
                 }
             }
+
+            if (schemaContext) {
+                setMasterFields(schemaContext.masterFields);
+                setMasterGroups(schemaContext.masterGroups);
+            }
         } catch (e) {
-            toast.error("Failed to load questionnaire");
+            toast.error("Failed to load questionnaire data");
         } finally {
             setLoading(false);
         }
@@ -227,8 +238,8 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
 
                         // Priority 1: Master Key
                         if (sug.suggestedKey) {
-                            const isGroup = FIELD_GROUPS[sug.suggestedKey];
-                            const isField = FIELD_DEFINITIONS[parseInt(sug.suggestedKey)];
+                            const isGroup = masterGroups.find(g => g.key === sug.suggestedKey);
+                            const isField = masterFields.find(f => f.fieldNo === parseInt(sug.suggestedKey));
 
                             if (isGroup) {
                                 match.masterQuestionGroupId = sug.suggestedKey;
@@ -830,22 +841,23 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
     }) {
         const [open, setOpen] = useState(false);
         const [search, setSearch] = useState("");
+
         // Flatten Options
-        const masterOptions = useMemo(() => Object.values(FIELD_DEFINITIONS).map(f => ({
+        const masterOptions = useMemo(() => masterFields.map(f => ({
             value: `master:${f.fieldNo.toString()}`,
             label: f.fieldName,
             type: 'master',
             meta: `Standard Field ${f.fieldNo}`,
             description: f.notes
-        })), []);
+        })), [masterFields]);
 
-        const groupOptions = useMemo(() => Object.values(FIELD_GROUPS).map(g => ({
-            value: `group:${g.id}`,
-            label: g.label,
+        const groupOptions = useMemo(() => masterGroups.map(g => ({
+            value: `group:${g.key}`,
+            label: g.fieldName || g.key,
             type: 'group',
             meta: 'Composite Field',
-            description: g.description
-        })), []);
+            description: g.notes
+        })), [masterGroups]);
 
         const customOptions = useMemo(() => customFields.map(f => ({
             value: `custom:${f.id}`,

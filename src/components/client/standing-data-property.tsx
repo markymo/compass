@@ -60,7 +60,6 @@ export function StandingDataProperty({
     const getStatusIcon = () => {
         switch (status) {
             case "VERIFIED": return <CheckCircle2 className="h-3 w-3 text-green-600" />;
-            case "STALE": return <AlertCircle className="h-3 w-3 text-amber-600" />;
             default: return <HelpCircle className="h-3 w-3 text-slate-400" />;
         }
     };
@@ -68,7 +67,6 @@ export function StandingDataProperty({
     const getStatusClass = () => {
         switch (status) {
             case "VERIFIED": return "bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800";
-            case "STALE": return "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800";
             default: return "bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700";
         }
     };

@@ -70,6 +70,13 @@ export default async function AdminDashboardPage() {
             icon: MessageSquarePlus,
             color: "text-indigo-600",
         },
+        {
+            title: "Master Data",
+            description: "Govern field definitions, groups, and active states",
+            href: "/app/admin/master-data",
+            icon: Database,
+            color: "text-purple-600",
+        },
     ];
 
     return (

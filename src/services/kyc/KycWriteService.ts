@@ -1,10 +1,9 @@
 import prisma from '@/lib/prisma';
 import {
-    getFieldDefinition,
-    getFieldsByModel,
-    isDocumentOnlyField,
-    type FieldDefinition
-} from '@/domain/kyc/FieldDefinitions';
+    getMasterFieldDefinition,
+    listAllMasterFields,
+    listAllMasterGroupsWithItems,
+} from '@/services/masterData/definitionService';
 import {
     ProvenanceMetadata,
     ProvenanceSource,
@@ -12,8 +11,9 @@ import {
 import { createMetaEntry, MetaEntry } from '@/domain/kyc/schemas/MetaSchema';
 import { Prisma } from '@prisma/client';
 import { FieldCandidate } from './normalization/types';
-import { FIELD_GROUPS } from '@/domain/kyc/FieldGroups';
 import { KycLoader } from './KycLoader';
+import { FieldClaimService } from '@/lib/kyc/FieldClaimService';
+import { SourceType, ClaimStatus } from '@prisma/client';
 
 const loader = new KycLoader();
 
@@ -61,17 +61,23 @@ export class KycWriteService {
         rowId?: string, // Required for repeating fields
         entityType: 'LEGAL_ENTITY' | 'CLIENT_LE' = 'LEGAL_ENTITY'
     ): Promise<boolean> {
-        const def = getFieldDefinition(fieldNo);
+        const def = await getMasterFieldDefinition(fieldNo);
 
-        if (isDocumentOnlyField(fieldNo)) {
+        if (!def) {
+            throw new Error(`Field ${fieldNo} not found in Master Schema.`);
+        }
+
+        const modelField = (def as any).modelField;
+
+        if (def.appDataType === 'DOCUMENT_REF' && !modelField) {
             throw new Error(`Field ${fieldNo} is a document-only field. Use DocumentService.`);
         }
 
-        if (!def.field) {
+        if (!modelField) {
             throw new Error(`Field ${fieldNo} has no mapped column definition.`);
         }
 
-        if (def.isRepeating && !rowId) {
+        if (def.isMultiValue && !rowId) {
             throw new Error(`Field ${fieldNo} is repeating and requires a rowId.`);
         }
 
@@ -103,34 +109,20 @@ export class KycWriteService {
 
         // 3. Perform Update (Atomic) with Master Data Event
         await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-            const prismaClientKey = this.getPrismaClientKey(def.model);
+            const prismaClientKey = this.getPrismaClientKey(def.category || "");
             // @ts-ignore
             const delegate = tx[prismaClientKey];
 
             // Fetch current record for meta merging AND old value for event log
             let record;
-            if (def.isRepeating) {
+            if (def.isMultiValue) {
                 record = await delegate.findUnique({ where: { id: rowId } });
             } else {
                 record = await delegate.findUnique({ where: { [idField]: resolvedEntityId } });
             }
 
-            const oldValue = record ? record[def.field!] : null;
-
-            // Create Master Data Event (Audit Log)
-            // @ts-ignore
-            await tx.masterDataEvent.create({
-                data: {
-                    legalEntityId: resolvedEntityId,
-                    fieldNo: fieldNo,
-                    oldValue: oldValue,
-                    newValue: value,
-                    source: provenance.source,
-                    evidenceId: provenance.evidenceId,
-                    actorId: provenance.verifiedBy || 'SYSTEM',
-                    reason: provenance.reason
-                }
-            });
+            const modelField = (def as any).modelField!;
+            const oldValue = record ? record[modelField] : null;
 
             // Create new meta entry
             const newMetaEntry = createMetaEntry(fieldNo, provenance.source, {
@@ -143,14 +135,14 @@ export class KycWriteService {
             const currentMeta = (record?.meta && typeof record.meta === 'object' ? record.meta : {}) as Record<string, MetaEntry>;
             const updatedMeta = {
                 ...currentMeta,
-                [def.field!]: newMetaEntry,
+                [modelField]: newMetaEntry,
             };
 
-            if (def.isRepeating) {
+            if (def.isMultiValue) {
                 await delegate.update({
                     where: { id: rowId },
                     data: {
-                        [def.field!]: value,
+                        [modelField]: value,
                         meta: updatedMeta,
                     },
                 });
@@ -160,7 +152,7 @@ export class KycWriteService {
                     await delegate.update({
                         where: { [idField]: resolvedEntityId },
                         data: {
-                            [def.field!]: value,
+                            [modelField]: value,
                             meta: updatedMeta,
                         },
                     });
@@ -168,15 +160,40 @@ export class KycWriteService {
                     await delegate.create({
                         data: {
                             [idField]: resolvedEntityId,
-                            [def.field!]: value,
-                            meta: { [def.field!]: newMetaEntry },
+                            [modelField]: value,
+                            meta: { [modelField]: newMetaEntry },
                         },
                     });
                 }
             }
         });
 
-        // 4. Propagate to Questions (Fire and Forget or Await?)
+        // 4. Emit FieldClaim for Provenance Tracking
+        try {
+            await FieldClaimService.assertClaim({
+                fieldNo,
+                subjectLeId: resolvedEntityId,
+                valueText: typeof value === 'string' ? value : undefined,
+                valueNumber: typeof value === 'number' ? value : undefined,
+                valueDate: value instanceof Date ? value : undefined,
+                valueJson: typeof value === 'object' && !(value instanceof Date) ? value : undefined,
+                sourceType: (provenance.source as any) === 'USER_INPUT' ? SourceType.USER_INPUT :
+                    (provenance.source as any) === 'GLEIF' ? SourceType.GLEIF :
+                        (provenance.source as any) === 'COMPANIES_HOUSE' ? SourceType.COMPANIES_HOUSE :
+                            SourceType.SYSTEM_DERIVED,
+                sourceReference: provenance.reason, // Use reason as ref for manual overrides if needed
+                evidenceId: provenance.evidenceId,
+                confidenceScore: provenance.confidence,
+                status: (provenance.source as any) === 'USER_INPUT' ? ClaimStatus.VERIFIED : ClaimStatus.ASSERTED,
+                verifiedByUserId: (provenance as any).verifiedBy || (provenance as any).verified_by || undefined,
+                assertedAt: new Date()
+            });
+        } catch (err) {
+            console.error(`[KycWriteService] Failed to emit FieldClaim for field ${fieldNo}:`, err);
+            // Don't fail the whole update if claim emission fails, but log it
+        }
+
+        // 5. Propagate to Questions
         // We await to ensure consistency for the user's immediate view.
         await this.propagateToQuestions(
             resolvedEntityId,
@@ -207,10 +224,11 @@ export class KycWriteService {
         }
 
         // 2. Map fieldNames to fieldNos
-        const modelFields = getFieldsByModel(modelName);
+        const allFields = await listAllMasterFields();
+        const modelFields = allFields.filter(f => f.category === modelName);
         const nameToNo = new Map<string, number>();
         modelFields.forEach(def => {
-            if (def.field) nameToNo.set(def.field, def.fieldNo);
+            if ((def as any).modelField) nameToNo.set((def as any).modelField, def.fieldNo);
         });
 
         // 3. Atomically update all fields
@@ -237,19 +255,6 @@ export class KycWriteService {
 
                 const oldValue = record ? record[fieldName] : null;
 
-                // Audit Log
-                // @ts-ignore
-                await tx.masterDataEvent.create({
-                    data: {
-                        legalEntityId: resolvedEntityId,
-                        fieldNo: fieldNo,
-                        oldValue: oldValue,
-                        newValue: value,
-                        source: 'USER_INPUT',
-                        actorId: userId,
-                        reason: reason
-                    }
-                });
 
                 // Meta
                 updatedMeta[fieldName] = createMetaEntry(fieldNo, 'USER_INPUT', {
@@ -415,14 +420,14 @@ export class KycWriteService {
         currentValue?: any;
         currentSource?: ProvenanceSource;
     }> {
-        const def = getFieldDefinition(candidate.fieldNo);
+        const def = await getMasterFieldDefinition(candidate.fieldNo);
 
         // Resolve Entity ID/Type for Evaluation
         let evalEntityId = entityId;
         let evalEntityType = entityType; // 'LEGAL_ENTITY' or 'CLIENT_LE'
 
         // If CLIENT_LE, we need to bridge to LegalEntity for non-IdentityProfile models
-        if (entityType === 'CLIENT_LE' && def.model !== 'IdentityProfile') {
+        if (entityType === 'CLIENT_LE' && def.category !== 'IdentityProfile') {
             // Try to find linked IdentityProfile to get legalEntityId
             // @ts-ignore
             const identity = await prisma.identityProfile.findUnique({ where: { clientLEId: entityId } });
@@ -445,25 +450,44 @@ export class KycWriteService {
         }
 
         // Fetch current state
-        const prismaClientKey = this.getPrismaClientKey(def.model);
+        const prismaClientKey = this.getPrismaClientKey(def.category || "");
         // @ts-ignore
         const delegate = prisma[prismaClientKey];
         const idField = evalEntityType === 'CLIENT_LE' ? 'clientLEId' : 'legalEntityId';
 
         let record;
-        if (def.isRepeating) {
+        if (def.isMultiValue) {
             return { action: 'BLOCKED', reason: 'Repeating field evaluation not yet supported' };
         } else {
             record = await delegate.findUnique({ where: { [idField]: evalEntityId } });
         }
 
         const currentMeta = (record?.meta as Record<string, MetaEntry>) || {};
-        const fieldMeta = currentMeta[def.field!];
-        const currentValue = record ? record[def.field!] : null;
+        const modelField = (def as any).modelField!;
+        const fieldMeta = currentMeta[modelField];
+        const currentValue = record ? record[modelField] : null;
         const currentSource = fieldMeta?.source;
 
         // 1. Check if values are identical
-        if (record && record[def.field!] === candidate.value) {
+        const valuesAreEqual = (a: any, b: any) => {
+            if (a === b) return true;
+            if (a instanceof Date && typeof b === 'string') {
+                return a.toISOString().split('T')[0] === b.split('T')[0];
+            }
+            if (typeof a === 'string' && b instanceof Date) {
+                return a.split('T')[0] === b.toISOString().split('T')[0];
+            }
+            if (a instanceof Date && b instanceof Date) {
+                return a.getTime() === b.getTime();
+            }
+            // For numbers/decimals
+            if (typeof a === 'number' && typeof b === 'string') {
+                return a === parseFloat(b);
+            }
+            return false;
+        };
+
+        if (record && valuesAreEqual(record[modelField], candidate.value)) {
             return {
                 action: 'NO_CHANGE',
                 currentValue,
@@ -492,7 +516,7 @@ export class KycWriteService {
 
     private async evaluateOverwrite(
         entityId: string,
-        def: FieldDefinition,
+        def: any, // Use any to bypass FieldDefinition dependency
         incomingSource: ProvenanceSource,
         rowId?: string,
         preFetchedRecord?: any,
@@ -502,10 +526,10 @@ export class KycWriteService {
         const idField = entityType === 'CLIENT_LE' ? 'clientLEId' : 'legalEntityId';
 
         if (!record) {
-            const prismaClientKey = this.getPrismaClientKey(def.model);
+            const prismaClientKey = this.getPrismaClientKey(def.category || "");
             // @ts-ignore
             const delegate = prisma[prismaClientKey];
-            if (def.isRepeating) {
+            if (def.isMultiValue) {
                 record = await delegate.findUnique({ where: { id: rowId } });
             } else {
                 record = await delegate.findUnique({ where: { [idField]: entityId } });
@@ -515,7 +539,8 @@ export class KycWriteService {
         if (!record) return { allowed: true, reason: 'No existing record' };
 
         const currentMeta = (record.meta as Record<string, MetaEntry>) || {};
-        const fieldMeta = currentMeta[def.field!];
+        const modelField = (def as any).modelField!;
+        const fieldMeta = currentMeta[modelField];
 
         if (!fieldMeta) return { allowed: true, reason: 'No existing metadata' };
 
@@ -663,9 +688,10 @@ export class KycWriteService {
 
         // 2. Check for Group Propagation
         // If this field is part of a group, we must update questions mapped to that Group.
-        for (const group of Object.values(FIELD_GROUPS)) {
+        const allGroupsWithItems = await listAllMasterGroupsWithItems();
+        for (const group of allGroupsWithItems) {
             if (group.fieldNos.includes(fieldNo)) {
-                await this.propagateGroupToQuestions(leId, group.id, actorId);
+                await this.propagateGroupToQuestions(leId, group.key, actorId);
             }
         }
     }

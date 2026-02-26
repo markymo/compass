@@ -6,9 +6,11 @@ export default async function MasterRecordPage({ params }: { params: Promise<{ i
     const { id } = await params;
 
     // Fetch flattened master data from all profiles
-    const { success, data: masterData, customData, customDefinitions, gleifLastSynced } = await getFullMasterData(id);
+    const result = await getFullMasterData(id);
 
-    if (!success) return notFound();
+    if (!result.success) return notFound();
+
+    const { data: masterData, customData, customDefinitions, gleifLastSynced, masterFields, masterGroups } = result as any;
 
     return (
         <div className="p-6 max-w-[1600px] mx-auto">
@@ -25,6 +27,8 @@ export default async function MasterRecordPage({ params }: { params: Promise<{ i
                 customData={customData || {}}
                 customDefinitions={customDefinitions || []}
                 gleifLastSynced={gleifLastSynced ?? undefined}
+                masterFields={masterFields || []}
+                masterGroups={masterGroups || []}
             />
         </div>
     );

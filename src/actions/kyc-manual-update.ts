@@ -1,18 +1,21 @@
 "use server";
 
-import { KycWriteService } from "@/services/kyc/KycWriteService";
+import { FieldClaimService } from "@/lib/kyc/FieldClaimService";
+import { KycStateService } from "@/lib/kyc/KycStateService";
+import { getIdentity } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
-import { isValidFieldNo, getFieldDefinition } from "@/domain/kyc/FieldDefinitions";
+import { getMasterFieldDefinition, listAllMasterFields } from "@/services/masterData/definitionService";
+import { SourceType } from "@prisma/client";
 
-const kycWriteService = new KycWriteService();
+// KycWriteService is deprecated in favor of FieldClaimService
 
 /**
  * Manually updates a field, overriding any automated feeds.
- * Emits a MasterDataEvent and sets source to USER_INPUT.
+ * Sets source to USER_INPUT.
  */
 export async function updateFieldManually(
-    legalEntityId: string,
+    clientLEId: string,
     fieldNo: number,
     value: any,
     reason: string,
@@ -25,23 +28,54 @@ export async function updateFieldManually(
             return { success: false, message: "A reason is required for manual overrides." };
         }
 
-        const success = await kycWriteService.applyManualOverride(
-            legalEntityId,
-            fieldNo,
-            value,
-            reason,
-            userId,
-            rowId,
-            entityType
-        );
+        // 1. Resolve Subject and Scope
+        const clientLE = await prisma.clientLE.findUnique({
+            where: { id: clientLEId },
+            include: { identityProfile: true }
+        });
+        const subjectLeId = clientLE?.identityProfile?.legalEntityId;
+        const ownerScopeId = await KycStateService.resolveScopeId(clientLEId);
 
-        if (success) {
-            revalidatePath(`/app/le/${legalEntityId}`);
-            // Also revalidate the inspector view if it's a separate route?
-            // Usually revalidating the page covers it.
+        if (!subjectLeId) {
+            return { success: false, message: "Could not resolve LegalEntity subject." };
+        }
+
+        // 2. Map value to correct slot based on FieldDefinition
+        const def = await getMasterFieldDefinition(fieldNo);
+        const claimInput: any = {
+            fieldNo,
+            subjectLeId,
+            ownerScopeId,
+            sourceType: SourceType.USER_INPUT,
+            sourceReference: reason,
+            supersedesId: rowId, // If rowId is provided, it's the claim being superseded
+            collectionId: def.isMultiValue ? (def.category || 'GENERAL') : undefined,
+            instanceId: rowId // For multi-value, rowId is the stable instance key
+        };
+
+        // Assign value to the correct slot
+        switch (def.appDataType) {
+            case 'TEXT': claimInput.valueText = value; break;
+            case 'NUMBER': claimInput.valueNumber = value; break;
+            case 'DATE':
+            case 'DATETIME': claimInput.valueDate = new Date(value); break;
+            case 'PERSON_REF': claimInput.valuePersonId = value; break;
+            case 'ORG_REF': claimInput.valueLeId = value; break;
+            case 'DOCUMENT_REF': claimInput.valueDocId = value; break;
+            case 'JSONB': claimInput.valueJson = value; break;
+        }
+
+        const claim = await FieldClaimService.assertClaim({
+            ...claimInput,
+            verifiedByUserId: userId,
+            status: SourceType.USER_INPUT === SourceType.USER_INPUT ? 'VERIFIED' : 'ASSERTED' // manual updates are verified
+        });
+
+        if (claim) {
+            revalidatePath(`/app/le/${clientLEId}`);
             return { success: true };
         } else {
-            return { success: false, message: "Update failed. Check overwrite rules." };
+            return { success: false, message: "Update failed." };
         }
     } catch (error: any) {
         console.error("updateFieldManually error:", error);
@@ -61,18 +95,21 @@ export async function applyManualOverride(
     rowId?: string,
     entityType: 'LEGAL_ENTITY' | 'CLIENT_LE' = 'CLIENT_LE'
 ) {
-    // Basic userId for now (TODO: get from session)
-    const userId = "SYSTEM_USER";
+    // Get real userId from session
+    const identity = await getIdentity();
+    const userId = identity?.userId || "SYSTEM_USER";
 
     const num = Number(fieldNo);
 
     // 1. Try Standard Field Update
     // We check if it's a valid number AND exists in definitions.
-    // Logging for debug:
-    console.log(`[applyManualOverride] Input: ${fieldNo}, Parsed: ${num}, IsValid: ${isValidFieldNo(num)}`);
-
-    if (!isNaN(num) && num > 0 && isValidFieldNo(num)) {
-        return updateFieldManually(leId, num, value, reason, userId, rowId, entityType);
+    if (!isNaN(num) && num > 0) {
+        try {
+            await getMasterFieldDefinition(num);
+            return updateFieldManually(leId, num, value, reason, userId, rowId, entityType);
+        } catch (e) {
+            // Not a standard field, fall through to custom
+        }
     }
 
     // 2. Fallback to Custom Field Update
@@ -85,29 +122,24 @@ export async function applyManualOverride(
  * This effectively "Accepts" a candidate.
  */
 export async function applyCandidate(
-    legalEntityId: string,
+    clientLEId: string,
     candidatePayload: any,
     userId: string,
     rowId?: string,
     entityType: 'LEGAL_ENTITY' | 'CLIENT_LE' = 'CLIENT_LE'
 ): Promise<{ success: boolean; message?: string }> {
     try {
-        // candidatePayload should be a FieldCandidate object
-        // We might want to validate it here
-        const success = await kycWriteService.applyCandidate(
-            legalEntityId,
-            candidatePayload,
+        // In the new architecture, applying a candidate means asserting it as a USER_INPUT claim
+        // This is a simplified version:
+        return await updateFieldManually(
+            clientLEId,
+            candidatePayload.fieldNo,
+            candidatePayload.value,
+            "Accepted candidate value",
             userId,
             rowId,
             entityType
         );
-
-        if (success) {
-            revalidatePath(`/app/le/${legalEntityId}`);
-            return { success: true };
-        } else {
-            return { success: false, message: "Update denied by overwrite rules." };
-        }
     } catch (error: any) {
         console.error("applyCandidate error:", error);
         return { success: false, message: error.message };
@@ -160,48 +192,28 @@ export async function updateCustomFieldManually(
     }
 }
 export async function createRepeatingFieldRow(
-    leId: string,
+    clientLEId: string,
     fieldNo: number,
     userId: string = "SYSTEM"
 ) {
     try {
-        const def = getFieldDefinition(fieldNo);
-        if (!def.isRepeating) return { success: false, message: "Field is not repeating" };
+        const def = await getMasterFieldDefinition(fieldNo);
+        if (!def.isMultiValue) return { success: false, message: "Field is not repeating" };
 
-        const resolvedLeId = await kycWriteService.ensureLegalEntity(leId);
+        const instanceId = `row_${Date.now()}`; // Generate a temporary unique instanceId
 
-        // Define defaults based on model
-        let initialData: Record<string, any> = {};
-        if (def.model === 'Stakeholder') {
-            initialData = {
-                stakeholderType: 'INDIVIDUAL',
-                role: 'UBO',
-                fullName: 'New Stakeholder'
-            };
-        } else if (def.model === 'EntityName') {
-            initialData = { name: 'New Entity Name' };
-        } else if (def.model === 'Contact') {
-            initialData = { contactType: 'NOTICE' };
-        } else if (def.model === 'TaxRegistration') {
-            initialData = { taxId: 'PENDING', country: 'GB' };
-        } else if (def.model === 'AuthorizedTrader') {
-            initialData = { fullName: 'New Trader', email: 'pending@example.com' };
-        } else if (def.model === 'IndustryClassification') {
-            initialData = { code: '0000', scheme: 'UK_SIC' };
-        } else if (def.model === 'SettlementInstruction') {
-            initialData = { currency: 'EUR', accountName: 'Main', accountNumber: '0000', ibanSwift: 'XXXX' };
-        }
-
-        const rowId = await kycWriteService.createRepeatingRow(
-            resolvedLeId,
-            def.model,
-            initialData,
-            {}, // meta
-            'LEGAL_ENTITY'
+        // Assert an initial "empty" or placeholder claim to establish the row
+        await updateFieldManually(
+            clientLEId,
+            fieldNo,
+            "[New Item]", // Placeholder
+            "Initial row creation",
+            userId,
+            undefined, // No supersedesId
+            'CLIENT_LE'
         );
 
-        revalidatePath(`/app/le/${leId}`);
-        return { success: true, rowId };
+        return { success: true, rowId: instanceId }; // In the new world, rowId is the instanceId
 
     } catch (e: any) {
         console.error("createRepeatingFieldRow error:", e);
@@ -210,31 +222,30 @@ export async function createRepeatingFieldRow(
 }
 
 export async function applyBulkOverride(
-    leId: string,
+    clientLEId: string,
     modelName: string,
     updates: Record<string, any>,
     reason: string,
     rowId?: string,
     entityType: 'LEGAL_ENTITY' | 'CLIENT_LE' = 'CLIENT_LE'
 ) {
-    const userId = "SYSTEM_USER";
+    const identity = await getIdentity();
+    const userId = identity?.userId || "SYSTEM_USER";
     try {
-        const success = await kycWriteService.applyBulkOverride(
-            leId,
-            modelName,
-            updates,
-            reason,
-            userId,
-            rowId,
-            entityType
-        );
+        const allFields = await listAllMasterFields();
+        const fieldNos = allFields
+            .filter(f => f.category === modelName)
+            .map(f => f.fieldNo);
 
-        if (success) {
-            revalidatePath(`/app/le/${leId}`);
-            return { success: true };
-        } else {
-            return { success: false, message: "Bulk update failed." };
+        for (const [fieldName, value] of Object.entries(updates)) {
+            const def = allFields.find(f => f.category === modelName && f.fieldName === fieldName);
+            if (def) {
+                await updateFieldManually(clientLEId, def.fieldNo, value, reason, userId, rowId, entityType);
+            }
         }
+
+        revalidatePath(`/app/le/${clientLEId}`);
+        return { success: true };
     } catch (error: any) {
         console.error("applyBulkOverride error:", error);
         return { success: false, message: error.message };
