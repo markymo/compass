@@ -1,3 +1,5 @@
+"use server";
+
 import prisma from "@/lib/prisma";
 import { EngagementStatus, SourceType } from "@prisma/client";
 import { revalidatePath } from "next/cache";
