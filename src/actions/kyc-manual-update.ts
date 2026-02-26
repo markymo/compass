@@ -208,3 +208,35 @@ export async function createRepeatingFieldRow(
         return { success: false, message: e.message };
     }
 }
+
+export async function applyBulkOverride(
+    leId: string,
+    modelName: string,
+    updates: Record<string, any>,
+    reason: string,
+    rowId?: string,
+    entityType: 'LEGAL_ENTITY' | 'CLIENT_LE' = 'CLIENT_LE'
+) {
+    const userId = "SYSTEM_USER";
+    try {
+        const success = await kycWriteService.applyBulkOverride(
+            leId,
+            modelName,
+            updates,
+            reason,
+            userId,
+            rowId,
+            entityType
+        );
+
+        if (success) {
+            revalidatePath(`/app/le/${leId}`);
+            return { success: true };
+        } else {
+            return { success: false, message: "Bulk update failed." };
+        }
+    } catch (error: any) {
+        console.error("applyBulkOverride error:", error);
+        return { success: false, message: error.message };
+    }
+}

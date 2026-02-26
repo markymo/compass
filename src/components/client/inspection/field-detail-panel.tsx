@@ -11,7 +11,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import { Loader2, History, Database, Edit, CheckCircle, AlertTriangle, Paperclip, FileText, Download, X, User as UserIcon } from "lucide-react";
 import { getFieldDetail, FieldDetailData } from "@/actions/kyc-query";
-import { updateFieldManually, applyCandidate, updateCustomFieldManually, createRepeatingFieldRow } from "@/actions/kyc-manual-update";
+import { FIELD_DEFINITIONS } from "@/domain/kyc/FieldDefinitions";
+import { updateFieldManually, applyCandidate, updateCustomFieldManually, createRepeatingFieldRow, applyBulkOverride } from "@/actions/kyc-manual-update";
 import { getMasterFieldDocuments, setMasterFieldAssignment } from "@/actions/standing-data";
 import { getLETeamMembers } from "@/actions/kanban-actions";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -49,6 +50,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
     const [manualValue, setManualValue] = useState("");
     const [manualReason, setManualReason] = useState("");
     const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
+    const [relatedValues, setRelatedValues] = useState<Record<string, any>>({});
     const [isSaving, setIsSaving] = useState(false);
 
     // Evidence State
@@ -149,6 +151,30 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
         }
     };
 
+    // Pre-populate related values when a row is selected
+    useEffect(() => {
+        if (selectedRowId && data?.rows) {
+            const row = data.rows.find(r => r.id === selectedRowId);
+            if (row && row.data) {
+                // Determine model and relevant fields
+                const model = data?.fieldNo ? FIELD_DEFINITIONS[data.fieldNo]?.model : null;
+                const related: Record<string, any> = {};
+
+                if (model === 'Stakeholder') {
+                    related.fullName = row.data.fullName || "";
+                    related.legalName = row.data.legalName || "";
+                } else if (model === 'Contact') {
+                    related.email = row.data.email || "";
+                    related.phone = row.data.phone || "";
+                }
+
+                setRelatedValues(related);
+            }
+        } else {
+            setRelatedValues({});
+        }
+    }, [selectedRowId, data?.rows, data?.fieldNo]);
+
     const handleAddEntry = async () => {
         setIsSaving(true);
         try {
@@ -157,7 +183,17 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                 toast.success("New entry created. You can now override it.");
                 await loadData();
                 setSelectedRowId(res.rowId);
-                setManualValue("");
+
+                // Set default manual value based on model context
+                const model = fieldNo ? FIELD_DEFINITIONS[fieldNo]?.model : null;
+                if (model === 'Stakeholder') {
+                    setManualValue("UBO");
+                } else if (model === 'Contact') {
+                    setManualValue("NOTICE");
+                } else {
+                    setManualValue("");
+                }
+
                 setIsEditing(true);
             } else {
                 toast.error(res.message || "Failed to create entry");
@@ -193,22 +229,43 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
             if (customFieldId) {
                 result = await updateCustomFieldManually(legalEntityId, customFieldId, manualValue, manualReason, "CURRENT_USER_ID");
             } else {
-                result = await updateFieldManually(legalEntityId, fieldNo, manualValue, manualReason, "CURRENT_USER_ID", selectedRowId || undefined);
+                if (!data) {
+                    toast.error("Data not loaded");
+                    return;
+                }
+                // Determine if we need bulk update
+                const row = data.rows?.find((r: any) => r.id === selectedRowId);
+                const model = data.fieldNo ? FIELD_DEFINITIONS[data.fieldNo as keyof typeof FIELD_DEFINITIONS]?.model : null;
+
+                if (row && model && Object.keys(relatedValues).length > 0) {
+                    const fieldDef = FIELD_DEFINITIONS[data.fieldNo as keyof typeof FIELD_DEFINITIONS];
+                    const fieldNameInModel = fieldDef.field!;
+                    const updates = {
+                        [fieldNameInModel]: manualValue,
+                        ...relatedValues
+                    };
+                    result = await applyBulkOverride(legalEntityId, model, updates, manualReason, selectedRowId!, 'CLIENT_LE');
+                } else {
+                    result = await updateFieldManually(legalEntityId, fieldNo, manualValue, manualReason, "CURRENT_USER_ID", selectedRowId || undefined);
+                }
+
             }
 
             if (result.success) {
                 toast.success("Field updated successfully");
                 setIsEditing(false);
                 setManualReason("");
+                setRelatedValues({});
                 const refreshed = await getFieldDetail(legalEntityId, fieldNo, 'CLIENT_LE', customFieldId);
                 setData(refreshed);
-                if (onUpdate && refreshed.current) {
+                if (onUpdate && refreshed?.current) {
                     onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
                 }
             } else {
                 toast.error(result.message || "Update failed");
             }
         } catch (error) {
+            console.error("Save error:", error);
             toast.error("An error occurred");
         } finally {
             setIsSaving(false);
@@ -456,6 +513,8 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                 onClick={() => {
                                     setManualValue(String(data?.current?.value || ""));
                                     setIsEditing(true);
+                                    // No related values for single field 1:1 usually, or handle here if needed
+                                    setRelatedValues({});
                                 }}
                             >
                                 <Edit className="h-3 w-3 mr-2" />
@@ -485,46 +544,104 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                         </div>
                                     )}
 
-                                    <div className="space-y-1.5">
-                                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Manual Override Value</label>
-                                        {data?.options && data.options.length > 0 ? (
-                                            <Select value={manualValue} onValueChange={setManualValue}>
-                                                <SelectTrigger className="w-full h-10 border-slate-200 focus:border-indigo-500 focus:ring-indigo-500">
-                                                    <SelectValue placeholder="Select authoritative value..." />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {data.options.map((opt: string) => (
-                                                        <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                        ) : (
-                                            <Textarea
-                                                value={manualValue}
-                                                onChange={(e) => setManualValue(e.target.value)}
-                                                placeholder="Enter authoritative value..."
-                                                className="min-h-[100px] border-slate-200 focus:border-indigo-500 focus:ring-indigo-500 resize-none font-mono text-sm"
+                                    <div className="space-y-4 pt-2">
+                                        <div className="space-y-1.5">
+                                            <label className="text-xs font-semibold text-slate-600 uppercase tracking-tight">
+                                                {fieldName} (Primary Value)
+                                            </label>
+                                            {fieldNo && FIELD_DEFINITIONS[fieldNo]?.options ? (
+                                                <Select value={manualValue} onValueChange={setManualValue}>
+                                                    <SelectTrigger className="w-full bg-white border-slate-300">
+                                                        <SelectValue placeholder={`Select ${fieldName}...`} />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {FIELD_DEFINITIONS[fieldNo].options!.map((opt: string) => (
+                                                            <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            ) : (
+                                                <Input
+                                                    value={manualValue}
+                                                    onChange={(e) => setManualValue(e.target.value)}
+                                                    placeholder={`Enter ${fieldName}...`}
+                                                    className="bg-white border-slate-300"
+                                                />
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* ─── Related Fields (UX Enhancement) ─── */}
+                                {selectedRowId && (data?.fieldNo === 62 || data?.fieldNo === 63 || data?.fieldNo === 64) && (
+                                    <div className="space-y-3 bg-slate-50 p-3 rounded-md border border-slate-200">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Related Information</p>
+
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-medium text-slate-500">Stakeholder Full Name</label>
+                                            <Input
+                                                value={relatedValues.fullName || ""}
+                                                onChange={(e) => setRelatedValues(prev => ({ ...prev, fullName: e.target.value }))}
+                                                placeholder="Enter full name..."
+                                                className="h-8 text-xs"
                                             />
-                                        )}
-                                    </div>
+                                        </div>
 
-                                    <div>
-                                        <label className="text-xs font-semibold text-slate-600 mb-1.5 block uppercase tracking-tight">Audit Reason (Required)</label>
-                                        <Textarea
-                                            value={manualReason}
-                                            onChange={(e) => setManualReason(e.target.value)}
-                                            placeholder="Explain why this override is necessary for compliance/audit purposes..."
-                                            className="h-24 bg-white border-slate-300 focus:ring-indigo-500 shadow-sm"
-                                        />
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-medium text-slate-500">Legal Name (Corporate)</label>
+                                            <Input
+                                                value={relatedValues.legalName || ""}
+                                                onChange={(e) => setRelatedValues(prev => ({ ...prev, legalName: e.target.value }))}
+                                                placeholder="Enter legal name..."
+                                                className="h-8 text-xs"
+                                            />
+                                        </div>
                                     </div>
+                                )}
 
-                                    <div className="flex gap-2 justify-end">
-                                        <Button variant="ghost" size="sm" onClick={() => setIsEditing(false)}>Cancel</Button>
-                                        <Button size="sm" onClick={handleManualSave} disabled={isSaving}>
-                                            {isSaving ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : <CheckCircle className="h-3 w-3 mr-2" />}
-                                            Save Override
-                                        </Button>
+                                {/* Contact Model Related Fields */}
+                                {selectedRowId && (fieldName.toLowerCase().includes('contact')) && (
+                                    <div className="space-y-3 bg-slate-50 p-3 rounded-md border border-slate-200">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Related Information</p>
+
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-medium text-slate-500">Email Address</label>
+                                            <Input
+                                                value={relatedValues.email || ""}
+                                                onChange={(e) => setRelatedValues(prev => ({ ...prev, email: e.target.value }))}
+                                                placeholder="Enter email..."
+                                                className="h-8 text-xs"
+                                            />
+                                        </div>
+
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-medium text-slate-500">Phone Number</label>
+                                            <Input
+                                                value={relatedValues.phone || ""}
+                                                onChange={(e) => setRelatedValues(prev => ({ ...prev, phone: e.target.value }))}
+                                                placeholder="Enter phone..."
+                                                className="h-8 text-xs"
+                                            />
+                                        </div>
                                     </div>
+                                )}
+
+                                <div>
+                                    <label className="text-xs font-semibold text-slate-600 mb-1.5 block uppercase tracking-tight">Audit Reason (Required)</label>
+                                    <Textarea
+                                        value={manualReason}
+                                        onChange={(e) => setManualReason(e.target.value)}
+                                        placeholder="Explain why this override is necessary for compliance/audit purposes..."
+                                        className="h-24 bg-white border-slate-300 focus:ring-indigo-500 shadow-sm"
+                                    />
+                                </div>
+
+                                <div className="flex gap-2 justify-end">
+                                    <Button variant="ghost" size="sm" onClick={() => setIsEditing(false)}>Cancel</Button>
+                                    <Button size="sm" onClick={handleManualSave} disabled={isSaving}>
+                                        {isSaving ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : <CheckCircle className="h-3 w-3 mr-2" />}
+                                        Save Override
+                                    </Button>
                                 </div>
                             </div>
                         )}
@@ -678,7 +795,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                     </Tabs>
                 </div>
             </SheetContent>
-        </Sheet>
+        </Sheet >
     );
 }
 

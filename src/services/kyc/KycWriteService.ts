@@ -1,6 +1,7 @@
 import prisma from '@/lib/prisma';
 import {
     getFieldDefinition,
+    getFieldsByModel,
     isDocumentOnlyField,
     type FieldDefinition
 } from '@/domain/kyc/FieldDefinitions';
@@ -183,6 +184,109 @@ export class KycWriteService {
             value,
             provenance.verifiedBy || 'SYSTEM'
         );
+
+        return true;
+    }
+
+    /**
+     * Applies multiple overrides to a single record (repeating or 1:1).
+     */
+    async applyBulkOverride(
+        entityId: string,
+        modelName: string,
+        updates: Record<string, any>, // { fieldName: value }
+        reason: string,
+        userId: string,
+        rowId?: string,
+        entityType: 'LEGAL_ENTITY' | 'CLIENT_LE' = 'CLIENT_LE'
+    ): Promise<boolean> {
+        // 1. Resolve LegalEntity ID
+        let resolvedEntityId = entityId;
+        if (entityType === 'CLIENT_LE') {
+            resolvedEntityId = await this.ensureLegalEntity(entityId);
+        }
+
+        // 2. Map fieldNames to fieldNos
+        const modelFields = getFieldsByModel(modelName);
+        const nameToNo = new Map<string, number>();
+        modelFields.forEach(def => {
+            if (def.field) nameToNo.set(def.field, def.fieldNo);
+        });
+
+        // 3. Atomically update all fields
+        await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+            const prismaClientKey = this.getPrismaClientKey(modelName);
+            // @ts-ignore
+            const delegate = tx[prismaClientKey];
+            const idField = 'legalEntityId';
+
+            let record;
+            if (rowId) {
+                record = await delegate.findUnique({ where: { id: rowId } });
+            } else {
+                record = await delegate.findUnique({ where: { [idField]: resolvedEntityId } });
+            }
+
+            const currentMeta = (record?.meta && typeof record.meta === 'object' ? record.meta : {}) as Record<string, MetaEntry>;
+            const updatedMeta = { ...currentMeta };
+            const dataToUpdate: Record<string, any> = { ...updates };
+
+            for (const [fieldName, value] of Object.entries(updates)) {
+                const fieldNo = nameToNo.get(fieldName);
+                if (!fieldNo) continue;
+
+                const oldValue = record ? record[fieldName] : null;
+
+                // Audit Log
+                // @ts-ignore
+                await tx.masterDataEvent.create({
+                    data: {
+                        legalEntityId: resolvedEntityId,
+                        fieldNo: fieldNo,
+                        oldValue: oldValue,
+                        newValue: value,
+                        source: 'USER_INPUT',
+                        actorId: userId,
+                        reason: reason
+                    }
+                });
+
+                // Meta
+                updatedMeta[fieldName] = createMetaEntry(fieldNo, 'USER_INPUT', {
+                    verified_by: userId,
+                    confidence: 1.0
+                });
+            }
+
+            dataToUpdate.meta = updatedMeta;
+
+            if (rowId) {
+                await delegate.update({
+                    where: { id: rowId },
+                    data: dataToUpdate,
+                });
+            } else if (record) {
+                await delegate.update({
+                    where: { [idField]: resolvedEntityId },
+                    data: dataToUpdate,
+                });
+            } else {
+                await delegate.create({
+                    data: {
+                        [idField]: resolvedEntityId,
+                        ...dataToUpdate,
+                    },
+                });
+            }
+        });
+
+        // 4. Propagate changes (sequential for now)
+        for (const [fieldName, value] of Object.entries(updates)) {
+            const fieldNo = nameToNo.get(fieldName);
+            if (fieldNo) {
+                await this.propagateToQuestions(resolvedEntityId, fieldNo, value, userId);
+            }
+        }
 
         return true;
     }

@@ -96,7 +96,7 @@ export interface FieldDetailData {
     } | null;
     history: any[]; // MasterDataEvent[]
     candidates: any[]; // FieldCandidate[]
-    rows?: { id: string; value: any; source: string; timestamp: Date; label?: string }[];
+    rows?: { id: string; value: any; source: string; timestamp: Date; label?: string; data?: any }[];
 }
 
 export async function getFieldDetail(
@@ -200,7 +200,8 @@ export async function getFieldDetail(
                 value: r[def.field!],
                 source: meta?.source || 'UNKNOWN',
                 timestamp: r.updatedAt,
-                label
+                label,
+                data: r
             };
         });
     }
