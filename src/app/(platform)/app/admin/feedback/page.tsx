@@ -17,9 +17,9 @@ export default async function FeedbackAdminPage() {
 
     const stats = {
         total: notes.length,
-        bugs: notes.filter((n: { category: string }) => n.category === "bug").length,
-        features: notes.filter((n: { category: string }) => n.category === "feature").length,
-        general: notes.filter((n: { category: string }) => n.category === "general").length,
+        open: notes.filter((n: any) => n.status !== "closed").length,
+        done: notes.filter((n: any) => n.status === "closed").length,
+        bugs: notes.filter((n: any) => n.category === "bug" && n.status !== "closed").length,
     };
 
     return (
@@ -35,9 +35,9 @@ export default async function FeedbackAdminPage() {
             <div className="grid grid-cols-4 gap-4">
                 {[
                     { label: "Total Notes", value: stats.total, color: "text-slate-700 bg-slate-50 border-slate-200" },
-                    { label: "Bugs", value: stats.bugs, icon: <Bug className="h-4 w-4 text-red-500" />, color: "text-red-700 bg-red-50 border-red-200" },
-                    { label: "Feature Requests", value: stats.features, icon: <Lightbulb className="h-4 w-4 text-amber-500" />, color: "text-amber-700 bg-amber-50 border-amber-200" },
-                    { label: "General Notes", value: stats.general, icon: <MessageSquare className="h-4 w-4 text-slate-500" />, color: "text-slate-700 bg-slate-50 border-slate-200" },
+                    { label: "Open Bugs", value: stats.bugs, icon: <Bug className="h-4 w-4 text-red-500" />, color: "text-red-700 bg-red-50 border-red-200" },
+                    { label: "Done/Closed", value: stats.done, icon: <MessageSquare className="h-4 w-4 text-emerald-500" />, color: "text-emerald-700 bg-emerald-50 border-emerald-200" },
+                    { label: "Remaining Open", value: stats.open, icon: <Lightbulb className="h-4 w-4 text-amber-500" />, color: "text-amber-700 bg-amber-50 border-amber-200" },
                 ].map(s => (
                     <div key={s.label} className={`rounded-xl border p-4 ${s.color}`}>
                         <div className="flex items-center gap-2 mb-1">

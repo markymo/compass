@@ -206,8 +206,8 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
     };
 
     const handleManualSave = async () => {
-        if (!manualValue || !manualReason) {
-            toast.error("Value and Reason are required");
+        if (!manualValue) {
+            toast.error("A value is required");
             return;
         }
 
@@ -227,7 +227,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
         try {
             let result;
             if (customFieldId) {
-                result = await updateCustomFieldManually(legalEntityId, customFieldId, manualValue, manualReason, "CURRENT_USER_ID");
+                result = await updateCustomFieldManually(legalEntityId, customFieldId, manualValue, manualReason);
             } else {
                 if (!data) {
                     toast.error("Data not loaded");
@@ -245,7 +245,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                     };
                     result = await applyBulkOverride(legalEntityId, model, updates, manualReason, selectedRowId!, 'CLIENT_LE');
                 } else {
-                    result = await updateFieldManually(legalEntityId, fieldNo, manualValue, manualReason, "CURRENT_USER_ID", selectedRowId || undefined);
+                    result = await updateFieldManually(legalEntityId, fieldNo, manualValue, manualReason, selectedRowId || undefined);
                 }
 
             }
@@ -274,7 +274,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
     const handleApplyCandidate = async (candidate: any) => {
         if (confirm(`Are you sure you want to apply this value: ${candidate.value}?`)) {
             try {
-                const result = await applyCandidate(legalEntityId, candidate, "CURRENT_USER_ID");
+                const result = await applyCandidate(legalEntityId, candidate, selectedRowId || undefined);
                 if (result.success) {
                     toast.success("Candidate applied");
                     const refreshed = await getFieldDetail(legalEntityId, fieldNo, 'CLIENT_LE', customFieldId);
@@ -626,11 +626,11 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                 )}
 
                                 <div>
-                                    <label className="text-xs font-semibold text-slate-600 mb-1.5 block uppercase tracking-tight">Audit Reason (Required)</label>
+                                    <label className="text-xs font-semibold text-slate-600 mb-1.5 block uppercase tracking-tight">Audit Notes (Optional)</label>
                                     <Textarea
                                         value={manualReason}
                                         onChange={(e) => setManualReason(e.target.value)}
-                                        placeholder="Explain why this override is necessary for compliance/audit purposes..."
+                                        placeholder="Add notes about this override (optional)..."
                                         className="h-24 bg-white border-slate-300 focus:ring-indigo-500 shadow-sm"
                                     />
                                 </div>

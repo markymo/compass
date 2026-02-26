@@ -19,14 +19,17 @@ export async function updateFieldManually(
     fieldNo: number,
     value: any,
     reason: string,
-    userId: string,
     rowId?: string,
     entityType: 'LEGAL_ENTITY' | 'CLIENT_LE' = 'CLIENT_LE'
 ): Promise<{ success: boolean; message?: string }> {
     try {
-        if (!reason) {
-            return { success: false, message: "A reason is required for manual overrides." };
+        const identity = await getIdentity();
+        const userId = identity?.userId;
+
+        if (!userId) {
+            return { success: false, message: "Authentication required for manual updates." };
         }
+        // Reason is now optional
 
         // 1. Resolve Subject and Scope
         const clientLE = await prisma.clientLE.findUnique({
@@ -106,7 +109,7 @@ export async function applyManualOverride(
     if (!isNaN(num) && num > 0) {
         try {
             await getMasterFieldDefinition(num);
-            return updateFieldManually(leId, num, value, reason, userId, rowId, entityType);
+            return updateFieldManually(leId, num, value, reason, rowId, entityType);
         } catch (e) {
             // Not a standard field, fall through to custom
         }
@@ -114,7 +117,7 @@ export async function applyManualOverride(
 
     // 2. Fallback to Custom Field Update
     // If not a standard field ID, assume it's a Custom Field Key.
-    return updateCustomFieldManually(leId, String(fieldNo), value, reason, userId);
+    return updateCustomFieldManually(leId, String(fieldNo), value, reason);
 }
 
 /**
@@ -124,7 +127,6 @@ export async function applyManualOverride(
 export async function applyCandidate(
     clientLEId: string,
     candidatePayload: any,
-    userId: string,
     rowId?: string,
     entityType: 'LEGAL_ENTITY' | 'CLIENT_LE' = 'CLIENT_LE'
 ): Promise<{ success: boolean; message?: string }> {
@@ -136,7 +138,6 @@ export async function applyCandidate(
             candidatePayload.fieldNo,
             candidatePayload.value,
             "Accepted candidate value",
-            userId,
             rowId,
             entityType
         );
@@ -148,19 +149,23 @@ export async function applyCandidate(
 
 export async function applyFieldCandidate(
     leId: string,
-    candidate: any,
-    userId: string = "SYSTEM"
+    candidate: any
 ) {
-    return applyCandidate(leId, candidate, userId);
+    return applyCandidate(leId, candidate);
 }
 export async function updateCustomFieldManually(
     clientLEId: string,
     fieldKey: string,
     value: any,
-    reason: string,
-    userId: string
+    reason: string
 ) {
     try {
+        const identity = await getIdentity();
+        const userId = identity?.userId;
+
+        if (!userId) {
+            return { success: false, message: "Authentication required for custom field updates." };
+        }
         const le = await prisma.clientLE.findUnique({ where: { id: clientLEId } });
         if (!le) return { success: false, message: "LE not found" };
 
@@ -208,7 +213,6 @@ export async function createRepeatingFieldRow(
             fieldNo,
             "[New Item]", // Placeholder
             "Initial row creation",
-            userId,
             undefined, // No supersedesId
             'CLIENT_LE'
         );
@@ -240,7 +244,7 @@ export async function applyBulkOverride(
         for (const [fieldName, value] of Object.entries(updates)) {
             const def = allFields.find(f => f.category === modelName && f.fieldName === fieldName);
             if (def) {
-                await updateFieldManually(clientLEId, def.fieldNo, value, reason, userId, rowId, entityType);
+                await updateFieldManually(clientLEId, def.fieldNo, value, reason, rowId, entityType);
             }
         }
 

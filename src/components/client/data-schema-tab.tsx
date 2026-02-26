@@ -29,7 +29,7 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
 
     // Dynamic Grouping Logic
     const groupedFields = useMemo(() => {
-        const groups: Record<string, { title: string; icon: any; fields: any[] }> = {};
+        const groups: Record<string, { title: string; icon: any; fields: any[]; description?: string | null }> = {};
         const assignedFieldNos = new Set<number>();
 
         // 1. High Priority Defined Groups (Addresses)
@@ -37,6 +37,7 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
             groups[group.key] = {
                 title: group.fieldName || group.key,
                 icon: Globe, // Default icon for groups
+                description: group.description,
                 fields: []
             };
             const fieldNos: number[] = group.fieldNos || [];
@@ -64,7 +65,7 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                 if (modelKey === 'RelationshipProfile') { icon = Users; title = "Relationship Profile"; }
                 if (modelKey === 'LeiRegistration') { icon = ShieldCheck; title = "LEI Registration"; }
 
-                groups[modelKey] = { title, icon, fields: [] };
+                groups[modelKey] = { title, icon, fields: [], description: null };
             }
             groups[modelKey].fields.push(def);
         });
@@ -238,6 +239,11 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                                         <Icon className="h-5 w-5 text-blue-600" />
                                         {group.title}
                                     </CardTitle>
+                                    {group.description && (
+                                        <CardDescription className="mt-1 text-slate-500">
+                                            {group.description}
+                                        </CardDescription>
+                                    )}
                                 </CardHeader>
                                 <CardContent className="pt-6 space-y-4">
                                     {group.fields.map(field => {
@@ -250,6 +256,7 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                                                 value={data?.value}
                                                 source={data?.source as any}
                                                 sourceReference={data?.sourceReference}
+                                                description={field.notes}
                                                 onClick={() => setSelectedField({ fieldNo: field.fieldNo, name: field.fieldName })}
                                             />
                                         );

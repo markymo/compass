@@ -9,8 +9,10 @@ type Note = {
     pageUrl: string;
     note: string;
     category: string;
+    status: string;
     authorEmail: string | null;
     sessionTag: string | null;
+    closedAt: Date | null;
     createdAt: Date;
 };
 
@@ -22,25 +24,50 @@ const CATEGORY_META: Record<string, { icon: React.ReactNode; color: string; labe
 
 export function FeedbackAdminClient({ sessions }: { sessions: Record<string, Note[]> }) {
     const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+    const [showClosed, setShowClosed] = useState(false);
     const router = useRouter();
     const [isPending, startTransition] = useTransition();
 
     const allNotes = Object.values(sessions).flat();
 
     async function handleDelete(id: string) {
-        await fetch(`/api/feedback?id=${id}`, { method: "DELETE" });
+        if (!confirm("Delete this feedback?")) return;
+        const res = await fetch(`/api/feedback?id=${id}`, { method: "DELETE" });
+        if (!res.ok) {
+            alert("Failed to delete feedback");
+            return;
+        }
+        startTransition(() => router.refresh());
+    }
+
+    async function handleToggleStatus(id: string, currentStatus: string) {
+        const newStatus = currentStatus === "closed" ? "open" : "closed";
+        const res = await fetch(`/api/feedback`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id, status: newStatus })
+        });
+
+        if (!res.ok) {
+            const data = await res.json();
+            alert(`Failed to update: ${data.error || res.statusText}`);
+            return;
+        }
+
         startTransition(() => router.refresh());
     }
 
     function exportCSV() {
-        const rows = [["Session", "Category", "Page URL", "Note", "Created At"]];
+        const rows = [["Session", "Category", "Status", "Page URL", "Note", "Created At", "Closed At"]];
         allNotes.forEach(n => {
             rows.push([
                 n.sessionTag || "",
                 n.category,
+                n.status,
                 n.pageUrl,
                 n.note.replace(/"/g, '""'),
-                new Date(n.createdAt).toISOString()
+                new Date(n.createdAt).toISOString(),
+                n.closedAt ? new Date(n.closedAt).toISOString() : ""
             ]);
         });
         const csv = rows.map(r => r.map(c => `"${c}"`).join(",")).join("\n");
@@ -54,25 +81,34 @@ export function FeedbackAdminClient({ sessions }: { sessions: Record<string, Not
 
     function exportMarkdown() {
         const lines: string[] = ["# Product Feedback Export\n"];
-        for (const [sessionTag, notes] of Object.entries(sessions)) {
-            lines.push(`## ${sessionTag}\n`);
-            const bugs = notes.filter(n => n.category === "bug");
-            const features = notes.filter(n => n.category === "feature");
-            const general = notes.filter(n => n.category === "general");
-            if (bugs.length) {
-                lines.push("### 🐛 Bugs");
-                bugs.forEach(n => lines.push(`- [ ] \`${n.pageUrl}\` — ${n.note}`));
-                lines.push("");
-            }
-            if (features.length) {
-                lines.push("### 💡 Feature Requests");
-                features.forEach(n => lines.push(`- [ ] \`${n.pageUrl}\` — ${n.note}`));
-                lines.push("");
-            }
-            if (general.length) {
-                lines.push("### 📝 Notes");
-                general.forEach(n => lines.push(`- [ ] \`${n.pageUrl}\` — ${n.note}`));
-                lines.push("");
+        const openNotes = allNotes.filter(n => n.status !== "closed");
+
+        if (openNotes.length === 0) {
+            lines.push("All clear! No open feedback notes.");
+        } else {
+            for (const [sessionTag, notes] of Object.entries(sessions)) {
+                const openInSession = notes.filter(n => n.status !== "closed");
+                if (openInSession.length === 0) continue;
+
+                lines.push(`## ${sessionTag}\n`);
+                const bugs = openInSession.filter(n => n.category === "bug");
+                const features = openInSession.filter(n => n.category === "feature");
+                const general = openInSession.filter(n => n.category === "general");
+                if (bugs.length) {
+                    lines.push("### 🐛 Open Bugs");
+                    bugs.forEach(n => lines.push(`- [ ] \`${n.pageUrl}\` — ${n.note}`));
+                    lines.push("");
+                }
+                if (features.length) {
+                    lines.push("### 💡 Open Feature Requests");
+                    features.forEach(n => lines.push(`- [ ] \`${n.pageUrl}\` — ${n.note}`));
+                    lines.push("");
+                }
+                if (general.length) {
+                    lines.push("### 📝 Open Notes");
+                    general.forEach(n => lines.push(`- [ ] \`${n.pageUrl}\` — ${n.note}`));
+                    lines.push("");
+                }
             }
         }
         navigator.clipboard.writeText(lines.join("\n")).then(() => {
@@ -92,28 +128,46 @@ export function FeedbackAdminClient({ sessions }: { sessions: Record<string, Not
     return (
         <div className="space-y-4">
             {/* Export Actions */}
-            <div className="flex items-center justify-end gap-2">
-                <button
-                    onClick={exportMarkdown}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors shadow-sm"
-                >
-                    <FileText className="h-4 w-4 text-slate-500" />
-                    Copy as Markdown
-                </button>
-                <button
-                    onClick={exportCSV}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition-colors shadow-sm"
-                >
-                    <Download className="h-4 w-4" />
-                    Export CSV
-                </button>
+            <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-3">
+                    <button
+                        onClick={() => setShowClosed(!showClosed)}
+                        className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border ${showClosed
+                            ? "bg-slate-100 text-slate-700 border-slate-300 shadow-inner"
+                            : "bg-white text-slate-400 border-slate-200 hover:border-slate-300 shadow-sm"
+                            }`}
+                    >
+                        {showClosed ? "Hide Closed Items" : "Show Closed Items"}
+                    </button>
+                </div>
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={exportMarkdown}
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors shadow-sm"
+                    >
+                        <FileText className="h-4 w-4 text-slate-500" />
+                        Copy Open as MD
+                    </button>
+                    <button
+                        onClick={exportCSV}
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition-colors shadow-sm"
+                    >
+                        <Download className="h-4 w-4" />
+                        Export CSV
+                    </button>
+                </div>
             </div>
 
             {/* Sessions */}
             {Object.entries(sessions).sort().map(([sessionTag, notes]) => {
                 const isCollapsed = collapsed[sessionTag];
+                const filteredNotes = showClosed ? notes : notes.filter(n => n.status !== 'closed');
+                const openCount = notes.filter(n => n.status !== "closed").length;
+
+                if (filteredNotes.length === 0 && !showClosed) return null;
+
                 return (
-                    <div key={sessionTag} className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                    <div key={sessionTag} className={`rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden transition-opacity ${openCount === 0 ? "opacity-60" : ""}`}>
                         {/* Session Header */}
                         <button
                             onClick={() => setCollapsed(prev => ({ ...prev, [sessionTag]: !isCollapsed }))}
@@ -121,18 +175,13 @@ export function FeedbackAdminClient({ sessions }: { sessions: Record<string, Not
                         >
                             <div className="flex items-center gap-3">
                                 {isCollapsed ? <ChevronRight className="h-4 w-4 text-slate-400" /> : <ChevronDown className="h-4 w-4 text-slate-400" />}
-                                <span className="font-semibold text-slate-800">{sessionTag}</span>
-                                <span className="text-sm text-slate-400">{notes.length} note{notes.length !== 1 ? "s" : ""}</span>
+                                <span className={`font-semibold text-slate-800 ${openCount === 0 && !isCollapsed ? "line-through text-slate-400" : ""}`}>{sessionTag}</span>
+                                <span className="text-sm text-slate-400">{notes.length} note{notes.length !== 1 ? "s" : ""} {openCount < notes.length && `(${openCount} open)`}</span>
                             </div>
                             <div className="flex items-center gap-3 text-xs text-slate-500">
-                                {notes.filter(n => n.category === "bug").length > 0 && (
+                                {notes.filter(n => n.category === "bug" && n.status !== "closed").length > 0 && (
                                     <span className="flex items-center gap-1 bg-red-50 text-red-600 border border-red-200 px-2 py-0.5 rounded-full font-medium">
-                                        <Bug className="h-3 w-3" /> {notes.filter(n => n.category === "bug").length}
-                                    </span>
-                                )}
-                                {notes.filter(n => n.category === "feature").length > 0 && (
-                                    <span className="flex items-center gap-1 bg-amber-50 text-amber-600 border border-amber-200 px-2 py-0.5 rounded-full font-medium">
-                                        <Lightbulb className="h-3 w-3" /> {notes.filter(n => n.category === "feature").length}
+                                        <Bug className="h-3 w-3" /> {notes.filter(n => n.category === "bug" && n.status !== "closed").length}
                                     </span>
                                 )}
                             </div>
@@ -141,16 +190,30 @@ export function FeedbackAdminClient({ sessions }: { sessions: Record<string, Not
                         {/* Notes Table */}
                         {!isCollapsed && (
                             <div className="divide-y divide-slate-100">
-                                {notes.map(n => {
+                                {[...filteredNotes].sort((a, b) => (a.status === 'closed' ? 1 : -1)).map(n => {
                                     const meta = CATEGORY_META[n.category] || CATEGORY_META.general;
+                                    const isClosed = n.status === "closed";
+
                                     return (
-                                        <div key={n.id} className="flex items-start gap-4 px-5 py-3.5 hover:bg-slate-50 group/row transition-colors">
-                                            <span className={`inline-flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-full border font-medium shrink-0 mt-0.5 ${meta.color}`}>
+                                        <div key={n.id} className={`flex items-start gap-4 px-5 py-3.5 hover:bg-slate-50 group/row transition-colors ${isClosed ? "bg-slate-50/50" : ""}`}>
+                                            <button
+                                                onClick={() => handleToggleStatus(n.id, n.status)}
+                                                className={`mt-1.5 h-4 w-4 rounded border transition-colors flex items-center justify-center shrink-0 ${isClosed ? "bg-emerald-500 border-emerald-500 shadow-sm" : "border-slate-300 hover:border-emerald-500"}`}
+                                            >
+                                                {isClosed && <div className="h-2 w-2 bg-white rounded-full shadow-sm" />}
+                                            </button>
+
+                                            <span className={`inline-flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-full border font-medium shrink-0 mt-0.5 ${isClosed ? "bg-slate-100 text-slate-400 border-slate-200" : meta.color}`}>
                                                 {meta.icon} {meta.label}
                                             </span>
                                             <div className="flex-1 min-w-0">
                                                 <p className="text-[11px] font-mono text-slate-400 truncate">{n.pageUrl}</p>
-                                                <p className="text-sm text-slate-800 mt-0.5 leading-snug">{n.note}</p>
+                                                <p className={`text-sm mt-0.5 leading-snug ${isClosed ? "text-slate-400 line-through" : "text-slate-800"}`}>{n.note}</p>
+                                                {isClosed && n.closedAt && (
+                                                    <p className="text-[10px] text-emerald-600 font-medium mt-1">
+                                                        Done at {new Date(n.closedAt).toLocaleDateString()} {new Date(n.closedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                    </p>
+                                                )}
                                             </div>
                                             <div className="flex items-center gap-3 shrink-0 mt-0.5">
                                                 <span className="text-[11px] text-slate-400">

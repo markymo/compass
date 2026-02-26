@@ -13,15 +13,14 @@ model Account {
   type              String
   provider          String
   providerAccountId String
-  refresh_token     String? @db.Text
-  access_token      String? @db.Text
+  refresh_token     String?
+  access_token      String?
   expires_at        Int?
   token_type        String?
   scope             String?
-  id_token          String? @db.Text
+  id_token          String?
   session_state     String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
 }
@@ -43,104 +42,71 @@ model VerificationToken {
 }
 
 model User {
-  id          String   @id @default(uuid())
-  email       String   @unique
-  name        String?
-  description String?  @db.Text
-  createdAt   DateTime @default(now())
-
-  // Auth.js support
-  password      String?
-  emailVerified DateTime?
-  image         String?
-  accounts      Account[]
-  sessions      Session[]
-
-  // Replaced orgRoles with polymorphic memberships
-  memberships Membership[]
-
-  // V1 Account Settings
-  jobTitle          String?
-  phone             String?
-  notificationPrefs Json?
-
-  verifiedClaims    FieldClaim[]
-
-  comments   Comment[]
-  activities QuestionActivity[]
-
-  // Admin Todo Relations
-  assignedTodos AdminTodo[]        @relation("AssignedTodos")
-  createdTodos  AdminTodo[]        @relation("CreatedTodos")
-  adminComments AdminTodoComment[]
-
-  engagementActivities EngagementActivity[]
-  auditLogs            AuditLog[]
-
-  // Demo Capability
-  isDemoActor Boolean @default(false)
-
-  assignedQuestions             Question[]              @relation("AssignedQuestions")
-  questionsAssignedBy           Question[]              @relation("QuestionsAssignedBy")
-  assignedMasterFields          MasterFieldAssignment[] @relation("AssignedMasterFields")
-  masterFieldAssignmentsCreated MasterFieldAssignment[] @relation("MasterFieldAssignmentsCreated")
+  id                            String                  @id @default(uuid())
+  email                         String                  @unique
+  name                          String?
+  description                   String?
+  createdAt                     DateTime                @default(now())
+  password                      String?
+  emailVerified                 DateTime?
+  image                         String?
+  isDemoActor                   Boolean                 @default(false)
+  jobTitle                      String?
+  notificationPrefs             Json?
+  phone                         String?
+  accounts                      Account[]
+  assignedTodos                 AdminTodo[]             @relation("AssignedTodos")
+  createdTodos                  AdminTodo[]             @relation("CreatedTodos")
+  adminComments                 AdminTodoComment[]
+  auditLogs                     AuditLog[]
+  comments                      Comment[]
+  engagementActivities          EngagementActivity[]
   leActivities                  LEActivity[]
+  memberships                   Membership[]
+  questionsAssignedBy           Question[]              @relation("QuestionsAssignedBy")
+  assignedQuestions             Question[]              @relation("AssignedQuestions")
+  activities                    QuestionActivity[]
+  sessions                      Session[]
+  verifiedClaims                FieldClaim[]
+  masterFieldAssignmentsCreated MasterFieldAssignment[] @relation("MasterFieldAssignmentsCreated")
+  assignedMasterFields          MasterFieldAssignment[] @relation("AssignedMasterFields")
 }
 
 model Organization {
-  id                  String          @id @default(uuid())
-  name                String
-  types               OrgType[]
-  domain              String?
-  logoUrl             String?
-  description         String?         @db.Text
-  status              String          @default("ACTIVE") // ACTIVE, ARCHIVED
-  metadata            Json? // Flexible store for stats
-  // clientLEs replaced by ownedLEs
-  engagements         FIEngagement[]
-  fiSchemas           FISchema[]
-  questionnaires      Questionnaire[]
-  ownedQuestionnaires Questionnaire[] @relation("OwnedQuestionnaires")
-
-  // Replaced members with memberships (Party Scope)
-  memberships Membership[]
-
-  // New Ownership Model
-  ownedLEs ClientLEOwner[]
-
-  // Invitation System
-  invitations Invitation[]
-
+  id                     String                  @id @default(uuid())
+  name                   String
+  types                  OrgType[]
+  domain                 String?
+  logoUrl                String?
+  description            String?
+  status                 String                  @default("ACTIVE")
+  metadata               Json?
+  ownedLEs               ClientLEOwner[]
   customFieldDefinitions CustomFieldDefinition[]
-
-  // Scoped Claims
-  claims             FieldClaim[] @relation("OrganizationSubject")
-  referencedInClaims FieldClaim[] @relation("OrganizationValue")
-  ownedClaims        FieldClaim[] @relation("OrganizationOwnerScope")
+  engagements            FIEngagement[]
+  fiSchemas              FISchema[]
+  invitations            Invitation[]
+  memberships            Membership[]
+  questionnaires         Questionnaire[]
+  ownedQuestionnaires    Questionnaire[]         @relation("OwnedQuestionnaires")
+  ownedClaims            FieldClaim[]            @relation("OrganizationOwnerScope")
+  claims                 FieldClaim[]            @relation("OrganizationSubject")
+  referencedInClaims     FieldClaim[]            @relation("OrganizationValue")
 }
 
-// POLYMORPHIC MEMBERSHIP (Party OR Workspace)
 model Membership {
-  id     String @id @default(uuid())
-  userId String
-
-  // Scope A: Organization (The Party: Client or Supplier)
+  id             String        @id @default(uuid())
+  userId         String
   organizationId String?
+  clientLEId     String?
+  role           String
+  permissions    Json?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  clientLE       ClientLE?     @relation(fields: [clientLEId], references: [id])
   organization   Organization? @relation(fields: [organizationId], references: [id])
+  user           User          @relation(fields: [userId], references: [id])
 
-  // Scope B: ClientLE (The Workspace: Project Company / SPV)
-  clientLEId String?
-  clientLE   ClientLE? @relation(fields: [clientLEId], references: [id])
-
-  role        String // e.g. "REV_ADMIN", "CONTRIBUTOR", "AID_ADVISOR"
-  permissions Json? // Optional granular overrides
-
-  user User @relation(fields: [userId], references: [id])
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // A user can have only one role per scope instance
   @@unique([userId, organizationId, clientLEId])
 }
 
@@ -164,15 +130,14 @@ model FISchema {
 }
 
 model CustomFieldDefinition {
-  id          String   @id @default(uuid())
-  orgId       String
-  key         String // Machine-readable key (e.g. "esg_score")
-  label       String // Human-readable label (e.g. "ESG Score")
-  dataType    String // "STRING", "NUMBER", "DATE", "BOOLEAN"
-  description String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
+  id           String       @id @default(uuid())
+  orgId        String
+  key          String
+  label        String
+  dataType     String
+  description  String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
   organization Organization @relation(fields: [orgId], references: [id])
   questions    Question[]
 
@@ -182,80 +147,56 @@ model CustomFieldDefinition {
 model StandingDataSection {
   id         String   @id @default(uuid())
   clientLEId String
-  clientLE   ClientLE @relation(fields: [clientLEId], references: [id], onDelete: Cascade)
-  category   String // E.g., "CORE", "STRUCTURE", "GEOGRAPHY", etc.
-  content    String   @db.Text // Markdown content
+  category   String
+  content    String
   updatedAt  DateTime @updatedAt
+  clientLE   ClientLE @relation(fields: [clientLEId], references: [id], onDelete: Cascade)
 
   @@unique([clientLEId, category])
 }
 
 model ClientLE {
-  id                   String                @id @default(uuid())
-  name                 String
-  description          String?               @db.Text
-  jurisdiction         String?
-  status               String                @default("ACTIVE")
-  isDeleted            Boolean               @default(false)
-  createdAt            DateTime              @default(now())
-  updatedAt            DateTime              @updatedAt
-  records              ClientLERecord[]
-  fiEngagements        FIEngagement[]
-  standingDataSections StandingDataSection[]
-  documents            Document[]
-
-  // LEI & GLEIF Integration
-  lei            String?   @unique
-  gleifData      Json? // Raw/Canonical response from GLEIF
-  gleifFetchedAt DateTime?
-
-  // Relational Bridge (Phase 1A)
-  legalEntityId String?
-  legalEntity   LegalEntity? @relation(fields: [legalEntityId], references: [id])
-
-  // Phase 2 Bridge
-  identityProfile IdentityProfile?
-
-  // National Registry Data (e.g. Companies House)
-  nationalRegistryData Json? // "Mother" Directory Data
-  registryFetchedAt    DateTime?
-
-  // Billing & Invoicing
-  billingDetails Json? // Flexible store for Address, VAT, PO, Contacts
-
-  // Workspace Memberships (Direct Access)
-  memberships Membership[]
-
-  // Ownership History (New Multi-Owner Model)
-  owners ClientLEOwner[]
-
-  // Invitation System
-  invitations Invitation[]
-
-  // Activity Timeline
-  leActivities LEActivity[]
-
-  // Master Field Assignments
+  id                     String                  @id @default(uuid())
+  name                   String
+  description            String?
+  jurisdiction           String?
+  status                 String                  @default("ACTIVE")
+  isDeleted              Boolean                 @default(false)
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  lei                    String?                 @unique
+  gleifData              Json?
+  gleifFetchedAt         DateTime?
+  nationalRegistryData   Json?
+  registryFetchedAt      DateTime?
+  billingDetails         Json?
+  customData             Json?
+  legalEntityId          String?
+  legalEntity            LegalEntity?            @relation(fields: [legalEntityId], references: [id])
+  owners                 ClientLEOwner[]
+  records                ClientLERecord[]
+  documents              Document[]
+  fiEngagements          FIEngagement[]
+  invitations            Invitation[]
+  leActivities           LEActivity[]
+  memberships            Membership[]
+  standingDataSections   StandingDataSection[]
+  identityProfile        IdentityProfile?
   masterFieldAssignments MasterFieldAssignment[]
-
-  customData Json?
 
   @@index([legalEntityId])
 }
 
 model ClientLEOwner {
-  id         String   @id @default(uuid())
+  id         String       @id @default(uuid())
   clientLEId String
-  clientLE   ClientLE @relation(fields: [clientLEId], references: [id], onDelete: Cascade)
-
-  partyId String // The Client Org
-  party   Organization @relation(fields: [partyId], references: [id])
-
-  startAt DateTime  @default(now())
-  endAt   DateTime? // Null = Current Owner
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  partyId    String
+  startAt    DateTime     @default(now())
+  endAt      DateTime?
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+  clientLE   ClientLE     @relation(fields: [clientLEId], references: [id], onDelete: Cascade)
+  party      Organization @relation(fields: [partyId], references: [id])
 
   @@index([clientLEId])
   @@index([partyId])
@@ -278,58 +219,49 @@ model FIEngagement {
   clientLEId             String
   status                 EngagementStatus
   isDeleted              Boolean              @default(false)
+  activities             EngagementActivity[]
   clientLE               ClientLE             @relation(fields: [clientLEId], references: [id])
   org                    Organization         @relation(fields: [fiOrgId], references: [id])
-  queries                Query[]
-  questionnaires         Questionnaire[]      @relation("FIEngagementToQuestionnaire") // Templates
-  questionnaireInstances Questionnaire[]      @relation("QuestionnaireInstance") // Instances
-  sharedDocuments        Document[]           @relation("SharedDocuments") // Access Granted
-  activities             EngagementActivity[]
   invitations            Invitation[]
+  queries                Query[]
+  questionnaireInstances Questionnaire[]      @relation("QuestionnaireInstance")
+  questionnaires         Questionnaire[]      @relation("FIEngagementToQuestionnaire")
+  sharedDocuments        Document[]           @relation("SharedDocuments")
 
   @@unique([fiOrgId, clientLEId])
 }
 
 model EngagementActivity {
-  id             String   @id @default(uuid())
+  id             String       @id @default(uuid())
   fiEngagementId String
   userId         String
-  type           String // INVITE_SENT, CONNECTED, SNAPSHOT_CHANGE
+  type           String
   details        Json?
-  createdAt      DateTime @default(now())
-
-  engagement FIEngagement @relation(fields: [fiEngagementId], references: [id], onDelete: Cascade)
-  user       User         @relation(fields: [userId], references: [id])
+  createdAt      DateTime     @default(now())
+  engagement     FIEngagement @relation(fields: [fiEngagementId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id])
 }
 
 model Document {
-  id         String  @id @default(uuid())
-  clientLEId String
-  name       String
-  fileUrl    String // Path to storage (or mock URL)
-  fileType   String // mime type e.g. 'application/pdf'
-  kbSize     Int? // Size in KB
-  docType    String? // 'IDENTITY', 'CORPORATE'
-  metadata   Json? // { expiry: "2025-12-31" }
-  isVerified Boolean @default(false)
-  isDeleted  Boolean @default(false)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  clientLE   ClientLE       @relation(fields: [clientLEId], references: [id])
-  sharedWith FIEngagement[] @relation("SharedDocuments")
-
-  // Link to Engagement-specific Questionnaire 
-  questionId String?
-  question   Question? @relation("QuestionDocuments", fields: [questionId], references: [id])
-
-  // Link to Canonical Master LE Questionnaire (Prefills)
+  id                     String         @id @default(uuid())
+  clientLEId             String
+  name                   String
+  fileUrl                String
+  fileType               String
+  kbSize                 Int?
+  docType                String?
+  metadata               Json?
+  isVerified             Boolean        @default(false)
+  isDeleted              Boolean        @default(false)
+  createdAt              DateTime       @default(now())
+  updatedAt              DateTime       @updatedAt
   prefilledForQuestionId String?
-  prefilledForQuestion   Question? @relation("PrefilledQuestionDocuments", fields: [prefilledForQuestionId], references: [id])
-
-  // Link to a Master Data Field (e.g. "56" for Constitutional & Formation Documents)
-  masterFieldKey String?
+  questionId             String?
+  masterFieldKey         String?
+  clientLE               ClientLE       @relation(fields: [clientLEId], references: [id])
+  prefilledForQuestion   Question?      @relation("PrefilledQuestionDocuments", fields: [prefilledForQuestionId], references: [id])
+  question               Question?      @relation("QuestionDocuments", fields: [questionId], references: [id])
+  sharedWith             FIEngagement[] @relation("SharedDocuments")
 }
 
 model Query {
@@ -345,128 +277,100 @@ model Query {
 }
 
 model Questionnaire {
-  id               String         @id @default(uuid())
+  id               String                 @id @default(uuid())
   fiOrgId          String
   name             String
-  status           String         @default("DRAFT")
-  isDeleted        Boolean        @default(false)
+  status           String                 @default("DRAFT")
+  isDeleted        Boolean                @default(false)
   fileName         String?
   fileType         String?
   fileContent      Bytes?
-  fileUrl          String? // For external storage like Vercel Blob
   mappings         Json?
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
   extractedContent Json?
-  rawText          String?        @db.Text
-  processingLogs   Json? // Array of { timestamp, stage, message, level }
-  fiOrg            Organization   @relation(fields: [fiOrgId], references: [id])
-  engagements      FIEngagement[] @relation("FIEngagementToQuestionnaire")
-
-  // Link to Engagement (For Instances/Snapshots)
-  fiEngagementId String?
-  fiEngagement   FIEngagement? @relation("QuestionnaireInstance", fields: [fiEngagementId], references: [id])
-
-  // Privacy: If set, this questionnaire is only visible to this Org (and System Admins)
-  ownerOrgId String?
-  ownerOrg   Organization?          @relation("OwnedQuestionnaires", fields: [ownerOrgId], references: [id])
-  isGlobal   Boolean                @default(false)
-  isTemplate Boolean                @default(false)
-  versions   QuestionnaireVersion[]
-  questions  Question[]
+  rawText          String?
+  processingLogs   Json?
+  fiEngagementId   String?
+  ownerOrgId       String?
+  isGlobal         Boolean                @default(false)
+  fileUrl          String?
+  isTemplate       Boolean                @default(false)
+  questions        Question[]
+  fiEngagement     FIEngagement?          @relation("QuestionnaireInstance", fields: [fiEngagementId], references: [id])
+  fiOrg            Organization           @relation(fields: [fiOrgId], references: [id])
+  ownerOrg         Organization?          @relation("OwnedQuestionnaires", fields: [ownerOrgId], references: [id])
+  versions         QuestionnaireVersion[]
+  engagements      FIEngagement[]         @relation("FIEngagementToQuestionnaire")
 }
 
 model Question {
-  id                    String         @id @default(uuid())
-  questionnaireId       String
-  text                  String
-  compactText           String? // Compact version (≤20 chars) for kanban display
-  answer                String?        @db.Text
-  prefilledValue        String?        @db.Text
-  expectedDataType      String         @default("TEXT")
-  allowAttachments      Boolean        @default(false)
-  status                QuestionStatus @default(DRAFT)
-  isLocked              Boolean        @default(false)
-  order                 Int            @default(0)
-  // Link to Master Data
-  masterFieldNo         Int? // Direct 1:1 link to FieldDefinitions
-  masterQuestionGroupId String? // Composite 1:N link to FieldGroups
-
-  // Link to Ad-Hoc Custom Data
+  id                      String                 @id @default(uuid())
+  questionnaireId         String
+  text                    String
+  compactText             String?
+  answer                  String?
+  status                  QuestionStatus         @default(DRAFT)
+  isLocked                Boolean                @default(false)
+  order                   Int                    @default(0)
+  masterFieldNo           Int?
+  masterQuestionGroupId   String?
   customFieldDefinitionId String?
+  sourceSectionId         String?
+  assignedToUserId        String?
+  assignedEmail           String?
+  createdAt               DateTime               @default(now())
+  updatedAt               DateTime               @updatedAt
+  prefilledValue          String?
+  allowAttachments        Boolean                @default(false)
+  expectedDataType        String                 @default("TEXT")
+  assignedByUserId        String?
+  comments                Comment[]
+  prefilledDocuments      Document[]             @relation("PrefilledQuestionDocuments")
+  documents               Document[]             @relation("QuestionDocuments")
+  assignedByUser          User?                  @relation("QuestionsAssignedBy", fields: [assignedByUserId], references: [id])
+  assignedToUser          User?                  @relation("AssignedQuestions", fields: [assignedToUserId], references: [id])
   customFieldDefinition   CustomFieldDefinition? @relation(fields: [customFieldDefinitionId], references: [id])
-
-  // Link to Standing Data (if auto-filled)
-  sourceSectionId String?
-
-  assignedToUserId String?
-  assignedToUser   User?   @relation("AssignedQuestions", fields: [assignedToUserId], references: [id])
-  assignedByUserId String?
-  assignedByUser   User?   @relation("QuestionsAssignedBy", fields: [assignedByUserId], references: [id])
-  assignedEmail    String?
-
-  questionnaire Questionnaire      @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
-  comments      Comment[]
-  activities    QuestionActivity[]
-
-  // Attached Evidence Documents
-  documents          Document[] @relation("QuestionDocuments")
-  prefilledDocuments Document[] @relation("PrefilledQuestionDocuments")
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  questionnaire           Questionnaire          @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
+  activities              QuestionActivity[]
 }
 
 model Comment {
   id         String   @id @default(uuid())
   questionId String
   userId     String
-  text       String   @db.Text
-  type       String   @default("USER") // USER, AI, SYSTEM
+  text       String
+  type       String   @default("USER")
   createdAt  DateTime @default(now())
-
-  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  user     User     @relation(fields: [userId], references: [id])
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id])
 }
 
 model QuestionActivity {
   id         String   @id @default(uuid())
   questionId String
   userId     String
-  type       String // AI_GENERATED, ANSWER_UPDATED, LOCKED, UNLOCKED, ASSIGNED
-  details    Json? // Store 'previousValue', 'newValue', 'confidence', etc.
+  type       String
+  details    Json?
   createdAt  DateTime @default(now())
-
-  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  user     User     @relation(fields: [userId], references: [id])
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id])
 }
 
 model MasterFieldAssignment {
-  id               String @id @default(uuid())
-  clientLEId       String // The workspace context
-  fieldNo          Int // The universal identifier for the Master Data Field
-  assignedToUserId String // The user responsible
-  assignedByUserId String // Audit: who performed the assignment
-
-  clientLE       ClientLE @relation(fields: [clientLEId], references: [id], onDelete: Cascade)
-  assignedUser   User     @relation("AssignedMasterFields", fields: [assignedToUserId], references: [id])
-  assignedByUser User     @relation("MasterFieldAssignmentsCreated", fields: [assignedByUserId], references: [id])
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id               String   @id @default(uuid())
+  clientLEId       String
+  fieldNo          Int
+  assignedToUserId String
+  assignedByUserId String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  assignedByUser   User     @relation("MasterFieldAssignmentsCreated", fields: [assignedByUserId], references: [id])
+  assignedUser     User     @relation("AssignedMasterFields", fields: [assignedToUserId], references: [id])
+  clientLE         ClientLE @relation(fields: [clientLEId], references: [id], onDelete: Cascade)
 
   @@unique([clientLEId, fieldNo])
   @@map("master_field_assignments")
-}
-
-enum QuestionStatus {
-  DRAFT
-  INTERNAL_REVIEW
-  SHARED
-  SUPPLIER_REVIEW
-  QUERY
-  CLIENT_SIGNED_OFF
-  SUPPLIER_SIGNED_OFF // Final
 }
 
 model QuestionnaireVersion {
@@ -477,6 +381,630 @@ model QuestionnaireVersion {
   pdfContent      Bytes
   createdAt       DateTime      @default(now())
   questionnaire   Questionnaire @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
+}
+
+model UsageLog {
+  id        String   @id @default(uuid())
+  userId    String
+  action    String
+  path      String?
+  details   Json?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model AdminTodo {
+  id               String             @id @default(uuid())
+  title            String
+  description      String?
+  status           AdminTodoStatus    @default(BACKLOG)
+  dueDate          DateTime?
+  assignedToUserId String?
+  createdByUserId  String
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  isDeleted        Boolean            @default(false)
+  isArchived       Boolean            @default(false)
+  assignedToUser   User?              @relation("AssignedTodos", fields: [assignedToUserId], references: [id])
+  createdByUser    User               @relation("CreatedTodos", fields: [createdByUserId], references: [id])
+  comments         AdminTodoComment[]
+}
+
+model AdminTodoComment {
+  id          String    @id @default(uuid())
+  adminTodoId String
+  userId      String
+  text        String
+  createdAt   DateTime  @default(now())
+  adminTodo   AdminTodo @relation(fields: [adminTodoId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id])
+}
+
+model Invitation {
+  id               String        @id @default(uuid())
+  fiEngagementId   String?
+  sentToEmail      String
+  role             String
+  tokenHash        String        @unique
+  expiresAt        DateTime
+  usedAt           DateTime?
+  revokedAt        DateTime?
+  createdByUserId  String
+  acceptedByUserId String?
+  createdAt        DateTime      @default(now())
+  clientLEId       String?
+  organizationId   String?
+  clientLE         ClientLE?     @relation(fields: [clientLEId], references: [id], onDelete: Cascade)
+  fiEngagement     FIEngagement? @relation(fields: [fiEngagementId], references: [id], onDelete: Cascade)
+  organization     Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([clientLEId])
+  @@index([fiEngagementId])
+  @@index([sentToEmail])
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String
+  action    String
+  entityId  String?
+  details   Json?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([entityId])
+}
+
+model LEActivity {
+  id        String   @id @default(uuid())
+  leId      String
+  userId    String
+  type      String
+  details   Json?
+  createdAt DateTime @default(now())
+  clientLE  ClientLE @relation(fields: [leId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([leId, createdAt(sort: Desc)])
+  @@index([userId])
+}
+
+model LegalEntity {
+  id                      String                   @id @default(uuid())
+  reference               String                   @unique
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
+  clientLEs               ClientLE[]
+  authorizedTraders       AuthorizedTrader[]
+  complianceProfile       ComplianceProfile?
+  constitutionalProfile   ConstitutionalProfile?
+  contactProfile          ContactProfile?
+  contacts                Contact[]
+  derivativesProfile      DerivativesProfile?
+  documents               DocumentRegistry[]
+  entityInfoProfile       EntityInfoProfile?
+  entityNames             EntityName[]
+  claims                  FieldClaim[]             @relation("LegalEntitySubject")
+  referencedInClaims      FieldClaim[]             @relation("LegalEntityValue")
+  financialProfile        FinancialProfile?
+  identityProfile         IdentityProfile?
+  industryClassifications IndustryClassification[]
+  leiRegistration         LeiRegistration?
+  relationshipProfile     RelationshipProfile?
+  settlementInstructions  SettlementInstruction[]
+  stakeholders            Stakeholder[]
+  taxProfile              TaxProfile?
+  taxRegistrations        TaxRegistration[]
+  tradingProfile          TradingProfile?
+
+  @@map("legal_entities")
+}
+
+model EvidenceStore {
+  id            String           @id @default(uuid())
+  hash          String           @unique
+  provider      EvidenceProvider
+  payload       Json
+  schemaVersion String
+  retrievedAt   DateTime
+  capturedBy    String?
+  createdAt     DateTime         @default(now())
+  claims        FieldClaim[]
+
+  @@index([hash])
+  @@index([provider])
+  @@map("evidence_store")
+}
+
+model DocumentRegistry {
+  id                 String            @id @default(uuid())
+  legalEntityId      String
+  ownerType          DocumentOwnerType
+  ownerId            String
+  fieldNo            Int
+  filePath           String
+  fileName           String
+  mimeType           String
+  uploadedAt         DateTime          @default(now())
+  uploadedBy         String
+  legalEntity        LegalEntity       @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
+  referencedInClaims FieldClaim[]
+
+  @@index([legalEntityId])
+  @@index([ownerType, ownerId])
+  @@index([fieldNo])
+  @@map("document_registry")
+}
+
+model IdentityProfile {
+  id                 String       @id @default(uuid())
+  legalEntityId      String?      @unique
+  leiValidationDate  DateTime?
+  leiCode            String?
+  legalName          String?
+  regAddressLine1    String?
+  regAddressCity     String?
+  regAddressRegion   String?
+  regAddressCountry  String?
+  regAddressPostcode String?
+  hqAddressLine1     String?
+  hqAddressCity      String?
+  hqAddressRegion    String?
+  hqAddressCountry   String?
+  hqAddressPostcode  String?
+  entityStatus       String?
+  entityCreationDate DateTime?
+  meta               Json         @default("{}")
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  clientLEId         String?      @unique
+  clientLE           ClientLE?    @relation(fields: [clientLEId], references: [id])
+  legalEntity        LegalEntity? @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
+
+  @@map("identity_profiles")
+}
+
+model EntityInfoProfile {
+  id                                String      @id @default(uuid())
+  legalEntityId                     String      @unique
+  gleifEntityCategory               String?
+  entityLegalFormCode               String?
+  countryOfFormation                String?
+  countryCode                       String?
+  entityLegalFormLocalName          String?
+  entityLegalFormTransliteratedName String?
+  meta                              Json        @default("{}")
+  createdAt                         DateTime    @default(now())
+  updatedAt                         DateTime    @updatedAt
+  legalEntity                       LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
+
+  @@map("entity_info_profiles")
+}
+
+model LeiRegistration {
+  id                         String      @id @default(uuid())
+  legalEntityId              String      @unique
+  leiRegistrationDate        DateTime?
+  leiRegistrationUpdateDate  DateTime?
+  leiRegistrationStatus      String?
+  leiRegistrationNextRenewal DateTime?
+  leiIssuerLei               String?
+  leiIssuer                  String?
+  leiCorroborationLevel      String?
+  leiCorroborationSource     String?
+  meta                       Json        @default("{}")
+  createdAt                  DateTime    @default(now())
+  updatedAt                  DateTime    @updatedAt
+  legalEntity                LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
+
+  @@map("lei_registrations")
+}
+
+model RelationshipProfile {
+  id                             String      @id @default(uuid())
+  legalEntityId                  String      @unique
+  directParentId                 String?
+  directParent                   String?
+  directParentIdType             String?
+  directParentRelationship       String?
+  ultimateParentId               String?
+  ultimateParent                 String?
+  ultimateParentIdType           String?
+  ultimateParentRelationship     String?
+  fundManagerId                  String?
+  fundManager                    String?
+  fundManagerIdType              String?
+  fundManagerRelationship        String?
+  fundManagerRelationshipStatus  String?
+  umbrellaFundId                 String?
+  umbrellaFund                   String?
+  umbrellaFundIdType             String?
+  umbrellaFundRelationship       String?
+  umbrellaFundRelationshipStatus String?
+  leiDirectParentException       String?
+  leiUltimateParentException     String?
+  meta                           Json        @default("{}")
+  createdAt                      DateTime    @default(now())
+  updatedAt                      DateTime    @updatedAt
+  legalEntity                    LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
+
+  @@map("relationship_profiles")
+}
+
+model ConstitutionalProfile {
+  id                           String      @id @default(uuid())
+  legalEntityId                String      @unique
+  registrationAuthorityGleifId String?
+  registrationAuthority        String?
+  registeredNumber             String?
+  meta                         Json        @default("{}")
+  createdAt                    DateTime    @default(now())
+  updatedAt                    DateTime    @updatedAt
+  legalEntity                  LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
+
+  @@map("constitutional_profiles")
+}
+
+model ComplianceProfile {
+  id                 String      @id @default(uuid())
+  legalEntityId      String      @unique
+  operatingCountries Json?
+  highRiskCountries  Json?
+  highRiskSectors    Json?
+  ukSanctionsCheck   String?
+  euSanctionsCheck   String?
+  ofacSanctionsCheck String?
+  meta               Json        @default("{}")
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+  legalEntity        LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
+
+  @@map("compliance_profiles")
+}
+
+model TaxProfile {
+  id            String      @id @default(uuid())
+  legalEntityId String      @unique
+  fatcaStatus   String?
+  meta          Json        @default("{}")
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  legalEntity   LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
+
+  @@map("tax_profiles")
+}
+
+model FinancialProfile {
+  id                   String      @id @default(uuid())
+  legalEntityId        String      @unique
+  lastAccountsMadeUpTo DateTime?
+  nextAccountingDate   DateTime?
+  nextAccountsDueDate  DateTime?
+  lastStatementDate    DateTime?
+  nextStatementDate    DateTime?
+  nextStatementDueDate DateTime?
+  meta                 Json        @default("{}")
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+  legalEntity          LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
+
+  @@map("financial_profiles")
+}
+
+model DerivativesProfile {
+  id                                      String      @id @default(uuid())
+  legalEntityId                           String      @unique
+  isdaMasterRegulatoryDisclosureLetterRef String?
+  isdaEmirClassificationLetterRef         String?
+  isdaUsSelfdisclosureLetterRef           String?
+  isdaReportingDelegationAgreementRef     String?
+  isdaFiaEmirReportingDelegationRef       String?
+  isda2013ReportingProtocolSideLetterRef  String?
+  meta                                    Json        @default("{}")
+  createdAt                               DateTime    @default(now())
+  updatedAt                               DateTime    @updatedAt
+  legalEntity                             LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
+
+  @@map("derivatives_profiles")
+}
+
+model TradingProfile {
+  id                                    String      @id @default(uuid())
+  legalEntityId                         String      @unique
+  boardMinuteAuthorisingIndividualsRef  String?
+  boardMinuteAuthorisingTransactionsRef String?
+  meta                                  Json        @default("{}")
+  createdAt                             DateTime    @default(now())
+  updatedAt                             DateTime    @updatedAt
+  legalEntity                           LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
+
+  @@map("trading_profiles")
+}
+
+model ContactProfile {
+  id                     String      @id @default(uuid())
+  legalEntityId          String      @unique
+  processAgent           String?
+  office                 String?
+  isMultibranchParty     Boolean?
+  portfolioDataEmail     String?
+  discrepancyNoticeEmail String?
+  disputeNoticeEmail     String?
+  meta                   Json        @default("{}")
+  createdAt              DateTime    @default(now())
+  updatedAt              DateTime    @updatedAt
+  legalEntity            LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
+
+  @@map("contact_profiles")
+}
+
+model EntityName {
+  id            String      @id @default(uuid())
+  legalEntityId String
+  name          String
+  type          String
+  meta          Json        @default("{}")
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  legalEntity   LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
+
+  @@index([legalEntityId])
+  @@map("entity_names")
+}
+
+model IndustryClassification {
+  id            String      @id @default(uuid())
+  legalEntityId String
+  code          String
+  scheme        String
+  meta          Json        @default("{}")
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  legalEntity   LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
+
+  @@index([legalEntityId])
+  @@map("industry_classifications")
+}
+
+model Stakeholder {
+  id                           String          @id @default(uuid())
+  legalEntityId                String
+  stakeholderType              StakeholderType
+  role                         StakeholderRole
+  fullName                     String?
+  dateOfBirth                  DateTime?
+  placeOfBirth                 String?
+  nationalities                Json?
+  idDocumentId                 String?
+  legalName                    String?
+  leiCode                      String?
+  registrationAuthorityGleifId String?
+  registrationAuthority        String?
+  registeredNumber             String?
+  meta                         Json            @default("{}")
+  createdAt                    DateTime        @default(now())
+  updatedAt                    DateTime        @updatedAt
+  legalEntity                  LegalEntity     @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
+
+  @@index([legalEntityId])
+  @@index([role])
+  @@map("stakeholders")
+}
+
+model TaxRegistration {
+  id            String      @id @default(uuid())
+  legalEntityId String
+  taxId         String
+  country       String
+  meta          Json        @default("{}")
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  legalEntity   LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
+
+  @@index([legalEntityId])
+  @@map("tax_registrations")
+}
+
+model AuthorizedTrader {
+  id                       String      @id @default(uuid())
+  legalEntityId            String
+  fullName                 String
+  email                    String
+  phone                    String?
+  mobile                   String?
+  products                 Json?
+  authorityDocumentId      String?
+  authorityAttestationText String?
+  meta                     Json        @default("{}")
+  createdAt                DateTime    @default(now())
+  updatedAt                DateTime    @updatedAt
+  legalEntity              LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
+
+  @@index([legalEntityId])
+  @@map("authorized_traders")
+}
+
+model Contact {
+  id            String      @id @default(uuid())
+  legalEntityId String
+  contactType   ContactType
+  address       String?
+  attention     String?
+  email         String?
+  meta          Json        @default("{}")
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  legalEntity   LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
+
+  @@index([legalEntityId])
+  @@map("contacts")
+}
+
+model SettlementInstruction {
+  id            String      @id @default(uuid())
+  legalEntityId String
+  currency      String
+  accountName   String
+  accountNumber String
+  ibanSwift     String
+  meta          Json        @default("{}")
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  legalEntity   LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
+
+  @@index([legalEntityId])
+  @@map("settlement_instructions")
+}
+
+model FeedbackNote {
+  id          String    @id @default(uuid())
+  pageUrl     String
+  note        String
+  category    String    @default("general")
+  authorEmail String?
+  sessionTag  String?
+  createdAt   DateTime  @default(now())
+  status      String    @default("open")
+  closedAt    DateTime?
+
+  @@index([sessionTag, createdAt(sort: Desc)])
+  @@map("feedback_notes")
+}
+
+model Person {
+  id                 String       @id @default(uuid())
+  firstName          String?
+  lastName           String?
+  middleName         String?
+  dateOfBirth        DateTime?
+  placeOfBirth       String?
+  primaryNationality String?
+  isPublicFigure     Boolean      @default(false)
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  claims             FieldClaim[] @relation("PersonSubject")
+  referencedInClaims FieldClaim[] @relation("PersonValue")
+
+  @@map("persons")
+}
+
+model FieldClaim {
+  id               String            @id @default(uuid())
+  fieldNo          Int
+  subjectLeId      String?
+  subjectPersonId  String?
+  subjectOrgId     String?
+  collectionId     String?
+  instanceId       String?
+  valueText        String?
+  valueNumber      Decimal?
+  valueDate        DateTime?
+  valueJson        Json?
+  valuePersonId    String?
+  valueLeId        String?
+  valueOrgId       String?
+  valueDocId       String?
+  status           ClaimStatus       @default(ASSERTED)
+  ownerScopeId     String?
+  sourceType       SourceType
+  sourceReference  String?
+  evidenceId       String?
+  assertedAt       DateTime          @default(now())
+  supersedesId     String?
+  effectiveFrom    DateTime?
+  effectiveTo      DateTime?
+  confidenceScore  Float?
+  verifiedByUserId String?
+  verifiedAt       DateTime?
+  evidence         EvidenceStore?    @relation(fields: [evidenceId], references: [id])
+  ownerScope       Organization?     @relation("OrganizationOwnerScope", fields: [ownerScopeId], references: [id])
+  subjectLe        LegalEntity?      @relation("LegalEntitySubject", fields: [subjectLeId], references: [id])
+  subjectOrg       Organization?     @relation("OrganizationSubject", fields: [subjectOrgId], references: [id])
+  subjectPerson    Person?           @relation("PersonSubject", fields: [subjectPersonId], references: [id])
+  supersedes       FieldClaim?       @relation("Lineage", fields: [supersedesId], references: [id])
+  supersededBy     FieldClaim[]      @relation("Lineage")
+  valueDoc         DocumentRegistry? @relation(fields: [valueDocId], references: [id])
+  valueLe          LegalEntity?      @relation("LegalEntityValue", fields: [valueLeId], references: [id])
+  valueOrg         Organization?     @relation("OrganizationValue", fields: [valueOrgId], references: [id])
+  valuePerson      Person?           @relation("PersonValue", fields: [valuePersonId], references: [id])
+  verifiedBy       User?             @relation(fields: [verifiedByUserId], references: [id])
+
+  @@index([subjectLeId, fieldNo])
+  @@index([subjectPersonId, fieldNo])
+  @@index([subjectOrgId, fieldNo])
+  @@index([ownerScopeId])
+  @@index([fieldNo])
+  @@index([supersedesId])
+  @@index([subjectLeId, ownerScopeId, fieldNo, collectionId])
+  @@index([collectionId, instanceId])
+  @@map("field_claims")
+}
+
+model MasterFieldDefinition {
+  fieldNo      Int                    @id
+  fieldName    String
+  appDataType  String
+  isMultiValue Boolean                @default(false)
+  options      String[]               @default([])
+  notes        String?
+  category     String?
+  isActive     Boolean                @default(true)
+  order        Int                    @default(0)
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
+  modelField   String?
+  groupItems   MasterFieldGroupItem[]
+
+  @@index([isActive, order])
+  @@map("master_field_definitions")
+}
+
+model MasterFieldGroup {
+  id          String                 @id @default(uuid())
+  key         String                 @unique
+  label       String
+  description String?
+  category    String?
+  isActive    Boolean                @default(true)
+  order       Int                    @default(0)
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+  items       MasterFieldGroupItem[]
+
+  @@index([isActive, order])
+  @@index([category])
+  @@map("master_field_groups")
+}
+
+model MasterFieldGroupItem {
+  id                  String                @id @default(uuid())
+  groupId             String
+  fieldNo             Int
+  hideFromFieldPicker Boolean               @default(true)
+  order               Int                   @default(0)
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+  field               MasterFieldDefinition @relation(fields: [fieldNo], references: [fieldNo])
+  group               MasterFieldGroup      @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, fieldNo])
+  @@index([groupId, order])
+  @@index([fieldNo])
+  @@index([hideFromFieldPicker])
+  @@map("master_field_group_items")
+}
+
+enum QuestionStatus {
+  DRAFT
+  INTERNAL_REVIEW
+  SHARED
+  SUPPLIER_REVIEW
+  QUERY
+  CLIENT_SIGNED_OFF
+  SUPPLIER_SIGNED_OFF
 }
 
 enum OrgType {
@@ -504,136 +1032,12 @@ enum QueryStatus {
   RESOLVED
 }
 
-model UsageLog {
-  id        String   @id @default(uuid())
-  userId    String
-  action    String
-  path      String?
-  details   Json?
-  createdAt DateTime @default(now())
-
-  @@index([userId])
-}
-
-model AdminTodo {
-  id               String          @id @default(uuid())
-  title            String
-  description      String?         @db.Text
-  status           AdminTodoStatus @default(BACKLOG)
-  dueDate          DateTime?
-  assignedToUserId String?
-  createdByUserId  String
-
-  assignedToUser User? @relation("AssignedTodos", fields: [assignedToUserId], references: [id])
-  createdByUser  User  @relation("CreatedTodos", fields: [createdByUserId], references: [id])
-
-  comments AdminTodoComment[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  isDeleted  Boolean @default(false)
-  isArchived Boolean @default(false)
-}
-
-model AdminTodoComment {
-  id          String   @id @default(uuid())
-  adminTodoId String
-  userId      String
-  text        String   @db.Text
-  createdAt   DateTime @default(now())
-
-  adminTodo AdminTodo @relation(fields: [adminTodoId], references: [id], onDelete: Cascade)
-  user      User      @relation(fields: [userId], references: [id])
-}
-
 enum AdminTodoStatus {
   BACKLOG
   DRAFTING
   IN_PROGRESS
   DONE
 }
-
-// Organization invitations relation removed
-// clientLE invitations relation removed
-// fiEngagement invitations relation updated to match new field name if needed (it was fiEngagementId, so it's fine)
-
-// Actually, I can just remove the relation fields in Org/ClientLE.
-
-// POLYMORPHIC INVITATION (Organization | ClientLE | FIEngagement scope)
-// Exactly one scope field must be non-null — enforced in server actions.
-model Invitation {
-  id String @id @default(uuid())
-
-  // ---- Scope (exactly ONE must be non-null) ----
-  organizationId String?
-  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  clientLEId String?
-  clientLE   ClientLE? @relation(fields: [clientLEId], references: [id], onDelete: Cascade)
-
-  fiEngagementId String?
-  fiEngagement   FIEngagement? @relation(fields: [fiEngagementId], references: [id], onDelete: Cascade)
-
-  // ---- Invite details ----
-  sentToEmail String
-  role        String // e.g. "ORG_ADMIN", "LE_ADMIN", "LE_USER", "SUPPLIER_CONTACT"
-
-  tokenHash String   @unique
-  expiresAt DateTime
-
-  // ---- Lifecycle ----
-  usedAt    DateTime?
-  revokedAt DateTime?
-  createdAt DateTime  @default(now())
-
-  // ---- Audit (scalar IDs — FK avoided to prevent cascade complexity) ----
-  createdByUserId  String
-  acceptedByUserId String?
-
-  @@index([organizationId])
-  @@index([clientLEId])
-  @@index([fiEngagementId])
-  @@index([sentToEmail])
-}
-
-model AuditLog {
-  id        String   @id @default(uuid())
-  userId    String
-  action    String
-  entityId  String?
-  details   Json?
-  createdAt DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id])
-
-  @@index([userId])
-  @@index([entityId])
-}
-
-// LE-scoped activity timeline
-// type values: QUESTION_ANSWERED, QUESTION_UPDATED, DOC_UPLOADED, DOC_DELETED,
-//              BANK_INVITED, BANK_CONNECTED, TEAM_MEMBER_INVITED, TEAM_MEMBER_JOINED,
-//              LEI_VERIFIED, REGISTRY_REFRESHED, QUESTIONNAIRE_ASSIGNED, QUESTIONNAIRE_SUBMITTED,
-//              ENGAGEMENT_STATUS_CHANGED, STANDING_DATA_UPDATED
-model LEActivity {
-  id        String   @id @default(uuid())
-  leId      String
-  userId    String
-  type      String // See type values above
-  details   Json? // { label, questionId, docName, bankName, role, ... }
-  createdAt DateTime @default(now())
-
-  clientLE ClientLE @relation(fields: [leId], references: [id], onDelete: Cascade)
-  user     User     @relation(fields: [userId], references: [id])
-
-  @@index([leId, createdAt(sort: Desc)])
-  @@index([userId])
-}
-
-// ============================================================================
-// Phase 2A: KYC Data Model Enums
-// ============================================================================
 
 enum EvidenceProvider {
   GLEIF
@@ -667,541 +1071,10 @@ enum ContactType {
   DISPUTE
 }
 
-// ============================================================================
-// Phase 2A: KYC Data Model Tables
-// Schema-only migration - creates empty tables for new KYC data model
-// No existing data is moved or modified in this phase
-// ============================================================================
-
-// ----------------------------------------------------------------------------
-// Core Tables (Foundation)
-// ----------------------------------------------------------------------------
-
-model LegalEntity {
-  id        String   @id @default(uuid())
-  reference String   @unique // Public identifier
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // 1:1 Profiles
-  identityProfile       IdentityProfile?
-  entityInfoProfile     EntityInfoProfile?
-  leiRegistration       LeiRegistration?
-  relationshipProfile   RelationshipProfile?
-  constitutionalProfile ConstitutionalProfile?
-  complianceProfile     ComplianceProfile?
-  taxProfile            TaxProfile?
-  financialProfile      FinancialProfile?
-  derivativesProfile    DerivativesProfile?
-  tradingProfile        TradingProfile?
-  contactProfile        ContactProfile?
-
-  // Relational Bridge (Phase 1A)
-  clientLEs ClientLE[]
-
-  // 1:N Repeating
-  entityNames             EntityName[]
-  industryClassifications IndustryClassification[]
-  stakeholders            Stakeholder[]
-  taxRegistrations        TaxRegistration[]
-  authorizedTraders       AuthorizedTrader[]
-  contacts                Contact[]
-  settlementInstructions  SettlementInstruction[]
-
-  // Documents
-  documents DocumentRegistry[]
-
-  // Audit Log
-
-
-  // Scoped Claims
-  claims             FieldClaim[] @relation("LegalEntitySubject")
-  referencedInClaims FieldClaim[] @relation("LegalEntityValue")
-
-  @@map("legal_entities")
-}
-
-model EvidenceStore {
-  id            String           @id @default(uuid())
-  hash          String           @unique // SHA-256 for deduplication
-  provider      EvidenceProvider
-  payload       Json // Immutable source data (GLEIF, Companies House, etc.)
-  schemaVersion String
-  retrievedAt   DateTime
-  capturedBy    String? // User ID
-
-  createdAt DateTime @default(now())
-
-  // Audit Log
-
-
-  // Scoped Claims
-  claims FieldClaim[]
-
-  @@index([hash])
-  @@index([provider])
-  @@map("evidence_store")
-}
-
-model DocumentRegistry {
-  id            String            @id @default(uuid())
-  legalEntityId String
-  ownerType     DocumentOwnerType
-  ownerId       String // Polymorphic: LegalEntity, Stakeholder, or AuthorizedTrader ID
-  fieldNo       Int // Traceability to Master Schema Field No
-  filePath      String // S3 key or storage reference
-  fileName      String
-  mimeType      String
-  uploadedAt    DateTime          @default(now())
-  uploadedBy    String // User ID
-
-  legalEntity LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
-
-  // Scoped Claims
-  referencedInClaims FieldClaim[]
-
-  @@index([legalEntityId])
-  @@index([ownerType, ownerId])
-  @@index([fieldNo])
-  @@map("document_registry")
-}
-
-// ----------------------------------------------------------------------------
-// 1:1 Profile Modules
-// Each profile stores canonical current values for its domain
-// Original source data preserved in evidence_store
-// Provenance tracked via meta.evidence_id
-// ----------------------------------------------------------------------------
-
-model IdentityProfile {
-  id            String  @id @default(uuid())
-  legalEntityId String? @unique
-
-  // Fields 1-3, 6-10, 11-15, 26-27
-  leiValidationDate  DateTime?
-  leiCode            String?
-  legalName          String?
-  regAddressLine1    String?
-  regAddressCity     String?
-  regAddressRegion   String?
-  regAddressCountry  String?
-  regAddressPostcode String?
-  hqAddressLine1     String?
-  hqAddressCity      String?
-  hqAddressRegion    String?
-  hqAddressCountry   String?
-  hqAddressPostcode  String?
-  entityStatus       String?
-  entityCreationDate DateTime?
-
-  meta      Json     @default("{}")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  legalEntity LegalEntity? @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
-
-  // Bridge for Hybrid Adoption (Phase 2E)
-  clientLEId String?   @unique
-  clientLE   ClientLE? @relation(fields: [clientLEId], references: [id])
-
-  @@map("identity_profiles")
-}
-
-model EntityInfoProfile {
-  id            String @id @default(uuid())
-  legalEntityId String @unique
-
-  // Fields 19-25
-  gleifEntityCategory               String?
-  entityLegalFormCode               String? // ELF
-  countryOfFormation                String?
-  countryCode                       String? // ISO 3166-1
-  entityLegalFormLocalName          String?
-  entityLegalFormTransliteratedName String?
-
-  meta      Json     @default("{}")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  legalEntity LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
-
-  @@map("entity_info_profiles")
-}
-
-model LeiRegistration {
-  id            String @id @default(uuid())
-  legalEntityId String @unique
-
-  // Fields 28-35
-  leiRegistrationDate        DateTime?
-  leiRegistrationUpdateDate  DateTime?
-  leiRegistrationStatus      String?
-  leiRegistrationNextRenewal DateTime?
-  leiIssuerLei               String?
-  leiIssuer                  String?
-  leiCorroborationLevel      String?
-  leiCorroborationSource     String?
-
-  meta      Json     @default("{}")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  legalEntity LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
-
-  @@map("lei_registrations")
-}
-
-model RelationshipProfile {
-  id            String @id @default(uuid())
-  legalEntityId String @unique
-
-  // Fields 36-55
-  directParentId                 String?
-  directParent                   String?
-  directParentIdType             String?
-  directParentRelationship       String?
-  ultimateParentId               String?
-  ultimateParent                 String?
-  ultimateParentIdType           String?
-  ultimateParentRelationship     String?
-  fundManagerId                  String?
-  fundManager                    String?
-  fundManagerIdType              String?
-  fundManagerRelationship        String?
-  fundManagerRelationshipStatus  String?
-  umbrellaFundId                 String?
-  umbrellaFund                   String?
-  umbrellaFundIdType             String?
-  umbrellaFundRelationship       String?
-  umbrellaFundRelationshipStatus String?
-  leiDirectParentException       String?
-  leiUltimateParentException     String?
-
-  meta      Json     @default("{}")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  legalEntity LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
-
-  @@map("relationship_profiles")
-}
-
-model ConstitutionalProfile {
-  id            String @id @default(uuid())
-  legalEntityId String @unique
-
-  // Fields 16-18, 57-59
-  registrationAuthorityGleifId String?
-  registrationAuthority        String?
-  registeredNumber             String?
-
-  meta      Json     @default("{}")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  legalEntity LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
-
-  @@map("constitutional_profiles")
-}
-
-model ComplianceProfile {
-  id            String @id @default(uuid())
-  legalEntityId String @unique
-
-  // Fields 75-80
-  operatingCountries Json? // Array of country codes
-  highRiskCountries  Json? // Array of country codes
-  highRiskSectors    Json? // Array of sector codes
-  ukSanctionsCheck   String? // FALSE or description
-  euSanctionsCheck   String? // FALSE or description
-  ofacSanctionsCheck String? // FALSE or description
-
-  meta      Json     @default("{}")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  legalEntity LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
-
-  @@map("compliance_profiles")
-}
-
-model TaxProfile {
-  id            String @id @default(uuid())
-  legalEntityId String @unique
-
-  // Field 83 (FATCA status only)
-  // Note: Fields 82 (W-8BEN-E) and 84 (CRS Self-Certification) are document-only
-  fatcaStatus String?
-
-  meta      Json     @default("{}")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  legalEntity LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
-
-  @@map("tax_profiles")
-}
-
-model FinancialProfile {
-  id            String @id @default(uuid())
-  legalEntityId String @unique
-
-  // Fields 85-90
-  lastAccountsMadeUpTo DateTime?
-  nextAccountingDate   DateTime?
-  nextAccountsDueDate  DateTime?
-  lastStatementDate    DateTime?
-  nextStatementDate    DateTime?
-  nextStatementDueDate DateTime?
-
-  meta      Json     @default("{}")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  legalEntity LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
-
-  @@map("financial_profiles")
-}
-
-model DerivativesProfile {
-  id            String @id @default(uuid())
-  legalEntityId String @unique
-
-  // Fields 91-93, 110-112 (document references)
-  isdaMasterRegulatoryDisclosureLetterRef String? // Doc ID
-  isdaEmirClassificationLetterRef         String? // Doc ID
-  isdaUsSelfdisclosureLetterRef           String? // Doc ID
-  isdaReportingDelegationAgreementRef     String? // Doc ID
-  isdaFiaEmirReportingDelegationRef       String? // Doc ID
-  isda2013ReportingProtocolSideLetterRef  String? // Doc ID
-
-  meta      Json     @default("{}")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  legalEntity LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
-
-  @@map("derivatives_profiles")
-}
-
-model TradingProfile {
-  id            String @id @default(uuid())
-  legalEntityId String @unique
-
-  // Fields 102-103 (board minute references)
-  boardMinuteAuthorisingIndividualsRef  String? // Doc ID
-  boardMinuteAuthorisingTransactionsRef String? // Doc ID
-
-  meta      Json     @default("{}")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  legalEntity LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
-
-  @@map("trading_profiles")
-}
-
-model ContactProfile {
-  id            String @id @default(uuid())
-  legalEntityId String @unique
-
-  // Fields 107-109, 113-115
-  processAgent           String?
-  office                 String?
-  isMultibranchParty     Boolean?
-  portfolioDataEmail     String?
-  discrepancyNoticeEmail String?
-  disputeNoticeEmail     String?
-
-  meta      Json     @default("{}")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  legalEntity LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
-
-  @@map("contact_profiles")
-}
-
-// ----------------------------------------------------------------------------
-// 1:N Repeating Tables
-// Multiple instances per Legal Entity
-// ----------------------------------------------------------------------------
-
-model EntityName {
-  id            String @id @default(uuid())
-  legalEntityId String
-
-  // Fields 4-5
-  name String
-  type String // TRADING_AS, PREVIOUS, LEGAL
-
-  meta      Json     @default("{}")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  legalEntity LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
-
-  @@index([legalEntityId])
-  @@map("entity_names")
-}
-
-model IndustryClassification {
-  id            String @id @default(uuid())
-  legalEntityId String
-
-  // Field 20
-  code   String
-  scheme String // UK_SIC, etc.
-
-  meta      Json     @default("{}")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  legalEntity LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
-
-  @@index([legalEntityId])
-  @@map("industry_classifications")
-}
-
-model Stakeholder {
-  id              String          @id @default(uuid())
-  legalEntityId   String
-  stakeholderType StakeholderType
-  role            StakeholderRole
-
-  // Individual fields (Fields 65-68)
-  fullName      String?
-  dateOfBirth   DateTime?
-  placeOfBirth  String?
-  nationalities Json? // Array
-  idDocumentId  String? // FK to DocumentRegistry
-
-  // Corporate fields (Fields 69-73)
-  legalName                    String?
-  leiCode                      String?
-  registrationAuthorityGleifId String?
-  registrationAuthority        String?
-  registeredNumber             String?
-
-  meta      Json     @default("{}")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  legalEntity LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
-
-  @@index([legalEntityId])
-  @@index([role])
-  @@map("stakeholders")
-}
-
-model TaxRegistration {
-  id            String @id @default(uuid())
-  legalEntityId String
-
-  // Field 81
-  taxId   String
-  country String
-
-  meta      Json     @default("{}")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  legalEntity LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
-
-  @@index([legalEntityId])
-  @@map("tax_registrations")
-}
-
-model AuthorizedTrader {
-  id            String @id @default(uuid())
-  legalEntityId String
-
-  // Fields 96-101
-  fullName                 String
-  email                    String
-  phone                    String?
-  mobile                   String?
-  products                 Json? // Array
-  authorityDocumentId      String? // FK to DocumentRegistry (Field 100)
-  authorityAttestationText String? @db.Text
-
-  meta      Json     @default("{}")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  legalEntity LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
-
-  @@index([legalEntityId])
-  @@map("authorized_traders")
-}
-
-model Contact {
-  id            String      @id @default(uuid())
-  legalEntityId String
-  contactType   ContactType
-
-  // Fields 104-106
-  address   String? @db.Text
-  attention String?
-  email     String?
-
-  meta      Json     @default("{}")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  legalEntity LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
-
-  @@index([legalEntityId])
-  @@map("contacts")
-}
-
-model SettlementInstruction {
-  id            String @id @default(uuid())
-  legalEntityId String
-
-  // Fields 116-119
-  currency      String
-  accountName   String
-  accountNumber String
-  ibanSwift     String
-
-  meta      Json     @default("{}")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  legalEntity LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
-
-  @@index([legalEntityId])
-  @@map("settlement_instructions")
-}
-
-// MasterDataEvent removed in favor of FieldClaim journal
-
-// ---------------------------------------------------------------------------
-// Dev / Staging Feedback Tool
-// ---------------------------------------------------------------------------
-
-model FeedbackNote {
-  id          String   @id @default(uuid())
-  pageUrl     String
-  note        String   @db.Text
-  category    String   @default("general") // "bug" | "feature" | "general"
-  authorEmail String?
-  sessionTag  String?  // e.g. "Product Review 2026-02-24" — groups notes per session
-  createdAt   DateTime @default(now())
-
-  @@index([sessionTag, createdAt(sort: Desc)])
-  @@map("feedback_notes")
-}
-
-// ============================================================================
-// Scoped Claim-Based Architecture (Master Data)
-// ============================================================================
-
 enum ClaimStatus {
-  ASSERTED     // Proposed by AI or User
-  VERIFIED     // Promoted to "Authority" by LE Admin
-  REJECTED     // Explicitly dismissed
+  ASSERTED
+  VERIFIED
+  REJECTED
 }
 
 enum SourceType {
@@ -1217,156 +1090,3 @@ enum SubjectType {
   PERSON
   ORGANIZATION
 }
-
-model Person {
-  id                   String   @id @default(uuid())
-  firstName            String?
-  lastName             String?
-  middleName           String?
-  dateOfBirth          DateTime?
-  placeOfBirth         String?
-  primaryNationality   String?
-  isPublicFigure       Boolean  @default(false)
-  
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
-
-  // Claims where this person is the subject
-  claims               FieldClaim[] @relation("PersonSubject")
-  
-  // Claims where this person is the VALUE (e.g. "Director of LE X")
-  referencedInClaims   FieldClaim[] @relation("PersonValue")
-
-  @@map("persons")
-}
-
-model FieldClaim {
-  id               String      @id @default(uuid())
-  
-  // Fact Definition
-  fieldNo          Int         // Maps to FieldDefinitions.ts
-  
-  // Explicit Subject FKs (exactly one must be set)
-  subjectLeId      String?
-  subjectLe        LegalEntity? @relation("LegalEntitySubject", fields: [subjectLeId], references: [id])
-  subjectPersonId  String?
-  subjectPerson    Person?      @relation("PersonSubject", fields: [subjectPersonId], references: [id])
-  subjectOrgId     String?
-  subjectOrg       Organization? @relation("OrganizationSubject", fields: [subjectOrgId], references: [id])
-  
-  // Multi-value support (Identity keys)
-  collectionId     String?     // Logical group (e.g. "Board of Directors")
-  instanceId       String?     // Stable key per list item (e.g. "Director_A_ID")
-
-  // The Values (Polymorphic Slots)
-  valueText        String?     @db.Text
-  valueNumber      Decimal?
-  valueDate        DateTime?
-  valueJson        Json?
-  
-  // Typed Relational Slots
-  valuePersonId    String?
-  valuePerson      Person?       @relation("PersonValue", fields: [valuePersonId], references: [id])
-  valueLeId        String?
-  valueLe          LegalEntity?  @relation("LegalEntityValue", fields: [valueLeId], references: [id])
-  valueOrgId       String?
-  valueOrg         Organization? @relation("OrganizationValue", fields: [valueOrgId], references: [id])
-  valueDocId       String?
-  valueDoc         DocumentRegistry? @relation(fields: [valueDocId], references: [id])
-  
-  // Governance & Scope
-  status           ClaimStatus @default(ASSERTED)
-  ownerScopeId     String?     // Null = System-owned Baseline
-  ownerScope       Organization? @relation("OrganizationOwnerScope", fields: [ownerScopeId], references: [id])
-  
-  // Provenance
-  sourceType       SourceType
-  sourceReference  String?     // Source identifier
-  evidenceId       String?
-  evidence         EvidenceStore? @relation(fields: [evidenceId], references: [id])
-  assertedAt       DateTime    @default(now()) // System assertion time
-  
-  // Lineage & Temporal Window
-  supersedesId     String?
-  supersedes       FieldClaim? @relation("Lineage", fields: [supersedesId], references: [id])
-  supersededBy     FieldClaim[] @relation("Lineage")
-  effectiveFrom    DateTime?   // Real-world start
-  effectiveTo      DateTime?   // Real-world end
-  
-  // Audit
-  confidenceScore  Float?      // AI confidence 0-1
-  verifiedByUserId String?
-  verifiedBy       User?       @relation(fields: [verifiedByUserId], references: [id])
-  verifiedAt       DateTime?
-
-  @@index([subjectLeId, fieldNo])
-  @@index([subjectPersonId, fieldNo])
-  @@index([subjectOrgId, fieldNo])
-  @@index([ownerScopeId])
-  @@index([fieldNo])
-  @@index([supersedesId])
-  @@index([subjectLeId, ownerScopeId, fieldNo, collectionId])
-  @@index([collectionId, instanceId])
-  @@map("field_claims")
-}
-
-model MasterFieldDefinition {
-  fieldNo      Int      @id
-  fieldName    String
-  appDataType  String
-  isMultiValue Boolean  @default(false)
-  options      String[] @default([])
-  notes        String?
-  category     String?
-  modelField   String?
-  isActive     Boolean  @default(true)
-  order        Int      @default(0)
-
-  groupItems   MasterFieldGroupItem[]
-
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  @@map("master_field_definitions")
-  @@index([isActive, order])
-}
-
-model MasterFieldGroup {
-  id          String   @id @default(uuid())
-  key         String   @unique // e.g. "GROUP_HQ_ADDRESS"
-  label       String
-  description String?  // Helper text for Admin/UX
-  category    String?
-  isActive    Boolean  @default(true)
-  order       Int      @default(0)
-
-  items       MasterFieldGroupItem[]
-
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  @@map("master_field_groups")
-  @@index([isActive, order])
-  @@index([category])
-}
-
-model MasterFieldGroupItem {
-  id                  String  @id @default(uuid())
-  groupId             String
-  fieldNo             Int
-  hideFromFieldPicker Boolean @default(true)
-  order               Int     @default(0)
-
-  group               MasterFieldGroup     @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  field               MasterFieldDefinition @relation(fields: [fieldNo], references: [fieldNo], onDelete: Restrict)
-
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
-
-  @@map("master_field_group_items")
-  @@unique([groupId, fieldNo])
-  @@index([groupId, order])
-  @@index([fieldNo])
-  @@index([hideFromFieldPicker])
-}
-

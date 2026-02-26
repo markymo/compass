@@ -224,7 +224,7 @@ export async function getFieldDetail(
         });
     }
 
-    // 2. Get History (Lineage)
+    // 2. Get History (Lineage) - Force re-bundle for new Prisma client
     const claims = await prisma.fieldClaim.findMany({
         where: {
             fieldNo,
