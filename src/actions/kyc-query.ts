@@ -30,10 +30,9 @@ export async function resolveMasterData(
 
     // 0. Resolve Subject and Scope
     const clientLE = await prisma.clientLE.findUnique({
-        where: { id: leId },
-        include: { identityProfile: true }
+        where: { id: leId }
     });
-    const subjectLeId = clientLE?.identityProfile?.legalEntityId;
+    const subjectLeId = clientLE?.legalEntityId;
     const ownerScopeId = await KycStateService.resolveScopeId(leId);
 
     for (const q of questions) {
@@ -173,10 +172,9 @@ export async function getFieldDetail(
 
     if (entityType === 'CLIENT_LE') {
         const clientLE = await prisma.clientLE.findUnique({
-            where: { id: entityId },
-            include: { identityProfile: true }
+            where: { id: entityId }
         });
-        subjectLeId = clientLE?.identityProfile?.legalEntityId || "";
+        subjectLeId = clientLE?.legalEntityId || "";
         ownerScopeId = (await KycStateService.resolveScopeId(entityId)) || undefined;
     }
 
@@ -500,10 +498,9 @@ export async function getWorkbenchFields(leId: string): Promise<WorkbenchField[]
 
     // Resolve Subject and Scope once for the whole leId
     const clientLE = await prisma.clientLE.findUnique({
-        where: { id: leId },
-        include: { identityProfile: true }
+        where: { id: leId }
     });
-    const subjectLeId = clientLE?.identityProfile?.legalEntityId || "";
+    const subjectLeId = clientLE?.legalEntityId || "";
     const ownerScopeId = await KycStateService.resolveScopeId(leId);
 
     if (!subjectLeId) return [];

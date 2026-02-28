@@ -1,11 +1,8 @@
-import { PrismaClient } from '@prisma/client'
+import { PrismaClient } from '@prisma/client';
+import { legacyAuditExtension } from './prisma-audit';
 
 const prismaClientSingleton = () => {
-    // In development, Neon can get exhausted by hot-reload connections. 
-    // Usually connection_limit=1 in the connection string helps, but let's just log init.
-    // console.log("Initializing new PrismaClient..."); 
-    // Triggering client reload...
-    return new PrismaClient()
+    return new PrismaClient().$extends(legacyAuditExtension);
 }
 
 declare const globalThis: {

@@ -13,6 +13,7 @@ import { Prisma } from '@prisma/client';
 import { FieldCandidate } from './normalization/types';
 import { KycLoader } from './KycLoader';
 import { FieldClaimService } from '@/lib/kyc/FieldClaimService';
+import { KycStateService } from '@/lib/kyc/KycStateService';
 import { SourceType, ClaimStatus } from '@prisma/client';
 
 const loader = new KycLoader();
@@ -107,66 +108,8 @@ export class KycWriteService {
             return false;
         }
 
-        // 3. Perform Update (Atomic) with Master Data Event
-        await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-            const prismaClientKey = this.getPrismaClientKey(def.category || "");
-            // @ts-ignore
-            const delegate = tx[prismaClientKey];
-
-            // Fetch current record for meta merging AND old value for event log
-            let record;
-            if (def.isMultiValue) {
-                record = await delegate.findUnique({ where: { id: rowId } });
-            } else {
-                record = await delegate.findUnique({ where: { [idField]: resolvedEntityId } });
-            }
-
-            const modelField = (def as any).modelField!;
-            const oldValue = record ? record[modelField] : null;
-
-            // Create new meta entry
-            const newMetaEntry = createMetaEntry(fieldNo, provenance.source, {
-                evidence_id: provenance.evidenceId,
-                verified_by: provenance.verifiedBy,
-                confidence: provenance.confidence,
-            });
-
-            // Merge meta
-            const currentMeta = (record?.meta && typeof record.meta === 'object' ? record.meta : {}) as Record<string, MetaEntry>;
-            const updatedMeta = {
-                ...currentMeta,
-                [modelField]: newMetaEntry,
-            };
-
-            if (def.isMultiValue) {
-                await delegate.update({
-                    where: { id: rowId },
-                    data: {
-                        [modelField]: value,
-                        meta: updatedMeta,
-                    },
-                });
-            } else {
-                // Upsert for 1:1 Profile
-                if (record) {
-                    await delegate.update({
-                        where: { [idField]: resolvedEntityId },
-                        data: {
-                            [modelField]: value,
-                            meta: updatedMeta,
-                        },
-                    });
-                } else {
-                    await delegate.create({
-                        data: {
-                            [idField]: resolvedEntityId,
-                            [modelField]: value,
-                            meta: { [modelField]: newMetaEntry },
-                        },
-                    });
-                }
-            }
-        });
+        // 3. Perform Update is now deprecated for legacy tables.
+        // We rely entirely on Clause 4 (FieldClaim emission) for data persistence.
 
         // 4. Emit FieldClaim for Provenance Tracking
         try {
@@ -181,12 +124,15 @@ export class KycWriteService {
                     (provenance.source as any) === 'GLEIF' ? SourceType.GLEIF :
                         (provenance.source as any) === 'COMPANIES_HOUSE' ? SourceType.COMPANIES_HOUSE :
                             SourceType.SYSTEM_DERIVED,
-                sourceReference: provenance.reason, // Use reason as ref for manual overrides if needed
+                sourceReference: provenance.reason,
                 evidenceId: provenance.evidenceId,
                 confidenceScore: provenance.confidence,
                 status: (provenance.source as any) === 'USER_INPUT' ? ClaimStatus.VERIFIED : ClaimStatus.ASSERTED,
                 verifiedByUserId: (provenance as any).verifiedBy || (provenance as any).verified_by || undefined,
-                assertedAt: new Date()
+                assertedAt: new Date(),
+                // Repeating Field Contract:
+                collectionId: def.isMultiValue ? (def.category || 'GENERAL') : undefined,
+                instanceId: rowId || undefined
             });
         } catch (err) {
             console.error(`[KycWriteService] Failed to emit FieldClaim for field ${fieldNo}:`, err);
@@ -231,59 +177,8 @@ export class KycWriteService {
             if ((def as any).modelField) nameToNo.set((def as any).modelField, def.fieldNo);
         });
 
-        // 3. Atomically update all fields
-        await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-            const prismaClientKey = this.getPrismaClientKey(modelName);
-            // @ts-ignore
-            const delegate = tx[prismaClientKey];
-            const idField = 'legalEntityId';
-
-            let record;
-            if (rowId) {
-                record = await delegate.findUnique({ where: { id: rowId } });
-            } else {
-                record = await delegate.findUnique({ where: { [idField]: resolvedEntityId } });
-            }
-
-            const currentMeta = (record?.meta && typeof record.meta === 'object' ? record.meta : {}) as Record<string, MetaEntry>;
-            const updatedMeta = { ...currentMeta };
-            const dataToUpdate: Record<string, any> = { ...updates };
-
-            for (const [fieldName, value] of Object.entries(updates)) {
-                const fieldNo = nameToNo.get(fieldName);
-                if (!fieldNo) continue;
-
-                const oldValue = record ? record[fieldName] : null;
-
-
-                // Meta
-                updatedMeta[fieldName] = createMetaEntry(fieldNo, 'USER_INPUT', {
-                    verified_by: userId,
-                    confidence: 1.0
-                });
-            }
-
-            dataToUpdate.meta = updatedMeta;
-
-            if (rowId) {
-                await delegate.update({
-                    where: { id: rowId },
-                    data: dataToUpdate,
-                });
-            } else if (record) {
-                await delegate.update({
-                    where: { [idField]: resolvedEntityId },
-                    data: dataToUpdate,
-                });
-            } else {
-                await delegate.create({
-                    data: {
-                        [idField]: resolvedEntityId,
-                        ...dataToUpdate,
-                    },
-                });
-            }
-        });
+        // 3. Perform Update is now deprecated for legacy tables.
+        // We rely entirely on individual FieldClaim assertions for data persistence.
 
         // 4. Propagate changes (sequential for now)
         for (const [fieldName, value] of Object.entries(updates)) {
@@ -361,46 +256,28 @@ export class KycWriteService {
      * Creates logic: ClientLE <-(clientLEId)- IdentityProfile -(legalEntityId)-> LegalEntity
      */
     async ensureLegalEntity(clientLEId: string): Promise<string> {
-        // 1. Check if IdentityProfile exists for this ClientLE
-        // @ts-ignore
-        const identityProfile = await prisma.identityProfile.findUnique({
-            where: { clientLEId }
+        // 1. Check if ClientLE already has a direct link
+        const clientLE = await prisma.clientLE.findUnique({
+            where: { id: clientLEId },
+            select: { legalEntityId: true }
         });
 
-        // 2. If IdentityProfile exists and has legalEntityId, return it
-        if (identityProfile && identityProfile.legalEntityId) {
-            return identityProfile.legalEntityId;
+        if (clientLE?.legalEntityId) {
+            return clientLE.legalEntityId;
         }
 
-        // 3. If no IdentityProfile or no legalEntityId, we need to create/link
+        // 2. Create and link directly
         return await prisma.$transaction(async (tx) => {
-            // Create new LegalEntity
-            // We need a reference. Use ClientLE name or fallback to ID if we can't easily fetch name here.
-            // For now, generate a reference.
-            // @ts-ignore
             const newLegalEntity = await tx.legalEntity.create({
                 data: {
-                    reference: `REF-${clientLEId.substring(0, 8).toUpperCase()}`, // Temporary reference
+                    reference: `REF-${clientLEId.substring(0, 8).toUpperCase()}`,
                 }
             });
 
-            if (identityProfile) {
-                // Link existing IdentityProfile
-                // @ts-ignore
-                await tx.identityProfile.update({
-                    where: { id: identityProfile.id },
-                    data: { legalEntityId: newLegalEntity.id }
-                });
-            } else {
-                // Create new IdentityProfile linking both
-                // @ts-ignore
-                await tx.identityProfile.create({
-                    data: {
-                        clientLEId: clientLEId,
-                        legalEntityId: newLegalEntity.id
-                    }
-                });
-            }
+            await tx.clientLE.update({
+                where: { id: clientLEId },
+                data: { legalEntityId: newLegalEntity.id }
+            });
 
             return newLegalEntity.id;
         });
@@ -427,19 +304,16 @@ export class KycWriteService {
         let evalEntityType = entityType; // 'LEGAL_ENTITY' or 'CLIENT_LE'
 
         // If CLIENT_LE, we need to bridge to LegalEntity for non-IdentityProfile models
-        if (entityType === 'CLIENT_LE' && def.category !== 'IdentityProfile') {
-            // Try to find linked IdentityProfile to get legalEntityId
-            // @ts-ignore
-            const identity = await prisma.identityProfile.findUnique({ where: { clientLEId: entityId } });
+        if (entityType === 'CLIENT_LE') {
+            const clientLE = await prisma.clientLE.findUnique({
+                where: { id: entityId },
+                select: { legalEntityId: true }
+            });
 
-            if (identity && identity.legalEntityId) {
-                evalEntityId = identity.legalEntityId;
+            if (clientLE?.legalEntityId) {
+                evalEntityId = clientLE.legalEntityId;
                 evalEntityType = 'LEGAL_ENTITY';
             } else {
-                // No LegalEntity link exists yet.
-                // This means the target profile (e.g. EntityInfo) surely doesn't exist.
-                // We can skip the DB lookup and return PROPOSE_UPDATE (unless rule blocked? No, rules need current value)
-                // Treat as "No Record"
                 return {
                     action: 'PROPOSE_UPDATE',
                     reason: 'New record (Legal Entity will be created on write)',
@@ -449,24 +323,14 @@ export class KycWriteService {
             }
         }
 
-        // Fetch current state
-        const prismaClientKey = this.getPrismaClientKey(def.category || "");
-        // @ts-ignore
-        const delegate = prisma[prismaClientKey];
-        const idField = evalEntityType === 'CLIENT_LE' ? 'clientLEId' : 'legalEntityId';
+        // 1. Fetch current state via KycStateService
+        const derived = await KycStateService.getAuthoritativeValue(
+            { subjectLeId: evalEntityId },
+            candidate.fieldNo
+        );
 
-        let record;
-        if (def.isMultiValue) {
-            return { action: 'BLOCKED', reason: 'Repeating field evaluation not yet supported' };
-        } else {
-            record = await delegate.findUnique({ where: { [idField]: evalEntityId } });
-        }
-
-        const currentMeta = (record?.meta as Record<string, MetaEntry>) || {};
-        const modelField = (def as any).modelField!;
-        const fieldMeta = currentMeta[modelField];
-        const currentValue = record ? record[modelField] : null;
-        const currentSource = fieldMeta?.source;
+        const currentValue = derived?.value || null;
+        const currentSource = derived?.sourceType;
 
         // 1. Check if values are identical
         const valuesAreEqual = (a: any, b: any) => {
@@ -487,7 +351,7 @@ export class KycWriteService {
             return false;
         };
 
-        if (record && valuesAreEqual(record[modelField], candidate.value)) {
+        if (valuesAreEqual(currentValue, candidate.value)) {
             return {
                 action: 'NO_CHANGE',
                 currentValue,
@@ -502,7 +366,7 @@ export class KycWriteService {
             def,
             candidate.source,
             undefined, // rowId
-            record,
+            undefined, // preFetchedRecord (deprecated)
             evalEntityType
         );
 
@@ -522,29 +386,15 @@ export class KycWriteService {
         preFetchedRecord?: any,
         entityType: 'LEGAL_ENTITY' | 'CLIENT_LE' = 'LEGAL_ENTITY'
     ): Promise<{ allowed: boolean; reason: string }> {
-        let record = preFetchedRecord;
-        const idField = entityType === 'CLIENT_LE' ? 'clientLEId' : 'legalEntityId';
+        // Resolve authoritative state via KycStateService
+        const derived = await KycStateService.getAuthoritativeValue(
+            { subjectLeId: entityId },
+            def.fieldNo
+        );
 
-        if (!record) {
-            const prismaClientKey = this.getPrismaClientKey(def.category || "");
-            // @ts-ignore
-            const delegate = prisma[prismaClientKey];
-            if (def.isMultiValue) {
-                record = await delegate.findUnique({ where: { id: rowId } });
-            } else {
-                record = await delegate.findUnique({ where: { [idField]: entityId } });
-            }
-        }
+        if (!derived) return { allowed: true, reason: 'No existing record' };
 
-        if (!record) return { allowed: true, reason: 'No existing record' };
-
-        const currentMeta = (record.meta as Record<string, MetaEntry>) || {};
-        const modelField = (def as any).modelField!;
-        const fieldMeta = currentMeta[modelField];
-
-        if (!fieldMeta) return { allowed: true, reason: 'No existing metadata' };
-
-        const existingSource = fieldMeta.source as ProvenanceSource;
+        const existingSource = derived.sourceType as ProvenanceSource;
 
         // RULE 1: User Input is sticky against automated feeds
         if (existingSource === 'USER_INPUT' && incomingSource === 'GLEIF') {
@@ -589,21 +439,10 @@ export class KycWriteService {
         initialMeta: any,
         entityType: 'LEGAL_ENTITY' | 'CLIENT_LE' = 'LEGAL_ENTITY'
     ): Promise<string> {
-        const prismaClientKey = this.getPrismaClientKey(modelName);
-        // @ts-ignore
-        const delegate = prisma[prismaClientKey];
-        if (!delegate) throw new Error(`Model ${modelName} not found`);
-
-        const idField = entityType === 'CLIENT_LE' ? 'clientLEId' : 'legalEntityId';
-
-        const result = await delegate.create({
-            data: {
-                [idField]: entityId,
-                ...initialData,
-                meta: initialMeta,
-            },
-        });
-        return result.id;
+        // In the fully dynamic system, "creating a row" just means generating a new instanceId
+        // and asserting the initial set of claims.
+        // For now, we return a new UUID to be used as instanceId.
+        return crypto.randomUUID();
     }
     /**
      * Propagates a Master Data change to all linked Questions in active Engagements.

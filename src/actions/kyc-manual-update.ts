@@ -33,10 +33,9 @@ export async function updateFieldManually(
 
         // 1. Resolve Subject and Scope
         const clientLE = await prisma.clientLE.findUnique({
-            where: { id: clientLEId },
-            include: { identityProfile: true }
+            where: { id: clientLEId }
         });
-        const subjectLeId = clientLE?.identityProfile?.legalEntityId;
+        const subjectLeId = clientLE?.legalEntityId;
         const ownerScopeId = await KycStateService.resolveScopeId(clientLEId);
 
         if (!subjectLeId) {
@@ -51,7 +50,6 @@ export async function updateFieldManually(
             ownerScopeId,
             sourceType: SourceType.USER_INPUT,
             sourceReference: reason,
-            supersedesId: rowId, // If rowId is provided, it's the claim being superseded
             collectionId: def.isMultiValue ? (def.category || 'GENERAL') : undefined,
             instanceId: rowId // For multi-value, rowId is the stable instance key
         };

@@ -16,12 +16,47 @@ export function FieldGlossaryTable({ initialFields }: FieldGlossaryTableProps) {
     const [search, setSearch] = useState("");
     const [selectedField, setSelectedField] = useState<any>(null);
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+    const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null);
 
-    const filteredFields = initialFields.filter(f =>
+    const filteredFields = [...initialFields].filter(f =>
         f.fieldName.toLowerCase().includes(search.toLowerCase()) ||
         (f.category || "").toLowerCase().includes(search.toLowerCase()) ||
         f.fieldNo.toString() === search
     );
+
+    if (sortConfig !== null) {
+        filteredFields.sort((a, b) => {
+            let aValue = a[sortConfig.key];
+            let bValue = b[sortConfig.key];
+
+            // Handle special cases
+            if (sortConfig.key === 'fieldName') {
+                aValue = a.fieldName.toLowerCase();
+                bValue = b.fieldName.toLowerCase();
+            }
+
+            if (aValue < bValue) {
+                return sortConfig.direction === 'asc' ? -1 : 1;
+            }
+            if (aValue > bValue) {
+                return sortConfig.direction === 'asc' ? 1 : -1;
+            }
+            return 0;
+        });
+    }
+
+    const requestSort = (key: string) => {
+        let direction: 'asc' | 'desc' = 'asc';
+        if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+            direction = 'desc';
+        }
+        setSortConfig({ key, direction });
+    };
+
+    const getSortIndicator = (key: string) => {
+        if (!sortConfig || sortConfig.key !== key) return null;
+        return sortConfig.direction === 'asc' ? " ↑" : " ↓";
+    };
 
     const handleEdit = (field: any) => {
         setSelectedField(field);
@@ -47,11 +82,36 @@ export function FieldGlossaryTable({ initialFields }: FieldGlossaryTableProps) {
                 <Table>
                     <TableHeader>
                         <TableRow className="bg-slate-50 dark:bg-slate-900/50">
-                            <TableHead className="w-[80px]">No.</TableHead>
-                            <TableHead>Field Name & Description</TableHead>
-                            <TableHead>Category</TableHead>
-                            <TableHead>Data Type</TableHead>
-                            <TableHead>Status</TableHead>
+                            <TableHead
+                                className="w-[80px] cursor-pointer hover:text-indigo-600 transition-colors"
+                                onClick={() => requestSort('fieldNo')}
+                            >
+                                No.{getSortIndicator('fieldNo')}
+                            </TableHead>
+                            <TableHead
+                                className="cursor-pointer hover:text-indigo-600 transition-colors"
+                                onClick={() => requestSort('fieldName')}
+                            >
+                                Field Name & Description{getSortIndicator('fieldName')}
+                            </TableHead>
+                            <TableHead
+                                className="cursor-pointer hover:text-indigo-600 transition-colors"
+                                onClick={() => requestSort('category')}
+                            >
+                                Category{getSortIndicator('category')}
+                            </TableHead>
+                            <TableHead
+                                className="cursor-pointer hover:text-indigo-600 transition-colors"
+                                onClick={() => requestSort('appDataType')}
+                            >
+                                Data Type{getSortIndicator('appDataType')}
+                            </TableHead>
+                            <TableHead
+                                className="cursor-pointer hover:text-indigo-600 transition-colors"
+                                onClick={() => requestSort('isActive')}
+                            >
+                                Status{getSortIndicator('isActive')}
+                            </TableHead>
                             <TableHead className="text-right">Actions</TableHead>
                         </TableRow>
                     </TableHeader>

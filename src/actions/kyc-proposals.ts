@@ -8,6 +8,7 @@ import { FieldProposal } from "@/domain/kyc/types/ProposalTypes";
 import { getFieldDefinition } from "@/domain/kyc/FieldDefinitions";
 import { revalidatePath } from "next/cache";
 import prisma from "@/lib/prisma";
+import { KycStateService } from "@/lib/kyc/KycStateService";
 
 const evidenceService = new EvidenceService();
 const kycWriteService = new KycWriteService();
@@ -22,17 +23,25 @@ const kycWriteService = new KycWriteService();
  */
 export async function refreshGleifProposals(legalEntityId: string): Promise<{ success: boolean; proposals?: FieldProposal[]; message?: string }> {
     try {
-        // 1. Get LEI from DB
-        const le = await prisma.clientLE.findUnique({
+        // 1. Get Canonical LEI from KycStateService (Field 2)
+        const clientLE = await prisma.clientLE.findUnique({
             where: { id: legalEntityId },
-            // @ts-ignore
-            include: { identityProfile: true }
-        }) as any; // Cast to specific type if generated, or any to bypass stale types
+            select: { legalEntityId: true, lei: true }
+        });
 
-        if (!le) return { success: false, message: "Legal Entity not found" };
+        if (!clientLE) return { success: false, message: "Legal Entity not found" };
 
-        // Prefer LEI from IdentityProfile (Canonical), fallback to ClientLE (Legacy/Input)
-        const lei = le.identityProfile?.leiCode || le.lei;
+        let lei = clientLE.lei; // Fallback to denormalized legacy field
+
+        if (clientLE.legalEntityId) {
+            const derivedLei = await KycStateService.getAuthoritativeValue(
+                { subjectLeId: clientLE.legalEntityId },
+                2 // LEI Field No
+            );
+            if (derivedLei?.value) {
+                lei = derivedLei.value;
+            }
+        }
 
         if (!lei) {
             return { success: false, message: "No LEI found for this entity." };

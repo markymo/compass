@@ -253,10 +253,9 @@ export async function updateStandingDataProperty(clientLEId: string, propertyKey
 
         // 2. Resolve Subject and Scope
         const clientLE = await prisma.clientLE.findUnique({
-            where: { id: clientLEId },
-            include: { identityProfile: true }
+            where: { id: clientLEId }
         });
-        const subjectLeId = clientLE?.identityProfile?.legalEntityId;
+        const subjectLeId = clientLE?.legalEntityId;
         const ownerScopeId = await KycStateService.resolveScopeId(clientLEId);
 
         if (!subjectLeId) return { success: false, error: "Subject not resolved" };
@@ -502,18 +501,15 @@ export async function createFIEngagement(clientLEId: string, fiName: string) {
  * This is used for the Questionnaire Mapper to show existing values.
  */
 export async function getFullMasterData(clientLEId: string) {
-    // 1. Fetch ClientLE and IdentityProfile (link to LegalEntity)
+    // 1. Fetch ClientLE (link to LegalEntity)
     const clientLE = await prisma.clientLE.findUnique({
-        where: { id: clientLEId },
-        include: {
-            identityProfile: true,
-        }
+        where: { id: clientLEId }
     });
 
     if (!clientLE) return { success: false, data: {} };
 
     // 2. Resolve Subject and Scope
-    const subjectLeId = clientLE.identityProfile?.legalEntityId;
+    const subjectLeId = clientLE.legalEntityId;
     const ownerScopeId = await KycStateService.resolveScopeId(clientLEId);
 
     const flattened: Record<number, { value: any, source?: string, sourceReference?: string }> = {};

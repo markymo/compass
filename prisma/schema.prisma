@@ -181,7 +181,6 @@ model ClientLE {
   leActivities           LEActivity[]
   memberships            Membership[]
   standingDataSections   StandingDataSection[]
-  identityProfile        IdentityProfile?
   masterFieldAssignments MasterFieldAssignment[]
 
   @@index([legalEntityId])
@@ -473,32 +472,14 @@ model LEActivity {
 }
 
 model LegalEntity {
-  id                      String                   @id @default(uuid())
-  reference               String                   @unique
-  createdAt               DateTime                 @default(now())
-  updatedAt               DateTime                 @updatedAt
-  clientLEs               ClientLE[]
-  authorizedTraders       AuthorizedTrader[]
-  complianceProfile       ComplianceProfile?
-  constitutionalProfile   ConstitutionalProfile?
-  contactProfile          ContactProfile?
-  contacts                Contact[]
-  derivativesProfile      DerivativesProfile?
-  documents               DocumentRegistry[]
-  entityInfoProfile       EntityInfoProfile?
-  entityNames             EntityName[]
-  claims                  FieldClaim[]             @relation("LegalEntitySubject")
-  referencedInClaims      FieldClaim[]             @relation("LegalEntityValue")
-  financialProfile        FinancialProfile?
-  identityProfile         IdentityProfile?
-  industryClassifications IndustryClassification[]
-  leiRegistration         LeiRegistration?
-  relationshipProfile     RelationshipProfile?
-  settlementInstructions  SettlementInstruction[]
-  stakeholders            Stakeholder[]
-  taxProfile              TaxProfile?
-  taxRegistrations        TaxRegistration[]
-  tradingProfile          TradingProfile?
+  id                 String           @id @default(uuid())
+  reference          String           @unique
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  clientLEs          ClientLE[]
+  documents          DocumentRegistry[]
+  claims             FieldClaim[]     @relation("LegalEntitySubject")
+  referencedInClaims FieldClaim[]     @relation("LegalEntityValue")
 
   @@map("legal_entities")
 }
@@ -539,325 +520,11 @@ model DocumentRegistry {
   @@map("document_registry")
 }
 
-model IdentityProfile {
-  id                 String       @id @default(uuid())
-  legalEntityId      String?      @unique
-  leiValidationDate  DateTime?
-  leiCode            String?
-  legalName          String?
-  regAddressLine1    String?
-  regAddressCity     String?
-  regAddressRegion   String?
-  regAddressCountry  String?
-  regAddressPostcode String?
-  hqAddressLine1     String?
-  hqAddressCity      String?
-  hqAddressRegion    String?
-  hqAddressCountry   String?
-  hqAddressPostcode  String?
-  entityStatus       String?
-  entityCreationDate DateTime?
-  meta               Json         @default("{}")
-  createdAt          DateTime     @default(now())
-  updatedAt          DateTime     @updatedAt
-  clientLEId         String?      @unique
-  clientLE           ClientLE?    @relation(fields: [clientLEId], references: [id])
-  legalEntity        LegalEntity? @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
 
-  @@map("identity_profiles")
-}
 
-model EntityInfoProfile {
-  id                                String      @id @default(uuid())
-  legalEntityId                     String      @unique
-  gleifEntityCategory               String?
-  entityLegalFormCode               String?
-  countryOfFormation                String?
-  countryCode                       String?
-  entityLegalFormLocalName          String?
-  entityLegalFormTransliteratedName String?
-  meta                              Json        @default("{}")
-  createdAt                         DateTime    @default(now())
-  updatedAt                         DateTime    @updatedAt
-  legalEntity                       LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
 
-  @@map("entity_info_profiles")
-}
 
-model LeiRegistration {
-  id                         String      @id @default(uuid())
-  legalEntityId              String      @unique
-  leiRegistrationDate        DateTime?
-  leiRegistrationUpdateDate  DateTime?
-  leiRegistrationStatus      String?
-  leiRegistrationNextRenewal DateTime?
-  leiIssuerLei               String?
-  leiIssuer                  String?
-  leiCorroborationLevel      String?
-  leiCorroborationSource     String?
-  meta                       Json        @default("{}")
-  createdAt                  DateTime    @default(now())
-  updatedAt                  DateTime    @updatedAt
-  legalEntity                LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
 
-  @@map("lei_registrations")
-}
-
-model RelationshipProfile {
-  id                             String      @id @default(uuid())
-  legalEntityId                  String      @unique
-  directParentId                 String?
-  directParent                   String?
-  directParentIdType             String?
-  directParentRelationship       String?
-  ultimateParentId               String?
-  ultimateParent                 String?
-  ultimateParentIdType           String?
-  ultimateParentRelationship     String?
-  fundManagerId                  String?
-  fundManager                    String?
-  fundManagerIdType              String?
-  fundManagerRelationship        String?
-  fundManagerRelationshipStatus  String?
-  umbrellaFundId                 String?
-  umbrellaFund                   String?
-  umbrellaFundIdType             String?
-  umbrellaFundRelationship       String?
-  umbrellaFundRelationshipStatus String?
-  leiDirectParentException       String?
-  leiUltimateParentException     String?
-  meta                           Json        @default("{}")
-  createdAt                      DateTime    @default(now())
-  updatedAt                      DateTime    @updatedAt
-  legalEntity                    LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
-
-  @@map("relationship_profiles")
-}
-
-model ConstitutionalProfile {
-  id                           String      @id @default(uuid())
-  legalEntityId                String      @unique
-  registrationAuthorityGleifId String?
-  registrationAuthority        String?
-  registeredNumber             String?
-  meta                         Json        @default("{}")
-  createdAt                    DateTime    @default(now())
-  updatedAt                    DateTime    @updatedAt
-  legalEntity                  LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
-
-  @@map("constitutional_profiles")
-}
-
-model ComplianceProfile {
-  id                 String      @id @default(uuid())
-  legalEntityId      String      @unique
-  operatingCountries Json?
-  highRiskCountries  Json?
-  highRiskSectors    Json?
-  ukSanctionsCheck   String?
-  euSanctionsCheck   String?
-  ofacSanctionsCheck String?
-  meta               Json        @default("{}")
-  createdAt          DateTime    @default(now())
-  updatedAt          DateTime    @updatedAt
-  legalEntity        LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
-
-  @@map("compliance_profiles")
-}
-
-model TaxProfile {
-  id            String      @id @default(uuid())
-  legalEntityId String      @unique
-  fatcaStatus   String?
-  meta          Json        @default("{}")
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-  legalEntity   LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
-
-  @@map("tax_profiles")
-}
-
-model FinancialProfile {
-  id                   String      @id @default(uuid())
-  legalEntityId        String      @unique
-  lastAccountsMadeUpTo DateTime?
-  nextAccountingDate   DateTime?
-  nextAccountsDueDate  DateTime?
-  lastStatementDate    DateTime?
-  nextStatementDate    DateTime?
-  nextStatementDueDate DateTime?
-  meta                 Json        @default("{}")
-  createdAt            DateTime    @default(now())
-  updatedAt            DateTime    @updatedAt
-  legalEntity          LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
-
-  @@map("financial_profiles")
-}
-
-model DerivativesProfile {
-  id                                      String      @id @default(uuid())
-  legalEntityId                           String      @unique
-  isdaMasterRegulatoryDisclosureLetterRef String?
-  isdaEmirClassificationLetterRef         String?
-  isdaUsSelfdisclosureLetterRef           String?
-  isdaReportingDelegationAgreementRef     String?
-  isdaFiaEmirReportingDelegationRef       String?
-  isda2013ReportingProtocolSideLetterRef  String?
-  meta                                    Json        @default("{}")
-  createdAt                               DateTime    @default(now())
-  updatedAt                               DateTime    @updatedAt
-  legalEntity                             LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
-
-  @@map("derivatives_profiles")
-}
-
-model TradingProfile {
-  id                                    String      @id @default(uuid())
-  legalEntityId                         String      @unique
-  boardMinuteAuthorisingIndividualsRef  String?
-  boardMinuteAuthorisingTransactionsRef String?
-  meta                                  Json        @default("{}")
-  createdAt                             DateTime    @default(now())
-  updatedAt                             DateTime    @updatedAt
-  legalEntity                           LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
-
-  @@map("trading_profiles")
-}
-
-model ContactProfile {
-  id                     String      @id @default(uuid())
-  legalEntityId          String      @unique
-  processAgent           String?
-  office                 String?
-  isMultibranchParty     Boolean?
-  portfolioDataEmail     String?
-  discrepancyNoticeEmail String?
-  disputeNoticeEmail     String?
-  meta                   Json        @default("{}")
-  createdAt              DateTime    @default(now())
-  updatedAt              DateTime    @updatedAt
-  legalEntity            LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
-
-  @@map("contact_profiles")
-}
-
-model EntityName {
-  id            String      @id @default(uuid())
-  legalEntityId String
-  name          String
-  type          String
-  meta          Json        @default("{}")
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-  legalEntity   LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
-
-  @@index([legalEntityId])
-  @@map("entity_names")
-}
-
-model IndustryClassification {
-  id            String      @id @default(uuid())
-  legalEntityId String
-  code          String
-  scheme        String
-  meta          Json        @default("{}")
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-  legalEntity   LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
-
-  @@index([legalEntityId])
-  @@map("industry_classifications")
-}
-
-model Stakeholder {
-  id                           String          @id @default(uuid())
-  legalEntityId                String
-  stakeholderType              StakeholderType
-  role                         StakeholderRole
-  fullName                     String?
-  dateOfBirth                  DateTime?
-  placeOfBirth                 String?
-  nationalities                Json?
-  idDocumentId                 String?
-  legalName                    String?
-  leiCode                      String?
-  registrationAuthorityGleifId String?
-  registrationAuthority        String?
-  registeredNumber             String?
-  meta                         Json            @default("{}")
-  createdAt                    DateTime        @default(now())
-  updatedAt                    DateTime        @updatedAt
-  legalEntity                  LegalEntity     @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
-
-  @@index([legalEntityId])
-  @@index([role])
-  @@map("stakeholders")
-}
-
-model TaxRegistration {
-  id            String      @id @default(uuid())
-  legalEntityId String
-  taxId         String
-  country       String
-  meta          Json        @default("{}")
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-  legalEntity   LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
-
-  @@index([legalEntityId])
-  @@map("tax_registrations")
-}
-
-model AuthorizedTrader {
-  id                       String      @id @default(uuid())
-  legalEntityId            String
-  fullName                 String
-  email                    String
-  phone                    String?
-  mobile                   String?
-  products                 Json?
-  authorityDocumentId      String?
-  authorityAttestationText String?
-  meta                     Json        @default("{}")
-  createdAt                DateTime    @default(now())
-  updatedAt                DateTime    @updatedAt
-  legalEntity              LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
-
-  @@index([legalEntityId])
-  @@map("authorized_traders")
-}
-
-model Contact {
-  id            String      @id @default(uuid())
-  legalEntityId String
-  contactType   ContactType
-  address       String?
-  attention     String?
-  email         String?
-  meta          Json        @default("{}")
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-  legalEntity   LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
-
-  @@index([legalEntityId])
-  @@map("contacts")
-}
-
-model SettlementInstruction {
-  id            String      @id @default(uuid())
-  legalEntityId String
-  currency      String
-  accountName   String
-  accountNumber String
-  ibanSwift     String
-  meta          Json        @default("{}")
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-  legalEntity   LegalEntity @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
-
-  @@index([legalEntityId])
-  @@map("settlement_instructions")
-}
 
 model FeedbackNote {
   id          String    @id @default(uuid())
@@ -1047,29 +714,8 @@ enum EvidenceProvider {
 
 enum DocumentOwnerType {
   LEGAL_ENTITY
-  STAKEHOLDER
-  AUTHORIZED_TRADER
 }
 
-enum StakeholderType {
-  INDIVIDUAL
-  CORPORATE
-}
-
-enum StakeholderRole {
-  DIRECTOR
-  UBO
-  CONTROLLER
-}
-
-enum ContactType {
-  NOTICE
-  PROCESS_AGENT
-  OFFICE
-  PORTFOLIO_DATA
-  DISCREPANCY
-  DISPUTE
-}
 
 enum ClaimStatus {
   ASSERTED

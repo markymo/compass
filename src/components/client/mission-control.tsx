@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { ProgressTracker } from "@/components/shared/progress-tracker";
 import { DashboardMetric } from "@/lib/metrics-calc";
-import { ACTIVITY_META, LEActivityTypeValue } from "@/lib/le-activity";
+import { ACTIVITY_META, LEActivityTypeValue } from "@/lib/le-activity-schema";
 
 // Map icon name strings to Lucide components
 const ICON_MAP: Record<string, React.ElementType> = {

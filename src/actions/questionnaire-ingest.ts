@@ -38,12 +38,11 @@ export async function uploadAndExtractQuestionnaire(formData: FormData, clientLE
         // 2. Create Document Registry Record (Phase 2 Model)
         // We link it to the LEGAL ENTITY of the ClientLE (Bridge lookup)
         const clientLE = await prisma.clientLE.findUnique({
-            where: { id: clientLEId },
-            include: { identityProfile: true } // Bridge to LE
+            where: { id: clientLEId }
         });
 
         // Resolve Owner (LegalEntity)
-        let ownerId = clientLE?.identityProfile?.legalEntityId;
+        let ownerId = clientLE?.legalEntityId;
 
         // Safety Fallback: If no Phase 2 LE exists yet, we can't create a DocumentRegistry record easily
         // because it foreign keys to LegalEntity. 

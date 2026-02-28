@@ -14,7 +14,7 @@ const prismaMock = {
     $disconnect: vi.fn(),
     user: { ...modelMock },
     kycField: { ...modelMock },
-    identityProfile: { ...modelMock },
+
     legalEntity: { ...modelMock },
     // Add a generic fallback or just type cast in tests if needed
 }

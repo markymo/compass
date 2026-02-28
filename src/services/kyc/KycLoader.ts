@@ -1,11 +1,8 @@
 import prisma from '@/lib/prisma';
-import {
-    getFieldDefinition,
-    type FieldDefinition
-} from '@/domain/kyc/FieldDefinitions';
+import { getFieldDefinition } from '@/domain/kyc/FieldDefinitions';
 import { FIELD_GROUPS } from '@/domain/kyc/FieldGroups';
 import { ProvenanceSource } from '@/domain/kyc/types/ProvenanceTypes';
-import { MetaEntry } from '@/domain/kyc/schemas/MetaSchema';
+import { KycStateService } from '@/lib/kyc/KycStateService';
 
 export type LoadedField = {
     value: any;
@@ -26,82 +23,61 @@ export class KycLoader {
         fieldNo: number,
         entityType: 'LEGAL_ENTITY' | 'CLIENT_LE' = 'LEGAL_ENTITY'
     ): Promise<LoadedField | null> {
-        const def = getFieldDefinition(fieldNo);
-        if (!def.field) return null;
+        // 1. Resolve Scope and Subject
+        let subjectLeId = entityId;
+        let ownerScopeId = null;
 
-        // 1. Resolve to LegalEntity ID if needed
-        let resolvedEntityId = entityId;
-        if (entityType === 'CLIENT_LE' && def.model !== 'IdentityProfile') {
-            // Traverse ClientLE -> IdentityProfile -> LegalEntity
-            // @ts-ignore
-            const identity = await prisma.identityProfile.findUnique({
-                where: { clientLEId: entityId },
+        if (entityType === 'CLIENT_LE') {
+            const clientLE = await prisma.clientLE.findUnique({
+                where: { id: entityId },
                 select: { legalEntityId: true }
             });
-            if (!identity?.legalEntityId) return null; // No linked LE yet
-            resolvedEntityId = identity.legalEntityId;
+            if (!clientLE?.legalEntityId) return null;
+            subjectLeId = clientLE.legalEntityId;
+            ownerScopeId = await KycStateService.resolveScopeId(entityId);
         }
 
-        // 2. Fetch Record
-        // @ts-ignore
-        const delegate = prisma[this.getPrismaClientKey(def.model)];
-        if (!delegate) throw new Error(`Model ${def.model} not found`);
+        const def = getFieldDefinition(fieldNo);
 
-        const idField = entityType === 'CLIENT_LE' && def.model === 'IdentityProfile'
-            ? 'clientLEId'
-            : 'legalEntityId';
+        // 2. Fetch authoritative via Service
+        if (def.isMultiValue || def.isRepeating) {
+            const collection = await KycStateService.getAuthoritativeCollection(
+                { subjectLeId },
+                fieldNo,
+                ownerScopeId || undefined
+            );
 
-        // TODO: Handle Repeating Fields (requires rowId which isn't passed here)
-        // For hydration of a "General" questionnaire, we might default to the "Primary" row? 
-        // Or return all? For now, let's focus on 1:1 Profiles.
-        if (def.isRepeating) {
-            // If no specific row is requested, return a summary of all rows
-            // @ts-ignore
-            const records = await delegate.findMany({
-                where: { [idField]: resolvedEntityId },
-                orderBy: { createdAt: 'asc' }
-            });
+            if (collection.length === 0) return null;
 
-            if (records.length === 0) return null;
+            // Summary for workbench
+            const values = collection
+                .map(d => d.value)
+                .filter(v => v !== null && v !== undefined);
 
-            // Simple comma-separated summary for the workbench view
-            const values = records
-                .map((r: any) => r[def.field!])
-                .filter((v: any) => v !== null && v !== undefined);
-
-            if (values.length === 0) return null;
-
-            // For repeating fields, we return the first record's meta as the "primary" provenance for now
-            const firstRecord = records[0];
-            const meta = (firstRecord.meta as Record<string, MetaEntry>)?.[def.field!];
-
+            const first = collection[0];
             return {
                 value: values.join(", "),
-                source: meta?.source as ProvenanceSource || null,
-                confidence: meta?.confidence || null,
-                verifiedBy: meta?.verified_by || null,
-                updatedAt: firstRecord.updatedAt || null
+                source: first.sourceType as ProvenanceSource || null,
+                confidence: first.confidenceScore || null,
+                verifiedBy: null,
+                updatedAt: first.assertedAt
             };
         }
 
-        const record = await delegate.findUnique({
-            where: { [idField]: resolvedEntityId }
-        });
+        const derived = await KycStateService.getAuthoritativeValue(
+            { subjectLeId },
+            fieldNo,
+            ownerScopeId || undefined
+        );
 
-        if (!record) return null;
-
-        // 3. Extract Value & Meta
-        const value = record[def.field];
-        if (value === undefined || value === null) return null;
-
-        const meta = (record.meta as Record<string, MetaEntry>)?.[def.field];
+        if (!derived) return null;
 
         return {
-            value,
-            source: meta?.source as ProvenanceSource || null,
-            confidence: meta?.confidence || null,
-            verifiedBy: meta?.verified_by || null,
-            updatedAt: record.updatedAt || null // Assuming all profiles have updatedAt
+            value: derived.value,
+            source: derived.sourceType as ProvenanceSource || null,
+            confidence: derived.confidenceScore || null,
+            verifiedBy: null,
+            updatedAt: derived.assertedAt
         };
     }
 
