@@ -1,5 +1,5 @@
 
-import { PrismaClient } from "@prisma/client";
+
 
 // Define Explicit Roles
 export enum Role {
@@ -126,7 +126,7 @@ export async function can(
     user: UserWithMemberships,
     action: Action,
     context: ValidationContext,
-    prisma: PrismaClient
+    prisma: { clientLEOwner: { findMany: Function } } & Record<string, any>
 ): Promise<boolean> {
 
     // 1. System Admin Override

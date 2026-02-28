@@ -2,7 +2,7 @@ import { getClientDashboardData } from "@/actions/client";
 import { CreateLEDialog } from "@/components/client/create-le-dialog";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
-import { Briefcase, ArrowRight, Building2, Users, CreditCard, Activity, Shield, User } from "lucide-react";
+import { Landmark, ArrowRight, Building2, Users, CreditCard, Activity, Shield, User } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 import { AccessDebugInfo } from "@/components/dev/AccessDebugInfo";
@@ -124,7 +124,7 @@ export default async function ClientDashboardPage({ params }: ClientDashboardPag
                         <div className="text-center py-20 border-2 border-dashed rounded-xl bg-slate-50/50">
                             <div className="flex flex-col items-center gap-3">
                                 <div className="p-4 bg-white rounded-full shadow-sm">
-                                    <Briefcase className="h-8 w-8 text-slate-400" />
+                                    <Landmark className="h-8 w-8 text-slate-400" />
                                 </div>
                                 <h3 className="text-lg font-medium text-slate-900">No entities found</h3>
                                 <p className="text-slate-500 max-w-sm">

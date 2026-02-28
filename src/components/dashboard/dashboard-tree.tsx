@@ -13,7 +13,7 @@ import {
     ChevronRight,
     ChevronDown,
     Building2,
-    Briefcase,
+    Landmark,
     Link as LinkIcon,
     Settings,
     Plus
@@ -276,7 +276,7 @@ function MobileMetric({ label, value }: { label: string, value: number }) {
 function RowIcon({ type }: { type: string }) {
     switch (type) {
         case "CLIENT": return <Building2 className="h-4 w-4 text-slate-400" />;
-        case "LE": return <Briefcase className="h-4 w-4 text-emerald-500" />;
+        case "LE": return <Landmark className="h-4 w-4 text-emerald-500" />;
         case "ENGAGEMENT": return <LinkIcon className="h-3 w-3 text-indigo-500" />;
         default: return <div className="h-4 w-4" />;
     }

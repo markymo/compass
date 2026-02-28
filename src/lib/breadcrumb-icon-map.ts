@@ -1,8 +1,8 @@
-import { Link2, Briefcase, Building2, Home, LucideIcon } from "lucide-react";
+import { Link2, Landmark, Building2, Home, LucideIcon } from "lucide-react";
 
 export const BREADCRUMB_ICON_MAP: Record<string, LucideIcon> = {
     "link-2": Link2,
-    "briefcase": Briefcase,
+    "landmark": Landmark,
     "building-2": Building2,
     "home": Home
 };

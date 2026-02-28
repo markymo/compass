@@ -3,7 +3,7 @@ import {
     getFIOganization,
     getFIEngagements,
 } from "@/actions/fi";
-import { Home, Landmark, Users, FileText, Settings, ArrowRight, Building2, Briefcase } from "lucide-react";
+import { Home, Landmark, Users, FileText, Settings, ArrowRight, Building2 } from "lucide-react";
 import { GuideHeader } from "@/components/layout/GuideHeader";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -116,7 +116,7 @@ export default async function FIDashboard({ params }: { params: Promise<{ id: st
                         <div className="text-center py-20 border-2 border-dashed rounded-xl bg-slate-50/50">
                             <div className="flex flex-col items-center gap-3">
                                 <div className="p-4 bg-white rounded-full shadow-sm">
-                                    <Briefcase className="h-8 w-8 text-slate-400" />
+                                    <Landmark className="h-8 w-8 text-slate-400" />
                                 </div>
                                 <h3 className="text-lg font-medium text-slate-900">No active relationships</h3>
                                 <p className="text-slate-500 max-w-sm">

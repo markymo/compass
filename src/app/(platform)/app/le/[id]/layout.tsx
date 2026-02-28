@@ -42,7 +42,7 @@ export default async function LegalEntityLayout({ children, params }: LayoutProp
     const baseBreadcrumbs: GuideBreadcrumbItem[] = [
         { label: "", href: "/app", iconName: "home" },
         { label: ownerName || "Client", href: ownerId ? `/app/clients/${ownerId}` : "/app", iconName: "building-2" },
-        { label: le.name, href: `/app/le/${le.id}`, iconName: "briefcase" }
+        { label: le.name, href: `/app/le/${le.id}`, iconName: "landmark" }
     ];
 
     return (

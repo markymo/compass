@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { RelationshipCard } from "@/components/ui/relationship-card";
-import { Loader2, Building2, Briefcase, Landmark, Gavel, ArrowRight, Home } from "lucide-react";
+import { Loader2, Building2, Landmark, Gavel, ArrowRight, Home } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -83,7 +83,7 @@ export default function V2DashboardPage() {
             {/* 2. My Legal Entities */}
             <section className="space-y-4">
                 <div className="flex items-center gap-2">
-                    <Briefcase className="w-5 h-5 text-emerald-500" />
+                    <Landmark className="w-5 h-5 text-emerald-500" />
                     <h2 className="text-xl font-semibold">My Legal Entities (SPVs)</h2>
                 </div>
                 {contexts.legalEntities.length === 0 ? (
