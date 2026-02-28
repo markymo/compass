@@ -74,7 +74,7 @@ export class DocumentService {
     /**
      * Get documents for a specific owner (e.g., all docs for a specific Stakeholder)
      */
-    async getDocumentsByOwner(ownerId: string, ownerType: 'LEGAL_ENTITY' | 'STAKEHOLDER' | 'AUTHORIZED_TRADER') {
+    async getDocumentsByOwner(ownerId: string, ownerType: 'LEGAL_ENTITY') {
         return prisma.documentRegistry.findMany({
             where: {
                 ownerId,
