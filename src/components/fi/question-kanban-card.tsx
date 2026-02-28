@@ -35,9 +35,9 @@ export function QuestionKanbanCard({ question }: QuestionKanbanCardProps) {
     const engageId = question.questionnaire?.fiEngagement?.id;
     const questId = question.questionnaire?.id;
 
-    // Construct URL: /app/fi/engagements/[engagementId]/workbench/[questionnaireId]?question=[questionId]
+    // Construct URL: /app/s/engagements/[engagementId]/workbench/[questionnaireId]?question=[questionId]
     const workbenchUrl = engageId && questId
-        ? `/app/fi/engagements/${engageId}/workbench/${questId}?question=${question.id}`
+        ? `/app/s/engagements/${engageId}/workbench/${questId}?question=${question.id}`
         : "#";
 
     return (

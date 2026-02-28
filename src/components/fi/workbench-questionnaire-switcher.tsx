@@ -68,7 +68,7 @@ export function WorkbenchQuestionnaireSwitcher({
                                     value={q.name}
                                     onSelect={() => {
                                         setOpen(false);
-                                        router.push(`/app/fi/engagements/${engagementId}/workbench/${q.id}`);
+                                        router.push(`/app/s/engagements/${engagementId}/workbench/${q.id}`);
                                     }}
                                 >
                                     <Check

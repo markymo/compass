@@ -28,7 +28,7 @@ export default async function FIQuestionnaireManagePage({ params }: PageProps) {
     if (!userOrg || userOrg.id !== questionnaire.fiOrgId) {
         // Strict check: FI users can only manage their own questionnaires
         // (System Admins would use the /admin route)
-        return redirect(`/app/fi/${id}`);
+        return redirect(`/app/s/${id}`);
     }
 
     return (

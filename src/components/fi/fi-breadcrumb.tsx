@@ -16,7 +16,7 @@ interface FIBreadcrumbProps {
 export function FIBreadcrumb({ items, className }: FIBreadcrumbProps) {
     return (
         <nav className={cn("flex items-center text-sm text-slate-500 mb-4", className)} aria-label="Breadcrumb">
-            <Link href="/app/fi" className="hover:text-indigo-600 transition-colors">
+            <Link href="/app/s" className="hover:text-indigo-600 transition-colors">
                 FI Dashboard
             </Link>
 

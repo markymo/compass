@@ -91,7 +91,7 @@ export function EngagementList({ engagements, fiOrgId }: EngagementListProps) {
                                         size="sm"
                                         className="h-6 w-6 p-0 hover:bg-indigo-50 hover:text-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity"
                                     >
-                                        <Link href={`/app/fi/${fiOrgId}/engagements/${eng.id}`}>
+                                        <Link href={`/app/s/${fiOrgId}/engagements/${eng.id}`}>
                                             <ArrowRight className="w-4 h-4" />
                                         </Link>
                                     </Button>

@@ -42,7 +42,7 @@ export function QuestionDetailView({ question, totalQuestions, currentIndex, onS
     const engagementId = question.questionnaire?.fiEngagement?.id;
     const questionnaireId = question.questionnaire?.id;
     const workbenchUrl = engagementId && questionnaireId
-        ? `/app/fi/engagements/${engagementId}/workbench/${questionnaireId}?question=${question.id}`
+        ? `/app/s/engagements/${engagementId}/workbench/${questionnaireId}?question=${question.id}`
         : null;
 
     return (

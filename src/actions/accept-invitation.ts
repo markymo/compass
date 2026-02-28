@@ -161,7 +161,7 @@ export async function acceptInvitation(rawToken: string) {
             if (owner) redirectUrl = `/app/clients/${owner.partyId}`;
             else redirectUrl = `/app/le/${invite.clientLE.id}`;
         } else if (invite.fiEngagement) {
-            redirectUrl = `/app/fi/${invite.fiEngagement.fiOrgId}`;
+            redirectUrl = `/app/s/${invite.fiEngagement.fiOrgId}`;
         }
 
         // Revalidate

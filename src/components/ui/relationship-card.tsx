@@ -85,7 +85,7 @@ export function RelationshipCard({
                 )}
 
                 {userIsSupplier && (
-                    <Link href={`/app/fi/${fiOrgId}/engagements/${id}`} className="flex-1">
+                    <Link href={`/app/s/${fiOrgId}/engagements/${id}`} className="flex-1">
                         <div className="w-full bg-blue-50 text-blue-700 hover:bg-blue-100 h-9 rounded-md flex items-center justify-center text-xs font-medium transition-colors border border-blue-200">
                             Enter as Supplier
                         </div>

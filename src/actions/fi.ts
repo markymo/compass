@@ -167,7 +167,7 @@ export async function uploadQuestionnaire(formData: FormData) {
             }
         });
 
-        revalidatePath("/app/fi/questionnaires");
+        revalidatePath("/app/s/questionnaires");
         return { success: true, data: q };
     } catch (e) {
         console.error(e);
@@ -507,7 +507,7 @@ export async function assignQuestionnaireToEngagement(engagementId: string, temp
             }
         });
 
-        revalidatePath(`/app/fi/engagements/${engagementId}`);
+        revalidatePath(`/app/s/engagements/${engagementId}`);
         return { success: true, data: instance };
 
     } catch (e: any) {
@@ -543,7 +543,7 @@ export async function deleteEngagement(id: string) {
             where: { id }, // Already guarded by check above
             data: { isDeleted: true }
         });
-        revalidatePath("/app/fi");
+        revalidatePath("/app/s");
         return { success: true };
     } catch (e) {
         return { success: false, error: "Failed to delete engagement" };
@@ -568,7 +568,7 @@ export async function archiveEngagement(id: string) {
             where: { id },
             data: { status: "ARCHIVED" }
         });
-        revalidatePath("/app/fi");
+        revalidatePath("/app/s");
         return { success: true };
     } catch (e) {
         return { success: false, error: "Failed to archive engagement" };

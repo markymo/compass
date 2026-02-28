@@ -115,9 +115,9 @@ export async function createQuestionnaire(identifier: string | null | undefined,
         });
 
         revalidatePath(`/app/admin/organizations/${targetOrgId}`);
-        revalidatePath(`/app/fi/questionnaires`); // Refresh FI view
+        revalidatePath(`/app/s/questionnaires`); // Refresh FI view
         if (engagementId) {
-            revalidatePath(`/app/fi/engagements/${engagementId}`);
+            revalidatePath(`/app/s/engagements/${engagementId}`);
             revalidatePath(`/app/le`); // Revalidate Client views
         }
 

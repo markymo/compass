@@ -29,7 +29,7 @@ export default async function WorkbenchPage({ params }: { params: Promise<{ id: 
                     <div className="px-4 pt-4">
                         <FIBreadcrumb
                             items={[
-                                { label: `Client: ${engagement.clientLE.name}`, href: `/app/fi/engagements/${id}` },
+                                { label: `Client: ${engagement.clientLE.name}`, href: `/app/s/engagements/${id}` },
                                 { label: `Workbench: ${questionnaire.name}` }
                             ]}
                             className="mb-2"
@@ -120,7 +120,7 @@ export default async function WorkbenchPage({ params }: { params: Promise<{ id: 
                 <div className="px-4 pt-4">
                     <FIBreadcrumb
                         items={[
-                            { label: `Client: ${engagement.clientLE.name}`, href: `/app/fi/engagements/${id}` },
+                            { label: `Client: ${engagement.clientLE.name}`, href: `/app/s/engagements/${id}` },
                             { label: `Extraction: ${questionnaire.name}` }
                         ]}
                         className="mb-2"

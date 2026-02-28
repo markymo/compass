@@ -51,7 +51,7 @@ export default async function FIDashboard({ params }: { params: Promise<{ id: st
                         <div className="mt-8">
                             <h2 className="text-lg font-semibold text-slate-900 mb-4">Organization Admin</h2>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <Link href={`/app/fi/${org.id}/team`}>
+                                <Link href={`/app/s/${org.id}/team`}>
                                     <Card className="bg-white border-slate-200 shadow-sm hover:shadow-md transition-all cursor-pointer group h-full">
                                         <CardContent className="p-5 flex items-start gap-4">
                                             <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg group-hover:scale-105 transition-transform">
@@ -65,7 +65,7 @@ export default async function FIDashboard({ params }: { params: Promise<{ id: st
                                     </Card>
                                 </Link>
 
-                                <Link href={`/app/fi/${org.id}/questionnaires`}>
+                                <Link href={`/app/s/${org.id}/questionnaires`}>
                                     <Card className="bg-white border-slate-200 shadow-sm hover:shadow-md transition-all cursor-pointer group h-full">
                                         <CardContent className="p-5 flex items-start gap-4">
                                             <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg group-hover:scale-105 transition-transform">
@@ -79,7 +79,7 @@ export default async function FIDashboard({ params }: { params: Promise<{ id: st
                                     </Card>
                                 </Link>
 
-                                <Link href={`/app/fi/${org.id}/settings`}>
+                                <Link href={`/app/s/${org.id}/settings`}>
                                     <Card className="bg-white border-slate-200 shadow-sm hover:shadow-md transition-all cursor-pointer group h-full">
                                         <CardContent className="p-5 flex items-start gap-4">
                                             <div className="p-2 bg-slate-100 text-slate-600 rounded-lg group-hover:scale-105 transition-transform">
@@ -105,7 +105,7 @@ export default async function FIDashboard({ params }: { params: Promise<{ id: st
                         </h2>
                         {engagements.length > 0 && (
                             <Button size="sm" variant="outline" asChild>
-                                <Link href={`/app/fi/${id}/engagements`}>
+                                <Link href={`/app/s/${id}/engagements`}>
                                     View All <ArrowRight className="ml-2 h-4 w-4" />
                                 </Link>
                             </Button>
@@ -131,7 +131,7 @@ export default async function FIDashboard({ params }: { params: Promise<{ id: st
                                 const ownerOrg = le.owners?.[0]?.party; // Approximating owner
 
                                 return (
-                                    <Link key={engagement.id} href={`/app/fi/${org.id}/engagements/${engagement.id}`} className="block">
+                                    <Link key={engagement.id} href={`/app/s/${org.id}/engagements/${engagement.id}`} className="block">
                                         <Card className="border-slate-200 shadow-sm hover:shadow-md hover:border-indigo-200 transition-all cursor-pointer group">
                                             <CardContent className="p-4 sm:p-5 flex items-center gap-4">
                                                 <div className="flex-1 min-w-0">
