@@ -33,9 +33,9 @@
   /* Slate 100 */
   --secondary-foreground: #0f172a;
 
-  --accent: #b45309;
-  /* Amber 700 (Gold/Bronze) */
-  --accent-foreground: #ffffff;
+  --accent: #eef2ff;
+  /* Indigo 50 (Soft, visible highlight) */
+  --accent-foreground: #1e293b;
 
   --muted: #f8fafc;
   /* Slate 50 */
@@ -56,7 +56,7 @@
   --primary: #f8fafc;
   --primary-foreground: #0f172a;
   --secondary: #1e293b;
-  --accent: #d97706;
+  --accent: #1e293b;
   --border: #1e293b;
   --popover: #020617;
   --popover-foreground: #f8fafc;

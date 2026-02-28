@@ -227,3 +227,40 @@ export async function getAISemanticMatch(questionText: string, searchTerm?: stri
         return { success: false, error: "AI matching failed" };
     }
 }
+
+/**
+ * Uses LLM to suggest a compact, descriptive field name for a new custom master data field,
+ * based on the original question text.
+ */
+export async function getAIFieldNameSuggestion(questionText: string) {
+    try {
+        const key = process.env.OPENAI_API_KEY;
+        if (!key) throw new Error("OPENAI_API_KEY is missing");
+
+        const openai = createOpenAI({ apiKey: key });
+
+        const { object } = await generateObject({
+            model: openai('gpt-4o'),
+            schema: z.object({
+                suggestion: z.string().describe("A compact field name, 2-5 words, title case. E.g. 'Board Diversity Policy', 'Primary Business Address', 'Anti-Money Laundering Program'."),
+                dataType: z.enum(['Text', 'Boolean', 'Date', 'Number', 'Document']).describe("The most appropriate data type for this field"),
+                reasoning: z.string().describe("Brief explanation of why this name and type were chosen")
+            }),
+            messages: [
+                {
+                    role: "system",
+                    content: "You are a master data schema designer for a KYC/compliance platform. Given a question from a questionnaire, suggest a compact, reusable field name that captures the essence of what data is being collected. The name should be generic enough to apply across different questionnaires asking similar things, but specific enough to be unambiguous. Use Title Case, 2-5 words."
+                },
+                {
+                    role: "user",
+                    content: `QUESTION: "${questionText}"\n\nSuggest a compact master data field name, the most appropriate data type, and briefly explain your reasoning.`
+                }
+            ]
+        });
+
+        return { success: true, ...object };
+    } catch (error) {
+        console.error("AI Field Name Suggestion failed:", error);
+        return { success: false, error: "AI suggestion failed" };
+    }
+}

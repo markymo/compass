@@ -110,7 +110,7 @@ export function SuperFieldSelector({
                         {selectedOption ? (
                             <div className="flex flex-col min-w-0">
                                 <span className="font-semibold text-slate-900 truncate">{selectedOption.label}</span>
-                                {!compact && <span className="text-[10px] text-slate-400 font-medium uppercase tracking-tighter">{selectedOption.meta}</span>}
+                                {!compact && <span className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">{selectedOption.meta}</span>}
                             </div>
                         ) : (
                             <span className="text-slate-400">Select master field...</span>

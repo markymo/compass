@@ -9,11 +9,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
-import { Loader2, History, Database, Edit, CheckCircle, AlertTriangle, Paperclip, FileText, Download, X, User as UserIcon } from "lucide-react";
+import { Loader2, History, Database, Edit, CheckCircle, CheckCircle2, AlertTriangle, Paperclip, FileText, Download, X, User as UserIcon, Pencil, Check } from "lucide-react";
 import { getFieldDetail, FieldDetailData } from "@/actions/kyc-query";
 // FIELD_DEFINITIONS removed
 import { updateFieldManually, applyCandidate, updateCustomFieldManually, createRepeatingFieldRow, applyBulkOverride } from "@/actions/kyc-manual-update";
 import { getMasterFieldDocuments, setMasterFieldAssignment } from "@/actions/standing-data";
+import { renameCustomField } from "@/actions/master-data-governance";
 import { getLETeamMembers } from "@/actions/kanban-actions";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
@@ -62,6 +63,11 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
     const [team, setTeam] = useState<any[]>([]);
     const [isAssigning, setIsAssigning] = useState(false);
 
+    // Custom Field Rename State
+    const [isRenamingField, setIsRenamingField] = useState(false);
+    const [renameFieldValue, setRenameFieldValue] = useState("");
+    const [isRenamingSaving, setIsRenamingSaving] = useState(false);
+
     const fieldKey = String(fieldNo || customFieldId || "");
 
     useEffect(() => {
@@ -71,6 +77,16 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
             loadTeam();
         }
     }, [open, fieldNo, customFieldId, legalEntityId]);
+
+    // Reset edit state when switching to a different field
+    useEffect(() => {
+        setIsEditing(false);
+        setManualValue("");
+        setManualReason("");
+        setSelectedRowId(null);
+        setRelatedValues({});
+        setIsSaving(false);
+    }, [fieldNo, customFieldId]);
 
     const loadTeam = async () => {
         const res = await getLETeamMembers(legalEntityId);
@@ -318,335 +334,481 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
             <SheetContent className="w-[900px] sm:max-w-[800px] flex flex-col h-full">
-                <SheetHeader className="pb-4 border-b flex flex-row items-start justify-between">
-                    <div>
-                        <SheetTitle className="flex items-center gap-2">
-                            {fieldName}
-                            {fieldNo > 0 && <Badge variant="outline">Field {fieldNo}</Badge>}
-                        </SheetTitle>
-                        <SheetDescription>
-                            Audit history, candidates, and evidence for {fieldName}.
-                        </SheetDescription>
-                    </div>
+                <SheetHeader className="pb-3 border-b border-slate-100">
+                    <SheetTitle className="sr-only">{fieldName}</SheetTitle>
+                    <SheetDescription className="sr-only">Details for {fieldName}</SheetDescription>
 
-                    {/* Assignment UI */}
-                    <div className="flex items-center mt-1 mr-8">
-                        {isAssigning ? (
-                            <div className="flex items-center px-3 py-1.5 text-xs text-slate-500 gap-2 border rounded-md">
-                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                Assigning...
-                            </div>
-                        ) : (
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button variant="outline" size="sm" className="h-8 shadow-sm group">
-                                        {data?.assignment?.assignedUser ? (
-                                            <>
-                                                <Avatar className="h-5 w-5 mr-1.5 border">
-                                                    <AvatarFallback className="text-[9px] bg-indigo-50 text-indigo-700 font-semibold">
-                                                        {(data.assignment.assignedUser.name || data.assignment.assignedUser.email || "U").substring(0, 2).toUpperCase()}
-                                                    </AvatarFallback>
-                                                </Avatar>
-                                                <span className="text-xs truncate max-w-[100px] font-medium text-slate-700">
-                                                    {data.assignment.assignedUser.name || data.assignment.assignedUser.email}
-                                                </span>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <UserIcon className="h-3.5 w-3.5 mr-1.5 text-slate-400 group-hover:text-slate-700 transition-colors" />
-                                                <span className="text-xs text-slate-500 group-hover:text-slate-800 transition-colors font-medium">Unassigned</span>
-                                            </>
-                                        )}
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="w-[220px]">
-                                    <div className="px-2 py-1.5 text-xs font-semibold text-slate-500 bg-slate-50 border-b mb-1">Assign to Team Member</div>
-                                    <div className="max-h-[200px] overflow-y-auto">
-                                        <DropdownMenuItem
-                                            className="text-xs py-2 cursor-pointer"
-                                            onClick={() => handleAssign(null)}
-                                        >
-                                            <div className="flex items-center gap-2 text-slate-500">
-                                                <UserIcon className="h-4 w-4" />
-                                                <span>Unassigned</span>
-                                            </div>
-                                        </DropdownMenuItem>
-                                        {team.map((user) => (
-                                            <DropdownMenuItem
-                                                key={user.id}
-                                                className="text-xs py-2 cursor-pointer focus:bg-indigo-50"
-                                                onClick={() => handleAssign(user.id)}
-                                            >
-                                                <div className="flex items-center gap-2 w-full">
-                                                    <Avatar className="h-5 w-5 shrink-0">
-                                                        <AvatarFallback className="text-[9px] bg-slate-100 text-slate-600">
-                                                            {user.name?.substring(0, 2).toUpperCase() || user.email?.substring(0, 2).toUpperCase()}
+                    {/* Top row: Q: question + Assignment */}
+                    <div className="flex items-start gap-4 mr-8">
+                        <div className="flex items-start gap-2.5 flex-1 min-w-0">
+                            <span className="text-indigo-500 font-bold text-sm shrink-0 mt-0.5">Q:</span>
+                            <p className="text-sm font-medium text-slate-800 leading-relaxed">{fieldName}</p>
+                        </div>
+
+                        {/* Assignment */}
+                        <div className="shrink-0">
+                            {isAssigning ? (
+                                <div className="flex items-center px-3 py-1.5 text-xs text-slate-500 gap-2 border rounded-md">
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                    Assigning...
+                                </div>
+                            ) : (
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="outline" size="sm" className="h-8 shadow-sm group whitespace-nowrap">
+                                            {data?.assignment?.assignedUser ? (
+                                                <>
+                                                    <Avatar className="h-5 w-5 mr-1.5 border">
+                                                        <AvatarFallback className="text-[9px] bg-indigo-50 text-indigo-700 font-semibold">
+                                                            {(data.assignment.assignedUser.name || data.assignment.assignedUser.email || "U").substring(0, 2).toUpperCase()}
                                                         </AvatarFallback>
                                                     </Avatar>
-                                                    <div className="flex flex-col min-w-0">
-                                                        <span className="font-medium text-slate-900 truncate">{user.name}</span>
-                                                        {(user.name && user.name !== user.email) && (
-                                                            <span className="text-[10px] text-slate-500 truncate">{user.email}</span>
+                                                    <span className="text-xs truncate max-w-[100px] font-medium text-slate-700">
+                                                        {data.assignment.assignedUser.name || data.assignment.assignedUser.email}
+                                                    </span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <UserIcon className="h-3.5 w-3.5 mr-1.5 text-slate-400 group-hover:text-slate-700 transition-colors" />
+                                                    <span className="text-xs text-slate-500 group-hover:text-slate-800 transition-colors font-medium">Assign</span>
+                                                </>
+                                            )}
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" className="w-[220px]">
+                                        <div className="px-2 py-1.5 text-xs font-semibold text-slate-500 bg-slate-50 border-b mb-1">Assign to Team Member</div>
+                                        <div className="max-h-[200px] overflow-y-auto">
+                                            <DropdownMenuItem
+                                                className="text-xs py-2 cursor-pointer"
+                                                onClick={() => handleAssign(null)}
+                                            >
+                                                <div className="flex items-center gap-2 text-slate-500">
+                                                    <UserIcon className="h-4 w-4" />
+                                                    <span>Unassigned</span>
+                                                </div>
+                                            </DropdownMenuItem>
+                                            {team.map((user) => (
+                                                <DropdownMenuItem
+                                                    key={user.id}
+                                                    className="text-xs py-2 cursor-pointer focus:bg-indigo-50"
+                                                    onClick={() => handleAssign(user.id)}
+                                                >
+                                                    <div className="flex items-center gap-2 w-full">
+                                                        <Avatar className="h-5 w-5 shrink-0">
+                                                            <AvatarFallback className="text-[9px] bg-slate-100 text-slate-600">
+                                                                {user.name?.substring(0, 2).toUpperCase() || user.email?.substring(0, 2).toUpperCase()}
+                                                            </AvatarFallback>
+                                                        </Avatar>
+                                                        <div className="flex flex-col min-w-0">
+                                                            <span className="font-medium text-slate-900 truncate">{user.name}</span>
+                                                            {(user.name && user.name !== user.email) && (
+                                                                <span className="text-[10px] text-slate-500 truncate">{user.email}</span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </DropdownMenuItem>
+                                            ))}
+                                        </div>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Mapped Field heading — owns the rest of the sidebar */}
+                    {fieldNo > 0 && (
+                        <div className="flex items-start gap-2.5 mt-3">
+                            <Badge variant="secondary" className="bg-green-50 text-green-700 border-green-100 gap-1 px-1.5 py-0 shrink-0 mt-0.5">
+                                <CheckCircle2 className="h-3 w-3" />
+                                Mapped
+                            </Badge>
+                            <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-slate-800 leading-relaxed">
+                                    {data?.fieldName || fieldName}
+                                </p>
+                                <span className="text-[10px] text-slate-400">
+                                    {data?.category || `Field #${fieldNo}`}
+                                </span>
+                            </div>
+                        </div>
+                    )}
+                    {customFieldId && fieldNo === 0 && (
+                        <div className="flex items-start gap-2.5 mt-3">
+                            <Badge variant="secondary" className="bg-green-50 text-green-700 border-green-100 gap-1 px-1.5 py-0 shrink-0 mt-0.5">
+                                <CheckCircle2 className="h-3 w-3" />
+                                Custom
+                            </Badge>
+                            <div className="flex-1 min-w-0">
+                                {isRenamingField ? (
+                                    <div className="flex items-center gap-1.5">
+                                        <Input
+                                            value={renameFieldValue}
+                                            onChange={(e) => setRenameFieldValue(e.target.value)}
+                                            onKeyDown={async (e) => {
+                                                if (e.key === 'Enter') {
+                                                    if (!renameFieldValue.trim()) return;
+                                                    setIsRenamingSaving(true);
+                                                    const res = await renameCustomField(customFieldId, renameFieldValue.trim());
+                                                    if (res.success) {
+                                                        toast.success("Field renamed");
+                                                        setIsRenamingField(false);
+                                                        // Refresh data to pick up new name
+                                                        const refreshed = await getFieldDetail(legalEntityId, fieldNo, 'CLIENT_LE', customFieldId);
+                                                        setData(refreshed);
+                                                    } else {
+                                                        toast.error(res.error || "Rename failed");
+                                                    }
+                                                    setIsRenamingSaving(false);
+                                                }
+                                                if (e.key === 'Escape') setIsRenamingField(false);
+                                            }}
+                                            className="h-7 text-sm flex-1"
+                                            autoFocus
+                                            disabled={isRenamingSaving}
+                                        />
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-6 w-6 text-green-600"
+                                            disabled={isRenamingSaving}
+                                            onClick={async () => {
+                                                if (!renameFieldValue.trim()) return;
+                                                setIsRenamingSaving(true);
+                                                const res = await renameCustomField(customFieldId, renameFieldValue.trim());
+                                                if (res.success) {
+                                                    toast.success("Field renamed");
+                                                    setIsRenamingField(false);
+                                                    const refreshed = await getFieldDetail(legalEntityId, fieldNo, 'CLIENT_LE', customFieldId);
+                                                    setData(refreshed);
+                                                } else {
+                                                    toast.error(res.error || "Rename failed");
+                                                }
+                                                setIsRenamingSaving(false);
+                                            }}
+                                        >
+                                            {isRenamingSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                                        </Button>
+                                        <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400" onClick={() => setIsRenamingField(false)}>
+                                            <X className="h-3 w-3" />
+                                        </Button>
+                                    </div>
+                                ) : (
+                                    <div className="flex items-center gap-1.5">
+                                        <p className="text-sm font-medium text-slate-800 leading-relaxed">
+                                            {data?.fieldName || customFieldId}
+                                        </p>
+                                        <button
+                                            className="p-0.5 rounded text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                                            onClick={() => {
+                                                setRenameFieldValue(data?.fieldName || customFieldId || "");
+                                                setIsRenamingField(true);
+                                            }}
+                                            title="Rename custom field"
+                                        >
+                                            <Pencil className="h-3 w-3" />
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </SheetHeader>
+
+                <div className="flex-1 overflow-hidden flex flex-col pt-3 gap-4">
+
+                    {/* ─── Current Value Card ─── */}
+                    <div className="rounded-xl border border-slate-200 overflow-hidden">
+                        <div className="bg-slate-50/50 px-5 py-3 border-b border-slate-100">
+                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">
+                                Current Authoritative Value
+                            </div>
+                        </div>
+                        <div className="p-5">
+                            {loading ? (
+                                <div className="flex items-center gap-2 text-slate-400 py-4">
+                                    <Loader2 className="h-4 w-4 animate-spin" /> Loading...
+                                </div>
+                            ) : (
+                                <div>
+                                    {data?.isRepeating && data.rows && data.rows.length > 0 ? (
+                                        <div className="space-y-3">
+                                            {data.rows.map((row, i) => (
+                                                <div
+                                                    key={row.id}
+                                                    className={cn(
+                                                        "p-3 rounded-lg border bg-white transition-all",
+                                                        selectedRowId === row.id ? "ring-2 ring-indigo-500 border-transparent shadow-sm" : "border-slate-200 hover:border-slate-300"
+                                                    )}
+                                                >
+                                                    <div className="flex justify-between items-start">
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="flex items-center gap-2 mb-1">
+                                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">
+                                                                    {row.label || `Entry #${i + 1}`}
+                                                                </span>
+                                                                <SourceBadge source={row.source as any} sourceReference={row.sourceReference} />
+                                                            </div>
+                                                            <div className="text-sm font-mono font-medium text-slate-900 break-all leading-relaxed">
+                                                                {String(row.value) || <span className="text-slate-400 italic">Empty</span>}
+                                                            </div>
+                                                            <div className="mt-1.5 text-[10px] text-slate-400">
+                                                                Last Sync: {row.timestamp ? new Date(row.timestamp).toLocaleString() : 'Never'}
+                                                            </div>
+                                                        </div>
+                                                        {!isEditing && (
+                                                            <button
+                                                                className="p-1.5 rounded text-indigo-500 hover:bg-indigo-50 hover:text-indigo-700 transition-colors"
+                                                                onClick={() => {
+                                                                    setSelectedRowId(row.id);
+                                                                    setManualValue(String(row.value));
+                                                                    setIsEditing(true);
+                                                                }}
+                                                                title="Edit this entry"
+                                                            >
+                                                                <Pencil className="h-3.5 w-3.5" />
+                                                            </button>
                                                         )}
                                                     </div>
                                                 </div>
-                                            </DropdownMenuItem>
-                                        ))}
-                                    </div>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                        )}
-                    </div>
-                </SheetHeader>
-
-                <div className="flex-1 overflow-hidden flex flex-col pt-4 gap-4">
-                    {/* Current Value Card */}
-                    <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
-                        <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-                            Current Authoritative Value
-                        </div>
-                        {loading ? (
-                            <div className="flex items-center gap-2 text-slate-400">
-                                <Loader2 className="h-4 w-4 animate-spin" /> Loading...
-                            </div>
-                        ) : (
-                            <div>
-                                {data?.isRepeating && data.rows && data.rows.length > 0 ? (
-                                    <div className="space-y-3">
-                                        {data.rows.map((row, i) => (
-                                            <div
-                                                key={row.id}
-                                                className={cn(
-                                                    "p-3 rounded-lg border bg-white transition-all",
-                                                    selectedRowId === row.id ? "ring-2 ring-indigo-500 border-transparent shadow-sm" : "border-slate-200 hover:border-slate-300"
+                                            ))}
+                                            <div className="flex gap-2 pt-1">
+                                                {!isEditing && (
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        className="w-full border-dashed text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+                                                        onClick={handleAddEntry}
+                                                        disabled={isSaving}
+                                                    >
+                                                        {isSaving ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : <Edit className="h-3 w-3 mr-2" />}
+                                                        Add New Entry
+                                                    </Button>
                                                 )}
-                                            >
-                                                <div className="flex justify-between items-start">
-                                                    <div className="flex-1 min-w-0">
-                                                        <div className="flex items-center gap-2 mb-1">
-                                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">
-                                                                {row.label || `Entry #${i + 1}`}
-                                                            </span>
-                                                            <SourceBadge source={row.source as any} sourceReference={row.sourceReference} />
-                                                        </div>
-                                                        <div className="text-sm font-mono font-medium text-slate-900 break-all leading-relaxed">
-                                                            {String(row.value) || <span className="text-slate-400 italic">Empty</span>}
-                                                        </div>
-                                                        <div className="mt-1.5 text-[10px] text-slate-400">
-                                                            Last Sync: {row.timestamp ? new Date(row.timestamp).toLocaleString() : 'Never'}
-                                                        </div>
-                                                    </div>
-                                                    {!isEditing && (
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            className="h-8 px-2 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
-                                                            onClick={() => {
-                                                                setSelectedRowId(row.id);
-                                                                setManualValue(String(row.value));
-                                                                setIsEditing(true);
-                                                            }}
-                                                        >
-                                                            <Edit className="h-3.5 w-3.5 mr-1.5" />
-                                                            Override
-                                                        </Button>
-                                                    )}
-                                                </div>
                                             </div>
-                                        ))}
-                                        <div className="flex gap-2 pt-1">
                                             {!isEditing && (
+                                                <div className="text-[10px] text-slate-400 italic px-1 pt-1">
+                                                    * This is a repeating field. Each entry above manages a different aspect of the Master Data.
+                                                </div>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <div>
+                                            {/* Value Display / Inline Edit for Empty */}
+                                            {!isEditing ? (
+                                                <>
+                                                    {data?.current?.value != null && data.current.value !== '' ? (
+                                                        <div>
+                                                            <div className="flex items-start gap-3">
+                                                                <span className="text-indigo-400 font-bold text-sm shrink-0 mt-0.5">A:</span>
+                                                                <div className="flex-1">
+                                                                    <div className="text-base font-medium text-slate-900 break-all leading-relaxed">
+                                                                        {String(data.current.value)}
+                                                                    </div>
+                                                                    <div className="mt-2 flex items-center gap-2">
+                                                                        <SourceBadge source={data.current.source || 'UNKNOWN'} sourceReference={data.current.sourceReference} />
+                                                                        <span className="text-[10px] text-slate-400">
+                                                                            Updated: {data.current.timestamp ? new Date(data.current.timestamp).toLocaleString() : 'Never'}
+                                                                        </span>
+                                                                    </div>
+                                                                </div>
+                                                                <button
+                                                                    className="p-1.5 rounded text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors shrink-0"
+                                                                    onClick={() => {
+                                                                        setManualValue(String(data?.current?.value || ""));
+                                                                        setIsEditing(true);
+                                                                        setRelatedValues({});
+                                                                    }}
+                                                                    title="Edit value"
+                                                                >
+                                                                    <Pencil className="h-3.5 w-3.5" />
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        /* Empty state — show inline input directly */
+                                                        <div className="flex items-start gap-3">
+                                                            <span className="text-indigo-400 font-bold text-sm shrink-0 mt-2">A:</span>
+                                                            <div className="flex-1 space-y-2">
+                                                                <Input
+                                                                    value={manualValue}
+                                                                    onChange={(e) => setManualValue(e.target.value)}
+                                                                    onKeyDown={(e) => {
+                                                                        if (e.key === 'Enter' && manualValue) {
+                                                                            setIsEditing(true);
+                                                                            handleManualSave();
+                                                                        }
+                                                                    }}
+                                                                    placeholder="Type a value and press Enter..."
+                                                                    className="bg-white border-slate-200 focus:border-indigo-300 focus:ring-indigo-200"
+                                                                />
+                                                                {manualValue && (
+                                                                    <div className="flex items-center gap-2">
+                                                                        <Button
+                                                                            size="sm"
+                                                                            className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700"
+                                                                            onClick={() => {
+                                                                                setIsEditing(true);
+                                                                                handleManualSave();
+                                                                            }}
+                                                                            disabled={isSaving}
+                                                                        >
+                                                                            {isSaving ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Check className="h-3 w-3 mr-1" />}
+                                                                            Save
+                                                                        </Button>
+                                                                        <span className="text-[10px] text-slate-400">or press Enter</span>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </>
+                                            ) : null}
+
+                                            {data?.isRepeating && !isEditing && (
                                                 <Button
                                                     variant="outline"
                                                     size="sm"
-                                                    className="w-full border-dashed text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+                                                    className="mt-4 w-full border-dashed text-indigo-600 border-indigo-200 hover:bg-indigo-50"
                                                     onClick={handleAddEntry}
                                                     disabled={isSaving}
                                                 >
                                                     {isSaving ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : <Edit className="h-3 w-3 mr-2" />}
-                                                    Add New Entry
+                                                    Add First Entry
                                                 </Button>
                                             )}
                                         </div>
-                                        {!isEditing && (
-                                            <div className="text-[10px] text-slate-400 italic px-1 pt-1">
-                                                * This is a repeating field. Each entry above manages a different aspect of the Master Data (e.g. a different Stakeholder).
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Explicit Edit Mode (when editing an existing value) */}
+                            {isEditing && !data?.isRepeating && data?.current?.value != null && data.current.value !== '' && (
+                                <div className="mt-4 pt-4 border-t border-slate-200 animate-in fade-in slide-in-from-top-2">
+                                    <div className="space-y-4">
+                                        {selectedRowId && (
+                                            <div className="bg-indigo-50 p-2 rounded text-[10px] font-medium text-indigo-700 flex items-center justify-between">
+                                                <span>
+                                                    EDITING ENTRY: {data?.rows?.find(r => r.id === selectedRowId)?.label || "Specific Row"}
+                                                </span>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="h-auto p-0 text-[10px] hover:bg-transparent hover:underline"
+                                                    onClick={() => {
+                                                        setSelectedRowId(null);
+                                                        setIsEditing(false);
+                                                    }}
+                                                >
+                                                    Cancel Edit
+                                                </Button>
                                             </div>
                                         )}
-                                    </div>
-                                ) : (
-                                    <div>
-                                        <div className="text-lg font-mono font-medium break-all">
-                                            {data?.current?.value || <span className="text-slate-400 italic">Empty</span>}
-                                        </div>
-                                        <div className="mt-2 flex items-center gap-2">
-                                            <SourceBadge source={data?.current?.source || 'UNKNOWN'} sourceReference={data?.current?.sourceReference} />
-                                            <span className="text-xs text-slate-400">
-                                                Updated: {data?.current?.timestamp ? new Date(data.current.timestamp).toLocaleString() : 'Never'}
-                                            </span>
-                                        </div>
-                                        {data?.isRepeating && !isEditing && (
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                className="mt-4 w-full border-dashed text-indigo-600 border-indigo-200 hover:bg-indigo-50"
-                                                onClick={handleAddEntry}
-                                                disabled={isSaving}
-                                            >
-                                                {isSaving ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : <Edit className="h-3 w-3 mr-2" />}
-                                                Add First Entry
-                                            </Button>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-                        )}
 
-                        {!isEditing && !data?.isRepeating && (
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                className="mt-3 w-full border-dashed text-slate-500 hover:text-slate-800"
-                                disabled={data?.dataType === 'document'}
-                                title={data?.dataType === 'document' ? "Document fields must be updated via Evidence tab" : ""}
-                                onClick={() => {
-                                    setManualValue(String(data?.current?.value || ""));
-                                    setIsEditing(true);
-                                    // No related values for single field 1:1 usually, or handle here if needed
-                                    setRelatedValues({});
-                                }}
-                            >
-                                <Edit className="h-3 w-3 mr-2" />
-                                {data?.dataType === 'document' ? 'Use Evidence Tab for Documents' : 'Manually Edit / Override'}
-                            </Button>
-                        )}
+                                        <div className="space-y-4 pt-2">
+                                            <div className="space-y-1.5">
+                                                <label className="text-xs font-semibold text-slate-600 uppercase tracking-tight">
+                                                    {fieldName} (Primary Value)
+                                                </label>
+                                                {data?.options && data.options.length > 0 ? (
+                                                    <Select value={manualValue} onValueChange={setManualValue}>
+                                                        <SelectTrigger className="w-full bg-white border-slate-300">
+                                                            <SelectValue placeholder={`Select ${fieldName}...`} />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            {data.options.map((opt: string) => (
+                                                                <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
+                                                ) : (
+                                                    <Input
+                                                        value={manualValue}
+                                                        onChange={(e) => setManualValue(e.target.value)}
+                                                        placeholder={`Enter ${fieldName}...`}
+                                                        className="bg-white border-slate-300"
+                                                    />
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
 
-                        {isEditing && (
-                            <div className="mt-4 pt-4 border-t border-slate-200 animate-in fade-in slide-in-from-top-2">
-                                <div className="space-y-4">
-                                    {selectedRowId && (
-                                        <div className="bg-indigo-50 p-2 rounded text-[10px] font-medium text-indigo-700 flex items-center justify-between">
-                                            <span>
-                                                EDITING ENTRY: {data?.rows?.find(r => r.id === selectedRowId)?.label || "Specific Row"}
-                                            </span>
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                className="h-auto p-0 text-[10px] hover:bg-transparent hover:underline"
-                                                onClick={() => {
-                                                    setSelectedRowId(null);
-                                                    setIsEditing(false);
-                                                }}
-                                            >
-                                                Cancel Edit
-                                            </Button>
+                                    {/* ─── Related Fields (UX Enhancement) ─── */}
+                                    {selectedRowId && (data?.fieldNo === 62 || data?.fieldNo === 63 || data?.fieldNo === 64) && (
+                                        <div className="space-y-3 bg-slate-50 p-3 rounded-md border border-slate-200">
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Related Information</p>
+
+                                            <div className="space-y-1">
+                                                <label className="text-[10px] font-medium text-slate-500">Stakeholder Full Name</label>
+                                                <Input
+                                                    value={relatedValues.fullName || ""}
+                                                    onChange={(e) => setRelatedValues(prev => ({ ...prev, fullName: e.target.value }))}
+                                                    placeholder="Enter full name..."
+                                                    className="h-8 text-xs"
+                                                />
+                                            </div>
+
+                                            <div className="space-y-1">
+                                                <label className="text-[10px] font-medium text-slate-500">Legal Name (Corporate)</label>
+                                                <Input
+                                                    value={relatedValues.legalName || ""}
+                                                    onChange={(e) => setRelatedValues(prev => ({ ...prev, legalName: e.target.value }))}
+                                                    placeholder="Enter legal name..."
+                                                    className="h-8 text-xs"
+                                                />
+                                            </div>
                                         </div>
                                     )}
 
-                                    <div className="space-y-4 pt-2">
-                                        <div className="space-y-1.5">
-                                            <label className="text-xs font-semibold text-slate-600 uppercase tracking-tight">
-                                                {fieldName} (Primary Value)
-                                            </label>
-                                            {data?.options && data.options.length > 0 ? (
-                                                <Select value={manualValue} onValueChange={setManualValue}>
-                                                    <SelectTrigger className="w-full bg-white border-slate-300">
-                                                        <SelectValue placeholder={`Select ${fieldName}...`} />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        {data.options.map((opt: string) => (
-                                                            <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
-                                            ) : (
+                                    {/* Contact Model Related Fields */}
+                                    {selectedRowId && (fieldName.toLowerCase().includes('contact')) && (
+                                        <div className="space-y-3 bg-slate-50 p-3 rounded-md border border-slate-200">
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Related Information</p>
+
+                                            <div className="space-y-1">
+                                                <label className="text-[10px] font-medium text-slate-500">Email Address</label>
                                                 <Input
-                                                    value={manualValue}
-                                                    onChange={(e) => setManualValue(e.target.value)}
-                                                    placeholder={`Enter ${fieldName}...`}
-                                                    className="bg-white border-slate-300"
+                                                    value={relatedValues.email || ""}
+                                                    onChange={(e) => setRelatedValues(prev => ({ ...prev, email: e.target.value }))}
+                                                    placeholder="Enter email..."
+                                                    className="h-8 text-xs"
                                                 />
-                                            )}
+                                            </div>
+
+                                            <div className="space-y-1">
+                                                <label className="text-[10px] font-medium text-slate-500">Phone Number</label>
+                                                <Input
+                                                    value={relatedValues.phone || ""}
+                                                    onChange={(e) => setRelatedValues(prev => ({ ...prev, phone: e.target.value }))}
+                                                    placeholder="Enter phone..."
+                                                    className="h-8 text-xs"
+                                                />
+                                            </div>
                                         </div>
+                                    )}
+
+                                    <div>
+                                        <label className="text-xs font-semibold text-slate-600 mb-1.5 block uppercase tracking-tight">Audit Notes (Optional)</label>
+                                        <Textarea
+                                            value={manualReason}
+                                            onChange={(e) => setManualReason(e.target.value)}
+                                            placeholder="Add notes about this override (optional)..."
+                                            className="h-24 bg-white border-slate-300 focus:ring-indigo-500 shadow-sm"
+                                        />
+                                    </div>
+
+                                    <div className="flex gap-2 justify-end">
+                                        <Button variant="ghost" size="sm" onClick={() => setIsEditing(false)}>Cancel</Button>
+                                        <Button size="sm" onClick={handleManualSave} disabled={isSaving}>
+                                            {isSaving ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : <CheckCircle className="h-3 w-3 mr-2" />}
+                                            Save Override
+                                        </Button>
                                     </div>
                                 </div>
+                            )}
+                        </div> {/* Closes the p-5 inner padding div */}
+                    </div> {/* Closes the rounded-xl "Current Value Card" div */}
 
-                                {/* ─── Related Fields (UX Enhancement) ─── */}
-                                {selectedRowId && (data?.fieldNo === 62 || data?.fieldNo === 63 || data?.fieldNo === 64) && (
-                                    <div className="space-y-3 bg-slate-50 p-3 rounded-md border border-slate-200">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Related Information</p>
-
-                                        <div className="space-y-1">
-                                            <label className="text-[10px] font-medium text-slate-500">Stakeholder Full Name</label>
-                                            <Input
-                                                value={relatedValues.fullName || ""}
-                                                onChange={(e) => setRelatedValues(prev => ({ ...prev, fullName: e.target.value }))}
-                                                placeholder="Enter full name..."
-                                                className="h-8 text-xs"
-                                            />
-                                        </div>
-
-                                        <div className="space-y-1">
-                                            <label className="text-[10px] font-medium text-slate-500">Legal Name (Corporate)</label>
-                                            <Input
-                                                value={relatedValues.legalName || ""}
-                                                onChange={(e) => setRelatedValues(prev => ({ ...prev, legalName: e.target.value }))}
-                                                placeholder="Enter legal name..."
-                                                className="h-8 text-xs"
-                                            />
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Contact Model Related Fields */}
-                                {selectedRowId && (fieldName.toLowerCase().includes('contact')) && (
-                                    <div className="space-y-3 bg-slate-50 p-3 rounded-md border border-slate-200">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Related Information</p>
-
-                                        <div className="space-y-1">
-                                            <label className="text-[10px] font-medium text-slate-500">Email Address</label>
-                                            <Input
-                                                value={relatedValues.email || ""}
-                                                onChange={(e) => setRelatedValues(prev => ({ ...prev, email: e.target.value }))}
-                                                placeholder="Enter email..."
-                                                className="h-8 text-xs"
-                                            />
-                                        </div>
-
-                                        <div className="space-y-1">
-                                            <label className="text-[10px] font-medium text-slate-500">Phone Number</label>
-                                            <Input
-                                                value={relatedValues.phone || ""}
-                                                onChange={(e) => setRelatedValues(prev => ({ ...prev, phone: e.target.value }))}
-                                                placeholder="Enter phone..."
-                                                className="h-8 text-xs"
-                                            />
-                                        </div>
-                                    </div>
-                                )}
-
-                                <div>
-                                    <label className="text-xs font-semibold text-slate-600 mb-1.5 block uppercase tracking-tight">Audit Notes (Optional)</label>
-                                    <Textarea
-                                        value={manualReason}
-                                        onChange={(e) => setManualReason(e.target.value)}
-                                        placeholder="Add notes about this override (optional)..."
-                                        className="h-24 bg-white border-slate-300 focus:ring-indigo-500 shadow-sm"
-                                    />
-                                </div>
-
-                                <div className="flex gap-2 justify-end">
-                                    <Button variant="ghost" size="sm" onClick={() => setIsEditing(false)}>Cancel</Button>
-                                    <Button size="sm" onClick={handleManualSave} disabled={isSaving}>
-                                        {isSaving ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : <CheckCircle className="h-3 w-3 mr-2" />}
-                                        Save Override
-                                    </Button>
-                                </div>
-                            </div>
-                        )}
-                    </div> {/* Closes the "Current Value Card" div */}
-
-                    <Tabs defaultValue="evidence" className="flex-1 flex flex-col overflow-hidden">
+                    <Tabs defaultValue="history" className="flex-1 flex flex-col overflow-hidden">
                         <TabsList className="grid w-full grid-cols-3">
                             <TabsTrigger value="evidence" className="gap-1.5">
                                 <Paperclip className="h-3.5 w-3.5" />
@@ -662,7 +824,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                         </TabsList>
 
                         {/* ─── Evidence Tab ─── */}
-                        <TabsContent value="evidence" className="flex-1 overflow-hidden mt-4 flex flex-col gap-3">
+                        <TabsContent value="evidence" className="flex-1 mt-4 flex flex-col gap-3">
                             <input
                                 ref={fileInputRef}
                                 type="file"
@@ -682,7 +844,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                 }
                             </Button>
 
-                            <ScrollArea className="flex-1 rounded-md border">
+                            <ScrollArea className="h-[300px] rounded-md border">
                                 {isLoadingEvidence ? (
                                     <div className="flex items-center justify-center py-10 gap-2 text-slate-400">
                                         <Loader2 className="h-4 w-4 animate-spin" /> Loading evidence...
@@ -726,8 +888,8 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                         </TabsContent>
 
                         {/* ─── History Tab ─── */}
-                        <TabsContent value="history" className="flex-1 overflow-hidden relative mt-4">
-                            <ScrollArea className="h-full w-full rounded-md border p-4">
+                        <TabsContent value="history" className="flex-1 mt-4">
+                            <ScrollArea className="h-[300px] w-full rounded-md border p-4">
                                 <div className="relative border-l border-slate-200 ml-3 space-y-6">
                                     {data?.history && data.history.length > 0 ? (
                                         data.history.map((item) => (
@@ -763,8 +925,8 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                         </TabsContent>
 
                         {/* ─── Candidates Tab ─── */}
-                        <TabsContent value="candidates" className="flex-1 overflow-hidden mt-4">
-                            <ScrollArea className="h-full w-full rounded-md border p-4">
+                        <TabsContent value="candidates" className="flex-1 mt-4">
+                            <ScrollArea className="h-[300px] w-full rounded-md border p-4">
                                 <div className="space-y-3">
                                     {data?.candidates && data.candidates.length > 0 ? (
                                         data.candidates.map((cand, i) => (

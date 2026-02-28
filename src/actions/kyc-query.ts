@@ -134,6 +134,12 @@ export async function getFieldDetail(
 
         if (!le) throw new Error("Entity not found");
 
+        // Fetch the CustomFieldDefinition to get the label
+        const customDef = await prisma.customFieldDefinition.findUnique({
+            where: { id: customFieldId },
+            select: { label: true, dataType: true }
+        });
+
         const data = (le.customData as Record<string, any>) || {};
         const val = data[customFieldId]; // Expecting { value, source, timestamp } or just value
 
@@ -149,8 +155,9 @@ export async function getFieldDetail(
 
         return {
             fieldNo: 0, // Custom fields don't have a fieldNo
+            fieldName: customDef?.label || customFieldId,
             isRepeating: false,
-            dataType: 'text',
+            dataType: customDef?.dataType || 'text',
             current: {
                 value: currentVal,
                 source,
@@ -191,24 +198,7 @@ export async function getFieldDetail(
     if (def?.isMultiValue && def.category) {
         const collection = await KycStateService.getAuthoritativeCollection({ subjectLeId }, fieldNo, ownerScopeId);
 
-        // Fetch full records for this model to provide context to the UI
-        const prismaClientKey = def.category.charAt(0).toLowerCase() + def.category.slice(1);
-        // @ts-ignore
-        const allRecords = await prisma[prismaClientKey].findMany({
-            where: { legalEntityId: subjectLeId }
-        });
-
         rows = collection.map(c => {
-            // Find the record matching this instance (or by value for some simple collections?)
-            // Usually repeating fields have an 'id' that maps to instanceId
-            const record = allRecords.find((r: any) => r.id === c.instanceId);
-
-            // Generate a friendly label for the row if possible
-            let label = undefined;
-            if (record) {
-                label = record.fullName || record.legalName || record.name || record.email || record.partyId;
-            }
-
             return {
                 id: c.claimId,
                 value: c.value,
@@ -216,8 +206,8 @@ export async function getFieldDetail(
                 sourceReference: c.sourceReference || undefined,
                 timestamp: c.assertedAt,
                 instanceId: c.instanceId,
-                data: record || undefined,
-                label
+                data: undefined,
+                label: typeof c.value === 'string' ? c.value : undefined
             };
         });
     }

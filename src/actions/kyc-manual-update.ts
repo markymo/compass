@@ -62,7 +62,7 @@ export async function updateFieldManually(
             case 'DATETIME': claimInput.valueDate = new Date(value); break;
             case 'PERSON_REF': claimInput.valuePersonId = value; break;
             case 'ORG_REF': claimInput.valueLeId = value; break;
-            case 'DOCUMENT_REF': claimInput.valueDocId = value; break;
+            case 'DOCUMENT_REF': claimInput.valueText = value; break; // Manual edits store as text; valueDocId requires valid FK
             case 'JSONB': claimInput.valueJson = value; break;
         }
 

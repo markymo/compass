@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useMemo, useTransition } from "react";
-import { Workbench4Data, mapQuestionToField } from "@/actions/kyc-workbench";
+import { Workbench4Data, mapQuestionToField, getAIFieldNameSuggestion } from "@/actions/kyc-workbench";
 import { ConsoleQuestion } from "@/actions/kyc-query";
 import { createCustomFieldDefinition } from "@/actions/questionnaire";
+import { renameCustomField } from "@/actions/master-data-governance";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -26,7 +27,13 @@ import {
     Plus,
     CheckCircle2,
     AlertCircle,
-    MoreHorizontal
+    MoreHorizontal,
+    Pencil,
+    PanelLeftOpen,
+    Check,
+    X,
+    Sparkles,
+    Loader2
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -52,6 +59,13 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
     const [newFieldName, setNewFieldName] = useState("");
     const [newFieldType, setNewFieldType] = useState("Text");
     const [activeQuestionId, setActiveQuestionId] = useState<string | null>(null);
+    const [isAISuggesting, setIsAISuggesting] = useState(false);
+    const [aiReasoning, setAiReasoning] = useState<string | null>(null);
+
+    // Derive the active question text for the create dialog
+    const activeQuestionText = activeQuestionId
+        ? data.questions.find(q => q.id === activeQuestionId)?.text || ""
+        : "";
 
     // Inspection Drawer State
     const [selectedInspectionField, setSelectedInspectionField] = useState<{ fieldNo: number; name: string; customFieldId?: string } | null>(null);
@@ -257,12 +271,32 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
                     <QuestionCard
                         key={q.id}
                         question={q}
+                        leId={leId}
                         masterFields={data.masterFields}
                         masterGroups={data.masterGroups}
                         customFields={data.customFields}
                         onMap={(val) => handleMap(q.id, val)}
                         onInspect={(fieldNo, name, customFieldId) => {
                             setSelectedInspectionField({ fieldNo, name, customFieldId });
+                        }}
+                        onInlineEdit={(val, src, date) => {
+                            handleFieldUpdate(
+                                q.masterFieldNo || 0,
+                                (q as any).customFieldDefinitionId,
+                                val, src, date
+                            );
+                        }}
+                        onRenameCustomField={async (cfId, newLabel) => {
+                            const res = await renameCustomField(cfId, newLabel);
+                            if (res.success) {
+                                setData(prev => ({
+                                    ...prev,
+                                    customFields: prev.customFields.map(f =>
+                                        f.id === cfId ? { ...f, label: newLabel } : f
+                                    )
+                                }));
+                            }
+                            return res;
                         }}
                         disabled={isPending}
                         isPinned={pinnedIds.has(q.id)}
@@ -297,23 +331,75 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
             />
 
             {/* Create Custom Field Dialog */}
-            <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-                <DialogContent className="sm:max-w-[425px]">
+            <Dialog open={isCreateDialogOpen} onOpenChange={(open) => {
+                setIsCreateDialogOpen(open);
+                if (!open) { setAiReasoning(null); setIsAISuggesting(false); }
+            }}>
+                <DialogContent className="sm:max-w-[500px]">
                     <DialogHeader>
                         <DialogTitle>Create New Master Data Field</DialogTitle>
                         <DialogDescription>
                             Define a new field to capture this information across all future requests.
                         </DialogDescription>
                     </DialogHeader>
-                    <div className="grid gap-4 py-4">
+
+                    {/* Question Context */}
+                    {activeQuestionText && (
+                        <div className="bg-slate-50 rounded-lg p-3 border border-slate-100">
+                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1">Original Question</div>
+                            <p className="text-sm text-slate-700 leading-snug">{activeQuestionText}</p>
+                        </div>
+                    )}
+
+                    <div className="grid gap-4 py-2">
                         <div className="grid gap-2">
-                            <Label htmlFor="name">Field Name</Label>
+                            <div className="flex items-center justify-between">
+                                <Label htmlFor="name">Field Name</Label>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className={cn(
+                                        "h-7 gap-1.5 px-2 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50",
+                                        isAISuggesting ? "animate-pulse" : ""
+                                    )}
+                                    onClick={async () => {
+                                        if (!activeQuestionText) return;
+                                        setIsAISuggesting(true);
+                                        setAiReasoning(null);
+                                        try {
+                                            const res = await getAIFieldNameSuggestion(activeQuestionText);
+                                            if (res.success && 'suggestion' in res) {
+                                                setNewFieldName(res.suggestion);
+                                                if ('dataType' in res && res.dataType) setNewFieldType(res.dataType);
+                                                if ('reasoning' in res && res.reasoning) setAiReasoning(res.reasoning);
+                                                toast.success("AI suggestion applied");
+                                            } else {
+                                                toast.error("AI suggestion failed");
+                                            }
+                                        } catch {
+                                            toast.error("AI suggestion failed");
+                                        } finally {
+                                            setIsAISuggesting(false);
+                                        }
+                                    }}
+                                    disabled={isAISuggesting || !activeQuestionText}
+                                >
+                                    {isAISuggesting
+                                        ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                        : <Sparkles className="h-3.5 w-3.5" />
+                                    }
+                                    <span className="text-xs font-semibold">AI Suggest</span>
+                                </Button>
+                            </div>
                             <Input
                                 id="name"
                                 placeholder="e.g. Board Diversity Policy"
                                 value={newFieldName}
                                 onChange={(e) => setNewFieldName(e.target.value)}
                             />
+                            {aiReasoning && (
+                                <p className="text-xs text-slate-500 italic leading-snug">{aiReasoning}</p>
+                            )}
                         </div>
                         <div className="grid gap-2">
                             <Label htmlFor="type">Data Type</Label>
@@ -349,63 +435,142 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
 
 function QuestionCard({
     question,
+    leId,
     masterFields,
     masterGroups,
     customFields,
     onMap,
     onInspect,
+    onInlineEdit,
+    onRenameCustomField,
     disabled,
     isPinned
 }: {
     question: ConsoleQuestion;
+    leId: string;
     masterFields: Array<{ fieldNo: number; label: string }>;
     masterGroups: Array<{ key: string; label: string }>;
     customFields: Array<{ id: string; label: string }>;
     onMap: (val: string) => void;
     onInspect: (fieldNo: number, name: string, customFieldId?: string) => void;
+    onInlineEdit: (newValue: any, newSource: string, newUpdatedAt: Date) => void;
+    onRenameCustomField: (customFieldId: string, newLabel: string) => Promise<{ success: boolean; error?: string }>;
     disabled?: boolean;
     isPinned?: boolean;
 }) {
     const isMapped = !!(question.masterFieldNo || question.masterQuestionGroupId || (question as any).customFieldDefinitionId);
+    const [isEditing, setIsEditing] = useState(false);
+    const [editValue, setEditValue] = useState("");
+    const [isSaving, setIsSaving] = useState(false);
+
+    // Inline rename for custom field label
+    const [isRenaming, setIsRenaming] = useState(false);
+    const [renameValue, setRenameValue] = useState("");
+    const [isRenameSaving, setIsRenameSaving] = useState(false);
+    const customFieldId = (question as any).customFieldDefinitionId as string | undefined;
 
     // Find current mapping label
     let currentMappingLabel = "Unmapped";
 
     if (question.masterFieldNo) {
         currentMappingLabel = masterFields.find(f => f.fieldNo === question.masterFieldNo)?.label || `Field ${question.masterFieldNo}`;
-    } else if ((question as any).customFieldDefinitionId) {
-        currentMappingLabel = customFields.find(f => f.id === (question as any).customFieldDefinitionId)?.label || "Custom Field";
+    } else if (customFieldId) {
+        currentMappingLabel = customFields.find(f => f.id === customFieldId)?.label || "Custom Field";
     }
+
+    const handleRenameStart = () => {
+        setRenameValue(currentMappingLabel);
+        setIsRenaming(true);
+    };
+
+    const handleRenameSave = async () => {
+        if (!customFieldId || !renameValue.trim()) return;
+        setIsRenameSaving(true);
+        const res = await onRenameCustomField(customFieldId, renameValue.trim());
+        if (res.success) {
+            toast.success("Field renamed");
+            setIsRenaming(false);
+        } else {
+            toast.error(res.error || "Rename failed");
+        }
+        setIsRenameSaving(false);
+    };
+
+    const handleStartEdit = () => {
+        if (!isMapped) return;
+        const currentVal = question.masterDataValue != null ? String(question.masterDataValue) : "";
+        setEditValue(currentVal);
+        setIsEditing(true);
+    };
+
+    const handleCancelEdit = () => {
+        setIsEditing(false);
+        setEditValue("");
+    };
+
+    const handleSaveEdit = async () => {
+        if (!isMapped || isSaving) return;
+        setIsSaving(true);
+        try {
+            const { updateFieldManually } = await import("@/actions/kyc-manual-update");
+            const fieldNo = question.masterFieldNo || 0;
+            const res = await updateFieldManually(leId, fieldNo, editValue, "Inline edit");
+            if (res.success) {
+                onInlineEdit(editValue, "USER_INPUT", new Date());
+                toast.success("Value updated");
+            } else {
+                toast.error(res.message || "Update failed");
+            }
+        } catch (err) {
+            toast.error("Update failed");
+        } finally {
+            setIsSaving(false);
+            setIsEditing(false);
+        }
+    };
 
     return (
         <Card className={cn(
-            "group transition-all hover:border-slate-300 shadow-sm overflow-hidden",
-            isPinned ? "border-green-400 ring-2 ring-green-50 z-10 scale-[1.01]" : "",
+            "group transition-all shadow-sm overflow-hidden",
+            "border border-slate-200 hover:border-slate-300 hover:shadow-md",
+            "focus-within:border-slate-300 focus-within:shadow-md",
+            isPinned ? "!border-green-400 ring-2 ring-green-50 z-10 scale-[1.01]" : "",
             isMapped ? "bg-white" : "bg-slate-50/50 border-dashed"
         )}>
             <CardContent className="p-0">
                 <div className="flex items-stretch min-h-[100px]">
                     {/* Left Side: Context */}
                     <div className={cn(
-                        "w-[300px] border-r border-slate-100 p-4 space-y-2 shrink-0 transition-colors",
+                        "w-[180px] border-r border-slate-100 p-4 space-y-2 shrink-0 transition-colors",
                         isPinned ? "bg-green-50/30" : ""
                     )}>
-                        <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                        <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-wide">
                             <Building2 className="h-3 w-3" />
                             {question.engagementOrgName || "Unknown Relationship"}
                         </div>
-                        <div className="flex items-center gap-2 text-xs font-semibold text-slate-600">
-                            <FileText className="h-3.5 w-3.5 text-slate-400" />
+                        <div className="flex items-center gap-2 text-xs font-medium text-slate-600">
+                            <FileText className="h-3 w-3 text-slate-400" />
                             <span className="truncate" title={question.questionnaireName}>
                                 {question.questionnaireName}
                             </span>
                         </div>
                         <div className="pt-1 flex items-center gap-2">
                             {isMapped ? (
-                                <Badge variant="secondary" className="bg-green-50 text-green-700 border-green-100 gap-1 px-1.5 py-0">
-                                    <CheckCircle2 className="h-3 w-3" />
-                                    {isPinned ? "Just Mapped" : "Mapped"}
-                                </Badge>
+                                <>
+                                    <Badge variant="secondary" className="bg-green-50 text-green-700 border-green-100 gap-1 px-1.5 py-0">
+                                        <CheckCircle2 className="h-3 w-3" />
+                                        {isPinned ? "Just Mapped" : "Mapped"}
+                                    </Badge>
+                                    {customFieldId && !isRenaming && (
+                                        <button
+                                            className="p-0.5 rounded text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                                            onClick={(e) => { e.stopPropagation(); handleRenameStart(); }}
+                                            title="Rename custom field"
+                                        >
+                                            <Pencil className="h-3 w-3" />
+                                        </button>
+                                    )}
+                                </>
                             ) : (
                                 <Badge variant="secondary" className="bg-amber-50 text-amber-700 border-amber-100 gap-1 px-1.5 py-0">
                                     <AlertCircle className="h-3 w-3" />
@@ -413,6 +578,27 @@ function QuestionCard({
                                 </Badge>
                             )}
                         </div>
+                        {isRenaming && (
+                            <div className="pt-1 flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                                <Input
+                                    value={renameValue}
+                                    onChange={(e) => setRenameValue(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') handleRenameSave();
+                                        if (e.key === 'Escape') setIsRenaming(false);
+                                    }}
+                                    className="h-7 text-xs flex-1"
+                                    autoFocus
+                                    disabled={isRenameSaving}
+                                />
+                                <Button variant="ghost" size="icon" className="h-6 w-6 text-green-600" onClick={handleRenameSave} disabled={isRenameSaving}>
+                                    {isRenameSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                                </Button>
+                                <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400" onClick={() => setIsRenaming(false)}>
+                                    <X className="h-3 w-3" />
+                                </Button>
+                            </div>
+                        )}
                     </div>
 
                     {/* Middle: Question Text */}
@@ -424,39 +610,96 @@ function QuestionCard({
                             </h4>
                         </div>
 
-                        <div
-                            className="flex flex-col gap-1.5 pt-2 border-t border-slate-50 cursor-pointer group/ans"
-                            onClick={() => {
-                                const fNo = question.masterFieldNo || 0;
-                                const customId = (question as any).customFieldDefinitionId;
-                                onInspect(fNo, question.text, customId);
-                            }}
-                        >
+                        <div className="flex flex-col gap-1.5 pt-2 border-t border-slate-50">
                             <div className="flex items-start gap-2">
                                 <span className="text-indigo-400 font-bold text-sm shrink-0 mt-0.5">A:</span>
-                                <div className="text-sm text-slate-700 bg-slate-50/50 px-2 py-1.5 rounded border border-slate-100/50 w-full font-medium group-hover/ans:border-indigo-200 group-hover/ans:bg-indigo-50/30 transition-all relative">
-                                    {typeof question.masterDataValue === 'object'
-                                        ? JSON.stringify(question.masterDataValue)
-                                        : String(question.masterDataValue)}
 
-                                    <div className="absolute right-2 top-1.5 opacity-0 group-hover/ans:opacity-100 transition-opacity">
-                                        <Badge variant="outline" className="bg-white text-indigo-600 border-indigo-200 text-[9px] px-1 py-0 h-4">
-                                            Inspect Audit
-                                        </Badge>
+                                {isEditing ? (
+                                    <div className="flex items-center gap-2 w-full">
+                                        <Input
+                                            value={editValue}
+                                            onChange={(e) => setEditValue(e.target.value)}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') handleSaveEdit();
+                                                if (e.key === 'Escape') handleCancelEdit();
+                                            }}
+                                            className="text-sm h-9 flex-1"
+                                            autoFocus
+                                            disabled={isSaving}
+                                            placeholder="Enter value..."
+                                        />
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-8 w-8 text-green-600 hover:bg-green-50 shrink-0"
+                                            onClick={handleSaveEdit}
+                                            disabled={isSaving}
+                                        >
+                                            <Check className="h-4 w-4" />
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-8 w-8 text-slate-400 hover:bg-slate-100 shrink-0"
+                                            onClick={handleCancelEdit}
+                                            disabled={isSaving}
+                                        >
+                                            <X className="h-4 w-4" />
+                                        </Button>
                                     </div>
-                                </div>
+                                ) : (
+                                    <div className="text-sm text-slate-700 bg-slate-50/50 px-2 py-1.5 rounded border border-slate-100/50 w-full font-medium relative flex items-center">
+                                        <span className="flex-1">
+                                            {question.masterDataValue != null && question.masterDataValue !== ''
+                                                ? (typeof question.masterDataValue === 'object'
+                                                    ? JSON.stringify(question.masterDataValue)
+                                                    : String(question.masterDataValue))
+                                                : isMapped
+                                                    ? <span className="italic text-slate-400">No value yet — click ✏️ to add</span>
+                                                    : <span className="italic text-slate-300">Map a master field to enable answers</span>
+                                            }
+                                        </span>
+
+                                        <div className="flex items-center gap-1 ml-2 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <button
+                                                onClick={handleStartEdit}
+                                                disabled={!isMapped}
+                                                title={isMapped ? "Edit value" : "Map a field first"}
+                                                className={cn(
+                                                    "p-1 rounded transition-colors",
+                                                    isMapped
+                                                        ? "text-indigo-500 hover:bg-indigo-50 hover:text-indigo-700"
+                                                        : "text-slate-300 cursor-not-allowed"
+                                                )}
+                                            >
+                                                <Pencil className="h-3.5 w-3.5" />
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    const fNo = question.masterFieldNo || 0;
+                                                    const customId = (question as any).customFieldDefinitionId;
+                                                    onInspect(fNo, question.text, customId);
+                                                }}
+                                                title="View history & details"
+                                                className="p-1 rounded text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+                                            >
+                                                <PanelLeftOpen className="h-3.5 w-3.5" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
-                            {(question.masterDataSource || question.masterDataUpdatedAt) && (
+                            {!isEditing && (question.masterDataSource || question.masterDataUpdatedAt) && (
                                 <div className="flex items-center gap-3 pl-6 text-[10px] text-slate-400 font-medium">
                                     {question.masterDataSource && (
                                         <div className="flex items-center gap-1 bg-slate-100/50 px-1.5 py-0.5 rounded border border-slate-200/50">
-                                            <span className="opacity-60 uppercase tracking-tighter">Source:</span>
+                                            <span className="opacity-60 uppercase tracking-wide">Source:</span>
                                             <span className="text-slate-600 font-bold uppercase">{question.masterDataSource}</span>
                                         </div>
                                     )}
                                     {question.masterDataUpdatedAt && (
                                         <div className="flex items-center gap-1">
-                                            <span className="opacity-60 uppercase tracking-tighter text-[9px]">Last Updated:</span>
+                                            <span className="opacity-60 uppercase tracking-wide">Last Updated:</span>
                                             <span className="text-slate-500 font-semibold">{new Date(question.masterDataUpdatedAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}</span>
                                         </div>
                                     )}
@@ -467,7 +710,7 @@ function QuestionCard({
 
                     {/* Right Side: Mapping Controls */}
                     <div className="w-[320px] p-4 flex flex-col justify-center gap-2 bg-slate-50/30">
-                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1">
                             Master Data Mapping
                         </div>
 

@@ -131,3 +131,33 @@ export async function updateMasterFieldGroup(
         return { success: false, error: String(e) };
     }
 }
+
+/**
+ * renameCustomField: Updates the label of a CustomFieldDefinition.
+ * Available to LE_Admin and LE_User roles.
+ */
+export async function renameCustomField(
+    customFieldId: string,
+    newLabel: string
+): Promise<{ success: boolean; error?: string }> {
+    try {
+        if (!newLabel.trim()) {
+            return { success: false, error: "Label cannot be empty" };
+        }
+
+        await prisma.customFieldDefinition.update({
+            where: { id: customFieldId },
+            data: { label: newLabel.trim() }
+        });
+
+        revalidatePath("/app/admin/master-data");
+        revalidatePath("/app/admin/master-data/fields");
+        // Revalidate workbench pages broadly
+        revalidatePath("/app/le", "layout");
+
+        return { success: true };
+    } catch (e) {
+        console.error("[renameCustomField] Error:", e);
+        return { success: false, error: String(e) };
+    }
+}
