@@ -181,30 +181,32 @@ export function SuperFieldSelector({
                         {/* 2. AI Suggestions (If search resulted in matches) */}
                         {aiSuggestions.length > 0 && (
                             <CommandGroup heading="AI Semantic Best Matches">
-                                {aiSuggestions.map(sug => {
-                                    const opt = allOptions.find(o => o.value === sug.id);
-                                    if (!opt) return null;
-                                    return (
-                                        <CommandItem
-                                            key={`ai-${sug.id}`}
-                                            onSelect={() => {
-                                                const [type, val] = sug.id.split(':');
-                                                onSelect(val, type as any);
-                                                setOpen(false);
-                                                setAiSuggestions([]);
-                                            }}
-                                            className="flex flex-col items-start gap-1 py-3"
-                                        >
-                                            <div className="flex items-center justify-between w-full">
-                                                <span className="font-semibold text-indigo-700">{opt.label}</span>
-                                                <Badge variant="outline" className="text-[10px] bg-indigo-50 text-indigo-600 border-indigo-100">
-                                                    {Math.round(sug.confidence * 100)}% Match
-                                                </Badge>
-                                            </div>
-                                            <p className="text-[11px] text-slate-500 italic leading-snug">{sug.reasoning}</p>
-                                        </CommandItem>
-                                    );
-                                })}
+                                {aiSuggestions
+                                    .filter((sug, index, self) => self.findIndex(s => s.id === sug.id) === index)
+                                    .map(sug => {
+                                        const opt = allOptions.find(o => o.value === sug.id);
+                                        if (!opt) return null;
+                                        return (
+                                            <CommandItem
+                                                key={`ai-${sug.id}`}
+                                                onSelect={() => {
+                                                    const [type, val] = sug.id.split(':');
+                                                    onSelect(val, type as any);
+                                                    setOpen(false);
+                                                    setAiSuggestions([]);
+                                                }}
+                                                className="flex flex-col items-start gap-1 py-3"
+                                            >
+                                                <div className="flex items-center justify-between w-full">
+                                                    <span className="font-semibold text-indigo-700">{opt.label}</span>
+                                                    <Badge variant="outline" className="text-[10px] bg-indigo-50 text-indigo-600 border-indigo-100">
+                                                        {Math.round(sug.confidence * 100)}% Match
+                                                    </Badge>
+                                                </div>
+                                                <p className="text-[11px] text-slate-500 italic leading-snug">{sug.reasoning}</p>
+                                            </CommandItem>
+                                        );
+                                    })}
                             </CommandGroup>
                         )}
 

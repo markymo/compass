@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Bug, Lightbulb, MessageSquare, Trash2, Download, FileText, ChevronDown, ChevronRight } from "lucide-react";
+import { Bug, Lightbulb, MessageSquare, Trash2, Download, FileText, ChevronDown, ChevronRight, MessageSquarePlus, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 type Note = {
@@ -11,9 +11,12 @@ type Note = {
     category: string;
     status: string;
     authorEmail: string | null;
+    authorName: string | null;
     sessionTag: string | null;
     closedAt: Date | null;
     createdAt: Date;
+    assignedToId: string | null;
+    assignedTo: { id: string; name: string | null; email: string } | null;
 };
 
 const CATEGORY_META: Record<string, { icon: React.ReactNode; color: string; label: string }> = {
@@ -22,13 +25,59 @@ const CATEGORY_META: Record<string, { icon: React.ReactNode; color: string; labe
     general: { icon: <MessageSquare className="h-3.5 w-3.5" />, color: "bg-slate-100 text-slate-600 border-slate-200", label: "Note" },
 };
 
-export function FeedbackAdminClient({ sessions }: { sessions: Record<string, Note[]> }) {
+export function FeedbackAdminClient({
+    sessions,
+    users,
+    currentUser
+}: {
+    sessions: Record<string, Note[]>;
+    users: { id: string; name: string | null; email: string }[];
+    currentUser: { id: string; name: string | null; email: string } | null;
+}) {
     const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
     const [showClosed, setShowClosed] = useState(false);
+    const [showCreateForm, setShowCreateForm] = useState(false);
+    const [newNote, setNewNote] = useState("");
+    const [newCategory, setNewCategory] = useState("general");
+    const [newAssigneeId, setNewAssigneeId] = useState(currentUser?.id || "");
+    const [isSaving, setIsSaving] = useState(false);
+
     const router = useRouter();
     const [isPending, startTransition] = useTransition();
 
     const allNotes = Object.values(sessions).flat();
+
+    async function handleCreateTicket(e: React.FormEvent) {
+        e.preventDefault();
+        if (!newNote.trim()) return;
+
+        setIsSaving(true);
+        try {
+            const res = await fetch("/api/feedback", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    pageUrl: "/app/admin/feedback (Manually Created)",
+                    note: newNote.trim(),
+                    category: newCategory,
+                    authorEmail: currentUser?.email,
+                    authorName: currentUser?.name,
+                    assignedToId: newAssigneeId || null,
+                    sessionTag: "Manual Ticket"
+                })
+            });
+
+            if (!res.ok) throw new Error("Failed to create ticket");
+
+            setNewNote("");
+            setShowCreateForm(false);
+            startTransition(() => router.refresh());
+        } catch (err) {
+            alert("Error creating ticket");
+        } finally {
+            setIsSaving(false);
+        }
+    }
 
     async function handleDelete(id: string) {
         if (!confirm("Delete this feedback?")) return;
@@ -127,6 +176,81 @@ export function FeedbackAdminClient({ sessions }: { sessions: Record<string, Not
 
     return (
         <div className="space-y-4">
+            {/* Create Ticket Form */}
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden mb-6">
+                <button
+                    onClick={() => setShowCreateForm(!showCreateForm)}
+                    className="w-full px-5 py-4 flex items-center justify-between hover:bg-slate-50 transition-colors"
+                >
+                    <div className="flex items-center gap-2">
+                        <MessageSquarePlus className="h-5 w-5 text-indigo-600" />
+                        <span className="font-semibold text-slate-800">Create New Ticket / Note</span>
+                    </div>
+                    <div className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider ${showCreateForm ? 'bg-slate-100 text-slate-500' : 'bg-indigo-50 text-indigo-600'}`}>
+                        {showCreateForm ? 'Cancel' : '+ New Ticket'}
+                    </div>
+                </button>
+
+                {showCreateForm && (
+                    <form onSubmit={handleCreateTicket} className="p-5 border-t border-slate-100 bg-slate-50/50 space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-semibold text-slate-600 uppercase tracking-tight">Category</label>
+                                <div className="flex gap-2">
+                                    {(Object.keys(CATEGORY_META)).map(cat => (
+                                        <button
+                                            key={cat}
+                                            type="button"
+                                            onClick={() => setNewCategory(cat)}
+                                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${newCategory === cat ? 'bg-white border-indigo-500 text-indigo-700 shadow-sm ring-2 ring-indigo-500/10' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'}`}
+                                        >
+                                            {CATEGORY_META[cat as keyof typeof CATEGORY_META].icon}
+                                            {CATEGORY_META[cat as keyof typeof CATEGORY_META].label}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-semibold text-slate-600 uppercase tracking-tight">Assign To</label>
+                                <select
+                                    value={newAssigneeId}
+                                    onChange={(e) => setNewAssigneeId(e.target.value)}
+                                    className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                                >
+                                    <option value="">Unassigned</option>
+                                    {users.map(u => (
+                                        <option key={u.id} value={u.id}>{u.name || u.email} {u.id === currentUser?.id ? '(Me)' : ''}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-semibold text-slate-600 uppercase tracking-tight">Ticket details</label>
+                            <textarea
+                                value={newNote}
+                                onChange={(e) => setNewNote(e.target.value)}
+                                placeholder="Describe the bug, feature request or general note..."
+                                className="w-full bg-white border border-slate-200 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 resize-none"
+                                rows={3}
+                                required
+                            />
+                        </div>
+
+                        <div className="flex justify-end">
+                            <button
+                                type="submit"
+                                disabled={isSaving || !newNote.trim()}
+                                className="inline-flex items-center gap-2 bg-indigo-600 text-white px-6 py-2 rounded-lg text-sm font-semibold hover:bg-indigo-700 disabled:opacity-50 transition-colors shadow-sm"
+                            >
+                                {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquarePlus className="h-4 w-4" />}
+                                Create Ticket
+                            </button>
+                        </div>
+                    </form>
+                )}
+            </div>
+
             {/* Export Actions */}
             <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-3">
@@ -207,7 +331,19 @@ export function FeedbackAdminClient({ sessions }: { sessions: Record<string, Not
                                                 {meta.icon} {meta.label}
                                             </span>
                                             <div className="flex-1 min-w-0">
-                                                <p className="text-[11px] font-mono text-slate-400 truncate">{n.pageUrl}</p>
+                                                <div className="flex items-center gap-2">
+                                                    <p className="text-[11px] font-mono text-slate-400 truncate">{n.pageUrl}</p>
+                                                    {n.authorName && (
+                                                        <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded flex items-center gap-1">
+                                                            Creator: <span className="font-semibold">{n.authorName}</span>
+                                                        </span>
+                                                    )}
+                                                    {n.assignedTo && (
+                                                        <span className="text-[10px] bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded flex items-center gap-1 border border-indigo-100">
+                                                            Assigned: <span className="font-semibold">{n.assignedTo.name || n.assignedTo.email}</span>
+                                                        </span>
+                                                    )}
+                                                </div>
                                                 <p className={`text-sm mt-0.5 leading-snug ${isClosed ? "text-slate-400 line-through" : "text-slate-800"}`}>{n.note}</p>
                                                 {isClosed && n.closedAt && (
                                                     <p className="text-[10px] text-emerald-600 font-medium mt-1">

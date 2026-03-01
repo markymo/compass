@@ -70,6 +70,7 @@ model User {
   verifiedClaims                FieldClaim[]
   masterFieldAssignmentsCreated MasterFieldAssignment[] @relation("MasterFieldAssignmentsCreated")
   assignedMasterFields          MasterFieldAssignment[] @relation("AssignedMasterFields")
+  assignedFeedback              FeedbackNote[]          @relation("FeedbackAssignedTo")
 }
 
 model Organization {
@@ -527,15 +528,18 @@ model DocumentRegistry {
 
 
 model FeedbackNote {
-  id          String    @id @default(uuid())
-  pageUrl     String
-  note        String
-  category    String    @default("general")
-  authorEmail String?
-  sessionTag  String?
-  createdAt   DateTime  @default(now())
-  status      String    @default("open")
-  closedAt    DateTime?
+  id           String    @id @default(uuid())
+  pageUrl      String
+  note         String
+  category     String    @default("general")
+  authorEmail  String?
+  authorName   String?
+  assignedToId String?
+  sessionTag   String?
+  createdAt    DateTime  @default(now())
+  status       String    @default("open")
+  closedAt     DateTime?
+  assignedTo   User?     @relation("FeedbackAssignedTo", fields: [assignedToId], references: [id])
 
   @@index([sessionTag, createdAt(sort: Desc)])
   @@map("feedback_notes")

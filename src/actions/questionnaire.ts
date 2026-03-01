@@ -850,7 +850,8 @@ async function syncQuestionsToDatabase(id: string, items: any[]) {
                 masterFieldNo: item.masterFieldNo || null,
                 masterQuestionGroupId: item.masterQuestionGroupId || null,
                 customFieldDefinitionId: item.customFieldDefinitionId || null,
-                prefilledValue: item.prefilledValue || null
+                prefilledValue: item.prefilledValue || null,
+                answer: item.answer || null
             };
         });
 

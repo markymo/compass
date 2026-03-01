@@ -221,7 +221,12 @@ export async function getAISemanticMatch(questionText: string, searchTerm?: stri
             ]
         });
 
-        return { success: true, suggestions: object.suggestions };
+        // De-duplicate suggestions by ID (AI can sometimes suggest same field twice)
+        const uniqueSuggestions = Array.from(
+            new Map(object.suggestions.map(s => [s.id, s])).values()
+        );
+
+        return { success: true, suggestions: uniqueSuggestions };
     } catch (error) {
         console.error("AI Semantic Match failed:", error);
         return { success: false, error: "AI matching failed" };

@@ -1,10 +1,29 @@
 import prisma from "@/lib/prisma";
 import { Bug, Lightbulb, MessageSquare, Download } from "lucide-react";
+import { getIdentity } from "@/lib/auth";
 import { FeedbackAdminClient } from "./client";
 
 export default async function FeedbackAdminPage() {
+    const identity = await getIdentity();
+    const currentUser = identity ? {
+        id: identity.userId,
+        name: (identity as any).name || identity.email,
+        email: identity.email
+    } : null;
+
     const notes = await prisma.feedbackNote.findMany({
+        include: {
+            assignedTo: {
+                select: { id: true, name: true, email: true }
+            }
+        },
         orderBy: [{ sessionTag: "asc" }, { createdAt: "desc" }]
+    });
+
+    const users = await prisma.user.findMany({
+        select: { id: true, name: true, email: true },
+        where: { isDemoActor: false },
+        orderBy: { name: 'asc' }
     });
 
     // Group by session tag
@@ -50,7 +69,7 @@ export default async function FeedbackAdminPage() {
             </div>
 
             {/* Pass data to client for download + interaction */}
-            <FeedbackAdminClient sessions={sessions} />
+            <FeedbackAdminClient sessions={sessions} users={users} currentUser={currentUser} />
         </div>
     );
 }

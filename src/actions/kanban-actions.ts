@@ -4,6 +4,7 @@ import { getIdentity } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { QuestionStatus } from "@prisma/client";
 import { revalidatePath } from "next/cache";
+import { KycStateService } from "@/lib/kyc/KycStateService";
 import { generateAIAnswers, learnFromAnswer } from "./ai-autofill";
 import { recordActivity, LEActivityType } from "@/lib/le-activity";
 
@@ -131,8 +132,18 @@ export async function populateQuestionsFromExtraction(questionnaireId: string) {
  */
 export async function getBoardQuestions(engagementId: string) {
     const identity = await getIdentity();
-    if (!identity?.userId) return []; // Security: Add Org check later
+    if (!identity?.userId) return [];
     const { userId } = identity;
+
+    // 0. Resolve Subject and Scope Context for Master Data
+    const engagement = await prisma.fIEngagement.findUnique({
+        where: { id: engagementId },
+        include: { clientLE: true }
+    });
+
+    const subjectLeId = engagement?.clientLE?.legalEntityId;
+    const clientLEId = engagement?.clientLEId;
+    const ownerScopeId = clientLEId ? await KycStateService.resolveScopeId(clientLEId) : null;
 
     const questions = await prisma.question.findMany({
         where: {
@@ -172,47 +183,70 @@ export async function getBoardQuestions(engagementId: string) {
         }
     });
 
-    // Map to frontend Task shape
-    return questions.map(q => ({
-        id: q.id,
-        questionnaireId: q.questionnaireId,
-        question: q.text,
-        compactText: (q as any).compactText || undefined,
-        answer: q.answer || undefined,
-        status: q.status,
-        isLocked: (q as any).isLocked,
-        assignedToUserId: q.assignedToUserId,
-        assignedEmail: (q as any).assignedEmail,
-        assignee: q.assignedToUserId
-            ? { name: (q as any).assignedToUser?.name || (q as any).assignedToUser?.email || 'User', type: 'USER' }
-            : ((q as any).assignedEmail ? { name: (q as any).assignedEmail, type: 'INVITEE' } : undefined),
-        commentCount: (q as any).comments?.length || 0,
-        comments: ((q as any).comments || []).map((c: any) => ({
-            id: c.id,
-            text: c.text,
-            author: c.user?.name || "User",
-            type: c.type || "USER",
-            time: c.createdAt.toLocaleDateString() // Ideally relative time
-        })),
-        // @ts-ignore: Prisma client lag
-        activities: q.activities ? q.activities.map((a: any) => ({
-            id: a.id,
-            type: a.type,
-            details: a.details,
-            userName: a.user.name || "User",
-            createdAt: a.createdAt
-        })) : [],
-        // @ts-ignore
-        allowAttachments: q.allowAttachments,
-        // @ts-ignore
-        documents: q.documents ? q.documents.map((d: any) => ({
-            id: d.id,
-            name: d.name,
-            fileType: d.fileType,
-            fileUrl: d.fileUrl,
-            kbSize: d.kbSize
-        })) : []
+    // 1. Resolve Master Data for each question
+    const resolvedQuestions = await Promise.all(questions.map(async q => {
+        let finalAnswer = q.answer || undefined;
+
+        // If mapped to master data, try to resolve the authoritative value
+        if (subjectLeId && q.masterFieldNo) {
+            const derived = await KycStateService.getAuthoritativeValue(
+                { subjectLeId },
+                q.masterFieldNo,
+                ownerScopeId || undefined
+            );
+
+            if (derived) {
+                if (typeof derived.value === 'object' && derived.value !== null) {
+                    finalAnswer = JSON.stringify(derived.value);
+                } else {
+                    finalAnswer = String(derived.value ?? "");
+                }
+            }
+        }
+
+        return {
+            id: q.id,
+            questionnaireId: q.questionnaireId,
+            question: q.text,
+            compactText: (q as any).compactText || undefined,
+            answer: finalAnswer,
+            status: q.status,
+            isLocked: (q as any).isLocked,
+            assignedToUserId: q.assignedToUserId,
+            assignedEmail: (q as any).assignedEmail,
+            assignee: q.assignedToUserId
+                ? { name: (q as any).assignedToUser?.name || (q as any).assignedToUser?.email || 'User', type: 'USER' }
+                : ((q as any).assignedEmail ? { name: (q as any).assignedEmail, type: 'INVITEE' } : undefined),
+            commentCount: (q as any).comments?.length || 0,
+            comments: ((q as any).comments || []).map((c: any) => ({
+                id: c.id,
+                text: c.text,
+                author: c.user?.name || "User",
+                type: c.type || "USER",
+                time: c.createdAt.toLocaleDateString()
+            })),
+            // @ts-ignore: Prisma client lag
+            activities: q.activities ? q.activities.map((a: any) => ({
+                id: a.id,
+                type: a.type,
+                details: a.details,
+                userName: a.user.name || "User",
+                createdAt: a.createdAt
+            })) : [],
+            // @ts-ignore
+            allowAttachments: q.allowAttachments,
+            // @ts-ignore
+            documents: q.documents ? q.documents.map((d: any) => ({
+                id: d.id,
+                name: d.name,
+                fileType: d.fileType,
+                fileUrl: d.fileUrl,
+                kbSize: d.kbSize
+            })) : []
+        };
     }));
+
+    return resolvedQuestions;
 }
 
 /**
@@ -293,26 +327,32 @@ export async function updateAnswer(questionId: string, answer: string) {
     const { userId } = identity;
 
     try {
-        await prisma.question.update({
+        const question = await prisma.question.update({
             where: { id: questionId },
-            data: { answer: answer }
-        });
-
-        // Fetch full question data to get context for AI Learning
-        // We need the ClientLE ID
-        const questionData = await prisma.question.findUnique({
-            where: { id: questionId },
+            data: { answer: answer },
             include: {
                 questionnaire: {
                     include: {
-                        engagements: true
+                        engagements: true,
+                        fiEngagement: true
                     }
                 }
             }
         });
 
-        const engagement = questionData?.questionnaire.engagements[0];
+        const engagement = question?.questionnaire.fiEngagement || question?.questionnaire.engagements[0];
         const clientLEId = engagement?.clientLEId;
+
+        // SYNC TO MASTER DATA (FieldClaims) if mapped
+        if (clientLEId && question.masterFieldNo) {
+            const { applyManualOverride } = await import("./kyc-manual-update");
+            await applyManualOverride(
+                clientLEId,
+                question.masterFieldNo,
+                answer,
+                `Updated via Questionnaire Workbench`
+            );
+        }
 
         // Log Activity
         // @ts-ignore: Prisma client lag
@@ -328,21 +368,21 @@ export async function updateAnswer(questionId: string, answer: string) {
 
         // Fire LEActivity (LE-level timeline)
         if (clientLEId) {
-            const wasFirstAnswer = !questionData?.answer; // answered fresh
+            const wasFirstAnswer = !question?.answer; // answered fresh
             recordActivity(clientLEId, userId,
                 wasFirstAnswer ? LEActivityType.QUESTION_ANSWERED : LEActivityType.QUESTION_UPDATED,
-                { questionId, questionText: questionData?.text?.slice(0, 80) }
+                { questionId, questionText: question?.text?.slice(0, 80) }
             ); // fire-and-forget
         }
 
         // TRIGGER LEARNING LOOP (Fire and forget, or await?)
         // Let's await to ensure it runs, but wrap in try-catch so it doesn't block success
-        if (clientLEId && answer && answer.length > 5 && questionData) {
+        if (clientLEId && answer && answer.length > 5 && question) {
             // Running in background (no await) would be better for UX speed, 
             // but Vercel serverless functions might kill it. 
             // We'll await it for safety in this prototype.
             // Running fire-and-forget to prevent UI blocking
-            learnFromAnswer(clientLEId, questionData.text, answer, userId).catch(err => {
+            learnFromAnswer(clientLEId, question.text, answer, userId).catch(err => {
                 console.error("Learning Loop background error:", err);
             });
         }
@@ -738,8 +778,31 @@ export async function generateEngagementAnswers(engagementId: string) {
             // Update Question
             const qUpdate = prisma.question.update({
                 where: { id: questionId },
-                data: { answer: ans.answer }
+                data: { answer: ans.answer },
+                include: {
+                    questionnaire: {
+                        include: {
+                            engagements: true,
+                            fiEngagement: true
+                        }
+                    }
+                }
             });
+
+            // Sync to Master Data if mapped
+            const syncToMaster = async (questionData: any) => {
+                const engagement = questionData?.questionnaire.fiEngagement || questionData?.questionnaire.engagements[0];
+                const cLEId = engagement?.clientLEId;
+                if (cLEId && questionData.masterFieldNo) {
+                    const { applyManualOverride } = await import("./kyc-manual-update");
+                    await applyManualOverride(
+                        cLEId,
+                        questionData.masterFieldNo,
+                        ans.answer,
+                        `AI Generated answer`
+                    );
+                }
+            };
 
             // Create Activity
             // @ts-ignore: Prisma client lag
@@ -757,7 +820,9 @@ export async function generateEngagementAnswers(engagementId: string) {
                 }
             });
 
-            return prisma.$transaction([qUpdate, actCreate]);
+            const [updatedQ] = await prisma.$transaction([qUpdate, actCreate]);
+            await syncToMaster(updatedQ);
+            return updatedQ;
         });
 
         await Promise.all(updatePromises);

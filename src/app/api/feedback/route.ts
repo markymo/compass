@@ -5,7 +5,7 @@ import prisma from "@/lib/prisma";
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
-        const { pageUrl, note, category, authorEmail, sessionTag } = body;
+        const { pageUrl, note, category, authorEmail, authorName, assignedToId, sessionTag } = body;
 
         console.log(`[FEEDBACK_POST] Creating note for ${pageUrl}`);
 
@@ -19,6 +19,8 @@ export async function POST(req: NextRequest) {
                 note,
                 category: category || "general",
                 authorEmail: authorEmail || null,
+                authorName: authorName || null,
+                assignedToId: assignedToId || null,
                 sessionTag: sessionTag || null,
             }
         });
