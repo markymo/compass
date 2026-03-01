@@ -13,7 +13,7 @@ import { KanbanBoard } from "./kanban-board";
 import { EngagementDocumentManager } from "./engagement-document-manager";
 
 import { ProgressTracker } from "@/components/shared/progress-tracker";
-import { DashboardMetric } from "@/lib/metrics-calc";
+import { DashboardMetric } from "@/lib/dashboard-metrics";
 import { InviteSupplierDialog } from "./invite-supplier-dialog";
 
 interface EngagementDetailViewProps {

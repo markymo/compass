@@ -1,40 +1,7 @@
 import prisma from "@/lib/prisma";
+import { DashboardMetric, emptyMetrics, rollupMetrics } from "./dashboard-metrics";
 
-export type DashboardMetric = {
-    noData: number;
-    prepopulated: number;
-    systemUpdated: number;
-    drafted: number; // DRAFT, INTERNAL_REVIEW
-    approved: number; // CLIENT_SIGNED_OFF
-    released: number; // SHARED, SUPPLIER_REVIEW, QUERY
-    acknowledged: number; // SUPPLIER_SIGNED_OFF
-    lastEdit: Date | null;
-    targetCompletion: Date | null;
-}
-
-export function emptyMetrics(): DashboardMetric {
-    return {
-        noData: 0, prepopulated: 0, systemUpdated: 0,
-        drafted: 0, approved: 0, released: 0, acknowledged: 0,
-        lastEdit: null, targetCompletion: null
-    };
-}
-
-export function rollupMetrics(parent: DashboardMetric, child: DashboardMetric) {
-    parent.noData += child.noData;
-    parent.prepopulated += child.prepopulated;
-    parent.systemUpdated += child.systemUpdated;
-    parent.drafted += child.drafted;
-    parent.approved += child.approved;
-    parent.released += child.released;
-    parent.acknowledged += child.acknowledged;
-
-    if (child.lastEdit) {
-        if (!parent.lastEdit || child.lastEdit > parent.lastEdit) {
-            parent.lastEdit = child.lastEdit;
-        }
-    }
-}
+export { type DashboardMetric, emptyMetrics, rollupMetrics };
 
 export async function calculateEngagementMetrics(engagementId: string): Promise<DashboardMetric> {
     // 1. Get Questions via Questionnaire linked to Engagement

@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
-import { DashboardMetric } from "@/lib/metrics-calc";
+import { DashboardMetric } from "@/lib/dashboard-metrics";
 
 interface ProgressTrackerProps {
     metrics: DashboardMetric;

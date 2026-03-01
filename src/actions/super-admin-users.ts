@@ -17,11 +17,11 @@ async function ensureAdmin() {
 export async function searchClients(query: string) {
     await ensureAdmin();
 
-    // Find organizations matching query (CLIENT only)
+    // Find organizations matching query (CLIENT or FI)
     const clients = await prisma.organization.findMany({
         where: {
             name: { contains: query, mode: "insensitive" },
-            types: { has: "CLIENT" }
+            types: { hasSome: ["CLIENT", "FI"] }
         },
         take: 10,
         orderBy: { name: 'asc' }
@@ -178,7 +178,7 @@ export async function assignClientRole(data: { userId: string, clientId: string,
                 });
             }
         }
-        revalidatePath("/app/admin/super");
+        revalidatePath("/app/admin/users");
         return { success: true };
     } catch (e) {
         console.error("Assign Client Role Error", e);
@@ -219,7 +219,7 @@ export async function assignLERole(data: { userId: string, leId: string, role: s
                 });
             }
         }
-        revalidatePath("/app/admin/super");
+        revalidatePath("/app/admin/users");
         return { success: true };
     } catch (e) {
         console.error("Assign LE Role Error", e);
@@ -260,7 +260,7 @@ export async function addUserToClient(data: { email: string, clientId: string, n
             }
         });
 
-        revalidatePath("/app/admin/super");
+        revalidatePath("/app/admin/users");
         return { success: true };
 
     } catch (e) {
@@ -289,7 +289,7 @@ export async function createClientLEForOrg(data: { name: string, jurisdiction: s
             }
         });
 
-        revalidatePath("/app/admin/super");
+        revalidatePath("/app/admin/users");
         return { success: true, data: newLE };
     } catch (e) {
         console.error("Create LE Failure", e);
@@ -310,7 +310,7 @@ export async function updateUserBasicInfo(userId: string, data: { name?: string,
             }
         });
 
-        revalidatePath("/app/admin/super");
+        revalidatePath("/app/admin/users");
         return { success: true };
     } catch (e) {
         console.error("Update User Info Failed", e);
@@ -329,7 +329,7 @@ export async function resetUserPassword(userId: string, newPassword: string) {
             data: { password: hashedPassword }
         });
 
-        revalidatePath("/app/admin/super");
+        revalidatePath("/app/admin/users");
         return { success: true };
     } catch (e) {
         console.error("Reset Password Failed", e);
@@ -347,7 +347,7 @@ export async function updateDemoActorStatus(userId: string, isDemoActor: boolean
             data: { isDemoActor }
         });
 
-        revalidatePath("/app/admin/super");
+        revalidatePath("/app/admin/users");
         revalidatePath("/app/admin/demo");
         return { success: true };
     } catch (e) {
