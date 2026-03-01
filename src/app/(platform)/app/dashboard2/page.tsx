@@ -176,47 +176,42 @@ function reshapeContexts(ctx: DashboardContexts): OrgNode[] {
 const orgMeta: Record<OrgType, {
     icon: typeof Building2;
     label: string;
+    primary: string;
+    hover: string;
+    soft: string;
     borderColor: string;
-    iconBg: string;
-    iconColor: string;
-    badgeBg: string;
-    badgeText: string;
 }> = {
     SUPPLIER: {
         icon: Building2,
         label: "Supplier",
-        borderColor: "border-blue-200 hover:border-blue-300",
-        iconBg: "bg-blue-50",
-        iconColor: "text-blue-600",
-        badgeBg: "bg-blue-50 border-blue-200",
-        badgeText: "text-blue-700",
+        primary: "#0F766E",
+        hover: "#0D5F59",
+        soft: "#E6F4F3",
+        borderColor: "border-teal-100 hover:border-teal-200",
     },
     CLIENT: {
         icon: Factory,
         label: "Client",
-        borderColor: "border-indigo-200 hover:border-indigo-300",
-        iconBg: "bg-indigo-50",
-        iconColor: "text-indigo-600",
-        badgeBg: "bg-indigo-50 border-indigo-200",
-        badgeText: "text-indigo-700",
+        primary: "#4338CA",
+        hover: "#3730A3",
+        soft: "#EEF2FF",
+        borderColor: "border-indigo-100 hover:border-indigo-200",
     },
     LAW_FIRM: {
         icon: Gavel,
         label: "Law Firm",
-        borderColor: "border-purple-200 hover:border-purple-300",
-        iconBg: "bg-purple-50",
-        iconColor: "text-purple-600",
-        badgeBg: "bg-purple-50 border-purple-200",
-        badgeText: "text-purple-700",
+        primary: "#8B3D88",
+        hover: "#742F72",
+        soft: "#F5E9F4",
+        borderColor: "border-purple-100 hover:border-purple-200",
     },
     SYSTEM: {
         icon: Building2,
         label: "System",
-        borderColor: "border-amber-200 hover:border-amber-300",
-        iconBg: "bg-amber-50",
-        iconColor: "text-amber-600",
-        badgeBg: "bg-amber-50 border-amber-200",
-        badgeText: "text-amber-700",
+        primary: "#475569",
+        hover: "#334155",
+        soft: "#F1F5F9",
+        borderColor: "border-slate-100",
     },
 };
 
@@ -247,7 +242,7 @@ function OrgCard({ org }: { org: OrgNode }) {
     const engagements = org.children.filter(c => c.type === "engagement");
 
     return (
-        <Card className={`${meta.borderColor} shadow-sm transition-all`}>
+        <Card className={`${meta.borderColor} shadow-sm transition-all border`}>
             <Collapsible open={isOpen} onOpenChange={setIsOpen}>
                 <CardHeader className="pb-3">
                     <div className="flex items-center justify-between">
@@ -259,13 +254,13 @@ function OrgCard({ org }: { org: OrgNode }) {
                                         : <ChevronRight className="h-5 w-5 text-slate-400" />}
                                 </Button>
                             </CollapsibleTrigger>
-                            <div className={`p-2.5 rounded-xl ${meta.iconBg}`}>
-                                <Icon className={`h-5 w-5 ${meta.iconColor}`} />
+                            <div className="p-2.5 rounded-xl border border-white" style={{ backgroundColor: meta.soft }}>
+                                <Icon className="h-5 w-5" style={{ color: meta.primary }} />
                             </div>
                             <div>
                                 <div className="flex items-center gap-2.5">
                                     <CardTitle className="text-lg">{org.name}</CardTitle>
-                                    <Badge variant="outline" className={`text-[10px] h-5 font-medium ${meta.badgeBg} ${meta.badgeText}`}>
+                                    <Badge variant="outline" className="text-[10px] h-5 font-medium border" style={{ backgroundColor: meta.soft, color: meta.primary, borderColor: `${meta.primary}20` }}>
                                         {meta.label}
                                     </Badge>
                                 </div>
@@ -372,9 +367,9 @@ function ClientOrgCard({ org }: { org: OrgNode }) {
                             </Button>
                         </CollapsibleTrigger>
                         {org.orgType === "CLIENT" ? (
-                            <Factory className="h-4 w-4 text-indigo-600 shrink-0" />
+                            <Factory className="h-4 w-4 shrink-0" style={{ color: "#4338CA" }} />
                         ) : (
-                            <Building2 className="h-4 w-4 text-indigo-600 shrink-0" />
+                            <Building2 className="h-4 w-4 shrink-0" style={{ color: "#0F766E" }} />
                         )}
                         <span className="font-bold text-sm text-slate-900 truncate">{org.name}</span>
                         <RoleBadge role={org.role} />
@@ -532,10 +527,10 @@ function MetricCell({ value }: { value: number }) {
 function RowIcon({ type }: { type: string }) {
     const t = type.toUpperCase();
     switch (t) {
-        case "CLIENT": return <Factory className="h-4 w-4 text-slate-400" />;
-        case "LE": return <Landmark className="h-4 w-4 text-emerald-500 shrink-0" />;
-        case "ENGAGEMENT": return <LinkIcon className="h-3 w-3 text-indigo-500 shrink-0" />;
-        case "QUESTIONNAIRE": return <FileText className="h-3.5 w-3.5 text-blue-500 shrink-0" />;
+        case "CLIENT": return <Factory className="h-4 w-4 shrink-0" style={{ color: "#4338CA" }} />;
+        case "LE": return <Landmark className="h-4 w-4 shrink-0" style={{ color: "#8B3D88" }} />;
+        case "ENGAGEMENT": return <LinkIcon className="h-3 w-3 shrink-0" style={{ color: "#D4A017" }} />;
+        case "QUESTIONNAIRE": return <FileText className="h-3.5 w-3.5 text-slate-400 shrink-0" />;
         default: return <div className="h-4 w-4" />;
     }
 }
@@ -632,7 +627,7 @@ export default function Dashboard2Page() {
     }
 
     return (
-        <div className="max-w-4xl mx-auto px-6 py-8 space-y-6">
+        <div className="max-w-7xl mx-auto px-6 py-8 space-y-6">
             {/* Header */}
             <div className="flex items-center gap-3 mb-2">
                 <div className="p-2.5 bg-slate-100 rounded-xl">
