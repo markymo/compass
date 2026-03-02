@@ -453,7 +453,6 @@ export async function getClientLEData(leId: string) {
                     }
                 }
             },
-            // Phase 2: Include Profile Data (DEPRECATED)
         }
     });
 

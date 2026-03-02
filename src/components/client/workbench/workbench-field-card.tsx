@@ -62,6 +62,32 @@ export function WorkbenchFieldCard({ field, leId, onUpdate }: WorkbenchFieldCard
 
             if (isEmpty) return <span className="text-slate-400 italic">No Data</span>;
 
+            // Check if ANY field in the group is an array (Repeating Group)
+            // If so, we render rows.
+            const fieldNos = field.groupFieldNos || [];
+            const firstVal = values[fieldNos[0]];
+            const isRepeating = Array.isArray(firstVal);
+
+            if (isRepeating) {
+                // Repeating Group (e.g. Directors)
+                // Assume all fields in the group have same length arrays
+                const count = (firstVal as any[]).length;
+                return (
+                    <div className="space-y-3">
+                        {Array.from({ length: count }).map((_, idx) => (
+                            <div key={idx} className="p-2 bg-slate-50 rounded border border-slate-100 grid grid-cols-2 gap-x-4 gap-y-1">
+                                {fieldNos.map(fNo => (
+                                    <div key={fNo} className="flex flex-col">
+                                        <span className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Field {fNo}</span>
+                                        <span className="text-sm font-medium text-slate-700">{Array.isArray(values[fNo]) ? String(values[fNo][idx] || '-') : '-'}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        ))}
+                    </div>
+                );
+            }
+
             return (
                 <div className="grid grid-cols-2 gap-2 text-sm">
                     {field.groupFieldNos?.map(fNo => (
@@ -77,6 +103,19 @@ export function WorkbenchFieldCard({ field, leId, onUpdate }: WorkbenchFieldCard
         // Single Field
         if (field.currentValue === null || field.currentValue === undefined) {
             return <span className="text-slate-400 italic">No Data</span>;
+        }
+
+        if (Array.isArray(field.currentValue)) {
+            // Multi-value Text (e.g. Trading Names)
+            return (
+                <div className="flex flex-wrap gap-1.5">
+                    {field.currentValue.map((val, i) => (
+                        <Badge key={i} variant="outline" className="bg-white border-slate-300 text-slate-800 py-1 px-2 text-sm shadow-sm">
+                            {String(val)}
+                        </Badge>
+                    ))}
+                </div>
+            );
         }
 
         return <span className="text-lg font-medium text-slate-900">{String(field.currentValue)}</span>;

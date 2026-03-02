@@ -71,6 +71,7 @@ model User {
   masterFieldAssignmentsCreated MasterFieldAssignment[] @relation("MasterFieldAssignmentsCreated")
   assignedMasterFields          MasterFieldAssignment[] @relation("AssignedMasterFields")
   assignedFeedback              FeedbackNote[]          @relation("FeedbackAssignedTo")
+  preferences                   Json                    @default("{}")
 }
 
 model Organization {
@@ -183,6 +184,7 @@ model ClientLE {
   memberships            Membership[]
   standingDataSections   StandingDataSection[]
   masterFieldAssignments MasterFieldAssignment[]
+  dueDate                DateTime?
 
   @@index([legalEntityId])
 }
@@ -227,6 +229,8 @@ model FIEngagement {
   questionnaireInstances Questionnaire[]      @relation("QuestionnaireInstance")
   questionnaires         Questionnaire[]      @relation("FIEngagementToQuestionnaire")
   sharedDocuments        Document[]           @relation("SharedDocuments")
+
+  dueDate                DateTime?
 
   @@unique([fiOrgId, clientLEId])
 }
@@ -296,6 +300,7 @@ model Questionnaire {
   isGlobal         Boolean                @default(false)
   fileUrl          String?
   isTemplate       Boolean                @default(false)
+  dueDate          DateTime?
   questions        Question[]
   fiEngagement     FIEngagement?          @relation("QuestionnaireInstance", fields: [fiEngagementId], references: [id])
   fiOrg            Organization           @relation(fields: [fiOrgId], references: [id])

@@ -4,6 +4,9 @@ import { EditableDescription } from "@/components/client/editable-description";
 import { EditableLEI } from "@/components/client/editable-lei";
 import { MissionControl } from "@/components/client/mission-control";
 import { getRecentLEActivity } from "@/lib/le-activity";
+import { DueDateBadge } from "@/components/client/due-date-badge";
+import { Badge } from "@/components/ui/badge";
+import { Calendar } from "lucide-react";
 
 export default async function LEDashboardPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
@@ -27,9 +30,19 @@ export default async function LEDashboardPage({ params }: { params: Promise<{ id
                 {/* Main Content Column (2/3) */}
                 <div className="md:col-span-2 space-y-6">
                     <div className="flex flex-col gap-4">
-                        <h1 className="text-4xl font-bold tracking-tight text-slate-900">
-                            {le.name}
-                        </h1>
+                        <div className="flex items-center gap-4">
+                            <h1 className="text-4xl font-bold tracking-tight text-slate-900">
+                                {le.name}
+                            </h1>
+                            <DueDateBadge
+                                id={le.id}
+                                date={(le as any).dueDate}
+                                effectiveDate={(le as any).dueDate}
+                                source="LE"
+                                level="LE"
+                                label="Deadline"
+                            />
+                        </div>
 
                         <div className="max-w-2xl">
                             <EditableDescription

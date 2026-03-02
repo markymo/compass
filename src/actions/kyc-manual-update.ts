@@ -194,31 +194,100 @@ export async function updateCustomFieldManually(
         return { success: false, message: e.message };
     }
 }
-export async function createRepeatingFieldRow(
+
+/**
+ * Adds a new value to a multi-value field.
+ * Generates a fresh instanceId and asserts a real value (not a placeholder).
+ */
+export async function addMultiValueEntry(
     clientLEId: string,
     fieldNo: number,
-    userId: string = "SYSTEM"
-) {
+    value: any,
+    reason?: string
+): Promise<{ success: boolean; message?: string; claimId?: string }> {
     try {
         const def = await getMasterFieldDefinition(fieldNo);
-        if (!def.isMultiValue) return { success: false, message: "Field is not repeating" };
+        if (!def.isMultiValue) return { success: false, message: "Field is not multi-value" };
 
-        const instanceId = `row_${Date.now()}`; // Generate a temporary unique instanceId
+        if (!value || (typeof value === 'string' && !value.trim())) {
+            return { success: false, message: "A value is required" };
+        }
 
-        // Assert an initial "empty" or placeholder claim to establish the row
-        await updateFieldManually(
+        const instanceId = `row_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+
+        const result = await updateFieldManually(
             clientLEId,
             fieldNo,
-            "[New Item]", // Placeholder
-            "Initial row creation",
-            undefined, // No supersedesId
+            typeof value === 'string' ? value.trim() : value,
+            reason || "Added new entry",
+            instanceId,
             'CLIENT_LE'
         );
 
-        return { success: true, rowId: instanceId }; // In the new world, rowId is the instanceId
-
+        if (result.success) {
+            return { success: true, claimId: instanceId };
+        }
+        return result;
     } catch (e: any) {
-        console.error("createRepeatingFieldRow error:", e);
+        console.error("addMultiValueEntry error:", e);
+        return { success: false, message: e.message };
+    }
+}
+
+/**
+ * Removes a value from a multi-value field by emitting a tombstone claim.
+ * The value is soft-deleted — it won't appear in getAuthoritativeCollection results.
+ */
+export async function removeMultiValueEntry(
+    clientLEId: string,
+    fieldNo: number,
+    claimId: string
+): Promise<{ success: boolean; message?: string }> {
+    try {
+        const identity = await getIdentity();
+        const userId = identity?.userId;
+        if (!userId) {
+            return { success: false, message: "Authentication required." };
+        }
+
+        const def = await getMasterFieldDefinition(fieldNo);
+        if (!def.isMultiValue) return { success: false, message: "Field is not multi-value" };
+
+        // Look up the claim to get collectionId and instanceId
+        const claim = await prisma.fieldClaim.findUnique({
+            where: { id: claimId }
+        });
+
+        if (!claim) {
+            return { success: false, message: "Claim not found" };
+        }
+
+        if (!claim.instanceId) {
+            return { success: false, message: "Cannot remove: claim has no instanceId" };
+        }
+
+        // Resolve subject
+        const clientLE = await prisma.clientLE.findUnique({ where: { id: clientLEId } });
+        const subjectLeId = clientLE?.legalEntityId;
+        const ownerScopeId = await KycStateService.resolveScopeId(clientLEId);
+
+        if (!subjectLeId) {
+            return { success: false, message: "Could not resolve subject." };
+        }
+
+        // Emit tombstone
+        await FieldClaimService.emitTombstone(
+            { subjectLeId },
+            fieldNo,
+            claim.collectionId || def.category || 'GENERAL',
+            claim.instanceId,
+            ownerScopeId
+        );
+
+        revalidatePath(`/app/le/${clientLEId}`);
+        return { success: true };
+    } catch (e: any) {
+        console.error("removeMultiValueEntry error:", e);
         return { success: false, message: e.message };
     }
 }

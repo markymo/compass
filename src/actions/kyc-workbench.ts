@@ -10,8 +10,8 @@ import { z } from 'zod';
 
 export interface Workbench4Data {
     questions: ConsoleQuestion[];
-    masterFields: Array<{ fieldNo: number; label: string }>;
-    masterGroups: Array<{ key: string; label: string }>;
+    masterFields: Array<{ fieldNo: number; label: string; category?: string | null }>;
+    masterGroups: Array<{ key: string; label: string; category?: string | null }>;
     customFields: Array<{ id: string; label: string }>;
     relationships: string[];
     questionnaires: string[];
@@ -35,15 +35,28 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
 
     const masterFields = allFields.map(def => ({
         fieldNo: def.fieldNo,
-        label: def.fieldName
+        label: def.fieldName,
+        category: def.category
     })).sort((a, b) => a.label.localeCompare(b.label));
 
     const masterGroups = allGroups.map(g => ({
         key: g.key,
-        label: g.label
+        label: g.label,
+        category: g.category // Groups might have categories too
     })).sort((a, b) => a.label.localeCompare(b.label));
 
-    // 2. Get Custom Fields available to this LE (context of owners or current user FI)
+    // 2. Lookups for categories
+    const fieldCategoryMap = new Map(allFields.map(f => [f.fieldNo, f.category]));
+    const groupCategoryMap = new Map(allGroups.map(g => [g.key, g.category]));
+
+    // Update questions with categories
+    questions.forEach(q => {
+        if (q.masterFieldNo) q.masterFieldCategory = fieldCategoryMap.get(q.masterFieldNo);
+        if (q.masterQuestionGroupId) q.masterFieldCategory = groupCategoryMap.get(q.masterQuestionGroupId);
+        if (q.customFieldDefinitionId) q.masterFieldCategory = "Custom";
+    });
+
+    // 3. Get Custom Fields available to this LE (context of owners or current user FI)
     const customFieldsRaw = await prisma.customFieldDefinition.findMany({
         orderBy: { label: 'asc' }
     });
@@ -83,12 +96,32 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
                     q.masterDataSource = "USER_INPUT";
                 }
             } else if (resolvedValues[q.id]) {
-                const fieldValues = Object.values(resolvedValues[q.id]);
-                if (fieldValues.length > 0) {
-                    const fv = fieldValues[0];
-                    q.masterDataValue = fv.value;
-                    q.masterDataSource = fv.source;
-                    q.masterDataUpdatedAt = fv.updatedAt;
+                if (q.masterQuestionGroupId) {
+                    // For groups, we want the whole map of fieldNo -> {value, source, ...}
+                    // But for simplicity in the current UI, we'll map it to a simpler map of fieldNo -> value
+                    const groupMap: Record<string, any> = {};
+                    let latestDate: Date | null = null;
+                    let primarySource: string | null = null;
+
+                    for (const [fNo, fv] of Object.entries(resolvedValues[q.id])) {
+                        groupMap[fNo] = fv.value;
+                        if (!latestDate || (fv.updatedAt && fv.updatedAt > latestDate)) {
+                            latestDate = fv.updatedAt || null;
+                            primarySource = fv.source;
+                        }
+                    }
+
+                    q.masterDataValue = groupMap;
+                    q.masterDataSource = primarySource || "MASTER_RECORD";
+                    q.masterDataUpdatedAt = latestDate;
+                } else {
+                    const fieldValues = Object.values(resolvedValues[q.id]);
+                    if (fieldValues.length > 0) {
+                        const fv = fieldValues[0];
+                        q.masterDataValue = fv.value;
+                        q.masterDataSource = fv.source;
+                        q.masterDataUpdatedAt = fv.updatedAt;
+                    }
                 }
             }
         });
@@ -157,12 +190,31 @@ export async function mapQuestionToField(
                 masterFieldNo: mapping.fieldNo,
                 masterQuestionGroupId: mapping.groupId
             }]);
-            const fieldValues = Object.values(resolved[questionId] || {});
-            if (fieldValues.length > 0) {
-                const fv = fieldValues[0];
-                newValue = fv.value;
-                newSource = fv.source;
-                newUpdatedAt = fv.updatedAt || null;
+            if (resolved[questionId]) {
+                if (mapping.groupId) {
+                    const groupMap: Record<string, any> = {};
+                    let latestDate: Date | null = null;
+                    let primarySource: string | null = null;
+
+                    for (const [fNo, fv] of Object.entries(resolved[questionId])) {
+                        groupMap[fNo] = fv.value;
+                        if (!latestDate || (fv.updatedAt && fv.updatedAt > latestDate)) {
+                            latestDate = fv.updatedAt || null;
+                            primarySource = fv.source || "MASTER_RECORD";
+                        }
+                    }
+                    newValue = groupMap;
+                    newSource = primarySource;
+                    newUpdatedAt = latestDate;
+                } else {
+                    const fieldValues = Object.values(resolved[questionId]);
+                    if (fieldValues.length > 0) {
+                        const fv = fieldValues[0];
+                        newValue = fv.value;
+                        newSource = fv.source;
+                        newUpdatedAt = fv.updatedAt || null;
+                    }
+                }
             }
         }
 

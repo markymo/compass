@@ -241,6 +241,14 @@ export function EngagementDetailView({ le, engagement, questionnaires, sharedDoc
                                                                             {q.mappings ? 'Standard' : 'Custom'}
                                                                         </Badge>
                                                                     )}
+                                                                    <span className="text-slate-300 text-[10px]">•</span>
+                                                                    <DueDateBadge
+                                                                        id={q.id}
+                                                                        date={q.dueDate}
+                                                                        effectiveDate={q.dueDate || engagement.dueDate || le.dueDate}
+                                                                        source={q.dueDate ? 'QUESTIONNAIRE' : engagement.dueDate ? 'RELATIONSHIP' : 'LE'}
+                                                                        level="QUESTIONNAIRE"
+                                                                    />
                                                                 </div>
                                                             </div>
                                                         </div>

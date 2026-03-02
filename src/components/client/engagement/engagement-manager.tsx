@@ -22,9 +22,12 @@ import { MoreVertical, Trash2 } from "lucide-react";
 interface EngagementManagerProps {
     leId: string;
     initialEngagements: any[];
+    leDueDate: Date | null;
 }
 
-export function EngagementManager({ leId, initialEngagements }: EngagementManagerProps) {
+import { DueDateBadge } from "@/components/client/due-date-badge";
+
+export function EngagementManager({ leId, initialEngagements, leDueDate }: EngagementManagerProps) {
     const [engagements, setEngagements] = useState(initialEngagements);
     const [isAdding, setIsAdding] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -197,6 +200,15 @@ export function EngagementManager({ leId, initialEngagements }: EngagementManage
 
                                         <span className="text-slate-400 text-xs hidden md:inline">•</span>
                                         <span className="text-xs text-slate-500">{eng.questionnaires?.length || 0} Questionnaires</span>
+
+                                        <span className="text-slate-400 text-xs hidden md:inline">•</span>
+                                        <DueDateBadge
+                                            id={eng.id}
+                                            date={eng.dueDate}
+                                            effectiveDate={eng.dueDate || leDueDate}
+                                            source={eng.dueDate ? 'RELATIONSHIP' : 'LE'}
+                                            level="RELATIONSHIP"
+                                        />
                                     </div>
                                 </div>
                             </div>

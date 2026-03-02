@@ -52,6 +52,7 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
     const [relFilter, setRelFilter] = useState<string>("ALL");
     const [qFilter, setQFilter] = useState<string>("ALL");
     const [mappingTypeFilter, setMappingTypeFilter] = useState<string>("ALL"); // ALL, MAPPED, UNMAPPED
+    const [catFilter, setCatFilter] = useState<string>("ALL");
     const [pinnedIds, setPinnedIds] = useState<Set<string>>(new Set());
 
     const [isPending, startTransition] = useTransition();
@@ -70,6 +71,15 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
     // Inspection Drawer State
     const [selectedInspectionField, setSelectedInspectionField] = useState<{ fieldNo: number; name: string; customFieldId?: string } | null>(null);
 
+    // Categories for filtering (derived from questions that are mapped)
+    const availableCategories = useMemo(() => {
+        const cats = new Set<string>();
+        data.questions.forEach(q => {
+            if (q.masterFieldCategory) cats.add(q.masterFieldCategory);
+        });
+        return Array.from(cats).sort();
+    }, [data.questions]);
+
     // 1. Filtering Logic
     const filteredQuestions = useMemo(() => {
         return data.questions.filter(q => {
@@ -84,9 +94,11 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
 
             const isPinned = pinnedIds.has(q.id);
 
-            return matchesSearch && matchesRel && matchesQ && (matchesMapping || isPinned);
+            const matchesCat = catFilter === "ALL" || q.masterFieldCategory === catFilter;
+
+            return matchesSearch && matchesRel && matchesQ && (matchesMapping || isPinned) && matchesCat;
         });
-    }, [data.questions, search, relFilter, qFilter, mappingTypeFilter, pinnedIds]);
+    }, [data.questions, search, relFilter, qFilter, mappingTypeFilter, pinnedIds, catFilter]);
 
     // 2. Handlers
     const clearPinned = () => {
@@ -240,6 +252,18 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
                             <SelectItem value="ALL">All Questionnaires</SelectItem>
                             {data.questionnaires.map(q => (
                                 <SelectItem key={q} value={q}>{q}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+
+                    <Select value={catFilter} onValueChange={handleFilterChange(setCatFilter)}>
+                        <SelectTrigger className="w-[160px] bg-slate-50/50">
+                            <SelectValue placeholder="Category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="ALL">All Categories</SelectItem>
+                            {availableCategories.map(cat => (
+                                <SelectItem key={cat} value={cat}>{cat}</SelectItem>
                             ))}
                         </SelectContent>
                     </Select>
@@ -650,13 +674,32 @@ function QuestionCard({
                                 ) : (
                                     <div className="text-sm text-slate-700 bg-slate-50/50 px-2 py-1.5 rounded border border-slate-100/50 w-full font-medium relative flex items-center">
                                         <span className="flex-1">
-                                            {question.masterDataValue != null && question.masterDataValue !== ''
-                                                ? (typeof question.masterDataValue === 'object'
-                                                    ? JSON.stringify(question.masterDataValue)
-                                                    : String(question.masterDataValue))
-                                                : isMapped
-                                                    ? <span className="italic text-slate-400">No value yet — click ✏️ to add</span>
-                                                    : <span className="italic text-slate-300">Map a master field to enable answers</span>
+                                            {question.masterDataValue != null && question.masterDataValue !== '' ? (
+                                                Array.isArray(question.masterDataValue) ? (
+                                                    <div className="flex flex-wrap gap-1">
+                                                        {question.masterDataValue.map((val, i) => (
+                                                            <Badge key={i} variant="secondary" className="bg-white border-slate-200 text-slate-700 py-0 px-1.5 text-[11px]">
+                                                                {String(val)}
+                                                            </Badge>
+                                                        ))}
+                                                    </div>
+                                                ) : typeof question.masterDataValue === 'object' ? (
+                                                    <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]">
+                                                        {Object.entries(question.masterDataValue).map(([fNo, val]) => (
+                                                            <div key={fNo} className="flex flex-col">
+                                                                <span className="text-slate-400 font-bold uppercase tracking-tighter text-[9px]">Field {fNo}</span>
+                                                                <span className="text-slate-700 font-semibold truncate">
+                                                                    {Array.isArray(val) ? val.join(", ") : String(val || '-')}
+                                                                </span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    String(question.masterDataValue)
+                                                )
+                                            ) : isMapped
+                                                ? <span className="italic text-slate-400">No value yet — click ✏️ to add</span>
+                                                : <span className="italic text-slate-300">Map a master field to enable answers</span>
                                             }
                                         </span>
 

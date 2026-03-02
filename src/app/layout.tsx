@@ -7,6 +7,7 @@ import { AuthSessionProvider } from "@/components/providers/session-provider";
 import { Suspense } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { DevFeedbackGate } from "@/components/dev/dev-feedback-gate";
+import { UserPreferencesProvider } from "@/components/providers/user-preferences-provider";
 
 const outfit = Outfit({
   variable: "--font-heading",
@@ -39,12 +40,14 @@ export default function RootLayout({
         )}
       >
         <AuthSessionProvider>
-          <Suspense fallback={null}>
-            <UsageTracker />
-          </Suspense>
-          {children}
-          <Toaster />
-          <DevFeedbackGate />
+          <UserPreferencesProvider>
+            <Suspense fallback={null}>
+              <UsageTracker />
+            </Suspense>
+            {children}
+            <Toaster />
+            <DevFeedbackGate />
+          </UserPreferencesProvider>
         </AuthSessionProvider>
       </body>
     </html>

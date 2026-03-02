@@ -337,6 +337,7 @@ export async function getEngagementDetails(engagementId: string) {
                         name: true,
                         status: true,
                         mappings: true,
+                        dueDate: true,
                         createdAt: true,
                         updatedAt: true
                     }
@@ -348,6 +349,7 @@ export async function getEngagementDetails(engagementId: string) {
                         name: true,
                         status: true,
                         mappings: true,
+                        dueDate: true,
                         createdAt: true,
                         updatedAt: true
                     },
@@ -599,3 +601,49 @@ export async function getFullMasterData(clientLEId: string) {
 import { generateLEDescription } from "./ai-actions";
 
 // generateLEDescription moved to ai-actions.ts
+
+export async function updateLEDueDate(leId: string, dueDate: Date | null) {
+    try {
+        await prisma.clientLE.update({
+            where: { id: leId },
+            data: { dueDate }
+        });
+        revalidatePath(`/app/le/${leId}`);
+        return { success: true };
+    } catch (error) {
+        console.error("Failed to update LE due date:", error);
+        return { success: false, error: "Database update failed" };
+    }
+}
+
+export async function updateEngagementDueDate(engagementId: string, dueDate: Date | null) {
+    try {
+        const engagement = await prisma.fIEngagement.update({
+            where: { id: engagementId },
+            data: { dueDate },
+            include: { clientLE: true }
+        });
+        revalidatePath(`/app/le/${engagement.clientLEId}/engagement-new/${engagementId}`);
+        return { success: true };
+    } catch (error) {
+        console.error("Failed to update engagement due date:", error);
+        return { success: false, error: "Database update failed" };
+    }
+}
+
+export async function updateQuestionnaireDueDate(questionnaireId: string, dueDate: Date | null) {
+    try {
+        const questionnaire = await prisma.questionnaire.update({
+            where: { id: questionnaireId },
+            data: { dueDate },
+            include: { fiEngagement: true }
+        });
+        if (questionnaire.fiEngagement) {
+            revalidatePath(`/app/le/${questionnaire.fiEngagement.clientLEId}/engagement-new/${questionnaire.fiEngagementId}`);
+        }
+        return { success: true };
+    } catch (error) {
+        console.error("Failed to update questionnaire due date:", error);
+        return { success: false, error: "Database update failed" };
+    }
+}

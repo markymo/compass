@@ -12,6 +12,8 @@
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
   --color-border: var(--border);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
 
   --font-heading: var(--font-heading);
   --font-sans: var(--font-inter);

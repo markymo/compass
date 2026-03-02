@@ -12,6 +12,8 @@ import { Loader2, Shield, User, Bell, Home, Key, ExternalLink } from "lucide-rea
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { usePreferences } from "@/components/providers/user-preferences-provider";
+import { Sparkles } from "lucide-react";
 
 export default function AccountSettingsPage() {
     const router = useRouter();
@@ -25,6 +27,7 @@ export default function AccountSettingsPage() {
     const [phone, setPhone] = useState("");
     const [emailEnabled, setEmailEnabled] = useState(true);
     const [permissions, setPermissions] = useState<any[]>([]);
+    const { preferences, updatePreference } = usePreferences();
 
     useEffect(() => {
         async function fetchSettings() {
@@ -254,6 +257,35 @@ export default function AccountSettingsPage() {
 
                 {/* Sidebar Area */}
                 <div className="md:col-span-4 space-y-6">
+                    {/* Personalization (Whimsy Mode) */}
+                    <Card>
+                        <CardHeader>
+                            <div className="flex items-center gap-2">
+                                <Sparkles className="h-5 w-5 text-purple-500" />
+                                <CardTitle>Personalization</CardTitle>
+                            </div>
+                            <CardDescription>Add a touch of magic to your workflow.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-6">
+                            <div className="flex items-center justify-between space-x-2">
+                                <div className="flex flex-col space-y-1">
+                                    <Label htmlFor="whimsy-mode" className="font-medium inline-flex items-center gap-2">
+                                        Whimsy Mode
+                                    </Label>
+                                    <span className="text-[13px] text-muted-foreground">Enable lighthearted labels (e.g., "big sleeps" for deadlines).</span>
+                                </div>
+                                <Switch
+                                    id="whimsy-mode"
+                                    checked={!!preferences.whimsyMode}
+                                    onCheckedChange={async (val) => {
+                                        await updatePreference("whimsyMode", val);
+                                        toast.success(val ? "Whimsy Mode activated! ✨" : "Whimsy Mode deactivated.");
+                                    }}
+                                />
+                            </div>
+                        </CardContent>
+                    </Card>
+
                     {/* Notifications */}
                     <Card>
                         <CardHeader>

@@ -45,19 +45,36 @@ export async function resolveMasterData(
                 if (subjectLeId) {
                     for (const item of group.items) {
                         const fieldNo = item.fieldNo;
-                        const derived = await KycStateService.getAuthoritativeValue(
-                            { subjectLeId },
-                            fieldNo,
-                            ownerScopeId || undefined
-                        );
+                        const def = await getMasterFieldDefinition(fieldNo);
+                        if (def.isMultiValue) {
+                            const collection = await KycStateService.getAuthoritativeCollection(
+                                { subjectLeId },
+                                fieldNo,
+                                ownerScopeId || undefined
+                            );
+                            if (collection.length > 0) {
+                                response[q.questionId][fieldNo] = {
+                                    value: collection.map(c => c.value),
+                                    source: collection[0].isScoped ? 'USER_INPUT' : (collection[0].evidenceProvider || 'MASTER_RECORD'),
+                                    updatedAt: collection[0].assertedAt,
+                                    isSynced: true
+                                };
+                            }
+                        } else {
+                            const derived = await KycStateService.getAuthoritativeValue(
+                                { subjectLeId },
+                                fieldNo,
+                                ownerScopeId || undefined
+                            );
 
-                        if (derived) {
-                            response[q.questionId][fieldNo] = {
-                                value: derived.value,
-                                source: derived.isScoped ? 'USER_INPUT' : (derived.evidenceProvider || 'MASTER_RECORD'),
-                                updatedAt: derived.assertedAt,
-                                isSynced: true
-                            };
+                            if (derived) {
+                                response[q.questionId][fieldNo] = {
+                                    value: derived.value,
+                                    source: derived.isScoped ? 'USER_INPUT' : (derived.evidenceProvider || 'MASTER_RECORD'),
+                                    updatedAt: derived.assertedAt,
+                                    isSynced: true
+                                };
+                            }
                         }
                     }
                 }
@@ -67,19 +84,38 @@ export async function resolveMasterData(
         }
         // B. Handle Single Field Mapping
         else if (q.masterFieldNo && subjectLeId) {
-            const derived = await KycStateService.getAuthoritativeValue(
-                { subjectLeId },
-                q.masterFieldNo,
-                ownerScopeId || undefined
-            );
+            const def = await getMasterFieldDefinition(q.masterFieldNo);
+            if (def.isMultiValue) {
+                const collection = await KycStateService.getAuthoritativeCollection(
+                    { subjectLeId },
+                    q.masterFieldNo,
+                    ownerScopeId || undefined
+                );
+                if (collection.length > 0) {
+                    const vals = collection.map(c => c.value);
+                    console.log(`[resolveMasterData] Field ${q.masterFieldNo} is multi-value. Values:`, vals);
+                    response[q.questionId][q.masterFieldNo] = {
+                        value: vals,
+                        source: collection[0].isScoped ? 'USER_INPUT' : (collection[0].evidenceProvider || 'MASTER_RECORD'),
+                        updatedAt: collection[0].assertedAt,
+                        isSynced: true
+                    };
+                }
+            } else {
+                const derived = await KycStateService.getAuthoritativeValue(
+                    { subjectLeId },
+                    q.masterFieldNo,
+                    ownerScopeId || undefined
+                );
 
-            if (derived) {
-                response[q.questionId][q.masterFieldNo] = {
-                    value: derived.value,
-                    source: derived.isScoped ? 'USER_INPUT' : (derived.evidenceProvider || 'MASTER_RECORD'),
-                    updatedAt: derived.assertedAt,
-                    isSynced: true
-                };
+                if (derived) {
+                    response[q.questionId][q.masterFieldNo] = {
+                        value: derived.value,
+                        source: derived.isScoped ? 'USER_INPUT' : (derived.evidenceProvider || 'MASTER_RECORD'),
+                        updatedAt: derived.assertedAt,
+                        isSynced: true
+                    };
+                }
             }
         }
     }
@@ -114,7 +150,7 @@ export interface FieldDetailData {
     } | null;
     history: any[]; // Lineage will be derived from FieldClaims
     candidates: any[]; // FieldCandidate[]
-    rows?: { id: string; value: any; source: string; timestamp: Date; instanceId?: string; data?: any; label?: string; sourceReference?: string }[];
+    rows?: { id: string; value: any; source: string; timestamp: Date; instanceId?: string; collectionId?: string; data?: any; label?: string; sourceReference?: string }[];
 }
 
 export async function getFieldDetail(
@@ -193,9 +229,9 @@ export async function getFieldDetail(
     const derived = await KycStateService.getAuthoritativeValue({ subjectLeId }, fieldNo, ownerScopeId);
 
     // 2. Load Rows if repeating
-    let rows: { id: string; value: any; source: string; timestamp: Date; instanceId?: string; data?: any }[] | undefined = undefined;
+    let rows: { id: string; value: any; source: string; timestamp: Date; instanceId?: string; collectionId?: string; data?: any }[] | undefined = undefined;
 
-    if (def?.isMultiValue && def.category) {
+    if (def?.isMultiValue) {
         const collection = await KycStateService.getAuthoritativeCollection({ subjectLeId }, fieldNo, ownerScopeId);
 
         rows = collection.map(c => {
@@ -206,6 +242,7 @@ export async function getFieldDetail(
                 sourceReference: c.sourceReference || undefined,
                 timestamp: c.assertedAt,
                 instanceId: c.instanceId,
+                collectionId: c.collectionId,
                 data: undefined,
                 label: typeof c.value === 'string' ? c.value : undefined
             };
@@ -270,7 +307,7 @@ export async function getFieldDetail(
         options: def?.options || [],
         notes: def?.notes || undefined,
         current: derived ? {
-            value: derived.value,
+            value: def?.isMultiValue && rows ? rows.map(r => r.value) : derived.value,
             source: (derived.isScoped ? 'USER_INPUT' : (derived.evidenceProvider || 'SYSTEM')) as ProvenanceSource,
             sourceReference: derived.sourceReference || undefined,
             timestamp: derived.assertedAt,
@@ -305,6 +342,7 @@ export interface ConsoleQuestion {
     masterDataValue?: any;
     masterDataSource?: string | null;
     masterDataUpdatedAt?: Date | null;
+    masterFieldCategory?: string | null;
 };
 
 export async function getConsoleQuestions(leId: string): Promise<ConsoleQuestion[]> {
@@ -497,16 +535,30 @@ export async function getWorkbenchFields(leId: string): Promise<WorkbenchField[]
 
     for (const entry of Array.from(fieldMap.values())) {
         if (entry.type === 'SINGLE' && entry.fieldNo) {
-            const derived = await KycStateService.getAuthoritativeValue(
-                { subjectLeId },
-                entry.fieldNo,
-                ownerScopeId || undefined
-            );
+            const def = entry.definition || await getMasterFieldDefinition(entry.fieldNo);
+            if (def.isMultiValue) {
+                const collection = await KycStateService.getAuthoritativeCollection(
+                    { subjectLeId },
+                    entry.fieldNo,
+                    ownerScopeId || undefined
+                );
+                if (collection.length > 0) {
+                    entry.currentValue = collection.map(c => c.value);
+                    entry.currentSource = (collection[0].isScoped ? 'USER_INPUT' : 'MASTER_RECORD') as ProvenanceSource;
+                    entry.lastUpdated = collection[0].assertedAt;
+                }
+            } else {
+                const derived = await KycStateService.getAuthoritativeValue(
+                    { subjectLeId },
+                    entry.fieldNo,
+                    ownerScopeId || undefined
+                );
 
-            if (derived) {
-                entry.currentValue = derived.value;
-                entry.currentSource = (derived.isScoped ? 'USER_INPUT' : 'MASTER_RECORD') as ProvenanceSource;
-                entry.lastUpdated = derived.assertedAt;
+                if (derived) {
+                    entry.currentValue = derived.value;
+                    entry.currentSource = (derived.isScoped ? 'USER_INPUT' : 'MASTER_RECORD') as ProvenanceSource;
+                    entry.lastUpdated = derived.assertedAt;
+                }
             }
         } else if (entry.type === 'GROUP' && entry.groupId && entry.groupId !== 'UNMAPPED') {
             try {
@@ -517,17 +569,34 @@ export async function getWorkbenchFields(leId: string): Promise<WorkbenchField[]
 
                 for (const item of group.items) {
                     const fieldNo = item.fieldNo;
-                    const derived = await KycStateService.getAuthoritativeValue(
-                        { subjectLeId },
-                        fieldNo,
-                        ownerScopeId || undefined
-                    );
+                    const fieldDef = await getMasterFieldDefinition(fieldNo);
 
-                    if (derived) {
-                        groupValue[fieldNo] = derived.value;
-                        if (derived.assertedAt > latestDate) {
-                            latestDate = derived.assertedAt;
-                            primarySource = (derived.isScoped ? 'USER_INPUT' : 'MASTER_RECORD') as ProvenanceSource;
+                    if (fieldDef.isMultiValue) {
+                        const collection = await KycStateService.getAuthoritativeCollection(
+                            { subjectLeId },
+                            fieldNo,
+                            ownerScopeId || undefined
+                        );
+                        if (collection.length > 0) {
+                            groupValue[fieldNo] = collection.map(c => c.value);
+                            if (collection[0].assertedAt > latestDate) {
+                                latestDate = collection[0].assertedAt;
+                                primarySource = (collection[0].isScoped ? 'USER_INPUT' : 'MASTER_RECORD') as ProvenanceSource;
+                            }
+                        }
+                    } else {
+                        const derived = await KycStateService.getAuthoritativeValue(
+                            { subjectLeId },
+                            fieldNo,
+                            ownerScopeId || undefined
+                        );
+
+                        if (derived) {
+                            groupValue[fieldNo] = derived.value;
+                            if (derived.assertedAt > latestDate) {
+                                latestDate = derived.assertedAt;
+                                primarySource = (derived.isScoped ? 'USER_INPUT' : 'MASTER_RECORD') as ProvenanceSource;
+                            }
                         }
                     }
                 }
