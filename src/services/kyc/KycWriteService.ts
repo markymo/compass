@@ -507,7 +507,7 @@ export class KycWriteService {
                     where: { id: q.id },
                     data: {
                         answer: String(newValue), // Naive string conversion for now
-                        status: 'INTERNAL_REVIEW', // Auto-move to valid status
+                        status: 'MAPPED_DRAFT', // Auto-move to valid status
                     }
                 });
 
@@ -584,7 +584,7 @@ export class KycWriteService {
                     where: { id: q.id },
                     data: {
                         answer: answerString,
-                        status: 'INTERNAL_REVIEW'
+                        status: 'MAPPED_DRAFT'
                     }
                 });
 

@@ -28,7 +28,7 @@ export async function applyMasterToQuestion(
             where: { id: questionId },
             data: {
                 answer: answerText,
-                status: QuestionStatus.DRAFT
+                status: QuestionStatus.MAPPED_DRAFT
             }
         });
 

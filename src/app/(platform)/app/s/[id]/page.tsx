@@ -2,7 +2,7 @@
 import {
     getFIOganization,
     getFIEngagements,
-    getFIWorkbenchQuestions,
+    getFIWorkbenchData,
     getFITeamMembers,
     getFIDashboardStats,
     getFIQuestionnaires
@@ -15,10 +15,10 @@ import { FIPortalContainer } from "@/components/fi/fi-portal-container";
 export default async function FIDashboard({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
 
-    const [org, engagements, questions, teamMembers, stats, questionnaires] = await Promise.all([
+    const [org, engagements, workbenchData, teamMembers, stats, questionnaires] = await Promise.all([
         getFIOganization(id),
         getFIEngagements(id),
-        getFIWorkbenchQuestions(id),
+        getFIWorkbenchData(id),
         getFITeamMembers(id),
         getFIDashboardStats(id),
         getFIQuestionnaires()
@@ -38,7 +38,7 @@ export default async function FIDashboard({ params }: { params: Promise<{ id: st
             <FIPortalContainer
                 org={org}
                 engagements={engagements}
-                questions={questions}
+                workbenchData={workbenchData}
                 teamMembers={teamMembers}
                 stats={stats}
                 questionnaires={questionnaires}

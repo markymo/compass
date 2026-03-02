@@ -51,14 +51,11 @@ interface EngagementDocumentManagerProps {
 import { VaultPicker } from "./vault-picker";
 
 const statusColors: Record<string, string> = {
-    DRAFT: "bg-slate-100 text-slate-600 border-slate-200",
-    INTERNAL_REVIEW: "bg-blue-50 text-blue-700 border-blue-200",
-    SHARED: "bg-indigo-50 text-indigo-700 border-indigo-200",
-    DONE: "bg-emerald-50 text-emerald-700 border-emerald-200",
-    QUERY: "bg-amber-50 text-amber-700 border-amber-200",
-    SUPPLIER_REVIEW: "bg-purple-50 text-purple-700 border-purple-200",
-    CLIENT_SIGNED_OFF: "bg-emerald-50 text-emerald-700 border-emerald-200",
-    SUPPLIER_SIGNED_OFF: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    UNMAPPED: "bg-slate-100 text-slate-600 border-slate-200",
+    MAPPED_DRAFT: "bg-blue-50 text-blue-700 border-blue-200",
+    MAPPED_APPROVED: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    SHARED: "bg-amber-50 text-amber-700 border-amber-200",
+    RELEASED: "bg-green-50 text-green-700 border-green-200",
 };
 
 export function EngagementDocumentManager({ engagementId, documents, evidenceDocuments = [] }: EngagementDocumentManagerProps) {

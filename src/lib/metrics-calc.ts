@@ -39,39 +39,31 @@ export async function calculateEngagementMetrics(engagementId: string): Promise<
         // Status Mapping
         switch (q.status) {
             // Internal States
-            case "DRAFT":
-            case "INTERNAL_REVIEW":
+            case "UNMAPPED":
+            case "MAPPED_DRAFT":
                 // If it has answer regarding Prepop/System, we need more flags.
                 // For now, simple bucket:
                 m.drafted++;
                 break;
 
             // Client Done
-            case "CLIENT_SIGNED_OFF":
+            case "MAPPED_APPROVED":
                 m.approved++;
                 break;
 
             // External
             case "SHARED":
-            case "SUPPLIER_REVIEW":
-            case "QUERY":
                 m.released++;
                 break;
 
             // Supplier Done
-            case "SUPPLIER_SIGNED_OFF":
+            case "RELEASED":
                 m.acknowledged++;
                 break;
         }
     }
 
     // 3. Process Legacy/JSON content (Fallback)
-    // We need to fetch questionnaires that might NOT have Questions expanded yet
-    // This is expensive if we do it for every call, but necessary for correctness during transition.
-    // Optimization: Only fetch if question count is low? Or fetch Questionnaires alongside Questions above.
-    // Let's keep it simple: If questions > 0, we assume migration happened.
-    // If questions == 0, check for JSON blobs.
-
     if (questions.length === 0) {
         const questionnaires = await prisma.questionnaire.findMany({
             where: { fiEngagementId: engagementId, isDeleted: false },

@@ -28,17 +28,23 @@ import { Input } from "@/components/ui/input";
 // Internal Components
 import { FIKanbanBoard } from "./engagement/fi-kanban-board";
 import { UploadQuestionnaireDialog } from "./upload-questionnaire-dialog";
+import { FIWorkbench } from "./fi-workbench";
 
 interface FIPortalContainerProps {
     org: any;
     engagements: any[];
-    questions: any[];
+    workbenchData: {
+        questions: any[];
+        les: string[];
+        questionnaires: string[];
+        categories: string[];
+    };
     questionnaires: any[];
     teamMembers: any[];
     stats: any;
 }
 
-export function FIPortalContainer({ org, engagements, questions, questionnaires, teamMembers, stats }: FIPortalContainerProps) {
+export function FIPortalContainer({ org, engagements, workbenchData, questionnaires, teamMembers, stats }: FIPortalContainerProps) {
     const [activeTab, setActiveTab] = useState("overview");
 
     return (
@@ -240,46 +246,7 @@ export function FIPortalContainer({ org, engagements, questions, questionnaires,
                 </TabsContent>
 
                 <TabsContent value="workbench" className="mt-0 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                    <div className="h-[calc(100vh-320px)] border rounded-xl overflow-hidden bg-slate-50/50">
-                        {/* 
-                            For the global workbench, we might need a modified version of FIKanbanBoard 
-                            that takes the questions directly or handles the 'all' case.
-                            Reusing the engagement specific one for now but it needs fixing.
-                        */}
-                        <div className="p-8 text-center space-y-4">
-                            <div className="mx-auto w-16 h-16 bg-teal-50 rounded-full flex items-center justify-center text-teal-600">
-                                <KanbanSquare className="h-8 w-8" />
-                            </div>
-                            <div>
-                                <h3 className="text-lg font-bold text-slate-900">Unified Workbench</h3>
-                                <p className="text-slate-500 max-w-md mx-auto">
-                                    Manage all shared requirements across all clients in one place.
-                                </p>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 max-w-4xl mx-auto pt-6 text-left">
-                                {['SHARED', 'SUPPLIER_REVIEW', 'QUERY', 'SUPPLIER_SIGNED_OFF'].map(status => (
-                                    <Card key={status} className="bg-white border-slate-200">
-                                        <CardHeader className="p-3 border-b bg-slate-50/50">
-                                            <CardTitle className="text-[10px] uppercase tracking-widest font-bold text-slate-400">
-                                                {status.replace('_', ' ')}
-                                            </CardTitle>
-                                        </CardHeader>
-                                        <CardContent className="p-4">
-                                            <div className="text-2xl font-bold text-slate-900">
-                                                {questions.filter(q => q.status === status).length}
-                                            </div>
-                                            <p className="text-[10px] text-slate-500 mt-1">Questions</p>
-                                        </CardContent>
-                                    </Card>
-                                ))}
-                            </div>
-                            <Button variant="outline" className="mt-6 gap-2" asChild>
-                                <Link href={`/app/s/${org.id}/engagements`}>
-                                    Go to Individual Engagements <ArrowRight className="h-4 w-4" />
-                                </Link>
-                            </Button>
-                        </div>
-                    </div>
+                    <FIWorkbench orgId={org.id} data={workbenchData} />
                 </TabsContent>
 
                 <TabsContent value="questionnaires" className="mt-0 animate-in fade-in slide-in-from-bottom-2 duration-300">

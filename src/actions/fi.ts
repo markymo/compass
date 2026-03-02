@@ -317,18 +317,20 @@ export async function getFIEngagements(fiOrgId?: string): Promise<ApplicationEng
 }
 
 // 2.b Get Questions for Dashboard (Kanban Items)
-export async function getFIWorkbenchQuestions(fiOrgId: string) {
+import { listAllMasterFields, listAllMasterGroups } from "@/services/masterData/definitionService";
+
+export async function getFIWorkbenchData(fiOrgId: string) {
     const identity = await getIdentity();
-    if (!identity?.userId) return [];
+    if (!identity?.userId) return { questions: [], les: [], questionnaires: [], categories: [] };
     const { userId } = identity;
 
     // Verify access
     const membership = await prisma.membership.findFirst({
         where: { userId, organizationId: fiOrgId, organization: { types: { has: "FI" } } }
     });
-    if (!membership) return [];
+    if (!membership) return { questions: [], les: [], questionnaires: [], categories: [] };
 
-    return await prisma.question.findMany({
+    const questionsRaw = await prisma.question.findMany({
         where: {
             questionnaire: {
                 fiOrgId: fiOrgId,
@@ -348,6 +350,35 @@ export async function getFIWorkbenchQuestions(fiOrgId: string) {
         },
         orderBy: { updatedAt: 'desc' }
     });
+
+    const [allFields, allGroups] = await Promise.all([
+        listAllMasterFields(),
+        listAllMasterGroups()
+    ]);
+
+    const fieldCategoryMap = new Map(allFields.map(f => [f.fieldNo, f.category]));
+    const groupCategoryMap = new Map(allGroups.map(g => [g.key, g.category]));
+
+    const questions = questionsRaw.map(q => {
+        let category = "Uncategorized";
+        if (q.masterFieldNo) category = fieldCategoryMap.get(q.masterFieldNo) || "Uncategorized";
+        else if (q.masterQuestionGroupId) category = groupCategoryMap.get(q.masterQuestionGroupId) || "Uncategorized";
+        else if (q.customFieldDefinitionId) category = "Custom";
+
+        return {
+            ...q,
+            category,
+            leName: q.questionnaire.fiEngagement?.clientLE.name || "Unknown",
+            questionnaireName: q.questionnaire.name
+        };
+    });
+
+    return {
+        questions: JSON.parse(JSON.stringify(questions)),
+        les: Array.from(new Set(questions.map(q => q.leName))).sort(),
+        questionnaires: Array.from(new Set(questions.map(q => q.questionnaireName))).sort(),
+        categories: Array.from(new Set(questions.map(q => q.category))).sort()
+    };
 }
 
 export async function getFITeamMembers(fiOrgId: string) {
@@ -553,7 +584,7 @@ export async function assignQuestionnaireToEngagement(engagementId: string, temp
                         text: q.text,
                         compactText: q.compactText,
                         order: q.order,
-                        status: "DRAFT",
+                        status: "UNMAPPED",
                         sourceSectionId: q.sourceSectionId,
                         // Note: We do NOT copy 'answer' or 'activities' or 'comments' as this is a fresh start
                     }))

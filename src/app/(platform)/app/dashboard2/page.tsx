@@ -259,13 +259,7 @@ function OrgCard({ org }: { org: OrgNode }) {
                             </div>
                             <div>
                                 <div className="flex items-center gap-2.5">
-                                    {org.orgType === "SUPPLIER" ? (
-                                        <Link href={`/app/s/${org.id}`} className="hover:underline hover:text-[#0F766E] transition-colors">
-                                            <CardTitle className="text-lg">{org.name}</CardTitle>
-                                        </Link>
-                                    ) : (
-                                        <CardTitle className="text-lg">{org.name}</CardTitle>
-                                    )}
+                                    <CardTitle className="text-lg">{org.name}</CardTitle>
                                     <Badge variant="outline" className="text-[10px] h-5 font-medium border" style={{ backgroundColor: meta.soft, color: meta.primary, borderColor: `${meta.primary}20` }}>
                                         {meta.label}
                                     </Badge>

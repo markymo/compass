@@ -107,7 +107,7 @@ export function FIKanbanBoard({ engagementId, clientName = "Client" }: { engagem
     //    - So we filter out invisible statuses.
 
     // Visible Statuses for FI:
-    const VISIBLE_STATUSES = ['SHARED', 'SUPPLIER_REVIEW', 'QUERY', 'SUPPLIER_SIGNED_OFF', 'CLIENT_SIGNED_OFF', 'DONE'];
+    const VISIBLE_STATUSES = ['SHARED', 'RELEASED'];
 
     const filteredTasks = tasks.filter(t => {
         // Status Visibility Check
@@ -121,13 +121,7 @@ export function FIKanbanBoard({ engagementId, clientName = "Client" }: { engagem
     });
 
     // Group Statuses into Columns
-    const getTasksByStatus = (columnId: string) => filteredTasks.filter(t => {
-        if (columnId === 'SHARED') {
-            // Also show CLIENT_SIGNED_OFF here?
-            return t.status === 'SHARED' || t.status === 'CLIENT_SIGNED_OFF';
-        }
-        return t.status === columnId;
-    });
+    const getTasksByStatus = (columnId: string) => filteredTasks.filter(t => t.status === columnId);
 
     // Derive Unique Questionnaires for Filter
     // @ts-ignore

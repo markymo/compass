@@ -2,7 +2,7 @@
 
 import { getIdentity } from "@/lib/auth";
 import prisma from "@/lib/prisma";
-import { QuestionStatus } from "@prisma/client";
+import { QuestionStatus, Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { KycStateService } from "@/lib/kyc/KycStateService";
 import { generateAIAnswers, learnFromAnswer } from "./ai-autofill";
@@ -342,9 +342,9 @@ export async function shareQuestion(questionId: string, isShared: boolean) {
             select: { status: true }
         });
 
-        if (isShared && question?.status !== 'MAPPED_APPROVED' && question?.status !== 'SHARED') {
+        if (isShared && !['MAPPED_APPROVED', 'SHARED'].includes(question?.status as any)) {
             // If we want Policy B strictly: Shared can only be reached from MAPPED_APPROVED
-            if (question?.status !== 'MAPPED_APPROVED' && question?.status !== 'SHARED' && question?.status !== 'RELEASED') {
+            if (!['MAPPED_APPROVED', 'SHARED', 'RELEASED'].includes(question?.status as any)) {
                 return { success: false, error: "Mapping must be approved before sharing" };
             }
         }
@@ -440,7 +440,7 @@ export async function updateQuestionMapping(questionId: string, fieldNo: number 
                 approvedByUserId: null,
                 sharedAt: null,
                 sharedByUserId: null,
-                approvedMappingConfig: null
+                approvedMappingConfig: Prisma.JsonNull
             }
         });
 
