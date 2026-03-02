@@ -18,7 +18,7 @@ import { createQuestionnaire, startBackgroundExtraction } from "@/actions/questi
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
-export function UploadQuestionnaireDialog({ isAdmin, children }: { isAdmin?: boolean, children?: React.ReactNode }) {
+export function UploadQuestionnaireDialog({ isAdmin, children, fiOrgId }: { isAdmin?: boolean, children?: React.ReactNode, fiOrgId?: string }) {
     const [open, setOpen] = useState(false);
     const [loading, setLoading] = useState(false);
     const [dragActive, setDragActive] = useState(false);
@@ -67,6 +67,10 @@ export function UploadQuestionnaireDialog({ isAdmin, children }: { isAdmin?: boo
             }
         }
 
+        if (fiOrgId) {
+            formData.set("fiOrgId", fiOrgId);
+        }
+
         const file = formData.get("file") as File;
         if (!file || file.size === 0) {
             setLoading(false);
@@ -75,7 +79,7 @@ export function UploadQuestionnaireDialog({ isAdmin, children }: { isAdmin?: boo
         }
 
         // 1. Create Record (Status: DIGITIZING)
-        const res = await createQuestionnaire(null, formData);
+        const res = await createQuestionnaire(fiOrgId || null, formData);
 
         if (res.success && res.data?.id) {
             const qId = res.data.id;

@@ -317,6 +317,60 @@ export async function getFIEngagements(fiOrgId?: string): Promise<ApplicationEng
 }
 
 // 2.b Get Questions for Dashboard (Kanban Items)
+export async function getFIWorkbenchQuestions(fiOrgId: string) {
+    const identity = await getIdentity();
+    if (!identity?.userId) return [];
+    const { userId } = identity;
+
+    // Verify access
+    const membership = await prisma.membership.findFirst({
+        where: { userId, organizationId: fiOrgId, organization: { types: { has: "FI" } } }
+    });
+    if (!membership) return [];
+
+    return await prisma.question.findMany({
+        where: {
+            questionnaire: {
+                fiOrgId: fiOrgId,
+                status: { not: "DRAFT" },
+                isDeleted: false
+            },
+            status: { in: ["SHARED", "RELEASED"] }
+        },
+        include: {
+            questionnaire: {
+                include: {
+                    fiEngagement: {
+                        include: { clientLE: true }
+                    }
+                }
+            }
+        },
+        orderBy: { updatedAt: 'desc' }
+    });
+}
+
+export async function getFITeamMembers(fiOrgId: string) {
+    const identity = await getIdentity();
+    if (!identity?.userId) return [];
+
+    const members = await prisma.membership.findMany({
+        where: { organizationId: fiOrgId },
+        include: {
+            user: true
+        },
+        orderBy: { role: 'asc' }
+    });
+
+    return members.map(m => ({
+        id: m.user?.id || 'unknown',
+        name: m.user?.name || 'Unknown User',
+        email: m.user?.email || 'No Email',
+        role: m.role,
+        image: m.user?.image
+    }));
+}
+
 export async function getFIDashboardQuestions(filters?: { clientLEId?: string; questionnaireName?: string; fiOrgId?: string }) {
     const identity = await getIdentity();
     if (!identity?.userId) return [];

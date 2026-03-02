@@ -259,7 +259,13 @@ function OrgCard({ org }: { org: OrgNode }) {
                             </div>
                             <div>
                                 <div className="flex items-center gap-2.5">
-                                    <CardTitle className="text-lg">{org.name}</CardTitle>
+                                    {org.orgType === "SUPPLIER" ? (
+                                        <Link href={`/app/s/${org.id}`} className="hover:underline hover:text-[#0F766E] transition-colors">
+                                            <CardTitle className="text-lg">{org.name}</CardTitle>
+                                        </Link>
+                                    ) : (
+                                        <CardTitle className="text-lg">{org.name}</CardTitle>
+                                    )}
                                     <Badge variant="outline" className="text-[10px] h-5 font-medium border" style={{ backgroundColor: meta.soft, color: meta.primary, borderColor: `${meta.primary}20` }}>
                                         {meta.label}
                                     </Badge>
@@ -366,12 +372,21 @@ function ClientOrgCard({ org }: { org: OrgNode }) {
                                 {isOpen ? <ChevronDown className="h-4 w-4 text-slate-400" /> : <ChevronRight className="h-4 w-4 text-slate-400" />}
                             </Button>
                         </CollapsibleTrigger>
-                        {org.orgType === "CLIENT" ? (
-                            <Factory className="h-4 w-4 shrink-0" style={{ color: "#4338CA" }} />
+                        {org.orgType === "SUPPLIER" ? (
+                            <Link href={`/app/s/${org.id}`} className="flex items-center gap-2 hover:underline group/org">
+                                <Building2 className="h-4 w-4 shrink-0 transition-colors" style={{ color: "#0F766E" }} />
+                                <span className="font-bold text-sm text-slate-900 truncate group-hover/org:text-[#0F766E] transition-colors">{org.name}</span>
+                            </Link>
                         ) : (
-                            <Building2 className="h-4 w-4 shrink-0" style={{ color: "#0F766E" }} />
+                            <>
+                                {org.orgType === "CLIENT" ? (
+                                    <Factory className="h-4 w-4 shrink-0" style={{ color: "#4338CA" }} />
+                                ) : (
+                                    <Building2 className="h-4 w-4 shrink-0" style={{ color: "#0F766E" }} />
+                                )}
+                                <span className="font-bold text-sm text-slate-900 truncate">{org.name}</span>
+                            </>
                         )}
-                        <span className="font-bold text-sm text-slate-900 truncate">{org.name}</span>
                         <RoleBadge role={org.role} />
                     </div>
                     {org.orgType === "CLIENT" ? (
@@ -406,8 +421,21 @@ function ClientOrgCard({ org }: { org: OrgNode }) {
                                     {isOpen ? <ChevronDown className="h-4 w-4 text-slate-400" /> : <ChevronRight className="h-4 w-4 text-slate-400" />}
                                 </Button>
                             </CollapsibleTrigger>
-                            <Building2 className="h-4 w-4 text-indigo-600" />
-                            <span className="font-bold text-sm">{org.name}</span>
+                            {org.orgType === "SUPPLIER" ? (
+                                <Link href={`/app/s/${org.id}`} className="flex items-center gap-2 hover:underline">
+                                    <Building2 className="h-4 w-4" style={{ color: "#0F766E" }} />
+                                    <span className="font-bold text-sm text-slate-900">{org.name}</span>
+                                </Link>
+                            ) : (
+                                <>
+                                    {org.orgType === "CLIENT" ? (
+                                        <Factory className="h-4 w-4" style={{ color: "#4338CA" }} />
+                                    ) : (
+                                        <Building2 className="h-4 w-4" style={{ color: "#64748b" }} />
+                                    )}
+                                    <span className="font-bold text-sm text-slate-900">{org.name}</span>
+                                </>
+                            )}
                         </div>
                         <RoleBadge role={org.role} />
                     </div>
