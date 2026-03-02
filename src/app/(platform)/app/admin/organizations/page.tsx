@@ -42,21 +42,14 @@ export default function OrganizationsPage() {
     async function handleCreate() {
         if (!name || types.length === 0) return;
         setCreating(true);
-        // For now, API expects a single type or we need to update API to accept array?
-        // Let's update the API action first (we did in previous step but need to check signature)
-        // Actually the `createOrganization` action signature in `src/actions/org.ts` was:
-        // export async function createOrganization(name: string, type: "CLIENT" | "FI") 
-        // I need to update that signature too!
 
-        // Wait, I missed updating the signature of createOrganization in org.ts!
-        // I updated the BODY but not the ARGUMENTS in Step 660 (?)
-        // Let's check. Step 660 replace_file_content replaced `data: { name, type }` with `data: { name, types: [type] }`.
-        // It did NOT change the function signature `type: "CLIENT" | "FI"`.
-        // So for now, I can only pass ONE type.
-        // I should fix the action to accept an array.
+        // Logic: If FI or LAW_FIRM is selected, ensure SUPPLIER is also added for categorisation
+        const finalTypes = [...types];
+        if ((finalTypes.includes("FI") || finalTypes.includes("LAW_FIRM")) && !finalTypes.includes("SUPPLIER")) {
+            finalTypes.push("SUPPLIER");
+        }
 
-        // But to proceed with UI:
-        const validTypes = types as ("CLIENT" | "FI" | "SYSTEM")[];
+        const validTypes = finalTypes as ("CLIENT" | "FI" | "SYSTEM" | "LAW_FIRM" | "SUPPLIER")[];
         const res = await createOrganization(name, validTypes);
 
         setCreating(false);
@@ -106,31 +99,53 @@ export default function OrganizationsPage() {
                             </div>
                             <div className="space-y-2">
                                 <Label>Roles (Multi-select)</Label>
-                                <div className="flex flex-col gap-2">
-                                    <div className="flex items-center space-x-2">
+                                <div className="flex flex-col gap-3 p-3 border rounded-md bg-slate-50/50">
+                                    <div className="flex items-center space-x-3">
                                         <input
                                             type="checkbox"
                                             id="chk-client"
                                             checked={types.includes("CLIENT")}
                                             onChange={() => toggleType("CLIENT")}
-                                            className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                            className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
                                         />
-                                        <Label htmlFor="chk-client">Client (Law Firm/Corp)</Label>
+                                        <div className="grid gap-0.5 pointer-events-none">
+                                            <Label htmlFor="chk-client" className="cursor-pointer pointer-events-auto">Client (Asset Manager / Corporate)</Label>
+                                            <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Has work done FOR them</p>
+                                        </div>
                                     </div>
-                                    <div className="flex items-center space-x-2">
-                                        <input
-                                            type="checkbox"
-                                            id="chk-fi"
-                                            checked={types.includes("FI")}
-                                            onChange={() => toggleType("FI")}
-                                            className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                                        />
-                                        <Label htmlFor="chk-fi">Financial Institution</Label>
+
+                                    <div className="mt-2 pt-3 border-t">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Supplier Roles</p>
+                                        <div className="space-y-3">
+                                            <div className="flex items-center space-x-3">
+                                                <input
+                                                    type="checkbox"
+                                                    id="chk-fi"
+                                                    checked={types.includes("FI")}
+                                                    onChange={() => toggleType("FI")}
+                                                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                                />
+                                                <div className="grid gap-0.5 pointer-events-none">
+                                                    <Label htmlFor="chk-fi" className="cursor-pointer pointer-events-auto">Financial Institution (FI)</Label>
+                                                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Performs due diligence on clients</p>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center space-x-3">
+                                                <input
+                                                    type="checkbox"
+                                                    id="chk-law"
+                                                    checked={types.includes("LAW_FIRM")}
+                                                    onChange={() => toggleType("LAW_FIRM")}
+                                                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                                />
+                                                <div className="grid gap-0.5 pointer-events-none">
+                                                    <Label htmlFor="chk-law" className="cursor-pointer pointer-events-auto">Law Firm</Label>
+                                                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Specialist service provider</p>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
-                                <p className="text-xs text-muted-foreground">
-                                    * Currently creating with primary role only. Multi-role update coming in next step.
-                                </p>
                             </div>
                             <Button onClick={handleCreate} disabled={creating} className="w-full">
                                 {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : "Create Organization"}

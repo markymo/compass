@@ -130,18 +130,18 @@ export async function ensureUserOrg(userId: string, userEmail: string = "") {
         }
     }
 
-    // Ensure User exists (Standard Upsert for non-merge cases)
-    const userExists = await prisma.user.findUnique({ where: { id: userId } });
-    if (!userExists) {
-        await prisma.user.create({
-            data: { id: userId, email: userEmail || "unknown@demo.com" }
-        });
-    } else {
-        // Update email if needed
-        if (userEmail && userExists.email !== userEmail) {
-            await prisma.user.update({ where: { id: userId }, data: { email: userEmail } });
+    // Ensure User exists (Atomic upsert to handle concurrent requests)
+    await prisma.user.upsert({
+        where: { id: userId },
+        update: {
+            // Update email if we have a better one than the placeholder or current
+            ...(userEmail && userEmail !== "unknown@demo.com" ? { email: userEmail } : {})
+        },
+        create: {
+            id: userId,
+            email: userEmail || "unknown@demo.com"
         }
-    }
+    });
 
     // Removed auto-creation of personal organizations for new users.
     // They will now land on an empty dashboard state until invited to an organization.

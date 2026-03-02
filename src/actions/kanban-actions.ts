@@ -90,7 +90,7 @@ export async function populateQuestionsFromExtraction(questionnaireId: string) {
                         text: item.text || item.question || item.originalText || "Untitled Question",
                         compactText: item.compactText || null,
                         order: item.order ?? orderCounter++,
-                        status: 'DRAFT' as QuestionStatus,
+                        status: item.masterKey ? ('MAPPED_DRAFT' as QuestionStatus) : ('UNMAPPED' as QuestionStatus),
                         sourceSectionId: item.section || null,
 
                         // COORDINATOR WORKFLOW: Initially assign to the triggering LE Admin
@@ -186,13 +186,16 @@ export async function getBoardQuestions(engagementId: string) {
     // 1. Resolve Master Data for each question
     const resolvedQuestions = await Promise.all(questions.map(async q => {
         let finalAnswer = q.answer || undefined;
+        const isReleased = q.status === 'RELEASED';
+        const snapshotDate = isReleased ? (q as any).releasedAt : undefined;
 
         // If mapped to master data, try to resolve the authoritative value
         if (subjectLeId && q.masterFieldNo) {
             const derived = await KycStateService.getAuthoritativeValue(
                 { subjectLeId },
                 q.masterFieldNo,
-                ownerScopeId || undefined
+                ownerScopeId || undefined,
+                snapshotDate
             );
 
             if (derived) {
@@ -211,7 +214,7 @@ export async function getBoardQuestions(engagementId: string) {
             compactText: (q as any).compactText || undefined,
             answer: finalAnswer,
             status: q.status,
-            isLocked: (q as any).isLocked,
+            isLocked: (q as any).isLocked || isReleased,
             assignedToUserId: q.assignedToUserId,
             assignedEmail: (q as any).assignedEmail,
             assignee: q.assignedToUserId
@@ -242,7 +245,11 @@ export async function getBoardQuestions(engagementId: string) {
                 fileType: d.fileType,
                 fileUrl: d.fileUrl,
                 kbSize: d.kbSize
-            })) : []
+            })) : [],
+            masterFieldNo: q.masterFieldNo,
+            approvedAt: (q as any).approvedAt,
+            releasedAt: (q as any).releasedAt,
+            sharedAt: (q as any).sharedAt
         };
     }));
 
@@ -258,6 +265,15 @@ export async function updateQuestionStatus(questionId: string, newStatus: Questi
     const { userId } = identity;
 
     try {
+        const question = await prisma.question.findUnique({
+            where: { id: questionId },
+            select: { status: true }
+        });
+
+        if (question?.status === 'RELEASED' || newStatus === 'RELEASED') {
+            return { success: false, error: "Released questions cannot be moved via Drag-and-Drop. Use the Detail Panel." };
+        }
+
         await prisma.question.update({
             where: { id: questionId },
             data: { status: newStatus }
@@ -265,6 +281,182 @@ export async function updateQuestionStatus(questionId: string, newStatus: Questi
         return { success: true };
     } catch (e) {
         return { success: false, error: "Update failed" };
+    }
+}
+
+/**
+ * Approve Question Mapping
+ */
+export async function approveQuestionMapping(questionId: string) {
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+    const { userId } = identity;
+
+    try {
+        const question = await prisma.question.findUnique({
+            where: { id: questionId },
+            select: { masterFieldNo: true }
+        });
+
+        if (!question?.masterFieldNo) {
+            return { success: false, error: "Cannot approve unmapped question" };
+        }
+
+        await prisma.question.update({
+            where: { id: questionId },
+            data: {
+                status: 'MAPPED_APPROVED',
+                approvedAt: new Date(),
+                approvedByUserId: userId,
+                approvedMappingConfig: { fieldNo: question.masterFieldNo }
+            }
+        });
+
+        await prisma.questionActivity.create({
+            data: {
+                questionId,
+                userId,
+                type: "MAPPING_APPROVED",
+                details: { fieldNo: question.masterFieldNo }
+            }
+        });
+
+        revalidatePath("/(platform)/app/le/[id]/engagement-new/[engagementId]", "page");
+        return { success: true };
+    } catch (e) {
+        return { success: false, error: "Approval failed" };
+    }
+}
+
+/**
+ * Share Question (Toggle)
+ */
+export async function shareQuestion(questionId: string, isShared: boolean) {
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+    const { userId } = identity;
+
+    try {
+        const question = await prisma.question.findUnique({
+            where: { id: questionId },
+            select: { status: true }
+        });
+
+        if (isShared && question?.status !== 'MAPPED_APPROVED' && question?.status !== 'SHARED') {
+            // If we want Policy B strictly: Shared can only be reached from MAPPED_APPROVED
+            if (question?.status !== 'MAPPED_APPROVED' && question?.status !== 'SHARED' && question?.status !== 'RELEASED') {
+                return { success: false, error: "Mapping must be approved before sharing" };
+            }
+        }
+
+        const newStatus = isShared ? 'SHARED' : 'MAPPED_APPROVED';
+
+        await prisma.question.update({
+            where: { id: questionId },
+            data: {
+                status: newStatus,
+                sharedAt: isShared ? new Date() : null,
+                sharedByUserId: isShared ? userId : null
+            }
+        });
+
+        await prisma.questionActivity.create({
+            data: {
+                questionId,
+                userId,
+                type: isShared ? "QUESTION_SHARED" : "QUESTION_UNSHARED",
+                details: {}
+            }
+        });
+
+        revalidatePath("/(platform)/app/le/[id]/engagement-new/[engagementId]", "page");
+        return { success: true };
+    } catch (e) {
+        return { success: false, error: "Sharing failed" };
+    }
+}
+
+/**
+ * Release Question (Lockdown)
+ */
+export async function releaseQuestion(questionId: string) {
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+    const { userId } = identity;
+
+    // TODO: Verify LE_ADMIN role
+
+    try {
+        await prisma.question.update({
+            where: { id: questionId },
+            data: {
+                status: 'RELEASED',
+                releasedAt: new Date(),
+                releasedByUserId: userId,
+                isLocked: true
+            }
+        });
+
+        await prisma.questionActivity.create({
+            data: {
+                questionId,
+                userId,
+                type: "QUESTION_RELEASED",
+                details: {}
+            }
+        });
+
+        revalidatePath("/(platform)/app/le/[id]/engagement-new/[engagementId]", "page");
+        return { success: true };
+    } catch (e) {
+        return { success: false, error: "Release failed" };
+    }
+}
+
+/**
+ * Update Question Mapping with Safety Reset
+ */
+export async function updateQuestionMapping(questionId: string, fieldNo: number | null) {
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+    const { userId } = identity;
+
+    try {
+        const question = await prisma.question.findUnique({
+            where: { id: questionId },
+            select: { status: true }
+        });
+
+        if (question?.status === 'RELEASED') {
+            return { success: false, error: "Cannot change mapping of a released question" };
+        }
+
+        await prisma.question.update({
+            where: { id: questionId },
+            data: {
+                masterFieldNo: fieldNo,
+                status: fieldNo ? 'MAPPED_DRAFT' : 'UNMAPPED',
+                approvedAt: null,
+                approvedByUserId: null,
+                sharedAt: null,
+                sharedByUserId: null,
+                approvedMappingConfig: null
+            }
+        });
+
+        await prisma.questionActivity.create({
+            data: {
+                questionId,
+                userId,
+                type: "MAPPING_UPDATED",
+                details: { fieldNo }
+            }
+        });
+
+        revalidatePath("/(platform)/app/le/[id]/engagement-new/[engagementId]", "page");
+        return { success: true };
+    } catch (e) {
+        return { success: false, error: "Mapping update failed" };
     }
 }
 

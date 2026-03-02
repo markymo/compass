@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Draggable } from "@hello-pangea/dnd";
 import { Card } from "@/components/ui/card";
-import { Sparkles, Loader2, Check, X, Paperclip } from "lucide-react";
+import { Sparkles, Loader2, Check, X, Paperclip, Lock, Share2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { updateAnswer, generateSingleQuestionAnswer } from "@/actions/kanban-actions";
 
@@ -13,7 +13,7 @@ export interface QuestionTask {
     question: string;
     compactText?: string;
     answer?: string;
-    status: 'DRAFT' | 'INTERNAL_REVIEW' | 'SHARED' | 'DONE' | 'QUERY' | 'SUPPLIER_REVIEW' | 'CLIENT_SIGNED_OFF' | 'SUPPLIER_SIGNED_OFF';
+    status: 'UNMAPPED' | 'MAPPED_DRAFT' | 'MAPPED_APPROVED' | 'SHARED' | 'RELEASED';
     assignedToUserId?: string;
     assignedEmail?: string;
     assignee?: {
@@ -50,14 +50,11 @@ export function QuestionCard({ task, index, onClick }: QuestionCardProps) {
     const [aiState, setAIState] = useState<AIState>('idle');
 
     const statusColors = {
-        'DRAFT': 'border-l-slate-400',
-        'INTERNAL_REVIEW': 'border-l-blue-500',
-        'SHARED': 'border-l-indigo-600',
-        'DONE': 'border-l-emerald-500',
-        'QUERY': 'border-l-amber-500',
-        'SUPPLIER_REVIEW': 'border-l-purple-500',
-        'CLIENT_SIGNED_OFF': 'border-l-emerald-600',
-        'SUPPLIER_SIGNED_OFF': 'border-l-emerald-600'
+        'UNMAPPED': 'border-l-slate-300',
+        'MAPPED_DRAFT': 'border-l-amber-400',
+        'MAPPED_APPROVED': 'border-l-emerald-400',
+        'SHARED': 'border-l-indigo-500',
+        'RELEASED': 'border-l-slate-900 bg-slate-50'
     };
 
     const handleSave = async () => {
@@ -116,7 +113,7 @@ export function QuestionCard({ task, index, onClick }: QuestionCardProps) {
                         "mb-0.5 rounded-sm border-l-4 relative group hover:shadow-md transition-all bg-white cursor-pointer p-0",
                         statusColors[task.status],
                         snapshot.isDragging && "shadow-2xl scale-105 z-50",
-                        task.status === 'DONE' && "bg-emerald-50/30"
+                        task.status === 'RELEASED' && "opacity-80"
                     )}
                 >
                     <div className="px-2 pt-px pb-px">
@@ -132,10 +129,16 @@ export function QuestionCard({ task, index, onClick }: QuestionCardProps) {
                                 {(task.allowAttachments || (task.documents && task.documents.length > 0)) && (
                                     <Paperclip className={cn("h-3.5 w-3.5 flex-shrink-0", task.documents && task.documents.length > 0 ? "text-indigo-600" : "text-slate-400")} />
                                 )}
+                                {task.status === 'RELEASED' && (
+                                    <Lock className="h-3.5 w-3.5 text-slate-900" />
+                                )}
+                                {task.status === 'SHARED' && (
+                                    <Share2 className="h-3.5 w-3.5 text-indigo-600" />
+                                )}
                                 {/* AI Generation Button */}
                                 <button
                                     onClick={handleAIGenerate}
-                                    disabled={aiState === 'generating' || task.isLocked}
+                                    disabled={aiState === 'generating' || task.isLocked || task.status === 'RELEASED'}
                                     className={cn(
                                         "w-5 h-5 flex-shrink-0 flex items-center justify-center rounded transition-all",
                                         "disabled:cursor-not-allowed",

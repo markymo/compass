@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import { v4 as uuidv4 } from 'uuid';
 
 // 1. Create Organization (Admin Only)
-export async function createOrganization(name: string, types: ("CLIENT" | "FI" | "SYSTEM")[]) {
+export async function createOrganization(name: string, types: ("CLIENT" | "FI" | "SYSTEM" | "LAW_FIRM" | "SUPPLIER")[]) {
     const isAdmin = await isSystemAdmin();
     if (!isAdmin) return { success: false, error: "Unauthorized" };
 
@@ -14,7 +14,7 @@ export async function createOrganization(name: string, types: ("CLIENT" | "FI" |
         const org = await prisma.organization.create({
             data: {
                 name,
-                types: types // Use the array directly
+                types: types as any // Use the array directly
             }
         });
         revalidatePath("/app/admin/organizations");

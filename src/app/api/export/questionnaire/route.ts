@@ -53,16 +53,18 @@ export async function POST(req: NextRequest) {
             }
         });
 
-        // 3. Transform Data with Master Data Resolution
         const exportData = await Promise.all(questions.map(async q => {
             let resolvedAnswer = q.answer || "";
+            const isReleased = (q.status as any) === 'RELEASED';
+            const snapshotDate = isReleased ? (q as any).releasedAt : undefined;
 
             // Use KycStateService to get the latest authoritative value if mapped
             if (subjectLeId && q.masterFieldNo) {
                 const derived = await KycStateService.getAuthoritativeValue(
                     { subjectLeId },
                     q.masterFieldNo,
-                    ownerScopeId || undefined
+                    ownerScopeId || undefined,
+                    snapshotDate
                 );
 
                 if (derived) {
@@ -80,7 +82,7 @@ export async function POST(req: NextRequest) {
                 status: q.status,
                 question: q.text,
                 answer: resolvedAnswer,
-                notes: q.comments.map(c => `[${c.user?.name || 'User'}]: ${c.text}`).join("\n")
+                notes: q.comments.map((c: any) => `[${c.user?.name || 'User'}]: ${c.text}`).join("\n")
             };
         }));
 

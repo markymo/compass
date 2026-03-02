@@ -35,7 +35,8 @@ export class KycStateService {
     static async getAuthoritativeValue(
         subject: { subjectLeId?: string; subjectPersonId?: string; subjectOrgId?: string },
         fieldNo: number,
-        ownerScopeId?: string
+        ownerScopeId?: string,
+        snapshotDate?: Date
     ): Promise<DerivedValue | null> {
         // Comparison Set: (subject, fieldNo, ownerScopeId)
         const claims = await prisma.fieldClaim.findMany({
@@ -44,12 +45,16 @@ export class KycStateService {
                 fieldNo,
                 ...subject,
                 status: { in: [ClaimStatus.VERIFIED, ClaimStatus.ASSERTED] },
+                assertedAt: snapshotDate ? { lte: snapshotDate } : undefined,
                 OR: [
                     { ownerScopeId: ownerScopeId || undefined },
                     { ownerScopeId: null }
                 ]
             },
-            orderBy: { assertedAt: 'desc' }
+            orderBy: [
+                { assertedAt: 'desc' },
+                { id: 'desc' }
+            ]
         });
 
         if (claims.length === 0) return null;
@@ -66,7 +71,8 @@ export class KycStateService {
     static async getAuthoritativeCollection(
         subject: { subjectLeId?: string; subjectPersonId?: string; subjectOrgId?: string },
         fieldNo: number,
-        ownerScopeId?: string
+        ownerScopeId?: string,
+        snapshotDate?: Date
     ): Promise<DerivedValue[]> {
         // Multi-value Comparison Set: (subject, fieldNo, ownerScopeId, collectionId, instanceId)
         const claims = await prisma.fieldClaim.findMany({
@@ -75,12 +81,16 @@ export class KycStateService {
                 fieldNo,
                 ...subject,
                 status: { in: [ClaimStatus.VERIFIED, ClaimStatus.ASSERTED] },
+                assertedAt: snapshotDate ? { lte: snapshotDate } : undefined,
                 OR: [
                     { ownerScopeId: ownerScopeId || undefined },
                     { ownerScopeId: null }
                 ]
             },
-            orderBy: { assertedAt: 'desc' }
+            orderBy: [
+                { assertedAt: 'desc' },
+                { id: 'desc' }
+            ]
         });
 
         // Group by collectionId and instanceId
@@ -110,27 +120,59 @@ export class KycStateService {
      * 4. Fallback to ASSERTED if no VERIFIED exists (Scoped then Baseline).
      */
     private static pickWinner(claims: FieldClaim[], requestedScopeId?: string): FieldClaim | null {
+        // 1. Filter by status and scope tiers
+        // 2. Priority by source trust: GLEIF (1) > COMPANIES_HOUSE (2) > USER_INPUT (3) > AI (4) > SYSTEM (5)
+        // 3. Newest assertedAt
+        // 4. Tie-breaker claim id desc
+
+        const getSourcePriority = (source: string) => {
+            if (source === 'GLEIF') return 1;
+            if (source === 'COMPANIES_HOUSE') return 2;
+            if (source === 'USER_INPUT') return 3;
+            if (source === 'AI_EXTRACTION') return 4;
+            return 5;
+        };
+
+        const sortAndPick = (list: FieldClaim[]) => {
+            if (list.length === 0) return null;
+            return list.sort((a, b) => {
+                // Source priority (asc because 1 is higher)
+                const pA = getSourcePriority(a.sourceType);
+                const pB = getSourcePriority(b.sourceType);
+                if (pA !== pB) return pA - pB;
+
+                // assertedAt desc
+                const tA = a.assertedAt.getTime();
+                const tB = b.assertedAt.getTime();
+                if (tA !== tB) return tB - tA;
+
+                // ID tie-breaker
+                return b.id.localeCompare(a.id);
+            })[0];
+        };
+
         // Tier 1: VERIFIED Scoped
         if (requestedScopeId) {
             const verifiedScoped = claims.filter(c => c.status === ClaimStatus.VERIFIED && c.ownerScopeId === requestedScopeId);
-            if (verifiedScoped.length > 0) return verifiedScoped[0]; // Already sorted by assertedAt desc
+            const winner = sortAndPick(verifiedScoped);
+            if (winner) return winner;
         }
 
         // Tier 2: ASSERTED Scoped
         if (requestedScopeId) {
             const assertedScoped = claims.filter(c => c.status === ClaimStatus.ASSERTED && c.ownerScopeId === requestedScopeId);
-            if (assertedScoped.length > 0) return assertedScoped[0];
+            const winner = sortAndPick(assertedScoped);
+            if (winner) return winner;
         }
 
         // Tier 3: VERIFIED Baseline
         const verifiedBaseline = claims.filter(c => c.status === ClaimStatus.VERIFIED && c.ownerScopeId === null);
-        if (verifiedBaseline.length > 0) return verifiedBaseline[0];
+        const winnerV = sortAndPick(verifiedBaseline);
+        if (winnerV) return winnerV;
 
         // Tier 4: ASSERTED Baseline
         const assertedBaseline = claims.filter(c => c.status === ClaimStatus.ASSERTED && c.ownerScopeId === null);
-        if (assertedBaseline.length > 0) return assertedBaseline[0];
-
-        return null;
+        return sortAndPick(assertedBaseline);
     }
 
     private static isTombstone(claim: FieldClaim): boolean {

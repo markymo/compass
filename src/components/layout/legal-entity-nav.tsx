@@ -41,12 +41,6 @@ export function LegalEntityNav({ leId }: LegalEntityNavProps) {
             isActive: (path: string) => path.startsWith(`${baseUrl}/master`)
         },
         {
-            label: "Deprecated",
-            href: `${baseUrl}/workbench`,
-            icon: Clipboard,
-            isActive: (path: string) => path.startsWith(`${baseUrl}/workbench`) && !path.includes("workbench4")
-        },
-        {
             label: "Workbench",
             href: `${baseUrl}/workbench4`,
             icon: Link2,

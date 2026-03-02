@@ -54,6 +54,7 @@ model User {
   jobTitle                      String?
   notificationPrefs             Json?
   phone                         String?
+  preferences                   Json                    @default("{}")
   accounts                      Account[]
   assignedTodos                 AdminTodo[]             @relation("AssignedTodos")
   createdTodos                  AdminTodo[]             @relation("CreatedTodos")
@@ -63,15 +64,17 @@ model User {
   engagementActivities          EngagementActivity[]
   leActivities                  LEActivity[]
   memberships                   Membership[]
+  questionsApproved             Question[]              @relation("QuestionsApprovedBy")
   questionsAssignedBy           Question[]              @relation("QuestionsAssignedBy")
   assignedQuestions             Question[]              @relation("AssignedQuestions")
+  questionsReleased             Question[]              @relation("QuestionsReleasedBy")
+  questionsShared               Question[]              @relation("QuestionsSharedBy")
   activities                    QuestionActivity[]
   sessions                      Session[]
+  assignedFeedback              FeedbackNote[]          @relation("FeedbackAssignedTo")
   verifiedClaims                FieldClaim[]
   masterFieldAssignmentsCreated MasterFieldAssignment[] @relation("MasterFieldAssignmentsCreated")
   assignedMasterFields          MasterFieldAssignment[] @relation("AssignedMasterFields")
-  assignedFeedback              FeedbackNote[]          @relation("FeedbackAssignedTo")
-  preferences                   Json                    @default("{}")
 }
 
 model Organization {
@@ -173,6 +176,7 @@ model ClientLE {
   registryFetchedAt      DateTime?
   billingDetails         Json?
   customData             Json?
+  dueDate                DateTime?
   legalEntityId          String?
   legalEntity            LegalEntity?            @relation(fields: [legalEntityId], references: [id])
   owners                 ClientLEOwner[]
@@ -184,7 +188,6 @@ model ClientLE {
   memberships            Membership[]
   standingDataSections   StandingDataSection[]
   masterFieldAssignments MasterFieldAssignment[]
-  dueDate                DateTime?
 
   @@index([legalEntityId])
 }
@@ -221,6 +224,7 @@ model FIEngagement {
   clientLEId             String
   status                 EngagementStatus
   isDeleted              Boolean              @default(false)
+  dueDate                DateTime?
   activities             EngagementActivity[]
   clientLE               ClientLE             @relation(fields: [clientLEId], references: [id])
   org                    Organization         @relation(fields: [fiOrgId], references: [id])
@@ -229,8 +233,6 @@ model FIEngagement {
   questionnaireInstances Questionnaire[]      @relation("QuestionnaireInstance")
   questionnaires         Questionnaire[]      @relation("FIEngagementToQuestionnaire")
   sharedDocuments        Document[]           @relation("SharedDocuments")
-
-  dueDate                DateTime?
 
   @@unique([fiOrgId, clientLEId])
 }
@@ -259,9 +261,9 @@ model Document {
   isDeleted              Boolean        @default(false)
   createdAt              DateTime       @default(now())
   updatedAt              DateTime       @updatedAt
+  masterFieldKey         String?
   prefilledForQuestionId String?
   questionId             String?
-  masterFieldKey         String?
   clientLE               ClientLE       @relation(fields: [clientLEId], references: [id])
   prefilledForQuestion   Question?      @relation("PrefilledQuestionDocuments", fields: [prefilledForQuestionId], references: [id])
   question               Question?      @relation("QuestionDocuments", fields: [questionId], references: [id])
@@ -298,9 +300,9 @@ model Questionnaire {
   fiEngagementId   String?
   ownerOrgId       String?
   isGlobal         Boolean                @default(false)
+  dueDate          DateTime?
   fileUrl          String?
   isTemplate       Boolean                @default(false)
-  dueDate          DateTime?
   questions        Question[]
   fiEngagement     FIEngagement?          @relation("QuestionnaireInstance", fields: [fiEngagementId], references: [id])
   fiOrg            Organization           @relation(fields: [fiOrgId], references: [id])
@@ -315,7 +317,7 @@ model Question {
   text                    String
   compactText             String?
   answer                  String?
-  status                  QuestionStatus         @default(DRAFT)
+  status                  QuestionStatus         @default(UNMAPPED)
   isLocked                Boolean                @default(false)
   order                   Int                    @default(0)
   masterFieldNo           Int?
@@ -326,17 +328,27 @@ model Question {
   assignedEmail           String?
   createdAt               DateTime               @default(now())
   updatedAt               DateTime               @updatedAt
-  prefilledValue          String?
   allowAttachments        Boolean                @default(false)
-  expectedDataType        String                 @default("TEXT")
+  approvedAt              DateTime?
+  approvedByUserId        String?
+  approvedMappingConfig   Json?
   assignedByUserId        String?
+  expectedDataType        String                 @default("TEXT")
+  prefilledValue          String?
+  releasedAt              DateTime?
+  releasedByUserId        String?
+  sharedAt                DateTime?
+  sharedByUserId          String?
   comments                Comment[]
   prefilledDocuments      Document[]             @relation("PrefilledQuestionDocuments")
   documents               Document[]             @relation("QuestionDocuments")
+  approvedByUser          User?                  @relation("QuestionsApprovedBy", fields: [approvedByUserId], references: [id])
   assignedByUser          User?                  @relation("QuestionsAssignedBy", fields: [assignedByUserId], references: [id])
   assignedToUser          User?                  @relation("AssignedQuestions", fields: [assignedToUserId], references: [id])
   customFieldDefinition   CustomFieldDefinition? @relation(fields: [customFieldDefinitionId], references: [id])
   questionnaire           Questionnaire          @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
+  releasedByUser          User?                  @relation("QuestionsReleasedBy", fields: [releasedByUserId], references: [id])
+  sharedByUser            User?                  @relation("QuestionsSharedBy", fields: [sharedByUserId], references: [id])
   activities              QuestionActivity[]
 }
 
@@ -478,14 +490,14 @@ model LEActivity {
 }
 
 model LegalEntity {
-  id                 String           @id @default(uuid())
-  reference          String           @unique
-  createdAt          DateTime         @default(now())
-  updatedAt          DateTime         @updatedAt
+  id                 String             @id @default(uuid())
+  reference          String             @unique
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
   clientLEs          ClientLE[]
   documents          DocumentRegistry[]
-  claims             FieldClaim[]     @relation("LegalEntitySubject")
-  referencedInClaims FieldClaim[]     @relation("LegalEntityValue")
+  claims             FieldClaim[]       @relation("LegalEntitySubject")
+  referencedInClaims FieldClaim[]       @relation("LegalEntityValue")
 
   @@map("legal_entities")
 }
@@ -525,12 +537,6 @@ model DocumentRegistry {
   @@index([fieldNo])
   @@map("document_registry")
 }
-
-
-
-
-
-
 
 model FeedbackNote {
   id           String    @id @default(uuid())
@@ -674,13 +680,11 @@ model MasterFieldGroupItem {
 }
 
 enum QuestionStatus {
-  DRAFT
-  INTERNAL_REVIEW
+  UNMAPPED
+  MAPPED_DRAFT
+  MAPPED_APPROVED
   SHARED
-  SUPPLIER_REVIEW
-  QUERY
-  CLIENT_SIGNED_OFF
-  SUPPLIER_SIGNED_OFF
+  RELEASED
 }
 
 enum OrgType {
@@ -688,6 +692,7 @@ enum OrgType {
   FI
   SYSTEM
   LAW_FIRM
+  SUPPLIER
 }
 
 enum RecordStatus {
@@ -724,7 +729,6 @@ enum EvidenceProvider {
 enum DocumentOwnerType {
   LEGAL_ENTITY
 }
-
 
 enum ClaimStatus {
   ASSERTED

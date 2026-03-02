@@ -4,6 +4,10 @@ const prisma = new PrismaClient();
 /**
  * master-data-seed.js
  * 
+ * [DEPRECATED] This script is outdated as it attempts to migrate from legacy models
+ * (IdentityProfile, Stakeholder, etc.) which have been removed from the schema.
+ * Please use scripts/seed-full.ts instead for a clean baseline.
+ * 
  * One-shot migration of legacy Master Data tables into the new FieldClaim architecture.
  * All legacy data is migrated as "System Baseline" (ownerScopeId = null).
  */

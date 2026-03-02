@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Bot, User, Send, History, MessageSquare, Sparkles, Lock, Unlock, Loader2, Database, UserPlus, Paperclip, FileText, Download, Trash2 } from "lucide-react";
+import { Bot, User, Send, History, MessageSquare, Sparkles, Lock, Unlock, Loader2, Database, UserPlus, Paperclip, FileText, Download, Trash2, Check, Share2 } from "lucide-react";
 import { QuestionTask } from "./question-card";
 import { cn } from "@/lib/utils";
 import {
@@ -32,7 +32,7 @@ interface QuestionDetailDialogProps {
     clientLEId?: string;
 }
 
-import { updateAnswer, addComment, generateSingleQuestionAnswer, toggleQuestionLock, getLETeamMembers, assignQuestion, attachDocumentToQuestion } from "@/actions/kanban-actions";
+import { updateAnswer, addComment, generateSingleQuestionAnswer, toggleQuestionLock, getLETeamMembers, assignQuestion, attachDocumentToQuestion, approveQuestionMapping, shareQuestion, releaseQuestion } from "@/actions/kanban-actions";
 import { toast } from "sonner";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -57,7 +57,7 @@ export function QuestionDetailDialog({ open, onOpenChange, task, clientLEId }: Q
     useEffect(() => {
         if (task) {
             setAnswer(task.answer || "");
-            setIsLocked(task.isLocked || false);
+            setIsLocked(task.isLocked || task.status === 'RELEASED');
             setLocalActivities(task.activities || []);
         }
     }, [task]);
@@ -127,7 +127,7 @@ export function QuestionDetailDialog({ open, onOpenChange, task, clientLEId }: Q
     };
 
     const handleToggleLock = async () => {
-        if (!task) return;
+        if (!task || task.status === 'RELEASED') return;
         const newLockState = !isLocked;
         setIsLocked(newLockState); // Optimistic
 
@@ -140,6 +140,39 @@ export function QuestionDetailDialog({ open, onOpenChange, task, clientLEId }: Q
         } else {
             setIsLocked(!newLockState); // Revert
             toast.error("Failed to toggle lock");
+        }
+    };
+
+    const handleApproveMapping = async () => {
+        if (!task) return;
+        const res = await approveQuestionMapping(task.id);
+        if (res.success) {
+            toast.success("Mapping Approved");
+            router.refresh();
+        } else {
+            toast.error(res.error || "Approval failed");
+        }
+    };
+
+    const handleShare = async (isShared: boolean) => {
+        if (!task) return;
+        const res = await shareQuestion(task.id, isShared);
+        if (res.success) {
+            toast.success(isShared ? "Question Shared" : "Question Unshared");
+            router.refresh();
+        } else {
+            toast.error(res.error || "Sharing failed");
+        }
+    };
+
+    const handleRelease = async () => {
+        if (!task) return;
+        const res = await releaseQuestion(task.id);
+        if (res.success) {
+            toast.success("Question Released & Locked");
+            router.refresh();
+        } else {
+            toast.error(res.error || "Release failed");
         }
     };
 
@@ -187,16 +220,29 @@ export function QuestionDetailDialog({ open, onOpenChange, task, clientLEId }: Q
                 <DialogHeader className="p-6 pb-4 border-b bg-slate-50/50">
                     <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
-                            <Badge variant="outline" className="bg-white">{task.status}</Badge>
+                            <Badge variant="outline" className={cn(
+                                "bg-white",
+                                task.status === 'RELEASED' && "border-slate-900 text-slate-900 border-2",
+                                task.status === 'SHARED' && "border-indigo-600 text-indigo-600",
+                                task.status === 'MAPPED_APPROVED' && "border-emerald-600 text-emerald-600"
+                            )}>{task.status.replace('_', ' ')}</Badge>
                             {task.hasFlag && <Badge variant="destructive">Flagged</Badge>}
 
-                            <Button size="sm" variant="ghost"
-                                onClick={handleToggleLock}
-                                className={cn("h-6 px-2 text-xs gap-1", isLocked ? "text-amber-600 hover:text-amber-700 bg-amber-50" : "text-slate-400 hover:text-slate-600")}
-                            >
-                                {isLocked ? <Lock className="h-3 w-3" /> : <Unlock className="h-3 w-3" />}
-                                {isLocked ? "Locked" : "Unlocked"}
-                            </Button>
+                            {task.status !== 'RELEASED' && (
+                                <Button size="sm" variant="ghost"
+                                    onClick={handleToggleLock}
+                                    className={cn("h-6 px-2 text-xs gap-1", isLocked ? "text-amber-600 hover:text-amber-700 bg-amber-50" : "text-slate-400 hover:text-slate-600")}
+                                >
+                                    {isLocked ? <Lock className="h-3 w-3" /> : <Unlock className="h-3 w-3" />}
+                                    {isLocked ? "Locked" : "Unlocked"}
+                                </Button>
+                            )}
+                            {task.status === 'RELEASED' && (
+                                <div className="flex items-center gap-1 text-[10px] text-slate-500 font-bold uppercase tracking-wider bg-slate-100 px-2 py-0.5 rounded">
+                                    <Lock className="h-3 w-3" />
+                                    Read Only Snapshot
+                                </div>
+                            )}
                         </div>
                         <div className={cn(
                             "flex items-center text-xs px-2 py-1 rounded-full font-medium border mr-8 transition-colors",
@@ -263,24 +309,64 @@ export function QuestionDetailDialog({ open, onOpenChange, task, clientLEId }: Q
                                     <Textarea
                                         className={cn(
                                             "min-h-[200px] text-base leading-relaxed p-4 border-slate-200 focus:bg-white transition-colors resize-y font-normal",
-                                            isLocked ? "bg-slate-100 text-slate-500 cursor-not-allowed" : "bg-slate-50"
+                                            (isLocked || task.status === 'RELEASED') ? "bg-slate-100 text-slate-500 cursor-not-allowed" : "bg-slate-50"
                                         )}
                                         value={answer}
                                         onChange={(e) => setAnswer(e.target.value)}
                                         placeholder="Draft the official answer here..."
-                                        readOnly={isLocked}
+                                        readOnly={isLocked || task.status === 'RELEASED'}
                                     />
                                     <div className="absolute bottom-4 right-4 flex gap-2">
-                                        {!isLocked && (
+                                        {(!isLocked && task.status !== 'RELEASED') && (
                                             <Button size="sm" onClick={handleSaveAnswer} disabled={isSaving}>
                                                 {isSaving ? "Saving..." : "Save Draft"}
                                             </Button>
                                         )}
                                     </div>
                                 </div>
-                                <p className="text-xs text-slate-400 mt-2 text-right">
-                                    Last auto-save: Just now
-                                </p>
+
+                                <div className="mt-4 flex flex-wrap gap-3 items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200">
+                                    <div className="flex items-center gap-2">
+                                        <Database className={cn("h-4 w-4", (task as any).masterFieldNo ? "text-indigo-600" : "text-slate-400")} />
+                                        <div>
+                                            <p className="text-xs font-semibold text-slate-900">
+                                                {(task as any).masterFieldNo ? `Mapped to Field #${(task as any).masterFieldNo}` : "Not Mapped"}
+                                            </p>
+                                            <p className="text-[10px] text-slate-500 italic">
+                                                {task.status === 'RELEASED' ? `Frozen as of ${new Date((task as any).releasedAt).toLocaleDateString()}` : "Will inherit live updates"}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-2">
+                                        {task.status === 'MAPPED_DRAFT' && (
+                                            <Button size="sm" variant="default" className="bg-emerald-600 hover:bg-emerald-700" onClick={handleApproveMapping}>
+                                                <Check className="h-3.5 w-3.5 mr-1.5" />
+                                                Approve Mapping
+                                            </Button>
+                                        )}
+
+                                        {task.status === 'MAPPED_APPROVED' && (
+                                            <Button size="sm" variant="outline" className="text-indigo-600 border-indigo-200" onClick={() => handleShare(true)}>
+                                                <Share2 className="h-3.5 w-3.5 mr-1.5" />
+                                                Share with Bank
+                                            </Button>
+                                        )}
+
+                                        {task.status === 'SHARED' && (
+                                            <Button size="sm" variant="outline" className="text-slate-600" onClick={() => handleShare(false)}>
+                                                Stop Sharing
+                                            </Button>
+                                        )}
+
+                                        {(task.status === 'MAPPED_APPROVED' || task.status === 'SHARED') && (
+                                            <Button size="sm" variant="secondary" className="bg-slate-900 text-white hover:bg-slate-800" onClick={handleRelease}>
+                                                <Lock className="h-3.5 w-3.5 mr-1.5" />
+                                                Release & Lock
+                                            </Button>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
 
                             {/* Documents Section */}
@@ -406,7 +492,10 @@ export function QuestionDetailDialog({ open, onOpenChange, task, clientLEId }: Q
                                             <div className="mt-0.5 h-6 w-6 bg-white border rounded shadow-sm flex items-center justify-center shrink-0 text-slate-400">
                                                 {activity.type === 'AI_GENERATED' && <Sparkles className="h-3 w-3 text-indigo-500" />}
                                                 {activity.type === 'ANSWER_UPDATED' && <History className="h-3 w-3" />}
-                                                {(activity.type === 'LOCKED' || activity.type === 'UNLOCKED') && <Lock className="h-3 w-3 text-amber-500" />}
+                                                {activity.type === 'LOCKED' || activity.type === 'UNLOCKED' && <Lock className="h-3 w-3 text-amber-500" />}
+                                                {activity.type === 'MAPPING_APPROVED' && <Check className="h-3 w-3 text-emerald-500" />}
+                                                {activity.type === 'QUESTION_RELEASED' && <Lock className="h-3 w-3 text-slate-900" />}
+                                                {activity.type === 'QUESTION_SHARED' && <Share2 className="h-3 w-3 text-indigo-500" />}
                                                 {activity.type === 'ASSIGNED' && <UserPlus className="h-3 w-3 text-blue-500" />}
                                             </div>
                                             <div>
@@ -417,6 +506,10 @@ export function QuestionDetailDialog({ open, onOpenChange, task, clientLEId }: Q
                                                         {activity.type === 'ANSWER_UPDATED' && " updated the answer"}
                                                         {activity.type === 'LOCKED' && " locked the question"}
                                                         {activity.type === 'UNLOCKED' && " unlocked the question"}
+                                                        {activity.type === 'MAPPING_APPROVED' && " approved the master data mapping"}
+                                                        {activity.type === 'QUESTION_RELEASED' && " released and snapshotted the final answer"}
+                                                        {activity.type === 'QUESTION_SHARED' && " shared the answer with the financial institution"}
+                                                        {activity.type === 'QUESTION_UNSHARED' && " retracted the shared status"}
                                                         {activity.type === 'ASSIGNED' && ` assigned the question to ${activity.details?.assignedEmail || (activity.details?.assignedToUserId ? 'Team Member' : 'nobody')}`}
                                                     </span>
                                                 </p>
