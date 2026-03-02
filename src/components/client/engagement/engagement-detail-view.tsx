@@ -116,6 +116,13 @@ export function EngagementDetailView({ le, engagement, questionnaires, sharedDoc
                 <div>
                     <div className="flex items-center gap-4">
                         <h1 className="text-2xl font-bold text-slate-900">{engagement.org.name}</h1>
+                        <DueDateBadge
+                            id={engagement.id}
+                            date={engagement.dueDate}
+                            effectiveDate={engagement.dueDate || le.dueDate}
+                            source={engagement.dueDate ? 'RELATIONSHIP' : 'LE'}
+                            level="RELATIONSHIP"
+                        />
                         <Button
                             size="sm"
                             variant="outline"
