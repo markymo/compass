@@ -16,7 +16,7 @@ type Note = {
     closedAt: Date | null;
     createdAt: Date;
     assignedToId: string | null;
-    assignedTo: { id: string; name: string | null; email: string } | null;
+    assignedTo: { id: string; name: string | null; email: string | null } | null;
 };
 
 const CATEGORY_META: Record<string, { icon: React.ReactNode; color: string; label: string }> = {
@@ -31,8 +31,8 @@ export function FeedbackAdminClient({
     currentUser
 }: {
     sessions: Record<string, Note[]>;
-    users: { id: string; name: string | null; email: string }[];
-    currentUser: { id: string; name: string | null; email: string } | null;
+    users: { id: string; name: string | null; email: string | null }[];
+    currentUser: { id: string; name: string | null; email: string | null } | null;
 }) {
     const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
     const [showClosed, setShowClosed] = useState(false);

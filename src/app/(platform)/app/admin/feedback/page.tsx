@@ -7,7 +7,7 @@ export default async function FeedbackAdminPage() {
     const identity = await getIdentity();
     const currentUser = identity ? {
         id: identity.userId,
-        name: (identity as any).name || identity.email,
+        name: (identity as any).name || identity.email || "Unknown User",
         email: identity.email
     } : null;
 

@@ -11,6 +11,7 @@ import Link from "next/link";
 import { AddQuestionnaireDialog } from "./add-questionnaire-dialog";
 import { KanbanBoard } from "./kanban-board";
 import { EngagementDocumentManager } from "./engagement-document-manager";
+import { DueDateBadge } from "@/components/client/due-date-badge";
 
 import { ProgressTracker } from "@/components/shared/progress-tracker";
 import { DashboardMetric } from "@/lib/dashboard-metrics";
