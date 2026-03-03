@@ -97,24 +97,27 @@ export async function ensureUserOrg(userId: string, userEmail: string = "") {
 
             // Transactional Merge
             await prisma.$transaction(async (tx) => {
-                // 1. Move Memberships
+                // 1. Create New User first to satisfy foreign keys
+                // We use upsert in case the userId is already in the DB from a concurrent request.
+                await tx.user.upsert({
+                    where: { id: userId },
+                    update: {},
+                    create: { id: userId, email: userEmail, name: existingUserByEmail.name }
+                });
+
+                // 2. Move Memberships
                 await tx.membership.updateMany({
                     where: { userId: existingUserByEmail.id },
                     data: { userId: userId }
                 });
 
-                // 2. Move Comments/Activities/Todos if any (Optional but good practice)
+                // 3. Move Comments/Activities/Todos if any (Optional but good practice)
                 await tx.comment.updateMany({ where: { userId: existingUserByEmail.id }, data: { userId: userId } });
                 await tx.questionActivity.updateMany({ where: { userId: existingUserByEmail.id }, data: { userId: userId } });
 
-                // 3. Delete Placeholder
+                // 4. Delete Placeholder
                 await tx.user.delete({
                     where: { id: existingUserByEmail.id }
-                });
-
-                // 4. Create New User (The upsert below would do this, but we do it inside tx to be safe)
-                await tx.user.create({
-                    data: { id: userId, email: userEmail, name: existingUserByEmail.name }
                 });
             });
 
