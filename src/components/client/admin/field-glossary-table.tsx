@@ -4,19 +4,29 @@ import { useState } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Search, Settings, HelpCircle } from "lucide-react";
+import { Search, Settings, HelpCircle, Check, X, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { FieldEditDialog } from "./field-edit-dialog";
+import { updateFieldDescription } from "@/actions/master-data-ai";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 interface FieldGlossaryTableProps {
     initialFields: any[];
 }
 
 export function FieldGlossaryTable({ initialFields }: FieldGlossaryTableProps) {
+    const router = useRouter();
     const [search, setSearch] = useState("");
     const [selectedField, setSelectedField] = useState<any>(null);
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null);
+
+    // Inline edit state
+    const [editingFieldId, setEditingFieldId] = useState<number | null>(null);
+    const [editNotesText, setEditNotesText] = useState("");
+    const [isSavingNotes, setIsSavingNotes] = useState(false);
 
     const filteredFields = [...initialFields].filter(f =>
         f.fieldName.toLowerCase().includes(search.toLowerCase()) ||
@@ -61,6 +71,34 @@ export function FieldGlossaryTable({ initialFields }: FieldGlossaryTableProps) {
     const handleEdit = (field: any) => {
         setSelectedField(field);
         setIsEditDialogOpen(true);
+    };
+
+    const startEditingNotes = (field: any) => {
+        setEditingFieldId(field.fieldNo);
+        setEditNotesText(field.notes || "");
+    };
+
+    const cancelEditingNotes = () => {
+        setEditingFieldId(null);
+        setEditNotesText("");
+    };
+
+    const handleSaveNotes = async (fieldNo: number) => {
+        setIsSavingNotes(true);
+        try {
+            const res = await updateFieldDescription(fieldNo, editNotesText);
+            if (res.success) {
+                toast.success("Description updated");
+                setEditingFieldId(null);
+                router.refresh();
+            } else {
+                toast.error(res.error || "Failed to update description");
+            }
+        } catch (e) {
+            toast.error("An error occurred");
+        } finally {
+            setIsSavingNotes(false);
+        }
     };
 
     return (
@@ -122,10 +160,57 @@ export function FieldGlossaryTable({ initialFields }: FieldGlossaryTableProps) {
                                 <TableCell>
                                     <div className="flex flex-col max-w-[400px]">
                                         <span className="font-semibold text-slate-900 dark:text-slate-200">{field.fieldName}</span>
-                                        {field.notes ? (
-                                            <span className="text-[11px] text-slate-500 line-clamp-1 italic">{field.notes}</span>
+                                        {editingFieldId === field.fieldNo ? (
+                                            <div className="mt-1 space-y-2">
+                                                <Textarea
+                                                    autoFocus
+                                                    value={editNotesText}
+                                                    onChange={(e) => setEditNotesText(e.target.value)}
+                                                    className="min-h-[60px] text-xs resize-none bg-white dark:bg-slate-900"
+                                                    disabled={isSavingNotes}
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'Enter' && !e.shiftKey) {
+                                                            e.preventDefault();
+                                                            handleSaveNotes(field.fieldNo);
+                                                        } else if (e.key === 'Escape') {
+                                                            cancelEditingNotes();
+                                                        }
+                                                    }}
+                                                />
+                                                <div className="flex items-center gap-1">
+                                                    <Button
+                                                        size="sm"
+                                                        variant="default"
+                                                        className="h-6 px-2 text-[10px] bg-indigo-600 hover:bg-indigo-700"
+                                                        onClick={() => handleSaveNotes(field.fieldNo)}
+                                                        disabled={isSavingNotes}
+                                                    >
+                                                        {isSavingNotes ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Check className="h-3 w-3 mr-1" />}
+                                                        Save
+                                                    </Button>
+                                                    <Button
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        className="h-6 px-2 text-[10px]"
+                                                        onClick={cancelEditingNotes}
+                                                        disabled={isSavingNotes}
+                                                    >
+                                                        <X className="h-3 w-3 mr-1" />
+                                                        Cancel
+                                                    </Button>
+                                                </div>
+                                            </div>
                                         ) : (
-                                            <span className="text-[10px] text-slate-300 italic">No description provided</span>
+                                            <div
+                                                className="group cursor-pointer rounded -ml-1 mt-0.5 p-1 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors border border-transparent hover:border-indigo-100 dark:hover:border-indigo-800"
+                                                onClick={() => startEditingNotes(field)}
+                                            >
+                                                {field.notes ? (
+                                                    <span className="text-[11px] text-slate-500 line-clamp-3 italic group-hover:text-indigo-700 dark:group-hover:text-indigo-300">{field.notes}</span>
+                                                ) : (
+                                                    <span className="text-[10px] text-slate-400 italic group-hover:text-indigo-600 dark:group-hover:text-indigo-400">Click to add description...</span>
+                                                )}
+                                            </div>
                                         )}
                                         {field.isMultiValue && <span className="text-[10px] mt-1 uppercase tracking-wider text-blue-600 font-bold dark:text-blue-400">Repeating</span>}
                                     </div>

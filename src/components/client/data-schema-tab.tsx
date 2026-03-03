@@ -11,6 +11,14 @@ import { FieldProposal, ProvenanceSource } from "@/domain/kyc/types/ProposalType
 import { cn } from "@/lib/utils";
 import { FieldDetailPanel } from "./inspection/field-detail-panel";
 
+interface CategoryDef {
+    id: string;
+    key: string;
+    displayName: string;
+    order: number;
+    fields: any[];
+}
+
 interface DataSchemaTabProps {
     leId: string;
     masterData: Record<number, { value: any; source?: string; sourceReference?: string }>;
@@ -19,59 +27,30 @@ interface DataSchemaTabProps {
     gleifLastSynced?: Date;
     masterFields: any[];
     masterGroups: any[];
+    categories?: CategoryDef[];
+    uncategorizedFields?: any[];
 }
 
-export function DataSchemaTab({ leId, masterData, customData = {}, customDefinitions = [], gleifLastSynced, masterFields = [], masterGroups = [] }: DataSchemaTabProps) {
+export function DataSchemaTab({ leId, masterData, customData = {}, customDefinitions = [], gleifLastSynced, masterFields = [], masterGroups = [], categories = [], uncategorizedFields = [] }: DataSchemaTabProps) {
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [proposals, setProposals] = useState<FieldProposal[] | null>(null);
     const [selectedField, setSelectedField] = useState<{ fieldNo: number; name: string; customFieldId?: string } | null>(null);
     const [lastRefreshed, setLastRefreshed] = useState<Date | undefined>(gleifLastSynced);
 
-    // Dynamic Grouping Logic
-    const groupedFields = useMemo(() => {
-        const groups: Record<string, { title: string; icon: any; fields: any[]; description?: string | null }> = {};
-        const assignedFieldNos = new Set<number>();
-
-        // 1. High Priority Defined Groups (Addresses)
-        masterGroups.forEach(group => {
-            groups[group.key] = {
-                title: group.fieldName || group.key,
-                icon: Globe, // Default icon for groups
-                description: group.description,
-                fields: []
+    const categoryList = useMemo(() => {
+        return categories.map(cat => {
+            let icon = FileText;
+            const k = cat.key.toLowerCase();
+            if (k.includes('identity')) icon = Fingerprint;
+            if (k.includes('constitutional') || k.includes('entity')) icon = Building2;
+            if (k.includes('relationship') || k.includes('owners')) icon = Users;
+            if (k.includes('lei') || k.includes('registration')) icon = ShieldCheck;
+            return {
+                ...cat,
+                icon
             };
-            const fieldNos: number[] = group.fieldNos || [];
-            fieldNos.forEach(fNo => {
-                const def = masterFields.find(f => f.fieldNo === fNo);
-                if (def) {
-                    groups[group.key].fields.push(def);
-                    assignedFieldNos.add(fNo);
-                }
-            });
         });
-
-        // 2. Group Remaining Fields by Model
-        masterFields.forEach(def => {
-            if (assignedFieldNos.has(def.fieldNo)) return;
-            if (def.isRepeating) return; // Skip repeating fields for now (Stakeholders, etc - explicit handling later)
-
-            const modelKey = def.category || "Other";
-            if (!groups[modelKey]) {
-                let title = modelKey.replace(/([A-Z])/g, ' $1').trim(); // PascalCase to Title Case
-                let icon = FileText;
-
-                if (modelKey === 'IdentityProfile') { icon = Fingerprint; title = "Identity Profile"; }
-                if (modelKey === 'ConstitutionalProfile') { icon = Building2; title = "Constitutional Profile"; }
-                if (modelKey === 'RelationshipProfile') { icon = Users; title = "Relationship Profile"; }
-                if (modelKey === 'LeiRegistration') { icon = ShieldCheck; title = "LEI Registration"; }
-
-                groups[modelKey] = { title, icon, fields: [], description: null };
-            }
-            groups[modelKey].fields.push(def);
-        });
-
-        return groups;
-    }, [masterFields, masterGroups]);
+    }, [categories]);
 
     const handleRefreshGleif = async () => {
         setIsRefreshing(true);
@@ -230,20 +209,15 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                 )}
 
                 <div className="space-y-6">
-                    {Object.entries(groupedFields).map(([key, group]) => {
+                    {categoryList.map((group) => {
                         const Icon = group.icon;
                         return (
-                            <Card key={key} className="border-l-4 border-l-blue-500 shadow-sm overflow-hidden">
+                            <Card key={group.id} className="border-l-4 border-l-blue-500 shadow-sm overflow-hidden">
                                 <CardHeader className="pb-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50">
                                     <CardTitle className="flex items-center gap-2 text-lg">
                                         <Icon className="h-5 w-5 text-blue-600" />
-                                        {group.title}
+                                        {group.displayName}
                                     </CardTitle>
-                                    {group.description && (
-                                        <CardDescription className="mt-1 text-slate-500">
-                                            {group.description}
-                                        </CardDescription>
-                                    )}
                                 </CardHeader>
                                 <CardContent className="pt-6 space-y-4">
                                     {group.fields.map(field => {
@@ -268,6 +242,34 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                             </Card>
                         );
                     })}
+
+                    {uncategorizedFields && uncategorizedFields.length > 0 && (
+                        <Card className="border-l-4 border-l-slate-400 shadow-sm overflow-hidden opacity-80">
+                            <CardHeader className="pb-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50">
+                                <CardTitle className="flex items-center gap-2 text-lg">
+                                    <FileText className="h-5 w-5 text-slate-500" />
+                                    Uncategorized
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="pt-6 space-y-4">
+                                {uncategorizedFields.map(field => {
+                                    const data = masterData[field.fieldNo];
+                                    return (
+                                        <MasterFieldDisplay
+                                            key={field.fieldNo}
+                                            label={field.fieldName}
+                                            fieldNo={field.fieldNo}
+                                            value={data?.value}
+                                            source={data?.source as any}
+                                            sourceReference={data?.sourceReference}
+                                            description={field.notes}
+                                            onClick={() => setSelectedField({ fieldNo: field.fieldNo, name: field.fieldName })}
+                                        />
+                                    );
+                                })}
+                            </CardContent>
+                        </Card>
+                    )}
                 </div>
             </div>
 

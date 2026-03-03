@@ -761,11 +761,11 @@ function QuestionCard({
                                         <div className="flex items-center gap-1 ml-2 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                                             <button
                                                 onClick={handleStartEdit}
-                                                disabled={!isMapped}
-                                                title={isMapped ? "Edit value" : "Map a field first"}
+                                                disabled={!isMapped || question.status === 'RELEASED'}
+                                                title={question.status === 'RELEASED' ? "Cannot edit released questions" : isMapped ? "Edit value" : "Map a field first"}
                                                 className={cn(
                                                     "p-1 rounded transition-colors",
-                                                    isMapped
+                                                    (isMapped && question.status !== 'RELEASED')
                                                         ? "text-indigo-500 hover:bg-indigo-50 hover:text-indigo-700"
                                                         : "text-slate-300 cursor-not-allowed"
                                                 )}
@@ -867,7 +867,7 @@ function QuestionCard({
                                 {question.status === 'RELEASED' ? (
                                     <div className="flex items-center gap-2 p-2 bg-slate-100/50 rounded border border-slate-200/50 text-[11px] text-slate-600">
                                         <Lock className="h-3 w-3 shrink-0 text-slate-900" />
-                                        <span>Locked by {question.releasedAt ? new Date(question.releasedAt).toLocaleDateString() : 'Admin'}</span>
+                                        <span>Locked {question.releasedAt ? `on ${new Date(question.releasedAt).toLocaleDateString()}` : ''}</span>
                                     </div>
                                 ) : (
                                     <div className="flex items-center gap-2">

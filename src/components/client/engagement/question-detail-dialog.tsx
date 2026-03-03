@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Bot, User, Send, History, MessageSquare, Sparkles, Lock, Unlock, Loader2, Database, UserPlus, Paperclip, FileText, Download, Trash2, Check, Share2 } from "lucide-react";
+import { Bot, User, Send, History, MessageSquare, Sparkles, Lock, Unlock, Loader2, Database, UserPlus, Paperclip, FileText, Download, Trash2, Check, Share2, CheckCircle, CheckCircle2, AlertTriangle } from "lucide-react";
 import { QuestionTask } from "./question-card";
 import { cn } from "@/lib/utils";
 import {
@@ -32,7 +32,8 @@ interface QuestionDetailDialogProps {
     clientLEId?: string;
 }
 
-import { updateAnswer, addComment, generateSingleQuestionAnswer, toggleQuestionLock, getLETeamMembers, assignQuestion, attachDocumentToQuestion, approveQuestionMapping, shareQuestion, releaseQuestion } from "@/actions/kanban-actions";
+import { updateAnswer, updateSupplierNote, generateSingleQuestionAnswer, toggleQuestionLock, getLETeamMembers, assignQuestion, attachDocumentToQuestion, approveQuestionMapping, shareQuestion, releaseQuestion } from "@/actions/kanban-actions";
+import { getFieldDetail, FieldDetailData } from "@/actions/kyc-query";
 import { toast } from "sonner";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -41,7 +42,8 @@ import { useRouter } from "next/navigation";
 
 export function QuestionDetailDialog({ open, onOpenChange, task, clientLEId }: QuestionDetailDialogProps) {
     const router = useRouter();
-    const [comment, setComment] = useState("");
+    const [supplierNote, setSupplierNote] = useState("");
+    const [supplierNoteMeta, setSupplierNoteMeta] = useState<{ updatedAt?: string, updatedBy?: string }>({});
     const [answer, setAnswer] = useState("");
     const [isSaving, setIsSaving] = useState(false);
     const [isGenerating, setIsGenerating] = useState(false);
@@ -49,6 +51,8 @@ export function QuestionDetailDialog({ open, onOpenChange, task, clientLEId }: Q
     const [isAssigning, setIsAssigning] = useState(false);
     const [isUploadingFile, setIsUploadingFile] = useState(false);
     const [teamMembers, setTeamMembers] = useState<any[]>([]);
+    const [fieldData, setFieldData] = useState<FieldDetailData | null>(null);
+    const [isLoadingField, setIsLoadingField] = useState(false);
 
     // Optimistic Activities
     const [localActivities, setLocalActivities] = useState<any[]>([]);
@@ -62,14 +66,17 @@ export function QuestionDetailDialog({ open, onOpenChange, task, clientLEId }: Q
         }
     }, [task]);
 
-    // Optimistic comments (initially from task, then local adds)
-    const [localComments, setLocalComments] = useState<any[]>([]);
-
+    // Sync initial supplier notes
     useEffect(() => {
-        if (task && task.comments) {
-            setLocalComments(task.comments);
+        if (task) {
+            setSupplierNote((task as any).supplierNote || "");
+            setSupplierNoteMeta({
+                updatedAt: (task as any).supplierNoteUpdatedAt,
+                updatedBy: (task as any).supplierNoteUpdatedBy
+            });
         } else {
-            setLocalComments([]);
+            setSupplierNote("");
+            setSupplierNoteMeta({});
         }
     }, [task]);
 
@@ -92,6 +99,27 @@ export function QuestionDetailDialog({ open, onOpenChange, task, clientLEId }: Q
         const res = await getLETeamMembers(clientLEId);
         if (res.success && res.team) {
             setTeamMembers(res.team);
+        }
+    };
+
+    // Fetch Mapping/Field Data
+    useEffect(() => {
+        if (open && task && clientLEId && (task.masterFieldNo || task.customFieldDefinitionId || task.masterQuestionGroupId)) {
+            loadFieldData();
+        } else {
+            setFieldData(null);
+        }
+    }, [open, task, clientLEId]);
+
+    const loadFieldData = async () => {
+        setIsLoadingField(true);
+        try {
+            const data = await getFieldDetail(clientLEId!, task!.masterFieldNo || 0, 'CLIENT_LE', task!.customFieldDefinitionId || undefined, task!.masterQuestionGroupId || undefined);
+            setFieldData(data);
+        } catch (error) {
+            console.error("Failed to fetch map data", error);
+        } finally {
+            setIsLoadingField(false);
         }
     };
 
@@ -176,16 +204,19 @@ export function QuestionDetailDialog({ open, onOpenChange, task, clientLEId }: Q
         }
     };
 
-    const handleSendComment = async () => {
-        if (!task || !comment.trim()) return;
+    const handleSaveSupplierNote = async () => {
+        if (!task || !supplierNote.trim()) return;
 
-        // Optimistic add could go here, but let's wait for server for simplicity/correctness first
-        const res = await addComment(task.id, comment);
-        if (res.success && res.comment) {
-            setLocalComments([...localComments, res.comment]);
-            setComment("");
+        const res = await updateSupplierNote(task.id, supplierNote);
+        if (res.success && res.activity) {
+            setSupplierNoteMeta({
+                updatedAt: res.supplierNoteUpdatedAt,
+                updatedBy: res.supplierNoteUpdatedBy
+            });
+            setLocalActivities([res.activity, ...localActivities]);
+            toast.success("Note saved successfully");
         } else {
-            toast.error("Failed to send comment");
+            toast.error("Failed to save note");
         }
     };
 
@@ -325,41 +356,99 @@ export function QuestionDetailDialog({ open, onOpenChange, task, clientLEId }: Q
                                     </div>
                                 </div>
 
-                                <div className="mt-4 flex flex-wrap gap-3 items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200">
-                                    <div className="flex items-center gap-2">
-                                        <Database className={cn("h-4 w-4", (task as any).masterFieldNo ? "text-indigo-600" : "text-slate-400")} />
-                                        <div>
-                                            <p className="text-xs font-semibold text-slate-900">
-                                                {(task as any).masterFieldNo ? `Mapped to Field #${(task as any).masterFieldNo}` : "Not Mapped"}
-                                            </p>
-                                            <p className="text-[10px] text-slate-500 italic">
-                                                {task.status === 'RELEASED' ? `Frozen as of ${new Date((task as any).releasedAt).toLocaleDateString()}` : "Will inherit live updates"}
-                                            </p>
+                                <div className="mt-4 flex flex-col gap-3 p-5 bg-white rounded-xl border border-slate-200 shadow-sm relative overflow-hidden">
+                                    {/* Mapping Header indicating it inherits values */}
+                                    <div className={cn("absolute top-0 left-0 w-1 h-full", (task.masterFieldNo || task.customFieldDefinitionId || task.masterQuestionGroupId) ? "bg-emerald-500" : "bg-amber-500")}></div>
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2.5">
+                                            {task.masterFieldNo || task.customFieldDefinitionId || task.masterQuestionGroupId ? (
+                                                <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 border-emerald-100 gap-1 px-1.5 py-0">
+                                                    <CheckCircle2 className="h-3 w-3" />
+                                                    Mapped
+                                                </Badge>
+                                            ) : (
+                                                <Badge variant="secondary" className="bg-amber-50 text-amber-700 border-amber-100 gap-1 px-1.5 py-0">
+                                                    <AlertTriangle className="h-3 w-3" />
+                                                    Not Mapped
+                                                </Badge>
+                                            )}
+
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-semibold text-slate-800 leading-relaxed">
+                                                    {fieldData?.fieldName || (task.masterFieldNo ? `Field #${task.masterFieldNo}` : (task.customFieldDefinitionId ? `Custom Field ${task.customFieldDefinitionId}` : (task.masterQuestionGroupId ? `Group Mapping` : "Unmapped Text")))}
+                                                </p>
+                                                <span className="text-[10px] text-slate-400">
+                                                    {fieldData?.category || (task.masterFieldNo || task.customFieldDefinitionId || task.masterQuestionGroupId ? "Authoritative Master Data" : "Needs Map Configuration")}
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex items-center gap-2">
+                                            {task.status === 'DRAFT' && (task.masterFieldNo || task.customFieldDefinitionId || task.masterQuestionGroupId) && (
+                                                <Button size="sm" variant="default" className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 w-full shadow-sm" onClick={handleApproveMapping}>
+                                                    <Check className="h-3 w-3 mr-1" /> Approve
+                                                </Button>
+                                            )}
+                                            {task.status === 'APPROVED' && (
+                                                <Button size="sm" variant="outline" className="h-7 text-xs text-indigo-600 border-indigo-200 flex-1 shadow-sm" onClick={() => handleShare(true)}>
+                                                    <Share2 className="h-3 w-3 mr-1" /> Share
+                                                </Button>
+                                            )}
+                                            {task.status === 'SHARED' && (
+                                                <Button size="sm" variant="outline" className="h-7 text-xs text-slate-600 flex-1 shadow-sm border-slate-200" onClick={() => handleShare(false)}>
+                                                    Unshare
+                                                </Button>
+                                            )}
+                                            {(task.status === 'APPROVED' || task.status === 'SHARED') && (
+                                                <Button size="sm" variant="secondary" className="h-7 text-xs bg-slate-900 text-white hover:bg-slate-800 flex-1 shadow-sm" onClick={handleRelease}>
+                                                    <Lock className="h-3 w-3 mr-1" /> Release
+                                                </Button>
+                                            )}
                                         </div>
                                     </div>
 
-                                    <div className="flex items-center gap-2">
-                                        {task.status === 'DRAFT' && (
-                                            <Button size="sm" variant="default" className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 w-full shadow-sm">
-                                                <Check className="h-3 w-3 mr-1" /> Approve Mapping
-                                            </Button>
-                                        )}
-                                        {task.status === 'APPROVED' && (
-                                            <Button size="sm" variant="outline" className="h-7 text-xs text-indigo-600 border-indigo-200 flex-1 shadow-sm">
-                                                <Share2 className="h-3 w-3 mr-1" /> Share
-                                            </Button>
-                                        )}
-                                        {task.status === 'SHARED' && (
-                                            <Button size="sm" variant="outline" className="h-7 text-xs text-slate-600 flex-1 shadow-sm border-slate-200">
-                                                Unshare
-                                            </Button>
-                                        )}
-                                        {(task.status === 'APPROVED' || task.status === 'SHARED') && (
-                                            <Button size="sm" variant="secondary" className="h-7 text-xs bg-slate-900 text-white hover:bg-slate-800 flex-1 shadow-sm">
-                                                <Lock className="h-3 w-3 mr-1" /> Release
-                                            </Button>
-                                        )}
-                                    </div>
+                                    {(task.masterFieldNo || task.customFieldDefinitionId || task.masterQuestionGroupId) && (
+                                        <div className="bg-slate-50/50 p-3 rounded border border-slate-100 mt-1">
+                                            {isLoadingField ? (
+                                                <div className="flex items-center gap-2 text-xs text-slate-400">
+                                                    <Loader2 className="h-3 w-3 animate-spin" /> Loading Authoritative Value...
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-1">
+                                                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">
+                                                        Authoritative Value
+                                                    </div>
+                                                    {fieldData?.current?.value != null ? (
+                                                        <div className="text-sm font-medium text-slate-900">
+                                                            {Array.isArray(fieldData.current.value) ? (
+                                                                <div className="flex flex-wrap gap-1 mt-1">
+                                                                    {fieldData.current.value.map((v: any, idx: number) => (
+                                                                        <Badge key={idx} variant="outline" className="bg-white border-slate-300 text-slate-800 py-0.5 px-2 text-xs">
+                                                                            {String(v)}
+                                                                        </Badge>
+                                                                    ))}
+                                                                </div>
+                                                            ) : typeof fieldData.current.value === "object" ? (
+                                                                <div className="flex flex-col gap-1 mt-1">
+                                                                    {Object.entries(fieldData.current.value).map(([key, val]) => (
+                                                                        <div key={key} className="text-xs bg-slate-100 text-slate-800 py-1 px-2 rounded-md">
+                                                                            <span className="font-semibold text-slate-500 mr-2">{key}:</span>
+                                                                            {String(val)}
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            ) : (
+                                                                String(fieldData.current.value)
+                                                            )}
+                                                        </div>
+                                                    ) : (
+                                                        <span className="text-xs italic text-slate-400">No value recorded</span>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
                                 </div>
                             </div>
 
@@ -491,6 +580,7 @@ export function QuestionDetailDialog({ open, onOpenChange, task, clientLEId }: Q
                                                 {activity.type === 'QUESTION_RELEASED' && <Lock className="h-3 w-3 text-slate-900" />}
                                                 {activity.type === 'QUESTION_SHARED' && <Share2 className="h-3 w-3 text-indigo-500" />}
                                                 {activity.type === 'ASSIGNED' && <UserPlus className="h-3 w-3 text-blue-500" />}
+                                                {activity.type === 'SUPPLIER_NOTE_UPDATED' && <MessageSquare className="h-3 w-3 text-sky-500" />}
                                             </div>
                                             <div>
                                                 <p className="text-xs font-medium text-slate-900">
@@ -505,6 +595,7 @@ export function QuestionDetailDialog({ open, onOpenChange, task, clientLEId }: Q
                                                         {activity.type === 'QUESTION_SHARED' && " shared the answer with the financial institution"}
                                                         {activity.type === 'QUESTION_UNSHARED' && " retracted the shared status"}
                                                         {activity.type === 'ASSIGNED' && ` assigned the question to ${activity.details?.assignedEmail || (activity.details?.assignedToUserId ? 'Team Member' : 'nobody')}`}
+                                                        {activity.type === 'SUPPLIER_NOTE_UPDATED' && " updated the Note for Supplier"}
                                                     </span>
                                                 </p>
                                                 <p className="text-[10px] text-slate-400">
@@ -544,55 +635,41 @@ export function QuestionDetailDialog({ open, onOpenChange, task, clientLEId }: Q
                         </div>
                     </div>
 
-                    {/* Right: Activity / Conversation (Wait 40% approx) */}
+                    {/* Right: Note for Supplier */}
                     <div className="flex-[2] bg-slate-50 flex flex-col border-l border-slate-200">
-                        <div className="p-4 border-b bg-white/50 backdrop-blur-sm sticky top-0 z-10">
-                            <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Notes and Discussion</h4>
+                        <div className="p-4 border-b bg-white/50 backdrop-blur-sm sticky top-0 z-10 flex justify-between items-center">
+                            <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                                <MessageSquare className="h-4 w-4" /> Note for Supplier
+                            </h4>
                         </div>
-                        <ScrollArea className="flex-1 p-4">
-                            <div className="space-y-6">
-                                {localComments.length === 0 && (
-                                    <div className="text-center py-10">
-                                        <div className="h-10 w-10 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                                            <MessageSquare className="h-5 w-5 text-slate-300" />
-                                        </div>
-                                        <p className="text-sm text-slate-500 font-medium">No comments yet</p>
-                                        <p className="text-xs text-slate-400">Start the conversation about this question.</p>
-                                    </div>
+                        <div className="flex-1 p-6 flex flex-col gap-4">
+                            <Textarea
+                                className={cn(
+                                    "flex-1 text-sm leading-relaxed p-4 border border-slate-200 focus:bg-white transition-colors resize-none",
+                                    (isLocked || task.status === 'RELEASED') ? "bg-slate-100 text-slate-500 cursor-not-allowed" : "bg-white"
                                 )}
-                                {localComments.map((c) => (
-                                    <div key={c.id} className="flex gap-3">
-                                        <Avatar className="h-8 w-8 border-2 border-white shadow-sm">
-                                            <AvatarFallback className={cn("text-xs font-bold", c.type === 'AI' ? "bg-indigo-100 text-indigo-700" : "bg-slate-100 text-slate-700")}>
-                                                {c.type === 'AI' ? 'AI' : c.author.charAt(0)}
-                                            </AvatarFallback>
-                                        </Avatar>
-                                        <div className="flex-1">
-                                            <div className="flex items-baseline justify-between">
-                                                <span className="text-sm font-semibold text-slate-900">{c.author}</span>
-                                                <span className="text-[10px] text-slate-400">{c.time}</span>
-                                            </div>
-                                            <div className="mt-1 text-sm text-slate-600 bg-white p-3 rounded-tr-xl rounded-br-xl rounded-bl-xl border shadow-sm">
-                                                {c.text}
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
+                                value={supplierNote}
+                                onChange={(e) => setSupplierNote(e.target.value)}
+                                placeholder="Add an explanatory note for the supplier that goes beyond the pure answer provided by the mapped field..."
+                                readOnly={isLocked || task.status === 'RELEASED'}
+                            />
+                        </div>
+                        <div className="p-4 bg-white border-t border-slate-200 flex items-center justify-between">
+                            <div className="text-[10px] text-slate-500 space-y-0.5">
+                                {(supplierNoteMeta.updatedAt || supplierNoteMeta.updatedBy) ? (
+                                    <>
+                                        <p>Last edited by <span className="font-semibold text-slate-700">{supplierNoteMeta.updatedBy || "System"}</span></p>
+                                        <p>{supplierNoteMeta.updatedAt}</p>
+                                    </>
+                                ) : (
+                                    <p className="italic text-slate-400">No notes saved yet.</p>
+                                )}
                             </div>
-                        </ScrollArea>
-                        <div className="p-4 bg-white border-t">
-                            <div className="flex gap-2">
-                                <Textarea
-                                    placeholder="Type your message..."
-                                    className="min-h-[44px] max-h-[120px] resize-none bg-slate-50 focus:bg-white text-sm"
-                                    value={comment}
-                                    onChange={(e) => setComment(e.target.value)}
-                                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendComment(); } }}
-                                />
-                                <Button size="icon" className="h-[44px] w-[44px] shrink-0" disabled={!comment.trim()} onClick={handleSendComment}>
-                                    <Send className="h-4 w-4" />
+                            {(!isLocked && task.status !== 'RELEASED') && (
+                                <Button size="sm" onClick={handleSaveSupplierNote} disabled={isSaving}>
+                                    {isSaving ? "Saving..." : "Save Note"}
                                 </Button>
-                            </div>
+                            )}
                         </div>
                     </div>
                 </div>

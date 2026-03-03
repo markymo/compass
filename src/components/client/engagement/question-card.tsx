@@ -21,6 +21,9 @@ export interface QuestionTask {
         avatar?: string;
         type: 'AI' | 'USER' | 'BANK' | 'INVITEE';
     };
+    masterFieldNo?: number | null;
+    masterQuestionGroupId?: string | null;
+    customFieldDefinitionId?: string | null;
     commentCount?: number;
     activities?: any[];
     hasFlag?: boolean;

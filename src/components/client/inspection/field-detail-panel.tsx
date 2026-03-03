@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
-import { Loader2, History, Database, Edit, CheckCircle, CheckCircle2, AlertTriangle, Paperclip, FileText, Download, X, User as UserIcon, Pencil, Check, Trash2, Plus } from "lucide-react";
+import { Loader2, History, Database, Edit, CheckCircle, CheckCircle2, AlertTriangle, Paperclip, FileText, Download, X, User as UserIcon, Pencil, Check, Trash2, Plus, Lock } from "lucide-react";
 import { getFieldDetail, FieldDetailData } from "@/actions/kyc-query";
 // FIELD_DEFINITIONS removed
 import { updateFieldManually, applyCandidate, updateCustomFieldManually, addMultiValueEntry, removeMultiValueEntry, applyBulkOverride } from "@/actions/kyc-manual-update";
@@ -39,10 +39,11 @@ interface FieldDetailPanelProps {
     fieldNo: number;
     fieldName: string;
     customFieldId?: string;
+    isLocked?: boolean;
     onUpdate?: (value: any, source: string, updatedAt: Date) => void;
 }
 
-export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, fieldName, customFieldId, onUpdate }: FieldDetailPanelProps) {
+export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, fieldName, customFieldId, isLocked, onUpdate }: FieldDetailPanelProps) {
     const [data, setData] = useState<FieldDetailData | null>(null);
     const [loading, setLoading] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
@@ -345,6 +346,10 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
     };
 
     const handleApplyCandidate = async (candidate: any) => {
+        if (isLocked) {
+            toast.error("Cannot apply candidate to a locked question.");
+            return;
+        }
         if (confirm(`Are you sure you want to apply this value: ${candidate.value}?`)) {
             try {
                 const result = await applyCandidate(legalEntityId, candidate, selectedRowId || undefined);
@@ -468,6 +473,13 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                         </div>
                                     </DropdownMenuContent>
                                 </DropdownMenu>
+                            )}
+
+                            {isLocked && (
+                                <Badge variant="secondary" className="bg-slate-100 text-slate-700 border-slate-200 mt-1 h-6">
+                                    <Lock className="w-3 h-3 mr-1" />
+                                    Locked
+                                </Badge>
                             )}
                         </div>
                     </div>
@@ -673,25 +685,27 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                             </span>
                                                                         </div>
                                                                     </div>
-                                                                    <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                                                                        <button
-                                                                            className="p-1.5 rounded text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
-                                                                            onClick={() => {
-                                                                                setEditingRowId(row.id);
-                                                                                setEditingRowValue(String(row.value));
-                                                                            }}
-                                                                            title="Edit value"
-                                                                        >
-                                                                            <Pencil className="h-3 w-3" />
-                                                                        </button>
-                                                                        <button
-                                                                            className="p-1.5 rounded text-slate-400 hover:bg-red-50 hover:text-red-500 transition-colors"
-                                                                            onClick={() => setDeletingRowId(row.id)}
-                                                                            title="Remove value"
-                                                                        >
-                                                                            <Trash2 className="h-3 w-3" />
-                                                                        </button>
-                                                                    </div>
+                                                                    {!isLocked && (
+                                                                        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                                                                            <button
+                                                                                className="p-1.5 rounded text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
+                                                                                onClick={() => {
+                                                                                    setEditingRowId(row.id);
+                                                                                    setEditingRowValue(String(row.value));
+                                                                                }}
+                                                                                title="Edit value"
+                                                                            >
+                                                                                <Pencil className="h-3 w-3" />
+                                                                            </button>
+                                                                            <button
+                                                                                className="p-1.5 rounded text-slate-400 hover:bg-red-50 hover:text-red-500 transition-colors"
+                                                                                onClick={() => setDeletingRowId(row.id)}
+                                                                                title="Remove value"
+                                                                            >
+                                                                                <Trash2 className="h-3 w-3" />
+                                                                            </button>
+                                                                        </div>
+                                                                    )}
                                                                 </div>
                                                             )}
                                                         </div>
@@ -705,31 +719,33 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                             )}
 
                                             {/* Persistent add input */}
-                                            <div className="flex items-center gap-1.5 pt-2 mt-1 border-t border-slate-100">
-                                                <div className="relative flex-1">
-                                                    <Plus className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-                                                    <Input
-                                                        ref={newEntryInputRef}
-                                                        value={newEntryValue}
-                                                        onChange={(e) => setNewEntryValue(e.target.value)}
-                                                        onKeyDown={(e) => {
-                                                            if (e.key === 'Enter' && newEntryValue.trim()) handleAddNewEntry();
-                                                        }}
-                                                        placeholder="Add new value..."
-                                                        className="h-8 text-sm pl-8 bg-slate-50/50 border-slate-200 focus:bg-white focus:border-indigo-300"
-                                                        disabled={isAddingSaving}
-                                                    />
+                                            {!isLocked && (
+                                                <div className="flex items-center gap-1.5 pt-2 mt-1 border-t border-slate-100">
+                                                    <div className="relative flex-1">
+                                                        <Plus className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                                                        <Input
+                                                            ref={newEntryInputRef}
+                                                            value={newEntryValue}
+                                                            onChange={(e) => setNewEntryValue(e.target.value)}
+                                                            onKeyDown={(e) => {
+                                                                if (e.key === 'Enter' && newEntryValue.trim()) handleAddNewEntry();
+                                                            }}
+                                                            placeholder="Add new value..."
+                                                            className="h-8 text-sm pl-8 bg-slate-50/50 border-slate-200 focus:bg-white focus:border-indigo-300"
+                                                            disabled={isAddingSaving}
+                                                        />
+                                                    </div>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="h-8 px-3 text-xs text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 shrink-0"
+                                                        onClick={handleAddNewEntry}
+                                                        disabled={isAddingSaving || !newEntryValue.trim()}
+                                                    >
+                                                        {isAddingSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Add'}
+                                                    </Button>
                                                 </div>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    className="h-8 px-3 text-xs text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 shrink-0"
-                                                    onClick={handleAddNewEntry}
-                                                    disabled={isAddingSaving || !newEntryValue.trim()}
-                                                >
-                                                    {isAddingSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Add'}
-                                                </Button>
-                                            </div>
+                                            )}
                                         </div>
                                     ) : (
                                         <div>
@@ -761,17 +777,19 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                         </span>
                                                                     </div>
                                                                 </div>
-                                                                <button
-                                                                    className="p-1.5 rounded text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors shrink-0"
-                                                                    onClick={() => {
-                                                                        setManualValue(String(data?.current?.value || ""));
-                                                                        setIsEditing(true);
-                                                                        setRelatedValues({});
-                                                                    }}
-                                                                    title="Edit value"
-                                                                >
-                                                                    <Pencil className="h-3.5 w-3.5" />
-                                                                </button>
+                                                                {!isLocked && (
+                                                                    <button
+                                                                        className="p-1.5 rounded text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors shrink-0"
+                                                                        onClick={() => {
+                                                                            setManualValue(String(data?.current?.value || ""));
+                                                                            setIsEditing(true);
+                                                                            setRelatedValues({});
+                                                                        }}
+                                                                        title="Edit value"
+                                                                    >
+                                                                        <Pencil className="h-3.5 w-3.5" />
+                                                                    </button>
+                                                                )}
                                                             </div>
                                                         </div>
                                                     ) : (
@@ -779,34 +797,40 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                         <div className="flex items-start gap-3">
                                                             <span className="text-indigo-400 font-bold text-sm shrink-0 mt-2">A:</span>
                                                             <div className="flex-1 space-y-2">
-                                                                <Input
-                                                                    value={manualValue}
-                                                                    onChange={(e) => setManualValue(e.target.value)}
-                                                                    onKeyDown={(e) => {
-                                                                        if (e.key === 'Enter' && manualValue) {
-                                                                            setIsEditing(true);
-                                                                            handleManualSave();
-                                                                        }
-                                                                    }}
-                                                                    placeholder="Type a value and press Enter..."
-                                                                    className="bg-white border-slate-200 focus:border-indigo-300 focus:ring-indigo-200"
-                                                                />
-                                                                {manualValue && (
-                                                                    <div className="flex items-center gap-2">
-                                                                        <Button
-                                                                            size="sm"
-                                                                            className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700"
-                                                                            onClick={() => {
-                                                                                setIsEditing(true);
-                                                                                handleManualSave();
+                                                                {!isLocked ? (
+                                                                    <>
+                                                                        <Input
+                                                                            value={manualValue}
+                                                                            onChange={(e) => setManualValue(e.target.value)}
+                                                                            onKeyDown={(e) => {
+                                                                                if (e.key === 'Enter' && manualValue) {
+                                                                                    setIsEditing(true);
+                                                                                    handleManualSave();
+                                                                                }
                                                                             }}
-                                                                            disabled={isSaving}
-                                                                        >
-                                                                            {isSaving ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Check className="h-3 w-3 mr-1" />}
-                                                                            Save
-                                                                        </Button>
-                                                                        <span className="text-[10px] text-slate-400">or press Enter</span>
-                                                                    </div>
+                                                                            placeholder="Type a value and press Enter..."
+                                                                            className="bg-white border-slate-200 focus:border-indigo-300 focus:ring-indigo-200"
+                                                                        />
+                                                                        {manualValue && (
+                                                                            <div className="flex items-center gap-2">
+                                                                                <Button
+                                                                                    size="sm"
+                                                                                    className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700"
+                                                                                    onClick={() => {
+                                                                                        setIsEditing(true);
+                                                                                        handleManualSave();
+                                                                                    }}
+                                                                                    disabled={isSaving}
+                                                                                >
+                                                                                    {isSaving ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Check className="h-3 w-3 mr-1" />}
+                                                                                    Save
+                                                                                </Button>
+                                                                                <span className="text-[10px] text-slate-400">or press Enter</span>
+                                                                            </div>
+                                                                        )}
+                                                                    </>
+                                                                ) : (
+                                                                    <div className="text-[13px] text-slate-400 italic mt-2">No value provided.</div>
                                                                 )}
                                                             </div>
                                                         </div>

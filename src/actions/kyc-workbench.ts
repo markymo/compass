@@ -25,7 +25,7 @@ export interface Workbench4Data {
  * - Unique relationships and questionnaires for filtering
  */
 export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
-    const questions = await getConsoleQuestions(leId);
+    const questions = await getConsoleQuestions(leId, true);
 
     // 1. Get standard Master Fields & Groups
     const [allFields, allGroups] = await Promise.all([

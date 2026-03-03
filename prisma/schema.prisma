@@ -69,6 +69,7 @@ model User {
   assignedQuestions             Question[]              @relation("AssignedQuestions")
   questionsReleased             Question[]              @relation("QuestionsReleasedBy")
   questionsShared               Question[]              @relation("QuestionsSharedBy")
+  supplierNotesUpdated          Question[]              @relation("SupplierNoteUpdatedBy")
   activities                    QuestionActivity[]
   sessions                      Session[]
   assignedFeedback              FeedbackNote[]          @relation("FeedbackAssignedTo")
@@ -339,6 +340,9 @@ model Question {
   releasedByUserId        String?
   sharedAt                DateTime?
   sharedByUserId          String?
+  supplierNote            String?
+  supplierNoteUpdatedAt   DateTime?
+  supplierNoteUpdatedByUserId String?
   comments                Comment[]
   prefilledDocuments      Document[]             @relation("PrefilledQuestionDocuments")
   documents               Document[]             @relation("QuestionDocuments")
@@ -349,6 +353,7 @@ model Question {
   questionnaire           Questionnaire          @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
   releasedByUser          User?                  @relation("QuestionsReleasedBy", fields: [releasedByUserId], references: [id])
   sharedByUser            User?                  @relation("QuestionsSharedBy", fields: [sharedByUserId], references: [id])
+  supplierNoteUpdatedByUser User?                @relation("SupplierNoteUpdatedBy", fields: [supplierNoteUpdatedByUserId], references: [id])
   activities              QuestionActivity[]
 }
 
@@ -626,22 +631,35 @@ model FieldClaim {
 }
 
 model MasterFieldDefinition {
-  fieldNo      Int                    @id
-  fieldName    String
-  appDataType  String
-  isMultiValue Boolean                @default(false)
-  options      String[]               @default([])
-  notes        String?
-  category     String?
-  isActive     Boolean                @default(true)
-  order        Int                    @default(0)
-  createdAt    DateTime               @default(now())
-  updatedAt    DateTime               @updatedAt
-  modelField   String?
-  groupItems   MasterFieldGroupItem[]
+  fieldNo            Int                    @id
+  fieldName          String
+  appDataType        String
+  isMultiValue       Boolean                @default(false)
+  options            String[]               @default([])
+  notes              String?
+  category           String?
+  categoryId         String?
+  categoryLabel      String?
+  isActive           Boolean                @default(true)
+  order              Int                    @default(0)
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+  modelField         String?
+  groupItems         MasterFieldGroupItem[]
+  masterDataCategory MasterDataCategory?    @relation(fields: [categoryId], references: [id])
 
   @@index([isActive, order])
   @@map("master_field_definitions")
+}
+
+model MasterDataCategory {
+  id          String                  @id @default(uuid())
+  key         String                  @unique
+  displayName String
+  order       Int                     @default(0)
+  fields      MasterFieldDefinition[]
+
+  @@map("master_data_categories")
 }
 
 model MasterFieldGroup {

@@ -56,13 +56,13 @@ export function SourcesSubNav({ leId, jurisdiction }: SourcesSubNavProps) {
                         key={tab.label}
                         href={tab.href}
                         className={cn(
-                            "group flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors",
+                            "group flex items-center gap-3 px-3 py-2 text-sm font-medium transition-colors border-l-2",
                             active
-                                ? "bg-slate-100 text-slate-900"
-                                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                                ? "border-amber-500 text-blue-600"
+                                : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50"
                         )}
                     >
-                        <Icon className={cn("h-4 w-4", active ? "text-indigo-600" : "text-slate-400 group-hover:text-slate-500")} />
+                        <Icon className={cn("h-4 w-4", active ? "text-blue-600" : "text-slate-400 group-hover:text-slate-500")} />
                         {tab.label}
                     </Link>
                 );

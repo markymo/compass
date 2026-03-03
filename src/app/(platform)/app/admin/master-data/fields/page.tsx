@@ -1,5 +1,6 @@
 import prisma from "@/lib/prisma";
 import { FieldGlossaryTable } from "@/components/client/admin/field-glossary-table";
+import { AIDescriptionGenerator } from "@/components/client/admin/ai-description-generator";
 
 export default async function FieldGlossaryPage() {
     let fields: any[] = [];
@@ -22,6 +23,8 @@ export default async function FieldGlossaryPage() {
                     <p className="text-sm text-slate-500 dark:text-slate-400">Authoritative list of all atomic data points collected across the platform.</p>
                 </div>
             </div>
+
+            <AIDescriptionGenerator fields={fields} />
 
             <FieldGlossaryTable initialFields={fields} />
         </div>

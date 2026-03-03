@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Database, LayoutGrid, ListTree, Settings2 } from "lucide-react";
+import { Database, LayoutGrid, ListTree, Settings2, ArrowUpDown } from "lucide-react";
 import Link from "next/link";
 import prisma from "@/lib/prisma";
 
@@ -44,6 +44,13 @@ export default async function MasterDataAdminPage() {
             href: "/app/admin/master-data/system",
             icon: Settings2,
             color: "text-slate-500"
+        },
+        {
+            title: "Taxonomy Order",
+            description: "Configure display ordering for categories and fields.",
+            href: "/app/admin/master-data/sort",
+            icon: ArrowUpDown,
+            color: "text-amber-500"
         }
     ];
 

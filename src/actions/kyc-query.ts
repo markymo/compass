@@ -157,8 +157,81 @@ export async function getFieldDetail(
     entityId: string,
     fieldNo: number,
     entityType: 'LEGAL_ENTITY' | 'CLIENT_LE' = 'LEGAL_ENTITY',
-    customFieldId?: string
+    customFieldId?: string,
+    masterQuestionGroupId?: string
 ): Promise<FieldDetailData> {
+
+    // --- Master Question Group Path ---
+    if (masterQuestionGroupId) {
+        let subjectLeId = entityId;
+        let ownerScopeId: string | undefined = undefined;
+
+        if (entityType === 'CLIENT_LE') {
+            const clientLE = await prisma.clientLE.findUnique({
+                where: { id: entityId }
+            });
+            subjectLeId = clientLE?.legalEntityId || "";
+            ownerScopeId = (await KycStateService.resolveScopeId(entityId)) || undefined;
+        }
+
+        if (!subjectLeId) {
+            throw new Error("Could not resolve LegalEntity subject for this request.");
+        }
+
+        try {
+            const group = await getMasterFieldGroup(masterQuestionGroupId);
+            const groupValues: Record<string, any> = {};
+
+            let latestTimestamp = new Date(0);
+
+            for (const item of group.items) {
+                const def = await getMasterFieldDefinition(item.fieldNo);
+                if (def.isMultiValue) {
+                    const collection = await KycStateService.getAuthoritativeCollection({ subjectLeId }, item.fieldNo, ownerScopeId);
+                    if (collection.length > 0) {
+                        groupValues[def.fieldName] = collection.map(c => c.value);
+                        if (collection[0].assertedAt > latestTimestamp) latestTimestamp = collection[0].assertedAt;
+                    }
+                } else {
+                    const derived = await KycStateService.getAuthoritativeValue({ subjectLeId }, item.fieldNo, ownerScopeId);
+                    if (derived) {
+                        groupValues[def.fieldName] = derived.value;
+                        if (derived.assertedAt > latestTimestamp) latestTimestamp = derived.assertedAt;
+                    }
+                }
+            }
+
+            return {
+                fieldNo: 0,
+                fieldName: group.label,
+                category: "Master Data Group",
+                isRepeating: false,
+                dataType: "JSON",
+                current: {
+                    value: Object.keys(groupValues).length > 0 ? groupValues : null,
+                    source: "MULTI_SOURCE" as any,
+                    timestamp: latestTimestamp.getTime() > 0 ? latestTimestamp : new Date(),
+                    confidence: 1.0
+                },
+                assignment: null,
+                history: [],
+                candidates: []
+            };
+        } catch (e) {
+            console.warn(`[getFieldDetail] Error fetching group data:`, e);
+            // Fallback to minimal return object if group fails
+            return {
+                fieldNo: 0,
+                fieldName: "Unknown Group",
+                isRepeating: false,
+                dataType: "JSON",
+                current: null,
+                assignment: null,
+                history: [],
+                candidates: []
+            };
+        }
+    }
 
     // --- Custom Field Path ---
     if (customFieldId) {
@@ -348,7 +421,7 @@ export interface ConsoleQuestion {
     releasedAt?: Date | null;
 };
 
-export async function getConsoleQuestions(leId: string): Promise<ConsoleQuestion[]> {
+export async function getConsoleQuestions(leId: string, includeLocked: boolean = false): Promise<ConsoleQuestion[]> {
     // 1. Find all active Engagements for this ClientLE
     const engagements = await prisma.fIEngagement.findMany({
         where: {
@@ -362,7 +435,7 @@ export async function getConsoleQuestions(leId: string): Promise<ConsoleQuestion
             questionnaires: {
                 include: {
                     questions: {
-                        where: { isLocked: false },
+                        where: includeLocked ? undefined : { isLocked: false },
                         orderBy: { order: 'asc' }
                     }
                 }
@@ -370,7 +443,7 @@ export async function getConsoleQuestions(leId: string): Promise<ConsoleQuestion
             questionnaireInstances: {
                 include: {
                     questions: {
-                        where: { isLocked: false },
+                        where: includeLocked ? undefined : { isLocked: false },
                         orderBy: { order: 'asc' }
                     }
                 }

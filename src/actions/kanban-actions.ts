@@ -179,7 +179,9 @@ export async function getBoardQuestions(engagementId: string) {
                 include: { user: true }
             },
             // @ts-ignore: schema additions
-            documents: true
+            documents: true,
+            // @ts-ignore
+            supplierNoteUpdatedByUser: true
         }
     });
 
@@ -247,9 +249,14 @@ export async function getBoardQuestions(engagementId: string) {
                 kbSize: d.kbSize
             })) : [],
             masterFieldNo: q.masterFieldNo,
+            customFieldDefinitionId: (q as any).customFieldDefinitionId,
+            masterQuestionGroupId: (q as any).masterQuestionGroupId,
             approvedAt: (q as any).approvedAt,
             releasedAt: (q as any).releasedAt,
-            sharedAt: (q as any).sharedAt
+            sharedAt: (q as any).sharedAt,
+            supplierNote: (q as any).supplierNote,
+            supplierNoteUpdatedAt: (q as any).supplierNoteUpdatedAt?.toLocaleString(),
+            supplierNoteUpdatedBy: (q as any).supplierNoteUpdatedByUser?.name || (q as any).supplierNoteUpdatedByUser?.email || null
         };
     }));
 
@@ -295,15 +302,21 @@ export async function approveQuestionMapping(questionId: string) {
     try {
         const question = await prisma.question.findUnique({
             where: { id: questionId },
-            select: { masterFieldNo: true, status: true }
+            select: { masterFieldNo: true, customFieldDefinitionId: true, masterQuestionGroupId: true, status: true }
         });
 
-        if (!question?.masterFieldNo) {
+        if (!question?.masterFieldNo && !question?.customFieldDefinitionId && !question?.masterQuestionGroupId) {
             return { success: false, error: "Cannot approve unmapped question" };
         }
         if (question.status !== 'DRAFT') {
             return { success: false, error: "Only draft mappings can be approved" };
         }
+
+        const approvedMappingConfig = {
+            fieldNo: question.masterFieldNo,
+            customFieldId: question.customFieldDefinitionId,
+            groupId: question.masterQuestionGroupId
+        };
 
         await prisma.question.update({
             where: { id: questionId },
@@ -311,7 +324,7 @@ export async function approveQuestionMapping(questionId: string) {
                 status: 'APPROVED',
                 approvedAt: new Date(),
                 approvedByUserId: userId,
-                approvedMappingConfig: { fieldNo: question.masterFieldNo }
+                approvedMappingConfig
             }
         });
 
@@ -320,7 +333,7 @@ export async function approveQuestionMapping(questionId: string) {
                 questionId,
                 userId,
                 type: "MAPPING_APPROVED",
-                details: { fieldNo: question.masterFieldNo }
+                details: approvedMappingConfig
             }
         });
 
@@ -1183,5 +1196,57 @@ export async function getEngagementEvidenceDocuments(engagementId: string) {
     } catch (e) {
         console.error("Evidence documents fetch error:", e);
         return { success: false, error: "Failed to fetch evidence documents", documents: [] };
+    }
+}
+
+/**
+ * Update the Note for Supplier for a question
+ */
+export async function updateSupplierNote(questionId: string, note: string) {
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+    const { userId } = identity;
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+
+    try {
+        const question = await prisma.question.update({
+            where: { id: questionId },
+            data: {
+                supplierNote: note,
+                supplierNoteUpdatedAt: new Date(),
+                supplierNoteUpdatedByUserId: userId
+            }
+        });
+
+        // Log Activity
+        const activity = await prisma.questionActivity.create({
+            data: {
+                questionId,
+                userId,
+                type: "SUPPLIER_NOTE_UPDATED",
+                details: {}
+            },
+            include: { user: true }
+        });
+
+        revalidatePath("/(platform)/app/le/[id]/engagement-new/[engagementId]", "page");
+
+        return {
+            success: true,
+            supplierNote: question.supplierNote,
+            supplierNoteUpdatedAt: question.supplierNoteUpdatedAt?.toLocaleString(),
+            supplierNoteUpdatedBy: user?.name || user?.email || "User",
+            activity: {
+                id: activity.id,
+                type: activity.type,
+                details: activity.details,
+                userName: activity.user.name || "User",
+                createdAt: activity.createdAt
+            }
+        };
+    } catch (e) {
+        console.error("Update Supplier Note Error:", e);
+        return { success: false, error: "Failed to update Note for Supplier" };
     }
 }

@@ -1,4 +1,5 @@
 import { getFullMasterData } from "@/actions/client-le";
+import { getCategoriesWithFields } from "@/actions/master-data-sort";
 import { notFound } from "next/navigation";
 import { DataSchemaTab } from "@/components/client/data-schema-tab";
 
@@ -7,6 +8,7 @@ export default async function MasterRecordPage({ params }: { params: Promise<{ i
 
     // Fetch flattened master data from all profiles
     const result = await getFullMasterData(id);
+    const dataSort = await getCategoriesWithFields();
 
     if (!result.success) return notFound();
 
@@ -29,6 +31,8 @@ export default async function MasterRecordPage({ params }: { params: Promise<{ i
                 gleifLastSynced={gleifLastSynced ?? undefined}
                 masterFields={masterFields || []}
                 masterGroups={masterGroups || []}
+                categories={dataSort.categories}
+                uncategorizedFields={dataSort.uncategorizedFields}
             />
         </div>
     );

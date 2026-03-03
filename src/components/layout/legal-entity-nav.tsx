@@ -43,7 +43,7 @@ export function LegalEntityNav({ leId }: LegalEntityNavProps) {
         {
             label: "Workbench",
             href: `${baseUrl}/workbench4`,
-            icon: Link2,
+            icon: Clipboard,
             isActive: (path: string) => path.startsWith(`${baseUrl}/workbench4`)
         },
         {
