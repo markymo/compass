@@ -201,13 +201,13 @@ export async function getUserContexts(): Promise<DashboardContexts> {
             const rawMetrics = await calculateEngagementMetrics(e.id);
             const userIsSupplier = fiIds.includes(e.fiOrgId);
 
-            // Filter metrics for Supplier view: Only show Released and Acknowledged
+            // Filter metrics for Supplier view: Only show Released
             const finalMetrics = userIsSupplier ? {
                 ...emptyMetrics(),
-                released: rawMetrics.released,
-                acknowledged: rawMetrics.acknowledged,
-                lastEdit: rawMetrics.lastEdit,
-                targetCompletion: rawMetrics.targetCompletion
+                mapped: rawMetrics.mapped,
+                answered: rawMetrics.answered,
+                approved: rawMetrics.approved,
+                released: rawMetrics.released
             } : rawMetrics;
 
             // Rollup metrics to LE and Client

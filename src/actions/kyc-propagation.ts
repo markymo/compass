@@ -28,8 +28,8 @@ export async function applyMasterToQuestion(
             where: { id: questionId },
             data: {
                 answer: answerText,
-                status: QuestionStatus.MAPPED_DRAFT
-            }
+                status: { in: ['DRAFT', 'APPROVED', 'SHARED', 'RELEASED'] }
+            },
         });
 
         // 3. Log Activity

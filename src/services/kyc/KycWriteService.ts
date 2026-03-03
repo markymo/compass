@@ -583,8 +583,7 @@ export class KycWriteService {
                 await prisma.question.update({
                     where: { id: q.id },
                     data: {
-                        answer: answerString,
-                        status: 'MAPPED_DRAFT'
+                        status: 'DRAFT'
                     }
                 });
 

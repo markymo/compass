@@ -317,7 +317,7 @@ model Question {
   text                    String
   compactText             String?
   answer                  String?
-  status                  QuestionStatus         @default(UNMAPPED)
+  status                  QuestionStatus         @default(DRAFT)
   isLocked                Boolean                @default(false)
   order                   Int                    @default(0)
   masterFieldNo           Int?
@@ -680,9 +680,8 @@ model MasterFieldGroupItem {
 }
 
 enum QuestionStatus {
-  UNMAPPED
-  MAPPED_DRAFT
-  MAPPED_APPROVED
+  DRAFT
+  APPROVED
   SHARED
   RELEASED
 }

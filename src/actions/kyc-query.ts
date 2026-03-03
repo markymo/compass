@@ -335,7 +335,7 @@ export interface ConsoleQuestion {
     masterFieldNo?: number | null;
     masterQuestionGroupId?: string | null;
     customFieldDefinitionId?: string | null;
-    status: "OPEN" | "ANSWERED" | "SKIPPED";
+    status: string;
     questionnaireName: string;
     answer?: string | null;
     engagementOrgName?: string;
@@ -343,6 +343,9 @@ export interface ConsoleQuestion {
     masterDataSource?: string | null;
     masterDataUpdatedAt?: Date | null;
     masterFieldCategory?: string | null;
+    isLocked?: boolean;
+    approvedAt?: Date | null;
+    releasedAt?: Date | null;
 };
 
 export async function getConsoleQuestions(leId: string): Promise<ConsoleQuestion[]> {
@@ -394,10 +397,13 @@ export async function getConsoleQuestions(leId: string): Promise<ConsoleQuestion
                     masterFieldNo: q.masterFieldNo,
                     masterQuestionGroupId: q.masterQuestionGroupId,
                     customFieldDefinitionId: q.customFieldDefinitionId,
-                    status: q.answer ? "ANSWERED" : "OPEN",
+                    status: q.status || (q.answer ? "ANSWERED" : "OPEN"),
                     questionnaireName: qnaire.name,
                     answer: q.answer,
-                    engagementOrgName: eng.org.name
+                    engagementOrgName: eng.org.name,
+                    isLocked: q.isLocked,
+                    approvedAt: q.approvedAt,
+                    releasedAt: q.releasedAt
                 });
             }
         }
@@ -416,10 +422,13 @@ export async function getConsoleQuestions(leId: string): Promise<ConsoleQuestion
                     masterFieldNo: q.masterFieldNo,
                     masterQuestionGroupId: q.masterQuestionGroupId,
                     customFieldDefinitionId: q.customFieldDefinitionId,
-                    status: q.answer ? "ANSWERED" : "OPEN",
+                    status: q.status || (q.answer ? "ANSWERED" : "OPEN"),
                     questionnaireName: qnaire.name,
                     answer: q.answer,
-                    engagementOrgName: eng.org.name
+                    engagementOrgName: eng.org.name,
+                    isLocked: q.isLocked,
+                    approvedAt: q.approvedAt,
+                    releasedAt: q.releasedAt
                 });
             }
         }
@@ -448,6 +457,8 @@ export interface UserAssignmentAgg {
         id: string;
         fieldNo: number;
         fieldName: string;
+        category?: string;
+        status: 'DRAFT' | 'APPROVED' | 'SHARED' | 'RELEASED';
         clientLEId: string;
         engagementOrgName?: string;
         assignedByUserName?: string;
@@ -536,7 +547,8 @@ export async function getUserAssignments(userId: string): Promise<UserAssignment
             clientLEId: f.clientLEId,
             engagementOrgName: orgName,
             assignedByUserName: f.assignedUser?.name || f.assignedUser?.email || "System",
-            createdAt: f.createdAt
+            createdAt: f.createdAt,
+            status: 'DRAFT' as const
         };
     }));
 
@@ -548,7 +560,7 @@ export async function getUserAssignmentCount(userId: string): Promise<number> {
         prisma.question.count({
             where: {
                 assignedToUserId: userId,
-                status: { not: "MAPPED_APPROVED" },
+                status: { not: "APPROVED" },
                 questionnaire: { isDeleted: false }
             }
         }),

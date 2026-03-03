@@ -295,17 +295,20 @@ export async function approveQuestionMapping(questionId: string) {
     try {
         const question = await prisma.question.findUnique({
             where: { id: questionId },
-            select: { masterFieldNo: true }
+            select: { masterFieldNo: true, status: true }
         });
 
         if (!question?.masterFieldNo) {
             return { success: false, error: "Cannot approve unmapped question" };
         }
+        if (question.status !== 'DRAFT') {
+            return { success: false, error: "Only draft mappings can be approved" };
+        }
 
         await prisma.question.update({
             where: { id: questionId },
             data: {
-                status: 'MAPPED_APPROVED',
+                status: 'APPROVED',
                 approvedAt: new Date(),
                 approvedByUserId: userId,
                 approvedMappingConfig: { fieldNo: question.masterFieldNo }
@@ -342,14 +345,13 @@ export async function shareQuestion(questionId: string, isShared: boolean) {
             select: { status: true }
         });
 
-        if (isShared && !['MAPPED_APPROVED', 'SHARED'].includes(question?.status as any)) {
-            // If we want Policy B strictly: Shared can only be reached from MAPPED_APPROVED
-            if (!['MAPPED_APPROVED', 'SHARED', 'RELEASED'].includes(question?.status as any)) {
-                return { success: false, error: "Mapping must be approved before sharing" };
+        if (isShared) {
+            if (question.status !== 'APPROVED' && question.status !== 'SHARED') {
+                return { success: false, error: "Question must be approved before sharing" };
             }
         }
 
-        const newStatus = isShared ? 'SHARED' : 'MAPPED_APPROVED';
+        const newStatus = isShared ? 'SHARED' : 'APPROVED';
 
         await prisma.question.update({
             where: { id: questionId },
@@ -435,7 +437,9 @@ export async function updateQuestionMapping(questionId: string, fieldNo: number 
             where: { id: questionId },
             data: {
                 masterFieldNo: fieldNo,
-                status: fieldNo ? 'MAPPED_DRAFT' : 'UNMAPPED',
+                masterQuestionGroupId: null,
+                customFieldDefinitionId: null,
+                status: fieldNo ? 'DRAFT' : 'DRAFT', // The Safety Reset
                 approvedAt: null,
                 approvedByUserId: null,
                 sharedAt: null,

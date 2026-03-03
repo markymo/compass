@@ -17,48 +17,100 @@ export async function calculateEngagementMetrics(engagementId: string): Promise<
             status: true,
             answer: true,
             updatedAt: true,
+            masterFieldNo: true,
+            masterQuestionGroupId: true,
+            customFieldDefinitionId: true
         }
     });
 
     const m = emptyMetrics();
 
+    // 1b. Fetch active field claims and custom data for the LE to resolve dynamic answers for mapped questions
+    const engagement = await prisma.fIEngagement.findUnique({
+        where: { id: engagementId },
+        include: {
+            clientLE: {
+                select: { customData: true, legalEntityId: true }
+            }
+        }
+    });
+
+    const activeClaims = new Set<number>();
+    const activeCustomClaims = new Set<string>();
+
+    if (engagement?.clientLE?.legalEntityId) {
+        const claims = await prisma.fieldClaim.findMany({
+            where: { subjectLeId: engagement.clientLE.legalEntityId, status: "VERIFIED" },
+            select: { fieldNo: true }
+        });
+        claims.forEach(c => activeClaims.add(c.fieldNo));
+
+        // Also track populated custom fields
+        if (engagement.clientLE?.customData) {
+            const data = engagement.clientLE.customData as Record<string, any>;
+            for (const [key, details] of Object.entries(data)) {
+                if (details && details.value !== undefined && details.value !== null && details.value !== "") {
+                    activeCustomClaims.add(key);
+                }
+            }
+        }
+    }
+
+    const groupItems = await prisma.masterFieldGroupItem.findMany({
+        select: {
+            groupId: true,
+            fieldNo: true,
+            group: {
+                select: { key: true }
+            }
+        }
+    });
+    const groupHasClaim = new Map<string, boolean>();
+    for (const item of groupItems) {
+        if (activeClaims.has(item.fieldNo)) {
+            groupHasClaim.set(item.groupId, true);
+            if (item.group?.key) {
+                groupHasClaim.set(item.group.key, true);
+            }
+        }
+    }
+
     // 2. Process Standard Questions
     for (const q of questions) {
-        // Last Edit
-        if (!m.lastEdit || q.updatedAt > m.lastEdit) {
-            m.lastEdit = q.updatedAt;
-        }
+        m.total++;
+        let hasAnswer = !!(q.answer && q.answer.trim().length > 0);
+        const isMapped = q.masterFieldNo !== null || q.masterQuestionGroupId !== null || q.customFieldDefinitionId !== null;
 
-        const hasAnswer = q.answer && q.answer.trim().length > 0;
+        // Resolve dynamic answer from master data if mapped
+        if (!hasAnswer) {
+            if (q.masterFieldNo !== null && activeClaims.has(q.masterFieldNo)) {
+                hasAnswer = true;
+            } else if (q.masterQuestionGroupId !== null && groupHasClaim.get(q.masterQuestionGroupId)) {
+                hasAnswer = true;
+            } else if (q.customFieldDefinitionId !== null && activeCustomClaims.has(q.customFieldDefinitionId)) {
+                hasAnswer = true;
+            }
+        }
 
         // "No Data": No answer
         if (!hasAnswer) {
             m.noData++;
         }
 
+        if (isMapped) {
+            m.mapped++;
+            if (hasAnswer) m.answered++;
+        }
+
         // Status Mapping
         switch (q.status) {
-            // Internal States
-            case "UNMAPPED":
-            case "MAPPED_DRAFT":
-                // If it has answer regarding Prepop/System, we need more flags.
-                // For now, simple bucket:
-                m.drafted++;
-                break;
-
-            // Client Done
+            case "DRAFT":
+            case "APPROVED":
             case "MAPPED_APPROVED":
                 m.approved++;
                 break;
-
-            // External
-            case "SHARED":
-                m.released++;
-                break;
-
-            // Supplier Done
             case "RELEASED":
-                m.acknowledged++;
+                m.released++;
                 break;
         }
     }
@@ -71,18 +123,30 @@ export async function calculateEngagementMetrics(engagementId: string): Promise<
         });
 
         for (const q of questionnaires) {
-            if (q.updatedAt && (!m.lastEdit || q.updatedAt > m.lastEdit)) {
-                m.lastEdit = q.updatedAt;
-            }
-
             if (Array.isArray(q.extractedContent)) {
                 const items = q.extractedContent as any[];
                 const qs = items.filter(i => (i.type || "").toLowerCase() === "question");
 
                 for (const item of qs) {
-                    const hasAns = !!item.answer;
+                    m.total++;
+                    let hasAns = !!item.answer;
+                    const isMapped = (item.masterFieldNo !== undefined && item.masterFieldNo !== null)
+                        || (item.customFieldDefinitionId !== undefined && item.customFieldDefinitionId !== null);
+
+                    if (!hasAns && isMapped) {
+                        if (item.masterFieldNo !== null && activeClaims.has(item.masterFieldNo)) {
+                            hasAns = true;
+                        } else if (item.customFieldDefinitionId !== null && activeCustomClaims.has(item.customFieldDefinitionId)) {
+                            hasAns = true;
+                        }
+                    }
+
                     if (!hasAns) m.noData++;
-                    else m.drafted++; // Default to drafted for legacy JSON
+
+                    if (isMapped) {
+                        m.mapped++;
+                        if (hasAns) m.answered++;
+                    }
                 }
             }
         }

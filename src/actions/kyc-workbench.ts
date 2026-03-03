@@ -154,12 +154,20 @@ export async function mapQuestionToField(
     mapping: { fieldNo?: number | null; customFieldId?: string | null; groupId?: string | null }
 ) {
     try {
+        const targetStatus = 'DRAFT';
+
         await prisma.question.update({
             where: { id: questionId },
             data: {
                 masterFieldNo: mapping.fieldNo ?? null,
                 masterQuestionGroupId: mapping.groupId ?? null,
-                customFieldDefinitionId: mapping.customFieldId ?? null
+                customFieldDefinitionId: mapping.customFieldId ?? null,
+                status: targetStatus,
+                approvedAt: null,
+                approvedByUserId: null,
+                approvedMappingConfig: require('@prisma/client').Prisma.JsonNull,
+                sharedAt: null,
+                sharedByUserId: null
             }
         });
 

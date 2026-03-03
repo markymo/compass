@@ -212,6 +212,14 @@ async function main() {
         }
     });
 
+    await prisma.questionnaire.deleteMany({
+        where: {
+            fiOrgId: gsib.id,
+            fiEngagementId: engagement.id,
+            name: 'Due Diligence 2026'
+        }
+    });
+
     const questionnaire = await prisma.questionnaire.create({
         data: {
             name: 'Due Diligence 2026',

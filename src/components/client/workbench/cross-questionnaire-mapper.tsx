@@ -5,6 +5,7 @@ import { Workbench4Data, mapQuestionToField, getAIFieldNameSuggestion } from "@/
 import { ConsoleQuestion } from "@/actions/kyc-query";
 import { createCustomFieldDefinition } from "@/actions/questionnaire";
 import { renameCustomField } from "@/actions/master-data-governance";
+import { approveQuestionMapping, shareQuestion, releaseQuestion } from "@/actions/kanban-actions";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -33,7 +34,9 @@ import {
     Check,
     X,
     Sparkles,
-    Loader2
+    Loader2,
+    Lock,
+    Share2
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -148,7 +151,8 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
                                 customFieldDefinitionId: mapping.customFieldId ?? null,
                                 masterDataValue: (res as any).newValue,
                                 masterDataSource: (res as any).newSource,
-                                masterDataUpdatedAt: (res as any).newUpdatedAt
+                                masterDataUpdatedAt: (res as any).newUpdatedAt,
+                                status: (mapping.fieldNo || mapping.groupId || mapping.customFieldId) ? 'MAPPED_DRAFT' : 'UNMAPPED'
                             } as any
                             : q
                     )
@@ -310,6 +314,14 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
                                 val, src, date
                             );
                         }}
+                        onStatusChange={(newStatus) => {
+                            setData(prev => ({
+                                ...prev,
+                                questions: prev.questions.map(quest =>
+                                    quest.id === q.id ? { ...quest, status: newStatus } as any : quest
+                                )
+                            }));
+                        }}
                         onRenameCustomField={async (cfId, newLabel) => {
                             const res = await renameCustomField(cfId, newLabel);
                             if (res.success) {
@@ -467,6 +479,7 @@ function QuestionCard({
     onInspect,
     onInlineEdit,
     onRenameCustomField,
+    onStatusChange,
     disabled,
     isPinned
 }: {
@@ -479,6 +492,7 @@ function QuestionCard({
     onInspect: (fieldNo: number, name: string, customFieldId?: string) => void;
     onInlineEdit: (newValue: any, newSource: string, newUpdatedAt: Date) => void;
     onRenameCustomField: (customFieldId: string, newLabel: string) => Promise<{ success: boolean; error?: string }>;
+    onStatusChange: (newStatus: string) => void;
     disabled?: boolean;
     isPinned?: boolean;
 }) {
@@ -492,6 +506,47 @@ function QuestionCard({
     const [renameValue, setRenameValue] = useState("");
     const [isRenameSaving, setIsRenameSaving] = useState(false);
     const customFieldId = (question as any).customFieldDefinitionId as string | undefined;
+
+    const [isActionPending, setIsActionPending] = useState(false);
+
+    const handleApprove = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setIsActionPending(true);
+        const res = await approveQuestionMapping(question.id);
+        if (res.success) {
+            toast.success("Mapping Approved");
+            onStatusChange('APPROVED');
+        } else {
+            toast.error(res.error || "Approval failed");
+        }
+        setIsActionPending(false);
+    };
+
+    const handleShare = async (e: React.MouseEvent, isShared: boolean) => {
+        e.stopPropagation();
+        setIsActionPending(true);
+        const res = await shareQuestion(question.id, isShared);
+        if (res.success) {
+            toast.success(isShared ? "Question Shared" : "Question Unshared");
+            onStatusChange(isShared ? 'SHARED' : 'APPROVED');
+        } else {
+            toast.error(res.error || "Sharing failed");
+        }
+        setIsActionPending(false);
+    };
+
+    const handleRelease = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setIsActionPending(true);
+        const res = await releaseQuestion(question.id);
+        if (res.success) {
+            toast.success("Question Released");
+            onStatusChange('RELEASED');
+        } else {
+            toast.error(res.error || "Release failed");
+        }
+        setIsActionPending(false);
+    };
 
     // Find current mapping label
     let currentMappingLabel = "Unmapped";
@@ -752,9 +807,19 @@ function QuestionCard({
                     </div>
 
                     {/* Right Side: Mapping Controls */}
-                    <div className="w-[320px] p-4 flex flex-col justify-center gap-2 bg-slate-50/30">
-                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1">
-                            Master Data Mapping
+                    <div className="w-[320px] p-4 flex flex-col justify-center gap-2 bg-slate-50/30 border-l border-slate-100">
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1 flex items-center justify-between gap-2">
+                            <span>Master Data Mapping</span>
+                            <span className={cn(
+                                "text-[9px] px-1.5 py-0.5 rounded tracking-normal font-semibold",
+                                question.status === 'RELEASED' ? "bg-slate-200 text-slate-700" :
+                                    question.status === 'SHARED' ? "bg-indigo-100 text-indigo-700" :
+                                        question.status === 'APPROVED' ? "bg-emerald-100 text-emerald-700" :
+                                            question.status === 'DRAFT' ? "bg-amber-100 text-amber-700" :
+                                                "bg-slate-100 text-slate-500"
+                            )}>
+                                {isMapped ? question.status : 'UNMAPPED'}
+                            </span>
                         </div>
 
                         <div className="flex items-center gap-2">
@@ -779,10 +844,10 @@ function QuestionCard({
                                 masterGroups={masterGroups}
                                 customFields={customFields}
                                 questionText={question.text}
-                                disabled={disabled}
+                                disabled={disabled || question.status === 'RELEASED'}
                             />
 
-                            {isMapped && (
+                            {isMapped && question.status !== 'RELEASED' && (
                                 <Button
                                     variant="ghost"
                                     size="icon"
@@ -795,6 +860,32 @@ function QuestionCard({
                                 </Button>
                             )}
                         </div>
+
+                        {/* Lifecycle Actions */}
+                        {isMapped && question.status !== 'RELEASED' && (
+                            <div className="flex items-center gap-2 mt-2 pt-2 border-t border-slate-200/50">
+                                {question.status === 'DRAFT' && (
+                                    <Button size="sm" variant="default" className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 w-full shadow-sm" onClick={handleApprove} disabled={isActionPending}>
+                                        <Check className="h-3 w-3 mr-1" /> Approve Mapping
+                                    </Button>
+                                )}
+                                {question.status === 'APPROVED' && (
+                                    <Button size="sm" variant="outline" className="h-7 text-xs text-indigo-600 border-indigo-200 flex-1 shadow-sm" onClick={(e) => handleShare(e, true)} disabled={isActionPending}>
+                                        <Share2 className="h-3 w-3 mr-1" /> Share
+                                    </Button>
+                                )}
+                                {question.status === 'SHARED' && (
+                                    <Button size="sm" variant="outline" className="h-7 text-xs text-slate-600 flex-1 shadow-sm border-slate-200" onClick={(e) => handleShare(e, false)} disabled={isActionPending}>
+                                        Unshare
+                                    </Button>
+                                )}
+                                {(question.status === 'APPROVED' || question.status === 'SHARED') && (
+                                    <Button size="sm" variant="secondary" className="h-7 text-xs bg-slate-900 text-white hover:bg-slate-800 flex-1 shadow-sm" onClick={handleRelease} disabled={isActionPending}>
+                                        <Lock className="h-3 w-3 mr-1" /> Release
+                                    </Button>
+                                )}
+                            </div>
+                        )}
                     </div>
                 </div>
             </CardContent>

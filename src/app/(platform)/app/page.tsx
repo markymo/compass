@@ -41,7 +41,7 @@ interface OrgNode {
     children: OrgChild[];
 }
 
-const DASHBOARD_GRID = "grid-cols-[minmax(250px,1fr)_100px_repeat(9,70px)]";
+const DASHBOARD_GRID = "grid-cols-[minmax(350px,1fr)_repeat(6,80px)]";
 
 // ─── Reshaping Logic ─────────────────────────────────────────────────
 
@@ -70,7 +70,7 @@ function reshapeContexts(ctx: DashboardContexts): OrgNode[] {
                     type: "le" as const,
                     id: le.id,
                     name: le.name,
-                    subtitle: le.role === "ADMIN_VISIBILITY" ? "Admin access" : le.role,
+                    subtitle: le.role,
                     href: `/app/le/${le.id}`,
                     metrics: le.metrics,
                     children: leEngagements
@@ -337,22 +337,18 @@ function ClientOrgCard({ org }: { org: OrgNode }) {
                     DASHBOARD_GRID
                 )}>
                     <div className="pl-[44px]">Name</div>
-                    <div />
                     {org.orgType === "CLIENT" ? (
                         <>
+                            <div className="text-right pr-2">Total</div>
                             <div className="text-right pr-2">No Data</div>
-                            <div className="text-right pr-2">Prepop</div>
-                            <div className="text-right pr-2">System</div>
-                            <div className="text-right pr-2">Drafted</div>
+                            <div className="text-right pr-2">Mapped</div>
+                            <div className="text-right pr-2">Answered</div>
                             <div className="text-right pr-2">Approved</div>
+                            <div className="text-right pr-2">Released</div>
                         </>
                     ) : (
-                        <div className="col-span-5" />
+                        <div className="col-span-6" />
                     )}
-                    <div className="text-right pr-2">Released</div>
-                    <div className="text-right pr-2">Ack</div>
-                    <div className="text-right pr-2">Last Edit</div>
-                    <div className="text-right pr-2">Target</div>
                 </div>
 
                 {/* Client Main Row */}
@@ -385,25 +381,18 @@ function ClientOrgCard({ org }: { org: OrgNode }) {
                     </div>
                     {org.orgType === "CLIENT" ? (
                         <>
+                            <MetricCell value={org.metrics.total} />
                             <MetricCell value={org.metrics.noData} />
-                            <MetricCell value={org.metrics.prepopulated} />
-                            <MetricCell value={org.metrics.systemUpdated} />
-                            <MetricCell value={org.metrics.drafted} />
+                            <MetricCell value={org.metrics.mapped} />
+                            <MetricCell value={org.metrics.answered} />
                             <MetricCell value={org.metrics.approved} />
+                            <MetricCell value={org.metrics.released} />
                         </>
                     ) : (
                         <>
                             <div /><div /><div /><div /><div />
                         </>
                     )}
-                    <MetricCell value={org.metrics.released} />
-                    <MetricCell value={org.metrics.acknowledged} />
-                    <div className="text-right text-[10px] text-slate-500 whitespace-nowrap">
-                        {org.metrics.lastEdit ? format(new Date(org.metrics.lastEdit), "dd MMM yy") : "-"}
-                    </div>
-                    <div className="text-right text-[10px] text-slate-500 whitespace-nowrap">
-                        {org.metrics.targetCompletion ? format(new Date(org.metrics.targetCompletion), "dd MMM yy") : "-"}
-                    </div>
                 </div>
 
                 {/* Mobile Client Header */}
@@ -481,6 +470,8 @@ function NestedTreeRow({ item, level, orgType }: { item: OrgChild; level: number
                             {item.name}
                         </Link>
 
+                        <RoleBadge role={item.subtitle || ""} />
+
                         {item.type === "le" && orgType !== "SUPPLIER" && (
                             <span className="opacity-0 group-hover:opacity-100 transition-opacity hidden md:inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] text-indigo-500 bg-indigo-50 hover:bg-indigo-100 cursor-pointer whitespace-nowrap shrink-0 ml-2">
                                 <Plus className="h-2.5 w-2.5" /> Relationship
@@ -488,36 +479,25 @@ function NestedTreeRow({ item, level, orgType }: { item: OrgChild; level: number
                         )}
                     </div>
 
-                    <div className="hidden md:block">
-                        <RoleBadge role={item.subtitle || ""} />
-                    </div>
-
                     <div className="hidden md:contents">
                         {item.type === "questionnaire" ? (
-                            <div className="col-span-10" />
+                            <div className="col-span-5" />
                         ) : (
                             <>
                                 {orgType === "SUPPLIER" ? (
                                     <>
-                                        <div /><div /><div /><div /><div />
+                                        <div /><div /><div /><div /><div /><div />
                                     </>
                                 ) : (
                                     <>
+                                        <MetricCell value={item.metrics.total} />
                                         <MetricCell value={item.metrics.noData} />
-                                        <MetricCell value={item.metrics.prepopulated} />
-                                        <MetricCell value={item.metrics.systemUpdated} />
-                                        <MetricCell value={item.metrics.drafted} />
+                                        <MetricCell value={item.metrics.mapped} />
+                                        <MetricCell value={item.metrics.answered} />
                                         <MetricCell value={item.metrics.approved} />
+                                        <MetricCell value={item.metrics.released} />
                                     </>
                                 )}
-                                <MetricCell value={item.metrics.released} />
-                                <MetricCell value={item.metrics.acknowledged} />
-                                <div className="text-right text-[10px] text-slate-500 whitespace-nowrap">
-                                    {item.metrics.lastEdit ? format(new Date(item.metrics.lastEdit), "dd MMM yy") : "-"}
-                                </div>
-                                <div className="text-right text-[10px] text-slate-500 whitespace-nowrap">
-                                    {item.metrics.targetCompletion ? format(new Date(item.metrics.targetCompletion), "dd MMM yy") : "-"}
-                                </div>
                             </>
                         )}
                     </div>
@@ -565,7 +545,7 @@ function RoleBadge({ role }: { role: string }) {
         colorClass = "bg-emerald-50 text-emerald-700 border-emerald-100";
     }
 
-    const label = role === "ADMIN_VISIBILITY" ? "Admin access" : role.replace("_", " ");
+    const label = role === "ADMIN_VISIBILITY" ? "Admin" : role.replace("_", " ");
 
     return (
         <Badge variant="outline" className={cn("text-[10px] font-normal px-1.5 py-0 h-4 uppercase tracking-tighter", colorClass)}>

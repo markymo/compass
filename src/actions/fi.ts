@@ -584,7 +584,7 @@ export async function assignQuestionnaireToEngagement(engagementId: string, temp
                         text: q.text,
                         compactText: q.compactText,
                         order: q.order,
-                        status: "UNMAPPED",
+                        status: "DRAFT",
                         sourceSectionId: q.sourceSectionId,
                         // Note: We do NOT copy 'answer' or 'activities' or 'comments' as this is a fresh start
                     }))

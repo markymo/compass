@@ -40,7 +40,7 @@ export function DashboardTree({ items }: DashboardTreeProps) {
     );
 }
 
-const DASHBOARD_GRID = "grid-cols-[minmax(350px,1fr)_100px_repeat(9,80px)]";
+const DASHBOARD_GRID = "grid-cols-[minmax(350px,1fr)_repeat(6,80px)]";
 
 function ClientSection({ item }: { item: TreeItemFn }) {
     const [isOpen, setIsOpen] = useState(true);
@@ -52,16 +52,12 @@ function ClientSection({ item }: { item: TreeItemFn }) {
                 {/* ── Row 1: Column headers — inside title area, above border ── */}
                 <div className={`hidden md:grid ${DASHBOARD_GRID} items-center px-4 pt-2.5 pb-0.5 bg-slate-50 text-[9px] font-semibold text-slate-400 uppercase tracking-wider dark:bg-slate-900`}>
                     <div className="pl-[44px]">Name</div>
-                    <div /> {/* empty — badge is inline with name */}
+                    <div className="text-right pr-2">Total</div>
                     <div className="text-right pr-2">No Data</div>
-                    <div className="text-right pr-2">Prepop</div>
-                    <div className="text-right pr-2">System</div>
-                    <div className="text-right pr-2">Drafted</div>
+                    <div className="text-right pr-2">Mapped</div>
+                    <div className="text-right pr-2">Answered</div>
                     <div className="text-right pr-2">Approved</div>
                     <div className="text-right pr-2">Released</div>
-                    <div className="text-right pr-2">Ack</div>
-                    <div className="text-right pr-2">Last Edit</div>
-                    <div className="text-right pr-2">Target</div>
                 </div>
 
                 {/* ── Row 2: Client data — clickable, border-b at bottom ── */}
@@ -88,22 +84,13 @@ function ClientSection({ item }: { item: TreeItemFn }) {
                                 <Plus className="h-2.5 w-2.5" /> LE
                             </span>
                         </div>
-                        {/* Role column — empty, badge is already in name cell */}
-                        <div />
                         {/* Consolidated metrics */}
+                        <MetricCell value={item.metrics.total} />
                         <MetricCell value={item.metrics.noData} />
-                        <MetricCell value={item.metrics.prepopulated} />
-                        <MetricCell value={item.metrics.systemUpdated} />
-                        <MetricCell value={item.metrics.drafted} />
+                        <MetricCell value={item.metrics.mapped} />
+                        <MetricCell value={item.metrics.answered} />
                         <MetricCell value={item.metrics.approved} />
                         <MetricCell value={item.metrics.released} />
-                        <MetricCell value={item.metrics.acknowledged} />
-                        <div className="text-right text-xs text-slate-500 whitespace-nowrap">
-                            {item.metrics.lastEdit ? format(new Date(item.metrics.lastEdit), "dd MMM yy") : "-"}
-                        </div>
-                        <div className="text-right text-xs text-slate-500 whitespace-nowrap">
-                            {item.metrics.targetCompletion ? format(new Date(item.metrics.targetCompletion), "dd MMM yy") : "-"}
-                        </div>
                     </div>
                 </CollapsibleTrigger>
 
@@ -169,22 +156,29 @@ function TreeRow({ item, level, isRoot = false }: { item: TreeItemFn; level: num
                                         <span className="ml-2 text-xs text-slate-400 italic no-underline">(archived)</span>
                                     )}
                                 </Link>
+                                <RoleBadge role={item.role} />
                                 <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-100 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] text-indigo-500 bg-indigo-50 hover:bg-indigo-100 cursor-pointer whitespace-nowrap shrink-0">
                                     <Plus className="h-2.5 w-2.5" /> Relationship
                                 </span>
                             </>
                         ) : item.type === "ENGAGEMENT" ? (
-                            <Link
-                                href={`/app/le/${item.metadata?.leId}/engagement-new/${item.id}?tab=overview`}
-                                className="truncate hover:underline hover:text-blue-600 cursor-pointer text-sm font-medium"
-                                title={item.name}
-                            >
-                                {item.name}
-                            </Link>
+                            <>
+                                <Link
+                                    href={`/app/le/${item.metadata?.leId}/engagement-new/${item.id}?tab=overview`}
+                                    className="truncate hover:underline hover:text-blue-600 cursor-pointer text-sm font-medium"
+                                    title={item.name}
+                                >
+                                    {item.name}
+                                </Link>
+                                <RoleBadge role={item.role} />
+                            </>
                         ) : (
-                            <span className="truncate text-sm" title={item.name}>
-                                {item.name}
-                            </span>
+                            <>
+                                <span className="truncate text-sm" title={item.name}>
+                                    {item.name}
+                                </span>
+                                <RoleBadge role={item.role} />
+                            </>
                         )}
 
                         {/* Mobile Details Toggle */}
@@ -203,27 +197,15 @@ function TreeRow({ item, level, isRoot = false }: { item: TreeItemFn; level: num
                         </div>
                     </div>
 
-                    {/* Role (Mobile: Hidden or inline? Let's keep inline if possible, or hide) */}
-                    <div className="hidden md:block">
-                        <RoleBadge role={item.role} />
-                    </div>
-
                     {/* Metrics (Desktop) */}
                     <div className="hidden md:contents">
                         {/* 'contents' allows these divs to participate in the parent grid */}
+                        <MetricCell value={item.metrics.total} />
                         <MetricCell value={item.metrics.noData} />
-                        <MetricCell value={item.metrics.prepopulated} />
-                        <MetricCell value={item.metrics.systemUpdated} />
-                        <MetricCell value={item.metrics.drafted} />
+                        <MetricCell value={item.metrics.mapped} />
+                        <MetricCell value={item.metrics.answered} />
                         <MetricCell value={item.metrics.approved} />
                         <MetricCell value={item.metrics.released} />
-                        <MetricCell value={item.metrics.acknowledged} />
-                        <div className="text-right text-xs text-slate-500 whitespace-nowrap">
-                            {item.metrics.lastEdit ? format(new Date(item.metrics.lastEdit), "dd MMM yy") : "-"}
-                        </div>
-                        <div className="text-right text-xs text-slate-500 whitespace-nowrap">
-                            {item.metrics.targetCompletion ? format(new Date(item.metrics.targetCompletion), "dd MMM yy") : "-"}
-                        </div>
                     </div>
                 </div>
 
@@ -234,16 +216,12 @@ function TreeRow({ item, level, isRoot = false }: { item: TreeItemFn; level: num
                             <span className="text-slate-500">Role</span>
                             <RoleBadge role={item.role} />
                         </div>
+                        <MobileMetric label="Total" value={item.metrics.total} />
                         <MobileMetric label="No Data" value={item.metrics.noData} />
-                        <MobileMetric label="Prepop" value={item.metrics.prepopulated} />
-                        <MobileMetric label="System" value={item.metrics.systemUpdated} />
-                        <MobileMetric label="Drafted" value={item.metrics.drafted} />
+                        <MobileMetric label="Mapped" value={item.metrics.mapped} />
+                        <MobileMetric label="Answered" value={item.metrics.answered} />
                         <MobileMetric label="Approved" value={item.metrics.approved} />
                         <MobileMetric label="Released" value={item.metrics.released} />
-                        <MobileMetric label="Ack" value={item.metrics.acknowledged} />
-                        <div className="col-span-2 pt-2 text-right text-slate-400">
-                            Last Edit: {item.metrics.lastEdit ? format(new Date(item.metrics.lastEdit), "dd MMM yy") : "-"}
-                        </div>
                     </div>
                 )}
             </div>

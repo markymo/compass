@@ -649,25 +649,9 @@ export async function getDashboardMetrics(leId: string) {
         // Our new logic puts things in buckets based on status.
         // Let's rely on the buckets for the score to be consistent.
 
-        const eTotal = m.noData + m.drafted + m.approved + m.released + m.acknowledged;
-        // Strict answered: Approved, Released, Ack. 
-        // Drafted might be "In Progress".
-        // Old logic: "answeredQuestions" included Internal Review.
-        const eAnswered = m.approved + m.released + m.acknowledged + (m.drafted > 0 ? m.drafted : 0);
-        // Wait, 'drafted' bucket in new logic includes DRAFT and INTERNAL_REVIEW.
-        // In old logic, DRAFT with no answer was valid?
-        // Old logic: `isAnswered = ... || INTERNAL_REVIEW || ...`
-        // We should probably refine `calculateEngagementMetrics` to be more granular if we want exact score match,
-        // but for now, let's treat "Drafted" as "Has Attention" or similar?
-        // Actually, the Score is arbitrary. Let's make it: Approved + Released + Ack.
-
-        // Re-reading old logic: 
-        // isAnswered = SUPPLIER_SIGNED_OFF || CLIENT_SIGNED_OFF || SHARED || SUPPLIER_REVIEW || INTERNAL_REVIEW || isLocked
-        // This maps to: Acknowledged, Approved, Released, Drafted (partial).
-        // Let's include Drafted in 'Answered' for the score if we want to be generous, or exclude it.
-        // Given "Readiness", Drafted usually implies some work done.
-
-        const effectiveAnswered = m.approved + m.released + m.acknowledged + m.drafted; // Drafted includes internal review
+        const eTotal = m.noData + m.mapped;
+        const eAnswered = m.answered;
+        const effectiveAnswered = m.answered;
 
         engagementStats.set(eng.id, { total: eTotal, answered: effectiveAnswered });
 
@@ -681,10 +665,10 @@ export async function getDashboardMetrics(leId: string) {
 
     // Map back to 'cpStatus' for frontend compatibility
     const cpStatus = {
-        draft: leMetrics.noData + leMetrics.prepopulated + leMetrics.systemUpdated,
-        internalReview: leMetrics.drafted,
+        draft: leMetrics.noData,
+        internalReview: leMetrics.mapped,
         shared: leMetrics.released,
-        done: leMetrics.approved + leMetrics.acknowledged
+        done: leMetrics.approved
     };
 
     // C. Activity Feed (Team-wide, filtered by this LE)
