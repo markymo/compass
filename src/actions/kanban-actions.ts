@@ -178,10 +178,13 @@ export async function getBoardQuestions(engagementId: string) {
                 orderBy: { createdAt: 'desc' },
                 include: { user: true }
             },
-            // @ts-ignore: schema additions
+            // @ts-ignore
             documents: true,
             // @ts-ignore
-            supplierNoteUpdatedByUser: true
+            supplierNoteUpdatedByUser: true,
+            questionnaire: {
+                select: { name: true }
+            }
         }
     });
 
@@ -212,6 +215,8 @@ export async function getBoardQuestions(engagementId: string) {
         return {
             id: q.id,
             questionnaireId: q.questionnaireId,
+            questionnaireName: (q as any).questionnaire?.name || "Unknown Questionnaire",
+            legalEntityName: engagement?.clientLE?.name || "Unknown Entity",
             question: q.text,
             compactText: (q as any).compactText || undefined,
             answer: finalAnswer,

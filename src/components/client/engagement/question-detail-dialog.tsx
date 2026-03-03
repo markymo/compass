@@ -17,12 +17,11 @@ import { Bot, User, Send, History, MessageSquare, Sparkles, Lock, Unlock, Loader
 import { QuestionTask } from "./question-card";
 import { cn } from "@/lib/utils";
 import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { upload } from "@vercel/blob/client";
 
 interface QuestionDetailDialogProps {
@@ -32,7 +31,7 @@ interface QuestionDetailDialogProps {
     clientLEId?: string;
 }
 
-import { updateAnswer, updateSupplierNote, generateSingleQuestionAnswer, toggleQuestionLock, getLETeamMembers, assignQuestion, attachDocumentToQuestion, approveQuestionMapping, shareQuestion, releaseQuestion } from "@/actions/kanban-actions";
+import { updateSupplierNote, toggleQuestionLock, getLETeamMembers, assignQuestion, attachDocumentToQuestion, approveQuestionMapping, shareQuestion, releaseQuestion } from "@/actions/kanban-actions";
 import { getFieldDetail, FieldDetailData } from "@/actions/kyc-query";
 import { toast } from "sonner";
 import { useState, useEffect } from "react";
@@ -44,9 +43,7 @@ export function QuestionDetailDialog({ open, onOpenChange, task, clientLEId }: Q
     const router = useRouter();
     const [supplierNote, setSupplierNote] = useState("");
     const [supplierNoteMeta, setSupplierNoteMeta] = useState<{ updatedAt?: string, updatedBy?: string }>({});
-    const [answer, setAnswer] = useState("");
     const [isSaving, setIsSaving] = useState(false);
-    const [isGenerating, setIsGenerating] = useState(false);
     const [isLocked, setIsLocked] = useState(false);
     const [isAssigning, setIsAssigning] = useState(false);
     const [isUploadingFile, setIsUploadingFile] = useState(false);
@@ -60,7 +57,6 @@ export function QuestionDetailDialog({ open, onOpenChange, task, clientLEId }: Q
     // Sync local state when task opens
     useEffect(() => {
         if (task) {
-            setAnswer(task.answer || "");
             setIsLocked(task.isLocked || task.status === 'RELEASED');
             setLocalActivities(task.activities || []);
         }
@@ -123,36 +119,7 @@ export function QuestionDetailDialog({ open, onOpenChange, task, clientLEId }: Q
         }
     };
 
-    const handleSaveAnswer = async () => {
-        if (!task) return;
-        setIsSaving(true);
-        const res = await updateAnswer(task.id, answer);
-        if (res.success) {
-            toast.success("Answer saved");
-            if (res.activity) {
-                setLocalActivities([res.activity, ...localActivities]);
-            }
-        } else {
-            toast.error("Failed to save answer");
-        }
-        setIsSaving(false);
-    };
 
-    const handleGenerate = async () => {
-        if (!task || isLocked) return;
-        setIsGenerating(true);
-        const res = await generateSingleQuestionAnswer(task.id);
-        if (res.success && res.answer) {
-            setAnswer(res.answer);
-            toast.success("Answer generated");
-            if (res.activity) {
-                setLocalActivities([res.activity, ...localActivities]);
-            }
-        } else {
-            toast.error("Generation failed");
-        }
-        setIsGenerating(false);
-    };
 
     const handleToggleLock = async () => {
         if (!task || task.status === 'RELEASED') return;
@@ -275,45 +242,89 @@ export function QuestionDetailDialog({ open, onOpenChange, task, clientLEId }: Q
                                 </div>
                             )}
                         </div>
-                        <div className={cn(
-                            "flex items-center text-xs px-2 py-1 rounded-full font-medium border mr-8 transition-colors",
-                            task.answer ? "text-indigo-600 bg-indigo-50 border-indigo-100" : "text-slate-500 bg-slate-50 border-slate-200"
-                        )} title="Updates will be saved to Legal Entity Knowledge Base">
-                            <Database className={cn("h-3 w-3 mr-1.5", task.answer ? "text-indigo-600" : "text-slate-400")} />
-                            {task.answer ? "Synced to Knowledge Base" : "Syncs upon Save"}
-                        </div>
                     </div>
-                    <DialogTitle className="text-xl leading-snug font-playfair">{task.question}</DialogTitle>
+                    <div className="flex flex-col mb-1 gap-1 mt-1">
+                        <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                            <span>{task.legalEntityName}</span>
+                            <span className="text-slate-300">•</span>
+                            <span className="text-indigo-600">{task.questionnaireName}</span>
+                        </div>
+                        <DialogTitle className="text-xl leading-snug font-playfair">{task.question}</DialogTitle>
+                    </div>
                     <div className="flex items-center gap-4 mt-2">
                         <DialogDescription className="text-xs">
                             Internal ID: {task.id.slice(0, 8)}
                         </DialogDescription>
-                        <div className="flex items-center gap-2">
-                            <span className="text-xs text-slate-400">Assignee:</span>
-                            <Select
-                                onValueChange={handleAssign}
-                                disabled={isAssigning}
-                                defaultValue={task.assignedToUserId ? `u:${task.assignedToUserId}` : (task.assignedEmail ? `i:${task.assignedEmail}` : "unassigned")}
-                            >
-                                <SelectTrigger className="h-7 text-xs bg-white border-slate-200 min-w-[140px]">
-                                    <SelectValue placeholder="Assign user..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="unassigned">Unassigned</SelectItem>
-                                    {teamMembers.map((member) => (
-                                        <SelectItem
-                                            key={member.id || member.email}
-                                            value={member.id ? `u:${member.id}` : `i:${member.email}`}
-                                        >
-                                            <div className="flex items-center gap-2">
-                                                <div className={cn("h-1.5 w-1.5 rounded-full", member.status === 'ACTIVE' ? "bg-green-500" : "bg-amber-400")} />
-                                                <span>{member.name}</span>
-                                                {member.status === 'PENDING' && <span className="text-[10px] opacity-50 ml-1">(Invited)</span>}
-                                            </div>
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                        <div className="flex items-center gap-2 shrink-0">
+                            {isAssigning ? (
+                                <div className="flex items-center px-3 py-1.5 text-xs text-slate-500 gap-2 border rounded-md">
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                    Assigning...
+                                </div>
+                            ) : (
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="outline" size="sm" className="h-8 shadow-sm group whitespace-nowrap">
+                                            {task.assignee ? (
+                                                <>
+                                                    <Avatar className="h-5 w-5 mr-1.5 border">
+                                                        <AvatarFallback className="text-[9px] bg-indigo-50 text-indigo-700 font-semibold">
+                                                            {(task.assignee.name || "U").substring(0, 2).toUpperCase()}
+                                                        </AvatarFallback>
+                                                    </Avatar>
+                                                    <span className="text-xs truncate max-w-[100px] font-medium text-slate-700">
+                                                        {task.assignee.name}
+                                                    </span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <User className="h-3.5 w-3.5 mr-1.5 text-slate-400 group-hover:text-slate-700 transition-colors" />
+                                                    <span className="text-xs text-slate-500 group-hover:text-slate-800 transition-colors font-medium">Assign</span>
+                                                </>
+                                            )}
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" className="w-[220px]">
+                                        <div className="px-2 py-1.5 text-xs font-semibold text-slate-500 bg-slate-50 border-b mb-1">Assign to Team Member</div>
+                                        <div className="max-h-[200px] overflow-y-auto">
+                                            <DropdownMenuItem
+                                                className="text-xs py-2 cursor-pointer"
+                                                onClick={() => handleAssign("unassigned")}
+                                            >
+                                                <div className="flex items-center gap-2 text-slate-500">
+                                                    <User className="h-4 w-4" />
+                                                    <span>Unassigned</span>
+                                                </div>
+                                            </DropdownMenuItem>
+                                            {teamMembers.map((member) => (
+                                                <DropdownMenuItem
+                                                    key={member.id || member.email}
+                                                    className="text-xs py-2 cursor-pointer focus:bg-indigo-50"
+                                                    onClick={() => handleAssign(member.id ? `u:${member.id}` : `i:${member.email}`)}
+                                                >
+                                                    <div className="flex items-center gap-2 w-full">
+                                                        <Avatar className="h-5 w-5 shrink-0">
+                                                            <AvatarFallback className="text-[9px] bg-slate-100 text-slate-600">
+                                                                {(member.name || member.email)?.substring(0, 2).toUpperCase()}
+                                                            </AvatarFallback>
+                                                        </Avatar>
+                                                        <div className="flex flex-col min-w-0">
+                                                            <span className="font-medium text-slate-900 truncate">
+                                                                <span className={cn("inline-block h-1.5 w-1.5 rounded-full mr-1", member.status === 'ACTIVE' ? "bg-green-500" : "bg-amber-400")} />
+                                                                {member.name}
+                                                            </span>
+                                                            {(member.name && member.name !== member.email) && (
+                                                                <span className="text-[10px] text-slate-500 truncate">{member.email}</span>
+                                                            )}
+                                                        </div>
+                                                        {member.status === 'PENDING' && <span className="text-[10px] text-amber-600 opacity-70 ml-auto">(Invited)</span>}
+                                                    </div>
+                                                </DropdownMenuItem>
+                                            ))}
+                                        </div>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            )}
                         </div>
                     </div>
                 </DialogHeader>
@@ -323,40 +334,7 @@ export function QuestionDetailDialog({ open, onOpenChange, task, clientLEId }: Q
                     <div className="flex-[3] p-8 overflow-y-auto border-r border-slate-100 bg-white">
                         <div className="space-y-8">
                             <div>
-                                <div className="flex items-center justify-between mb-3">
-                                    <h4 className="text-sm font-semibold text-slate-900">Proposed Answer</h4>
-                                    <Button
-                                        size="icon"
-                                        variant="ghost"
-                                        className="text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 h-8 w-8 disabled:opacity-50"
-                                        title="Auto-Generate with AI"
-                                        onClick={handleGenerate}
-                                        disabled={isGenerating || isLocked}
-                                    >
-                                        {isGenerating ? <Loader2 className="h-5 w-5 animate-spin" /> : <Sparkles className="h-5 w-5" />}
-                                    </Button>
-                                </div>
-                                <div className="relative">
-                                    <Textarea
-                                        className={cn(
-                                            "min-h-[200px] text-base leading-relaxed p-4 border-slate-200 focus:bg-white transition-colors resize-y font-normal",
-                                            (isLocked || task.status === 'RELEASED') ? "bg-slate-100 text-slate-500 cursor-not-allowed" : "bg-slate-50"
-                                        )}
-                                        value={answer}
-                                        onChange={(e) => setAnswer(e.target.value)}
-                                        placeholder="Draft the official answer here..."
-                                        readOnly={isLocked || task.status === 'RELEASED'}
-                                    />
-                                    <div className="absolute bottom-4 right-4 flex gap-2">
-                                        {(!isLocked && task.status !== 'RELEASED') && (
-                                            <Button size="sm" onClick={handleSaveAnswer} disabled={isSaving}>
-                                                {isSaving ? "Saving..." : "Save Draft"}
-                                            </Button>
-                                        )}
-                                    </div>
-                                </div>
-
-                                <div className="mt-4 flex flex-col gap-3 p-5 bg-white rounded-xl border border-slate-200 shadow-sm relative overflow-hidden">
+                                <div className="flex flex-col gap-3 p-5 bg-white rounded-xl border border-slate-200 shadow-sm relative overflow-hidden">
                                     {/* Mapping Header indicating it inherits values */}
                                     <div className={cn("absolute top-0 left-0 w-1 h-full", (task.masterFieldNo || task.customFieldDefinitionId || task.masterQuestionGroupId) ? "bg-emerald-500" : "bg-amber-500")}></div>
                                     <div className="flex items-center justify-between">
@@ -591,8 +569,8 @@ export function QuestionDetailDialog({ open, onOpenChange, task, clientLEId }: Q
                                                         {activity.type === 'LOCKED' && " locked the question"}
                                                         {activity.type === 'UNLOCKED' && " unlocked the question"}
                                                         {activity.type === 'MAPPING_APPROVED' && " approved the master data mapping"}
-                                                        {activity.type === 'QUESTION_RELEASED' && " released and snapshotted the final answer"}
-                                                        {activity.type === 'QUESTION_SHARED' && " shared the answer with the financial institution"}
+                                                        {activity.type === 'QUESTION_RELEASED' && " released and snapshotted the final data"}
+                                                        {activity.type === 'QUESTION_SHARED' && " shared the mapped data with the financial institution"}
                                                         {activity.type === 'QUESTION_UNSHARED' && " retracted the shared status"}
                                                         {activity.type === 'ASSIGNED' && ` assigned the question to ${activity.details?.assignedEmail || (activity.details?.assignedToUserId ? 'Team Member' : 'nobody')}`}
                                                         {activity.type === 'SUPPLIER_NOTE_UPDATED' && " updated the Note for Supplier"}
@@ -650,7 +628,7 @@ export function QuestionDetailDialog({ open, onOpenChange, task, clientLEId }: Q
                                 )}
                                 value={supplierNote}
                                 onChange={(e) => setSupplierNote(e.target.value)}
-                                placeholder="Add an explanatory note for the supplier that goes beyond the pure answer provided by the mapped field..."
+                                placeholder="Add an explanatory note for the supplier that goes beyond the data provided by the mapped field..."
                                 readOnly={isLocked || task.status === 'RELEASED'}
                             />
                         </div>
