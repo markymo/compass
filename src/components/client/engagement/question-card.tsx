@@ -13,7 +13,7 @@ export interface QuestionTask {
     question: string;
     compactText?: string;
     answer?: string;
-    status: 'UNMAPPED' | 'MAPPED_DRAFT' | 'MAPPED_APPROVED' | 'SHARED' | 'RELEASED';
+    status: 'DRAFT' | 'APPROVED' | 'SHARED' | 'RELEASED';
     assignedToUserId?: string;
     assignedEmail?: string;
     assignee?: {
@@ -50,9 +50,8 @@ export function QuestionCard({ task, index, onClick }: QuestionCardProps) {
     const [aiState, setAIState] = useState<AIState>('idle');
 
     const statusColors = {
-        'UNMAPPED': 'border-l-slate-300',
-        'MAPPED_DRAFT': 'border-l-amber-400',
-        'MAPPED_APPROVED': 'border-l-emerald-400',
+        'DRAFT': 'border-l-amber-400',
+        'APPROVED': 'border-l-emerald-400',
         'SHARED': 'border-l-indigo-500',
         'RELEASED': 'border-l-slate-900 bg-slate-50'
     };

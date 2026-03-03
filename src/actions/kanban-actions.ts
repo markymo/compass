@@ -345,6 +345,8 @@ export async function shareQuestion(questionId: string, isShared: boolean) {
             select: { status: true }
         });
 
+        if (!question) return { success: false, error: "Question not found" };
+
         if (isShared) {
             if (question.status !== 'APPROVED' && question.status !== 'SHARED') {
                 return { success: false, error: "Question must be approved before sharing" };

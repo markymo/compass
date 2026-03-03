@@ -507,7 +507,7 @@ export class KycWriteService {
                     where: { id: q.id },
                     data: {
                         answer: String(newValue), // Naive string conversion for now
-                        status: 'MAPPED_DRAFT', // Auto-move to valid status
+                        status: 'DRAFT', // Auto-move to valid status
                     }
                 });
 

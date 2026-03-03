@@ -28,7 +28,7 @@ export async function applyMasterToQuestion(
             where: { id: questionId },
             data: {
                 answer: answerText,
-                status: { in: ['DRAFT', 'APPROVED', 'SHARED', 'RELEASED'] }
+                status: 'DRAFT'
             },
         });
 

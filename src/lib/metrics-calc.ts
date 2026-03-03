@@ -104,9 +104,7 @@ export async function calculateEngagementMetrics(engagementId: string): Promise<
 
         // Status Mapping
         switch (q.status) {
-            case "DRAFT":
             case "APPROVED":
-            case "MAPPED_APPROVED":
                 m.approved++;
                 break;
             case "RELEASED":

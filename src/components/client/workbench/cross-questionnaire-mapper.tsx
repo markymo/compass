@@ -862,27 +862,36 @@ function QuestionCard({
                         </div>
 
                         {/* Lifecycle Actions */}
-                        {isMapped && question.status !== 'RELEASED' && (
-                            <div className="flex items-center gap-2 mt-2 pt-2 border-t border-slate-200/50">
-                                {question.status === 'DRAFT' && (
-                                    <Button size="sm" variant="default" className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 w-full shadow-sm" onClick={handleApprove} disabled={isActionPending}>
-                                        <Check className="h-3 w-3 mr-1" /> Approve Mapping
-                                    </Button>
-                                )}
-                                {question.status === 'APPROVED' && (
-                                    <Button size="sm" variant="outline" className="h-7 text-xs text-indigo-600 border-indigo-200 flex-1 shadow-sm" onClick={(e) => handleShare(e, true)} disabled={isActionPending}>
-                                        <Share2 className="h-3 w-3 mr-1" /> Share
-                                    </Button>
-                                )}
-                                {question.status === 'SHARED' && (
-                                    <Button size="sm" variant="outline" className="h-7 text-xs text-slate-600 flex-1 shadow-sm border-slate-200" onClick={(e) => handleShare(e, false)} disabled={isActionPending}>
-                                        Unshare
-                                    </Button>
-                                )}
-                                {(question.status === 'APPROVED' || question.status === 'SHARED') && (
-                                    <Button size="sm" variant="secondary" className="h-7 text-xs bg-slate-900 text-white hover:bg-slate-800 flex-1 shadow-sm" onClick={handleRelease} disabled={isActionPending}>
-                                        <Lock className="h-3 w-3 mr-1" /> Release
-                                    </Button>
+                        {isMapped && (
+                            <div className="mt-2 pt-2 border-t border-slate-200/50">
+                                {question.status === 'RELEASED' ? (
+                                    <div className="flex items-center gap-2 p-2 bg-slate-100/50 rounded border border-slate-200/50 text-[11px] text-slate-600">
+                                        <Lock className="h-3 w-3 shrink-0 text-slate-900" />
+                                        <span>Locked by {question.releasedAt ? new Date(question.releasedAt).toLocaleDateString() : 'Admin'}</span>
+                                    </div>
+                                ) : (
+                                    <div className="flex items-center gap-2">
+                                        {question.status === 'DRAFT' && (
+                                            <Button size="sm" variant="default" className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 w-full shadow-sm" onClick={handleApprove} disabled={isActionPending}>
+                                                <Check className="h-3 w-3 mr-1" /> Approve Mapping
+                                            </Button>
+                                        )}
+                                        {question.status === 'APPROVED' && (
+                                            <Button size="sm" variant="outline" className="h-7 text-xs text-indigo-600 border-indigo-200 flex-1 shadow-sm" onClick={(e) => handleShare(e, true)} disabled={isActionPending}>
+                                                <Share2 className="h-3 w-3 mr-1" /> Share
+                                            </Button>
+                                        )}
+                                        {question.status === 'SHARED' && (
+                                            <Button size="sm" variant="outline" className="h-7 text-xs text-slate-600 flex-1 shadow-sm border-slate-200" onClick={(e) => handleShare(e, false)} disabled={isActionPending}>
+                                                Unshare
+                                            </Button>
+                                        )}
+                                        {(question.status === 'APPROVED' || question.status === 'SHARED') && (
+                                            <Button size="sm" variant="secondary" className="h-7 text-xs bg-slate-900 text-white hover:bg-slate-800 flex-1 shadow-sm" onClick={handleRelease} disabled={isActionPending}>
+                                                <Lock className="h-3 w-3 mr-1" /> Release
+                                            </Button>
+                                        )}
+                                    </div>
                                 )}
                             </div>
                         )}

@@ -224,7 +224,7 @@ export function QuestionDetailDialog({ open, onOpenChange, task, clientLEId }: Q
                                 "bg-white",
                                 task.status === 'RELEASED' && "border-slate-900 text-slate-900 border-2",
                                 task.status === 'SHARED' && "border-indigo-600 text-indigo-600",
-                                task.status === 'MAPPED_APPROVED' && "border-emerald-600 text-emerald-600"
+                                task.status === 'APPROVED' && "border-emerald-600 text-emerald-600"
                             )}>{task.status.replace('_', ' ')}</Badge>
                             {task.hasFlag && <Badge variant="destructive">Flagged</Badge>}
 
@@ -339,30 +339,24 @@ export function QuestionDetailDialog({ open, onOpenChange, task, clientLEId }: Q
                                     </div>
 
                                     <div className="flex items-center gap-2">
-                                        {task.status === 'MAPPED_DRAFT' && (
-                                            <Button size="sm" variant="default" className="bg-emerald-600 hover:bg-emerald-700" onClick={handleApproveMapping}>
-                                                <Check className="h-3.5 w-3.5 mr-1.5" />
-                                                Approve Mapping
+                                        {task.status === 'DRAFT' && (
+                                            <Button size="sm" variant="default" className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 w-full shadow-sm">
+                                                <Check className="h-3 w-3 mr-1" /> Approve Mapping
                                             </Button>
                                         )}
-
-                                        {task.status === 'MAPPED_APPROVED' && (
-                                            <Button size="sm" variant="outline" className="text-indigo-600 border-indigo-200" onClick={() => handleShare(true)}>
-                                                <Share2 className="h-3.5 w-3.5 mr-1.5" />
-                                                Share with Bank
+                                        {task.status === 'APPROVED' && (
+                                            <Button size="sm" variant="outline" className="h-7 text-xs text-indigo-600 border-indigo-200 flex-1 shadow-sm">
+                                                <Share2 className="h-3 w-3 mr-1" /> Share
                                             </Button>
                                         )}
-
                                         {task.status === 'SHARED' && (
-                                            <Button size="sm" variant="outline" className="text-slate-600" onClick={() => handleShare(false)}>
-                                                Stop Sharing
+                                            <Button size="sm" variant="outline" className="h-7 text-xs text-slate-600 flex-1 shadow-sm border-slate-200">
+                                                Unshare
                                             </Button>
                                         )}
-
-                                        {(task.status === 'MAPPED_APPROVED' || task.status === 'SHARED') && (
-                                            <Button size="sm" variant="secondary" className="bg-slate-900 text-white hover:bg-slate-800" onClick={handleRelease}>
-                                                <Lock className="h-3.5 w-3.5 mr-1.5" />
-                                                Release & Lock
+                                        {(task.status === 'APPROVED' || task.status === 'SHARED') && (
+                                            <Button size="sm" variant="secondary" className="h-7 text-xs bg-slate-900 text-white hover:bg-slate-800 flex-1 shadow-sm">
+                                                <Lock className="h-3 w-3 mr-1" /> Release
                                             </Button>
                                         )}
                                     </div>
