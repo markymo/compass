@@ -90,7 +90,7 @@ export async function populateQuestionsFromExtraction(questionnaireId: string) {
                         text: item.text || item.question || item.originalText || "Untitled Question",
                         compactText: item.compactText || null,
                         order: item.order ?? orderCounter++,
-                        status: item.masterKey ? ('MAPPED_DRAFT' as QuestionStatus) : ('UNMAPPED' as QuestionStatus),
+                        status: 'DRAFT' as QuestionStatus,
                         sourceSectionId: item.section || null,
 
                         // COORDINATOR WORKFLOW: Initially assign to the triggering LE Admin

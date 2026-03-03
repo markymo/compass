@@ -152,7 +152,7 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
                                 masterDataValue: (res as any).newValue,
                                 masterDataSource: (res as any).newSource,
                                 masterDataUpdatedAt: (res as any).newUpdatedAt,
-                                status: (mapping.fieldNo || mapping.groupId || mapping.customFieldId) ? 'MAPPED_DRAFT' : 'UNMAPPED'
+                                status: 'DRAFT' as any // Safety Reset
                             } as any
                             : q
                     )

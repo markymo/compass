@@ -845,7 +845,7 @@ async function syncQuestionsToDatabase(id: string, items: any[]) {
                 text: item.text || item.originalText || "Untitled Question",
                 compactText: item.compactText || null,
                 order: item.order || index + 1,
-                status: (item.masterFieldNo || item.masterQuestionGroupId || item.customFieldDefinitionId) ? ("MAPPED_DRAFT" as any) : ("UNMAPPED" as any),
+                status: "DRAFT" as any,
                 // NEW: Persist Mapping
                 masterFieldNo: item.masterFieldNo || null,
                 masterQuestionGroupId: item.masterQuestionGroupId || null,

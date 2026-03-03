@@ -25,9 +25,8 @@ export function QuestionKanbanCard({ question }: QuestionKanbanCardProps) {
 
     // Status color mapping
     const statusColors: Record<string, string> = {
-        'UNMAPPED': 'bg-slate-100 text-slate-700',
-        'MAPPED_DRAFT': 'bg-blue-50 text-blue-700 border-blue-200',
-        'MAPPED_APPROVED': 'bg-emerald-100 text-emerald-800 border-emerald-200',
+        'DRAFT': 'bg-blue-50 text-blue-700 border-blue-200',
+        'APPROVED': 'bg-emerald-100 text-emerald-800 border-emerald-200',
         'SHARED': 'bg-amber-50 text-amber-700 border-amber-200',
         'RELEASED': 'bg-green-50 text-green-700 border-green-200',
     };

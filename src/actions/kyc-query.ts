@@ -470,7 +470,7 @@ export async function getUserAssignments(userId: string): Promise<UserAssignment
     const questionsRaw = await prisma.question.findMany({
         where: {
             assignedToUserId: userId,
-            status: { not: "MAPPED_APPROVED" },
+            status: { not: "APPROVED" },
             questionnaire: { isDeleted: false }
         },
         include: {
