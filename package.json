@@ -42,6 +42,7 @@
     "@react-email/render": "^2.0.4",
     "@react-pdf/renderer": "^4.3.2",
     "@types/jsonwebtoken": "^9.0.10",
+    "@vercel/analytics": "^1.6.1",
     "@vercel/blob": "^2.0.0",
     "ai": "^5.0.112",
     "bcryptjs": "^3.0.3",
