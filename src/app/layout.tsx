@@ -6,6 +6,7 @@ import { UsageTracker } from "@/components/usage-tracker";
 import { AuthSessionProvider } from "@/components/providers/session-provider";
 import { Suspense } from "react";
 import { Toaster } from "@/components/ui/sonner";
+import { Analytics } from "@vercel/analytics/next";
 
 const outfit = Outfit({
   variable: "--font-heading",
@@ -43,6 +44,7 @@ export default function RootLayout({
           </Suspense>
           {children}
           <Toaster />
+          <Analytics />
         </AuthSessionProvider>
       </body>
     </html>
