@@ -10,6 +10,15 @@ import { refreshGleifProposals, acceptProposal } from "@/actions/kyc-proposals";
 import { FieldProposal, ProvenanceSource } from "@/domain/kyc/types/ProposalTypes";
 import { cn } from "@/lib/utils";
 import { FieldDetailPanel } from "./inspection/field-detail-panel";
+import { Input } from "@/components/ui/input";
+import { Search, Filter, AlertCircle, CheckCircle2, Circle } from "lucide-react";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue
+} from "@/components/ui/select";
 
 interface CategoryDef {
     id: string;
@@ -37,6 +46,10 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
     const [selectedField, setSelectedField] = useState<{ fieldNo: number; name: string; customFieldId?: string } | null>(null);
     const [lastRefreshed, setLastRefreshed] = useState<Date | undefined>(gleifLastSynced);
 
+    const [search, setSearch] = useState("");
+    const [catFilter, setCatFilter] = useState("ALL");
+    const [popFilter, setPopFilter] = useState("ALL");
+
     const categoryList = useMemo(() => {
         return categories.map(cat => {
             let icon = FileText;
@@ -51,6 +64,59 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
             };
         });
     }, [categories]);
+
+    // Filtering logic
+    const filteredCustomFields = useMemo(() => {
+        return customDefinitions.filter(def => {
+            const val = customData[def.id] || customData[def.key];
+            const hasValue = val !== null && val !== undefined && (typeof val === 'object' ? val.value !== "" : val !== "");
+
+            const matchesSearch = def.label.toLowerCase().includes(search.toLowerCase()) ||
+                (def.description && def.description.toLowerCase().includes(search.toLowerCase()));
+            const matchesCat = catFilter === "ALL" || catFilter === "CUSTOM";
+            const matchesPop = popFilter === "ALL" || (popFilter === "POPULATED" ? hasValue : !hasValue);
+
+            return matchesSearch && matchesCat && matchesPop;
+        });
+    }, [customDefinitions, customData, search, catFilter, popFilter]);
+
+    const filteredCategories = useMemo(() => {
+        return categoryList.map(cat => {
+            const fields = cat.fields.filter(f => {
+                const data = masterData[f.fieldNo];
+                const hasValue = data?.value !== null && data?.value !== undefined && data?.value !== "";
+
+                const matchesSearch = f.fieldName.toLowerCase().includes(search.toLowerCase()) ||
+                    (f.notes && f.notes.toLowerCase().includes(search.toLowerCase()));
+                const matchesPop = popFilter === "ALL" || (popFilter === "POPULATED" ? hasValue : !hasValue);
+
+                return matchesSearch && matchesPop;
+            });
+
+            return { ...cat, fields };
+        }).filter(cat => {
+            const matchesCat = catFilter === "ALL" || catFilter === cat.id;
+            return matchesCat && cat.fields.length > 0;
+        });
+    }, [categoryList, masterData, search, catFilter, popFilter]);
+
+    const filteredUncategorized = useMemo(() => {
+        if (catFilter !== "ALL" && catFilter !== "UNCATEGORIZED") return [];
+
+        return uncategorizedFields.filter(f => {
+            const data = masterData[f.fieldNo];
+            const hasValue = data?.value !== null && data?.value !== undefined && data?.value !== "";
+
+            const matchesSearch = f.fieldName.toLowerCase().includes(search.toLowerCase()) ||
+                (f.notes && f.notes.toLowerCase().includes(search.toLowerCase()));
+            const matchesPop = popFilter === "ALL" || (popFilter === "POPULATED" ? hasValue : !hasValue);
+
+            return matchesSearch && matchesPop;
+        });
+    }, [uncategorizedFields, masterData, search, catFilter, popFilter]);
+
+    const totalVisible = filteredCustomFields.length + filteredCategories.reduce((acc, c) => acc + c.fields.length, 0) + filteredUncategorized.length;
+
 
     const handleRefreshGleif = async () => {
         setIsRefreshing(true);
@@ -164,55 +230,99 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
             </div>
 
             {/* Master Record — full width */}
-            <div className="space-y-8">
-                <div>
-                    <h2 className="text-2xl font-semibold tracking-tight">Master Record</h2>
-                    <p className="text-slate-500 text-sm mt-1">
-                        Verified Golden Source record for this entity. Click a field to inspect history.
-                    </p>
+            <div className="space-y-6">
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+                    <div>
+                        <h2 className="text-2xl font-semibold tracking-tight">Master Record</h2>
+                        <p className="text-slate-500 text-sm mt-1">
+                            Verified Golden Source record.
+                        </p>
+                    </div>
+
+                    <div className="flex flex-col md:flex-row gap-3 items-center">
+                        <div className="relative w-full md:w-64">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                            <Input
+                                placeholder="Search fields..."
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                                className="pl-9 bg-white border-slate-200 focus-visible:ring-blue-500"
+                            />
+                        </div>
+
+                        <Select value={catFilter} onValueChange={setCatFilter}>
+                            <SelectTrigger className="w-full md:w-[180px] bg-white border-slate-200">
+                                <Filter className="h-3.5 w-3.5 mr-2 text-slate-400" />
+                                <SelectValue placeholder="Category" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="ALL">All Categories</SelectItem>
+                                {customDefinitions.length > 0 && <SelectItem value="CUSTOM">Custom Fields</SelectItem>}
+                                {categoryList.map(cat => (
+                                    <SelectItem key={cat.id} value={cat.id}>{cat.displayName}</SelectItem>
+                                ))}
+                                {uncategorizedFields.length > 0 && <SelectItem value="UNCATEGORIZED">Uncategorized</SelectItem>}
+                            </SelectContent>
+                        </Select>
+
+                        <Select value={popFilter} onValueChange={setPopFilter}>
+                            <SelectTrigger className="w-full md:w-[160px] bg-white border-slate-200">
+                                <span className="flex items-center gap-2">
+                                    {popFilter === 'POPULATED' ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> : <Circle className="h-3.5 w-3.5 text-slate-300" />}
+                                    <SelectValue placeholder="Status" />
+                                </span>
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="ALL">All Status</SelectItem>
+                                <SelectItem value="POPULATED">Populated</SelectItem>
+                                <SelectItem value="EMPTY">Missing Data</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
                 </div>
 
-                {/* Custom Fields - Top Priority */}
-                {customDefinitions.length > 0 && (
-                    <Card className="border-l-4 border-l-purple-500 shadow-sm overflow-hidden">
-                        <CardHeader className="pb-4 border-b border-slate-100 dark:border-slate-800 bg-purple-50/30">
-                            <CardTitle className="flex items-center gap-2 text-lg text-purple-900">
-                                <Sparkles className="h-5 w-5 text-purple-600" />
-                                Custom Fields
-                            </CardTitle>
-                            <CardDescription className="text-purple-700/70">
-                                Organization-specific data points
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent className="pt-6 space-y-4">
-                            {customDefinitions.map((def: any) => {
-                                const value = customData[def.id] || customData[def.key];
-                                return (
-                                    <MasterFieldDisplay
-                                        key={def.id}
-                                        label={def.label}
-                                        fieldNo={0}
-                                        value={value?.value || value}
-                                        source={value?.source || 'USER_INPUT'}
-                                        description={def.description}
-                                        isCustom={true}
-                                        onClick={() => setSelectedField({
-                                            fieldNo: 0,
-                                            name: def.label,
-                                            customFieldId: def.id
-                                        })}
-                                    />
-                                );
-                            })}
-                        </CardContent>
-                    </Card>
-                )}
-
+                {/* Master Record Content */}
                 <div className="space-y-6">
-                    {categoryList.map((group) => {
+                    {/* Custom Fields */}
+                    {filteredCustomFields.length > 0 && (
+                        <Card className="border-l-4 border-l-purple-500 shadow-sm overflow-hidden animate-in fade-in duration-300">
+                            <CardHeader className="pb-4 border-b border-slate-100 dark:border-slate-800 bg-purple-50/30">
+                                <CardTitle className="flex items-center gap-2 text-lg text-purple-900">
+                                    <Sparkles className="h-5 w-5 text-purple-600" />
+                                    Custom Fields
+                                </CardTitle>
+                                <CardDescription className="text-purple-700/70">
+                                    Organization-specific data points
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent className="pt-6 space-y-4">
+                                {filteredCustomFields.map((def: any) => {
+                                    const value = customData[def.id] || customData[def.key];
+                                    return (
+                                        <MasterFieldDisplay
+                                            key={def.id}
+                                            label={def.label}
+                                            fieldNo={0}
+                                            value={value?.value || value}
+                                            source={value?.source || 'USER_INPUT'}
+                                            description={def.description}
+                                            isCustom={true}
+                                            onClick={() => setSelectedField({
+                                                fieldNo: 0,
+                                                name: def.label,
+                                                customFieldId: def.id
+                                            })}
+                                        />
+                                    );
+                                })}
+                            </CardContent>
+                        </Card>
+                    )}
+
+                    {filteredCategories.map((group) => {
                         const Icon = group.icon;
                         return (
-                            <Card key={group.id} className="border-l-4 border-l-blue-500 shadow-sm overflow-hidden">
+                            <Card key={group.id} className="border-l-4 border-l-blue-500 shadow-sm overflow-hidden animate-in fade-in duration-300">
                                 <CardHeader className="pb-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50">
                                     <CardTitle className="flex items-center gap-2 text-lg">
                                         <Icon className="h-5 w-5 text-blue-600" />
@@ -235,16 +345,13 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                                             />
                                         );
                                     })}
-                                    {group.fields.length === 0 && (
-                                        <p className="text-sm text-slate-400 italic">No fields in this group.</p>
-                                    )}
                                 </CardContent>
                             </Card>
                         );
                     })}
 
-                    {uncategorizedFields && uncategorizedFields.length > 0 && (
-                        <Card className="border-l-4 border-l-slate-400 shadow-sm overflow-hidden opacity-80">
+                    {filteredUncategorized.length > 0 && (
+                        <Card className="border-l-4 border-l-slate-400 shadow-sm overflow-hidden opacity-80 animate-in fade-in duration-300">
                             <CardHeader className="pb-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50">
                                 <CardTitle className="flex items-center gap-2 text-lg">
                                     <FileText className="h-5 w-5 text-slate-500" />
@@ -252,7 +359,7 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="pt-6 space-y-4">
-                                {uncategorizedFields.map(field => {
+                                {filteredUncategorized.map(field => {
                                     const data = masterData[field.fieldNo];
                                     return (
                                         <MasterFieldDisplay
@@ -269,6 +376,21 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                                 })}
                             </CardContent>
                         </Card>
+                    )}
+
+                    {totalVisible === 0 && (
+                        <div className="py-20 text-center bg-white rounded-xl border border-dashed border-slate-300 animate-in fade-in duration-300">
+                            <AlertCircle className="h-10 w-10 text-slate-200 mx-auto mb-3" />
+                            <h3 className="text-lg font-medium text-slate-900">No matching fields</h3>
+                            <p className="text-slate-500 mt-1">Try adjusting your filters or search terms.</p>
+                            <Button
+                                variant="link"
+                                onClick={() => { setSearch(""); setCatFilter("ALL"); setPopFilter("ALL"); }}
+                                className="text-blue-500 mt-2"
+                            >
+                                Clear all filters
+                            </Button>
+                        </div>
                     )}
                 </div>
             </div>

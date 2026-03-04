@@ -209,6 +209,7 @@ export function EngagementManager({ leId, initialEngagements, leDueDate }: Engag
                                             effectiveDate={eng.dueDate || leDueDate}
                                             source={eng.dueDate ? 'RELATIONSHIP' : 'LE'}
                                             level="RELATIONSHIP"
+                                            label="Deadline"
                                         />
                                     </div>
                                 </div>

@@ -107,6 +107,7 @@ export function DueDateBadge({ date, effectiveDate, source, level, id, label }: 
                                     )}
                                 </span>
                             )}
+                            <ChevronDown className="h-3 w-3 opacity-40 ml-1 shrink-0" />
                         </>
                     ) : (
                         <>

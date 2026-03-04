@@ -11,12 +11,8 @@ export default async function Workbench4Page({ params }: { params: Promise<{ id:
 
     return (
         <div className="p-6">
-            <div className="mb-6">
-                <h1 className="text-2xl font-bold tracking-tight text-slate-900">Workbench: Global Mapping</h1>
-                <p className="text-slate-500 text-sm mt-1">
-                    Manage all questions across relationships and questionnaires in a single view.
-                    Map unmapped fields to your master schema or create new custom fields on the fly.
-                </p>
+            <div className="mb-8">
+                <h1 className="text-2xl font-bold tracking-tight text-slate-900">Questionnaire Responses</h1>
             </div>
 
             <CrossQuestionnaireMapper

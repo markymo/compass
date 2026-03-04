@@ -122,6 +122,7 @@ export function EngagementDetailView({ le, engagement, questionnaires, sharedDoc
                             effectiveDate={engagement.dueDate || le.dueDate}
                             source={engagement.dueDate ? 'RELATIONSHIP' : 'LE'}
                             level="RELATIONSHIP"
+                            label="Deadline"
                         />
                         <Button
                             size="sm"
@@ -256,6 +257,7 @@ export function EngagementDetailView({ le, engagement, questionnaires, sharedDoc
                                                                         effectiveDate={q.dueDate || engagement.dueDate || le.dueDate}
                                                                         source={q.dueDate ? 'QUESTIONNAIRE' : engagement.dueDate ? 'RELATIONSHIP' : 'LE'}
                                                                         level="QUESTIONNAIRE"
+                                                                        label="Deadline"
                                                                     />
                                                                 </div>
                                                             </div>

@@ -974,7 +974,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                         <TabsList className="grid w-full grid-cols-3">
                             <TabsTrigger value="evidence" className="gap-1.5">
                                 <Paperclip className="h-3.5 w-3.5" />
-                                Evidence
+                                Document
                                 {evidenceDocs.length > 0 && (
                                     <span className="ml-1 bg-indigo-100 text-indigo-700 text-[10px] px-1.5 rounded-full font-medium">
                                         {evidenceDocs.length}
@@ -1002,19 +1002,19 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                             >
                                 {isUploadingEvidence
                                     ? <><Loader2 className="h-4 w-4 animate-spin" /> Uploading...</>
-                                    : <><Paperclip className="h-4 w-4" /> Attach Evidence File</>
+                                    : <><Paperclip className="h-4 w-4" /> Attach Document</>
                                 }
                             </Button>
 
                             <ScrollArea className="h-[300px] rounded-md border">
                                 {isLoadingEvidence ? (
                                     <div className="flex items-center justify-center py-10 gap-2 text-slate-400">
-                                        <Loader2 className="h-4 w-4 animate-spin" /> Loading evidence...
+                                        <Loader2 className="h-4 w-4 animate-spin" /> Loading documents...
                                     </div>
                                 ) : evidenceDocs.length === 0 ? (
                                     <div className="text-center py-10 text-slate-400">
                                         <Paperclip className="h-8 w-8 mx-auto mb-2 opacity-30" />
-                                        <p className="text-sm italic">No evidence attached yet.</p>
+                                        <p className="text-sm italic">No documents attached yet.</p>
                                         <p className="text-xs mt-1">Upload supporting documents above.</p>
                                     </div>
                                 ) : (
