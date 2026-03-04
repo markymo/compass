@@ -2,18 +2,16 @@
 
 import { useEffect, useState } from "react";
 import { getAccountSettings, updateAccountSettings, getUserPermissions } from "@/actions/account";
-import { GuideHeader } from "@/components/layout/GuideHeader";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, Shield, User, Bell, Home, Key, ExternalLink } from "lucide-react";
+import { Loader2, Shield, User, Bell, Home, Key, ExternalLink, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { usePreferences } from "@/components/providers/user-preferences-provider";
-import { Sparkles } from "lucide-react";
 
 export default function AccountSettingsPage() {
     const router = useRouter();
@@ -92,15 +90,19 @@ export default function AccountSettingsPage() {
     if (!profile) return null;
 
     return (
-        <div className="space-y-6 max-w-4xl mx-auto pb-12">
-            <GuideHeader
-                breadcrumbs={[
-                    { label: "", href: "/app", icon: Home },
-                    { label: "Account Settings" }
-                ]}
-            />
+        <div className="space-y-6 max-w-4xl mx-auto pb-12 px-6 py-8">
+            {/* Header */}
+            <div className="flex items-center gap-3 mb-2">
+                <Link href="/app" className="p-2.5 bg-slate-100 rounded-xl hover:bg-slate-200 transition-colors block">
+                    <Home className="h-6 w-6 text-slate-600" />
+                </Link>
+                <div>
+                    <h1 className="text-3xl font-bold tracking-tight text-slate-900">Account Settings</h1>
+                    <p className="text-muted-foreground text-sm">Manage your personal profile, security and preferences.</p>
+                </div>
+            </div>
 
-            <div className="grid gap-6 md:grid-cols-12">
+            <div className="grid gap-6 md:grid-cols-12 pt-4">
                 {/* Main Content Area */}
                 <div className="md:col-span-8 space-y-6">
 
