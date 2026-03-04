@@ -99,8 +99,9 @@ export function EngagementManager({ leId, initialEngagements, leDueDate }: Engag
                     <p className="text-sm text-slate-500">Manage your connections with connected supply chain partners.</p>
                 </div>
                 {!isAdding && (
-                    <Button onClick={() => setIsAdding(true)} variant="outline" size="icon" title="Add Supplier">
-                        <Plus className="h-4 w-4" />
+                    <Button onClick={() => setIsAdding(true)} className="bg-indigo-600 hover:bg-indigo-700 text-white" size="sm" title="Add Supplier">
+                        <Plus className="h-4 w-4 mr-1.5" />
+                        Relationship
                     </Button>
                 )}
             </div>

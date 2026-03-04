@@ -108,7 +108,7 @@ export function MissionControl({ metrics, leId, engagements, activity = [] }: Mi
     };
 
     return (
-        <div className="space-y-8 animate-in fade-in duration-500">
+        <div className="animate-in fade-in duration-500">
 
             {/* Progress Tracker */}
             <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-4">
@@ -121,109 +121,37 @@ export function MissionControl({ metrics, leId, engagements, activity = [] }: Mi
                 </div>
             </div>
 
-            {/* Relationships */}
-            <Card className="border-slate-200 shadow-sm overflow-hidden">
-                <CardHeader className="bg-slate-50/50 border-b pb-4">
-                    <CardTitle className="text-base font-semibold flex items-center gap-2">
-                        <Users className="h-4 w-4 text-slate-500" />
-                        Relationships
-                    </CardTitle>
-                </CardHeader>
-                <CardContent className="p-0">
-                    <div className="flex flex-col">
-                        {metrics.pipeline.length === 0 ? (
-                            <div className="text-center py-6 text-slate-400 text-sm m-4 border-2 border-dashed border-slate-100 rounded-lg">
-                                No relationships yet.
-                            </div>
-                        ) : (
-                            <>
-                                {/* Table Header */}
-                                <div className="grid grid-cols-[1fr_120px_120px_120px] gap-4 px-6 py-3 bg-slate-50 border-b text-xs font-semibold text-slate-500 uppercase tracking-wider items-center">
-                                    <div>Supplier</div>
-                                    <div className="text-center">Added</div>
-                                    <div className="text-center">Invited</div>
-                                    <div className="text-center">Accepted</div>
-                                </div>
-                                {/* Table Body */}
-                                <div className="divide-y divide-slate-100">
-                                    {metrics.pipeline.map(bank => (
-                                        <div key={bank.id} className="grid grid-cols-[1fr_120px_120px_120px] gap-4 px-6 py-4 items-center hover:bg-slate-50 transition-colors">
-                                            <div className="flex items-center gap-3 min-w-0">
-                                                <div className="h-9 w-9 rounded-lg bg-white flex items-center justify-center text-slate-600 shrink-0 border border-slate-200 shadow-sm">
-                                                    <Building2 className="h-4 w-4" />
-                                                </div>
-                                                <div className="font-medium text-slate-900 truncate">
-                                                    {bank.fiName}
-                                                </div>
-                                            </div>
-
-                                            {/* Added */}
-                                            <div className="flex justify-center text-sm text-slate-500">
-                                                {bank.addedDate ? new Date(bank.addedDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'}
-                                            </div>
-
-                                            {/* Invited */}
-                                            <div className="flex justify-center flex-col items-center">
-                                                {bank.isInvited ? (
-                                                    <span className="text-sm font-medium text-slate-700">
-                                                        {bank.invitedDate ? new Date(bank.invitedDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Yes'}
-                                                    </span>
-                                                ) : (
-                                                    <Badge variant="outline" className="bg-slate-100/50 text-slate-400 border-dashed border-slate-200 font-normal">
-                                                        Waitlist
-                                                    </Badge>
-                                                )}
-                                            </div>
-
-                                            {/* Accepted */}
-                                            <div className="flex justify-center flex-col items-center">
-                                                {bank.isAccepted ? (
-                                                    <span className="text-sm font-medium text-emerald-600 flex items-center gap-1">
-                                                        <CheckCircle2 className="h-3 w-3" />
-                                                        {bank.acceptedDate ? new Date(bank.acceptedDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Yes'}
-                                                    </span>
-                                                ) : bank.isInvited ? (
-                                                    <span className="text-xs text-slate-400 italic">Pending</span>
-                                                ) : (
-                                                    <span className="text-sm text-slate-300">-</span>
-                                                )}
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </>
-                        )}
-                    </div>
-                </CardContent>
-            </Card>
-
-            {/* Activity Feed */}
-            <Card className="border-slate-200 shadow-sm">
-                <CardHeader className="flex flex-row items-center justify-between pb-3">
-                    <CardTitle className="text-base font-semibold flex items-center gap-2">
-                        <Activity className="h-4 w-4 text-slate-500" />
-                        Activity
-                    </CardTitle>
-                    {activity.length > 0 && (
-                        <span className="text-xs text-slate-400">{activity.length} recent events</span>
-                    )}
-                </CardHeader>
-                <CardContent>
-                    {activity.length === 0 ? (
-                        <div className="text-center py-10 space-y-2">
-                            <Activity className="h-8 w-8 text-slate-200 mx-auto" />
-                            <p className="text-sm text-slate-400">No activity yet.</p>
-                            <p className="text-xs text-slate-300">Events will appear here as the team answers questions, uploads documents, and invites members.</p>
-                        </div>
-                    ) : (
-                        <div className="space-y-4">
-                            {activity.map((event) => (
-                                <ActivityEventCard key={event.id} event={event} />
-                            ))}
-                        </div>
-                    )}
-                </CardContent>
-            </Card>
         </div>
+    );
+}
+
+export function ActivityFeed({ activity = [] }: { activity?: ActivityEvent[] }) {
+    return (
+        <Card className="border-slate-200 shadow-sm animate-in fade-in duration-500">
+            <CardHeader className="flex flex-row items-center justify-between pb-3">
+                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                    <Activity className="h-4 w-4 text-slate-500" />
+                    Activity
+                </CardTitle>
+                {activity.length > 0 && (
+                    <span className="text-xs text-slate-400">{activity.length} recent events</span>
+                )}
+            </CardHeader>
+            <CardContent>
+                {activity.length === 0 ? (
+                    <div className="text-center py-10 space-y-2">
+                        <Activity className="h-8 w-8 text-slate-200 mx-auto" />
+                        <p className="text-sm text-slate-400">No activity yet.</p>
+                        <p className="text-xs text-slate-300">Events will appear here as the team answers questions, uploads documents, and invites members.</p>
+                    </div>
+                ) : (
+                    <div className="space-y-4">
+                        {activity.map((event) => (
+                            <ActivityEventCard key={event.id} event={event} />
+                        ))}
+                    </div>
+                )}
+            </CardContent>
+        </Card>
     );
 }

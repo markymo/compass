@@ -12,9 +12,10 @@ export default async function RegistryPage({ params }: { params: Promise<{ id: s
 
     if (!data) return notFound();
 
-    const { le } = data;
+    const le = data.le;
     const registryData = (le as any).nationalRegistryData;
     const sourceLabel = registryData?.source || "National Registry";
+    const displayTitle = sourceLabel === "Companies House" ? "UK Companies House" : `${sourceLabel} Record`;
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -22,13 +23,13 @@ export default async function RegistryPage({ params }: { params: Promise<{ id: s
             {/* Header */}
             <div className="flex items-center justify-between bg-emerald-50/50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-900/30 rounded-lg p-4">
                 <div className="flex items-center gap-3">
-                    <div className="bg-emerald-100 dark:bg-emerald-900/30 p-2 rounded-full">
+                    <div className="bg-emerald-100 dark:bg-emerald-900/30 p-2 rounded-lg">
                         <Building2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
                     </div>
                     <div>
-                        <h3 className="font-medium text-emerald-900 dark:text-emerald-100">{sourceLabel} Record</h3>
+                        <h3 className="font-bold text-emerald-900 dark:text-emerald-100 text-lg tracking-tight">{displayTitle}</h3>
                         <p className="text-sm text-emerald-700 dark:text-emerald-300">
-                            Official data fetched directly from the local jurisdiction registry.
+                            Data verified against the local jurisdiction registry
                         </p>
                     </div>
                 </div>

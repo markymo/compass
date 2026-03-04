@@ -121,7 +121,10 @@ export function FIKanbanBoard({ engagementId, clientName = "Client" }: { engagem
     });
 
     // Group Statuses into Columns
-    const getTasksByStatus = (columnId: string) => filteredTasks.filter(t => t.status === columnId);
+    const getTasksByStatus = (columnId: string) => filteredTasks.filter(t => {
+        if (columnId === 'SHARED') return t.status === 'SHARED' || t.status === 'RELEASED';
+        return t.status === columnId;
+    });
 
     // Derive Unique Questionnaires for Filter
     // @ts-ignore

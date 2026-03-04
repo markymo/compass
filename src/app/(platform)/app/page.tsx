@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import {
     Loader2, Building2, Landmark, Gavel, ArrowRight, Home,
     ChevronDown, ChevronRight, FileText, Briefcase,
-    Link as LinkIcon, Plus, Factory
+    Link as LinkIcon, Factory
 } from "lucide-react";
 import Link from "next/link";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -234,9 +234,7 @@ function OrgCard({ org }: { org: OrgNode }) {
     if (engCount > 0) summaryParts.push(`${engCount} ${engCount === 1 ? "Engagement" : "Engagements"}`);
     const summary = summaryParts.join(" · ") || "No items";
 
-    const roleBadge = org.role === "ORG_ADMIN" ? "Admin" :
-        org.role === "ORG_MEMBER" ? "Member" :
-            org.role === "DERIVED" ? "Derived" : org.role;
+    const roleBadge = org.role;
 
     const les = org.children.filter(c => c.type === "le");
     const engagements = org.children.filter(c => c.type === "engagement");
@@ -336,7 +334,7 @@ function ClientOrgCard({ org }: { org: OrgNode }) {
                     "hidden md:grid items-center px-4 pt-2.5 pb-0.5 bg-slate-50 text-[9px] font-semibold text-slate-400 uppercase tracking-wider",
                     DASHBOARD_GRID
                 )}>
-                    <div className="pl-[44px]">Name</div>
+                    <div className="pl-[44px]"></div>
                     {org.orgType === "CLIENT" ? (
                         <>
                             <div className="text-right pr-2">Total</div>
@@ -367,15 +365,16 @@ function ClientOrgCard({ org }: { org: OrgNode }) {
                                 <Building2 className="h-4 w-4 shrink-0 transition-colors" style={{ color: "#0F766E" }} />
                                 <span className="font-bold text-sm text-slate-900 truncate group-hover/org:text-[#0F766E] transition-colors">{org.name}</span>
                             </Link>
+                        ) : org.orgType === "CLIENT" ? (
+                            <Link href={`/app/clients/${org.id}`} className="flex items-center gap-2 hover:underline group/org">
+                                <Factory className="h-4 w-4 shrink-0 transition-colors" style={{ color: "#4338CA" }} />
+                                <span className="font-bold text-sm text-slate-900 truncate group-hover/org:text-[#4338CA] transition-colors">{org.name}</span>
+                            </Link>
                         ) : (
-                            <>
-                                {org.orgType === "CLIENT" ? (
-                                    <Factory className="h-4 w-4 shrink-0" style={{ color: "#4338CA" }} />
-                                ) : (
-                                    <Building2 className="h-4 w-4 shrink-0" style={{ color: "#0F766E" }} />
-                                )}
+                            <div className="flex items-center gap-2">
+                                <Building2 className="h-4 w-4 shrink-0" style={{ color: "#0F766E" }} />
                                 <span className="font-bold text-sm text-slate-900 truncate">{org.name}</span>
-                            </>
+                            </div>
                         )}
                         <RoleBadge role={org.role} />
                     </div>
@@ -409,15 +408,16 @@ function ClientOrgCard({ org }: { org: OrgNode }) {
                                     <Building2 className="h-4 w-4" style={{ color: "#0F766E" }} />
                                     <span className="font-bold text-sm text-slate-900">{org.name}</span>
                                 </Link>
-                            ) : (
-                                <>
-                                    {org.orgType === "CLIENT" ? (
-                                        <Factory className="h-4 w-4" style={{ color: "#4338CA" }} />
-                                    ) : (
-                                        <Building2 className="h-4 w-4" style={{ color: "#64748b" }} />
-                                    )}
+                            ) : org.orgType === "CLIENT" ? (
+                                <Link href={`/app/clients/${org.id}`} className="flex items-center gap-2 hover:underline">
+                                    <Factory className="h-4 w-4" style={{ color: "#4338CA" }} />
                                     <span className="font-bold text-sm text-slate-900">{org.name}</span>
-                                </>
+                                </Link>
+                            ) : (
+                                <div className="flex items-center gap-2">
+                                    <Building2 className="h-4 w-4" style={{ color: "#64748b" }} />
+                                    <span className="font-bold text-sm text-slate-900">{org.name}</span>
+                                </div>
                             )}
                         </div>
                         <RoleBadge role={org.role} />
@@ -472,11 +472,7 @@ function NestedTreeRow({ item, level, orgType }: { item: OrgChild; level: number
 
                         <RoleBadge role={item.subtitle || ""} />
 
-                        {item.type === "le" && orgType !== "SUPPLIER" && (
-                            <span className="opacity-0 group-hover:opacity-100 transition-opacity hidden md:inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] text-indigo-500 bg-indigo-50 hover:bg-indigo-100 cursor-pointer whitespace-nowrap shrink-0 ml-2">
-                                <Plus className="h-2.5 w-2.5" /> Relationship
-                            </span>
-                        )}
+
                     </div>
 
                     <div className="hidden md:contents">
@@ -545,7 +541,7 @@ function RoleBadge({ role }: { role: string }) {
         colorClass = "bg-emerald-50 text-emerald-700 border-emerald-100";
     }
 
-    const label = role === "ADMIN_VISIBILITY" ? "Admin" : role.replace("_", " ");
+    const label = role;
 
     return (
         <Badge variant="outline" className={cn("text-[10px] font-normal px-1.5 py-0 h-4 uppercase tracking-tighter", colorClass)}>
@@ -632,12 +628,12 @@ export default function DashboardPage() {
         <div className="max-w-7xl mx-auto px-6 py-8 space-y-6">
             {/* Header */}
             <div className="flex items-center gap-3 mb-2">
-                <div className="p-2.5 bg-slate-100 rounded-xl">
+                <Link href="/app" className="p-2.5 bg-slate-100 rounded-xl hover:bg-slate-200 transition-colors block">
                     <Home className="h-6 w-6 text-slate-600" />
-                </div>
+                </Link>
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight text-slate-900">My Universe</h1>
-                    <p className="text-muted-foreground text-sm">Your organisations and workspaces</p>
+                    <h1 className="text-3xl font-bold tracking-tight text-slate-900">Relationships Overview</h1>
+                    <p className="text-muted-foreground text-sm">Your Organisations, Legal Entities and Relationships.</p>
                 </div>
             </div>
 

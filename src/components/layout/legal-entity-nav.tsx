@@ -45,18 +45,6 @@ export function LegalEntityNav({ leId }: LegalEntityNavProps) {
             href: `${baseUrl}/workbench4`,
             icon: Clipboard,
             isActive: (path: string) => path.startsWith(`${baseUrl}/workbench4`)
-        },
-        {
-            label: "Relationships",
-            href: `${baseUrl}/relationships`,
-            icon: Link2,
-            isActive: (path: string) => path.startsWith(`${baseUrl}/relationships`) || path.startsWith(`${baseUrl}/engagement-new`) // Handle existing sub-routes if any
-        },
-        {
-            label: "Team",
-            href: `${baseUrl}/team`,
-            icon: Users,
-            isActive: (path: string) => path.startsWith(`${baseUrl}/team`)
         }
     ];
 

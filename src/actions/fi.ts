@@ -334,7 +334,6 @@ export async function getFIWorkbenchData(fiOrgId: string) {
         where: {
             questionnaire: {
                 fiOrgId: fiOrgId,
-                status: { not: "DRAFT" },
                 isDeleted: false
             },
             status: { in: ["SHARED", "RELEASED"] }

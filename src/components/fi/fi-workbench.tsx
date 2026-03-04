@@ -196,14 +196,17 @@ function FIQuestionCard({ question }: { question: any }) {
                             </div>
                         </div>
 
-                        <div className="bg-teal-50/30 rounded-xl p-4 border border-teal-100/50 relative group/answer">
+                        <div className={cn(
+                            "rounded-xl p-4 border relative group/answer",
+                            question.answer ? "bg-teal-50/30 border-teal-100/50" : "bg-red-50/30 border-red-100/50"
+                        )}>
                             <div className="flex items-start gap-3">
-                                <span className="text-teal-400 font-black text-xs mt-1 shrink-0 italic">A</span>
+                                <span className={cn("font-black text-xs mt-1 shrink-0 italic", question.answer ? "text-teal-400" : "text-red-400")}>A</span>
                                 <div className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
                                     {question.answer ? (
                                         question.answer
                                     ) : (
-                                        <span className="text-slate-400 italic font-medium">No answer provided yet.</span>
+                                        <span className="text-red-400 italic font-medium">No answer provided yet.</span>
                                     )}
                                 </div>
                             </div>

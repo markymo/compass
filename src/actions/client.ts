@@ -97,11 +97,17 @@ export async function ensureUserOrg(userId: string, userEmail: string = "") {
 
             // Transactional Merge
             await prisma.$transaction(async (tx) => {
+                // 0. Free up the email on the placeholder so we can assign it to the new user ID
+                await tx.user.update({
+                    where: { id: existingUserByEmail.id },
+                    data: { email: `${existingUserByEmail.id}@merged.demo.com` }
+                });
+
                 // 1. Create New User first to satisfy foreign keys
                 // We use upsert in case the userId is already in the DB from a concurrent request.
                 await tx.user.upsert({
                     where: { id: userId },
-                    update: {},
+                    update: { email: userEmail, name: existingUserByEmail.name },
                     create: { id: userId, email: userEmail, name: existingUserByEmail.name }
                 });
 

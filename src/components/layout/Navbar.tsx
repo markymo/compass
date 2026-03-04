@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Compass, Menu } from "lucide-react";
+import { Menu } from "lucide-react";
 import { useSession } from "next-auth/react";
 import {
     Sheet,

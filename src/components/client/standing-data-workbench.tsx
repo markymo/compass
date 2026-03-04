@@ -96,7 +96,6 @@ export function StandingDataWorkbench({ leId }: StandingDataWorkbenchProps) {
             <div className="col-span-4 border-r pr-6">
                 <div className="mb-4">
                     <h3 className="font-semibold text-slate-900">Knowledge Base</h3>
-                    <p className="text-xs text-slate-500">Select a category to manage context.</p>
                 </div>
                 <div className="space-y-2">
                     {CATEGORIES.map((cat) => (
@@ -138,7 +137,7 @@ export function StandingDataWorkbench({ leId }: StandingDataWorkbenchProps) {
                             {CATEGORIES.find(c => c.id === activeCategory)?.label}
                         </h2>
                         <p className="text-sm text-slate-500">
-                            Provide context in free-text format. Markdown supported.
+                            Add free text data for extraction by the system. Markdown supported.
                         </p>
                     </div>
                     <div className="flex items-center gap-3">

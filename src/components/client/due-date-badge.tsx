@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { format, isPast, isToday, addDays, isBefore } from "date-fns";
 import { Calendar as CalendarIcon, Clock, ChevronDown, Info, CornerDownRight, User, X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -29,6 +29,13 @@ export function DueDateBadge({ date, effectiveDate, source, level, id, label }: 
     const [isPending, startTransition] = useTransition();
     const [isOpen, setIsOpen] = useState(false);
     const { preferences } = usePreferences();
+    const [draftDate, setDraftDate] = useState(date ? format(date, "yyyy-MM-dd") : "");
+
+    useEffect(() => {
+        if (isOpen) {
+            setDraftDate(date ? format(date, "yyyy-MM-dd") : "");
+        }
+    }, [isOpen, date]);
 
     const activeDate = effectiveDate || date;
     const isOverridden = date !== null && level !== 'LE';
@@ -123,13 +130,29 @@ export function DueDateBadge({ date, effectiveDate, source, level, id, label }: 
                 </div>
 
                 <div className="space-y-3">
-                    <input
-                        type="date"
-                        className="w-full px-3 py-2 text-sm border rounded-md focus:ring-2 focus:ring-indigo-500 outline-none"
-                        defaultValue={date ? format(date, "yyyy-MM-dd") : ""}
-                        onChange={(e) => handleUpdate(e.target.value)}
-                        disabled={isPending}
-                    />
+                    <div className="flex items-center gap-2">
+                        <input
+                            type="date"
+                            className="flex-1 min-w-0 px-3 py-2 text-sm border rounded-md focus:ring-2 focus:ring-indigo-500 outline-none"
+                            value={draftDate}
+                            onChange={(e) => setDraftDate(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' && draftDate !== (date ? format(date, "yyyy-MM-dd") : "")) {
+                                    handleUpdate(draftDate);
+                                }
+                            }}
+                            disabled={isPending}
+                        />
+                        <Button
+                            variant="default"
+                            size="sm"
+                            className="h-[38px]"
+                            onClick={() => handleUpdate(draftDate)}
+                            disabled={isPending || draftDate === (date ? format(date, "yyyy-MM-dd") : "")}
+                        >
+                            Save
+                        </Button>
+                    </div>
 
                     {level !== 'LE' && date && (
                         <Button

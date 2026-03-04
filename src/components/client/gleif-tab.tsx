@@ -45,20 +45,25 @@ export function GleifTab({ data, fetchedAt }: GleifTabProps) {
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
 
             {/* Header / Info Bar */}
-            <div className="flex items-center justify-between bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-lg p-4">
+            <div className="flex items-center justify-between bg-[#003336] border border-blue-900/30 rounded-lg p-4">
                 <div className="flex items-center gap-3">
-                    <div className="bg-blue-100 dark:bg-blue-900/30 p-2 rounded-full">
-                        <CheckCircle2 className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                    <div className="bg-[#51DAC4]/10 p-2 rounded-lg">
+                        <svg viewBox="0 0 24 24" className="h-6 w-6 text-[#51DAC4]" fill="currentColor">
+                            <path d="M12,2C6.47,2,2,6.47,2,12s4.47,10,10,10s10-4.47,10-10S17.53,2,12,2z M12,20c-4.41,0-8-3.59-8-8s3.59-8,8-8s8,3.59,8,8 S16.41,20,12,20z M12.5,7h-1v4.49l3.5,2.06l0.5-0.85l-3-1.76V7z M12,12L12,12L12,12l0,0L12,12L12,12z" />
+                        </svg>
                     </div>
                     <div>
-                        <h3 className="font-medium text-blue-900 dark:text-blue-100">Official GLEIF Record</h3>
-                        <p className="text-sm text-blue-700 dark:text-blue-300">
-                            Data verified against the Global Legal Entity Identifier Foundation.
-                        </p>
+                        <h3 className="font-bold text-white text-lg tracking-tight">GLEIF</h3>
+                        <div className="flex items-center gap-2 mt-0.5">
+                            <span className="text-[10px] bg-[#51DAC4] text-[#003336] font-bold px-1.5 py-0 rounded">VERIFIED DATA</span>
+                            <p className="text-xs text-[#51DAC4]/80">
+                                Global Legal Entity Identifier Foundation
+                            </p>
+                        </div>
                     </div>
                 </div>
                 {fetchedAt && (
-                    <div className="flex items-center gap-2 text-xs text-slate-500 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-md border shadow-sm">
+                    <div className="flex items-center gap-2 text-xs text-[#51DAC4] bg-white/5 px-3 py-1.5 rounded-md border border-[#51DAC4]/20">
                         <Clock className="h-3.5 w-3.5" />
                         Last Refreshed: {new Date(fetchedAt).toLocaleString()}
                     </div>

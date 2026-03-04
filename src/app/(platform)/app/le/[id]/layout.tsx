@@ -22,7 +22,11 @@ export default async function LegalEntityLayout({ children, params }: LayoutProp
             owners: {
                 where: { endAt: null },
                 include: { party: true }
-            }
+            },
+            description: true,
+            lei: true,
+            dueDate: true,
+            gleifFetchedAt: true
         }
     });
 
@@ -50,6 +54,8 @@ export default async function LegalEntityLayout({ children, params }: LayoutProp
             baseBreadcrumbs={baseBreadcrumbs}
             leId={le.id}
             leName={le.name}
+            leData={le}
+            clientOrgName={ownerName || "Client"}
             isSystemAdmin={isSystemAdmin}
         >
             {children}

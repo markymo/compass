@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,7 +13,7 @@ interface LEILookupProps {
 }
 
 export function LEILookup({ onDataFetched, initialLei = "" }: LEILookupProps) {
-    const [mode, setMode] = useState<"LEI" | "SEARCH">("LEI");
+    const [mode, setMode] = useState<"LEI" | "SEARCH">("SEARCH");
 
     // LEI Mode State
     const [lei, setLei] = useState(initialLei);
@@ -53,13 +53,17 @@ export function LEILookup({ onDataFetched, initialLei = "" }: LEILookupProps) {
     }
 
     // SEARCH BY NAME
-    async function handleSearch() {
-        if (!searchName) return;
+    async function handleSearch(searchTerm: string) {
+        if (!searchTerm || searchTerm.length <= 2) {
+            setSearchResults([]);
+            setStatus("IDLE");
+            return;
+        }
+
         setStatus("LOADING");
         setErrorMsg("");
-        setSearchResults([]);
 
-        const result = await searchGLEIFByName(searchName);
+        const result = await searchGLEIFByName(searchTerm);
 
         if (result.success) {
             setStatus("IDLE"); // We are idle, just showing results
@@ -67,8 +71,25 @@ export function LEILookup({ onDataFetched, initialLei = "" }: LEILookupProps) {
         } else {
             setStatus("ERROR");
             setErrorMsg(result.error || "Search failed");
+            setSearchResults([]);
         }
     }
+
+    // Debounced search effect
+    useEffect(() => {
+        if (mode !== "SEARCH") return;
+
+        const timer = setTimeout(() => {
+            if (searchName.length > 2) {
+                handleSearch(searchName);
+            } else {
+                setSearchResults([]);
+                setStatus("IDLE");
+            }
+        }, 250);
+
+        return () => clearTimeout(timer);
+    }, [searchName, mode]);
 
     // RESET / TOGGLE
     function toggleMode() {
@@ -89,37 +110,45 @@ export function LEILookup({ onDataFetched, initialLei = "" }: LEILookupProps) {
                         onClick={toggleMode}
                         className="text-xs text-blue-600 hover:text-blue-500 underline"
                     >
-                        {mode === "LEI" ? "Search by name" : "Back to LEI input"}
+                        {mode === "LEI" ? "Search by name" : "Enter LEI manually"}
                     </button>
                 </div>
 
                 <div className="flex gap-2">
                     {mode === "LEI" ? (
-                        <Input
-                            value={lei}
-                            onChange={(e) => setLei(e.target.value)}
-                            onKeyDown={(e) => e.key === "Enter" && handleFetch()}
-                            placeholder="e.g. 5493006MHB84DD0ZWV18"
-                            className="uppercase font-mono"
-                            maxLength={20}
-                        />
+                        <>
+                            <Input
+                                value={lei}
+                                onChange={(e) => setLei(e.target.value)}
+                                onKeyDown={(e) => e.key === "Enter" && handleFetch()}
+                                placeholder="e.g. 5493006MHB84DD0ZWV18"
+                                className="uppercase font-mono"
+                                maxLength={20}
+                            />
+                            <Button
+                                onClick={() => handleFetch()}
+                                disabled={status === "LOADING" || !lei}
+                                variant="secondary"
+                            >
+                                {status === "LOADING" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                                <span className="ml-2">Fetch</span>
+                            </Button>
+                        </>
                     ) : (
-                        <Input
-                            value={searchName}
-                            onChange={(e) => setSearchName(e.target.value)}
-                            onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                            placeholder="Search company name..."
-                        />
+                        <div className="relative w-full flex items-center">
+                            <Input
+                                value={searchName}
+                                onChange={(e) => setSearchName(e.target.value)}
+                                placeholder="Start typing company name..."
+                                className="pr-10"
+                            />
+                            {status === "LOADING" && (
+                                <div className="absolute right-3 flex items-center justify-center">
+                                    <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
+                                </div>
+                            )}
+                        </div>
                     )}
-
-                    <Button
-                        onClick={() => mode === "LEI" ? handleFetch() : handleSearch()}
-                        disabled={status === "LOADING" || (mode === "LEI" ? !lei : !searchName)}
-                        variant="secondary"
-                    >
-                        {status === "LOADING" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-                        <span className="ml-2">{mode === "LEI" ? "Fetch" : "Search"}</span>
-                    </Button>
                 </div>
             </div>
 

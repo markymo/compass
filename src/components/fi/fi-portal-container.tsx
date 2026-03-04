@@ -72,16 +72,7 @@ export function FIPortalContainer({ org, engagements, workbenchData, questionnai
                     </div>
                 </div>
 
-                <div className="flex items-center gap-3">
-                    <Button variant="outline" className="gap-2 shadow-sm">
-                        <Settings className="h-4 w-4" /> Organization Settings
-                    </Button>
-                    <UploadQuestionnaireDialog fiOrgId={org.id}>
-                        <Button className="bg-teal-600 hover:bg-teal-700 shadow-sm gap-2">
-                            <Plus className="h-4 w-4" /> New Questionnaire
-                        </Button>
-                    </UploadQuestionnaireDialog>
-                </div>
+
             </div>
 
             <Tabs
@@ -117,11 +108,7 @@ export function FIPortalContainer({ org, engagements, workbenchData, questionnai
                         </TabsTrigger>
                     </TabsList>
 
-                    <div className="hidden lg:flex items-center gap-4 py-2">
-                        <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
-                            <Clock className="h-3 w-3" /> Last sync {format(new Date(), "HH:mm")}
-                        </div>
-                    </div>
+
                 </div>
 
                 <TabsContent value="overview" className="mt-0 space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
