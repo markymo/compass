@@ -131,7 +131,7 @@ export function EngagementDetailView({ le, engagement, questionnaires, sharedDoc
                             onClick={() => setIsInviteDialogOpen(true)}
                         >
                             <Users className="h-4 w-4" />
-                            Invite Supplier
+                            Invite User
                         </Button>
                     </div>
                 </div>

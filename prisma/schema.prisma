@@ -411,9 +411,11 @@ model UsageLog {
   action    String
   path      String?
   details   Json?
+  env       String   @default("unknown")
   createdAt DateTime @default(now())
 
   @@index([userId])
+  @@index([env, createdAt(sort: Desc)])
 }
 
 model AdminTodo {

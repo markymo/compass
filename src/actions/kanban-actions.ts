@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { KycStateService } from "@/lib/kyc/KycStateService";
 import { generateAIAnswers, learnFromAnswer } from "./ai-autofill";
 import { recordActivity, LEActivityType } from "@/lib/le-activity";
+import { logActivity } from "./logging";
 
 /**
  * Parses the 'extractedContent' JSON of a Questionnaire and creates individual Question records.
@@ -589,6 +590,13 @@ export async function updateAnswer(questionId: string, answer: string) {
                 wasFirstAnswer ? LEActivityType.QUESTION_ANSWERED : LEActivityType.QUESTION_UPDATED,
                 { questionId, questionText: question?.text?.slice(0, 80) }
             ); // fire-and-forget
+
+            // UsageLog (platform-wide analytics)
+            logActivity(
+                wasFirstAnswer ? "QUESTION_ANSWERED" : "QUESTION_UPDATED",
+                `/app/le/${clientLEId}`,
+                { questionId, questionText: question?.text?.slice(0, 80) }
+            );
         }
 
         // TRIGGER LEARNING LOOP (Fire and forget, or await?)

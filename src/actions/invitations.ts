@@ -10,6 +10,7 @@ import { Resend } from "resend";
 import { render } from "@react-email/render";
 import { TeamInviteEmail } from "@/components/emails/team-invite-email";
 import { recordActivity, LEActivityType } from "@/lib/le-activity";
+import { logActivity } from "./logging";
 
 // ============================================================================
 // Types
@@ -200,6 +201,13 @@ export async function inviteUser(payload: InvitePayload) {
             role: payload.role,
         });
     }
+
+    // UsageLog (platform-wide analytics)
+    logActivity("INVITATION_SENT", `/invite`, {
+        invitedEmail: payload.email,
+        role: payload.role,
+        scope: scopeType,
+    });
 
     // Revalidate relevant pages
     if (payload.organizationId) revalidatePath(`/app/clients/${payload.organizationId}/team`);

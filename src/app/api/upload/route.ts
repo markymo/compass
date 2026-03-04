@@ -2,6 +2,7 @@ import { handleUpload, type HandleUploadBody } from '@vercel/blob/client';
 import { NextResponse } from 'next/server';
 import { getIdentity } from "@/lib/auth";
 import { recordActivity, LEActivityType } from "@/lib/le-activity";
+import { logActivity } from "@/actions/logging";
 import { attachDocumentToQuestion } from '@/actions/kanban-actions';
 
 export async function POST(request: Request): Promise<NextResponse> {
@@ -43,6 +44,12 @@ export async function POST(request: Request): Promise<NextResponse> {
                             blobUrl: blob.url,
                         });
                     }
+
+                    // UsageLog (platform-wide analytics)
+                    logActivity("DOC_UPLOADED", leId ? `/app/le/${leId}` : "/upload", {
+                        docName: blob.pathname.split("/").pop() ?? blob.pathname,
+                        questionId: questionId || null,
+                    });
                     console.log('Upload completed:', blob.pathname);
                 } catch (e) {
                     console.error('Upload activity log failed:', e);

@@ -14,6 +14,35 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     ...authConfig,
     callbacks: {
         ...authConfig.callbacks,
+        async jwt({ token, user }) {
+            // Run base jwt callback logic (isDemoActor stamping)
+            if (user) {
+                token.sub = user.id;
+                // @ts-ignore
+                token.isDemoActor = user.isDemoActor;
+
+                // --- Login Tracking (fire-and-forget) ---
+                try {
+                    const APP_ENV = process.env.APP_ENV || (process.env.NODE_ENV === "production" ? "production" : "local");
+                    await prisma.usageLog.create({
+                        data: {
+                            userId: user.id!,
+                            action: "LOGIN",
+                            path: "/login",
+                            env: APP_ENV,
+                            details: {
+                                // @ts-ignore
+                                isDemoActor: user.isDemoActor || false,
+                                email: user.email,
+                            }
+                        }
+                    });
+                } catch (e) {
+                    console.error("[auth] Failed to log login:", e);
+                }
+            }
+            return token;
+        },
         async session({ session, token }) {
             // Run default logic first (if we could, but we can't easily call super).
             // So we strictly implement the enhancement here.

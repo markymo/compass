@@ -3,6 +3,7 @@
 import { getIdentity } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { logActivity } from "./logging";
 
 export async function getStandingDataSections(leId: string) {
     const identity = await getIdentity();
@@ -82,6 +83,13 @@ export async function updateStandingDataSection(leId: string, category: string, 
         });
 
         revalidatePath(`/app/le/${leId}/v2`);
+
+        // UsageLog (platform-wide analytics)
+        logActivity("STANDING_DATA_UPDATED", `/app/le/${leId}`, {
+            category,
+            contentLength: content.length,
+        });
+
         return { success: true, data: section };
     } catch (error: any) {
         console.error("[updateStandingDataSection]", error);

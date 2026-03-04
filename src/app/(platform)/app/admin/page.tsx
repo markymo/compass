@@ -1,7 +1,7 @@
 
 import prisma from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Users, Building2, Database, Wand2, FileText, AlertCircle, ShieldCheck, BarChart3, UserCheck, MessageSquarePlus } from "lucide-react";
+import { Users, Building2, Database, Wand2, FileText, AlertCircle, ShieldCheck, BarChart3, UserCheck, MessageSquarePlus, Activity } from "lucide-react";
 import Link from "next/link";
 
 export default async function AdminDashboardPage() {
@@ -77,6 +77,13 @@ export default async function AdminDashboardPage() {
             icon: Database,
             color: "text-purple-600",
         },
+        {
+            title: "Pulse",
+            description: "User activity, adoption tracking, and LE engagement health",
+            href: "/app/admin/pulse",
+            icon: Activity,
+            color: "text-rose-600",
+        },
     ];
 
     return (
@@ -142,7 +149,7 @@ export default async function AdminDashboardPage() {
 
             <div className="rounded-xl border border-slate-200 bg-slate-50 p-8 text-center dark:border-slate-800 dark:bg-slate-900/50">
                 <p className="text-sm text-slate-500">
-                    Platform metrics and system health monitoring coming soon.
+                    System health monitoring coming soon.
                 </p>
             </div>
         </div>
