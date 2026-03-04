@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +18,7 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { MoreVertical, Trash2 } from "lucide-react";
+import { DueDateBadge } from "@/components/client/due-date-badge";
 
 interface EngagementManagerProps {
     leId: string;
@@ -25,10 +26,13 @@ interface EngagementManagerProps {
     leDueDate: Date | null;
 }
 
-import { DueDateBadge } from "@/components/client/due-date-badge";
-
 export function EngagementManager({ leId, initialEngagements, leDueDate }: EngagementManagerProps) {
     const [engagements, setEngagements] = useState(initialEngagements);
+
+    useEffect(() => {
+        setEngagements(initialEngagements);
+    }, [initialEngagements]);
+
     const [isAdding, setIsAdding] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
 

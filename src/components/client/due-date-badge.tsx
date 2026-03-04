@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { updateLEDueDate, updateEngagementDueDate, updateQuestionnaireDueDate } from "@/actions/client-le";
 import { usePreferences } from "@/components/providers/user-preferences-provider";
 import { differenceInDays, startOfDay } from "date-fns";
+import { useRouter } from "next/navigation";
 
 interface DueDateBadgeProps {
     date: Date | null;
@@ -29,6 +30,7 @@ export function DueDateBadge({ date, effectiveDate, source, level, id, label }: 
     const [isPending, startTransition] = useTransition();
     const [isOpen, setIsOpen] = useState(false);
     const { preferences } = usePreferences();
+    const router = useRouter();
     const [draftDate, setDraftDate] = useState(date ? format(date, "yyyy-MM-dd") : "");
 
     useEffect(() => {
@@ -72,6 +74,7 @@ export function DueDateBadge({ date, effectiveDate, source, level, id, label }: 
             if (res.success) {
                 toast.success("Due date updated");
                 setIsOpen(false);
+                router.refresh();
             } else {
                 toast.error("Failed to update due date");
             }
