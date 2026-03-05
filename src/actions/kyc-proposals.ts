@@ -98,6 +98,15 @@ export async function refreshGleifProposals(legalEntityId: string): Promise<{ su
             });
         }
 
+        // 6. Persist new data to the master cache for this Legal Entity
+        await prisma.clientLE.update({
+            where: { id: legalEntityId },
+            data: {
+                gleifData: gleifResult.data as any,
+                gleifFetchedAt: new Date()
+            }
+        });
+
         revalidatePath(`/app/le/${legalEntityId}`);
         return { success: true, proposals };
 

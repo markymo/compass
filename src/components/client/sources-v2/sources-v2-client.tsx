@@ -35,6 +35,7 @@ export interface MockSource {
     uploadedAt: string;
     uploadedBy: string;
     isPinned?: boolean;
+    identifyingNumber?: string;
 }
 
 const mockSources: MockSource[] = [
@@ -129,7 +130,30 @@ export function SourcesV2Client({
     const [selectedSource, setSelectedSource] = useState<MockSource | null>(null);
 
     // Derived Data
-    const filteredSources = mockSources.filter(source => {
+    const parsedGleif = gleifData?.attributes || gleifData?.data?.[0]?.attributes || gleifData;
+    const gleifEntity = parsedGleif?.entity || {};
+    const registrationAuthorityName = gleifData?.registrationAuthorityName;
+    const registrationAuthorityEntityID = gleifEntity.registeredAs;
+    const leiValue = parsedGleif?.lei || lei;
+
+    const displaySources = mockSources.map(source => {
+        if (source.id === "src-gleif" && leiValue) {
+            return {
+                ...source,
+                identifyingNumber: leiValue
+            };
+        }
+        if (source.id === "src-registry" && registrationAuthorityName && registrationAuthorityName !== "Unknown Registry") {
+            return {
+                ...source,
+                name: registrationAuthorityName !== "Unknown (Click 'Sync Registry')" ? registrationAuthorityName : source.name,
+                identifyingNumber: registrationAuthorityEntityID || undefined
+            };
+        }
+        return source;
+    });
+
+    const filteredSources = displaySources.filter(source => {
         if (searchQuery && !source.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
 
         switch (filter) {
@@ -239,8 +263,13 @@ export function SourcesV2Client({
                                         <h3 className="font-medium text-slate-900 group-hover:text-indigo-600 transition-colors truncate" title={source.name}>
                                             {source.name}
                                         </h3>
+                                        {source.identifyingNumber && (
+                                            <Badge variant="outline" className="font-mono text-[10px] text-slate-500 bg-slate-50 px-1.5 py-0 h-5">
+                                                {source.identifyingNumber}
+                                            </Badge>
+                                        )}
                                         {source.isPinned && (
-                                            <Badge variant="secondary" className="bg-amber-100 text-amber-800 text-[10px] uppercase font-bold px-1.5 py-0">
+                                            <Badge variant="secondary" className="bg-amber-100 text-amber-800 text-[10px] uppercase font-bold px-1.5 py-0 h-5">
                                                 Pinned Registry
                                             </Badge>
                                         )}

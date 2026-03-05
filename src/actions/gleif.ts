@@ -101,13 +101,33 @@ export async function fetchGLEIFData(lei: string): Promise<GLEIFFetchResult> {
             status: attributes.registration.status // e.g. ISSUED, LAPSED
         };
 
+        // --- Registration Authority Name Fetch ---
+        let registrationAuthorityName = "Unknown Registry";
+        const registrationAuthorityId = entity.registeredAt?.id;
+
+        if (registrationAuthorityId) {
+            try {
+                const raRes = await fetch(`https://api.gleif.org/api/v1/registration-authorities/${registrationAuthorityId}`, {
+                    next: { revalidate: 86400 } // Cache RA names for 24h as they rarely change
+                });
+                if (raRes.ok) {
+                    const raJson = await raRes.json();
+                    registrationAuthorityName =
+                        raJson.data?.attributes?.internationalOrganizationName ||
+                        raJson.data?.attributes?.internationalName ||
+                        "Unknown Registry";
+                }
+            } catch (e) {
+                console.warn(`Failed to fetch RA name for ${registrationAuthorityId}`);
+            }
+        }
+
         // --- Companies House Integration ---
         let nationalRegistryData = null;
 
         // Check for UK Jurisdiction (GB) and Companies House Registration Authority (RA000585)
         // Usually 'registeredAt.id' is the RA Code.
         if (entity.jurisdiction === "GB") {
-            const registrationAuthorityId = entity.registeredAt?.id; // e.g. RA000585
             // 'registeredAs' is typically the Company Number
             const companyNumber = entity.registeredAs;
 
@@ -128,6 +148,7 @@ export async function fetchGLEIFData(lei: string): Promise<GLEIFFetchResult> {
             success: true,
             data: {
                 ...record,
+                registrationAuthorityName,
                 nationalRegistryData // Attach to the record structure we pass to UI
             },
             summary

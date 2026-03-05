@@ -8,6 +8,7 @@ import { MockSource, SourceCategory, SourceType } from "./sources-v2-client";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { GleifSourceDetail } from "./gleif-source-detail";
+import { NationalRegistrySourceDetail } from "./national-registry-source-detail";
 
 interface SourceDetailSheetProps {
     source: MockSource | null;
@@ -46,6 +47,14 @@ export function SourceDetailSheet({ source, open, onOpenChange, leId, lei, gleif
                 </SheetHeader>
                 {source.id === "src-gleif" ? (
                     <GleifSourceDetail
+                        source={source}
+                        leId={leId}
+                        lei={lei}
+                        gleifData={gleifData}
+                        gleifFetchedAt={gleifFetchedAt}
+                    />
+                ) : source.id === "src-registry" ? (
+                    <NationalRegistrySourceDetail
                         source={source}
                         leId={leId}
                         lei={lei}

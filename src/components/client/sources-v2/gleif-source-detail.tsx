@@ -34,7 +34,10 @@ export function GleifSourceDetail({ source, leId, lei, gleifData, gleifFetchedAt
         address: entity.legalAddress ? `${entity.legalAddress.addressLines?.[0] || ""} ${entity.legalAddress.city || ""} ${entity.legalAddress.country || ""}`.trim() : "N/A",
         registrationStatus: reg.status || "N/A",
         initialRegistration: reg.initialRegistrationDate || "N/A",
-        nextRenewal: reg.nextRenewalDate || "N/A"
+        nextRenewal: reg.nextRenewalDate || "N/A",
+        registrationAuthorityID: entity.registeredAt?.id || "N/A",
+        registrationAuthorityEntityID: entity.registeredAs || "N/A",
+        registrationAuthorityName: gleifData?.registrationAuthorityName || "Unknown (Click 'Sync Registry')"
     };
 
     const [isLoadingProposals, setIsLoadingProposals] = useState(false);
@@ -246,6 +249,34 @@ export function GleifSourceDetail({ source, leId, lei, gleifData, gleifFetchedAt
                                 <div className="p-4">
                                     <div className="text-sm text-slate-700 bg-slate-50 p-3 rounded-md border border-slate-100">
                                         {extractedData.address}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
+                                <div className="border-b border-slate-100 p-4 flex justify-between items-center">
+                                    <h3 className="font-semibold text-slate-800 flex items-center gap-2">
+                                        <Building2 className="h-4 w-4 text-slate-400" />
+                                        National Registry Link
+                                    </h3>
+                                    <Badge variant="secondary" className="bg-slate-100 text-slate-600 font-medium">Source Reference</Badge>
+                                </div>
+                                <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                    <div>
+                                        <label className="text-xs font-medium text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                                            Authority ID
+                                        </label>
+                                        <div className="font-medium text-slate-900 mt-1">{extractedData.registrationAuthorityID}</div>
+                                        <p className="text-[11px] text-slate-500 mt-1">
+                                            {extractedData.registrationAuthorityName}
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-medium text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                                            Registry Entity ID
+                                        </label>
+                                        <div className="font-mono text-sm mt-1">{extractedData.registrationAuthorityEntityID}</div>
+                                        <p className="text-[11px] text-slate-500 mt-1">Company Number cross-reference</p>
                                     </div>
                                 </div>
                             </div>
