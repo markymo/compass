@@ -7,6 +7,7 @@ import {
     LayoutDashboard,
     Database,
     Library,
+    Layers,
     Users,
     Clipboard,
     Link2
@@ -32,7 +33,13 @@ export function LegalEntityNav({ leId }: LegalEntityNavProps) {
             label: "Sources",
             href: `${baseUrl}/sources`,
             icon: Library,
-            isActive: (path: string) => path.startsWith(`${baseUrl}/sources`)
+            isActive: (path: string) => path.startsWith(`${baseUrl}/sources`) && !path.startsWith(`${baseUrl}/sources-v2`)
+        },
+        {
+            label: "Sources V2",
+            href: `${baseUrl}/sources-v2`,
+            icon: Layers,
+            isActive: (path: string) => path.startsWith(`${baseUrl}/sources-v2`)
         },
         {
             label: "Master Record",

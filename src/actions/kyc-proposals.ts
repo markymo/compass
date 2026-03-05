@@ -9,6 +9,7 @@ import { getFieldDefinition } from "@/domain/kyc/FieldDefinitions";
 import { revalidatePath } from "next/cache";
 import prisma from "@/lib/prisma";
 import { KycStateService } from "@/lib/kyc/KycStateService";
+import { getIdentity } from "@/lib/auth";
 
 const evidenceService = new EvidenceService();
 const kycWriteService = new KycWriteService();
@@ -107,6 +108,67 @@ export async function refreshGleifProposals(legalEntityId: string): Promise<{ su
 }
 
 /**
+ * Server Action: Get Proposals from Cache (No external API call)
+ * Uses the latest gleifData stored on the legal entity.
+ */
+export async function getGleifProposalsFromCache(legalEntityId: string): Promise<{ success: boolean; proposals?: FieldProposal[]; message?: string }> {
+    try {
+        const clientLE = await prisma.clientLE.findUnique({
+            where: { id: legalEntityId },
+            select: { gleifData: true }
+        });
+
+        if (!clientLE || !clientLE.gleifData) {
+            return { success: false, message: "No cached GLEIF data found for this entity." };
+        }
+
+        // 1. Store/Retrieve Evidence (to ensure mapping tracks back to a valid evidence ID)
+        const evidenceId = await evidenceService.normalizeEvidence(
+            clientLE.gleifData,
+            'GLEIF',
+            '2.0',
+            'SYSTEM_CACHE_READ'
+        );
+
+        // 2. Normalize
+        const candidates = mapGleifPayloadToFieldCandidates(clientLE.gleifData, evidenceId);
+
+        // 3. Evaluate Proposals
+        const proposals: FieldProposal[] = [];
+
+        for (const candidate of candidates) {
+            const def = getFieldDefinition(candidate.fieldNo);
+            const evaluation = await kycWriteService.evaluateFieldCandidate(legalEntityId, candidate, 'CLIENT_LE');
+
+            proposals.push({
+                fieldNo: candidate.fieldNo,
+                fieldName: def.fieldName,
+                table: def.model,
+                column: def.field,
+                current: evaluation.currentValue ? {
+                    value: evaluation.currentValue,
+                    source: evaluation.currentSource || 'SYSTEM'
+                } : undefined,
+                proposed: {
+                    value: candidate.value,
+                    source: 'GLEIF',
+                    evidenceId: candidate.evidenceId || undefined,
+                    timestamp: new Date().toISOString()
+                },
+                action: evaluation.action,
+                reason: evaluation.reason
+            });
+        }
+
+        return { success: true, proposals };
+    } catch (error: any) {
+        console.error("getGleifProposalsFromCache error:", error);
+        return { success: false, message: error.message };
+    }
+}
+
+
+/**
  * Server Action: Accept a Proposal
  * re-applies the logic securely by fetching evidence and re-deriving to prevent client tampering.
  */
@@ -134,10 +196,15 @@ export async function acceptProposal(
         if (!candidate) return { success: false, message: "Field candidate not found in evidence" };
 
         // 4. Apply
-        // We use a system user ID or specific trigger user if available from auth context
-        // For now, passing undefined (SYSTEM) as verifiedBy, or we could pass "USER_ACCEPT_ACTION"
+        // We use the authenticated user ID for proper provenance tracking and verification
+        const identity = await getIdentity();
+        let userId = undefined;
+        if (identity?.userId) {
+            userId = identity.userId;
+        }
+
         // Pass 'CLIENT_LE' because legalEntityId is ClientLE ID
-        const result = await kycWriteService.applyFieldCandidate(legalEntityId, candidate, 'USER_ACTION', 'CLIENT_LE');
+        const result = await kycWriteService.applyFieldCandidate(legalEntityId, candidate, userId, 'CLIENT_LE');
 
         if (result) {
             revalidatePath(`/app/le/${legalEntityId}`);

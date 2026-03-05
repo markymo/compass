@@ -127,7 +127,7 @@ export class KycWriteService {
                 sourceReference: provenance.reason,
                 evidenceId: provenance.evidenceId,
                 confidenceScore: provenance.confidence,
-                status: (provenance.source as any) === 'USER_INPUT' ? ClaimStatus.VERIFIED : ClaimStatus.ASSERTED,
+                status: (provenance as any).verifiedBy ? ClaimStatus.VERIFIED : ((provenance.source as any) === 'USER_INPUT' ? ClaimStatus.VERIFIED : ClaimStatus.ASSERTED),
                 verifiedByUserId: (provenance as any).verifiedBy || (provenance as any).verified_by || undefined,
                 assertedAt: new Date(),
                 // Repeating Field Contract:
