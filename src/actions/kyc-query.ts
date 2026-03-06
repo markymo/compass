@@ -134,6 +134,7 @@ export interface FieldDetailData {
     modelField?: string;
     options?: string[];
     notes?: string;
+    userNote?: string | null;
     current: {
         value: any;
         source: ProvenanceSource;
@@ -356,19 +357,25 @@ export async function getFieldDetail(
     const candidates: any[] = [];
 
     // 4. Get Current Assignment
-    const assignment = await prisma.masterFieldAssignment.findUnique({
-        where: {
-            clientLEId_fieldNo: {
-                clientLEId: entityId,
-                fieldNo: fieldNo
+    const [assignment, noteRecord] = await Promise.all([
+        prisma.masterFieldAssignment.findUnique({
+            where: {
+                clientLEId_fieldNo: {
+                    clientLEId: entityId,
+                    fieldNo: fieldNo
+                }
+            },
+            include: {
+                assignedUser: {
+                    select: { name: true, email: true }
+                }
             }
-        },
-        include: {
-            assignedUser: {
-                select: { name: true, email: true }
-            }
-        }
-    });
+        }),
+        // Manual SQL fallback because Prisma client model property might be missing from runtime cache in dev
+        prisma.$queryRaw<any[]>`SELECT text FROM master_field_notes WHERE "clientLEId" = ${entityId} AND "fieldNo" = ${fieldNo} LIMIT 1`
+    ]);
+
+    const noteText = noteRecord?.[0]?.text || null;
 
     return {
         fieldNo,
@@ -393,6 +400,7 @@ export async function getFieldDetail(
             assignedUser: assignment.assignedUser,
             createdAt: assignment.createdAt
         } : null,
+        userNote: noteText,
         history,
         candidates,
         rows

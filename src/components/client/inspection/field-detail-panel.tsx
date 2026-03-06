@@ -9,12 +9,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
-import { Loader2, History, Database, Edit, CheckCircle, CheckCircle2, AlertTriangle, Paperclip, FileText, Download, X, User as UserIcon, Pencil, Check, Trash2, Plus, Lock } from "lucide-react";
+import { Loader2, History, Database, Edit, CheckCircle, CheckCircle2, AlertTriangle, Paperclip, FileText, Download, X, User as UserIcon, Pencil, Check, Trash2, Plus, Lock, Save } from "lucide-react";
 import { getFieldDetail, FieldDetailData } from "@/actions/kyc-query";
 // FIELD_DEFINITIONS removed
 import { updateFieldManually, applyCandidate, updateCustomFieldManually, addMultiValueEntry, removeMultiValueEntry, applyBulkOverride } from "@/actions/kyc-manual-update";
 import { getMasterFieldDocuments, setMasterFieldAssignment } from "@/actions/standing-data";
 import { renameCustomField } from "@/actions/master-data-governance";
+import { saveMasterFieldNote } from "@/actions/master-data-notes";
 import { getLETeamMembers } from "@/actions/kanban-actions";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
@@ -77,6 +78,10 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
     const [renameFieldValue, setRenameFieldValue] = useState("");
     const [isRenamingSaving, setIsRenamingSaving] = useState(false);
 
+    // Note State
+    const [noteText, setNoteText] = useState("");
+    const [isSavingNote, setIsSavingNote] = useState(false);
+
     const fieldKey = String(fieldNo || customFieldId || "");
 
     useEffect(() => {
@@ -95,6 +100,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
         setSelectedRowId(null);
         setRelatedValues({});
         setIsSaving(false);
+        setNoteText("");
     }, [fieldNo, customFieldId]);
 
     const loadTeam = async () => {
@@ -109,6 +115,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
         try {
             const result = await getFieldDetail(legalEntityId, fieldNo, 'CLIENT_LE', customFieldId);
             setData(result);
+            setNoteText(result?.userNote || "");
         } catch (error) {
             console.error("Error loading field details:", error);
             toast.error("Failed to load field details");
@@ -127,6 +134,25 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
             console.error("Evidence load failed:", e);
         } finally {
             setIsLoadingEvidence(false);
+        }
+    };
+
+    const handleSaveNote = async () => {
+        if (!fieldNo) return;
+        setIsSavingNote(true);
+        try {
+            const res = await saveMasterFieldNote(legalEntityId, fieldNo, noteText);
+            if (res.success) {
+                toast.success("Note saved successfully");
+                if (data) {
+                    setData({ ...data, userNote: noteText });
+                }
+            }
+        } catch (e) {
+            console.error("Failed to save note:", e);
+            toast.error("Failed to save note");
+        } finally {
+            setIsSavingNote(false);
         }
     };
 
@@ -400,11 +426,19 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                     <SheetTitle className="sr-only">{fieldName}</SheetTitle>
                     <SheetDescription className="sr-only">Details for {fieldName}</SheetDescription>
 
-                    {/* Top row: Q: question + Assignment */}
-                    <div className="flex items-start gap-4 mr-8">
-                        <div className="flex items-start gap-2.5 flex-1 min-w-0">
-                            <span className="text-indigo-500 font-bold text-sm shrink-0 mt-0.5">Q:</span>
-                            <p className="text-sm font-medium text-slate-800 leading-relaxed">{fieldName}</p>
+                    {/* Top row: Context + Assignment */}
+                    <div className="flex items-start justify-between mr-8">
+                        <div className="flex flex-col gap-1.5 flex-1 min-w-0 pr-4">
+                            <div className="flex items-start gap-2.5">
+                                <h2 className="text-xl font-bold text-slate-900 leading-tight">
+                                    {fieldName} <span className="text-slate-400 font-medium text-lg">({fieldNo || customFieldId})</span>
+                                </h2>
+                            </div>
+                            {fieldNo > 0 && (
+                                <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider">
+                                    {data?.category || `Field #${fieldNo}`}
+                                </span>
+                            )}
                         </div>
 
                         {/* Assignment */}
@@ -483,24 +517,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                             )}
                         </div>
                     </div>
-
-                    {/* Mapped Field heading — owns the rest of the sidebar */}
-                    {fieldNo > 0 && (
-                        <div className="flex items-start gap-2.5 mt-3">
-                            <Badge variant="secondary" className="bg-green-50 text-green-700 border-green-100 gap-1 px-1.5 py-0 shrink-0 mt-0.5">
-                                <CheckCircle2 className="h-3 w-3" />
-                                Mapped
-                            </Badge>
-                            <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-slate-800 leading-relaxed">
-                                    {data?.fieldName || fieldName}
-                                </p>
-                                <span className="text-[10px] text-slate-400">
-                                    {data?.category || `Field #${fieldNo}`}
-                                </span>
-                            </div>
-                        </div>
-                    )}
+                    {/* Category moved to top */}
                     {customFieldId && fieldNo === 0 && (
                         <div className="flex items-start gap-2.5 mt-3">
                             <Badge variant="secondary" className="bg-green-50 text-green-700 border-green-100 gap-1 px-1.5 py-0 shrink-0 mt-0.5">
@@ -755,8 +772,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                     {data?.current?.value != null && data.current.value !== '' ? (
                                                         <div>
                                                             <div className="flex items-start gap-3">
-                                                                <span className="text-indigo-400 font-bold text-sm shrink-0 mt-0.5">A:</span>
-                                                                <div className="flex-1">
+                                                                <div className="flex-1 mt-0.5">
                                                                     <div className="text-base font-medium text-slate-900 break-all leading-relaxed">
                                                                         {Array.isArray(data.current.value) ? (
                                                                             <div className="flex flex-wrap gap-1.5 mt-1">
@@ -794,8 +810,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                         </div>
                                                     ) : (
                                                         /* Empty state — show inline input directly */
-                                                        <div className="flex items-start gap-3">
-                                                            <span className="text-indigo-400 font-bold text-sm shrink-0 mt-2">A:</span>
+                                                        <div className="flex items-start gap-3 mt-2">
                                                             <div className="flex-1 space-y-2">
                                                                 {!isLocked ? (
                                                                     <>
@@ -968,85 +983,110 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                 </div>
                             )}
                         </div> {/* Closes the p-5 inner padding div */}
+
+                        {/* ─── Attached Evidence (Part of Answer) ─── */}
+                        <div className="bg-slate-50/50 border-t border-slate-100 p-5">
+                            <div className="flex items-center justify-between mb-3">
+                                <span className="text-xs font-semibold text-slate-600 uppercase tracking-wide flex items-center gap-1.5">
+                                    <Paperclip className="w-3.5 h-3.5" /> Supporting Documents
+                                </span>
+                                <div className="flex items-center gap-2">
+                                    {evidenceDocs.length > 0 && (
+                                        <Badge variant="secondary" className="bg-white text-slate-500 text-[10px] border-slate-200">
+                                            {evidenceDocs.length}
+                                        </Badge>
+                                    )}
+                                    <input
+                                        ref={fileInputRef}
+                                        type="file"
+                                        className="hidden"
+                                        disabled={isUploadingEvidence}
+                                        onChange={handleEvidenceUpload}
+                                    />
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-7 text-[10px] bg-white text-indigo-600 border-slate-200 hover:bg-slate-50 hover:text-indigo-700"
+                                        disabled={isUploadingEvidence}
+                                        onClick={() => fileInputRef.current?.click()}
+                                    >
+                                        {isUploadingEvidence ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Plus className="h-3 w-3 mr-1" />} Attach Document
+                                    </Button>
+                                </div>
+                            </div>
+
+                            {isLoadingEvidence ? (
+                                <div className="flex items-center justify-center py-4 gap-2 text-slate-400">
+                                    <Loader2 className="h-4 w-4 animate-spin" /> Loading documents...
+                                </div>
+                            ) : evidenceDocs.length === 0 ? (
+                                <div className="text-center py-6 text-slate-400 bg-white rounded-lg border border-slate-100 border-dashed">
+                                    <p className="text-xs italic">No documents attached.</p>
+                                </div>
+                            ) : (
+                                <div className="divide-y divide-slate-100 bg-white rounded-lg border border-slate-200 overflow-hidden">
+                                    {evidenceDocs.map((doc) => (
+                                        <div key={doc.id} className="flex items-center gap-3 p-2.5 hover:bg-slate-50 group transition-colors">
+                                            <div className="h-8 w-8 rounded bg-indigo-50 flex items-center justify-center shrink-0">
+                                                <FileText className="h-4 w-4 text-indigo-600" />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-medium text-slate-900 truncate">{doc.name}</p>
+                                                <p className="text-[10px] text-slate-400 mt-0.5">
+                                                    {doc.fileType?.toUpperCase()}
+                                                    {doc.kbSize ? ` · ${doc.kbSize} KB` : ''}
+                                                    {doc.createdAt ? ` · ${new Date(doc.createdAt).toLocaleDateString()}` : ''}
+                                                </p>
+                                            </div>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-7 w-7 text-slate-400 hover:text-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                asChild
+                                            >
+                                                <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer">
+                                                    <Download className="h-3.5 w-3.5" />
+                                                </a>
+                                            </Button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
                     </div> {/* Closes the rounded-xl "Current Value Card" div */}
 
                     <Tabs defaultValue="history" className="flex-1 flex flex-col overflow-hidden">
-                        <TabsList className="grid w-full grid-cols-3">
-                            <TabsTrigger value="evidence" className="gap-1.5">
-                                <Paperclip className="h-3.5 w-3.5" />
-                                Document
-                                {evidenceDocs.length > 0 && (
-                                    <span className="ml-1 bg-indigo-100 text-indigo-700 text-[10px] px-1.5 rounded-full font-medium">
-                                        {evidenceDocs.length}
-                                    </span>
-                                )}
-                            </TabsTrigger>
+                        <TabsList className="grid w-full grid-cols-2">
                             <TabsTrigger value="history">History Log</TabsTrigger>
-                            <TabsTrigger value="candidates">Candidates</TabsTrigger>
+                            <TabsTrigger value="note">Notes</TabsTrigger>
                         </TabsList>
 
-                        {/* ─── Evidence Tab ─── */}
-                        <TabsContent value="evidence" className="flex-1 mt-4 flex flex-col gap-3">
-                            <input
-                                ref={fileInputRef}
-                                type="file"
-                                className="hidden"
-                                disabled={isUploadingEvidence}
-                                onChange={handleEvidenceUpload}
-                            />
-                            <Button
-                                variant="outline"
-                                className="w-full border-dashed gap-2 h-9"
-                                disabled={isUploadingEvidence}
-                                onClick={() => fileInputRef.current?.click()}
-                            >
-                                {isUploadingEvidence
-                                    ? <><Loader2 className="h-4 w-4 animate-spin" /> Uploading...</>
-                                    : <><Paperclip className="h-4 w-4" /> Attach Document</>
-                                }
-                            </Button>
-
-                            <ScrollArea className="h-[300px] rounded-md border">
-                                {isLoadingEvidence ? (
-                                    <div className="flex items-center justify-center py-10 gap-2 text-slate-400">
-                                        <Loader2 className="h-4 w-4 animate-spin" /> Loading documents...
-                                    </div>
-                                ) : evidenceDocs.length === 0 ? (
-                                    <div className="text-center py-10 text-slate-400">
-                                        <Paperclip className="h-8 w-8 mx-auto mb-2 opacity-30" />
-                                        <p className="text-sm italic">No documents attached yet.</p>
-                                        <p className="text-xs mt-1">Upload supporting documents above.</p>
-                                    </div>
-                                ) : (
-                                    <div className="divide-y divide-slate-100">
-                                        {evidenceDocs.map((doc) => (
-                                            <div key={doc.id} className="flex items-center gap-3 p-3 hover:bg-slate-50 group">
-                                                <div className="h-8 w-8 rounded bg-indigo-50 flex items-center justify-center shrink-0">
-                                                    <FileText className="h-4 w-4 text-indigo-600" />
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <p className="text-sm font-medium text-slate-900 truncate">{doc.name}</p>
-                                                    <p className="text-xs text-slate-400">
-                                                        {doc.fileType?.toUpperCase()}
-                                                        {doc.kbSize ? ` · ${doc.kbSize} KB` : ''}
-                                                        {doc.createdAt ? ` · ${new Date(doc.createdAt).toLocaleDateString()}` : ''}
-                                                    </p>
-                                                </div>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-7 w-7 text-slate-400 hover:text-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity"
-                                                    asChild
-                                                >
-                                                    <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer">
-                                                        <Download className="h-3.5 w-3.5" />
-                                                    </a>
-                                                </Button>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </ScrollArea>
+                        {/* ─── Notes Tab ─── */}
+                        <TabsContent value="note" className="flex-1 mt-4">
+                            <div className="flex flex-col h-full rounded-md border p-4 bg-slate-50/50">
+                                <label className="text-xs font-semibold text-slate-600 mb-2 block uppercase tracking-tight">
+                                    Field Note (Internal Only)
+                                </label>
+                                <Textarea
+                                    value={noteText}
+                                    onChange={(e) => setNoteText(e.target.value.slice(0, 1000))}
+                                    placeholder="Add a scratchpad note for this field..."
+                                    className="flex-1 min-h-[220px] resize-none text-sm bg-white border-slate-200 focus:ring-indigo-500 shadow-sm"
+                                    disabled={isLocked || isSavingNote}
+                                />
+                                <div className="flex justify-between items-center mt-3 text-xs text-slate-400">
+                                    <span>{noteText.length} / 1000 characters</span>
+                                    <Button
+                                        size="sm"
+                                        onClick={handleSaveNote}
+                                        disabled={isLocked || isSavingNote || noteText === (data?.userNote || "")}
+                                        className="h-8"
+                                    >
+                                        {isSavingNote ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <Save className="h-3.5 w-3.5 mr-1.5" />}
+                                        Save Note
+                                    </Button>
+                                </div>
+                            </div>
                         </TabsContent>
 
                         {/* ─── History Tab ─── */}
@@ -1086,35 +1126,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                             </ScrollArea>
                         </TabsContent>
 
-                        {/* ─── Candidates Tab ─── */}
-                        <TabsContent value="candidates" className="flex-1 mt-4">
-                            <ScrollArea className="h-[300px] w-full rounded-md border p-4">
-                                <div className="space-y-3">
-                                    {data?.candidates && data.candidates.length > 0 ? (
-                                        data.candidates.map((cand, i) => (
-                                            <div key={i} className="flex items-center justify-between p-3 border rounded-lg hover:bg-slate-50 transition-colors">
-                                                <div>
-                                                    <div className="flex items-center gap-2 mb-1">
-                                                        <SourceBadge source={cand.source} />
-                                                        <span className="text-xs text-slate-400">Confidence: {(cand.confidence * 100).toFixed(0)}%</span>
-                                                    </div>
-                                                    <div className="font-mono font-medium text-sm">
-                                                        {String(cand.value)}
-                                                    </div>
-                                                </div>
-                                                <Button variant="secondary" size="sm" className="h-7 text-xs" onClick={() => handleApplyCandidate(cand)}>
-                                                    Apply
-                                                </Button>
-                                            </div>
-                                        ))
-                                    ) : (
-                                        <div className="text-center text-slate-400 py-8 text-sm italic">
-                                            No other candidates found.
-                                        </div>
-                                    )}
-                                </div>
-                            </ScrollArea>
-                        </TabsContent>
+
                     </Tabs>
                 </div>
             </SheetContent>

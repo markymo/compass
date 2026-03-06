@@ -76,6 +76,7 @@ model User {
   verifiedClaims                FieldClaim[]
   masterFieldAssignmentsCreated MasterFieldAssignment[] @relation("MasterFieldAssignmentsCreated")
   assignedMasterFields          MasterFieldAssignment[] @relation("AssignedMasterFields")
+  masterFieldNotes              MasterFieldNote[]
 }
 
 model Organization {
@@ -189,6 +190,7 @@ model ClientLE {
   memberships            Membership[]
   standingDataSections   StandingDataSection[]
   masterFieldAssignments MasterFieldAssignment[]
+  masterFieldNotes       MasterFieldNote[]
 
   @@index([legalEntityId])
 }
@@ -313,48 +315,48 @@ model Questionnaire {
 }
 
 model Question {
-  id                      String                 @id @default(uuid())
-  questionnaireId         String
-  text                    String
-  compactText             String?
-  answer                  String?
-  status                  QuestionStatus         @default(DRAFT)
-  isLocked                Boolean                @default(false)
-  order                   Int                    @default(0)
-  masterFieldNo           Int?
-  masterQuestionGroupId   String?
-  customFieldDefinitionId String?
-  sourceSectionId         String?
-  assignedToUserId        String?
-  assignedEmail           String?
-  createdAt               DateTime               @default(now())
-  updatedAt               DateTime               @updatedAt
-  allowAttachments        Boolean                @default(false)
-  approvedAt              DateTime?
-  approvedByUserId        String?
-  approvedMappingConfig   Json?
-  assignedByUserId        String?
-  expectedDataType        String                 @default("TEXT")
-  prefilledValue          String?
-  releasedAt              DateTime?
-  releasedByUserId        String?
-  sharedAt                DateTime?
-  sharedByUserId          String?
-  supplierNote            String?
-  supplierNoteUpdatedAt   DateTime?
+  id                          String                 @id @default(uuid())
+  questionnaireId             String
+  text                        String
+  compactText                 String?
+  answer                      String?
+  status                      QuestionStatus         @default(DRAFT)
+  isLocked                    Boolean                @default(false)
+  order                       Int                    @default(0)
+  masterFieldNo               Int?
+  masterQuestionGroupId       String?
+  customFieldDefinitionId     String?
+  sourceSectionId             String?
+  assignedToUserId            String?
+  assignedEmail               String?
+  createdAt                   DateTime               @default(now())
+  updatedAt                   DateTime               @updatedAt
+  allowAttachments            Boolean                @default(false)
+  approvedAt                  DateTime?
+  approvedByUserId            String?
+  approvedMappingConfig       Json?
+  assignedByUserId            String?
+  expectedDataType            String                 @default("TEXT")
+  prefilledValue              String?
+  releasedAt                  DateTime?
+  releasedByUserId            String?
+  sharedAt                    DateTime?
+  sharedByUserId              String?
+  supplierNote                String?
+  supplierNoteUpdatedAt       DateTime?
   supplierNoteUpdatedByUserId String?
-  comments                Comment[]
-  prefilledDocuments      Document[]             @relation("PrefilledQuestionDocuments")
-  documents               Document[]             @relation("QuestionDocuments")
-  approvedByUser          User?                  @relation("QuestionsApprovedBy", fields: [approvedByUserId], references: [id])
-  assignedByUser          User?                  @relation("QuestionsAssignedBy", fields: [assignedByUserId], references: [id])
-  assignedToUser          User?                  @relation("AssignedQuestions", fields: [assignedToUserId], references: [id])
-  customFieldDefinition   CustomFieldDefinition? @relation(fields: [customFieldDefinitionId], references: [id])
-  questionnaire           Questionnaire          @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
-  releasedByUser          User?                  @relation("QuestionsReleasedBy", fields: [releasedByUserId], references: [id])
-  sharedByUser            User?                  @relation("QuestionsSharedBy", fields: [sharedByUserId], references: [id])
-  supplierNoteUpdatedByUser User?                @relation("SupplierNoteUpdatedBy", fields: [supplierNoteUpdatedByUserId], references: [id])
-  activities              QuestionActivity[]
+  comments                    Comment[]
+  prefilledDocuments          Document[]             @relation("PrefilledQuestionDocuments")
+  documents                   Document[]             @relation("QuestionDocuments")
+  approvedByUser              User?                  @relation("QuestionsApprovedBy", fields: [approvedByUserId], references: [id])
+  assignedByUser              User?                  @relation("QuestionsAssignedBy", fields: [assignedByUserId], references: [id])
+  assignedToUser              User?                  @relation("AssignedQuestions", fields: [assignedToUserId], references: [id])
+  customFieldDefinition       CustomFieldDefinition? @relation(fields: [customFieldDefinitionId], references: [id])
+  questionnaire               Questionnaire          @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
+  releasedByUser              User?                  @relation("QuestionsReleasedBy", fields: [releasedByUserId], references: [id])
+  sharedByUser                User?                  @relation("QuestionsSharedBy", fields: [sharedByUserId], references: [id])
+  supplierNoteUpdatedByUser   User?                  @relation("SupplierNoteUpdatedBy", fields: [supplierNoteUpdatedByUserId], references: [id])
+  activities                  QuestionActivity[]
 }
 
 model Comment {
@@ -393,6 +395,21 @@ model MasterFieldAssignment {
 
   @@unique([clientLEId, fieldNo])
   @@map("master_field_assignments")
+}
+
+model MasterFieldNote {
+  id              String   @id @default(uuid())
+  clientLEId      String
+  fieldNo         Int
+  text            String   @db.VarChar(1000)
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  createdByUser   User     @relation(fields: [createdByUserId], references: [id])
+  clientLE        ClientLE @relation(fields: [clientLEId], references: [id], onDelete: Cascade)
+
+  @@unique([clientLEId, fieldNo])
+  @@map("master_field_notes")
 }
 
 model QuestionnaireVersion {
