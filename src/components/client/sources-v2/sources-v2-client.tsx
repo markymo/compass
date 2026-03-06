@@ -14,11 +14,14 @@ import {
     ShieldCheck,
     Brain,
     MoreVertical,
-    CheckCircle2
+    CheckCircle2,
+    Trash2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AddSourceDialog } from "./add-source-dialog";
 import { SourceDetailSheet } from "./source-detail-sheet";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { toast } from "sonner";
 
 // Mock Data
 export type SourceCategory = "Evidence" | "Knowledge";
@@ -125,6 +128,9 @@ export function SourcesV2Client({
     const [searchQuery, setSearchQuery] = useState("");
     const [filter, setFilter] = useState<string>("All");
 
+    // Mock sources state (allows removal)
+    const [sources, setSources] = useState<MockSource[]>(mockSources);
+
     // UI State
     const [isAddOpen, setIsAddOpen] = useState(false);
     const [selectedSource, setSelectedSource] = useState<MockSource | null>(null);
@@ -136,7 +142,7 @@ export function SourcesV2Client({
     const registrationAuthorityEntityID = gleifEntity.registeredAs;
     const leiValue = parsedGleif?.lei || lei;
 
-    const displaySources = mockSources.map(source => {
+    const displaySources = sources.map(source => {
         if (source.id === "src-gleif" && leiValue) {
             return {
                 ...source,
@@ -315,9 +321,34 @@ export function SourcesV2Client({
                                     )}
                                 </div>
 
-                                <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 hidden md:flex opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <MoreVertical className="h-4 w-4 text-slate-400" />
-                                </Button>
+                                {source.isPinned ? (
+                                    <div className="h-8 w-8 shrink-0 hidden md:block" />
+                                ) : (
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 hidden md:flex opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
+                                                <MoreVertical className="h-4 w-4 text-slate-400" />
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                                            <DropdownMenuItem
+                                                className="text-red-600 focus:text-red-600 focus:bg-red-50 cursor-pointer"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    if (source.linkedFields > 0) {
+                                                        toast.error(`Cannot remove source. It is linked to ${source.linkedFields} master data field(s).`);
+                                                        return;
+                                                    }
+                                                    setSources(prev => prev.filter(s => s.id !== source.id));
+                                                    toast.success("Source removed successfully");
+                                                }}
+                                            >
+                                                <Trash2 className="h-4 w-4 mr-2" />
+                                                Remove Source
+                                            </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                )}
                             </div>
                         </CardContent>
                     </Card>
