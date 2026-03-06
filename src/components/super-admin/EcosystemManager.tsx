@@ -62,7 +62,7 @@ export function EcosystemManager({ tree, initialSuppliers }: EcosystemManagerPro
                         No clients found. Create one to get started.
                     </div>
                 ) : (
-                    tree.map((client) => (
+                    tree.map((client: any) => (
                         <ClientCard key={client.id} client={client} suppliers={initialSuppliers} />
                     ))
                 )}

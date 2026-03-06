@@ -40,7 +40,7 @@ export function AIDescriptionGenerator({ fields }: AIDescriptionGeneratorProps) 
     const [totalTarget, setTotalTarget] = useState(0);
     const [currentField, setCurrentField] = useState<string | null>(null);
 
-    const emptyFields = fields.filter(f => !f.notes || f.notes.trim() === "");
+    const emptyFields = fields.filter((f: any) => !f.notes || f.notes.trim() === "");
 
     const handleGenerate = async () => {
         if (emptyFields.length === 0) {

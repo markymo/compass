@@ -205,7 +205,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
     // Pre-populate related values when a row is selected
     useEffect(() => {
         if (selectedRowId && data?.rows) {
-            const row = data.rows.find(r => r.id === selectedRowId);
+            const row = data.rows.find((r: any) => r.id === selectedRowId);
             if (row && row.data) {
                 // Determine model and relevant fields
                 const model = data?.category;
@@ -483,7 +483,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                     <span>Unassigned</span>
                                                 </div>
                                             </DropdownMenuItem>
-                                            {team.map((user) => (
+                                            {team.map((user: any) => (
                                                 <DropdownMenuItem
                                                     key={user.id}
                                                     className="text-xs py-2 cursor-pointer focus:bg-indigo-50"
@@ -628,7 +628,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                             {/* Value rows */}
                                             {data.rows && data.rows.length > 0 ? (
                                                 <div className="space-y-1.5">
-                                                    {data.rows.map((row, i) => (
+                                                    {data.rows.map(((row: any, i: any)) => (
                                                         <div key={row.id}>
                                                             {/* Delete confirmation mode */}
                                                             {deletingRowId === row.id ? (
@@ -865,7 +865,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                         {selectedRowId && (
                                             <div className="bg-indigo-50 p-2 rounded text-[10px] font-medium text-indigo-700 flex items-center justify-between">
                                                 <span>
-                                                    EDITING ENTRY: {data?.rows?.find(r => r.id === selectedRowId)?.label || "Specific Row"}
+                                                    EDITING ENTRY: {data?.rows?.find((r: any) => r.id === selectedRowId)?.label || "Specific Row"}
                                                 </span>
                                                 <Button
                                                     variant="ghost"
@@ -1025,7 +1025,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                 </div>
                             ) : (
                                 <div className="divide-y divide-slate-100 bg-white rounded-lg border border-slate-200 overflow-hidden">
-                                    {evidenceDocs.map((doc) => (
+                                    {evidenceDocs.map((doc: any) => (
                                         <div key={doc.id} className="flex items-center gap-3 p-2.5 hover:bg-slate-50 group transition-colors">
                                             <div className="h-8 w-8 rounded bg-indigo-50 flex items-center justify-center shrink-0">
                                                 <FileText className="h-4 w-4 text-indigo-600" />
@@ -1094,7 +1094,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                             <ScrollArea className="h-[300px] w-full rounded-md border p-4">
                                 <div className="relative border-l border-slate-200 ml-3 space-y-6">
                                     {data?.history && data.history.length > 0 ? (
-                                        data.history.map((item) => (
+                                        data.history.map((item: any) => (
                                             <div key={item.id} className="relative pl-6">
                                                 <div className="absolute -left-1.5 top-1.5 h-3 w-3 rounded-full border border-white bg-slate-300 ring-4 ring-white" />
                                                 <div className="flex flex-col gap-1">

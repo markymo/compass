@@ -34,7 +34,7 @@ export async function getAdminTodos() {
 
         // Map to frontend friendly shape if needed, or return direct
         // Frontend expects: id, title, status, description, dueDate, assignee..., comments...
-        return todos.map(t => ({
+        return todos.map((t: any) => ({
             id: t.id,
             title: t.title,
             description: t.description || "",
@@ -50,7 +50,7 @@ export async function getAdminTodos() {
                 name: t.createdByUser.name || t.createdByUser.email
             },
             createdAt: t.createdAt,
-            comments: t.comments.map(c => ({
+            comments: t.comments.map((c: any) => ({
                 id: c.id,
                 text: c.text,
                 author: c.user.name || c.user.email,
@@ -213,10 +213,10 @@ export async function getSystemAdmins() {
         });
 
         // 3. Map to Users
-        const admins = memberships.map(m => ({
+        const admins = memberships.map((m: any) => ({
             id: m.user.id,
             name: m.user.name || m.user.email
-        })).sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+        })).sort((a: any, b: any) => (a.name || "").localeCompare(b.name || ""));
 
         return admins;
     } catch (e) {

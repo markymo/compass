@@ -133,12 +133,12 @@ export class QuestionnaireExtractorService {
             listAllMasterFields()
         ]);
 
-        const groupContext = groups.map(g =>
+        const groupContext = groups.map((g: any) =>
             `- GroupID: "${g.key}" Label: "${g.label}" (Fields: ${g.fieldNos.join(',')})`
         ).join("\n");
 
         // 3. Definitions (Summarized - just key/label to save tokens)
-        const fieldContext = allFields.map(f =>
+        const fieldContext = allFields.map((f: any) =>
             `- Field ${f.fieldNo} (Key: "${f.fieldNo}"): ${f.fieldName} (${f.appDataType}) - ${f.notes || ''}`
         ).join("\n");
 

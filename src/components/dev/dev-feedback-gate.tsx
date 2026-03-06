@@ -8,7 +8,7 @@ export async function DevFeedbackGate() {
     const host = headersList.get("host") || "";
     const hostname = host.split(":")[0]; // strip port number
 
-    const isAllowed = ALLOWED_HOSTS.some(h => hostname === h || hostname.endsWith(`.${h}`));
+    const isAllowed = ALLOWED_HOSTS.some((h: any) => hostname === h || hostname.endsWith(`.${h}`));
 
     if (!isAllowed) return null;
 

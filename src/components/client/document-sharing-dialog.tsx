@@ -41,7 +41,7 @@ export function DocumentSharingDialog({ docId, docName, initialSharedWith, allEn
     const [loadingMap, setLoadingMap] = useState<Record<string, boolean>>({});
 
     // Derive state from props (simple sync)
-    const isShared = (engId: string) => initialSharedWith.some(share => share.id === engId);
+    const isShared = (engId: string) => initialSharedWith.some((share: any) => share.id === engId);
 
     const handleToggle = async (engId: string, currentState: boolean) => {
         setLoadingMap(prev => ({ ...prev, [engId]: true }));
@@ -94,7 +94,7 @@ export function DocumentSharingDialog({ docId, docName, initialSharedWith, allEn
                         </div>
                     ) : (
                         <div className="space-y-4">
-                            {allEngagements.map((eng) => {
+                            {allEngagements.map((eng: any) => {
                                 const shared = isShared(eng.id);
                                 const isLoading = loadingMap[eng.id];
 

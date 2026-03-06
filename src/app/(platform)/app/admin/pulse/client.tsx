@@ -70,7 +70,7 @@ export function PulseClient({ data: initialData }: { data: PulseData }) {
     };
 
     const filteredUsers = hideDemoActors
-        ? data.userActivity.filter(u => !u.isDemoActor)
+        ? data.userActivity.filter((u: any) => !u.isDemoActor)
         : data.userActivity;
 
     return (
@@ -124,7 +124,7 @@ export function PulseClient({ data: initialData }: { data: PulseData }) {
                         icon: <Eye className="h-4 w-4 text-slate-500" />,
                         color: "text-slate-700 bg-slate-50 border-slate-200"
                     },
-                ].map(s => (
+                ].map((s: any) => (
                     <div key={s.label} className={`rounded-xl border p-4 ${s.color}`}>
                         <div className="flex items-center gap-2 mb-1">
                             {s.icon}
@@ -162,7 +162,7 @@ export function PulseClient({ data: initialData }: { data: PulseData }) {
                                     </td>
                                 </tr>
                             )}
-                            {filteredUsers.map(user => {
+                            {filteredUsers.map((user: any) => {
                                 const lastActive = new Date(user.lastActive);
                                 const daysAgo = Math.floor((Date.now() - lastActive.getTime()) / (1000 * 60 * 60 * 24));
                                 const isExpanded = expandedUser === user.userId;
@@ -206,7 +206,7 @@ export function PulseClient({ data: initialData }: { data: PulseData }) {
 
                     {/* Expanded breakdown */}
                     {expandedUser && (() => {
-                        const user = filteredUsers.find(u => u.userId === expandedUser);
+                        const user = filteredUsers.find((u: any) => u.userId === expandedUser);
                         if (!user) return null;
                         return (
                             <div className="px-6 py-4 bg-slate-50 border-t border-slate-200">
@@ -243,8 +243,8 @@ export function PulseClient({ data: initialData }: { data: PulseData }) {
                     ) : (
                         <div className="space-y-1">
                             {/* Simple horizontal bar chart */}
-                            {data.dailyTrend.map(day => {
-                                const max = Math.max(...data.dailyTrend.map(d => d._total || 0));
+                            {data.dailyTrend.map((day: any) => {
+                                const max = Math.max(...data.dailyTrend.map((d: any) => d._total || 0));
                                 const pct = max > 0 ? ((day._total || 0) / max) * 100 : 0;
                                 return (
                                     <div key={day.date} className="flex items-center gap-3 group">
@@ -278,7 +278,7 @@ export function PulseClient({ data: initialData }: { data: PulseData }) {
                     {data.leHealth.length === 0 && (
                         <p className="text-slate-400 text-sm">No active Legal Entities.</p>
                     )}
-                    {data.leHealth.map(le => {
+                    {data.leHealth.map((le: any) => {
                         const statusConfig: Record<string, { icon: React.ReactNode; label: string; color: string; border: string }> = {
                             active: {
                                 icon: <Flame className="h-4 w-4" />,

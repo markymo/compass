@@ -27,7 +27,7 @@ function LogViewer({ logs }: { logs: any[] }) {
 
     return (
         <ScrollArea className="h-64 w-full rounded border bg-slate-950 p-2 text-xs font-mono">
-            {logs.map((log, i) => (
+            {logs.map(((log: any, i: any)) => (
                 <div key={i} className="mb-1 flex gap-2">
                     <span className="text-slate-500 shrink-0">{new Date(log.timestamp).toLocaleTimeString()}</span>
                     <span className={
@@ -45,7 +45,7 @@ function LogViewer({ logs }: { logs: any[] }) {
 export function EngagementRequirementsList({ engagementId, questionnaires }: EngagementRequirementsListProps) {
     const [search, setSearch] = useState("");
 
-    const filteredQuestionnaires = questionnaires.filter(q =>
+    const filteredQuestionnaires = questionnaires.filter((q: any) =>
         q.name.toLowerCase().includes(search.toLowerCase())
     );
 
@@ -89,7 +89,7 @@ export function EngagementRequirementsList({ engagementId, questionnaires }: Eng
                 </div>
 
                 {/* 2. Dynamic Questionnaires */}
-                {filteredQuestionnaires.map((q) => (
+                {filteredQuestionnaires.map((q: any) => (
                     <div key={q.id} className="group bg-white border border-slate-200 rounded-xl p-4 flex items-center justify-between hover:border-indigo-300 hover:shadow-md transition-all">
                         <div className="flex items-center gap-4">
                             <div className="h-10 w-10 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600">

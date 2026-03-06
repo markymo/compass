@@ -30,8 +30,8 @@ export async function getAllUsers() {
     });
 
     // Map to User View Model
-    const userViewModels = users.map(u => {
-        const mappedMemberships = u.memberships.map(m => {
+    const userViewModels = users.map((u: any) => {
+        const mappedMemberships = u.memberships.map((m: any) => {
             if (m.organization) {
                 return {
                     orgId: m.organization.id,
@@ -49,7 +49,7 @@ export async function getAllUsers() {
                 };
             }
             return null;
-        }).filter(m => m !== null); // Remove invalid/empty memberships
+        }).filter((m: any) => m !== null); // Remove invalid/empty memberships
 
         // Sort Memberships: Type DESC (SYSTEM > FI > CLIENT > WORKSPACE), Name ASC
         mappedMemberships.sort((a: any, b: any) => {
@@ -83,7 +83,7 @@ export async function updateUserOrg(targetUserId: string, targetOrgId: string, f
     // For v1 simplicity, we delete old role and create new one (since we enforce 1 role per user)
     // Transactional
 
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: any) => {
         // Update or Create Membership for this target Org (Party)
 
         const existing = await tx.membership.findFirst({

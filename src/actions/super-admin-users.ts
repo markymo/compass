@@ -27,7 +27,7 @@ export async function searchClients(query: string) {
         orderBy: { name: 'asc' }
     });
 
-    return clients.map(c => ({
+    return clients.map((c: any) => ({
         id: c.id,
         name: c.name,
         logoUrl: c.logoUrl,
@@ -125,9 +125,9 @@ export async function getClientContext(clientId: string) {
     return {
         ...client,
         clientLEs: client.ownedLEs
-            .map(o => o.clientLE)
-            .filter(le => !le.isDeleted && le.status !== "ARCHIVED")
-            .sort((a, b) => a.name.localeCompare(b.name))
+            .map((o: any) => o.clientLE)
+            .filter((le: any) => !le.isDeleted && le.status !== "ARCHIVED")
+            .sort((a: any, b: any) => a.name.localeCompare(b.name))
     };
 }
 
@@ -380,12 +380,12 @@ export async function getUserPermissionsProfile(targetUserId: string) {
     });
 
     const leRoleMap = new Map<string, string>();
-    leMemberships.forEach(m => {
+    leMemberships.forEach((m: any) => {
         if (m.clientLEId) leRoleMap.set(m.clientLEId, m.role);
     });
 
     // 4. Build Tree
-    const tree = await Promise.all(orgMemberships.map(async (om) => {
+    const tree = await Promise.all(orgMemberships.map(async (om: any) => {
         if (!om.organization) return null;
 
         // Fetch owned LEs for this Org
@@ -399,7 +399,7 @@ export async function getUserPermissionsProfile(targetUserId: string) {
         });
 
         // Map LEs with user's role
-        const les = ownedLEs.map(owner => {
+        const les = ownedLEs.map((owner: any) => {
             const le = owner.clientLE;
             return {
                 id: le.id,
@@ -408,8 +408,8 @@ export async function getUserPermissionsProfile(targetUserId: string) {
                 isDeleted: le.isDeleted,
                 role: leRoleMap.get(le.id) || "NONE"
             };
-        }).filter(le => !le.isDeleted && le.status !== "ARCHIVED")
-            .sort((a, b) => a.name.localeCompare(b.name));
+        }).filter((le: any) => !le.isDeleted && le.status !== "ARCHIVED")
+            .sort((a: any, b: any) => a.name.localeCompare(b.name));
 
         return {
             org: {

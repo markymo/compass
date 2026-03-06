@@ -68,7 +68,7 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
 
     // Derive the active question text for the create dialog
     const activeQuestionText = activeQuestionId
-        ? data.questions.find(q => q.id === activeQuestionId)?.text || ""
+        ? data.questions.find((q: any) => q.id === activeQuestionId)?.text || ""
         : "";
 
     // Inspection Drawer State
@@ -77,7 +77,7 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
     // Categories for filtering (derived from questions that are mapped)
     const availableCategories = useMemo(() => {
         const cats = new Set<string>();
-        data.questions.forEach(q => {
+        data.questions.forEach((q: any) => {
             if (q.masterFieldCategory) cats.add(q.masterFieldCategory);
         });
         return Array.from(cats).sort();
@@ -85,7 +85,7 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
 
     // 1. Filtering Logic
     const filteredQuestions = useMemo(() => {
-        return data.questions.filter(q => {
+        return data.questions.filter((q: any) => {
             const matchesSearch = q.text.toLowerCase().includes(search.toLowerCase());
             const matchesRel = relFilter === "ALL" || (q.engagementOrgName || "Unknown") === relFilter;
             const matchesQ = qFilter === "ALL" || q.questionnaireName === qFilter;
@@ -120,7 +120,7 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
             return;
         }
 
-        const question = data.questions.find(q => q.id === questionId);
+        const question = data.questions.find((q: any) => q.id === questionId);
         if (!question) return;
 
         startTransition(async () => {
@@ -142,7 +142,7 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
                 // Local state update for snappy UI
                 setData(prev => ({
                     ...prev,
-                    questions: prev.questions.map(q =>
+                    questions: prev.questions.map((q: any) =>
                         q.id === questionId
                             ? {
                                 ...q,
@@ -168,7 +168,7 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
     const handleFieldUpdate = (fieldNo: number, customFieldId: string | undefined, newValue: any, newSource: string, newUpdatedAt: Date) => {
         setData(prev => ({
             ...prev,
-            questions: prev.questions.map(q => {
+            questions: prev.questions.map((q: any) => {
                 const isMatch = customFieldId
                     ? (q as any).customFieldDefinitionId === customFieldId
                     : q.masterFieldNo === fieldNo;
@@ -200,7 +200,7 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
                 toast.success("New field created");
                 setData(prev => ({
                     ...prev,
-                    customFields: [...prev.customFields, { id: res.data.id, label: res.data.label }].sort((a, b) => a.label.localeCompare(b.label))
+                    customFields: [...prev.customFields, { id: res.data.id, label: res.data.label }].sort(((a: any, b: any)) => a.label.localeCompare(b.label))
                 }));
 
                 if (activeQuestionId) {
@@ -242,7 +242,7 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="ALL">All Relationships</SelectItem>
-                            {data.relationships.map(r => (
+                            {data.relationships.map((r: any) => (
                                 <SelectItem key={r} value={r}>{r}</SelectItem>
                             ))}
                         </SelectContent>
@@ -254,7 +254,7 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="ALL">All Questionnaires</SelectItem>
-                            {data.questionnaires.map(q => (
+                            {data.questionnaires.map((q: any) => (
                                 <SelectItem key={q} value={q}>{q}</SelectItem>
                             ))}
                         </SelectContent>
@@ -266,7 +266,7 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="ALL">All Categories</SelectItem>
-                            {availableCategories.map(cat => (
+                            {availableCategories.map((cat: any) => (
                                 <SelectItem key={cat} value={cat}>{cat}</SelectItem>
                             ))}
                         </SelectContent>
@@ -295,7 +295,7 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
 
             {/* Question List */}
             <div className="space-y-3">
-                {filteredQuestions.map((q) => (
+                {filteredQuestions.map((q: any) => (
                     <QuestionCard
                         key={q.id}
                         question={q}
@@ -317,7 +317,7 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
                         onStatusChange={(newStatus) => {
                             setData(prev => ({
                                 ...prev,
-                                questions: prev.questions.map(quest =>
+                                questions: prev.questions.map((quest: any) =>
                                     quest.id === q.id ? { ...quest, status: newStatus } as any : quest
                                 )
                             }));
@@ -327,7 +327,7 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
                             if (res.success) {
                                 setData(prev => ({
                                     ...prev,
-                                    customFields: prev.customFields.map(f =>
+                                    customFields: prev.customFields.map((f: any) =>
                                         f.id === cfId ? { ...f, label: newLabel } : f
                                     )
                                 }));
@@ -552,9 +552,9 @@ function QuestionCard({
     let currentMappingLabel = "Unmapped";
 
     if (question.masterFieldNo) {
-        currentMappingLabel = masterFields.find(f => f.fieldNo === question.masterFieldNo)?.label || `Field ${question.masterFieldNo}`;
+        currentMappingLabel = masterFields.find((f: any) => f.fieldNo === question.masterFieldNo)?.label || `Field ${question.masterFieldNo}`;
     } else if (customFieldId) {
-        currentMappingLabel = customFields.find(f => f.id === customFieldId)?.label || "Custom Field";
+        currentMappingLabel = customFields.find((f: any) => f.id === customFieldId)?.label || "Custom Field";
     }
 
     const handleRenameStart = () => {
@@ -732,7 +732,7 @@ function QuestionCard({
                                             {question.masterDataValue != null && question.masterDataValue !== '' ? (
                                                 Array.isArray(question.masterDataValue) ? (
                                                     <div className="flex flex-wrap gap-1">
-                                                        {question.masterDataValue.map((val, i) => (
+                                                        {question.masterDataValue.map(((val: any, i: any)) => (
                                                             <Badge key={i} variant="secondary" className="bg-white border-slate-200 text-slate-700 py-0 px-1.5 text-[11px]">
                                                                 {String(val)}
                                                             </Badge>

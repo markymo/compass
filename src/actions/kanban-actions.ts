@@ -53,7 +53,7 @@ export async function populateQuestionsFromExtraction(questionnaireId: string) {
         const customFieldIdMap = new Map<string, string>(); // key -> id
 
         if (newFieldsToCreate.size > 0) {
-            for (const [key, proposal] of newFieldsToCreate) {
+            for (const [key, proposal] of Array.from(newFieldsToCreate.entries())) {
                 // We upsert to ensure we don't duplicate if it already exists for this Org
                 const cf = await prisma.customFieldDefinition.upsert({
                     where: {
@@ -190,7 +190,7 @@ export async function getBoardQuestions(engagementId: string) {
     });
 
     // 1. Resolve Master Data for each question
-    const resolvedQuestions = await Promise.all(questions.map(async q => {
+    const resolvedQuestions = await Promise.all(questions.map(async (q: any) => {
         let finalAnswer = q.answer || undefined;
         const isReleased = q.status === 'RELEASED';
         const snapshotDate = isReleased ? (q as any).releasedAt : undefined;
@@ -814,7 +814,7 @@ export async function generateSingleQuestionAnswer(questionId: string) {
     }
 
     // Format Context
-    let contextText = standingDataSections.map(section =>
+    let contextText = standingDataSections.map((section: any) =>
         `SECTION: ${section.category}\nCONTENT:\n${section.content}\n`
     ).join("\n---\n");
 
@@ -965,14 +965,14 @@ export async function generateEngagementAnswers(engagementId: string) {
             return { success: false, error: "Knowledge Base is empty. Please add content first." };
         }
 
-        const contextText = standingDataSections.map(section =>
+        const contextText = standingDataSections.map((section: any) =>
             `SECTION: ${section.category}\nCONTENT:\n${section.content}\n`
         ).join("\n---\n");
 
         // 3. Collect all UNLOCKED questions
         let allQuestions: any[] = [];
-        engagement.questionnaires.forEach(q => {
-            q.questions.forEach(question => {
+        engagement.questionnaires.forEach((q: any) => {
+            q.questions.forEach((question: any) => {
                 // @ts-ignore: Prisma client lag
                 if (!question.isLocked) {
                     allQuestions.push({
@@ -1082,7 +1082,7 @@ export async function getLETeamMembers(clientLEId: string) {
         // });
         const invitations: any[] = [];
 
-        const members = memberships.map(m => ({
+        const members = memberships.map((m: any) => ({
             id: m.userId,
             email: m.user.email,
             name: m.user.name || m.user.email,
@@ -1090,7 +1090,7 @@ export async function getLETeamMembers(clientLEId: string) {
             role: m.role
         }));
 
-        const invitees = invitations.map(i => ({
+        const invitees = invitations.map((i: any) => ({
             id: undefined,
             email: i.email,
             name: i.email,

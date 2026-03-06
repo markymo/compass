@@ -146,7 +146,7 @@ export function ActivityFeed({ activity = [] }: { activity?: ActivityEvent[] }) 
                     </div>
                 ) : (
                     <div className="space-y-4">
-                        {activity.map((event) => (
+                        {activity.map((event: any) => (
                             <ActivityEventCard key={event.id} event={event} />
                         ))}
                     </div>

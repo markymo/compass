@@ -12,7 +12,7 @@ export default async function AdminDashboardPage() {
         prisma.questionnaire.findMany({ // Get unique questionnaires by name
             distinct: ['name'],
             select: { id: true }
-        }).then(qs => qs.length)
+        }).then((qs: any) => qs.length)
     ]);
 
     const cards = [
@@ -121,7 +121,7 @@ export default async function AdminDashboardPage() {
                     </Card>
                 </Link>
 
-                {cards.map((card) => (
+                {cards.map((card: any) => (
                     <Link key={card.title} href={card.href} className="group">
                         <Card className="h-full border-slate-200 shadow-sm transition-all duration-300 hover:shadow-lg hover:-translate-y-1 dark:border-slate-800">
                             <CardHeader className="flex flex-row items-center justify-between pb-2">

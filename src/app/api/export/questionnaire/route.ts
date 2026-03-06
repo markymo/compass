@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
             }
         });
 
-        const exportData = await Promise.all(questions.map(async q => {
+        const exportData = await Promise.all(questions.map(async (q: any) => {
             let resolvedAnswer = q.answer || "";
             const isReleased = (q.status as any) === 'RELEASED';
             const snapshotDate = isReleased ? (q as any).releasedAt : undefined;
@@ -90,7 +90,7 @@ export async function POST(req: NextRequest) {
 
         // 4. Handle Excel
         if (format === 'EXCEL') {
-            const worksheet = XLSX.utils.json_to_sheet(exportData.map(d => ({
+            const worksheet = XLSX.utils.json_to_sheet(exportData.map((d: any) => ({
                 Question: d.question,
                 Answer: d.answer,
                 Status: d.status,

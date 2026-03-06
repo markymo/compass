@@ -37,21 +37,21 @@ export function SuperFieldSelector({
     const [aiSuggestions, setAiSuggestions] = useState<Array<{ id: string; confidence: number; reasoning: string }>>([]);
 
     // 1. Prepare Local Options
-    const masterOptions = useMemo(() => masterFields.map(f => ({
+    const masterOptions = useMemo(() => masterFields.map((f: any) => ({
         value: `master:${f.fieldNo}`,
         label: f.label,
         type: 'master' as const,
         meta: `Standard Field ${f.fieldNo}`,
     })), [masterFields]);
 
-    const groupOptions = useMemo(() => masterGroups.map(g => ({
+    const groupOptions = useMemo(() => masterGroups.map((g: any) => ({
         value: `group:${g.key}`,
         label: g.label,
         type: 'group' as const,
         meta: 'Composite Group',
     })), [masterGroups]);
 
-    const customOptions = useMemo(() => customFields.map(f => ({
+    const customOptions = useMemo(() => customFields.map((f: any) => ({
         value: `custom:${f.id}`,
         label: f.label,
         type: 'custom' as const,
@@ -59,13 +59,13 @@ export function SuperFieldSelector({
     })), [customFields]);
 
     const allOptions = useMemo(() => [...groupOptions, ...masterOptions, ...customOptions], [groupOptions, masterOptions, customOptions]);
-    const selectedOption = allOptions.find(o => o.value === value);
+    const selectedOption = allOptions.find((o: any) => o.value === value);
 
     // 2. Filter logic (since we use shouldFilter={false} to control AI & creation)
     const filteredOptions = useMemo(() => {
         const s = search.toLowerCase();
         if (!s) return allOptions;
-        return allOptions.filter(o =>
+        return allOptions.filter((o: any) =>
             o.label.toLowerCase().includes(s) ||
             o.meta.toLowerCase().includes(s)
         );
@@ -183,8 +183,8 @@ export function SuperFieldSelector({
                             <CommandGroup heading="AI Semantic Best Matches">
                                 {aiSuggestions
                                     .filter((sug, index, self) => self.findIndex(s => s.id === sug.id) === index)
-                                    .map(sug => {
-                                        const opt = allOptions.find(o => o.value === sug.id);
+                                    .map((sug: any) => {
+                                        const opt = allOptions.find((o: any) => o.value === sug.id);
                                         if (!opt) return null;
                                         return (
                                             <CommandItem
@@ -216,7 +216,7 @@ export function SuperFieldSelector({
                         {filteredOptions.length > 0 && (
                             <>
                                 <CommandGroup heading="Groups">
-                                    {filteredOptions.filter(o => o.type === 'group').map(o => (
+                                    {filteredOptions.filter((o: any) => o.type === 'group').map((o: any) => (
                                         <CommandItem
                                             key={o.value}
                                             onSelect={() => { onSelect(o.value.split(':')[1], 'group'); setOpen(false); }}
@@ -234,7 +234,7 @@ export function SuperFieldSelector({
                                 <CommandSeparator />
 
                                 <CommandGroup heading="Standard Fields">
-                                    {filteredOptions.filter(o => o.type === 'master').map(o => (
+                                    {filteredOptions.filter((o: any) => o.type === 'master').map((o: any) => (
                                         <CommandItem
                                             key={o.value}
                                             onSelect={() => { onSelect(o.value.split(':')[1], 'master'); setOpen(false); }}
@@ -252,7 +252,7 @@ export function SuperFieldSelector({
                                 <CommandSeparator />
 
                                 <CommandGroup heading="Custom Fields">
-                                    {filteredOptions.filter(o => o.type === 'custom').map(o => (
+                                    {filteredOptions.filter((o: any) => o.type === 'custom').map((o: any) => (
                                         <CommandItem
                                             key={o.value}
                                             onSelect={() => { onSelect(o.value.split(':')[1], 'custom'); setOpen(false); }}

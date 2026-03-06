@@ -27,7 +27,7 @@ export function RecentlyLearned({ items = [] }: { items?: LearnedItem[] }) {
                 {items.length > 0 ? (
                     <ScrollArea className="h-[200px] pr-3">
                         <div className="space-y-3">
-                            {items.map((item) => (
+                            {items.map((item: any) => (
                                 <div key={item.id} className="flex gap-3 items-start p-2 rounded-lg bg-white border border-indigo-100 shadow-sm">
                                     <div className="mt-0.5 p-1 bg-indigo-50 rounded text-indigo-600">
                                         <Sparkles className="h-3 w-3" />

@@ -238,7 +238,7 @@ function UserPermissionRow({ user, allClientLEs, canManage, clientId }: { user: 
                 </div>
 
                 <div className="space-y-1">
-                    {allClientLEs.map(le => {
+                    {allClientLEs.map((le: any) => {
                         const currentRole = getLeRole(le.id);
                         const isLeAdmin = currentRole === "LE_ADMIN";
                         const isLeUser = currentRole === "LE_USER";

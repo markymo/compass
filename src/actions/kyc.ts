@@ -97,7 +97,7 @@ export async function createKycRow(
         const initialMeta: any = {};
         const timestamp = new Date().toISOString();
 
-        Object.keys(data).forEach(key => {
+        Object.keys(data).forEach((key: any) => {
             // We use a placeholder field_no because we don't have the reverse mapping here yet.
             // Service layer validation might fail if field_no is strictly checked against the generic 'data' keys.
             // However, for 1:N rows, the service often takes 'initialData' and 'initialMeta'.

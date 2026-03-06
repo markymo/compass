@@ -51,8 +51,8 @@ export class KycLoader {
 
             // Summary for workbench
             const values = collection
-                .map(d => d.value)
-                .filter(v => v !== null && v !== undefined);
+                .map((d: any) => d.value)
+                .filter((v: any) => v !== null && v !== undefined);
 
             const first = collection[0];
             return {

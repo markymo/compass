@@ -45,7 +45,7 @@ export default async function RequirementsPage({ params }: { params: Promise<{ i
                                 <p>No requirements found. Add a Financial Institution to get started.</p>
                             </div>
                         ) : (
-                            engagements.map(eng => (
+                            engagements.map((eng: any) => (
                                 <div key={eng.id} className="border rounded-xl overflow-hidden">
                                     <div className="bg-slate-50 dark:bg-slate-900 px-4 py-3 border-b flex items-center justify-between">
                                         <div className="flex items-center gap-2 font-semibold">
@@ -58,7 +58,7 @@ export default async function RequirementsPage({ params }: { params: Promise<{ i
                                         {eng.questionnaires.length === 0 ? (
                                             <div className="p-4 text-sm text-muted-foreground italic">No specific forms selected.</div>
                                         ) : (
-                                            eng.questionnaires.map(q => (
+                                            eng.questionnaires.map((q: any) => (
                                                 <div key={q.id} className="flex items-center justify-between p-4 bg-white dark:bg-card hover:bg-slate-50 transition-colors">
                                                     <div className="flex items-center gap-3">
                                                         <FileText className="w-4 h-4 text-blue-500" />

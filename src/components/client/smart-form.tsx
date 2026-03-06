@@ -39,7 +39,7 @@ export function SmartForm({ clientLEId, requirements }: SmartFormProps) {
     const groupedFields: Record<string, SmartFormField[]> = {};
     const uncategorized: SmartFormField[] = [];
 
-    requirements.forEach(f => {
+    requirements.forEach((f: any) => {
         if (f.categoryId) {
             if (!groupedFields[f.categoryId]) groupedFields[f.categoryId] = [];
             groupedFields[f.categoryId].push(f);
@@ -49,7 +49,7 @@ export function SmartForm({ clientLEId, requirements }: SmartFormProps) {
     });
 
     // Default Values
-    const defaultValues = requirements.reduce((acc, field) => {
+    const defaultValues = requirements.reduce(((acc: any, field: any)) => {
         acc[field.key] = field.currentValue ?? "";
         return acc;
     }, {} as Record<string, any>);
@@ -90,7 +90,7 @@ export function SmartForm({ clientLEId, requirements }: SmartFormProps) {
                             </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                            {field.options?.map(opt => (
+                            {field.options?.map((opt: any) => (
                                 <SelectItem key={opt} value={opt}>{opt}</SelectItem>
                             ))}
                         </SelectContent>
@@ -123,7 +123,7 @@ export function SmartForm({ clientLEId, requirements }: SmartFormProps) {
                         {field.requiredBy.length > 0 && (
                             <div className="flex flex-wrap gap-1 justify-end max-w-[40%]">
                                 <span className="text-[10px] text-muted-foreground mr-1 uppercase tracking-wider py-1">Req. by:</span>
-                                {field.requiredBy.map(fi => (
+                                {field.requiredBy.map((fi: any) => (
                                     <Badge key={fi} variant="outline" className="text-[10px] h-5 px-1.5 whitespace-nowrap">
                                         {fi}
                                     </Badge>
@@ -145,9 +145,9 @@ export function SmartForm({ clientLEId, requirements }: SmartFormProps) {
         <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 pb-20">
 
-                <Accordion type="multiple" defaultValue={MASTER_SCHEMA_CATEGORIES.map(c => c.id)} className="space-y-4">
+                <Accordion type="multiple" defaultValue={MASTER_SCHEMA_CATEGORIES.map((c: any) => c.id)} className="space-y-4">
                     {/* Render Categories First */}
-                    {MASTER_SCHEMA_CATEGORIES.map(category => {
+                    {MASTER_SCHEMA_CATEGORIES.map((category: any) => {
                         const fields = groupedFields[category.id];
                         if (!fields || fields.length === 0) return null;
 
@@ -165,7 +165,7 @@ export function SmartForm({ clientLEId, requirements }: SmartFormProps) {
                                     </div>
                                 </AccordionTrigger>
                                 <AccordionContent className="pt-4 pb-4 grid gap-6 md:grid-cols-2">
-                                    {fields.map(field => <RenderField key={field.key} field={field} />)}
+                                    {fields.map((field: any) => <RenderField key={field.key} field={field} />)}
                                 </AccordionContent>
                             </AccordionItem>
                         );
@@ -178,7 +178,7 @@ export function SmartForm({ clientLEId, requirements }: SmartFormProps) {
                                 Other Information
                             </AccordionTrigger>
                             <AccordionContent className="pt-4 pb-4 grid gap-6 md:grid-cols-2">
-                                {uncategorized.map(field => <RenderField key={field.key} field={field} />)}
+                                {uncategorized.map((field: any) => <RenderField key={field.key} field={field} />)}
                             </AccordionContent>
                         </AccordionItem>
                     )}

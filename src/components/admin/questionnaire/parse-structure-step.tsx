@@ -12,9 +12,9 @@ interface ParseStructureStepProps {
 }
 
 export function ParseStructureStep({ questionnaireId, extractedContent, onNext, onBack }: ParseStructureStepProps) {
-    const questions = extractedContent.filter(i => i.type === "QUESTION");
-    const sections = extractedContent.filter(i => i.type === "SECTION");
-    const others = extractedContent.filter(i => i.type !== "QUESTION" && i.type !== "SECTION");
+    const questions = extractedContent.filter((i: any) => i.type === "QUESTION");
+    const sections = extractedContent.filter((i: any) => i.type === "SECTION");
+    const others = extractedContent.filter((i: any) => i.type !== "QUESTION" && i.type !== "SECTION");
 
     return (
         <Card className="w-full max-w-2xl mx-auto mt-8">

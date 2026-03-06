@@ -184,7 +184,7 @@ export function FIPortalContainer({ org, engagements, workbenchData, questionnai
                             </div>
                         ) : (
                             <div className="grid gap-4">
-                                {engagements.map((engagement) => {
+                                {engagements.map((engagement: any) => {
                                     const le = engagement.clientLE;
                                     const ownerOrg = le.owners?.[0]?.party;
 
@@ -266,7 +266,7 @@ export function FIPortalContainer({ org, engagements, workbenchData, questionnai
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100">
-                                        {questionnaires.map(q => (
+                                        {questionnaires.map((q: any) => (
                                             <tr key={q.id} className="hover:bg-slate-50 transition-colors">
                                                 <td className="px-6 py-4 font-medium text-slate-900">{q.name}</td>
                                                 <td className="px-6 py-4">
@@ -309,7 +309,7 @@ export function FIPortalContainer({ org, engagements, workbenchData, questionnai
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
-                                    {teamMembers.map(m => (
+                                    {teamMembers.map((m: any) => (
                                         <tr key={m.id} className="hover:bg-slate-50 transition-colors">
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-3">

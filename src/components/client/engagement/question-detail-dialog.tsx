@@ -296,7 +296,7 @@ export function QuestionDetailDialog({ open, onOpenChange, task, clientLEId }: Q
                                                     <span>Unassigned</span>
                                                 </div>
                                             </DropdownMenuItem>
-                                            {teamMembers.map((member) => (
+                                            {teamMembers.map((member: any) => (
                                                 <DropdownMenuItem
                                                     key={member.id || member.email}
                                                     className="text-xs py-2 cursor-pointer focus:bg-indigo-50"

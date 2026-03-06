@@ -48,7 +48,7 @@ export function SourcesSubNav({ leId, jurisdiction }: SourcesSubNavProps) {
 
     return (
         <nav className="flex flex-col space-y-1 w-64 pr-8">
-            {tabs.map((tab) => {
+            {tabs.map((tab: any) => {
                 const active = tab.isActive(pathname);
                 const Icon = tab.icon;
                 return (

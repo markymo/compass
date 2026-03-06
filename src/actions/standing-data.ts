@@ -33,7 +33,7 @@ export async function getStandingDataSections(leId: string) {
         });
 
         const recentLearnings = logs
-            .filter(log => {
+            .filter((log: any) => {
                 const d = (log.details as any) || {};
                 // Backwards compatibility: if log has no LE ID, maybe show it? 
                 // Better to be strict: only show if matches LE ID.
@@ -42,7 +42,7 @@ export async function getStandingDataSections(leId: string) {
                 return d.clientLEId === leId;
             })
             .slice(0, 5) // Take top 5 after filter
-            .map(log => {
+            .map((log: any) => {
                 const details = (log.details as any) || {};
                 return {
                     id: log.id,

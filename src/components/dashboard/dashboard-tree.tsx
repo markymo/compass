@@ -33,7 +33,7 @@ export function DashboardTree({ items }: DashboardTreeProps) {
 
     return (
         <div className="space-y-8">
-            {items.map(item => (
+            {items.map((item: any) => (
                 <ClientSection key={item.id} item={item} />
             ))}
         </div>
@@ -104,7 +104,7 @@ function ClientSection({ item }: { item: TreeItemFn }) {
 
                 {/* ── Children (LE rows) ── */}
                 <CollapsibleContent>
-                    {item.children.map(child => (
+                    {item.children.map((child: any) => (
                         <TreeRow key={child.id} item={child} level={1} />
                     ))}
                 </CollapsibleContent>
@@ -228,7 +228,7 @@ function TreeRow({ item, level, isRoot = false }: { item: TreeItemFn; level: num
 
             {/* Nested Children */}
             <CollapsibleContent>
-                {item.children.map(child => (
+                {item.children.map((child: any) => (
                     <TreeRow key={child.id} item={child} level={level + 1} />
                 ))}
 

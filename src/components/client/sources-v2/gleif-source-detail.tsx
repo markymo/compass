@@ -92,7 +92,7 @@ export function GleifSourceDetail({ source, leId, lei, gleifData, gleifFetchedAt
 
     const handleAcceptAll = async () => {
         if (!leId) return;
-        const updates = proposals.filter(p => p.action === 'PROPOSE_UPDATE' && p.proposed?.evidenceId);
+        const updates = proposals.filter((p: any) => p.action === 'PROPOSE_UPDATE' && p.proposed?.evidenceId);
         if (updates.length === 0) return;
 
         setIsAcceptingAll(true);
@@ -184,9 +184,9 @@ export function GleifSourceDetail({ source, leId, lei, gleifData, gleifFetchedAt
                             </TabsTrigger>
                             <TabsTrigger value="mapping" className="data-[state=active]:border-b-2 data-[state=active]:border-indigo-600 rounded-none px-1 pb-2 pt-2 bg-transparent data-[state=active]:shadow-none data-[state=active]:bg-transparent flex items-center gap-2">
                                 Data Mapping
-                                {proposals.filter(p => p.action === 'PROPOSE_UPDATE').length > 0 && (
+                                {proposals.filter((p: any) => p.action === 'PROPOSE_UPDATE').length > 0 && (
                                     <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 border-none px-1.5 h-5 rounded-md">
-                                        {proposals.filter(p => p.action === 'PROPOSE_UPDATE').length} new
+                                        {proposals.filter((p: any) => p.action === 'PROPOSE_UPDATE').length} new
                                     </Badge>
                                 )}
                             </TabsTrigger>
@@ -293,7 +293,7 @@ export function GleifSourceDetail({ source, leId, lei, gleifData, gleifFetchedAt
                                         </p>
                                     </div>
                                 </div>
-                                {proposals.filter(p => p.action === 'PROPOSE_UPDATE').length > 1 && (
+                                {proposals.filter((p: any) => p.action === 'PROPOSE_UPDATE').length > 1 && (
                                     <Button
                                         size="sm"
                                         onClick={handleAcceptAll}
@@ -313,7 +313,7 @@ export function GleifSourceDetail({ source, leId, lei, gleifData, gleifFetchedAt
                                     </div>
                                 ) : proposals.length > 0 ? (
                                     <>
-                                        {proposals.map((proposal, idx) => (
+                                        {proposals.map(((proposal: any, idx: any)) => (
                                             <div key={idx} className={cn(
                                                 "bg-white border rounded-lg p-4 shadow-sm transition-colors",
                                                 proposal.action === 'PROPOSE_UPDATE' ? "border-indigo-200" : "border-slate-200"

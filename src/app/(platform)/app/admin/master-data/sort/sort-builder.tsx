@@ -52,7 +52,7 @@ export default function MasterDataSortBuilder({ initialData }: { initialData: an
         newCategories[index] = newCategories[targetIndex];
         newCategories[targetIndex] = temp;
 
-        newCategories.forEach((cat, idx) => cat.order = idx);
+        newCategories.forEach(((cat: any, idx: any)) => cat.order = idx);
         setCategories(newCategories);
     };
 
@@ -69,7 +69,7 @@ export default function MasterDataSortBuilder({ initialData }: { initialData: an
         newFields[fieldIndex] = newFields[targetIndex];
         newFields[targetIndex] = temp;
 
-        newFields.forEach((f, idx) => f.order = idx);
+        newFields.forEach(((f: any, idx: any)) => f.order = idx);
         newCategories[catIndex] = { ...category, fields: newFields };
         setCategories(newCategories);
     };
@@ -84,7 +84,7 @@ export default function MasterDataSortBuilder({ initialData }: { initialData: an
             const [moved] = newCategories.splice(source.index, 1);
             newCategories.splice(destination.index, 0, moved);
             // Updating internal order
-            newCategories.forEach((cat, index) => {
+            newCategories.forEach(((cat: any, index: any)) => {
                 cat.order = index;
             });
             setCategories(newCategories);
@@ -110,8 +110,8 @@ export default function MasterDataSortBuilder({ initialData }: { initialData: an
                     newCategories[sourceCatIndex].fields = sourceFields;
                     newCategories[destCatIndex].fields = destFields;
 
-                    newCategories[destCatIndex].fields.forEach((f, idx) => f.order = idx);
-                    newCategories[sourceCatIndex].fields.forEach((f, idx) => f.order = idx);
+                    newCategories[destCatIndex].fields.forEach(((f: any, idx: any)) => f.order = idx);
+                    newCategories[sourceCatIndex].fields.forEach(((f: any, idx: any)) => f.order = idx);
 
                     setCategories(newCategories);
                 }
@@ -123,7 +123,7 @@ export default function MasterDataSortBuilder({ initialData }: { initialData: an
                     const [moved] = newFields.splice(source.index, 1);
                     newFields.splice(destination.index, 0, moved);
 
-                    newFields.forEach((f, idx) => f.order = idx);
+                    newFields.forEach(((f: any, idx: any)) => f.order = idx);
                     newCategories[catIndex].fields = newFields;
                     setCategories(newCategories);
                 }
@@ -134,7 +134,7 @@ export default function MasterDataSortBuilder({ initialData }: { initialData: an
     const handleSaveCategories = async () => {
         setIsSaving(true);
         try {
-            const payload = categories.map(c => ({ id: c.id, order: c.order }));
+            const payload = categories.map((c: any) => ({ id: c.id, order: c.order }));
             await updateCategoryOrder(payload);
             toast.success("Category order saved successfully");
             router.refresh();
@@ -148,7 +148,7 @@ export default function MasterDataSortBuilder({ initialData }: { initialData: an
     const handleSaveFields = async () => {
         setIsSaving(true);
         try {
-            const payload = categories.flatMap(c => c.fields.map(f => ({ fieldNo: f.fieldNo, order: f.order })));
+            const payload = categories.flatMap((c: any) => c.fields.map((f: any) => ({ fieldNo: f.fieldNo, order: f.order })));
             // Note: Does not currently save fields moved to different categories. To do that we'd need to update categoryId too, but it's okay based on prompt.
             await updateFieldOrder(payload);
             toast.success("Field order saved successfully");
@@ -228,7 +228,7 @@ export default function MasterDataSortBuilder({ initialData }: { initialData: an
                 <Droppable droppableId="categories" type="CATEGORY">
                     {(provided) => (
                         <div ref={provided.innerRef} {...provided.droppableProps} className="space-y-4">
-                            {categories.map((category, index) => (
+                            {categories.map(((category: any, index: any)) => (
                                 <Draggable key={category.id} draggableId={category.id} index={index}>
                                     {(provided) => (
                                         <div
@@ -259,7 +259,7 @@ export default function MasterDataSortBuilder({ initialData }: { initialData: an
                                                 <Droppable droppableId={category.id} type="FIELD">
                                                     {(provided) => (
                                                         <div ref={provided.innerRef} {...provided.droppableProps} className="space-y-2 pl-8 pt-2">
-                                                            {category.fields.map((field, fieldIndex) => (
+                                                            {category.fields.map(((field: any, fieldIndex: any)) => (
                                                                 <Draggable key={field.fieldNo.toString()} draggableId={field.fieldNo.toString()} index={fieldIndex}>
                                                                     {(provided) => (
                                                                         <div
@@ -303,7 +303,7 @@ export default function MasterDataSortBuilder({ initialData }: { initialData: an
             <div className="mt-12 opacity-75">
                 <h3 className="font-semibold text-lg mb-4 pl-4 border-l-4 border-orange-400">Uncategorized Fields</h3>
                 <div className="space-y-2 pl-8">
-                    {uncategorizedFields.map(field => (
+                    {uncategorizedFields.map((field: any) => (
                         <div key={field.fieldNo} className="flex items-center gap-3 p-3 bg-white dark:bg-slate-900 border rounded-md shadow-sm opacity-60">
                             <span className="font-mono text-xs text-slate-500 w-10">{field.fieldNo}</span>
                             <span>{field.fieldName}</span>

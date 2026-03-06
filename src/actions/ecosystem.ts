@@ -41,25 +41,25 @@ export async function getEcosystemTree() {
     });
 
     // Transform to a clean tree structure
-    return clients.map(client => ({
+    return clients.map((client: any) => ({
         id: client.id,
         name: client.name,
         logoUrl: client.logoUrl,
-        workspaces: client.ownedLEs.map(owner => {
+        workspaces: client.ownedLEs.map((owner: any) => {
             const le = owner.clientLE;
             return {
                 id: le.id,
                 name: le.name,
                 jurisdiction: le.jurisdiction,
                 status: le.status,
-                engagements: le.fiEngagements.map(eng => ({
+                engagements: le.fiEngagements.map((eng: any) => ({
                     id: eng.id,
                     supplierId: eng.org.id,
                     supplierName: eng.org.name,
                     status: eng.status
                 }))
             };
-        }).sort((a, b) => a.name.localeCompare(b.name))
+        }).sort((a: any, b: any) => a.name.localeCompare(b.name))
     }));
 }
 

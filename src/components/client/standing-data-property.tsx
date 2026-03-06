@@ -91,7 +91,7 @@ export function StandingDataProperty({
 
                 {requiredBy.length > 0 && (
                     <div className="flex flex-wrap gap-1 justify-end max-w-[40%]">
-                        {requiredBy.map(fi => (
+                        {requiredBy.map((fi: any) => (
                             <Badge key={fi} variant="secondary" className="text-[9px] h-4 px-1 opacity-70">
                                 {fi}
                             </Badge>

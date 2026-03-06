@@ -49,15 +49,15 @@ function reshapeContexts(ctx: DashboardContexts): OrgNode[] {
     const nodes: OrgNode[] = [];
 
     // 1. Client orgs — children are LEs, each LE has engagements
-    const sortedClients = [...ctx.clients].sort((a, b) => a.name.localeCompare(b.name));
+    const sortedClients = [...ctx.clients].sort(((a: any, b: any)) => a.name.localeCompare(b.name));
     for (const client of sortedClients) {
         const les: OrgChild[] = ctx.legalEntities
-            .filter(le => le.clientName === client.name)
-            .map(le => {
+            .filter((le: any) => le.clientName === client.name)
+            .map((le: any) => {
                 // Engagements for this specific LE
                 const leEngagements = ctx.relationships
-                    .filter(r => r.clientLEId === le.id && r.userIsClient)
-                    .map(r => ({
+                    .filter((r: any) => r.clientLEId === le.id && r.userIsClient)
+                    .map((r: any) => ({
                         type: "engagement" as const,
                         id: r.id,
                         name: r.supplierName,
@@ -89,14 +89,14 @@ function reshapeContexts(ctx: DashboardContexts): OrgNode[] {
     }
 
     // 2. Supplier orgs (FI) — hierarchy: Supplier -> Client -> LE -> Questionnaires
-    const sortedFIs = [...ctx.financialInstitutions].sort((a, b) => a.name.localeCompare(b.name));
+    const sortedFIs = [...ctx.financialInstitutions].sort(((a: any, b: any)) => a.name.localeCompare(b.name));
     for (const fi of sortedFIs) {
         const clientEngagementMap = new Map<string, typeof ctx.relationships>();
 
         // Group relationships by Client
         ctx.relationships
-            .filter(r => r.fiOrgId === fi.id)
-            .forEach(r => {
+            .filter((r: any) => r.fiOrgId === fi.id)
+            .forEach((r: any) => {
                 const clientId = r.clientId || r.clientName; // Fallback to name if ID missing
                 if (!clientEngagementMap.has(clientId)) {
                     clientEngagementMap.set(clientId, []);
@@ -108,8 +108,8 @@ function reshapeContexts(ctx: DashboardContexts): OrgNode[] {
             const clientName = rels[0].clientName;
             const clientMetrics = emptyMetrics();
 
-            const leNodes: OrgChild[] = rels.map(r => {
-                const questionnaires: OrgChild[] = (r.questionnaires || []).map(q => ({
+            const leNodes: OrgChild[] = rels.map((r: any) => {
+                const questionnaires: OrgChild[] = (r.questionnaires || []).map((q: any) => ({
                     type: "questionnaire" as const,
                     id: q.id,
                     name: q.name,
@@ -156,7 +156,7 @@ function reshapeContexts(ctx: DashboardContexts): OrgNode[] {
     }
 
     // 3. Law firms
-    const sortedLawFirms = [...ctx.lawFirms].sort((a, b) => a.name.localeCompare(b.name));
+    const sortedLawFirms = [...ctx.lawFirms].sort(((a: any, b: any)) => a.name.localeCompare(b.name));
     for (const lf of sortedLawFirms) {
         nodes.push({
             id: lf.id,
@@ -226,8 +226,8 @@ function OrgCard({ org }: { org: OrgNode }) {
     const meta = orgMeta[org.orgType];
     const Icon = meta.icon;
 
-    const leCount = org.children.filter(c => c.type === "le").length;
-    const engCount = org.children.filter(c => c.type === "engagement").length;
+    const leCount = org.children.filter((c: any) => c.type === "le").length;
+    const engCount = org.children.filter((c: any) => c.type === "engagement").length;
 
     const summaryParts: string[] = [];
     if (leCount > 0) summaryParts.push(`${leCount} Legal ${leCount === 1 ? "Entity" : "Entities"}`);
@@ -236,8 +236,8 @@ function OrgCard({ org }: { org: OrgNode }) {
 
     const roleBadge = org.role;
 
-    const les = org.children.filter(c => c.type === "le");
-    const engagements = org.children.filter(c => c.type === "engagement");
+    const les = org.children.filter((c: any) => c.type === "le");
+    const engagements = org.children.filter((c: any) => c.type === "engagement");
 
     return (
         <Card className={`${meta.borderColor} shadow-sm transition-all border`}>
@@ -290,7 +290,7 @@ function OrgCard({ org }: { org: OrgNode }) {
                                             </div>
                                         )}
                                         <div className="space-y-1">
-                                            {les.map(child => (
+                                            {les.map((child: any) => (
                                                 <ChildRow key={child.id} child={child} orgType={org.orgType} />
                                             ))}
                                         </div>
@@ -306,7 +306,7 @@ function OrgCard({ org }: { org: OrgNode }) {
                                             </div>
                                         )}
                                         <div className="space-y-1">
-                                            {engagements.map(child => (
+                                            {engagements.map((child: any) => (
                                                 <ChildRow key={child.id} child={child} orgType={org.orgType} />
                                             ))}
                                         </div>
@@ -426,7 +426,7 @@ function ClientOrgCard({ org }: { org: OrgNode }) {
 
                 <CollapsibleContent>
                     <div className="divide-y divide-slate-50">
-                        {org.children.map(child => (
+                        {org.children.map((child: any) => (
                             <NestedTreeRow key={child.id} item={child} level={1} orgType={org.orgType} />
                         ))}
                     </div>
@@ -501,7 +501,7 @@ function NestedTreeRow({ item, level, orgType }: { item: OrgChild; level: number
 
                 {hasChildren && (
                     <CollapsibleContent>
-                        {item.children?.map(child => (
+                        {item.children?.map((child: any) => (
                             <NestedTreeRow key={child.id} item={child} level={level + 1} orgType={orgType} />
                         ))}
                     </CollapsibleContent>
@@ -652,7 +652,7 @@ export default function DashboardPage() {
                 </div>
             ) : (
                 <div className="space-y-6">
-                    {orgNodes.map(org => (
+                    {orgNodes.map((org: any) => (
                         <OrgCard key={org.id} org={org} />
                     ))}
                 </div>

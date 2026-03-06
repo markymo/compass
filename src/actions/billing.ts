@@ -106,7 +106,7 @@ export async function getClientBillingData(clientId: string) {
         // LE Admins: The prompt says "cannot edit".
         // So canEdit = isOrgAdmin.
 
-        const data = clientLEs.map(le => ({
+        const data = clientLEs.map((le: any) => ({
             id: le.id,
             name: le.name,
             jurisdiction: le.jurisdiction,

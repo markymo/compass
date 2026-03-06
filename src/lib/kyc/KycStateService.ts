@@ -135,7 +135,7 @@ export class KycStateService {
 
         const sortAndPick = (list: FieldClaim[]) => {
             if (list.length === 0) return null;
-            return list.sort((a, b) => {
+            return list.sort(((a: any, b: any)) => {
                 // Source priority (asc because 1 is higher)
                 const pA = getSourcePriority(a.sourceType);
                 const pB = getSourcePriority(b.sourceType);
@@ -153,25 +153,25 @@ export class KycStateService {
 
         // Tier 1: VERIFIED Scoped
         if (requestedScopeId) {
-            const verifiedScoped = claims.filter(c => c.status === ClaimStatus.VERIFIED && c.ownerScopeId === requestedScopeId);
+            const verifiedScoped = claims.filter((c: any) => c.status === ClaimStatus.VERIFIED && c.ownerScopeId === requestedScopeId);
             const winner = sortAndPick(verifiedScoped);
             if (winner) return winner;
         }
 
         // Tier 2: ASSERTED Scoped
         if (requestedScopeId) {
-            const assertedScoped = claims.filter(c => c.status === ClaimStatus.ASSERTED && c.ownerScopeId === requestedScopeId);
+            const assertedScoped = claims.filter((c: any) => c.status === ClaimStatus.ASSERTED && c.ownerScopeId === requestedScopeId);
             const winner = sortAndPick(assertedScoped);
             if (winner) return winner;
         }
 
         // Tier 3: VERIFIED Baseline
-        const verifiedBaseline = claims.filter(c => c.status === ClaimStatus.VERIFIED && c.ownerScopeId === null);
+        const verifiedBaseline = claims.filter((c: any) => c.status === ClaimStatus.VERIFIED && c.ownerScopeId === null);
         const winnerV = sortAndPick(verifiedBaseline);
         if (winnerV) return winnerV;
 
         // Tier 4: ASSERTED Baseline
-        const assertedBaseline = claims.filter(c => c.status === ClaimStatus.ASSERTED && c.ownerScopeId === null);
+        const assertedBaseline = claims.filter((c: any) => c.status === ClaimStatus.ASSERTED && c.ownerScopeId === null);
         return sortAndPick(assertedBaseline);
     }
 

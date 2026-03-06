@@ -28,14 +28,14 @@ export function FieldGlossaryTable({ initialFields }: FieldGlossaryTableProps) {
     const [editNotesText, setEditNotesText] = useState("");
     const [isSavingNotes, setIsSavingNotes] = useState(false);
 
-    const filteredFields = [...initialFields].filter(f =>
+    const filteredFields = [...initialFields].filter((f: any) =>
         f.fieldName.toLowerCase().includes(search.toLowerCase()) ||
         (f.category || "").toLowerCase().includes(search.toLowerCase()) ||
         f.fieldNo.toString() === search
     );
 
     if (sortConfig !== null) {
-        filteredFields.sort((a, b) => {
+        filteredFields.sort(((a: any, b: any)) => {
             let aValue = a[sortConfig.key];
             let bValue = b[sortConfig.key];
 

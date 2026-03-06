@@ -27,7 +27,7 @@ export function LEPortalContainer({ le, schema, requirements, standingData, prog
 
     // Calculate metrics
     const openQueries = 0; // Placeholder until Query model is integrated
-    const pendingDocs = engagements.reduce((acc, eng) => acc + (eng.questionnaires?.length || 0), 0);
+    const pendingDocs = engagements.reduce(((acc: any, eng: any)) => acc + (eng.questionnaires?.length || 0), 0);
 
     return (
         <div className="max-w-6xl mx-auto space-y-8 pb-20">
@@ -125,7 +125,7 @@ export function LEPortalContainer({ le, schema, requirements, standingData, prog
 
                 <TabsContent value="engagements" className="mt-0">
                     <div className="grid gap-4">
-                        {engagements.map(eng => {
+                        {engagements.map((eng: any) => {
                             const fiName = typeof eng.org === 'string' ? eng.org : eng.org?.name || "Unknown FI";
                             return (
                                 <Card key={eng.id} className="hover:border-blue-300 dark:hover:border-blue-700 transition-colors cursor-pointer group">

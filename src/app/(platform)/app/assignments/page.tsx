@@ -16,7 +16,7 @@ export default async function GlobalAssignmentsPage() {
 
     // Map to unified structure
     const unified: UnifiedAssignment[] = [
-        ...assignments.questions.map(q => ({
+        ...assignments.questions.map((q: any) => ({
             id: q.id,
             type: "question" as const,
             title: q.text,
@@ -28,7 +28,7 @@ export default async function GlobalAssignmentsPage() {
             assignedBy: q.assignedByUserName ?? "Unknown",
             createdAt: q.createdAt,
         })),
-        ...assignments.masterFields.map(f => ({
+        ...assignments.masterFields.map((f: any) => ({
             id: f.id,
             type: "master" as const,
             title: f.fieldName,

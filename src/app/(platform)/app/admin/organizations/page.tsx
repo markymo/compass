@@ -64,7 +64,7 @@ export default function OrganizationsPage() {
 
     function toggleType(t: string) {
         if (types.includes(t)) {
-            setTypes(types.filter(x => x !== t));
+            setTypes(types.filter((x: any) => x !== t));
         } else {
             setTypes([...types, t]);
         }
@@ -173,7 +173,7 @@ export default function OrganizationsPage() {
                                         <Loader2 className="h-6 w-6 animate-spin inline-block" />
                                     </TableCell>
                                 </TableRow>
-                            ) : orgs.map(org => (
+                            ) : orgs.map((org: any) => (
                                 <TableRow key={org.id}>
                                     <TableCell className="font-medium">
                                         <div className="flex items-center gap-2">

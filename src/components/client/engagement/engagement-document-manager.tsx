@@ -62,7 +62,7 @@ export function EngagementDocumentManager({ engagementId, documents, evidenceDoc
     const [isPickerOpen, setIsPickerOpen] = useState(false);
     const router = useRouter();
 
-    const totalEvidenceDocs = evidenceDocuments.reduce((acc, q) => acc + q.documents.length, 0);
+    const totalEvidenceDocs = evidenceDocuments.reduce(((acc: any, q: any)) => acc + q.documents.length, 0);
 
     const handleRevoke = async (docId: string, docName: string) => {
         if (!confirm(`Revoke access to "${docName}"? The bank will no longer see this file.`)) return;
@@ -129,7 +129,7 @@ export function EngagementDocumentManager({ engagementId, documents, evidenceDoc
                         </Card>
                     ) : (
                         <div className="space-y-4">
-                            {evidenceDocuments.map((question) => (
+                            {evidenceDocuments.map((question: any) => (
                                 <Card key={question.id} className="overflow-hidden border-slate-200 shadow-sm">
                                     {/* Question Header */}
                                     <div className="bg-slate-50 border-b border-slate-100 px-5 py-3 flex items-start gap-3">
@@ -156,7 +156,7 @@ export function EngagementDocumentManager({ engagementId, documents, evidenceDoc
                                     {/* Documents for this Question */}
                                     <CardContent className="p-0">
                                         <div className="divide-y divide-slate-100">
-                                            {question.documents.map((doc) => (
+                                            {question.documents.map((doc: any) => (
                                                 <div key={doc.id} className="flex items-center gap-4 px-5 py-3 hover:bg-slate-50/70 group transition-colors">
                                                     <div className="h-9 w-9 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
                                                         <FileText className="h-4 w-4" />
@@ -204,7 +204,7 @@ export function EngagementDocumentManager({ engagementId, documents, evidenceDoc
                                 </div>
                             ) : (
                                 <div className="divide-y divide-slate-100">
-                                    {documents.map((doc) => (
+                                    {documents.map((doc: any) => (
                                         <div key={doc.id} className="p-4 flex items-center justify-between hover:bg-slate-50/50 group transition-colors">
                                             <div className="flex items-center gap-4">
                                                 <div className="h-10 w-10 bg-indigo-50 text-indigo-600 rounded-lg flex items-center justify-center">

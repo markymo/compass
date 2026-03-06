@@ -31,7 +31,7 @@ export function AssignmentsList({ assignments }: AssignmentsListProps) {
 
     // Unique clients for filter
     const clients = useMemo(() => {
-        const unique = new Set(assignments.map(a => a.clientName).filter(Boolean));
+        const unique = new Set(assignments.map((a: any) => a.clientName).filter(Boolean));
         return Array.from(unique) as string[];
     }, [assignments]);
 
@@ -41,7 +41,7 @@ export function AssignmentsList({ assignments }: AssignmentsListProps) {
         // Search
         if (search) {
             const s = search.toLowerCase();
-            result = result.filter(a =>
+            result = result.filter((a: any) =>
                 a.title.toLowerCase().includes(s) ||
                 a.description.toLowerCase().includes(s) ||
                 (a.clientName || "").toLowerCase().includes(s)
@@ -50,16 +50,16 @@ export function AssignmentsList({ assignments }: AssignmentsListProps) {
 
         // Type Filter
         if (typeFilter !== "all") {
-            result = result.filter(a => a.type === typeFilter);
+            result = result.filter((a: any) => a.type === typeFilter);
         }
 
         // Client Filter
         if (clientFilter !== "all") {
-            result = result.filter(a => a.clientName === clientFilter);
+            result = result.filter((a: any) => a.clientName === clientFilter);
         }
 
         // Sort
-        result.sort((a, b) => {
+        result.sort(((a: any, b: any)) => {
             const dateA = new Date(a.createdAt).getTime();
             const dateB = new Date(b.createdAt).getTime();
             return sortBy === "newest" ? dateB - dateA : dateA - dateB;
@@ -101,7 +101,7 @@ export function AssignmentsList({ assignments }: AssignmentsListProps) {
                         className="bg-white border border-slate-200 rounded-lg text-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 max-w-[200px]"
                     >
                         <option value="all">All Clients</option>
-                        {clients.map(c => <option key={c} value={c}>{c}</option>)}
+                        {clients.map((c: any) => <option key={c} value={c}>{c}</option>)}
                     </select>
 
                     <button
@@ -129,7 +129,7 @@ export function AssignmentsList({ assignments }: AssignmentsListProps) {
                     </div>
                 ) : (
                     <div className="divide-y divide-slate-100">
-                        {filteredAndSorted.map(item => (
+                        {filteredAndSorted.map((item: any) => (
                             <div key={item.id} className="p-4 hover:bg-slate-50 transition-colors group">
                                 <div className="flex items-start justify-between gap-4">
                                     <div className="flex gap-4 min-w-0">

@@ -110,14 +110,14 @@ export async function extractQuestionnaireItems(input: { content: string | strin
 
     if (groups.length > 0) {
         schemaContext += "MASTER FIELD GROUPS (Composite - Prefer these):\n";
-        schemaContext += groups.map(g => `- GroupKey: "${g.key}" Label: "${g.label}" (Fields: ${g.fieldNos.join(',')})`).join('\n');
+        schemaContext += groups.map((g: any) => `- GroupKey: "${g.key}" Label: "${g.label}" (Fields: ${g.fieldNos.join(',')})`).join('\n');
         schemaContext += "\n\n";
     }
 
     // 2. Atomic Fields
     if (fields.length > 0) {
         schemaContext += "MASTER ATOMIC FIELDS:\n";
-        schemaContext += fields.map(f => `- Field ${f.fieldNo} (Key: "${f.fieldNo}"): ${f.fieldName} (${f.appDataType}) - ${f.notes || ''}`).join('\n');
+        schemaContext += fields.map((f: any) => `- Field ${f.fieldNo} (Key: "${f.fieldNo}"): ${f.fieldName} (${f.appDataType}) - ${f.notes || ''}`).join('\n');
         schemaContext += "\n\n";
     } else {
         // Fallback if definitions are missing
@@ -155,7 +155,7 @@ export async function extractQuestionnaireItems(input: { content: string | strin
     } else {
         // Image Mode
         if (Array.isArray(content)) {
-            content.forEach((b64) => {
+            content.forEach((b64: any) => {
                 userContent.push({
                     type: "image",
                     // @ts-ignore
@@ -213,7 +213,7 @@ export async function extractQuestionnaireItems(input: { content: string | strin
         if (logger) await logger(`AI Response Received. Processing items...`, "AI_RESPONSE");
 
         // Post-process: Normalize types and handle nulls
-        const safeItems = object.items.map(item => {
+        const safeItems = object.items.map((item: any) => {
             let type: any = item.type ? item.type.toLowerCase() : "note";
             if (!["question", "section", "instruction", "note"].includes(type)) {
                 type = "note"; // Fallback
@@ -232,7 +232,7 @@ export async function extractQuestionnaireItems(input: { content: string | strin
                 newFieldProposal: item.newFieldProposal || undefined,
                 order: 0 // Will be populated by index
             };
-        }).map((item, idx) => ({ ...item, order: idx + 1 }));
+        }).map((item: any, idx) => ({ ...item, order: idx + 1 }));
 
         if (logger) await logger(`Extraction Complete. Found ${safeItems.length} items.`, "COMPLETE", "SUCCESS");
         return safeItems;
@@ -258,8 +258,8 @@ export interface MappingSuggestion {
 export async function generateMappingSuggestions(input: { content: string | string[], type: "image" | "text", mime: string }): Promise<MappingSuggestion[]> {
     const items = await extractQuestionnaireItems(input); // Add logger here if we expose it?
     return items
-        .filter(i => i.type === "question")
-        .map(i => ({
+        .filter((i: any) => i.type === "question")
+        .map((i: any) => ({
             text: i.text,
             suggestedKey: i.masterQuestionGroupId || i.masterKey,
             confidence: i.confidence || 0,

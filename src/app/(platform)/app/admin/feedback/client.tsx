@@ -108,7 +108,7 @@ export function FeedbackAdminClient({
 
     function exportCSV() {
         const rows = [["Session", "Category", "Status", "Page URL", "Note", "Created At", "Closed At"]];
-        allNotes.forEach(n => {
+        allNotes.forEach((n: any) => {
             rows.push([
                 n.sessionTag || "",
                 n.category,
@@ -119,7 +119,7 @@ export function FeedbackAdminClient({
                 n.closedAt ? new Date(n.closedAt).toISOString() : ""
             ]);
         });
-        const csv = rows.map(r => r.map(c => `"${c}"`).join(",")).join("\n");
+        const csv = rows.map((r: any) => r.map((c: any) => `"${c}"`).join(",")).join("\n");
         const blob = new Blob([csv], { type: "text/csv" });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
@@ -130,32 +130,32 @@ export function FeedbackAdminClient({
 
     function exportMarkdown() {
         const lines: string[] = ["# Product Feedback Export\n"];
-        const openNotes = allNotes.filter(n => n.status !== "closed");
+        const openNotes = allNotes.filter((n: any) => n.status !== "closed");
 
         if (openNotes.length === 0) {
             lines.push("All clear! No open feedback notes.");
         } else {
             for (const [sessionTag, notes] of Object.entries(sessions)) {
-                const openInSession = notes.filter(n => n.status !== "closed");
+                const openInSession = notes.filter((n: any) => n.status !== "closed");
                 if (openInSession.length === 0) continue;
 
                 lines.push(`## ${sessionTag}\n`);
-                const bugs = openInSession.filter(n => n.category === "bug");
-                const features = openInSession.filter(n => n.category === "feature");
-                const general = openInSession.filter(n => n.category === "general");
+                const bugs = openInSession.filter((n: any) => n.category === "bug");
+                const features = openInSession.filter((n: any) => n.category === "feature");
+                const general = openInSession.filter((n: any) => n.category === "general");
                 if (bugs.length) {
                     lines.push("### 🐛 Open Bugs");
-                    bugs.forEach(n => lines.push(`- [ ] \`${n.pageUrl}\` — ${n.note}`));
+                    bugs.forEach((n: any) => lines.push(`- [ ] \`${n.pageUrl}\` — ${n.note}`));
                     lines.push("");
                 }
                 if (features.length) {
                     lines.push("### 💡 Open Feature Requests");
-                    features.forEach(n => lines.push(`- [ ] \`${n.pageUrl}\` — ${n.note}`));
+                    features.forEach((n: any) => lines.push(`- [ ] \`${n.pageUrl}\` — ${n.note}`));
                     lines.push("");
                 }
                 if (general.length) {
                     lines.push("### 📝 Open Notes");
-                    general.forEach(n => lines.push(`- [ ] \`${n.pageUrl}\` — ${n.note}`));
+                    general.forEach((n: any) => lines.push(`- [ ] \`${n.pageUrl}\` — ${n.note}`));
                     lines.push("");
                 }
             }
@@ -197,7 +197,7 @@ export function FeedbackAdminClient({
                             <div className="space-y-1.5">
                                 <label className="text-xs font-semibold text-slate-600 uppercase tracking-tight">Category</label>
                                 <div className="flex gap-2">
-                                    {(Object.keys(CATEGORY_META)).map(cat => (
+                                    {(Object.keys(CATEGORY_META)).map((cat: any) => (
                                         <button
                                             key={cat}
                                             type="button"
@@ -218,7 +218,7 @@ export function FeedbackAdminClient({
                                     className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                                 >
                                     <option value="">Unassigned</option>
-                                    {users.map(u => (
+                                    {users.map((u: any) => (
                                         <option key={u.id} value={u.id}>{u.name || u.email} {u.id === currentUser?.id ? '(Me)' : ''}</option>
                                     ))}
                                 </select>
@@ -285,8 +285,8 @@ export function FeedbackAdminClient({
             {/* Sessions */}
             {Object.entries(sessions).sort().map(([sessionTag, notes]) => {
                 const isCollapsed = collapsed[sessionTag];
-                const filteredNotes = showClosed ? notes : notes.filter(n => n.status !== 'closed');
-                const openCount = notes.filter(n => n.status !== "closed").length;
+                const filteredNotes = showClosed ? notes : notes.filter((n: any) => n.status !== 'closed');
+                const openCount = notes.filter((n: any) => n.status !== "closed").length;
 
                 if (filteredNotes.length === 0 && !showClosed) return null;
 
@@ -303,9 +303,9 @@ export function FeedbackAdminClient({
                                 <span className="text-sm text-slate-400">{notes.length} note{notes.length !== 1 ? "s" : ""} {openCount < notes.length && `(${openCount} open)`}</span>
                             </div>
                             <div className="flex items-center gap-3 text-xs text-slate-500">
-                                {notes.filter(n => n.category === "bug" && n.status !== "closed").length > 0 && (
+                                {notes.filter((n: any) => n.category === "bug" && n.status !== "closed").length > 0 && (
                                     <span className="flex items-center gap-1 bg-red-50 text-red-600 border border-red-200 px-2 py-0.5 rounded-full font-medium">
-                                        <Bug className="h-3 w-3" /> {notes.filter(n => n.category === "bug" && n.status !== "closed").length}
+                                        <Bug className="h-3 w-3" /> {notes.filter((n: any) => n.category === "bug" && n.status !== "closed").length}
                                     </span>
                                 )}
                             </div>
@@ -314,7 +314,7 @@ export function FeedbackAdminClient({
                         {/* Notes Table */}
                         {!isCollapsed && (
                             <div className="divide-y divide-slate-100">
-                                {[...filteredNotes].sort((a, b) => (a.status === 'closed' ? 1 : -1)).map(n => {
+                                {[...filteredNotes].sort((a: any, b: any) => (a.status === 'closed' ? 1 : -1)).map((n: any) => {
                                     const meta = CATEGORY_META[n.category] || CATEGORY_META.general;
                                     const isClosed = n.status === "closed";
 

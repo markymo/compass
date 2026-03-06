@@ -49,7 +49,7 @@ export default function Solutions() {
                                         "Duplicate data entry across 20+ different banking portals.",
                                         "Security risks from sharing sensitive docs via email.",
                                         "Zero visibility on process status."
-                                    ].map((item, i) => (
+                                    ].map(((item: any, i: any)) => (
                                         <li key={i} className="flex gap-3">
                                             <Mail className="h-6 w-6 text-rose-500 flex-shrink-0" />
                                             <span className="text-slate-700">{item}</span>

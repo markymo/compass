@@ -201,7 +201,7 @@ export async function acceptProposal(
         }
 
         // 3. Find Candidate
-        const candidate = candidates.find(c => c.fieldNo === fieldNo);
+        const candidate = candidates.find((c: any) => c.fieldNo === fieldNo);
         if (!candidate) return { success: false, message: "Field candidate not found in evidence" };
 
         // 4. Apply

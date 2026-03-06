@@ -112,7 +112,7 @@ export function DocumentVault({ leId }: DocumentVaultProps) {
         loadDocuments();
     }, [leId]);
 
-    const filteredDocs = documents.filter(doc => {
+    const filteredDocs = documents.filter((doc: any) => {
         const matchesSearch = doc.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
             doc.docType?.toLowerCase().includes(searchQuery.toLowerCase());
 
@@ -164,8 +164,8 @@ export function DocumentVault({ leId }: DocumentVaultProps) {
                 {type === 'ALL'
                     ? documents.length
                     : type === 'SHARED'
-                        ? documents.filter(d => d.sharedWith?.length > 0).length
-                        : documents.filter(d => d.docType === type).length
+                        ? documents.filter((d: any) => d.sharedWith?.length > 0).length
+                        : documents.filter((d: any) => d.docType === type).length
                 }
             </span>
         </Button>
@@ -252,7 +252,7 @@ export function DocumentVault({ leId }: DocumentVaultProps) {
                     <>
                         {viewMode === 'grid' ? (
                             <div className="grid gap-4 min-[450px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 pb-20">
-                                {filteredDocs.map((doc) => {
+                                {filteredDocs.map((doc: any) => {
                                     const aiData = doc.metadata?.extractedKnowledge;
                                     return (
                                         <div
@@ -325,7 +325,7 @@ export function DocumentVault({ leId }: DocumentVaultProps) {
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {filteredDocs.map((doc) => {
+                                        {filteredDocs.map((doc: any) => {
                                             const aiData = doc.metadata?.extractedKnowledge;
                                             return (
                                                 <TableRow

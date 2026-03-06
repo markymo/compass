@@ -17,11 +17,11 @@ export default async function FIEngagementsPage({ params, searchParams }: { para
 
     // 2. Extract Available Filters
     const availableQuestionnaires = Array.from(new Set(
-        allEngagements.flatMap(e => e.questionnaires.map(q => q.name))
+        allEngagements.flatMap((e: any) => e.questionnaires.map((q: any) => q.name))
     )).sort();
 
     const availableClients = Array.from(new Set(
-        allEngagements.map(e => e.clientLE.name)
+        allEngagements.map((e: any) => e.clientLE.name)
     )).sort();
 
     // 3. Filter Engagements
@@ -30,13 +30,13 @@ export default async function FIEngagementsPage({ params, searchParams }: { para
     const filterClient = resolvedSearchParams.client as string;
 
     if (filterQ && filterQ !== "all") {
-        engagements = engagements.filter(e =>
-            e.questionnaires.some(q => q.name === filterQ)
+        engagements = engagements.filter((e: any) =>
+            e.questionnaires.some((q: any) => q.name === filterQ)
         );
     }
 
     if (filterClient && filterClient !== "all") {
-        engagements = engagements.filter(e =>
+        engagements = engagements.filter((e: any) =>
             e.clientLE.name === filterClient
         );
     }

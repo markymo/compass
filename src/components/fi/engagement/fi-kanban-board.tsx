@@ -70,14 +70,14 @@ export function FIKanbanBoard({ engagementId, clientName = "Client" }: { engagem
             source.index === destination.index
         ) return;
 
-        const movedTask = tasks.find(t => t.id === draggableId);
+        const movedTask = tasks.find((t: any) => t.id === draggableId);
         if (!movedTask) return;
 
         // Optimistic Update
         const newStatus = destination.droppableId;
         const previousTasks = [...tasks];
 
-        setTasks(prev => prev.map(t =>
+        setTasks(prev => prev.map((t: any) =>
             t.id === draggableId ? { ...t, status: newStatus as any } : t
         ));
 
@@ -109,7 +109,7 @@ export function FIKanbanBoard({ engagementId, clientName = "Client" }: { engagem
     // Visible Statuses for FI:
     const VISIBLE_STATUSES = ['SHARED', 'RELEASED'];
 
-    const filteredTasks = tasks.filter(t => {
+    const filteredTasks = tasks.filter((t: any) => {
         // Status Visibility Check
         if (!VISIBLE_STATUSES.includes(t.status)) return false;
 
@@ -121,14 +121,14 @@ export function FIKanbanBoard({ engagementId, clientName = "Client" }: { engagem
     });
 
     // Group Statuses into Columns
-    const getTasksByStatus = (columnId: string) => filteredTasks.filter(t => {
+    const getTasksByStatus = (columnId: string) => filteredTasks.filter((t: any) => {
         if (columnId === 'SHARED') return t.status === 'SHARED' || t.status === 'RELEASED';
         return t.status === columnId;
     });
 
     // Derive Unique Questionnaires for Filter
     // @ts-ignore
-    const uniqueQuestionnaires = Array.from(new Set(tasks.map(t => t.questionnaireId))).filter(Boolean);
+    const uniqueQuestionnaires = Array.from(new Set(tasks.map((t: any) => t.questionnaireId))).filter(Boolean);
 
 
     if (!enabled) return <div className="p-12 text-center text-slate-400">Loading Workbench...</div>;
@@ -180,7 +180,7 @@ export function FIKanbanBoard({ engagementId, clientName = "Client" }: { engagem
                 <DragDropContext onDragEnd={onDragEnd}>
                     <div className="flex-1 overflow-x-auto">
                         <div className="flex h-full min-h-[500px] gap-6 pb-4">
-                            {columns.map((col) => (
+                            {columns.map((col: any) => (
                                 <KanbanColumn
                                     key={col.id}
                                     id={col.id}

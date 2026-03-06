@@ -24,7 +24,7 @@ function InnerShell({ children, baseBreadcrumbs, leId, leName, isSystemAdmin, le
 
     // Merge base breadcrumbs with extra breadcrumbs from context
     // Map icon names to actual Lucide icons if present
-    const combinedBreadcrumbs = [...baseBreadcrumbs, ...extraBreadcrumbs].map(item => ({
+    const combinedBreadcrumbs = [...baseBreadcrumbs, ...extraBreadcrumbs].map((item: any) => ({
         ...item,
         icon: item.icon || (item.iconName ? getBreadcrumbIcon(item.iconName) : undefined)
     }));

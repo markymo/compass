@@ -248,7 +248,7 @@ export async function createManualQuestionnaire(data: { name: string, fiOrgId?: 
     }
 
     let { name, fiOrgId, questions, isGlobal = false } = data;
-    const questionLines = questions.split("\n").map(q => q.trim()).filter(q => q.length > 0);
+    const questionLines = questions.split("\n").map((q: any) => q.trim()).filter((q: any) => q.length > 0);
 
     if (questionLines.length === 0) {
         return { success: false, error: "At least one question is required" };
@@ -270,10 +270,10 @@ export async function createManualQuestionnaire(data: { name: string, fiOrgId?: 
         // Generate compact text for each question using AI
         console.log("[createManualQuestionnaire] Generating compact text for", questionLines.length, "questions...");
         const compactResults = await Promise.all(
-            questionLines.map(q => compactifyQuestion(q))
+            questionLines.map((q: any) => compactifyQuestion(q))
         );
 
-        const extractedContent = questionLines.map((text, index) => ({
+        const extractedContent = questionLines.map(((text: any, index: any)) => ({
             type: "question",
             text: text,
             compactText: compactResults[index]?.compactText || null,
@@ -462,7 +462,7 @@ export async function analyzeQuestionnaire(id: string) {
             // Fallback: Construct "processed" object from existing questions
             // This allows "Auto-Map" to work on manually created questionnaires or legacy imports
             const questionsText = q.questions.length > 0
-                ? q.questions.map(q => `${q.order}. ${q.text}`).join("\n")
+                ? q.questions.map((q: any) => `${q.order}. ${q.text}`).join("\n")
                 : (q.extractedContent as any[] || []).filter((i: any) => i.type === 'question').map((i: any) => `${i.order || ''}. ${i.text}`).join("\n");
 
             if (!questionsText) {
@@ -833,8 +833,8 @@ async function syncQuestionsToDatabase(id: string, items: any[]) {
 
     // 2. Filter for Questions only (or map others if we expand model later)
     const questionsToCreate = items
-        .filter(i => (i.type || "").toLowerCase() === "question")
-        .map((item, index) => {
+        .filter((i: any) => (i.type || "").toLowerCase() === "question")
+        .map((item: any, index: any) => {
             console.log(`[syncQuestionsToDatabase] Question "${item.text?.slice(0, 30)}..." has compactText: "${item.compactText}"`);
 
             // Map the new fields if present in the "items" (which comes from extractedContent or mappings overlay)

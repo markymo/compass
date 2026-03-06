@@ -197,7 +197,7 @@ export async function searchGLEIFByName(name: string): Promise<{ success: boolea
             return { success: true, results: [] };
         }
 
-        const results: GLEIFSearchResult[] = json.data.map(record => ({
+        const results: GLEIFSearchResult[] = json.data.map((record: any) => ({
             id: record.attributes.lei, // or record.id
             name: record.attributes.entity.legalName.name,
             jurisdiction: record.attributes.entity.jurisdiction,

@@ -114,7 +114,7 @@ export function UserPermissionsSheet({ isOpen, onClose, user, clientName, client
                                         No Legal Entities found for this client.
                                     </div>
                                 ) : (
-                                    les.map(le => {
+                                    les.map((le: any) => {
                                         const currentRole = user.leRoles[le.id] || "NONE";
                                         // Effect of Admin?
                                         // If Admin, they see it, but don't have "Enter" unless they have a role.

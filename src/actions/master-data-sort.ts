@@ -14,7 +14,7 @@ export async function syncCategoriesFromFields() {
         }
     });
 
-    const distinctCategoryNames = Array.from(new Set(fields.map(f => f.category!.trim()).filter(Boolean)));
+    const distinctCategoryNames = Array.from(new Set(fields.map((f: any) => f.category!.trim()).filter(Boolean)));
 
     const normalize = (name: string) => {
         return name.trim().toLowerCase().replace(/[\s\W]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
@@ -25,7 +25,7 @@ export async function syncCategoriesFromFields() {
 
     for (let i = 0; i < distinctCategoryNames.length; i++) {
         const name = distinctCategoryNames[i];
-        let baseKey = normalize(name);
+        let baseKey = normalize(name as string);
         if (!baseKey) continue;
 
         let key = baseKey;
@@ -37,13 +37,13 @@ export async function syncCategoriesFromFields() {
         usedKeys.add(key);
 
         categoriesToCreate.push({
-            name,
+            name: name as string,
             key,
             order: i
         });
     }
 
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: any) => {
         for (const cat of categoriesToCreate) {
             await tx.masterDataCategory.upsert({
                 where: { key: cat.key },
@@ -53,7 +53,7 @@ export async function syncCategoriesFromFields() {
         }
 
         const allCategories = await tx.masterDataCategory.findMany();
-        const categoryMap = new Map(allCategories.map(c => [c.displayName.toLowerCase().trim(), c]));
+        const categoryMap = new Map<string, any>(allCategories.map((c: any) => [c.displayName.toLowerCase().trim(), c]));
 
         for (const field of fields) {
             const name = field.category!.trim();
@@ -112,7 +112,7 @@ export async function getCategoriesWithFields() {
 
 export async function updateCategoryOrder(payload: { id: string; order: number }[]) {
     await prisma.$transaction(
-        payload.map(item =>
+        payload.map((item: any) =>
             prisma.masterDataCategory.update({
                 where: { id: item.id },
                 data: { order: item.order }
@@ -124,7 +124,7 @@ export async function updateCategoryOrder(payload: { id: string; order: number }
 
 export async function updateFieldOrder(payload: { fieldNo: number; order: number }[]) {
     await prisma.$transaction(
-        payload.map(item =>
+        payload.map((item: any) =>
             prisma.masterFieldDefinition.update({
                 where: { fieldNo: item.fieldNo },
                 data: { order: item.order }

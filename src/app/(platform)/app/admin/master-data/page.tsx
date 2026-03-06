@@ -66,7 +66,7 @@ export default async function MasterDataAdminPage() {
             </div>
 
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-                {stats.map((s) => (
+                {stats.map((s: any) => (
                     <Card key={s.label}>
                         <CardHeader className="flex flex-row items-center justify-between pb-2">
                             <CardTitle className="text-sm font-medium">{s.label}</CardTitle>
@@ -80,7 +80,7 @@ export default async function MasterDataAdminPage() {
             </div>
 
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                {actions.map((action) => (
+                {actions.map((action: any) => (
                     <Link key={action.title} href={action.href} className="group">
                         <Card className="h-full border-slate-200 shadow-sm transition-all duration-300 hover:shadow-lg hover:-translate-y-1 dark:border-slate-800">
                             <CardHeader>

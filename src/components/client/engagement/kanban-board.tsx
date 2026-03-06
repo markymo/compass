@@ -93,14 +93,14 @@ export function KanbanBoard({ engagementId, clientLEId, fiName = "Bank", questio
             source.index === destination.index
         ) return;
 
-        const movedTask = tasks.find(t => t.id === draggableId);
+        const movedTask = tasks.find((t: any) => t.id === draggableId);
         if (!movedTask) return;
 
         // Optimistic Update
         const newStatus = destination.droppableId;
         const previousTasks = [...tasks];
 
-        setTasks(prev => prev.map(t =>
+        setTasks(prev => prev.map((t: any) =>
             t.id === draggableId ? { ...t, status: newStatus as any } : t
         ));
 
@@ -121,7 +121,7 @@ export function KanbanBoard({ engagementId, clientLEId, fiName = "Bank", questio
     };
 
     // Filter Logic
-    const filteredTasks = tasks.filter(t => {
+    const filteredTasks = tasks.filter((t: any) => {
         if (selectedQuestionnaireId === "all") return true;
         // @ts-ignore
         if (t.questionnaireId) return t.questionnaireId === selectedQuestionnaireId;
@@ -129,7 +129,7 @@ export function KanbanBoard({ engagementId, clientLEId, fiName = "Bank", questio
         // Based on update, q.questionnaireId IS mapped.
     });
 
-    const getTasksByStatus = (status: string) => filteredTasks.filter(t => t.status === status);
+    const getTasksByStatus = (status: string) => filteredTasks.filter((t: any) => t.status === status);
 
     if (!enabled) {
         return null; // Or a loading skeleton
@@ -147,7 +147,7 @@ export function KanbanBoard({ engagementId, clientLEId, fiName = "Bank", questio
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="all">All Questionnaires</SelectItem>
-                            {questionnaires.map((q) => (
+                            {questionnaires.map((q: any) => (
                                 <SelectItem key={q.id} value={q.id}>
                                     {q.name}
                                 </SelectItem>
@@ -171,7 +171,7 @@ export function KanbanBoard({ engagementId, clientLEId, fiName = "Bank", questio
 
             <DragDropContext onDragEnd={onDragEnd}>
                 <div className="flex min-h-full gap-4 md:gap-6 pb-4 overflow-x-auto snap-x snap-mandatory px-4 md:px-0">
-                    {columns.map((col) => (
+                    {columns.map((col: any) => (
                         <KanbanColumn
                             key={col.id}
                             id={col.id}

@@ -36,7 +36,7 @@ export function InviteMemberDialog({ orgId }: { orgId: string }) {
     // Fetch LEs when dialog opens
     useEffect(() => {
         if (open && leOptions.length === 0) {
-            getClientLEs(orgId).then(les => setLeOptions(les));
+            getClientLEs(orgId).then((les: any) => setLeOptions(les));
         }
     }, [open, orgId, leOptions.length]);
 
@@ -61,11 +61,11 @@ export function InviteMemberDialog({ orgId }: { orgId: string }) {
         if (lesToInvite.length === 0) { setLoading(false); return; }
 
         const results = await Promise.all(
-            lesToInvite.map(leId => inviteUser({ email, role: permLevel, clientLEId: leId }))
+            lesToInvite.map((leId: any) => inviteUser({ email, role: permLevel, clientLEId: leId }))
         );
         setLoading(false);
 
-        const firstError = results.find(r => !r.success);
+        const firstError = results.find((r: any) => !r.success);
         if (firstError) { alert(firstError.error); return; }
 
         setOpen(false);
@@ -75,7 +75,7 @@ export function InviteMemberDialog({ orgId }: { orgId: string }) {
 
     const toggleLE = (id: string) => {
         if (selectedLEs.includes(id)) {
-            setSelectedLEs(selectedLEs.filter(x => x !== id));
+            setSelectedLEs(selectedLEs.filter((x: any) => x !== id));
         } else {
             setSelectedLEs([...selectedLEs, id]);
         }
@@ -118,7 +118,7 @@ export function InviteMemberDialog({ orgId }: { orgId: string }) {
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent className="bg-white">
-                                {PERM_LEVELS.map(p => (
+                                {PERM_LEVELS.map((p: any) => (
                                     <SelectItem key={p.value} value={p.value}>
                                         {p.label}
                                     </SelectItem>
@@ -155,7 +155,7 @@ export function InviteMemberDialog({ orgId }: { orgId: string }) {
                                         <CommandList>
                                             <CommandEmpty>No entity found.</CommandEmpty>
                                             <CommandGroup>
-                                                {leOptions.map((le) => (
+                                                {leOptions.map((le: any) => (
                                                     <CommandItem
                                                         key={le.id}
                                                         value={le.name}
@@ -178,8 +178,8 @@ export function InviteMemberDialog({ orgId }: { orgId: string }) {
 
                             {/* Selected Chips */}
                             <div className="flex flex-wrap gap-2 mt-2">
-                                {selectedLEs.map(id => {
-                                    const le = leOptions.find(opt => opt.id === id);
+                                {selectedLEs.map((id: any) => {
+                                    const le = leOptions.find((opt: any) => opt.id === id);
                                     return (
                                         <Badge key={id} variant="secondary" className="pl-2 pr-1 py-1">
                                             {le?.name}

@@ -162,7 +162,7 @@ export async function getEffectiveRequirements(clientLEId: string) {
                 items = content.fields;
             }
 
-            items.forEach(item => {
+            items.forEach((item: any) => {
                 // Support both direct extraction schema and question schema
                 // Question schema might have 'question' text but we look for 'masterKey' mapping
 
@@ -174,7 +174,7 @@ export async function getEffectiveRequirements(clientLEId: string) {
                     const key = item.masterKey;
 
                     // Verify key exists in Master Schema
-                    const fieldDef = allFields.find(f => f.key === key);
+                    const fieldDef = allFields.find((f: any) => f.key === key);
                     if (fieldDef) {
                         if (!requirements.has(key)) {
                             requirements.set(key, { definition: fieldDef, requiredBy: new Set() });
@@ -196,7 +196,7 @@ export async function getEffectiveRequirements(clientLEId: string) {
 
     // 5. Format Output
     // Show ALL fields from Master Schema, annotated with requirement info
-    const fields = allFields.map(fieldDef => {
+    const fields = allFields.map((fieldDef: any) => {
         const key = fieldDef.key;
         const req = requirements.get(key);
 
@@ -209,7 +209,7 @@ export async function getEffectiveRequirements(clientLEId: string) {
 
     // Calculate generic progress
     const total = fields.length;
-    const filled = fields.filter(f => f.currentValue !== undefined && f.currentValue !== "").length;
+    const filled = fields.filter((f: any) => f.currentValue !== undefined && f.currentValue !== "").length;
 
     // Start with all requirements, but also include fields that HAVE answers even if not required anymore?
     // For now, let's stick to "Effective Requirements". 
@@ -246,7 +246,7 @@ export async function updateStandingDataProperty(clientLEId: string, propertyKey
         let fieldNo = parseInt(propertyKey);
         if (isNaN(fieldNo)) {
             const allFields = await listAllMasterFields();
-            const def = allFields.find(f => (f as any).modelField === propertyKey || f.fieldName === propertyKey);
+            const def = allFields.find((f: any) => (f as any).modelField === propertyKey || f.fieldName === propertyKey);
             if (!def) return { success: false, error: `Unknown property: ${propertyKey}` };
             fieldNo = def.fieldNo;
         }
@@ -372,7 +372,7 @@ export async function getEngagementDetails(engagementId: string) {
         // effectively 'questionnaires' in the UI maps to 'questionnaireInstances'
         const combinedQuestionnaires = Array.from(
             new Map(
-                [...engagement.questionnaireInstances, ...engagement.questionnaires].map(item => [item.id, item])
+                [...engagement.questionnaireInstances, ...engagement.questionnaires].map((item: any) => [item.id, item])
             ).values()
         );
 
@@ -387,15 +387,15 @@ export async function getEngagementDetails(engagementId: string) {
         });
 
         // Manually fetch and attach the creator User details (no direct relation in schema)
-        const creatorIds = [...new Set(rawInvitations.map(inv => inv.createdByUserId))];
+        const creatorIds = [...new Set(rawInvitations.map((inv: any) => inv.createdByUserId))];
         const creators = await prisma.user.findMany({
             where: { id: { in: creatorIds } },
             select: { id: true, name: true, email: true }
         });
 
-        const invitations = rawInvitations.map(inv => ({
+        const invitations = rawInvitations.map((inv: any) => ({
             ...inv,
-            createdByUser: creators.find(c => c.id === inv.createdByUserId) || null
+            createdByUser: creators.find((c: any) => c.id === inv.createdByUserId) || null
         }));
 
         // Fetch Active Members (Scoped to the LE for now, as Suppliers are invited to the LE or Org)
@@ -560,7 +560,7 @@ export async function getFullMasterData(clientLEId: string) {
 
     // Collect Field IDs from the Data itself (The "Stored at LE Level" truth)
     const targetDefIds = new Set<string>();
-    Object.keys(customData).forEach(key => {
+    Object.keys(customData).forEach((key: any) => {
         // Simple uuid check or length check to avoid junk
         if (key.length > 20) targetDefIds.add(key);
     });

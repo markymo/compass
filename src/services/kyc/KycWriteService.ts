@@ -171,9 +171,9 @@ export class KycWriteService {
 
         // 2. Map fieldNames to fieldNos
         const allFields = await listAllMasterFields();
-        const modelFields = allFields.filter(f => f.category === modelName);
+        const modelFields = allFields.filter((f: any) => f.category === modelName);
         const nameToNo = new Map<string, number>();
-        modelFields.forEach(def => {
+        modelFields.forEach((def: any) => {
             if ((def as any).modelField) nameToNo.set((def as any).modelField, def.fieldNo);
         });
 
@@ -267,7 +267,7 @@ export class KycWriteService {
         }
 
         // 2. Create and link directly
-        return await prisma.$transaction(async (tx) => {
+        return await prisma.$transaction(async (tx: any) => {
             const newLegalEntity = await tx.legalEntity.create({
                 data: {
                     reference: `REF-${clientLEId.substring(0, 8).toUpperCase()}`,
@@ -496,8 +496,8 @@ export class KycWriteService {
 
         for (const eng of engagements) {
             const allQuestions = [
-                ...eng.questionnaireInstances.flatMap(qi => qi.questions),
-                ...eng.questionnaires.flatMap(q => q.questions)
+                ...eng.questionnaireInstances.flatMap((qi: any) => qi.questions),
+                ...eng.questionnaires.flatMap((q: any) => q.questions)
             ];
 
             for (const q of allQuestions) {
@@ -573,8 +573,8 @@ export class KycWriteService {
 
         for (const eng of engagements) {
             const allQuestions = [
-                ...eng.questionnaireInstances.flatMap(qi => qi.questions),
-                ...eng.questionnaires.flatMap(q => q.questions)
+                ...eng.questionnaireInstances.flatMap((qi: any) => qi.questions),
+                ...eng.questionnaires.flatMap((q: any) => q.questions)
             ];
 
             for (const q of allQuestions) {

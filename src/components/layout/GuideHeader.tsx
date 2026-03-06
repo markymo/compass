@@ -28,7 +28,7 @@ export function GuideHeader({ breadcrumbs, actions, className = "" }: GuideHeade
             <div className="flex-1 overflow-x-auto no-scrollbar mask-fade-right mr-4">
                 <Breadcrumb className="whitespace-nowrap">
                     <BreadcrumbList className="flex-nowrap">
-                        {breadcrumbs.map((item, index) => {
+                        {breadcrumbs.map(((item: any, index: any)) => {
                             const isLast = index === breadcrumbs.length - 1;
                             const Icon = item.icon;
 

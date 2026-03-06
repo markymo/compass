@@ -20,7 +20,7 @@ export function FIBreadcrumb({ items, className }: FIBreadcrumbProps) {
                 FI Dashboard
             </Link>
 
-            {items.map((item, index) => (
+            {items.map(((item: any, index: any)) => (
                 <div key={index} className="flex items-center">
                     <ChevronRight className="w-4 h-4 mx-2 text-slate-400" />
                     {item.href ? (

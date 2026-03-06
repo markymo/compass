@@ -98,32 +98,32 @@ export function FeedbackWidget() {
     async function handleDelete(id: string) {
         try {
             await fetch(`/api/feedback?id=${id}`, { method: "DELETE" });
-            setNotes(prev => prev.filter(n => n.id !== id));
+            setNotes(prev => prev.filter((n: any) => n.id !== id));
         } catch (e) {
             console.error("Failed to delete feedback note", e);
         }
     }
 
     function exportMarkdown() {
-        const bugs = notes.filter(n => n.category === "bug");
-        const features = notes.filter(n => n.category === "feature");
-        const general = notes.filter(n => n.category === "general");
+        const bugs = notes.filter((n: any) => n.category === "bug");
+        const features = notes.filter((n: any) => n.category === "feature");
+        const general = notes.filter((n: any) => n.category === "general");
 
         const lines: string[] = [`## ${sessionTag} — Feedback Export\n`];
 
         if (bugs.length) {
             lines.push("### 🐛 Bugs");
-            bugs.forEach(n => lines.push(`- [ ] \`${n.pageUrl}\` — ${n.note}`));
+            bugs.forEach((n: any) => lines.push(`- [ ] \`${n.pageUrl}\` — ${n.note}`));
             lines.push("");
         }
         if (features.length) {
             lines.push("### 💡 Feature Requests");
-            features.forEach(n => lines.push(`- [ ] \`${n.pageUrl}\` — ${n.note}`));
+            features.forEach((n: any) => lines.push(`- [ ] \`${n.pageUrl}\` — ${n.note}`));
             lines.push("");
         }
         if (general.length) {
             lines.push("### 📝 Notes");
-            general.forEach(n => lines.push(`- [ ] \`${n.pageUrl}\` — ${n.note}`));
+            general.forEach((n: any) => lines.push(`- [ ] \`${n.pageUrl}\` — ${n.note}`));
         }
 
         const md = lines.join("\n");
@@ -149,7 +149,7 @@ export function FeedbackWidget() {
 
                     {/* Tabs */}
                     <div className="flex border-b border-slate-100">
-                        {(["add", "view"] as const).map(t => (
+                        {(["add", "view"] as const).map((t: any) => (
                             <button
                                 key={t}
                                 onClick={() => setTab(t)}
@@ -169,7 +169,7 @@ export function FeedbackWidget() {
 
                             {/* Category Selector */}
                             <div className="flex gap-2">
-                                {(Object.keys(CATEGORY_META) as Category[]).map(cat => (
+                                {(Object.keys(CATEGORY_META) as Category[]).map((cat: Category) => (
                                     <button
                                         key={cat}
                                         onClick={() => setCategory(cat)}
@@ -214,7 +214,7 @@ export function FeedbackWidget() {
                                         No notes yet for this session.
                                     </div>
                                 ) : (
-                                    notes.map(n => {
+                                    notes.map((n: any) => {
                                         const meta = CATEGORY_META[n.category as Category] || CATEGORY_META.general;
                                         return (
                                             <div key={n.id} className="p-3 hover:bg-slate-50 group/note transition-colors">

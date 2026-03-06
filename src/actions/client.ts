@@ -96,7 +96,7 @@ export async function ensureUserOrg(userId: string, userEmail: string = "") {
             console.log(`[ensureUserOrg] Found placeholder user ${existingUserByEmail.id} for ${userEmail}. Merging...`);
 
             // Transactional Merge
-            await prisma.$transaction(async (tx) => {
+            await prisma.$transaction(async (tx: any) => {
                 // 0. Free up the email on the placeholder so we can assign it to the new user ID
                 await tx.user.update({
                     where: { id: existingUserByEmail.id },
@@ -181,7 +181,7 @@ export async function getUserOrganizations() {
 
     // Deduplicate and filter nulls
     const uniqueOrgs = new Map();
-    memberships.forEach(m => {
+    memberships.forEach((m: any) => {
         if (m.organization) {
             uniqueOrgs.set(m.organization.id, m.organization);
         }
@@ -470,7 +470,7 @@ export async function getClientLEData(leId: string) {
         return null;
     }
 
-    le.fiEngagements.forEach(eng => {
+    le.fiEngagements.forEach((eng: any) => {
         console.log(`[getClientLEData] Engagement ${eng.org.name} has ${eng.questionnaires.length} ACTIVE questionnaires`);
     });
 
@@ -691,7 +691,7 @@ export async function getDashboardMetrics(leId: string) {
 
     // Create a map of UserId -> Name
     const userMap = new Map<string, string>();
-    memberships.forEach(m => {
+    memberships.forEach((m: any) => {
         if (m.user) userMap.set(m.userId, m.user.name || m.user.email);
     });
     // Add current user to map if missing (e.g. Org Admin not explicit LE member)
@@ -722,7 +722,7 @@ export async function getDashboardMetrics(leId: string) {
             },
             metrics: leMetrics // New Standardized Metrics
         },
-        pipeline: le.fiEngagements.map(e => {
+        pipeline: le.fiEngagements.map((e: any) => {
             // Find earliest invitation date
             const earliestInvite = e.invitations.length > 0
                 ? e.invitations.reduce((min: any, inv: any) => inv.createdAt < min.createdAt ? inv : min, e.invitations[0])
@@ -750,7 +750,7 @@ export async function getDashboardMetrics(leId: string) {
                 acceptedDate: earliestAccepted ? (earliestAccepted.usedAt || earliestAccepted.updatedAt) : null
             };
         }),
-        activity: logs.map(l => ({
+        activity: logs.map((l: any) => ({
             id: l.id,
             action: l.action,
             time: l.createdAt,
@@ -788,7 +788,7 @@ export async function deleteClientLE(leId: string) {
         const engagements = await prisma.fIEngagement.findMany({
             where: { clientLEId: leId }
         });
-        const engagementIds = engagements.map(e => e.id);
+        const engagementIds = engagements.map((e: any) => e.id);
 
         // 2. Soft Delete all Questionnaires linked to these engagements
         await prisma.questionnaire.updateMany({
@@ -904,7 +904,7 @@ export async function forceDeleteClientLE(leId: string) {
     try {
         console.log(`[forceDeleteClientLE] Admin ${userId} invoking Force Delete on LE ${leId}`);
 
-        await prisma.$transaction(async (tx) => {
+        await prisma.$transaction(async (tx: any) => {
             // 1. Delete all Engagements (and their sub-relations if not cascaded)
             // Note: FIEngagement deletion needs to carefully matching relation names if using deleteMany
             // But let's check schema again. FIEngagement doesn't have cascade on DB level for ClientLE?
@@ -914,7 +914,7 @@ export async function forceDeleteClientLE(leId: string) {
             // 1.1 Delete Questionnaires linked to Engagements of this LE
             // Find Engagements first
             const engs = await tx.fIEngagement.findMany({ where: { clientLEId: leId }, select: { id: true } });
-            const engIds = engs.map(e => e.id);
+            const engIds = engs.map((e: any) => e.id);
 
             if (engIds.length > 0) {
                 // Delete Questionnaires (Instances)
@@ -979,7 +979,7 @@ export async function searchFIs(query: string) {
             orderBy: { name: 'asc' }
         });
 
-        return fis.map(fi => ({
+        return fis.map((fi: any) => ({
             value: fi.id, // Use ID as value for uniqueness
             label: fi.name,
             description: fi.description || "Financial Institution"
@@ -1067,7 +1067,7 @@ export async function getClientDashboardData(clientId: string) {
             });
 
             // Hydrate with permissions
-            activeLes = rawLes.map(le => ({
+            activeLes = rawLes.map((le: any) => ({
                 ...le,
                 myPermissions: deriveLEPermissions(directMembership.role)
             }));
@@ -1185,7 +1185,7 @@ export async function getLEUsers(leId: string): Promise<LEUser[]> {
         include: { user: true }
     });
 
-    return memberships.map(m => ({
+    return memberships.map((m: any) => ({
         userId: m.userId,
         name: m.user.name,
         email: m.user.email,

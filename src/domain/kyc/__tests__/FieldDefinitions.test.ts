@@ -17,8 +17,8 @@ import {
 describe('FieldDefinitions', () => {
     describe('Coverage', () => {
         it('should cover all Field Nos 1-119 excluding 94', () => {
-            const expectedFieldNos = Array.from({ length: 119 }, (_, i) => i + 1).filter((n) => n !== 94);
-            const actualFieldNos = Object.keys(FIELD_DEFINITIONS).map(Number).sort((a, b) => a - b);
+            const expectedFieldNos = Array.from({ length: 119 }, (_, i) => i + 1).filter((n: any) => n !== 94);
+            const actualFieldNos = Object.keys(FIELD_DEFINITIONS).map(Number).sort(((a: any, b: any)) => a - b);
 
             expect(actualFieldNos).toEqual(expectedFieldNos);
             expect(actualFieldNos.length).toBe(118);
@@ -56,14 +56,14 @@ describe('FieldDefinitions', () => {
         it('should return all fields for IdentityProfile', () => {
             const fields = getFieldsByModel('IdentityProfile');
             expect(fields.length).toBeGreaterThan(0);
-            expect(fields.every((f) => f.model === 'IdentityProfile')).toBe(true);
+            expect(fields.every((f: any) => f.model === 'IdentityProfile')).toBe(true);
         });
 
         it('should return all fields for Stakeholder', () => {
             const fields = getFieldsByModel('Stakeholder');
             expect(fields.length).toBeGreaterThan(0);
-            expect(fields.every((f) => f.model === 'Stakeholder')).toBe(true);
-            expect(fields.some((f) => f.field === 'fullName')).toBe(true);
+            expect(fields.every((f: any) => f.model === 'Stakeholder')).toBe(true);
+            expect(fields.some((f: any) => f.field === 'fullName')).toBe(true);
         });
 
         it('should return empty array for unknown model', () => {
@@ -97,7 +97,7 @@ describe('FieldDefinitions', () => {
             expect(fieldNos).toContain(1); // LEI validation date
             expect(fieldNos).toContain(2); // LEI
             expect(fieldNos).toContain(3); // Legal name
-            expect(fieldNos.every((n) => typeof n === 'number')).toBe(true);
+            expect(fieldNos.every((n: any) => typeof n === 'number')).toBe(true);
         });
 
         it('should exclude document-only fields', () => {

@@ -170,7 +170,7 @@ export function VersionHistory({
                     </div>
                 ) : (
                     <div className="space-y-3">
-                        {versions.map((v) => (
+                        {versions.map((v: any) => (
                             <div key={v.id} className="flex items-center justify-between p-3 bg-white rounded-md border border-slate-200 hover:border-indigo-200 transition-colors">
                                 <div className="flex items-center gap-3">
                                     <div className="h-8 w-8 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-700 font-bold text-xs">

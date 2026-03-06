@@ -175,7 +175,7 @@ export class FieldClaimService {
         ].filter(Boolean);
 
         if (providedSlots.length > 0) {
-            const isAllowed = providedSlots.every(slot => allowedSlots.includes(slot!));
+            const isAllowed = providedSlots.every((slot: any) => allowedSlots.includes(slot!));
             if (!isAllowed) {
                 // We'll throw in the future, but for now we warn and continue
                 console.warn(`[FieldClaimService] Field ${fieldDef.fieldNo} (${fieldDef.fieldName}) expects ${fieldDef.appDataType}, but provided slots: ${providedSlots.join(', ')}`);

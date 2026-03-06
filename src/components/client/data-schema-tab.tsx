@@ -51,7 +51,7 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
     const [popFilter, setPopFilter] = useState("ALL");
 
     const categoryList = useMemo(() => {
-        return categories.map(cat => {
+        return categories.map((cat: any) => {
             let icon = FileText;
             const k = cat.key.toLowerCase();
             if (k.includes('identity')) icon = Fingerprint;
@@ -67,7 +67,7 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
 
     // Filtering logic
     const filteredCustomFields = useMemo(() => {
-        return customDefinitions.filter(def => {
+        return customDefinitions.filter((def: any) => {
             const val = customData[def.id] || customData[def.key];
             const hasValue = val !== null && val !== undefined && (typeof val === 'object' ? val.value !== "" : val !== "");
 
@@ -81,8 +81,8 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
     }, [customDefinitions, customData, search, catFilter, popFilter]);
 
     const filteredCategories = useMemo(() => {
-        return categoryList.map(cat => {
-            const fields = cat.fields.filter(f => {
+        return categoryList.map((cat: any) => {
+            const fields = cat.fields.filter((f: any) => {
                 const data = masterData[f.fieldNo];
                 const hasValue = data?.value !== null && data?.value !== undefined && data?.value !== "";
 
@@ -94,7 +94,7 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
             });
 
             return { ...cat, fields };
-        }).filter(cat => {
+        }).filter((cat: any) => {
             const matchesCat = catFilter === "ALL" || catFilter === cat.id;
             return matchesCat && cat.fields.length > 0;
         });
@@ -103,7 +103,7 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
     const filteredUncategorized = useMemo(() => {
         if (catFilter !== "ALL" && catFilter !== "UNCATEGORIZED") return [];
 
-        return uncategorizedFields.filter(f => {
+        return uncategorizedFields.filter((f: any) => {
             const data = masterData[f.fieldNo];
             const hasValue = data?.value !== null && data?.value !== undefined && data?.value !== "";
 
@@ -115,7 +115,7 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
         });
     }, [uncategorizedFields, masterData, search, catFilter, popFilter]);
 
-    const totalVisible = filteredCustomFields.length + filteredCategories.reduce((acc, c) => acc + c.fields.length, 0) + filteredUncategorized.length;
+    const totalVisible = filteredCustomFields.length + filteredCategories.reduce(((acc: any, c: any)) => acc + c.fields.length, 0) + filteredUncategorized.length;
 
 
     const handleRefreshGleif = async () => {
@@ -147,7 +147,7 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
             const result = await acceptProposal(leId, proposal.fieldNo, proposal.proposed.evidenceId);
             if (result.success) {
                 toast.success(`Field ${proposal.fieldNo} updated successfully`);
-                setProposals(prev => prev ? prev.filter(p => p.fieldNo !== proposal.fieldNo) : null);
+                setProposals(prev => prev ? prev.filter((p: any) => p.fieldNo !== proposal.fieldNo) : null);
                 // Ideally refresh page here or update local state
             } else {
                 toast.error(result.message || "Update failed");
@@ -201,23 +201,23 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                     <div className="mt-5 pt-5 border-t border-slate-100 space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
                         <div className="flex items-center justify-between">
                             <h3 className="text-sm font-medium text-slate-700 uppercase tracking-wider">
-                                Proposals ({proposals.filter(p => p.action !== 'NO_CHANGE').length})
+                                Proposals ({proposals.filter((p: any) => p.action !== 'NO_CHANGE').length})
                             </h3>
                             {proposals.length > 0 && (
                                 <Badge variant="secondary" className="bg-blue-100 text-blue-700">
-                                    {proposals.filter(p => p.action === 'PROPOSE_UPDATE').length} Actionable
+                                    {proposals.filter((p: any) => p.action === 'PROPOSE_UPDATE').length} Actionable
                                 </Badge>
                             )}
                         </div>
 
-                        {proposals.filter(p => p.action !== 'NO_CHANGE').length === 0 && (
+                        {proposals.filter((p: any) => p.action !== 'NO_CHANGE').length === 0 && (
                             <div className="text-center py-6 text-slate-500 bg-slate-50 rounded-lg border border-dashed">
                                 No differences found. Master record is in sync with GLEIF.
                             </div>
                         )}
 
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {proposals.filter(p => p.action !== 'NO_CHANGE').map((proposal) => (
+                            {proposals.filter((p: any) => p.action !== 'NO_CHANGE').map((proposal: any) => (
                                 <ProposalCard
                                     key={proposal.fieldNo}
                                     proposal={proposal}
@@ -258,7 +258,7 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                             <SelectContent>
                                 <SelectItem value="ALL">All Categories</SelectItem>
                                 {customDefinitions.length > 0 && <SelectItem value="CUSTOM">Custom Fields</SelectItem>}
-                                {categoryList.map(cat => (
+                                {categoryList.map((cat: any) => (
                                     <SelectItem key={cat.id} value={cat.id}>{cat.displayName}</SelectItem>
                                 ))}
                                 {uncategorizedFields.length > 0 && <SelectItem value="UNCATEGORIZED">Uncategorized</SelectItem>}
@@ -319,7 +319,7 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                         </Card>
                     )}
 
-                    {filteredCategories.map((group) => {
+                    {filteredCategories.map((group: any) => {
                         const Icon = group.icon;
                         return (
                             <Card key={group.id} className="border-l-4 border-l-blue-500 shadow-sm overflow-hidden animate-in fade-in duration-300">
@@ -330,7 +330,7 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                                     </CardTitle>
                                 </CardHeader>
                                 <CardContent className="pt-6 space-y-4">
-                                    {group.fields.map(field => {
+                                    {group.fields.map((field: any) => {
                                         const data = masterData[field.fieldNo];
                                         return (
                                             <MasterFieldDisplay
@@ -359,7 +359,7 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="pt-6 space-y-4">
-                                {filteredUncategorized.map(field => {
+                                {filteredUncategorized.map((field: any) => {
                                     const data = masterData[field.fieldNo];
                                     return (
                                         <MasterFieldDisplay

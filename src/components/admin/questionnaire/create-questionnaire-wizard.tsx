@@ -40,7 +40,7 @@ export function CreateQuestionnaireWizard({ sourceDocuments }: WizardProps) {
 
     useEffect(() => {
         if (open && fis.length === 0) {
-            getFIs().then(res => setFis(res));
+            getFIs().then((res: any) => setFis(res));
         }
     }, [open, fis.length]);
 
@@ -305,7 +305,7 @@ export function CreateQuestionnaireWizard({ sourceDocuments }: WizardProps) {
                                         </div>
                                     ) : (
                                         <div className="divide-y divide-slate-100">
-                                            {sourceDocuments.map(doc => (
+                                            {sourceDocuments.map((doc: any) => (
                                                 <div
                                                     key={doc.id}
                                                     onClick={() => !isExtractingExisting && setSelectedSourceId(doc.id)}
@@ -398,7 +398,7 @@ export function CreateQuestionnaireWizard({ sourceDocuments }: WizardProps) {
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="SYSTEM_INTERNAL_NONE">Internal / System (Default)</SelectItem>
-                                            {fis.map(fi => (
+                                            {fis.map((fi: any) => (
                                                 <SelectItem key={fi.id} value={fi.id}>{fi.name}</SelectItem>
                                             ))}
                                         </SelectContent>

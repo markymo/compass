@@ -57,7 +57,7 @@ export async function listFieldPickerItems(mode: FieldPickerMode = "default"): P
 
     // 3. Map to Picker Items
     const items: FieldPickerItem[] = [
-        ...groups.map(g => ({
+        ...groups.map((g: any) => ({
             kind: 'group' as const,
             groupId: g.id,
             key: g.key,
@@ -66,7 +66,7 @@ export async function listFieldPickerItems(mode: FieldPickerMode = "default"): P
             order: g.order,
             description: g.description
         })),
-        ...fields.map(f => ({
+        ...fields.map((f: any) => ({
             kind: 'field' as const,
             fieldNo: f.fieldNo,
             fieldName: f.fieldName,
@@ -78,7 +78,7 @@ export async function listFieldPickerItems(mode: FieldPickerMode = "default"): P
     ];
 
     // 4. Final multi-level sort
-    return items.sort((a, b) => {
+    return items.sort(((a: any, b: any)) => {
         // Primary: Category
         const catA = a.category || 'ZZZ';
         const catB = b.category || 'ZZZ';

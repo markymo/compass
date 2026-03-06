@@ -142,7 +142,7 @@ export function SourcesV2Client({
     const registrationAuthorityEntityID = gleifEntity.registeredAs;
     const leiValue = parsedGleif?.lei || lei;
 
-    const displaySources = sources.map(source => {
+    const displaySources = sources.map((source: any) => {
         if (source.id === "src-gleif" && leiValue) {
             return {
                 ...source,
@@ -159,7 +159,7 @@ export function SourcesV2Client({
         return source;
     });
 
-    const filteredSources = displaySources.filter(source => {
+    const filteredSources = displaySources.filter((source: any) => {
         if (searchQuery && !source.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
 
         switch (filter) {
@@ -173,7 +173,7 @@ export function SourcesV2Client({
     });
 
     // Make sure pinned sources are always at the top
-    const sortedSources = [...filteredSources].sort((a, b) => {
+    const sortedSources = [...filteredSources].sort(((a: any, b: any)) => {
         if (a.isPinned && !b.isPinned) return -1;
         if (!a.isPinned && b.isPinned) return 1;
         // Optionally sort by date here if not pinned
@@ -214,7 +214,7 @@ export function SourcesV2Client({
             {/* Filters & Search */}
             <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center bg-white p-2 rounded-lg border border-slate-200 shadow-sm">
                 <div className="flex gap-1 overflow-x-auto pb-2 md:pb-0 no-scrollbar w-full md:w-auto">
-                    {["All", "Documents", "Text", "Web", "Evidence", "Knowledge"].map((f) => (
+                    {["All", "Documents", "Text", "Web", "Evidence", "Knowledge"].map((f: any) => (
                         <Button
                             key={f}
                             variant={filter === f ? "secondary" : "ghost"}
@@ -246,7 +246,7 @@ export function SourcesV2Client({
 
             {/* Library List */}
             <div className="flex flex-col gap-4">
-                {sortedSources.map((source) => (
+                {sortedSources.map((source: any) => (
                     <Card
                         key={source.id}
                         className={cn(
@@ -339,7 +339,7 @@ export function SourcesV2Client({
                                                         toast.error(`Cannot remove source. It is linked to ${source.linkedFields} master data field(s).`);
                                                         return;
                                                     }
-                                                    setSources(prev => prev.filter(s => s.id !== source.id));
+                                                    setSources(prev => prev.filter((s: any) => s.id !== source.id));
                                                     toast.success("Source removed successfully");
                                                 }}
                                             >

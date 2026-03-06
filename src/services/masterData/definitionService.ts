@@ -38,7 +38,7 @@ export async function refreshDefinitionCache() {
         where: { isActive: true }
     });
     definitionCache = {};
-    all.forEach(d => {
+    all.forEach((d: any) => {
         definitionCache![d.fieldNo] = d;
     });
     lastCacheUpdate = Date.now();
@@ -106,8 +106,8 @@ export async function listAllMasterGroupsWithItems(): Promise<Array<MasterFieldG
         orderBy: { order: 'asc' }
     });
 
-    return groups.map(g => ({
+    return groups.map((g: any) => ({
         ...g,
-        fieldNos: g.items.map(i => i.fieldNo)
+        fieldNos: g.items.map((i: any) => i.fieldNo)
     }));
 }

@@ -305,11 +305,11 @@ export async function applyBulkOverride(
     try {
         const allFields = await listAllMasterFields();
         const fieldNos = allFields
-            .filter(f => f.category === modelName)
-            .map(f => f.fieldNo);
+            .filter((f: any) => f.category === modelName)
+            .map((f: any) => f.fieldNo);
 
         for (const [fieldName, value] of Object.entries(updates)) {
-            const def = allFields.find(f => f.category === modelName && f.fieldName === fieldName);
+            const def = allFields.find((f: any) => f.category === modelName && f.fieldName === fieldName);
             if (def) {
                 await updateFieldManually(clientLEId, def.fieldNo, value, reason, rowId, entityType);
             }

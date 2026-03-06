@@ -56,7 +56,7 @@ export function EngagementList({ engagements, fiOrgId }: EngagementListProps) {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {engagements.map((eng) => (
+                        {engagements.map((eng: any) => (
                             <TableRow key={eng.id} className="group">
                                 <TableCell className="font-medium text-xs py-2">
                                     {eng.clientLE.name}
@@ -68,7 +68,7 @@ export function EngagementList({ engagements, fiOrgId }: EngagementListProps) {
                                 </TableCell>
                                 <TableCell className="py-2">
                                     <div className="flex flex-wrap gap-1">
-                                        {eng.questionnaires.slice(0, 2).map((q) => (
+                                        {eng.questionnaires.slice(0, 2).map((q: any) => (
                                             <span
                                                 key={q.id}
                                                 className="inline-flex items-center gap-1 bg-slate-100 text-slate-600 text-[10px] px-1.5 rounded-sm"

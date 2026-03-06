@@ -310,7 +310,7 @@ export async function getFIEngagements(fiOrgId?: string): Promise<ApplicationEng
     });
 
     // Map instances to 'questionnaires' property for frontend compatibility
-    return engagements.map(e => ({
+    return engagements.map((e: any) => ({
         ...e,
         questionnaires: e.questionnaireInstances
     }));
@@ -319,7 +319,14 @@ export async function getFIEngagements(fiOrgId?: string): Promise<ApplicationEng
 // 2.b Get Questions for Dashboard (Kanban Items)
 import { listAllMasterFields, listAllMasterGroups } from "@/services/masterData/definitionService";
 
-export async function getFIWorkbenchData(fiOrgId: string) {
+export interface FIWorkbenchData {
+    questions: any[];
+    les: string[];
+    questionnaires: string[];
+    categories: string[];
+}
+
+export async function getFIWorkbenchData(fiOrgId: string): Promise<FIWorkbenchData> {
     const identity = await getIdentity();
     if (!identity?.userId) return { questions: [], les: [], questionnaires: [], categories: [] };
     const { userId } = identity;
@@ -355,10 +362,10 @@ export async function getFIWorkbenchData(fiOrgId: string) {
         listAllMasterGroups()
     ]);
 
-    const fieldCategoryMap = new Map(allFields.map(f => [f.fieldNo, f.category]));
-    const groupCategoryMap = new Map(allGroups.map(g => [g.key, g.category]));
+    const fieldCategoryMap = new Map(allFields.map((f: any) => [f.fieldNo, f.category]));
+    const groupCategoryMap = new Map(allGroups.map((g: any) => [g.key, g.category]));
 
-    const questions = questionsRaw.map(q => {
+    const questions = questionsRaw.map((q: any) => {
         let category = "Uncategorized";
         if (q.masterFieldNo) category = fieldCategoryMap.get(q.masterFieldNo) || "Uncategorized";
         else if (q.masterQuestionGroupId) category = groupCategoryMap.get(q.masterQuestionGroupId) || "Uncategorized";
@@ -374,9 +381,9 @@ export async function getFIWorkbenchData(fiOrgId: string) {
 
     return {
         questions: JSON.parse(JSON.stringify(questions)),
-        les: Array.from(new Set(questions.map(q => q.leName))).sort(),
-        questionnaires: Array.from(new Set(questions.map(q => q.questionnaireName))).sort(),
-        categories: Array.from(new Set(questions.map(q => q.category))).sort()
+        les: Array.from(new Set(questions.map((q: any) => q.leName))).sort() as string[],
+        questionnaires: Array.from(new Set(questions.map((q: any) => q.questionnaireName))).sort() as string[],
+        categories: Array.from(new Set(questions.map((q: any) => q.category))).sort() as string[]
     };
 }
 
@@ -392,7 +399,7 @@ export async function getFITeamMembers(fiOrgId: string) {
         orderBy: { role: 'asc' }
     });
 
-    return members.map(m => ({
+    return members.map((m: any) => ({
         id: m.user?.id || 'unknown',
         name: m.user?.name || 'Unknown User',
         email: m.user?.email || 'No Email',
@@ -579,7 +586,7 @@ export async function assignQuestionnaireToEngagement(engagementId: string, temp
 
                 // 3. Deep Clone Questions (Snapshot)
                 questions: {
-                    create: template.questions.map(q => ({
+                    create: template.questions.map((q: any) => ({
                         text: q.text,
                         compactText: q.compactText,
                         order: q.order,

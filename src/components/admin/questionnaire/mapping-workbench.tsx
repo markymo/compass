@@ -28,7 +28,7 @@ export function MappingWorkbench({ items, masterFields, onUpdateItem, onAddItem 
         const groups: { title: string, startIndex: number, items: { item: ExtractedItem, originalIndex: number }[] }[] = [];
         let currentGroup = { title: "General", startIndex: 0, items: [] as { item: ExtractedItem, originalIndex: number }[] };
 
-        items.forEach((item, idx) => {
+        items.forEach(((item: any, idx: any)) => {
             if (item.type === "section") {
                 if (currentGroup.items.length > 0) {
                     groups.push(currentGroup);
@@ -64,7 +64,7 @@ export function MappingWorkbench({ items, masterFields, onUpdateItem, onAddItem 
                     </div>
                 )}
 
-                {sections.map((section, sIdx) => (
+                {sections.map(((section: any, sIdx: any)) => (
                     <div key={sIdx} className="space-y-3">
                         <div className="flex items-center gap-2 text-sm font-bold text-slate-900 uppercase tracking-wider sticky top-0 bg-slate-50/95 py-2 backdrop-blur-sm z-10 border-b border-transparent">
                             <div className="w-1 h-4 bg-indigo-500 rounded-full" />
@@ -162,7 +162,7 @@ export function MappingWorkbench({ items, masterFields, onUpdateItem, onAddItem 
                                                         </SelectTrigger>
                                                         <SelectContent>
                                                             <SelectItem value="IGNORE" className="text-slate-400 font-mono">-- No Direct Match --</SelectItem>
-                                                            {masterFields.map(f => (
+                                                            {masterFields.map((f: any) => (
                                                                 <SelectItem key={f.key} value={f.key}>
                                                                     {f.label} <span className="text-xs text-slate-400 font-mono ml-2">[{f.key}]</span>
                                                                 </SelectItem>
@@ -188,7 +188,7 @@ export function MappingWorkbench({ items, masterFields, onUpdateItem, onAddItem 
                                                             </SelectTrigger>
                                                             <SelectContent>
                                                                 <SelectItem value="IGNORE">-- Uncategorized --</SelectItem>
-                                                                {STANDARD_CATEGORIES.map(c => (
+                                                                {STANDARD_CATEGORIES.map((c: any) => (
                                                                     <SelectItem key={c} value={c}>{c}</SelectItem>
                                                                 ))}
                                                             </SelectContent>

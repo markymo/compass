@@ -225,7 +225,7 @@ export function UserPermissionEditor({ profile, userId }: UserPermissionEditorPr
                                                 <CommandList>
                                                     <CommandEmpty>No clients found.</CommandEmpty>
                                                     <CommandGroup>
-                                                        {orgSearchResults.map((org) => (
+                                                        {orgSearchResults.map((org: any) => (
                                                             <CommandItem
                                                                 key={org.id}
                                                                 value={org.id}

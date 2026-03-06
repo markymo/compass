@@ -38,7 +38,7 @@ export function WorkbenchQuestionnaireSwitcher({
     const [open, setOpen] = React.useState(false);
     const router = useRouter();
 
-    const selectedQuestionnaire = questionnaires.find(q => q.id === currentQuestionnaireId);
+    const selectedQuestionnaire = questionnaires.find((q: any) => q.id === currentQuestionnaireId);
 
     return (
         <Popover open={open} onOpenChange={setOpen}>
@@ -62,7 +62,7 @@ export function WorkbenchQuestionnaireSwitcher({
                     <CommandList>
                         <CommandEmpty>No questionnaire found.</CommandEmpty>
                         <CommandGroup heading="Available Questionnaires">
-                            {questionnaires.map((q) => (
+                            {questionnaires.map((q: any) => (
                                 <CommandItem
                                     key={q.id}
                                     value={q.name}

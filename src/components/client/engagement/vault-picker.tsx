@@ -88,7 +88,7 @@ export function VaultPicker({ engagementId, isOpen, onClose }: VaultPickerProps)
         setIsUploading(false);
     };
 
-    const filteredDocs = documents.filter(d =>
+    const filteredDocs = documents.filter((d: any) =>
         d.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
@@ -139,7 +139,7 @@ export function VaultPicker({ engagementId, isOpen, onClose }: VaultPickerProps)
                                     </div>
                                 )}
 
-                                {filteredDocs.map((doc) => {
+                                {filteredDocs.map((doc: any) => {
                                     const isAlreadyShared = doc.sharedWith?.some((s: any) => s.id === engagementId);
 
                                     return (

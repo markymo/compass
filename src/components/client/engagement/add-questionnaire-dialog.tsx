@@ -188,7 +188,7 @@ export function AddQuestionnaireDialog({ open, onOpenChange, onAdd, engagementId
                                     {searchQuery ? "No matching questionnaires found." : "Start typing to search the library..."}
                                 </div>
                             ) : (
-                                searchResults.map(q => (
+                                searchResults.map((q: any) => (
                                     <div key={q.id} className="p-3 border rounded-lg hover:border-indigo-500 cursor-pointer flex justify-between items-center group"
                                         onClick={() => onAdd('library', { templateId: q.id, name: q.name })}
                                     >

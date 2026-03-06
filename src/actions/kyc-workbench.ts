@@ -33,24 +33,24 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
         listAllMasterGroups()
     ]);
 
-    const masterFields = allFields.map(def => ({
+    const masterFields = allFields.map((def: any) => ({
         fieldNo: def.fieldNo,
         label: def.fieldName,
         category: def.category
-    })).sort((a, b) => a.label.localeCompare(b.label));
+    })).sort(((a: any, b: any)) => a.label.localeCompare(b.label));
 
-    const masterGroups = allGroups.map(g => ({
+    const masterGroups = allGroups.map((g: any) => ({
         key: g.key,
         label: g.label,
         category: g.category // Groups might have categories too
-    })).sort((a, b) => a.label.localeCompare(b.label));
+    })).sort(((a: any, b: any)) => a.label.localeCompare(b.label));
 
     // 2. Lookups for categories
-    const fieldCategoryMap = new Map(allFields.map(f => [f.fieldNo, f.category]));
-    const groupCategoryMap = new Map(allGroups.map(g => [g.key, g.category]));
+    const fieldCategoryMap = new Map(allFields.map((f: any) => [f.fieldNo, f.category]));
+    const groupCategoryMap = new Map(allGroups.map((g: any) => [g.key, g.category]));
 
     // Update questions with categories
-    questions.forEach(q => {
+    questions.forEach((q: any) => {
         if (q.masterFieldNo) q.masterFieldCategory = fieldCategoryMap.get(q.masterFieldNo);
         if (q.masterQuestionGroupId) q.masterFieldCategory = groupCategoryMap.get(q.masterQuestionGroupId);
         if (q.customFieldDefinitionId) q.masterFieldCategory = "Custom";
@@ -60,18 +60,18 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
     const customFieldsRaw = await prisma.customFieldDefinition.findMany({
         orderBy: { label: 'asc' }
     });
-    const customFields = customFieldsRaw.map(f => ({ id: f.id, label: f.label }));
+    const customFields = customFieldsRaw.map((f: any) => ({ id: f.id, label: f.label }));
 
     // 3. Extract unique filters
-    const relationships = Array.from(new Set(questions.map(q => q.engagementOrgName || "Unknown"))).sort();
-    const questionnaires = Array.from(new Set(questions.map(q => q.questionnaireName))).sort();
+    const relationships = Array.from(new Set(questions.map((q: any) => q.engagementOrgName || "Unknown"))).sort();
+    const questionnaires = Array.from(new Set(questions.map((q: any) => q.questionnaireName))).sort();
 
     // 4. Resolve Master Data values for all mapped questions
-    const mappedQuestions = questions.filter(q => q.masterFieldNo || q.masterQuestionGroupId || q.customFieldDefinitionId);
+    const mappedQuestions = questions.filter((q: any) => q.masterFieldNo || q.masterQuestionGroupId || q.customFieldDefinitionId);
     if (mappedQuestions.length > 0) {
         const resolverRequests = mappedQuestions
-            .filter(q => q.masterFieldNo || q.masterQuestionGroupId)
-            .map(q => ({
+            .filter((q: any) => q.masterFieldNo || q.masterQuestionGroupId)
+            .map((q: any) => ({
                 questionId: q.id,
                 masterFieldNo: q.masterFieldNo,
                 masterQuestionGroupId: q.masterQuestionGroupId
@@ -85,7 +85,7 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
         });
         const customData = (le?.customData as Record<string, any>) || {};
 
-        questions.forEach(q => {
+        questions.forEach((q: any) => {
             if (q.customFieldDefinitionId) {
                 const val = customData[q.customFieldDefinitionId];
                 q.masterDataValue = (val && typeof val === 'object' && 'value' in val) ? val.value : val;
@@ -250,8 +250,8 @@ export async function getAISemanticMatch(questionText: string, searchTerm?: stri
 
         // Prepare schema context
         const schemaItems = [
-            ...allGroups.map(g => ({ id: `group:${g.key}`, label: g.label, desc: g.description })),
-            ...allFields.map(f => ({ id: `master:${f.fieldNo}`, label: f.fieldName, desc: f.notes }))
+            ...allGroups.map((g: any) => ({ id: `group:${g.key}`, label: g.label, desc: g.description })),
+            ...allFields.map((f: any) => ({ id: `master:${f.fieldNo}`, label: f.fieldName, desc: f.notes }))
         ];
 
         const { object } = await generateObject({
@@ -274,7 +274,7 @@ export async function getAISemanticMatch(questionText: string, searchTerm?: stri
                     ${searchTerm ? `USER SEARCH TERM: "${searchTerm}"` : ""}
                     
                     MASTER SCHEMA OPTIONS:
-                    ${schemaItems.map(s => `- [${s.id}] ${s.label}: ${s.desc || ''}`).join('\n')}
+                    ${schemaItems.map((s: any) => `- [${s.id}] ${s.label}: ${s.desc || ''}`).join('\n')}
                     
                     Return the top 3 best matching IDs.`
                 }
@@ -283,7 +283,7 @@ export async function getAISemanticMatch(questionText: string, searchTerm?: stri
 
         // De-duplicate suggestions by ID (AI can sometimes suggest same field twice)
         const uniqueSuggestions = Array.from(
-            new Map(object.suggestions.map(s => [s.id, s])).values()
+            new Map(object.suggestions.map((s: any) => [s.id, s])).values()
         );
 
         return { success: true, suggestions: uniqueSuggestions };

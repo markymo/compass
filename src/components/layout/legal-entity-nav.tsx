@@ -67,7 +67,7 @@ export function LegalEntityNav({ leId }: LegalEntityNavProps) {
                         className="flex overflow-x-auto no-scrollbar py-0 px-4 md:px-8 space-x-6 md:space-x-8 mask-fade-sides"
                         aria-label="Tabs"
                     >
-                        {tabs.map((tab) => {
+                        {tabs.map((tab: any) => {
                             const active = tab.isActive(pathname);
                             const Icon = tab.icon;
                             return (

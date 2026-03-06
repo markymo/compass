@@ -232,7 +232,7 @@ export function EngagementDetailView({ le, engagement, questionnaires, sharedDoc
                                             </div>
                                         ) : (
                                             <div className="divide-y divide-slate-100">
-                                                {questionnaires.map((q) => (
+                                                {questionnaires.map((q: any) => (
                                                     <div key={q.id} className="p-4 flex items-center justify-between hover:bg-slate-50/50">
                                                         <div className="flex items-center gap-4">
                                                             <div className="h-10 w-10 bg-indigo-50 text-indigo-600 rounded flex items-center justify-center">
@@ -333,7 +333,7 @@ export function EngagementDetailView({ le, engagement, questionnaires, sharedDoc
                                     <div className="p-6 text-center text-slate-500 text-sm">No active members found.</div>
                                 ) : (
                                     <div className="divide-y divide-slate-100">
-                                        {members.map((member) => (
+                                        {members.map((member: any) => (
                                             <div key={member.id} className="p-4 flex items-center justify-between hover:bg-slate-50">
                                                 <div className="flex items-center gap-3">
                                                     <div className="h-10 w-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 font-medium">
@@ -370,7 +370,7 @@ export function EngagementDetailView({ le, engagement, questionnaires, sharedDoc
                                     <div className="p-6 text-center text-slate-500 text-sm">No pending invitations.</div>
                                 ) : (
                                     <div className="divide-y divide-slate-100">
-                                        {invitations.map((invite) => (
+                                        {invitations.map((invite: any) => (
                                             <div key={invite.id} className="p-4 flex items-center justify-between hover:bg-slate-50">
                                                 <div className="flex items-center gap-4">
                                                     <div className="h-10 w-10 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600">

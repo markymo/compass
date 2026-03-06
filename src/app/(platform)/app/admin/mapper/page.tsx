@@ -175,9 +175,9 @@ export default function MapperPage() {
             // Refactoring persistence is safer to ensure data integrity.
 
             // Let's create a new format payload:
-            const items = extractedItems.filter(i => i.type === 'question' && (i.masterFieldNo || i.masterQuestionGroupId));
+            const items = extractedItems.filter((i: any) => i.type === 'question' && (i.masterFieldNo || i.masterQuestionGroupId));
 
-            const mappingPayload = items.map(i => ({
+            const mappingPayload = items.map((i: any) => ({
                 fiQuestion: i.text,
                 masterFieldNo: i.masterFieldNo,
                 masterQuestionGroupId: i.masterQuestionGroupId
@@ -233,7 +233,7 @@ export default function MapperPage() {
                                         <SelectValue placeholder="Select FI..." />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {fis.map(fi => (
+                                        {fis.map((fi: any) => (
                                             <SelectItem key={fi.id} value={fi.id}>{fi.name}</SelectItem>
                                         ))}
                                     </SelectContent>
@@ -338,7 +338,7 @@ export default function MapperPage() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {extractedItems.map((item, idx) => {
+                                    {extractedItems.map(((item: any, idx: any)) => {
                                         if (item.type === 'section') {
                                             return (
                                                 <TableRow key={idx} className="bg-slate-50">
@@ -379,7 +379,7 @@ export default function MapperPage() {
                                                                 <SelectLabel className="text-indigo-600 font-bold flex items-center gap-1">
                                                                     <LayoutGrid className="w-3 h-3" /> Field Groups (Recommended)
                                                                 </SelectLabel>
-                                                                {fieldGroups.map(g => (
+                                                                {fieldGroups.map((g: any) => (
                                                                     <SelectItem key={g.id} value={`GROUP:${g.id}`} className="font-medium">
                                                                         📦 {g.label} <span className="text-xs text-slate-400 font-normal ml-1">({g.fieldNos.length} fields)</span>
                                                                     </SelectItem>
@@ -390,7 +390,7 @@ export default function MapperPage() {
                                                                 <SelectLabel className="flex items-center gap-1">
                                                                     <File className="w-3 h-3" /> Atomic Fields
                                                                 </SelectLabel>
-                                                                {masterFields.map((f, i) => {
+                                                                {masterFields.map(((f: any, i: any)) => {
                                                                     // Fallback to key or index if fieldNo is missing
                                                                     const fId = f.fieldNo || (f.key ? parseInt(f.key) : null);
                                                                     if (!fId) return null;

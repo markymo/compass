@@ -113,10 +113,10 @@ export async function getPulseData(options?: { days?: number; includeAllEnvs?: b
             },
         });
 
-        const userLookup = new Map(users.map(u => [u.id, u]));
+        const userLookup = new Map<string, any>(users.map((u: any) => [u.id, u]));
 
         const userActivity = Array.from(userStatsMap.values())
-            .map(stats => {
+            .map((stats: any) => {
                 const user = userLookup.get(stats.userId);
                 return {
                     userId: stats.userId,
@@ -131,7 +131,7 @@ export async function getPulseData(options?: { days?: number; includeAllEnvs?: b
                     actionBreakdown: stats.actionBreakdown,
                 };
             })
-            .sort((a, b) => b.lastActive.getTime() - a.lastActive.getTime());
+            .sort((a: any, b: any) => b.score - a.score);
 
         // ====================================================================
         // Section B: Daily Action Summary (for trend chart)
@@ -146,8 +146,8 @@ export async function getPulseData(options?: { days?: number; includeAllEnvs?: b
         }
 
         const dailyTrend = Array.from(dailyMap.entries())
-            .map(([date, stats]) => ({ date, ...stats }))
-            .sort((a, b) => a.date.localeCompare(b.date));
+            .map(([date, stats]: [string, any]) => ({ date, ...stats }))
+            .sort((a: any, b: any) => a.name.localeCompare(b.name));
 
         // ====================================================================
         // Section C: Per-LE Engagement Health
@@ -172,7 +172,7 @@ export async function getPulseData(options?: { days?: number; includeAllEnvs?: b
         const leActivities = await prisma.lEActivity.findMany({
             where: {
                 createdAt: { gte: since },
-                leId: { in: activeLEs.map(le => le.id) },
+                leId: { in: activeLEs.map((le: any) => le.id) },
             },
             select: {
                 leId: true,
@@ -212,7 +212,7 @@ export async function getPulseData(options?: { days?: number; includeAllEnvs?: b
             }
         }
 
-        const leHealth = activeLEs.map(le => {
+        const leHealth = activeLEs.map((le: any) => {
             const stats = leActivityMap.get(le.id)!;
             const daysSinceActivity = stats.lastActivity
                 ? Math.floor((Date.now() - stats.lastActivity.getTime()) / (1000 * 60 * 60 * 24))
@@ -236,7 +236,7 @@ export async function getPulseData(options?: { days?: number; includeAllEnvs?: b
                             ? "cooling"
                             : "cold",
             };
-        }).sort((a, b) => {
+        }).sort((a: any, b: any) => {
             // Sort: cold first (most concerning), then cooling, then active
             const statusOrder = { no_activity: 0, cold: 1, cooling: 2, active: 3 };
             return (statusOrder[a.status as keyof typeof statusOrder] || 0) - (statusOrder[b.status as keyof typeof statusOrder] || 0);
@@ -245,8 +245,8 @@ export async function getPulseData(options?: { days?: number; includeAllEnvs?: b
         // ====================================================================
         // Summary stats
         // ====================================================================
-        const totalLogins = logs.filter(l => l.action === "LOGIN").length;
-        const uniqueUsers = new Set(logs.map(l => l.userId)).size;
+        const totalLogins = logs.filter((l: any) => l.action === "LOGIN").length;
+        const uniqueUsers = new Set(logs.map((l: any) => l.userId)).size;
         const totalActions = logs.length;
 
         return {

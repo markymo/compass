@@ -85,7 +85,7 @@ export async function getUserContexts(): Promise<DashboardContexts> {
                         }
                     });
 
-                    orgLEs.forEach(le => {
+                    orgLEs.forEach((le: any) => {
                         const ownerName = le.owners[0]?.party.name || "Unknown Client";
                         if (!leMap.has(le.id)) {
                             leMap.set(le.id, {
@@ -121,7 +121,7 @@ export async function getUserContexts(): Promise<DashboardContexts> {
                     }
                 });
 
-                orgLEs.forEach(le => {
+                orgLEs.forEach((le: any) => {
                     const ownerName = le.owners[0]?.party.name || "Unknown System";
                     if (!leMap.has(le.id)) {
                         leMap.set(le.id, {
@@ -149,7 +149,7 @@ export async function getUserContexts(): Promise<DashboardContexts> {
                 metrics: emptyMetrics()
             });
 
-            le.owners.forEach(owner => {
+            le.owners.forEach((owner: any) => {
                 if (!clientMap.has(owner.partyId)) {
                     clientMap.set(owner.partyId, {
                         id: owner.party.id,
@@ -166,8 +166,8 @@ export async function getUserContexts(): Promise<DashboardContexts> {
     context.clients = Array.from(clientMap.values());
     context.financialInstitutions = Array.from(fiMap.values());
     context.legalEntities = Array.from(leMap.values());
-    const leIds = context.legalEntities.map(l => l.id);
-    const fiIds = context.financialInstitutions.map(fi => fi.id);
+    const leIds = context.legalEntities.map((l: any) => l.id);
+    const fiIds = context.financialInstitutions.map((fi: any) => fi.id);
 
     // 2. Fetch Relationships (Engagements) for visible LEs OR visible FIs
     if (leIds.length > 0 || fiIds.length > 0) {
@@ -196,7 +196,7 @@ export async function getUserContexts(): Promise<DashboardContexts> {
             }
         });
 
-        context.relationships = await Promise.all(engagements.map(async (e) => {
+        context.relationships = await Promise.all(engagements.map(async (e: any) => {
             const owner = e.clientLE.owners[0];
             const rawMetrics = await calculateEngagementMetrics(e.id);
             const userIsSupplier = fiIds.includes(e.fiOrgId);

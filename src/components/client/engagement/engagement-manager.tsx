@@ -70,7 +70,7 @@ export function EngagementManager({ leId, initialEngagements, leDueDate }: Engag
                 questionnaires: []
             };
             // Replace temp with real
-            setEngagements(prev => prev.map(e => e.id === tempId ? realEng : e));
+            setEngagements(prev => prev.map((e: any) => e.id === tempId ? realEng : e));
             toast.success(`Relationship with ${fiName} created`);
         } else {
             // Rollback
@@ -83,7 +83,7 @@ export function EngagementManager({ leId, initialEngagements, leDueDate }: Engag
     const handleDelete = async (details: { id: string, name: string }) => {
         const previousEngagements = [...engagements];
         // Optimistic delete
-        setEngagements(prev => prev.filter(e => e.id !== details.id));
+        setEngagements(prev => prev.filter((e: any) => e.id !== details.id));
 
         toast.promise(deleteEngagementByClient(details.id), {
             loading: "Deleting engagement...",
@@ -124,7 +124,7 @@ export function EngagementManager({ leId, initialEngagements, leDueDate }: Engag
                                         className="border-0 focus:ring-0 shadow-none px-0 h-12 text-base"
                                         onValueChange={(val) => {
                                             if (val.length > 2) {
-                                                searchFIs(val).then(res => setSearchResults(res));
+                                                searchFIs(val).then((res: any) => setSearchResults(res));
                                             }
                                         }}
                                     />
@@ -149,7 +149,7 @@ export function EngagementManager({ leId, initialEngagements, leDueDate }: Engag
                                         </Button>
                                     </CommandEmpty>
                                     <CommandGroup heading="Available Institutions">
-                                        {searchResults.map((framework) => (
+                                        {searchResults.map((framework: any) => (
                                             <CommandItem
                                                 key={framework.value}
                                                 value={framework.value}
@@ -176,7 +176,7 @@ export function EngagementManager({ leId, initialEngagements, leDueDate }: Engag
 
             {/* List */}
             <div className="grid gap-4">
-                {engagements.map((eng) => (
+                {engagements.map((eng: any) => (
                     <Card key={eng.id} className="hover:border-indigo-300 transition-colors group border-slate-200 shadow-sm">
                         <CardContent className="p-4 md:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
                             <div className="flex items-start md:items-center gap-4">

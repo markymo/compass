@@ -172,19 +172,19 @@ export async function can(
 
 // Helpers
 function hasRole(user: UserWithMemberships, role: string): boolean {
-    return user.memberships.some(m => m.role === role);
+    return user.memberships.some((m: any) => m.role === role);
 }
 
 
 function getRoleForLE(user: UserWithMemberships, leId: string): string | undefined {
     // Direct LE membership
-    const membership = user.memberships.find(m => m.clientLEId === leId);
+    const membership = user.memberships.find((m: any) => m.clientLEId === leId);
     return membership?.role;
 }
 
 function getRoleForOrg(user: UserWithMemberships, orgId: string): string | undefined {
     // Org membership (clientLEId is null)
-    const membership = user.memberships.find(m => m.organizationId === orgId && !m.clientLEId);
+    const membership = user.memberships.find((m: any) => m.organizationId === orgId && !m.clientLEId);
     return membership?.role;
 }
 

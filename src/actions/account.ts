@@ -125,7 +125,7 @@ export async function getUserPermissions() {
             orderBy: { createdAt: "asc" },
         });
 
-        const rows = memberships.map((m) => {
+        const rows = memberships.map((m: any) => {
             if (m.organization) {
                 let scopeLabel = "Organization";
                 let priority = 4;
@@ -160,9 +160,9 @@ export async function getUserPermissions() {
                 };
             }
             return null;
-        }).filter((r): r is NonNullable<typeof r> => r !== null);
+        }).filter((r: any): r is NonNullable<typeof r> => r !== null);
 
-        rows.sort((a, b) => {
+        rows.sort((a: any, b: any) => {
             if (a.priority !== b.priority) return a.priority - b.priority;
             return a.name.localeCompare(b.name);
         });

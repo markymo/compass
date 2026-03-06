@@ -15,9 +15,7 @@ export const dynamic = 'force-dynamic';
 export default async function AdminQuestionnairesPage() {
     const allItems = await getAllQuestionnaires();
 
-    // Source documents are just items with status === "UPLOADED"
-    // But we still want to show them in the unified list to give full visibility.
-    const sourceDocuments = allItems.filter(q => q.status === "UPLOADED");
+    const sourceDocuments = allItems.filter((q: any) => q.status === "UPLOADED");
 
     return (
         <div className="space-y-6 max-w-7xl mx-auto">
@@ -56,7 +54,7 @@ export default async function AdminQuestionnairesPage() {
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                allItems.map((q) => {
+                                allItems.map((q: any) => {
                                     const isFileBased = !!q.fileUrl;
                                     const isSourceDoc = q.status === "UPLOADED";
 

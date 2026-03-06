@@ -31,7 +31,7 @@ export const QuestionnairePDF = ({ data, title }: QuestionnairePDFProps) => (
         <Page size="A4" style={styles.page}>
             <Text style={styles.title}>{title}</Text>
             <Text style={styles.subtitle}>Questionnaire Export</Text>
-            {data.map((item, i) => (
+            {data.map(((item: any, i: any)) => (
                 <View key={i} style={styles.questionBlock}>
                     <Text style={styles.status}>Status: {item.status}</Text>
                     <Text style={styles.question}>Q{i + 1}: {item.question}</Text>

@@ -62,7 +62,7 @@ export default function ExperimentalPage() {
                             "Role-Based Access Control",
                             "Granular Field-Level Permissions",
                             "Audit-Ready Logs"
-                        ].map((item) => (
+                        ].map((item: any) => (
                             <li key={item} className="flex items-center gap-3 text-slate-300">
                                 <CheckCircle2 className="h-5 w-5 text-teal-500" />
                                 {item}
@@ -79,7 +79,7 @@ export default function ExperimentalPage() {
                         { label: "Onboarding Time", value: "-85%", desc: "Reduction in processing" },
                         { label: "Data Accuracy", value: "100%", desc: "Verified source of truth" },
                         { label: "Global Reach", value: "24/7", desc: "Always-on availability" }
-                    ].map((stat) => (
+                    ].map((stat: any) => (
                         <div key={stat.label} className="border-l border-teal-500/30 pl-8">
                             <div className="text-6xl font-bold text-white mb-2">{stat.value}</div>
                             <div className="text-xl text-teal-500 font-medium mb-1">{stat.label}</div>

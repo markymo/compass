@@ -46,7 +46,7 @@ export default async function FIQuestionnairesPage() {
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                questionnaires.map((q) => (
+                                questionnaires.map((q: any) => (
                                     <TableRow key={q.id}>
                                         <TableCell className="font-medium">
                                             <div className="flex items-center gap-2">

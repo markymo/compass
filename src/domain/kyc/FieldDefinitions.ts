@@ -1534,7 +1534,7 @@ export function getFieldDefinition(fieldNo: number): FieldDefinition {
  * Get all field definitions for a specific Prisma model
  */
 export function getFieldsByModel(modelName: string): FieldDefinition[] {
-    return Object.values(FIELD_DEFINITIONS).filter((def) => def.model === modelName);
+    return Object.values(FIELD_DEFINITIONS).filter((def: any) => def.model === modelName);
 }
 
 /**
@@ -1550,8 +1550,8 @@ export function isDocumentOnlyField(fieldNo: number): boolean {
  */
 export function getFieldNosByModel(modelName: string): number[] {
     return Object.values(FIELD_DEFINITIONS)
-        .filter((def) => def.model === modelName && def.field !== null)
-        .map((def) => def.fieldNo);
+        .filter((def: any) => def.model === modelName && def.field !== null)
+        .map((def: any) => def.fieldNo);
 }
 
 /**

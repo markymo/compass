@@ -57,7 +57,7 @@ export default async function FeedbackAdminPage() {
                     { label: "Open Bugs", value: stats.bugs, icon: <Bug className="h-4 w-4 text-red-500" />, color: "text-red-700 bg-red-50 border-red-200" },
                     { label: "Done/Closed", value: stats.done, icon: <MessageSquare className="h-4 w-4 text-emerald-500" />, color: "text-emerald-700 bg-emerald-50 border-emerald-200" },
                     { label: "Remaining Open", value: stats.open, icon: <Lightbulb className="h-4 w-4 text-amber-500" />, color: "text-amber-700 bg-amber-50 border-amber-200" },
-                ].map(s => (
+                ].map((s: any) => (
                     <div key={s.label} className={`rounded-xl border p-4 ${s.color}`}>
                         <div className="flex items-center gap-2 mb-1">
                             {s.icon}

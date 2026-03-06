@@ -243,7 +243,7 @@ export async function getPendingInvitations(organizationId: string) {
     const leIds = (await prisma.clientLEOwner.findMany({
         where: { partyId: organizationId, endAt: null },
         select: { clientLEId: true },
-    })).map((o) => o.clientLEId);
+    })).map((o: any) => o.clientLEId);
 
     // @ts-ignore: Prisma cache lag — organizationId, clientLEId, clientLE include are new fields
     return await (prisma.invitation.findMany as any)({

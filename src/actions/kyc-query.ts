@@ -54,7 +54,7 @@ export async function resolveMasterData(
                             );
                             if (collection.length > 0) {
                                 response[q.questionId][fieldNo] = {
-                                    value: collection.map(c => c.value),
+                                    value: collection.map((c: any) => c.value),
                                     source: collection[0].isScoped ? 'USER_INPUT' : (collection[0].evidenceProvider || 'MASTER_RECORD'),
                                     updatedAt: collection[0].assertedAt,
                                     isSynced: true
@@ -92,7 +92,7 @@ export async function resolveMasterData(
                     ownerScopeId || undefined
                 );
                 if (collection.length > 0) {
-                    const vals = collection.map(c => c.value);
+                    const vals = collection.map((c: any) => c.value);
                     console.log(`[resolveMasterData] Field ${q.masterFieldNo} is multi-value. Values:`, vals);
                     response[q.questionId][q.masterFieldNo] = {
                         value: vals,
@@ -190,7 +190,7 @@ export async function getFieldDetail(
                 if (def.isMultiValue) {
                     const collection = await KycStateService.getAuthoritativeCollection({ subjectLeId }, item.fieldNo, ownerScopeId);
                     if (collection.length > 0) {
-                        groupValues[def.fieldName] = collection.map(c => c.value);
+                        groupValues[def.fieldName] = collection.map((c: any) => c.value);
                         if (collection[0].assertedAt > latestTimestamp) latestTimestamp = collection[0].assertedAt;
                     }
                 } else {
@@ -308,7 +308,7 @@ export async function getFieldDetail(
     if (def?.isMultiValue) {
         const collection = await KycStateService.getAuthoritativeCollection({ subjectLeId }, fieldNo, ownerScopeId);
 
-        rows = collection.map(c => {
+        rows = collection.map((c: any) => {
             return {
                 id: c.claimId,
                 value: c.value,
@@ -387,7 +387,7 @@ export async function getFieldDetail(
         options: def?.options || [],
         notes: def?.notes || undefined,
         current: derived ? {
-            value: def?.isMultiValue && rows ? rows.map(r => r.value) : derived.value,
+            value: def?.isMultiValue && rows ? rows.map((r: any) => r.value) : derived.value,
             source: (derived.isScoped ? 'USER_INPUT' : (derived.evidenceProvider || 'SYSTEM')) as ProvenanceSource,
             sourceReference: derived.sourceReference || undefined,
             timestamp: derived.assertedAt,

@@ -151,9 +151,9 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
     // Auto-generate missing compact texts after load
     useEffect(() => {
         if (!loading && questions.length > 0) {
-            const missing = questions.filter(q => !q.compactText && q.text);
+            const missing = questions.filter((q: any) => !q.compactText && q.text);
             if (missing.length > 0) {
-                missing.forEach((q, idx) => {
+                missing.forEach(((q: any, idx: any)) => {
                     // Stagger generation slightly to avoid hammering the server all at exactly same ms
                     setTimeout(() => {
                         handleGenerateCompactText(q.id, q.text, true);
@@ -187,7 +187,7 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
             if (!questionnaire) return;
 
             // Map back to format expected by backend
-            const itemsToSave = questions.map(q => ({
+            const itemsToSave = questions.map((q: any) => ({
                 type: "question",
                 text: q.text,
                 originalText: q.originalText || q.text,
@@ -223,7 +223,7 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
                 let count = 0;
 
                 result.suggestions.forEach((sug: any) => {
-                    const match = newQuestions.find(q => q.text === sug.text || q.originalText === sug.text);
+                    const match = newQuestions.find((q: any) => q.text === sug.text || q.originalText === sug.text);
 
                     if (match) {
                         // Apply Threshold
@@ -238,8 +238,8 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
 
                         // Priority 1: Master Key
                         if (sug.suggestedKey) {
-                            const isGroup = masterGroups.find(g => g.key === sug.suggestedKey);
-                            const isField = masterFields.find(f => f.fieldNo === parseInt(sug.suggestedKey));
+                            const isGroup = masterGroups.find((g: any) => g.key === sug.suggestedKey);
+                            const isField = masterFields.find((f: any) => f.fieldNo === parseInt(sug.suggestedKey));
 
                             if (isGroup) {
                                 match.masterQuestionGroupId = sug.suggestedKey;
@@ -266,7 +266,7 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
     };
 
     const updateQuestion = (id: string, updates: any) => {
-        setQuestions(prev => prev.map(q => {
+        setQuestions(prev => prev.map((q: any) => {
             if (q.id === id) {
                 const updated = { ...q, ...updates };
                 // Mutually exclusive logic
@@ -289,7 +289,7 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
     };
 
     const handleAddQuestion = () => {
-        const newOrder = questions.length > 0 ? Math.max(...questions.map(q => q.order)) + 1 : 1;
+        const newOrder = questions.length > 0 ? Math.max(...questions.map((q: any) => q.order)) + 1 : 1;
         const newQuestion: any = {
             id: `temp-${Date.now()}`,
             text: "New Question",
@@ -306,10 +306,10 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
             const index = prev.findIndex(q => q.id === id);
             if (index === -1) return prev;
 
-            const newQuestions = prev.filter(q => q.id !== id);
+            const newQuestions = prev.filter((q: any) => q.id !== id);
 
             // Re-order remaining questions
-            const reordered = newQuestions.map((q, i) => ({
+            const reordered = newQuestions.map(((q: any, i: any)) => ({
                 ...q,
                 order: i + 1
             }));
@@ -340,7 +340,7 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
             newQuestions[index] = temp;
 
             // Re-assign orders based on new array position
-            return newQuestions.map((q, i) => ({ ...q, order: i + 1 }));
+            return newQuestions.map(((q: any, i: any)) => ({ ...q, order: i + 1 }));
         });
     };
 
@@ -356,7 +356,7 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
             newQuestions[index] = temp;
 
             // Re-assign orders based on new array position
-            return newQuestions.map((q, i) => ({ ...q, order: i + 1 }));
+            return newQuestions.map(((q: any, i: any)) => ({ ...q, order: i + 1 }));
         });
     };
 
@@ -371,7 +371,7 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
 
                 // Add to local list
                 const newField = res.data;
-                setCustomFields(prev => [...prev, newField].sort((a, b) => a.label.localeCompare(b.label)));
+                setCustomFields(prev => [...prev, newField].sort(((a: any, b: any)) => a.label.localeCompare(b.label)));
 
                 // Select it
                 if (selectedQuestionId) {
@@ -385,9 +385,9 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
         }
     };
 
-    const selectedQuestion = questions.find(q => q.id === selectedQuestionId);
+    const selectedQuestion = questions.find((q: any) => q.id === selectedQuestionId);
 
-    const filteredQuestions = questions.filter(q =>
+    const filteredQuestions = questions.filter((q: any) =>
         (q.text || "").toLowerCase().includes(filter.toLowerCase())
     );
 
@@ -504,7 +504,7 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
                         {/* Table Body */}
                         <div className="flex-1 overflow-y-auto">
                             <div className="divide-y divide-slate-100">
-                                {filteredQuestions.map(q => {
+                                {filteredQuestions.map((q: any) => {
                                     const isMapped = q.masterFieldNo || q.masterQuestionGroupId || q.customFieldDefinitionId;
 
                                     // Determine current value for selector
@@ -623,7 +623,7 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
                             </div>
                             <ScrollArea className="flex-1">
                                 <div className="divide-y divide-slate-100">
-                                    {filteredQuestions.map(q => {
+                                    {filteredQuestions.map((q: any) => {
                                         const isMapped = q.masterFieldNo || q.masterQuestionGroupId || q.customFieldDefinitionId;
                                         return (
                                             <button
@@ -687,7 +687,7 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
                             {/* Stats Footer */}
                             <div className="p-3 border-t bg-slate-100/50 flex justify-between items-center text-xs text-slate-500 font-medium">
                                 <span>{filteredQuestions.length} Questions</span>
-                                <span>{questions.filter(q => q.masterFieldNo || q.masterQuestionGroupId || q.customFieldDefinitionId).length} Mapped</span>
+                                <span>{questions.filter((q: any) => q.masterFieldNo || q.masterQuestionGroupId || q.customFieldDefinitionId).length} Mapped</span>
                             </div>
                         </div>
 
@@ -843,7 +843,7 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
         const [search, setSearch] = useState("");
 
         // Flatten Options
-        const masterOptions = useMemo(() => masterFields.map(f => ({
+        const masterOptions = useMemo(() => masterFields.map((f: any) => ({
             value: `master:${f.fieldNo.toString()}`,
             label: f.fieldName,
             type: 'master',
@@ -851,7 +851,7 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
             description: f.notes
         })), [masterFields]);
 
-        const groupOptions = useMemo(() => masterGroups.map(g => ({
+        const groupOptions = useMemo(() => masterGroups.map((g: any) => ({
             value: `group:${g.key}`,
             label: g.fieldName || g.key,
             type: 'group',
@@ -859,7 +859,7 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
             description: g.notes
         })), [masterGroups]);
 
-        const customOptions = useMemo(() => customFields.map(f => ({
+        const customOptions = useMemo(() => customFields.map((f: any) => ({
             value: `custom:${f.id}`,
             label: f.label,
             type: 'custom',
@@ -868,7 +868,7 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
         })), [customFields]);
 
         const allOptions = [...groupOptions, ...masterOptions, ...customOptions];
-        const selectedOption = allOptions.find(o => o.value === value);
+        const selectedOption = allOptions.find((o: any) => o.value === value);
 
         return (
             <Popover open={open} onOpenChange={setOpen}>
@@ -928,7 +928,7 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
 
                             {/* Filter Logic since we disabled default cmdk filtering for custom create logic */}
                             {(() => {
-                                const filtered = allOptions.filter(o =>
+                                const filtered = allOptions.filter((o: any) =>
                                     o.label.toLowerCase().includes(search.toLowerCase()) ||
                                     o.meta.toLowerCase().includes(search.toLowerCase()) ||
                                     (o.description && o.description.toLowerCase().includes(search.toLowerCase()))
@@ -938,7 +938,7 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
                                 return (
                                     <>
                                         <CommandGroup heading="Field Groups (Recommended)">
-                                            {filtered.filter(o => o.type === 'group').map(option => (
+                                            {filtered.filter((o: any) => o.type === 'group').map((option: any) => (
                                                 <CommandItem
                                                     key={option.value}
                                                     value={option.label}
@@ -957,7 +957,7 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
                                         </CommandGroup>
                                         <CommandSeparator />
                                         <CommandGroup heading="Standard Fields">
-                                            {filtered.filter(o => o.type === 'master').map(option => (
+                                            {filtered.filter((o: any) => o.type === 'master').map((option: any) => (
                                                 <CommandItem
                                                     key={option.value}
                                                     value={option.label} // Use label for cmdk internal keying
@@ -976,7 +976,7 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
                                         </CommandGroup>
                                         <CommandSeparator />
                                         <CommandGroup heading="Custom Fields">
-                                            {filtered.filter(o => o.type === 'custom').map(option => (
+                                            {filtered.filter((o: any) => o.type === 'custom').map((option: any) => (
                                                 <CommandItem
                                                     key={option.value}
                                                     value={option.label}

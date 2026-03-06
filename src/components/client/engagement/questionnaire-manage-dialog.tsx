@@ -79,7 +79,7 @@ export function QuestionnaireManageDialog({ open, onOpenChange, questionnaireId,
             // The action expects an array of items. API signature: saveQuestionnaireChanges(id, items, mappings?)
 
             // We map the editable state back to items
-            const itemsToSave = questions.map(q => ({
+            const itemsToSave = questions.map((q: any) => ({
                 type: "question",
                 text: q.text,
                 originalText: q.originalText || q.text,
@@ -125,7 +125,7 @@ export function QuestionnaireManageDialog({ open, onOpenChange, questionnaireId,
                     // But here we are matching against existing DB questions.
                     // Best effort: Match by exact text or similar text.
 
-                    const match = newQuestions.find(q => q.text === sug.text || q.originalText === sug.text);
+                    const match = newQuestions.find((q: any) => q.text === sug.text || q.originalText === sug.text);
                     if (match) {
                         if (sug.suggestedKey) {
                             // Check if it's a Group or Field
@@ -133,8 +133,8 @@ export function QuestionnaireManageDialog({ open, onOpenChange, questionnaireId,
                             // The suggestion object from ai-mapper usually has 'suggestedKey' normalized.
 
                             // Let's check if the key exists in Groups or Fields
-                            const isGroup = masterGroups.find(g => g.key === sug.suggestedKey);
-                            const isField = masterFields.find(f => f.fieldNo === parseInt(sug.suggestedKey));
+                            const isGroup = masterGroups.find((g: any) => g.key === sug.suggestedKey);
+                            const isField = masterFields.find((f: any) => f.fieldNo === parseInt(sug.suggestedKey));
 
                             if (isGroup) {
                                 match.masterQuestionGroupId = sug.suggestedKey;
@@ -176,7 +176,7 @@ export function QuestionnaireManageDialog({ open, onOpenChange, questionnaireId,
     };
 
     // Filtered list
-    const filteredQuestions = questions.filter(q =>
+    const filteredQuestions = questions.filter((q: any) =>
         (q.text || "").toLowerCase().includes(filter.toLowerCase())
     );
 
@@ -226,7 +226,7 @@ export function QuestionnaireManageDialog({ open, onOpenChange, questionnaireId,
                                         No questions found.
                                     </div>
                                 ) : (
-                                    filteredQuestions.map((q, idx) => {
+                                    filteredQuestions.map(((q: any, idx: any)) => {
                                         // Find index in original array for updates
                                         const realIndex = questions.indexOf(q);
 
@@ -260,7 +260,7 @@ export function QuestionnaireManageDialog({ open, onOpenChange, questionnaireId,
                                                                 </SelectTrigger>
                                                                 <SelectContent>
                                                                     <SelectItem value="none">-- None --</SelectItem>
-                                                                    {masterGroups.map((g) => (
+                                                                    {masterGroups.map((g: any) => (
                                                                         <SelectItem key={g.key} value={g.key}>
                                                                             {g.fieldName || g.key} ({g.key})
                                                                         </SelectItem>
@@ -280,7 +280,7 @@ export function QuestionnaireManageDialog({ open, onOpenChange, questionnaireId,
                                                                 </SelectTrigger>
                                                                 <SelectContent className="max-h-[300px]">
                                                                     <SelectItem value="none">-- None --</SelectItem>
-                                                                    {masterFields.map((f) => (
+                                                                    {masterFields.map((f: any) => (
                                                                         <SelectItem key={f.fieldNo} value={f.fieldNo.toString()}>
                                                                             {f.fieldNo}. {f.fieldName}
                                                                         </SelectItem>

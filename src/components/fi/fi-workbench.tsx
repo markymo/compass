@@ -42,7 +42,7 @@ export function FIWorkbench({ orgId, data }: FIWorkbenchProps) {
     const [statusFilter, setStatusFilter] = useState("ALL");
 
     const filteredQuestions = useMemo(() => {
-        return data.questions.filter(q => {
+        return data.questions.filter((q: any) => {
             const matchesSearch = q.text.toLowerCase().includes(search.toLowerCase()) ||
                 (q.answer && q.answer.toLowerCase().includes(search.toLowerCase()));
             const matchesLE = leFilter === "ALL" || q.leName === leFilter;
@@ -76,7 +76,7 @@ export function FIWorkbench({ orgId, data }: FIWorkbenchProps) {
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="ALL">All Clients</SelectItem>
-                                {data.les.map(le => (
+                                {data.les.map((le: any) => (
                                     <SelectItem key={le} value={le}>{le}</SelectItem>
                                 ))}
                             </SelectContent>
@@ -89,7 +89,7 @@ export function FIWorkbench({ orgId, data }: FIWorkbenchProps) {
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="ALL">All Questionnaires</SelectItem>
-                                {data.questionnaires.map(q => (
+                                {data.questionnaires.map((q: any) => (
                                     <SelectItem key={q} value={q}>{q}</SelectItem>
                                 ))}
                             </SelectContent>
@@ -102,7 +102,7 @@ export function FIWorkbench({ orgId, data }: FIWorkbenchProps) {
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="ALL">All Categories</SelectItem>
-                                {data.categories.map(cat => (
+                                {data.categories.map((cat: any) => (
                                     <SelectItem key={cat} value={cat}>{cat}</SelectItem>
                                 ))}
                             </SelectContent>
@@ -125,7 +125,7 @@ export function FIWorkbench({ orgId, data }: FIWorkbenchProps) {
 
             {/* Questions List */}
             <div className="grid gap-4">
-                {filteredQuestions.map((q) => (
+                {filteredQuestions.map((q: any) => (
                     <FIQuestionCard key={q.id} question={q} />
                 ))}
 

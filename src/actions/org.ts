@@ -172,7 +172,7 @@ export async function archiveOrganization(orgId: string) {
             include: { clientLE: true }
         });
 
-        const leIds = owned.map(o => o.clientLEId);
+        const leIds = owned.map((o: any) => o.clientLEId);
 
         if (leIds.length > 0) {
             await prisma.clientLE.updateMany({
@@ -208,7 +208,7 @@ export async function unarchiveOrganization(orgId: string) {
             include: { clientLE: true }
         });
 
-        const leIds = owned.map(o => o.clientLEId);
+        const leIds = owned.map((o: any) => o.clientLEId);
 
         if (leIds.length > 0) {
             await prisma.clientLE.updateMany({

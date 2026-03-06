@@ -43,7 +43,7 @@ export async function calculateEngagementMetrics(engagementId: string): Promise<
             where: { subjectLeId: engagement.clientLE.legalEntityId, status: "VERIFIED" },
             select: { fieldNo: true }
         });
-        claims.forEach(c => activeClaims.add(c.fieldNo));
+        claims.forEach((c: any) => activeClaims.add(c.fieldNo));
 
         // Also track populated custom fields
         if (engagement.clientLE?.customData) {
@@ -123,7 +123,7 @@ export async function calculateEngagementMetrics(engagementId: string): Promise<
         for (const q of questionnaires) {
             if (Array.isArray(q.extractedContent)) {
                 const items = q.extractedContent as any[];
-                const qs = items.filter(i => (i.type || "").toLowerCase() === "question");
+                const qs = items.filter((i: any) => (i.type || "").toLowerCase() === "question");
 
                 for (const item of qs) {
                     m.total++;
