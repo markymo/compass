@@ -226,7 +226,7 @@ export function QuestionnaireManageDialog({ open, onOpenChange, questionnaireId,
                                         No questions found.
                                     </div>
                                 ) : (
-                                    filteredQuestions.map(((q: any, idx: any)) => {
+                                    filteredQuestions.map((q: any, idx: any) => {
                                         // Find index in original array for updates
                                         const realIndex = questions.indexOf(q);
 

@@ -173,7 +173,7 @@ export function SourcesV2Client({
     });
 
     // Make sure pinned sources are always at the top
-    const sortedSources = [...filteredSources].sort(((a: any, b: any)) => {
+    const sortedSources = [...filteredSources].sort((a: any, b: any) => {
         if (a.isPinned && !b.isPinned) return -1;
         if (!a.isPinned && b.isPinned) return 1;
         // Optionally sort by date here if not pinned

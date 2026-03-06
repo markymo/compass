@@ -27,7 +27,7 @@ function LogViewer({ logs }: { logs: any[] }) {
 
     return (
         <ScrollArea className="h-64 w-full rounded border bg-slate-950 p-2 text-xs font-mono">
-            {logs.map(((log: any, i: any)) => (
+            {logs.map((log: any, i: any) => (
                 <div key={i} className="mb-1 flex gap-2">
                     <span className="text-slate-500 shrink-0">{new Date(log.timestamp).toLocaleTimeString()}</span>
                     <span className={

@@ -28,7 +28,7 @@ export function MappingWorkbench({ items, masterFields, onUpdateItem, onAddItem 
         const groups: { title: string, startIndex: number, items: { item: ExtractedItem, originalIndex: number }[] }[] = [];
         let currentGroup = { title: "General", startIndex: 0, items: [] as { item: ExtractedItem, originalIndex: number }[] };
 
-        items.forEach(((item: any, idx: any)) => {
+        items.forEach((item: any, idx: any) => {
             if (item.type === "section") {
                 if (currentGroup.items.length > 0) {
                     groups.push(currentGroup);
@@ -64,7 +64,7 @@ export function MappingWorkbench({ items, masterFields, onUpdateItem, onAddItem 
                     </div>
                 )}
 
-                {sections.map(((section: any, sIdx: any)) => (
+                {sections.map((section: any, sIdx: any) => (
                     <div key={sIdx} className="space-y-3">
                         <div className="flex items-center gap-2 text-sm font-bold text-slate-900 uppercase tracking-wider sticky top-0 bg-slate-50/95 py-2 backdrop-blur-sm z-10 border-b border-transparent">
                             <div className="w-1 h-4 bg-indigo-500 rounded-full" />
@@ -73,7 +73,7 @@ export function MappingWorkbench({ items, masterFields, onUpdateItem, onAddItem 
                         </div>
 
                         <div className="space-y-3 pl-2">
-                            {section.items.map(({ item, originalIndex }) => {
+                            {section.items.map(({ item, originalIndex }: any) => {
                                 const isQuestion = item.type === "question";
                                 // const isMapped = !!item.masterKey && item.masterKey !== "IGNORE";
                                 const isMapped = !!item.masterKey && item.masterKey !== "IGNORE";

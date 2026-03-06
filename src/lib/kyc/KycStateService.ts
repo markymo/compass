@@ -135,7 +135,7 @@ export class KycStateService {
 
         const sortAndPick = (list: FieldClaim[]) => {
             if (list.length === 0) return null;
-            return list.sort(((a: any, b: any)) => {
+            return list.sort((a: any, b: any) => {
                 // Source priority (asc because 1 is higher)
                 const pA = getSourcePriority(a.sourceType);
                 const pB = getSourcePriority(b.sourceType);

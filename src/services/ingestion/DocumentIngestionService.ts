@@ -86,7 +86,7 @@ export class DocumentIngestionService {
             const rawPages = rawText.split(/----------------Page \(\d+\) Break----------------/g);
             // The split might result in an empty first element or similar artifacts, filter them
             const pages: PageMeta[] = rawPages
-                .map(((text: any, index: any)) => {
+                .map((text: any, index: any) => {
                     const clean = text.trim();
                     return {
                         pageNumber: index + 1, // Approximation
@@ -143,7 +143,7 @@ export class DocumentIngestionService {
         let fullText = "";
         const pages: PageMeta[] = [];
 
-        workbook.SheetNames.forEach(((sheetName: any, index: any)) => {
+        workbook.SheetNames.forEach((sheetName: any, index: any) => {
             const worksheet = workbook.Sheets[sheetName];
             // Get TSV (Tab Separated Values) which is good for LLMs to understand structure
             const sheetText = XLSX.utils.sheet_to_csv(worksheet, { FS: "\t" });

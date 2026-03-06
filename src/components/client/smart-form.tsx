@@ -49,7 +49,7 @@ export function SmartForm({ clientLEId, requirements }: SmartFormProps) {
     });
 
     // Default Values
-    const defaultValues = requirements.reduce(((acc: any, field: any)) => {
+    const defaultValues = requirements.reduce((acc: any, field: any) => {
         acc[field.key] = field.currentValue ?? "";
         return acc;
     }, {} as Record<string, any>);

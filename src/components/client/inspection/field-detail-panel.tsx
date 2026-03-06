@@ -628,7 +628,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                             {/* Value rows */}
                                             {data.rows && data.rows.length > 0 ? (
                                                 <div className="space-y-1.5">
-                                                    {data.rows.map(((row: any, i: any)) => (
+                                                    {data.rows.map((row: any, i: any) => (
                                                         <div key={row.id}>
                                                             {/* Delete confirmation mode */}
                                                             {deletingRowId === row.id ? (

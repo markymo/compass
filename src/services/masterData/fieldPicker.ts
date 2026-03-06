@@ -78,7 +78,7 @@ export async function listFieldPickerItems(mode: FieldPickerMode = "default"): P
     ];
 
     // 4. Final multi-level sort
-    return items.sort(((a: any, b: any)) => {
+    return items.sort((a: any, b: any) => {
         // Primary: Category
         const catA = a.category || 'ZZZ';
         const catB = b.category || 'ZZZ';

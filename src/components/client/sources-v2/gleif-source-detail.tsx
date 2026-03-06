@@ -313,7 +313,7 @@ export function GleifSourceDetail({ source, leId, lei, gleifData, gleifFetchedAt
                                     </div>
                                 ) : proposals.length > 0 ? (
                                     <>
-                                        {proposals.map(((proposal: any, idx: any)) => (
+                                        {proposals.map((proposal: any, idx: any) => (
                                             <div key={idx} className={cn(
                                                 "bg-white border rounded-lg p-4 shadow-sm transition-colors",
                                                 proposal.action === 'PROPOSE_UPDATE' ? "border-indigo-200" : "border-slate-200"

@@ -35,7 +35,7 @@ export function FieldGlossaryTable({ initialFields }: FieldGlossaryTableProps) {
     );
 
     if (sortConfig !== null) {
-        filteredFields.sort(((a: any, b: any)) => {
+        filteredFields.sort((a: any, b: any) => {
             let aValue = a[sortConfig.key];
             let bValue = b[sortConfig.key];
 

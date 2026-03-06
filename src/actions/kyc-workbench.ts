@@ -37,13 +37,13 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
         fieldNo: def.fieldNo,
         label: def.fieldName,
         category: def.category
-    })).sort(((a: any, b: any)) => a.label.localeCompare(b.label));
+    })).sort((a: any, b: any) => a.label.localeCompare(b.label));
 
     const masterGroups = allGroups.map((g: any) => ({
         key: g.key,
         label: g.label,
         category: g.category // Groups might have categories too
-    })).sort(((a: any, b: any)) => a.label.localeCompare(b.label));
+    })).sort((a: any, b: any) => a.label.localeCompare(b.label));
 
     // 2. Lookups for categories
     const fieldCategoryMap = new Map(allFields.map((f: any) => [f.fieldNo, f.category]));

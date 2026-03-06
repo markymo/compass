@@ -153,7 +153,7 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
         if (!loading && questions.length > 0) {
             const missing = questions.filter((q: any) => !q.compactText && q.text);
             if (missing.length > 0) {
-                missing.forEach(((q: any, idx: any)) => {
+                missing.forEach((q: any, idx: any) => {
                     // Stagger generation slightly to avoid hammering the server all at exactly same ms
                     setTimeout(() => {
                         handleGenerateCompactText(q.id, q.text, true);
@@ -309,7 +309,7 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
             const newQuestions = prev.filter((q: any) => q.id !== id);
 
             // Re-order remaining questions
-            const reordered = newQuestions.map(((q: any, i: any)) => ({
+            const reordered = newQuestions.map((q: any, i: any) => ({
                 ...q,
                 order: i + 1
             }));
@@ -340,7 +340,7 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
             newQuestions[index] = temp;
 
             // Re-assign orders based on new array position
-            return newQuestions.map(((q: any, i: any)) => ({ ...q, order: i + 1 }));
+            return newQuestions.map((q: any, i: any) => ({ ...q, order: i + 1 }));
         });
     };
 
@@ -356,7 +356,7 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
             newQuestions[index] = temp;
 
             // Re-assign orders based on new array position
-            return newQuestions.map(((q: any, i: any)) => ({ ...q, order: i + 1 }));
+            return newQuestions.map((q: any, i: any) => ({ ...q, order: i + 1 }));
         });
     };
 
@@ -371,7 +371,7 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
 
                 // Add to local list
                 const newField = res.data;
-                setCustomFields(prev => [...prev, newField].sort(((a: any, b: any)) => a.label.localeCompare(b.label)));
+                setCustomFields(prev => [...prev, newField].sort((a: any, b: any) => a.label.localeCompare(b.label)));
 
                 // Select it
                 if (selectedQuestionId) {

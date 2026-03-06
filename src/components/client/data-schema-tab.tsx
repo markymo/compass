@@ -115,7 +115,7 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
         });
     }, [uncategorizedFields, masterData, search, catFilter, popFilter]);
 
-    const totalVisible = filteredCustomFields.length + filteredCategories.reduce(((acc: any, c: any)) => acc + c.fields.length, 0) + filteredUncategorized.length;
+    const totalVisible = filteredCustomFields.length + filteredCategories.reduce((acc: any, c: any) => acc + c.fields.length, 0) + filteredUncategorized.length;
 
 
     const handleRefreshGleif = async () => {

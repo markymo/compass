@@ -27,7 +27,7 @@ export function LEPortalContainer({ le, schema, requirements, standingData, prog
 
     // Calculate metrics
     const openQueries = 0; // Placeholder until Query model is integrated
-    const pendingDocs = engagements.reduce(((acc: any, eng: any)) => acc + (eng.questionnaires?.length || 0), 0);
+    const pendingDocs = engagements.reduce((acc: any, eng: any) => acc + (eng.questionnaires?.length || 0), 0);
 
     return (
         <div className="max-w-6xl mx-auto space-y-8 pb-20">

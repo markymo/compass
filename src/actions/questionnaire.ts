@@ -273,7 +273,7 @@ export async function createManualQuestionnaire(data: { name: string, fiOrgId?: 
             questionLines.map((q: any) => compactifyQuestion(q))
         );
 
-        const extractedContent = questionLines.map(((text: any, index: any)) => ({
+        const extractedContent = questionLines.map((text: any, index: any) => ({
             type: "question",
             text: text,
             compactText: compactResults[index]?.compactText || null,

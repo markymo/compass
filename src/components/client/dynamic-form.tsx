@@ -23,7 +23,7 @@ export function DynamicForm({ leId, schemaId, definition, initialData }: Dynamic
     const [loading, setLoading] = useState(false);
 
     // Initialize form with existing data or default empty string for all fields
-    const defaultValues = definition.fields.reduce(((acc: any, field: any)) => {
+    const defaultValues = definition.fields.reduce((acc: any, field: any) => {
         acc[field.key] = initialData?.[field.key] ?? "";
         return acc;
     }, {} as Record<string, any>);

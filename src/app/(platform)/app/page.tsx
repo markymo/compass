@@ -49,7 +49,7 @@ function reshapeContexts(ctx: DashboardContexts): OrgNode[] {
     const nodes: OrgNode[] = [];
 
     // 1. Client orgs — children are LEs, each LE has engagements
-    const sortedClients = [...ctx.clients].sort(((a: any, b: any)) => a.name.localeCompare(b.name));
+    const sortedClients = [...ctx.clients].sort((a: any, b: any) => a.name.localeCompare(b.name));
     for (const client of sortedClients) {
         const les: OrgChild[] = ctx.legalEntities
             .filter((le: any) => le.clientName === client.name)
@@ -89,7 +89,7 @@ function reshapeContexts(ctx: DashboardContexts): OrgNode[] {
     }
 
     // 2. Supplier orgs (FI) — hierarchy: Supplier -> Client -> LE -> Questionnaires
-    const sortedFIs = [...ctx.financialInstitutions].sort(((a: any, b: any)) => a.name.localeCompare(b.name));
+    const sortedFIs = [...ctx.financialInstitutions].sort((a: any, b: any) => a.name.localeCompare(b.name));
     for (const fi of sortedFIs) {
         const clientEngagementMap = new Map<string, typeof ctx.relationships>();
 
@@ -156,7 +156,7 @@ function reshapeContexts(ctx: DashboardContexts): OrgNode[] {
     }
 
     // 3. Law firms
-    const sortedLawFirms = [...ctx.lawFirms].sort(((a: any, b: any)) => a.name.localeCompare(b.name));
+    const sortedLawFirms = [...ctx.lawFirms].sort((a: any, b: any) => a.name.localeCompare(b.name));
     for (const lf of sortedLawFirms) {
         nodes.push({
             id: lf.id,

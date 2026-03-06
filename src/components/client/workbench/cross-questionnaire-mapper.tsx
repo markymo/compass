@@ -200,7 +200,7 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
                 toast.success("New field created");
                 setData(prev => ({
                     ...prev,
-                    customFields: [...prev.customFields, { id: res.data.id, label: res.data.label }].sort(((a: any, b: any)) => a.label.localeCompare(b.label))
+                    customFields: [...prev.customFields, { id: res.data.id, label: res.data.label }].sort((a: any, b: any) => a.label.localeCompare(b.label))
                 }));
 
                 if (activeQuestionId) {
@@ -732,7 +732,7 @@ function QuestionCard({
                                             {question.masterDataValue != null && question.masterDataValue !== '' ? (
                                                 Array.isArray(question.masterDataValue) ? (
                                                     <div className="flex flex-wrap gap-1">
-                                                        {question.masterDataValue.map(((val: any, i: any)) => (
+                                                        {question.masterDataValue.map((val: any, i: any) => (
                                                             <Badge key={i} variant="secondary" className="bg-white border-slate-200 text-slate-700 py-0 px-1.5 text-[11px]">
                                                                 {String(val)}
                                                             </Badge>

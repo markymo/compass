@@ -41,7 +41,7 @@ export function QuestionnaireQAMode({ questions }: QuestionnaireQAModeProps) {
                 </div>
                 <ScrollArea className="flex-1">
                     <div className="divide-y divide-slate-100">
-                        {questions.map(((q: any, idx: any)) => (
+                        {questions.map((q: any, idx: any) => (
                             <button
                                 key={q.id}
                                 onClick={() => setActiveQuestionId(q.id)}

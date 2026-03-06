@@ -18,7 +18,7 @@ describe('FieldDefinitions', () => {
     describe('Coverage', () => {
         it('should cover all Field Nos 1-119 excluding 94', () => {
             const expectedFieldNos = Array.from({ length: 119 }, (_, i) => i + 1).filter((n: any) => n !== 94);
-            const actualFieldNos = Object.keys(FIELD_DEFINITIONS).map(Number).sort(((a: any, b: any)) => a - b);
+            const actualFieldNos = Object.keys(FIELD_DEFINITIONS).map(Number).sort((a: any, b: any) => a - b);
 
             expect(actualFieldNos).toEqual(expectedFieldNos);
             expect(actualFieldNos.length).toBe(118);

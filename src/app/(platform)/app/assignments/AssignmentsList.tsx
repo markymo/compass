@@ -59,7 +59,7 @@ export function AssignmentsList({ assignments }: AssignmentsListProps) {
         }
 
         // Sort
-        result.sort(((a: any, b: any)) => {
+        result.sort((a: any, b: any) => {
             const dateA = new Date(a.createdAt).getTime();
             const dateB = new Date(b.createdAt).getTime();
             return sortBy === "newest" ? dateB - dateA : dateA - dateB;

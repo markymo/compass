@@ -62,7 +62,7 @@ export function EngagementDocumentManager({ engagementId, documents, evidenceDoc
     const [isPickerOpen, setIsPickerOpen] = useState(false);
     const router = useRouter();
 
-    const totalEvidenceDocs = evidenceDocuments.reduce(((acc: any, q: any)) => acc + q.documents.length, 0);
+    const totalEvidenceDocs = evidenceDocuments.reduce((acc: any, q: any) => acc + q.documents.length, 0);
 
     const handleRevoke = async (docId: string, docName: string) => {
         if (!confirm(`Revoke access to "${docName}"? The bank will no longer see this file.`)) return;

@@ -411,7 +411,7 @@ export function QuestionnaireManager({ questionnaire: initialQ, masterFields }: 
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y text-slate-700">
-                                        {snapshots.map(((s: any, i: any)) => (
+                                        {snapshots.map((s: any, i: any) => (
                                             <tr key={i} className="hover:bg-white transition-colors bg-slate-50/50">
                                                 <td className="px-4 py-2 font-medium">
                                                     <Link href={`/app/le/${s.fiEngagement?.clientLE?.id}/v2`} className="hover:underline hover:text-indigo-600">

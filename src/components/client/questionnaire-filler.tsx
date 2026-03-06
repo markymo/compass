@@ -39,7 +39,7 @@ export function QuestionnaireFiller({ leId, questionnaireId, initialQuestions, q
                 cats.add(q.category || "Uncategorized");
             }
         });
-        return Array.from(cats).sort(((a: any, b: any)) => {
+        return Array.from(cats).sort((a: any, b: any) => {
             if (a === "Uncategorized") return 1;
             if (b === "Uncategorized") return -1;
             return a.localeCompare(b);
@@ -121,7 +121,7 @@ export function QuestionnaireFiller({ leId, questionnaireId, initialQuestions, q
         const ghost = ghostAnswers[index.toString()];
         if (!ghost) return;
 
-        setQuestions(prev => prev.map(((q: any, i: any)) => {
+        setQuestions(prev => prev.map((q: any, i: any) => {
             if (i === index) {
                 return { ...q, answer: ghost.suggestedAnswer };
             }
@@ -269,7 +269,7 @@ export function QuestionnaireFiller({ leId, questionnaireId, initialQuestions, q
                                                         </label>
                                                         <button
                                                             onClick={() => {
-                                                                setQuestions(prev => prev.map(((q: any, i: any)) => i === realIndex ? { ...q, isLocked: !q.isLocked } : q));
+                                                                setQuestions(prev => prev.map((q: any, i: any) => i === realIndex ? { ...q, isLocked: !q.isLocked } : q));
                                                             }}
                                                             className={`p-1 rounded-full transition-colors ${isLocked ? "text-amber-500 bg-amber-50" : "text-slate-300 hover:text-slate-500"}`}
                                                         >
@@ -306,7 +306,7 @@ export function QuestionnaireFiller({ leId, questionnaireId, initialQuestions, q
                                                                     onChange={(e) => {
                                                                         if (isLocked) return;
                                                                         const val = e.target.value;
-                                                                        setQuestions(prev => prev.map(((q: any, i: any)) => i === realIndex ? { ...q, answer: val } : q));
+                                                                        setQuestions(prev => prev.map((q: any, i: any) => i === realIndex ? { ...q, answer: val } : q));
                                                                     }}
                                                                     readOnly={isLocked}
                                                                 />

@@ -36,7 +36,7 @@ export function Features() {
                 </div>
 
                 <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
-                    {features.map(((feature: any, index: any)) => (
+                    {features.map((feature: any, index: any) => (
                         <motion.div
                             key={index}
                             initial={{ opacity: 0, y: 20 }}

@@ -52,7 +52,7 @@ export default function MasterDataSortBuilder({ initialData }: { initialData: an
         newCategories[index] = newCategories[targetIndex];
         newCategories[targetIndex] = temp;
 
-        newCategories.forEach(((cat: any, idx: any)) => cat.order = idx);
+        newCategories.forEach((cat: any, idx: any) => cat.order = idx);
         setCategories(newCategories);
     };
 
@@ -69,7 +69,7 @@ export default function MasterDataSortBuilder({ initialData }: { initialData: an
         newFields[fieldIndex] = newFields[targetIndex];
         newFields[targetIndex] = temp;
 
-        newFields.forEach(((f: any, idx: any)) => f.order = idx);
+        newFields.forEach((f: any, idx: any) => f.order = idx);
         newCategories[catIndex] = { ...category, fields: newFields };
         setCategories(newCategories);
     };
@@ -84,7 +84,7 @@ export default function MasterDataSortBuilder({ initialData }: { initialData: an
             const [moved] = newCategories.splice(source.index, 1);
             newCategories.splice(destination.index, 0, moved);
             // Updating internal order
-            newCategories.forEach(((cat: any, index: any)) => {
+            newCategories.forEach((cat: any, index: any) => {
                 cat.order = index;
             });
             setCategories(newCategories);
@@ -110,8 +110,8 @@ export default function MasterDataSortBuilder({ initialData }: { initialData: an
                     newCategories[sourceCatIndex].fields = sourceFields;
                     newCategories[destCatIndex].fields = destFields;
 
-                    newCategories[destCatIndex].fields.forEach(((f: any, idx: any)) => f.order = idx);
-                    newCategories[sourceCatIndex].fields.forEach(((f: any, idx: any)) => f.order = idx);
+                    newCategories[destCatIndex].fields.forEach((f: any, idx: any) => f.order = idx);
+                    newCategories[sourceCatIndex].fields.forEach((f: any, idx: any) => f.order = idx);
 
                     setCategories(newCategories);
                 }
@@ -123,7 +123,7 @@ export default function MasterDataSortBuilder({ initialData }: { initialData: an
                     const [moved] = newFields.splice(source.index, 1);
                     newFields.splice(destination.index, 0, moved);
 
-                    newFields.forEach(((f: any, idx: any)) => f.order = idx);
+                    newFields.forEach((f: any, idx: any) => f.order = idx);
                     newCategories[catIndex].fields = newFields;
                     setCategories(newCategories);
                 }
@@ -228,7 +228,7 @@ export default function MasterDataSortBuilder({ initialData }: { initialData: an
                 <Droppable droppableId="categories" type="CATEGORY">
                     {(provided) => (
                         <div ref={provided.innerRef} {...provided.droppableProps} className="space-y-4">
-                            {categories.map(((category: any, index: any)) => (
+                            {categories.map((category: any, index: any) => (
                                 <Draggable key={category.id} draggableId={category.id} index={index}>
                                     {(provided) => (
                                         <div
@@ -259,7 +259,7 @@ export default function MasterDataSortBuilder({ initialData }: { initialData: an
                                                 <Droppable droppableId={category.id} type="FIELD">
                                                     {(provided) => (
                                                         <div ref={provided.innerRef} {...provided.droppableProps} className="space-y-2 pl-8 pt-2">
-                                                            {category.fields.map(((field: any, fieldIndex: any)) => (
+                                                            {category.fields.map((field: any, fieldIndex: any) => (
                                                                 <Draggable key={field.fieldNo.toString()} draggableId={field.fieldNo.toString()} index={fieldIndex}>
                                                                     {(provided) => (
                                                                         <div

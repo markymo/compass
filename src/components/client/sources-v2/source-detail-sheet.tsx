@@ -147,7 +147,7 @@ export function SourceDetailSheet({ source, open, onOpenChange, leId, lei, gleif
                                                         </tr>
                                                     </thead>
                                                     <tbody className="divide-y divide-slate-100">
-                                                        {mockExtractedData.map(((data: any, i: any)) => (
+                                                        {mockExtractedData.map((data: any, i: any) => (
                                                             <tr key={i} className="hover:bg-slate-50">
                                                                 <td className="px-4 py-3 font-medium text-slate-900">{data.label}</td>
                                                                 <td className="px-4 py-3 text-slate-600">{data.value}</td>
@@ -176,7 +176,7 @@ export function SourceDetailSheet({ source, open, onOpenChange, leId, lei, gleif
                                     <TabsContent value="linked" className="m-0 p-6">
                                         {source.linkedFields > 0 ? (
                                             <div className="space-y-4">
-                                                {[mockExtractedData[0], mockExtractedData[1]].map(((data: any, i: any)) => (
+                                                {[mockExtractedData[0], mockExtractedData[1]].map((data: any, i: any) => (
                                                     <div key={i} className="bg-white border border-slate-200 rounded-lg p-4 flex items-center shadow-sm">
                                                         <div className="flex-1">
                                                             <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold mb-1">Source Fact</p>

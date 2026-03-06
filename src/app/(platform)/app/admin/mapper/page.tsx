@@ -338,7 +338,7 @@ export default function MapperPage() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {extractedItems.map(((item: any, idx: any)) => {
+                                    {extractedItems.map((item: any, idx: any) => {
                                         if (item.type === 'section') {
                                             return (
                                                 <TableRow key={idx} className="bg-slate-50">
@@ -390,7 +390,7 @@ export default function MapperPage() {
                                                                 <SelectLabel className="flex items-center gap-1">
                                                                     <File className="w-3 h-3" /> Atomic Fields
                                                                 </SelectLabel>
-                                                                {masterFields.map(((f: any, i: any)) => {
+                                                                {masterFields.map((f: any, i: any) => {
                                                                     // Fallback to key or index if fieldNo is missing
                                                                     const fId = f.fieldNo || (f.key ? parseInt(f.key) : null);
                                                                     if (!fId) return null;
