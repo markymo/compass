@@ -39,7 +39,7 @@ export function SourcesSubNav({ leId, jurisdiction }: SourcesSubNavProps) {
             isActive: (path: string) => path.startsWith(`${baseUrl}/knowledge`)
         },
         {
-            label: "Digital Vault",
+            label: "Document Vault",
             href: `${baseUrl}/vault`,
             icon: Lock,
             isActive: (path: string) => path.startsWith(`${baseUrl}/vault`)
