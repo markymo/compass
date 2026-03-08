@@ -71,7 +71,7 @@ interface DocumentVaultProps {
 }
 
 type ViewMode = 'grid' | 'list';
-type FilterType = 'ALL' | 'CORPORATE' | 'IDENTITY' | 'FINANCIAL' | 'OTHER' | 'SHARED' | 'EVIDENCE';
+
 
 export function DocumentVault({ leId }: DocumentVaultProps) {
     const [documents, setDocuments] = useState<any[]>([]);
@@ -79,7 +79,7 @@ export function DocumentVault({ leId }: DocumentVaultProps) {
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
     const [viewMode, setViewMode] = useState<ViewMode>('list');
-    const [activeFilter, setActiveFilter] = useState<FilterType>('ALL');
+
     const [selectedDoc, setSelectedDoc] = useState<any>(null);
     const [isSheetOpen, setIsSheetOpen] = useState(false);
 
@@ -115,12 +115,7 @@ export function DocumentVault({ leId }: DocumentVaultProps) {
     const filteredDocs = documents.filter((doc: any) => {
         const matchesSearch = doc.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
             doc.docType?.toLowerCase().includes(searchQuery.toLowerCase());
-
-        if (!matchesSearch) return false;
-
-        if (activeFilter === 'ALL') return true;
-        if (activeFilter === 'SHARED') return doc.sharedWith && doc.sharedWith.length > 0;
-        return doc.docType === activeFilter;
+        return matchesSearch;
     });
 
     const handleDelete = async (id: string) => {
@@ -143,33 +138,33 @@ export function DocumentVault({ leId }: DocumentVaultProps) {
         setIsSheetOpen(true);
     };
 
-    const FilterPill = ({ type, label, icon: Icon }: { type: FilterType, label: string, icon: any }) => (
-        <Button
-            variant={activeFilter === type ? "default" : "outline"}
-            size="sm"
-            className={cn(
-                "rounded-full h-8 px-4 text-xs font-medium transition-all",
-                activeFilter === type
-                    ? "bg-slate-900 text-white hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 border-transparent shadow-md"
-                    : "text-slate-600 bg-white hover:bg-slate-50 border-slate-200 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-800"
-            )}
-            onClick={() => setActiveFilter(type)}
-        >
-            <Icon className="mr-2 h-3.5 w-3.5" />
-            {label}
-            <span className={cn(
-                "ml-2 text-[10px] px-1.5 py-0.5 rounded-full bg-white/20",
-                activeFilter !== type && "bg-slate-100 text-slate-500 dark:bg-slate-800"
-            )}>
-                {type === 'ALL'
-                    ? documents.length
-                    : type === 'SHARED'
-                        ? documents.filter((d: any) => d.sharedWith?.length > 0).length
-                        : documents.filter((d: any) => d.docType === type).length
-                }
-            </span>
-        </Button>
-    );
+    // Direct file upload handler (no modal)
+    const handleDirectUpload = async (file: File) => {
+        try {
+            const newBlob = await upload(file.name, file, {
+                access: 'public',
+                handleUploadUrl: '/api/upload',
+            });
+
+            const res = await uploadDocument(leId, {
+                name: file.name,
+                type: file.type || "application/pdf",
+                fileUrl: newBlob.url,
+                docType: "OTHER",
+                kbSize: Math.round(file.size / 1024)
+            });
+
+            if (res.success) {
+                toast.success("Document uploaded successfully");
+                loadDocuments();
+            } else {
+                toast.error(res.error || "Failed to save document metadata");
+            }
+        } catch (error) {
+            console.error(error);
+            toast.error("Upload failed. Check console for details.");
+        }
+    };
 
     return (
         <div className="flex flex-col h-[700px] w-full bg-slate-50/50 dark:bg-slate-950/20 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-sm">
@@ -181,8 +176,7 @@ export function DocumentVault({ leId }: DocumentVaultProps) {
                             <ShieldCheck className="h-5 w-5 text-slate-600 dark:text-slate-300" />
                         </div>
                         <div>
-                            <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Digital Vault</h2>
-                            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Secure storage & knowledge base</p>
+                            <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Document Vault</h2>
                         </div>
                     </div>
                     <div className="flex items-center gap-2 w-full md:w-auto">
@@ -214,20 +208,29 @@ export function DocumentVault({ leId }: DocumentVaultProps) {
                                 <LayoutGrid className="h-4 w-4" />
                             </Button>
                         </div>
-                        <UploadDocumentDialog leId={leId} onSuccess={loadDocuments} />
+                        <>
+                            <input
+                                type="file"
+                                id="vault-file-upload"
+                                className="hidden"
+                                accept=".pdf,.docx,.jpg,.png,.xlsx,.csv"
+                                onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) {
+                                        handleDirectUpload(file);
+                                        e.target.value = '';
+                                    }
+                                }}
+                            />
+                            <Button className="shadow-sm h-9" onClick={() => document.getElementById('vault-file-upload')?.click()}>
+                                <Upload className="w-4 h-4 mr-2" />
+                                Upload
+                            </Button>
+                        </>
                     </div>
                 </div>
 
-                <div className="flex items-center overflow-x-auto pb-1 -mb-1 hide-scrollbar">
-                    <div className="flex space-x-2">
-                        <FilterPill type="ALL" label="All" icon={FolderOpen} />
-                        <FilterPill type="CORPORATE" label="Corporate" icon={FileText} />
-                        <FilterPill type="IDENTITY" label="Identity" icon={File} />
-                        <FilterPill type="FINANCIAL" label="Financial" icon={FileText} />
-                        <FilterPill type="EVIDENCE" label="Evidence" icon={ShieldCheck} />
-                        <FilterPill type="SHARED" label="Shared" icon={Building2} />
-                    </div>
-                </div>
+
             </div>
 
             {/* Content Area */}
@@ -246,7 +249,12 @@ export function DocumentVault({ leId }: DocumentVaultProps) {
                         <p className="text-slate-500 mb-6 max-w-sm text-sm">
                             {searchQuery ? "Try adjusting your search or filters." : "Upload documents to the secure vault to get started."}
                         </p>
-                        {!searchQuery && <UploadDocumentDialog leId={leId} onSuccess={loadDocuments} />}
+                        {!searchQuery && (
+                            <Button className="shadow-sm" onClick={() => document.getElementById('vault-file-upload')?.click()}>
+                                <Upload className="w-4 h-4 mr-2" />
+                                Upload Document
+                            </Button>
+                        )}
                     </div>
                 ) : (
                     <>
