@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Database, LayoutGrid, ListTree, Settings2, ArrowUpDown } from "lucide-react";
+import { Database, LayoutGrid, ListTree, Settings2, ArrowUpDown, GitBranch } from "lucide-react";
 import Link from "next/link";
 import prisma from "@/lib/prisma";
 
@@ -51,6 +51,13 @@ export default async function MasterDataAdminPage() {
             href: "/app/admin/master-data/sort",
             icon: ArrowUpDown,
             color: "text-amber-500"
+        },
+        {
+            title: "Source Mappings",
+            description: "Configure how external data (GLEIF, registries) maps to master fields.",
+            href: "/app/admin/master-data/source-mappings",
+            icon: GitBranch,
+            color: "text-green-500"
         }
     ];
 

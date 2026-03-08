@@ -67,7 +67,7 @@ export async function refreshGleifProposals(legalEntityId: string): Promise<{ su
         );
 
         // 4. Normalize
-        const candidates = mapGleifPayloadToFieldCandidates(gleifResult.data, evidenceId);
+        const candidates = await mapGleifPayloadToFieldCandidates(gleifResult.data, evidenceId);
 
         // 5. Evaluate Proposals
         const proposals: FieldProposal[] = [];
@@ -140,7 +140,7 @@ export async function getGleifProposalsFromCache(legalEntityId: string): Promise
         );
 
         // 2. Normalize
-        const candidates = mapGleifPayloadToFieldCandidates(clientLE.gleifData, evidenceId);
+        const candidates = await mapGleifPayloadToFieldCandidates(clientLE.gleifData, evidenceId);
 
         // 3. Evaluate Proposals
         const proposals: FieldProposal[] = [];
@@ -194,7 +194,7 @@ export async function acceptProposal(
         // 2. Normalize (Provider Agnostic - derived from evidence.provider)
         let candidates;
         if (evidence.provider === 'GLEIF') {
-            candidates = mapGleifPayloadToFieldCandidates(evidence.payload, evidenceId);
+            candidates = await mapGleifPayloadToFieldCandidates(evidence.payload, evidenceId);
         } else {
             // Future handlers
             return { success: false, message: `Provider ${evidence.provider} not supported for acceptance yet.` };

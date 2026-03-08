@@ -666,6 +666,7 @@ model MasterFieldDefinition {
   modelField         String?
   groupItems         MasterFieldGroupItem[]
   masterDataCategory MasterDataCategory?    @relation(fields: [categoryId], references: [id])
+  sourceMappings     SourceFieldMapping[]
 
   @@index([isActive, order])
   @@map("master_field_definitions")
@@ -784,4 +785,52 @@ enum SubjectType {
   LEGAL_ENTITY
   PERSON
   ORGANIZATION
+}
+
+enum MappingTransformType {
+  DIRECT
+  DATE_TO_ISO
+  DATETIME_TO_ISO
+  COUNTRY_TO_NAME
+  COUNTRY_TO_ISO2
+  ENUM_MAP
+  FIRST_ARRAY_ITEM
+  JOIN_ARRAY
+}
+
+model SourceFieldMapping {
+  id                String               @id @default(uuid())
+  sourceType        SourceType
+  sourcePath        String
+  targetFieldNo     Int
+  confidenceDefault Float                @default(1.0)
+  transformType     MappingTransformType @default(DIRECT)
+  transformConfig   Json?
+  priority          Int                  @default(100)
+  isActive          Boolean              @default(true)
+  notes             String?
+
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+  createdByUserId   String?
+  updatedByUserId   String?
+
+  targetField       MasterFieldDefinition @relation(fields: [targetFieldNo], references: [fieldNo])
+
+  @@unique([sourceType, sourcePath, targetFieldNo])
+  @@index([sourceType, isActive])
+  @@index([sourceType, priority])
+  @@map("source_field_mappings")
+}
+
+model SourceSamplePayload {
+  id         String     @id @default(uuid())
+  sourceType SourceType
+  label      String
+  payload    Json
+  isDefault  Boolean    @default(false)
+  createdAt  DateTime   @default(now())
+
+  @@index([sourceType, isDefault])
+  @@map("source_sample_payloads")
 }
