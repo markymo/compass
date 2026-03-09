@@ -14,9 +14,9 @@ import {
     initializeRegistryDomain, 
     deriveRegistryReferencesFromGleif, 
     RegistryEnrichmentService, 
-    RegistryToFieldCandidateMapper,
     RegistryConnectorFactory
 } from "@/domain/registry";
+import { CanonicalRegistryMapper } from "@/services/kyc/normalization/CanonicalRegistryMapper";
 
 // Initialize registry domain (registers connectors)
 initializeRegistryDomain();
@@ -107,8 +107,8 @@ export async function refreshGleifProposals(legalEntityId: string): Promise<{ su
             const enrichment = await RegistryEnrichmentService.enrich(reference.id);
             
             if (enrichment.success && enrichment.record && enrichment.evidenceId) {
-                // Map registry record to field candidates
-                const registryCandidates = RegistryToFieldCandidateMapper.mapToCandidates(enrichment.record, enrichment.evidenceId);
+                // Map registry record to field candidates (using new table-driven Super Schema mapper)
+                const registryCandidates = await CanonicalRegistryMapper.mapToCandidates(enrichment.record, enrichment.evidenceId);
                 
                 // Add to the pool of candidates to evaluate
                 candidates = [...candidates, ...registryCandidates];
@@ -246,7 +246,7 @@ export async function acceptProposal(
             const connector = RegistryConnectorFactory.getConnectorForProvider(evidence.provider);
             if (connector) {
                 const record = connector.normalize(evidence.payload);
-                candidates = RegistryToFieldCandidateMapper.mapToCandidates(record, evidenceId);
+                candidates = await CanonicalRegistryMapper.mapToCandidates(record, evidenceId);
             } else {
                 return { success: false, message: `Provider ${evidence.provider} not supported for re-normalization.` };
             }

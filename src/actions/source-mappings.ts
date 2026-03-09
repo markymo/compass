@@ -4,11 +4,9 @@ import prisma from "@/lib/prisma";
 import { getIdentity } from "@/lib/auth";
 import { parsePath, resolveDotPath, discoverPaths, resolvePathString, PathParseError } from "@/services/kyc/normalization/pathResolver";
 import { applyTransform } from "@/services/kyc/normalization/transforms";
+import { SourceType, MappingTransformType, MasterFieldDefinition, SourceFieldMapping } from "@prisma/client";
 
 // ── Types ──────────────────────────────────────────────────────────────
-
-type SourceType = 'GLEIF' | 'COMPANIES_HOUSE' | 'USER_INPUT' | 'AI_EXTRACTION' | 'SYSTEM_DERIVED';
-type MappingTransformType = 'DIRECT' | 'DATE_TO_ISO' | 'DATETIME_TO_ISO' | 'COUNTRY_TO_NAME' | 'COUNTRY_TO_ISO2' | 'ENUM_MAP' | 'FIRST_ARRAY_ITEM' | 'JOIN_ARRAY';
 
 interface UpsertMappingInput {
     id?: string; // present for update
@@ -38,8 +36,8 @@ interface MappingTestResult {
 
 export async function getSourceMappings(sourceType: string) {
     try {
-        const mappings = await (prisma as any).sourceFieldMapping.findMany({
-            where: { sourceType },
+        const mappings = await prisma.sourceFieldMapping.findMany({
+            where: { sourceType: sourceType as SourceType },
             orderBy: [{ priority: 'asc' }, { createdAt: 'asc' }],
             include: {
                 targetField: {
@@ -56,7 +54,7 @@ export async function getSourceMappings(sourceType: string) {
 
 export async function getActiveFieldDefinitions() {
     try {
-        const fields = await (prisma as any).masterFieldDefinition.findMany({
+        const fields = await prisma.masterFieldDefinition.findMany({
             where: { isActive: true },
             orderBy: { fieldNo: 'asc' },
             select: { fieldNo: true, fieldName: true, appDataType: true }
@@ -69,8 +67,8 @@ export async function getActiveFieldDefinitions() {
 
 export async function getSamplePayloads(sourceType: string) {
     try {
-        const payloads = await (prisma as any).sourceSamplePayload.findMany({
-            where: { sourceType },
+        const payloads = await prisma.sourceSamplePayload.findMany({
+            where: { sourceType: sourceType as SourceType },
             orderBy: { createdAt: 'asc' },
             select: { id: true, label: true, isDefault: true, createdAt: true }
         });
@@ -83,8 +81,8 @@ export async function getSamplePayloads(sourceType: string) {
 export async function getAvailableSourcePaths(sourceType: string) {
     try {
         // Find default sample payload
-        const sample = await (prisma as any).sourceSamplePayload.findFirst({
-            where: { sourceType, isDefault: true }
+        const sample = await prisma.sourceSamplePayload.findFirst({
+            where: { sourceType: sourceType as SourceType, isDefault: true }
         });
         if (!sample) {
             return { success: true, paths: [], message: "No sample payload available for path discovery" };
@@ -117,7 +115,7 @@ export async function upsertSourceMapping(input: UpsertMappingInput) {
         }
 
         // 2. Target field must exist and be active
-        const targetField = await (prisma as any).masterFieldDefinition.findUnique({
+        const targetField = await prisma.masterFieldDefinition.findUnique({
             where: { fieldNo: input.targetFieldNo }
         });
         if (!targetField) {
@@ -140,7 +138,7 @@ export async function upsertSourceMapping(input: UpsertMappingInput) {
         }
 
         // 5. Check path resolves against sample payload (warning only)
-        const sample = await (prisma as any).sourceSamplePayload.findFirst({
+        const sample = await prisma.sourceSamplePayload.findFirst({
             where: { sourceType: input.sourceType, isDefault: true }
         });
         if (sample) {
@@ -151,7 +149,7 @@ export async function upsertSourceMapping(input: UpsertMappingInput) {
         }
 
         // 6. Check duplicate target (warning only)
-        const existingForTarget = await (prisma as any).sourceFieldMapping.findFirst({
+        const existingForTarget = await prisma.sourceFieldMapping.findFirst({
             where: {
                 sourceType: input.sourceType,
                 targetFieldNo: input.targetFieldNo,
@@ -166,7 +164,7 @@ export async function upsertSourceMapping(input: UpsertMappingInput) {
         // ── Fetch before state for audit ──
         let beforeState = null;
         if (input.id) {
-            beforeState = await (prisma as any).sourceFieldMapping.findUnique({
+            beforeState = await prisma.sourceFieldMapping.findUnique({
                 where: { id: input.id }
             });
         }
@@ -187,13 +185,13 @@ export async function upsertSourceMapping(input: UpsertMappingInput) {
 
         let mapping;
         if (input.id) {
-            mapping = await (prisma as any).sourceFieldMapping.update({
+            mapping = await prisma.sourceFieldMapping.update({
                 where: { id: input.id },
                 data,
                 include: { targetField: true }
             });
         } else {
-            mapping = await (prisma as any).sourceFieldMapping.create({
+            mapping = await prisma.sourceFieldMapping.create({
                 data,
                 include: { targetField: true }
             });
@@ -235,10 +233,10 @@ export async function toggleSourceMapping(id: string, isActive: boolean) {
         const identity = await getIdentity();
         const userId = identity?.userId || null;
 
-        const before = await (prisma as any).sourceFieldMapping.findUnique({ where: { id } });
+        const before = await prisma.sourceFieldMapping.findUnique({ where: { id } });
         if (!before) return { success: false, error: "Mapping not found" };
 
-        const mapping = await (prisma as any).sourceFieldMapping.update({
+        const mapping = await prisma.sourceFieldMapping.update({
             where: { id },
             data: { isActive, updatedByUserId: userId },
             include: { targetField: true }
@@ -274,7 +272,7 @@ export async function toggleSourceMapping(id: string, isActive: boolean) {
 
 export async function testSourceMapping(mappingId: string, samplePayloadId?: string) {
     try {
-        const mapping = await (prisma as any).sourceFieldMapping.findUnique({
+        const mapping = await prisma.sourceFieldMapping.findUnique({
             where: { id: mappingId },
             include: { targetField: true }
         });
@@ -283,9 +281,9 @@ export async function testSourceMapping(mappingId: string, samplePayloadId?: str
         // Get sample payload
         let sample;
         if (samplePayloadId) {
-            sample = await (prisma as any).sourceSamplePayload.findUnique({ where: { id: samplePayloadId } });
+            sample = await prisma.sourceSamplePayload.findUnique({ where: { id: samplePayloadId } });
         } else {
-            sample = await (prisma as any).sourceSamplePayload.findFirst({
+            sample = await prisma.sourceSamplePayload.findFirst({
                 where: { sourceType: mapping.sourceType, isDefault: true }
             });
         }
@@ -337,8 +335,8 @@ export async function testSourceMapping(mappingId: string, samplePayloadId?: str
 
 export async function testAllSourceMappings(sourceType: string, samplePayloadId?: string) {
     try {
-        const mappings = await (prisma as any).sourceFieldMapping.findMany({
-            where: { sourceType, isActive: true },
+        const mappings = await prisma.sourceFieldMapping.findMany({
+            where: { sourceType: sourceType as SourceType, isActive: true },
             orderBy: [{ priority: 'asc' }, { createdAt: 'asc' }],
             include: { targetField: true }
         });
@@ -346,10 +344,10 @@ export async function testAllSourceMappings(sourceType: string, samplePayloadId?
         // Get sample payload
         let sample;
         if (samplePayloadId) {
-            sample = await (prisma as any).sourceSamplePayload.findUnique({ where: { id: samplePayloadId } });
+            sample = await prisma.sourceSamplePayload.findUnique({ where: { id: samplePayloadId } });
         } else {
-            sample = await (prisma as any).sourceSamplePayload.findFirst({
-                where: { sourceType, isDefault: true }
+            sample = await prisma.sourceSamplePayload.findFirst({
+                where: { sourceType: sourceType as SourceType, isDefault: true }
             });
         }
 
@@ -427,7 +425,18 @@ const DEFAULT_GLEIF_MAPPINGS = [
     { sourcePath: 'entity.legalAddress.postalCode', targetFieldNo: 10, confidenceDefault: 0.9, priority: 20, notes: 'Registered address postcode' },
     { sourcePath: 'entity.status', targetFieldNo: 26, confidenceDefault: 1.0, priority: 10, notes: 'Entity status' },
     { sourcePath: 'entity.category', targetFieldNo: 19, confidenceDefault: 1.0, priority: 10, notes: 'GLEIF entity category' },
-    { sourcePath: 'entity.creationDate', targetFieldNo: 27, confidenceDefault: 1.0, transformType: 'DATE_TO_ISO' as const, priority: 10, notes: 'Entity creation/incorporation date' },
+    { sourcePath: 'entity.creationDate', targetFieldNo: 27, confidenceDefault: 1.0, transformType: 'DATE_TO_ISO' as any, priority: 10, notes: 'Entity creation/incorporation date' },
+];
+
+const DEFAULT_NATIONAL_REGISTRY_MAPPINGS = [
+    { sourcePath: 'entityName', targetFieldNo: 3, confidenceDefault: 1.0, priority: 10, notes: 'Legal entity name' },
+    { sourcePath: 'entityStatus', targetFieldNo: 26, confidenceDefault: 1.0, priority: 10, notes: 'Entity status' },
+    { sourcePath: 'incorporationDate', targetFieldNo: 27, confidenceDefault: 1.0, transformType: 'DATE_TO_ISO' as any, priority: 10, notes: 'Incorporation date' },
+    { sourcePath: 'registeredAddress.lines[0]', targetFieldNo: 6, confidenceDefault: 0.9, priority: 20, notes: 'Address line 1' },
+    { sourcePath: 'registeredAddress.city', targetFieldNo: 7, confidenceDefault: 0.9, priority: 20, notes: 'Address city' },
+    { sourcePath: 'registeredAddress.region', targetFieldNo: 8, confidenceDefault: 0.9, priority: 20, notes: 'Address region' },
+    { sourcePath: 'registeredAddress.country', targetFieldNo: 9, confidenceDefault: 1.0, priority: 20, notes: 'Address country' },
+    { sourcePath: 'registeredAddress.postalCode', targetFieldNo: 10, confidenceDefault: 0.9, priority: 20, notes: 'Address postal code' },
 ];
 
 // Sample GLEIF canonical payload for preview
@@ -467,19 +476,48 @@ const SAMPLE_GLEIF_PAYLOAD = {
     }
 };
 
+// Sample National Registry payload (Super Schema format)
+const SAMPLE_NATIONAL_REGISTRY_PAYLOAD = {
+    sourceType: "COMPANIES_HOUSE",
+    registryKey: "GB_COMPANIES_HOUSE",
+    registryAuthorityId: "RA000585",
+    sourceRecordId: "000617987",
+    fetchedAt: "2026-03-09T12:00:00.000Z",
+    entityName: "PAGOS LTD",
+    entityStatus: "active",
+    incorporationDate: "2010-05-15T00:00:00.000Z",
+    legalForm: "Private Limited Company",
+    registeredAddress: {
+        lines: ["123 Business Way", "Tech Park"],
+        city: "London",
+        postalCode: "EC1A 1BB",
+        country: "United Kingdom"
+    },
+    identifiers: [
+        { type: "COMPANY_NUMBER", value: "000617987" }
+    ],
+    sicCodes: [
+        { code: "62020", description: "Information technology consultancy activities" }
+    ]
+};
+
 export async function bootstrapDefaultMappings(sourceType: string) {
-    if (sourceType !== 'GLEIF') {
-        return { success: false, error: `Bootstrap not available for ${sourceType}. Only GLEIF defaults are defined.` };
+    if (sourceType !== 'GLEIF' && sourceType !== 'NATIONAL_REGISTRY') {
+        return { success: false, error: `Bootstrap not available for ${sourceType}.` };
     }
+
+    const defaultMappings = sourceType === 'GLEIF' ? DEFAULT_GLEIF_MAPPINGS : DEFAULT_NATIONAL_REGISTRY_MAPPINGS;
+    const samplePayload = sourceType === 'GLEIF' ? SAMPLE_GLEIF_PAYLOAD : SAMPLE_NATIONAL_REGISTRY_PAYLOAD;
+    const sampleLabel = sourceType === 'GLEIF' ? "HSBC Holdings plc (Default Preview)" : "PAGOS LTD (Canonical Sample)";
 
     try {
         const identity = await getIdentity();
         const userId = identity?.userId || null;
 
         // Transaction-safe: re-check count inside transaction
-        const result = await (prisma as any).$transaction(async (tx: any) => {
+        const result = await prisma.$transaction(async (tx) => {
             const existingCount = await tx.sourceFieldMapping.count({
-                where: { sourceType }
+                where: { sourceType: sourceType as SourceType }
             });
 
             if (existingCount > 0) {
@@ -487,12 +525,16 @@ export async function bootstrapDefaultMappings(sourceType: string) {
             }
 
             // Insert all default mappings
-            for (const mapping of DEFAULT_GLEIF_MAPPINGS) {
+            for (const mapping of defaultMappings) {
                 await tx.sourceFieldMapping.create({
                     data: {
-                        sourceType,
-                        ...mapping,
-                        transformType: mapping.transformType || 'DIRECT',
+                        sourceType: sourceType as SourceType,
+                        sourcePath: mapping.sourcePath,
+                        targetFieldNo: mapping.targetFieldNo,
+                        confidenceDefault: mapping.confidenceDefault,
+                        priority: mapping.priority,
+                        notes: mapping.notes,
+                        transformType: (mapping as any).transformType || 'DIRECT',
                         isActive: true,
                         createdByUserId: userId,
                         updatedByUserId: userId,
@@ -503,14 +545,14 @@ export async function bootstrapDefaultMappings(sourceType: string) {
             // Insert sample payload
             await tx.sourceSamplePayload.create({
                 data: {
-                    sourceType,
-                    label: "HSBC Holdings plc (Default Preview)",
-                    payload: SAMPLE_GLEIF_PAYLOAD,
+                    sourceType: sourceType as SourceType,
+                    label: sampleLabel,
+                    payload: samplePayload,
                     isDefault: true,
                 }
             });
 
-            return { alreadyExists: false, count: DEFAULT_GLEIF_MAPPINGS.length };
+            return { alreadyExists: false, count: defaultMappings.length };
         });
 
         if (result.alreadyExists) {

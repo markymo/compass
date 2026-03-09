@@ -6,15 +6,24 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Loader2, Search, ArrowRight, Check, PlusCircle, Globe } from "lucide-react";
 import { fetchLiveGleifRecord } from "@/actions/gleif-live";
+import { fetchLiveRegistryRecord } from "@/actions/registry-live";
 import { cn } from "@/lib/utils";
 
 interface DataInspectorPanelProps {
     sourceType: string;
     existingMappings: any[];
     onSelectPath: (path: string) => void;
+    readOnly?: boolean;
+    title?: string;
 }
 
-export function DataInspectorPanel({ sourceType, existingMappings, onSelectPath }: DataInspectorPanelProps) {
+export function DataInspectorPanel({ 
+    sourceType, 
+    existingMappings, 
+    onSelectPath, 
+    readOnly = false,
+    title
+}: DataInspectorPanelProps) {
     const [query, setQuery] = useState("");
     const [loading, setLoading] = useState(false);
     const [payload, setPayload] = useState<any>(null);
@@ -32,18 +41,30 @@ export function DataInspectorPanel({ sourceType, existingMappings, onSelectPath 
         setError(null);
         
         try {
-            // Right now we only have GLEIF implemented for live fetch
-            if (sourceType !== "GLEIF") {
-                setError(`Live fetch not yet implemented for ${sourceType}`);
-                setLoading(false);
-                return;
-            }
-            
-            const res = await fetchLiveGleifRecord(query);
-            if (res.success) {
-                setPayload(res.payload);
+            if (sourceType === "GLEIF") {
+                const res = await fetchLiveGleifRecord(query);
+                if (res.success) {
+                    setPayload(res.payload);
+                } else {
+                    setError(res.error || "Failed to fetch data");
+                    setPayload(null);
+                }
+            } else if (sourceType === "NATIONAL_REGISTRY" || sourceType === "COMPANIES_HOUSE") {
+                const res = await fetchLiveRegistryRecord(query);
+                if (res.success) {
+                    // For NATIONAL_REGISTRY, show the canonical record
+                    // For COMPANIES_HOUSE (Raw), show the raw payload embedded in it
+                    if (sourceType === "NATIONAL_REGISTRY") {
+                        setPayload(res.payload);
+                    } else {
+                        setPayload(res.payload.rawSourcePayload);
+                    }
+                } else {
+                    setError(res.error || "Failed to fetch registry data");
+                    setPayload(null);
+                }
             } else {
-                setError(res.error || "Failed to fetch data");
+                setError(`Live fetch not yet implemented for ${sourceType}`);
                 setPayload(null);
             }
         } catch (e) {
@@ -53,15 +74,23 @@ export function DataInspectorPanel({ sourceType, existingMappings, onSelectPath 
         }
     };
 
+    const searchPlaceholder = sourceType === "GLEIF" 
+        ? "Enter LEI or Company Name..." 
+        : "Enter Company Number (e.g. 07640868)...";
+
     return (
         <Card className="flex flex-col h-[calc(100vh-12rem)] sticky top-6">
             <CardHeader className="pb-3 border-b border-slate-100 bg-slate-50/50">
                 <div className="flex items-center gap-2 mb-1">
                     <Globe className="h-4 w-4 text-blue-600" />
-                    <CardTitle className="text-base text-slate-800">Live Data Inspector</CardTitle>
+                    <CardTitle className="text-base text-slate-800">
+                        {title || (sourceType === "GLEIF" ? "GLEIF Data Inspector" : "Live Data Inspector")}
+                    </CardTitle>
                 </div>
                 <CardDescription className="text-xs">
-                    Search a real entity (e.g. "Apple Inc" or an LEI) to explore the exact JSON schema.
+                    {sourceType === "GLEIF" 
+                        ? 'Search real LEI data to explore the schema.' 
+                        : 'Search real registry data to explore the schema.'}
                 </CardDescription>
                 
                 <div className="flex gap-2 mt-3 pt-1">
@@ -71,7 +100,7 @@ export function DataInspectorPanel({ sourceType, existingMappings, onSelectPath 
                             value={query}
                             onChange={e => setQuery(e.target.value)}
                             onKeyDown={e => e.key === "Enter" && handleSearch()}
-                            placeholder="Enter LEI or Company Name..."
+                            placeholder={searchPlaceholder}
                             className="pl-9 h-9 text-sm"
                             disabled={loading}
                         />
@@ -108,6 +137,7 @@ export function DataInspectorPanel({ sourceType, existingMappings, onSelectPath 
                             data={payload} 
                             activePaths={activePaths} 
                             onSelect={onSelectPath} 
+                            readOnly={readOnly}
                         />
                     </div>
                 )}
@@ -121,12 +151,14 @@ function JsonTree({
     data, 
     path = "", 
     activePaths, 
-    onSelect 
+    onSelect,
+    readOnly = false
 }: { 
     data: any, 
     path?: string, 
     activePaths: Set<string>, 
-    onSelect: (path: string) => void 
+    onSelect: (path: string) => void,
+    readOnly?: boolean
 }) {
     if (data === null) {
         return <span className="text-slate-400 font-mono text-xs">null</span>;
@@ -147,6 +179,7 @@ function JsonTree({
                                     path={`${path}[${index}]`} 
                                     activePaths={activePaths} 
                                     onSelect={onSelect} 
+                                    readOnly={readOnly}
                                 />
                             ) : (
                                 <ValueNode 
@@ -154,6 +187,7 @@ function JsonTree({
                                     itemPath={`${path}[${index}]`} 
                                     isMapped={activePaths.has(`${path}[${index}]`)} 
                                     onSelect={onSelect} 
+                                    readOnly={readOnly}
                                 />
                             )}
                         </div>
@@ -189,12 +223,18 @@ function JsonTree({
                                 {/* If it's a primitive, show the value inline. If mapped, show checkmark */}
                                 {!isObject && (
                                     <div className="ml-2 flex-1 flex items-center justify-between">
-                                        <ValueNode value={value} itemPath={childPath} isMapped={isMapped} onSelect={onSelect} />
+                                        <ValueNode 
+                                            value={value} 
+                                            itemPath={childPath} 
+                                            isMapped={isMapped} 
+                                            onSelect={onSelect} 
+                                            readOnly={readOnly}
+                                        />
                                     </div>
                                 )}
                                 
                                 {/* If it's an object/array, we just show the Add Mapping button here if hovered */}
-                                {isObject && !isMapped && (
+                                {isObject && !isMapped && !readOnly && (
                                     <div className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
                                         <MappingButton onClick={() => onSelect(childPath)} />
                                     </div>
@@ -214,6 +254,7 @@ function JsonTree({
                                         path={childPath} 
                                         activePaths={activePaths} 
                                         onSelect={onSelect} 
+                                        readOnly={readOnly}
                                     />
                                 </div>
                             )}
@@ -225,11 +266,23 @@ function JsonTree({
     }
 
     // Fallback for root primitives (shouldn't happen in practical usage)
-    return <ValueNode value={data} itemPath={path} isMapped={activePaths.has(path)} onSelect={onSelect} />;
+    return <ValueNode value={data} itemPath={path} isMapped={activePaths.has(path)} onSelect={onSelect} readOnly={readOnly} />;
 }
 
 // Leaf Node display (Primitive value + Mapping Button)
-function ValueNode({ value, itemPath, isMapped, onSelect }: { value: any, itemPath: string, isMapped: boolean, onSelect: (path: string) => void }) {
+function ValueNode({ 
+    value, 
+    itemPath, 
+    isMapped, 
+    onSelect,
+    readOnly = false
+}: { 
+    value: any, 
+    itemPath: string, 
+    isMapped: boolean, 
+    onSelect: (path: string) => void,
+    readOnly?: boolean
+}) {
     let displayValueType = "text-slate-600";
     if (typeof value === "string") displayValueType = "text-emerald-600";
     else if (typeof value === "number") displayValueType = "text-orange-600";
@@ -247,11 +300,11 @@ function ValueNode({ value, itemPath, isMapped, onSelect }: { value: any, itemPa
                 <div className="text-green-500 bg-green-50 px-1.5 py-0.5 rounded flex items-center gap-1 text-[9px] font-bold tracking-wider absolute right-0">
                     <Check className="h-2.5 w-2.5" /> MAPPED
                 </div>
-            ) : (
+            ) : !readOnly ? (
                 <div className="absolute right-0 opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-l from-white via-white to-transparent pl-4 pb-0.5">
                    <MappingButton onClick={() => onSelect(itemPath)} />
                 </div>
-            )}
+            ) : null}
         </div>
     );
 }
