@@ -49,6 +49,7 @@ import {
     getSamplePayloads,
     getActiveFieldDefinitions,
 } from "@/actions/source-mappings";
+import { DataInspectorPanel } from "@/components/client/admin/source-mappings/data-inspector-panel";
 
 const TRANSFORM_TYPES = [
     { value: 'DIRECT', label: 'Direct (as-is)' },
@@ -74,6 +75,14 @@ export default function SourceMappingsPage() {
     const [addDialogOpen, setAddDialogOpen] = useState(false);
     const [editMapping, setEditMapping] = useState<any>(null);
     const [fieldDefs, setFieldDefs] = useState<any[]>([]);
+    
+    // For passing paths from the Inspector to the Form
+    const [prefilledPath, setPrefilledPath] = useState<string>("");
+
+    const handleSelectPathFromInspector = (path: string) => {
+        setPrefilledPath(path);
+        setAddDialogOpen(true);
+    };
 
     const loadData = async () => {
         setLoading(true);
@@ -186,6 +195,7 @@ export default function SourceMappingsPage() {
                                 availablePaths={availablePaths}
                                 fieldDefs={fieldDefs}
                                 onSave={loadData}
+                                initialSourcePath={prefilledPath}
                             />
                             <Button
                                 variant="outline"
@@ -366,79 +376,84 @@ export default function SourceMappingsPage() {
                         )}
                     </div>
 
-                    {/* Preview Panel */}
+                    {/* Right Column: Inspector & Preview */}
                     <div className="space-y-4">
-                        <Card className="sticky top-4">
-                            <CardHeader className="pb-3">
-                                <CardTitle className="text-sm flex items-center gap-2">
-                                    <Eye className="h-4 w-4 text-slate-500" />
-                                    Preview
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                {previewLoading ? (
-                                    <div className="flex justify-center py-8">
-                                        <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
+                        <DataInspectorPanel 
+                            sourceType={sourceType} 
+                            existingMappings={mappings} 
+                            onSelectPath={handleSelectPathFromInspector} 
+                        />
+                        
+                        {/* Preview Panel below inspector when active */}
+                        {previewResult && (
+                            <Card className="border-indigo-100 dark:border-indigo-900/50 shadow-sm">
+                                <CardHeader className="pb-3 bg-indigo-50/50 dark:bg-indigo-900/10">
+                                    <div className="flex items-center justify-between">
+                                        <CardTitle className="text-sm flex items-center gap-2 text-indigo-900 dark:text-indigo-300">
+                                            <Eye className="h-4 w-4" />
+                                            Mapping Preview
+                                        </CardTitle>
+                                        <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 -mr-2" onClick={() => setPreviewResult(null)}>
+                                            <span className="text-xs">&times;</span>
+                                        </Button>
                                     </div>
-                                ) : previewResult ? (
-                                    <div className="space-y-4 text-sm">
-                                        <div>
-                                            <Label className="text-xs text-slate-400 uppercase tracking-wider">Source Path</Label>
-                                            <code className="block mt-1 text-xs bg-slate-100 dark:bg-slate-800 px-2 py-1.5 rounded font-mono">
-                                                {previewResult.sourcePath}
-                                            </code>
+                                </CardHeader>
+                                <CardContent className="pt-4">
+                                    {previewLoading ? (
+                                        <div className="flex justify-center py-4">
+                                            <Loader2 className="h-4 w-4 animate-spin text-indigo-400" />
                                         </div>
-                                        <div className="flex items-center justify-center">
-                                            <ArrowRight className="h-4 w-4 text-slate-300" />
-                                        </div>
-                                        <div>
-                                            <Label className="text-xs text-slate-400 uppercase tracking-wider">Target</Label>
-                                            <div className="mt-1 flex items-center gap-2">
-                                                <Badge variant="outline" className="font-mono text-xs">F{previewResult.targetFieldNo}</Badge>
-                                                <span className="text-slate-700 dark:text-slate-300">{previewResult.targetFieldName}</span>
-                                            </div>
-                                        </div>
-                                        <Separator />
-                                        <div>
-                                            <Label className="text-xs text-slate-400 uppercase tracking-wider">Resolved Value</Label>
-                                            <div className={cn(
-                                                "mt-1 p-2 rounded-lg text-xs font-mono",
-                                                previewResult.resolved ? "bg-green-50 text-green-800 dark:bg-green-900/30 dark:text-green-300" : "bg-amber-50 text-amber-800"
-                                            )}>
-                                                {previewResult.resolved ? JSON.stringify(previewResult.resolvedValue) : "null (not found)"}
-                                            </div>
-                                        </div>
-                                        {previewResult.resolved && previewResult.transformedValue !== previewResult.resolvedValue && (
+                                    ) : (
+                                        <div className="space-y-3 text-sm">
                                             <div>
-                                                <Label className="text-xs text-slate-400 uppercase tracking-wider">After Transform</Label>
-                                                <div className="mt-1 p-2 rounded-lg text-xs font-mono bg-indigo-50 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300">
-                                                    {JSON.stringify(previewResult.transformedValue)}
+                                                <Label className="text-[10px] text-slate-400 uppercase tracking-wider">Source Path 1</Label>
+                                                <code className="block mt-0.5 text-xs bg-slate-100 dark:bg-slate-800 px-1.5 py-1 rounded font-mono truncate">
+                                                    {previewResult.sourcePath}
+                                                </code>
+                                            </div>
+                                            <div className="flex items-center justify-center -my-1">
+                                                <ArrowRight className="h-3 w-3 text-slate-300" />
+                                            </div>
+                                            <div>
+                                                <Label className="text-[10px] text-slate-400 uppercase tracking-wider">Target</Label>
+                                                <div className="mt-0.5 flex items-center gap-1.5">
+                                                    <Badge variant="outline" className="font-mono text-[10px] px-1 bg-white">F{previewResult.targetFieldNo}</Badge>
+                                                    <span className="text-xs text-slate-700 dark:text-slate-300 truncate">{previewResult.targetFieldName}</span>
                                                 </div>
                                             </div>
-                                        )}
-                                        <div>
-                                            <Label className="text-xs text-slate-400 uppercase tracking-wider">Confidence</Label>
-                                            <p className="mt-1 text-sm font-mono font-medium">{previewResult.confidence.toFixed(2)}</p>
-                                        </div>
-                                        {previewResult.warnings.length > 0 && (
-                                            <div className="space-y-1">
-                                                {previewResult.warnings.map((w: string, i: number) => (
-                                                    <div key={i} className="flex items-start gap-1.5 text-xs text-amber-600">
-                                                        <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
-                                                        <span>{w}</span>
-                                                    </div>
-                                                ))}
+                                            <Separator className="my-2" />
+                                            <div>
+                                                <Label className="text-[10px] text-slate-400 uppercase tracking-wider">Resolved Value</Label>
+                                                <div className={cn(
+                                                    "mt-0.5 p-1.5 rounded text-xs font-mono break-all",
+                                                    previewResult.resolved ? "bg-green-50 text-green-800 border border-green-100" : "bg-amber-50 text-amber-800 border border-amber-100"
+                                                )}>
+                                                    {previewResult.resolved ? JSON.stringify(previewResult.resolvedValue) : "null (not found)"}
+                                                </div>
                                             </div>
-                                        )}
-                                    </div>
-                                ) : (
-                                    <div className="text-center py-8 text-sm text-slate-400">
-                                        <Info className="h-8 w-8 mx-auto mb-2 opacity-30" />
-                                        Click a mapping row to preview its resolved value
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
+                                            {previewResult.resolved && previewResult.transformedValue !== previewResult.resolvedValue && (
+                                                <div>
+                                                    <Label className="text-[10px] text-slate-400 uppercase tracking-wider">After Transform</Label>
+                                                    <div className="mt-0.5 p-1.5 rounded text-xs font-mono whitespace-pre-wrap break-all bg-indigo-50 text-indigo-800 border border-indigo-100">
+                                                        {JSON.stringify(previewResult.transformedValue)}
+                                                    </div>
+                                                </div>
+                                            )}
+                                            {previewResult.warnings.length > 0 && (
+                                                <div className="space-y-1 mt-2">
+                                                    {previewResult.warnings.map((w: string, i: number) => (
+                                                        <div key={i} className="flex items-start gap-1 text-[10px] text-amber-600 bg-amber-50 p-1.5 rounded">
+                                                            <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
+                                                            <span className="leading-snug">{w}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        )}
                     </div>
                 </div>
             )}
@@ -468,6 +483,7 @@ function MappingFormDialog({
     availablePaths,
     fieldDefs,
     existingMapping,
+    initialSourcePath,
     onSave,
 }: {
     open: boolean;
@@ -476,18 +492,30 @@ function MappingFormDialog({
     availablePaths: string[];
     fieldDefs: any[];
     existingMapping?: any;
+    initialSourcePath?: string;
     onSave: () => void;
 }) {
     const isEdit = !!existingMapping;
     const [saving, setSaving] = useState(false);
-    const [sourcePath, setSourcePath] = useState(existingMapping?.sourcePath || "");
-    const [targetFieldNo, setTargetFieldNo] = useState(existingMapping?.targetFieldNo?.toString() || "");
-    const [transformType, setTransformType] = useState(existingMapping?.transformType || "DIRECT");
-    const [confidence, setConfidence] = useState(existingMapping?.confidenceDefault?.toString() || "1.0");
-    const [priority, setPriority] = useState(existingMapping?.priority?.toString() || "100");
-    const [notes, setNotes] = useState(existingMapping?.notes || "");
+    const [sourcePath, setSourcePath] = useState("");
+    const [targetFieldNo, setTargetFieldNo] = useState("");
+    const [transformType, setTransformType] = useState("DIRECT");
+    const [confidence, setConfidence] = useState("1.0");
+    const [priority, setPriority] = useState("100");
+    const [notes, setNotes] = useState("");
     const [filteredPaths, setFilteredPaths] = useState<string[]>([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
+    // Initialize form states
+    useEffect(() => {
+        if (open) {
+            setSourcePath(existingMapping?.sourcePath || initialSourcePath || "");
+            setTargetFieldNo(existingMapping?.targetFieldNo?.toString() || "");
+            setTransformType(existingMapping?.transformType || "DIRECT");
+            setConfidence(existingMapping?.confidenceDefault?.toString() || "1.0");
+            setPriority(existingMapping?.priority?.toString() || "100");
+            setNotes(existingMapping?.notes || "");
+        }
+    }, [open, existingMapping, initialSourcePath]);
 
     useEffect(() => {
         if (sourcePath && availablePaths.length > 0) {

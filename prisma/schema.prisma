@@ -191,6 +191,7 @@ model ClientLE {
   standingDataSections   StandingDataSection[]
   masterFieldAssignments MasterFieldAssignment[]
   masterFieldNotes       MasterFieldNote[]
+  registryReferences     RegistryReference[]
 
   @@index([legalEntityId])
 }
@@ -833,4 +834,63 @@ model SourceSamplePayload {
 
   @@index([sourceType, isDefault])
   @@map("source_sample_payloads")
+}
+
+model RegistryAuthority {
+  id             String              @id // RAID, e.g. RA000585
+  registryKey    String              @unique // internal key, e.g. GB_COMPANIES_HOUSE
+  name           String
+  countryCode    String?
+  jurisdiction   String?
+  lookupStrategy String? // e.g. "LOCAL_ID"
+  apiType        String? // e.g. "REST", "SOAP"
+  baseUrl        String?
+  isActive       Boolean             @default(true)
+  notes          String?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  references     RegistryReference[]
+
+  @@map("registry_authorities")
+}
+
+model RegistryReference {
+  id                      String            @id @default(uuid())
+  clientLEId              String
+  sourceSystem            SourceType        @default(GLEIF)
+  sourceRecordId          String? // e.g. LEI
+  registryAuthorityId     String
+  localRegistrationNumber String
+  registryCountryCode     String?
+  derivedFromEvidenceId   String?
+  confidence              Float             @default(1.0)
+  status                  String            @default("NEW") // NEW, PENDING, ENRICHED, FAILED, UNSUPPORTED
+  createdAt               DateTime          @default(now())
+  updatedAt               DateTime          @updatedAt
+  clientLE                ClientLE          @relation(fields: [clientLEId], references: [id], onDelete: Cascade)
+  authority               RegistryAuthority @relation(fields: [registryAuthorityId], references: [id])
+  fetches                 RegistryFetch[]
+
+  @@unique([clientLEId, registryAuthorityId, localRegistrationNumber])
+  @@index([status])
+  @@map("registry_references")
+}
+
+model RegistryFetch {
+  id                  String            @id @default(uuid())
+  registryReferenceId String
+  connectorKey        String? // e.g. CompaniesHouseConnector
+  status              String // SUCCESS, FAILURE
+  requestedAt         DateTime          @default(now())
+  completedAt         DateTime?
+  httpStatus          Int?
+  errorCode           String?
+  errorMessage        String?
+  rawPayloadJson      Json?
+  normalizedJson      Json?
+  evidenceId          String?
+  reference           RegistryReference @relation(fields: [registryReferenceId], references: [id], onDelete: Cascade)
+
+  @@index([registryReferenceId])
+  @@map("registry_fetches")
 }

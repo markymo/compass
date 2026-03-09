@@ -462,6 +462,9 @@ export async function getClientLEData(leId: string) {
                     }
                 }
             },
+            registryReferences: {
+                include: { authority: true }
+            }
         }
     });
 

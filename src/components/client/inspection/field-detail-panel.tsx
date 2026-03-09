@@ -64,6 +64,21 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
     const [isAddingSaving, setIsAddingSaving] = useState(false);
     const newEntryInputRef = useRef<HTMLInputElement>(null);
 
+    // Date field helpers
+    const isDateType = data?.dataType === 'DATE' || data?.dataType === 'DATETIME';
+    const formatDateForInput = (val: string) => {
+        if (!val) return '';
+        try {
+            const d = new Date(val);
+            if (isNaN(d.getTime())) return val;
+            return d.toISOString().split('T')[0];
+        } catch { return val; }
+    };
+    const parseDateFromInput = (val: string) => {
+        if (!val) return '';
+        return new Date(val + 'T00:00:00.000Z').toISOString();
+    };
+
     // Evidence State
     const [evidenceDocs, setEvidenceDocs] = useState<any[]>([]);
     const [isLoadingEvidence, setIsLoadingEvidence] = useState(false);
@@ -660,8 +675,9 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                 /* Inline edit mode */
                                                                 <div className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-indigo-50 border border-indigo-200 animate-in fade-in duration-150">
                                                                     <Input
-                                                                        value={editingRowValue}
-                                                                        onChange={(e) => setEditingRowValue(e.target.value)}
+                                                                        type={isDateType ? 'date' : 'text'}
+                                                                        value={isDateType ? formatDateForInput(editingRowValue) : editingRowValue}
+                                                                        onChange={(e) => setEditingRowValue(isDateType ? parseDateFromInput(e.target.value) : e.target.value)}
                                                                         onKeyDown={(e) => {
                                                                             if (e.key === 'Enter' && editingRowValue.trim()) handleInlineEditSave(row);
                                                                             if (e.key === 'Escape') { setEditingRowId(null); setEditingRowValue(""); }
@@ -742,12 +758,13 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                         <Plus className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
                                                         <Input
                                                             ref={newEntryInputRef}
-                                                            value={newEntryValue}
-                                                            onChange={(e) => setNewEntryValue(e.target.value)}
+                                                            type={isDateType ? 'date' : 'text'}
+                                                            value={isDateType ? formatDateForInput(newEntryValue) : newEntryValue}
+                                                            onChange={(e) => setNewEntryValue(isDateType ? parseDateFromInput(e.target.value) : e.target.value)}
                                                             onKeyDown={(e) => {
                                                                 if (e.key === 'Enter' && newEntryValue.trim()) handleAddNewEntry();
                                                             }}
-                                                            placeholder="Add new value..."
+                                                            placeholder={isDateType ? '' : 'Add new value...'}
                                                             className="h-8 text-sm pl-8 bg-slate-50/50 border-slate-200 focus:bg-white focus:border-indigo-300"
                                                             disabled={isAddingSaving}
                                                         />
@@ -815,15 +832,16 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                 {!isLocked ? (
                                                                     <>
                                                                         <Input
-                                                                            value={manualValue}
-                                                                            onChange={(e) => setManualValue(e.target.value)}
+                                                                            type={isDateType ? 'date' : 'text'}
+                                                                            value={isDateType ? formatDateForInput(manualValue) : manualValue}
+                                                                            onChange={(e) => setManualValue(isDateType ? parseDateFromInput(e.target.value) : e.target.value)}
                                                                             onKeyDown={(e) => {
                                                                                 if (e.key === 'Enter' && manualValue) {
                                                                                     setIsEditing(true);
                                                                                     handleManualSave();
                                                                                 }
                                                                             }}
-                                                                            placeholder="Type a value and press Enter..."
+                                                                            placeholder={isDateType ? '' : 'Type a value and press Enter...'}
                                                                             className="bg-white border-slate-200 focus:border-indigo-300 focus:ring-indigo-200"
                                                                         />
                                                                         {manualValue && (
@@ -897,6 +915,13 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                             ))}
                                                         </SelectContent>
                                                     </Select>
+                                                ) : isDateType ? (
+                                                    <Input
+                                                        type="date"
+                                                        value={formatDateForInput(manualValue)}
+                                                        onChange={(e) => setManualValue(parseDateFromInput(e.target.value))}
+                                                        className="bg-white border-slate-300"
+                                                    />
                                                 ) : (
                                                     <Input
                                                         value={manualValue}

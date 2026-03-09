@@ -1,83 +1,86 @@
 "use server";
 
 import prisma from "@/lib/prisma";
-import { fetchCompanyOfficers } from "@/lib/companies-house";
 import { revalidatePath } from "next/cache";
+import { 
+    initializeRegistryDomain, 
+    deriveRegistryReferencesFromGleif, 
+    RegistryEnrichmentService 
+} from "@/domain/registry";
 
-export async function refreshLocalRegistryData(leId: string) {
+// Removed top-level initialization
+
+export async function refreshLocalRegistryData(leId: string, force: boolean = true) {
+    console.log("[refreshLocalRegistryData] START for leId:", leId, "force:", force);
+    
+    // Ensure domain is initialized inside the action context
+    initializeRegistryDomain();
+
     try {
-        // 1. Fetch Client LE to get Jurisdiction and LEI/Registration details
+        // 1. Fetch Client LE
         const le = await prisma.clientLE.findUnique({
             where: { id: leId }
         });
+        console.log("[refreshLocalRegistryData] Found LE:", le ? "YES" : "NO");
 
         if (!le) {
             return { success: false, error: "Legal Entity not found" };
         }
 
-        // 2. Determine Jurisdiction and Strategy
-        let companyNumber = null;
-        let jurisdiction = le.jurisdiction;
-
-        // Try to get company number from existing registry data
-        if (le.nationalRegistryData && (le.nationalRegistryData as any).company_number) {
-            companyNumber = (le.nationalRegistryData as any).company_number;
+        if (!le.lei) {
+            return { success: false, error: "No LEI found. Registry discovery requires an LEI." };
         }
-        // Fallback to GLEIF data if available
-        else if (le.gleifData) {
-            const gleif = le.gleifData as any;
-            // The structure is { data: [ { attributes: { entity: { ... } } } ] } or similar depending on how we stored it.
-            // Let's assume we stored the raw GLEIF response or the normalized one.
-            // Actually, in gleif.ts, we store the whole object.
-            // Let's be defensive.
 
-            // Check normalized summary if we stored it? No, gleif.ts returns data and summary separately.
-            // In gleif.ts: `data: { ...record, nationalRegistryData }`
-            // So le.gleifData is likely that object.
+        // 2. Discover/Update Registry References from current GLEIF data
+        const attributes = (le.gleifData as any)?.attributes || (le.gleifData as any)?.data?.[0]?.attributes || le.gleifData;
+        if (!attributes) {
+            return { success: false, error: "No GLEIF data available to discover registry pointers." };
+        }
 
-            const attributes = gleif?.attributes || gleif?.data?.[0]?.attributes;
-            const entity = attributes?.entity;
+        const refs = deriveRegistryReferencesFromGleif(le.id, le.lei, attributes);
+        console.log("[refreshLocalRegistryData] Discovery found refs count:", refs.length);
+        if (refs.length === 0) {
+            console.log("[refreshLocalRegistryData] NO REFS FOUND");
+            return { success: false, error: "No national registry pointers found in GLEIF data for this entity." };
+        }
 
-            if (entity) {
-                if (!jurisdiction) jurisdiction = entity.jurisdiction;
-                companyNumber = entity.registeredAs;
+        // For simplicity in the "Refresh" button, we enrich the first one found or all.
+        // Usually there is only one primary registration.
+        let successCount = 0;
+        let lastError = null;
+
+        for (const refData of refs) {
+            const reference = await prisma.registryReference.upsert({
+                where: {
+                    clientLEId_registryAuthorityId_localRegistrationNumber: {
+                        clientLEId: leId,
+                        registryAuthorityId: refData.registryAuthorityId!,
+                        localRegistrationNumber: refData.localRegistrationNumber!
+                    }
+                },
+                update: {},
+                create: { ...refData as any }
+            });
+
+            console.log("[refreshLocalRegistryData] Triggering enrich for ref:", reference.id);
+            const result = await RegistryEnrichmentService.enrich(reference.id, force);
+            console.log("[refreshLocalRegistryData] Enrich result success:", result?.success);
+            if (result?.success) {
+                successCount++;
+            } else {
+                lastError = result?.error;
+                console.log("[refreshLocalRegistryData] Enrich failed with error:", lastError);
             }
         }
 
-        if (!companyNumber) {
-            // Last ditch: check if 'lei' exists and we can re-fetch GLEIF to get company number? 
-            // For now, fail if we don't have it.
-            return { success: false, error: "No Company Number found. Please ensure GLEIF data is synced first." };
-        }
-
-        // 3. Routing Logic (Strategy Pattern)
-        let newRegistryData = null;
-
-        if (jurisdiction === "GB" || jurisdiction === "UK") {
-            // Companies House Strategy
-            const officers = await fetchCompanyOfficers(companyNumber);
-
-            newRegistryData = {
-                source: "Companies House",
-                company_number: companyNumber,
-                officers: officers,
-                last_checked: new Date().toISOString()
-            };
+        console.log("[refreshLocalRegistryData] FINISHED. Total successCount:", successCount);
+        if (successCount > 0) {
+            revalidatePath(`/app/le/${leId}/sources/registry`);
+            revalidatePath(`/app/le/${leId}/master`);
+            return { success: true };
         } else {
-            return { success: false, error: `Automated registry refresh not supported for jurisdiction: ${jurisdiction}` };
+            return { success: false, error: lastError || "Failed to refresh registry data" };
         }
-
-        // 4. Update Database
-        await prisma.clientLE.update({
-            where: { id: leId },
-            data: {
-                nationalRegistryData: newRegistryData as any,
-                registryFetchedAt: new Date()
-            }
-        });
-
-        revalidatePath(`/app/le/${leId}/sources/registry`);
-        return { success: true };
 
     } catch (error: any) {
         console.error("Registry Refresh Error:", error);

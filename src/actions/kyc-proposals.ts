@@ -10,6 +10,16 @@ import { revalidatePath } from "next/cache";
 import prisma from "@/lib/prisma";
 import { KycStateService } from "@/lib/kyc/KycStateService";
 import { getIdentity } from "@/lib/auth";
+import { 
+    initializeRegistryDomain, 
+    deriveRegistryReferencesFromGleif, 
+    RegistryEnrichmentService, 
+    RegistryToFieldCandidateMapper,
+    RegistryConnectorFactory
+} from "@/domain/registry";
+
+// Initialize registry domain (registers connectors)
+initializeRegistryDomain();
 
 const evidenceService = new EvidenceService();
 const kycWriteService = new KycWriteService();
@@ -66,10 +76,46 @@ export async function refreshGleifProposals(legalEntityId: string): Promise<{ su
             'SYSTEM_REFRESH'
         );
 
-        // 4. Normalize
-        const candidates = await mapGleifPayloadToFieldCandidates(gleifResult.data, evidenceId);
+        // 4. Normalize GLEIF
+        let candidates = await mapGleifPayloadToFieldCandidates(gleifResult.data, evidenceId);
 
-        // 5. Evaluate Proposals
+        // 5. Derive and Pursue National Registry References
+        const attributes = (gleifResult.data as any)?.data?.attributes || (gleifResult.data as any)?.attributes || gleifResult.data;
+        const registryRefs = deriveRegistryReferencesFromGleif(legalEntityId, lei, attributes);
+
+        for (const refData of registryRefs) {
+            // Upsert the reference to prevent duplicates and track state
+            const reference = await prisma.registryReference.upsert({
+                where: {
+                    clientLEId_registryAuthorityId_localRegistrationNumber: {
+                        clientLEId: legalEntityId,
+                        registryAuthorityId: refData.registryAuthorityId!,
+                        localRegistrationNumber: refData.localRegistrationNumber!
+                    }
+                },
+                update: {
+                    sourceRecordId: lei,
+                    derivedFromEvidenceId: evidenceId
+                },
+                create: {
+                    ...refData as any,
+                    derivedFromEvidenceId: evidenceId
+                }
+            });
+
+            // Trigger enrichment (Synchronous for now as per Phase 1 but designed for async)
+            const enrichment = await RegistryEnrichmentService.enrich(reference.id);
+            
+            if (enrichment.success && enrichment.record && enrichment.evidenceId) {
+                // Map registry record to field candidates
+                const registryCandidates = RegistryToFieldCandidateMapper.mapToCandidates(enrichment.record, enrichment.evidenceId);
+                
+                // Add to the pool of candidates to evaluate
+                candidates = [...candidates, ...registryCandidates];
+            }
+        }
+
+        // 6. Evaluate Proposals
         const proposals: FieldProposal[] = [];
 
         for (const candidate of candidates) {
@@ -89,7 +135,7 @@ export async function refreshGleifProposals(legalEntityId: string): Promise<{ su
                 } : undefined,
                 proposed: {
                     value: candidate.value,
-                    source: 'GLEIF',
+                    source: candidate.source as any,
                     evidenceId: candidate.evidenceId || undefined,
                     timestamp: new Date().toISOString()
                 },
@@ -191,13 +237,19 @@ export async function acceptProposal(
         const evidence = await evidenceService.getEvidence(evidenceId);
         if (!evidence) return { success: false, message: "Evidence not found" };
 
-        // 2. Normalize (Provider Agnostic - derived from evidence.provider)
+        // 2. Normalize based on provider
         let candidates;
         if (evidence.provider === 'GLEIF') {
             candidates = await mapGleifPayloadToFieldCandidates(evidence.payload, evidenceId);
         } else {
-            // Future handlers
-            return { success: false, message: `Provider ${evidence.provider} not supported for acceptance yet.` };
+            // Check if it's a registry provider (e.g. COMPANIES_HOUSE)
+            const connector = RegistryConnectorFactory.getConnectorForProvider(evidence.provider);
+            if (connector) {
+                const record = connector.normalize(evidence.payload);
+                candidates = RegistryToFieldCandidateMapper.mapToCandidates(record, evidenceId);
+            } else {
+                return { success: false, message: `Provider ${evidence.provider} not supported for re-normalization.` };
+            }
         }
 
         // 3. Find Candidate
