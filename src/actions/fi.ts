@@ -592,6 +592,9 @@ export async function assignQuestionnaireToEngagement(engagementId: string, temp
                         order: q.order,
                         status: "DRAFT",
                         sourceSectionId: q.sourceSectionId,
+                        masterFieldNo: q.masterFieldNo,
+                        masterQuestionGroupId: q.masterQuestionGroupId,
+                        customFieldDefinitionId: q.customFieldDefinitionId,
                         // Note: We do NOT copy 'answer' or 'activities' or 'comments' as this is a fresh start
                     }))
                 }
