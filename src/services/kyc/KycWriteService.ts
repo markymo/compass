@@ -38,7 +38,8 @@ export class KycWriteService {
                 source: candidate.source,
                 evidenceId: candidate.evidenceId || undefined,
                 verifiedBy: userId,
-                confidence: candidate.confidence
+                confidence: candidate.confidence,
+                reason: candidate.sourceKey // Map sourceKey to reason/sourceReference
             },
             undefined, // rowId
             entityType
@@ -123,7 +124,8 @@ export class KycWriteService {
                 sourceType: (provenance.source as any) === 'USER_INPUT' ? SourceType.USER_INPUT :
                     (provenance.source as any) === 'GLEIF' ? SourceType.GLEIF :
                         (provenance.source as any) === 'COMPANIES_HOUSE' ? SourceType.COMPANIES_HOUSE :
-                            SourceType.SYSTEM_DERIVED,
+                            (provenance.source as any) === 'NATIONAL_REGISTRY' ? SourceType.NATIONAL_REGISTRY :
+                                SourceType.SYSTEM_DERIVED,
                 sourceReference: provenance.reason,
                 evidenceId: provenance.evidenceId,
                 confidenceScore: provenance.confidence,

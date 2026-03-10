@@ -48,9 +48,11 @@ export function GleifTab({ data, fetchedAt }: GleifTabProps) {
             <div className="flex items-center justify-between bg-[#003336] border border-blue-900/30 rounded-lg p-4">
                 <div className="flex items-center gap-3">
                     <div className="bg-[#51DAC4]/10 p-2 rounded-lg">
-                        <svg viewBox="0 0 24 24" className="h-6 w-6 text-[#51DAC4]" fill="currentColor">
-                            <path d="M12,2C6.47,2,2,6.47,2,12s4.47,10,10,10s10-4.47,10-10S17.53,2,12,2z M12,20c-4.41,0-8-3.59-8-8s3.59-8,8-8s8,3.59,8,8 S16.41,20,12,20z M12.5,7h-1v4.49l3.5,2.06l0.5-0.85l-3-1.76V7z M12,12L12,12L12,12l0,0L12,12L12,12z" />
-                        </svg>
+                        <img 
+                            src="https://www.gleif.org/newsroom/information-for-media/gleif-graphics-images/gleif-logo.png" 
+                            alt="GLEIF Logo" 
+                            className="h-6 w-auto"
+                        />
                     </div>
                     <div>
                         <h3 className="font-bold text-white text-lg tracking-tight">GLEIF</h3>

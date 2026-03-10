@@ -141,6 +141,7 @@ export interface FieldDetailData {
         timestamp: Date | null;
         confidence: number | null;
         sourceReference?: string;
+        claimId?: string;
     } | null;
     assignment: {
         id: string;
@@ -150,7 +151,16 @@ export interface FieldDetailData {
         createdAt: Date;
     } | null;
     history: any[]; // Lineage will be derived from FieldClaims
-    candidates: any[]; // FieldCandidate[]
+    candidates: {
+        id: string;
+        value: any;
+        source: string;
+        sourceReference?: string;
+        confidence: number | null;
+        timestamp: Date;
+        isAuthoritative: boolean;
+        status: string;
+    }[];
     rows?: { id: string; value: any; source: string; timestamp: Date; instanceId?: string; collectionId?: string; data?: any; label?: string; sourceReference?: string }[];
 }
 
@@ -353,8 +363,22 @@ export async function getFieldDetail(
         isScoped: c.ownerScopeId !== null
     }));
 
-    // 3. Get Candidates (Placeholder for now)
-    const candidates: any[] = [];
+    // 3. Get Candidates (Persisted Claims)
+    // We already have 'claims' (the last 20), let's map them to candidates
+    const candidates = claims.map((c: any) => {
+        const val = (c.valueText ?? c.valueNumber ?? c.valueDate ?? c.valueJson ?? c.valueLeId ?? c.valuePersonId ?? c.valueOrgId ?? c.valueDocId) ?? null;
+        
+        return {
+            id: c.id,
+            value: val,
+            source: c.sourceType,
+            sourceReference: c.sourceReference || undefined,
+            confidence: c.confidenceScore || null,
+            timestamp: c.assertedAt,
+            isAuthoritative: derived ? derived.claimId === c.id : false,
+            status: c.status
+        };
+    });
 
     // 4. Get Current Assignment
     const [assignment, noteRecord] = await Promise.all([
@@ -391,7 +415,8 @@ export async function getFieldDetail(
             source: (derived.isScoped ? 'USER_INPUT' : (derived.evidenceProvider || 'SYSTEM')) as ProvenanceSource,
             sourceReference: derived.sourceReference || undefined,
             timestamp: derived.assertedAt,
-            confidence: derived.confidenceScore || 1.0
+            confidence: derived.confidenceScore || 1.0,
+            claimId: derived.claimId
         } : null,
         assignment: assignment ? {
             id: assignment.id,

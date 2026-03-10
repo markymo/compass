@@ -581,11 +581,7 @@ export async function getFullMasterData(clientLEId: string) {
     // For now, let's stick to active contexts.
 
     // 4. Find most recent GLEIF-sourced event for this legal entity
-    let gleifLastSynced: Date | null = null;
-    if (subjectLeId) {
-        // GLEIF Audit Trail logic will be moved to FieldClaim lineage in Step 2/4
-        const lastGleifDate = null;
-    }
+    const gleifLastSynced: Date | null = clientLE.gleifFetchedAt;
 
     return {
         success: true,

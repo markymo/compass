@@ -164,16 +164,17 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                 <div className="flex items-center justify-between flex-wrap gap-4">
                     <div>
                         <h2 className="text-base font-semibold text-slate-800">External Sources</h2>
-                        <p className="text-slate-500 text-xs mt-0.5">
-                            Compare and accept updates from trusted providers.
-                        </p>
                     </div>
 
                     {/* GLEIF Source */}
                     <div className="flex items-center gap-4">
                         <div className="flex items-center gap-3">
-                            <div className="h-9 w-9 rounded-full bg-orange-100 flex items-center justify-center text-orange-600 font-bold text-sm shrink-0">
-                                GL
+                            <div className="h-9 w-9 rounded-full bg-orange-100 flex items-center justify-center shrink-0 overflow-hidden border border-orange-200">
+                                <img 
+                                    src="https://www.gleif.org/newsroom/information-for-media/gleif-graphics-images/gleif-logo.png" 
+                                    alt="GLEIF Logo" 
+                                    className="h-4 w-auto scale-150"
+                                />
                             </div>
                             <div>
                                 <div className="font-medium text-sm">Global LEI Index (GLEIF)</div>

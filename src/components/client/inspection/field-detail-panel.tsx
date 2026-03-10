@@ -12,7 +12,7 @@ import { toast } from "sonner";
 import { Loader2, History, Database, Edit, CheckCircle, CheckCircle2, AlertTriangle, Paperclip, FileText, Download, X, User as UserIcon, Pencil, Check, Trash2, Plus, Lock, Save } from "lucide-react";
 import { getFieldDetail, FieldDetailData } from "@/actions/kyc-query";
 // FIELD_DEFINITIONS removed
-import { updateFieldManually, applyCandidate, updateCustomFieldManually, addMultiValueEntry, removeMultiValueEntry, applyBulkOverride } from "@/actions/kyc-manual-update";
+import { updateFieldManually, applyCandidate, updateCustomFieldManually, addMultiValueEntry, removeMultiValueEntry, applyBulkOverride, promoteClaim } from "@/actions/kyc-manual-update";
 import { getMasterFieldDocuments, setMasterFieldAssignment } from "@/actions/standing-data";
 import { renameCustomField } from "@/actions/master-data-governance";
 import { saveMasterFieldNote } from "@/actions/master-data-notes";
@@ -97,6 +97,9 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
     const [noteText, setNoteText] = useState("");
     const [isSavingNote, setIsSavingNote] = useState(false);
 
+    // Promote State
+    const [isPromoting, setIsPromoting] = useState<string | null>(null);
+
     const fieldKey = String(fieldNo || customFieldId || "");
 
     useEffect(() => {
@@ -168,6 +171,28 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
             toast.error("Failed to save note");
         } finally {
             setIsSavingNote(false);
+        }
+    };
+
+    const handlePromote = async (claimId: string) => {
+        setIsPromoting(claimId);
+        try {
+            const res = await promoteClaim(legalEntityId, claimId);
+            if (res.success) {
+                toast.success("Claim promoted successfully");
+                loadData(); // Reload stats and candidates
+                if (onUpdate) {
+                    // Update parent UI with new authoritative value
+                    onUpdate(data?.candidates.find(c => c.id === claimId)?.value, "USER_INPUT", new Date());
+                }
+            } else {
+                toast.error(res.message || "Failed to promote claim");
+            }
+        } catch (e) {
+            console.error("Promote error:", e);
+            toast.error("Promote failed");
+        } finally {
+            setIsPromoting(null);
         }
     };
 
@@ -615,10 +640,10 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                     )}
                 </SheetHeader>
 
-                <div className="flex-1 overflow-hidden flex flex-col pt-3 gap-4">
+                <div className="flex-1 overflow-hidden flex flex-col pt-3 gap-2">
 
                     {/* ─── Current Value Card ─── */}
-                    <div className="rounded-xl border border-slate-200 overflow-hidden">
+                    <div className="rounded-xl border border-slate-200 overflow-hidden shrink-0">
                         <div className="bg-slate-50/50 px-5 py-3 border-b border-slate-100">
                             <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">
                                 Current Authoritative Value
@@ -1080,7 +1105,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                         </div>
                     </div> {/* Closes the rounded-xl "Current Value Card" div */}
 
-                    <Tabs defaultValue="history" className="flex-1 flex flex-col overflow-hidden">
+                    <Tabs defaultValue="history" className="flex-1 flex flex-col overflow-hidden min-h-0">
                         <TabsList className="grid w-full grid-cols-2">
                             <TabsTrigger value="history">History Log</TabsTrigger>
                             <TabsTrigger value="note">Notes</TabsTrigger>
@@ -1150,9 +1175,85 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                 </div>
                             </ScrollArea>
                         </TabsContent>
-
-
                     </Tabs>
+
+                    {/* ─── Candidate Claims Section ─── */}
+                    <div className="mt-4 pt-4 border-t border-slate-200 shrink-0">
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+                                <Database className="w-4 h-4 text-slate-400" />
+                                Candidate Claims
+                            </h3>
+                            <Badge variant="outline" className="text-[10px] font-normal text-slate-400">
+                                {data?.candidates?.length || 0} Persisted
+                            </Badge>
+                        </div>
+
+                        {data?.candidates && data.candidates.length > 0 ? (
+                            <ScrollArea className="h-[200px] w-full border rounded-md p-3 bg-slate-50/30">
+                                <div className="space-y-3">
+                                    {data.candidates.sort((a, b) => (a.isAuthoritative === b.isAuthoritative ? 0 : a.isAuthoritative ? -1 : 1)).map((candidate: any) => (
+                                        <div 
+                                            key={candidate.id} 
+                                            className={cn(
+                                                "p-3 rounded-lg border transition-all",
+                                                candidate.isAuthoritative 
+                                                    ? "bg-indigo-50/50 border-indigo-200 ring-1 ring-indigo-100" 
+                                                    : "bg-white border-slate-100 hover:border-slate-200"
+                                            )}
+                                        >
+                                            <div className="flex items-start justify-between gap-3">
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center gap-2 mb-1.5">
+                                                        <SourceBadge source={candidate.source} sourceReference={candidate.sourceReference} />
+                                                        {candidate.isAuthoritative && (
+                                                            <Badge className="bg-indigo-600 text-white text-[9px] h-4 px-1.5 border-none">
+                                                                Current Authoritative
+                                                            </Badge>
+                                                        )}
+                                                    </div>
+                                                    <div className="text-sm font-semibold text-slate-900 break-all mb-1">
+                                                        {String(candidate.value)}
+                                                    </div>
+                                                    <div className="flex items-center gap-3 text-[10px] text-slate-400">
+                                                        <span className="flex items-center gap-1">
+                                                            <History className="w-3 h-3" />
+                                                            {new Date(candidate.timestamp).toLocaleDateString()}
+                                                        </span>
+                                                        {candidate.confidence !== null && (
+                                                            <span className="flex items-center gap-1">
+                                                                <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                                                                {Math.round(candidate.confidence * 100)}% Confidence
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                
+                                                {!candidate.isAuthoritative && (
+                                                    <Button 
+                                                        size="sm" 
+                                                        variant="outline" 
+                                                        className="h-7 text-[10px] px-2 bg-white hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-200"
+                                                        disabled={isPromoting !== null}
+                                                        onClick={() => handlePromote(candidate.id)}
+                                                    >
+                                                        {isPromoting === candidate.id ? <Loader2 className="w-3 h-3 animate-spin" /> : "Promote"}
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </ScrollArea>
+                        ) : (
+                            <div className="py-8 text-center bg-slate-50 rounded-lg border border-dashed border-slate-200">
+                                <p className="text-xs text-slate-400 italic">No alternative claims found.</p>
+                            </div>
+                        )}
+                        <p className="mt-4 text-[10px] text-slate-400 leading-relaxed italic">
+                            Promoting a claim will create a new verified manual entry using the source value, overriding the current authoritative choice.
+                        </p>
+                    </div>
                 </div>
             </SheetContent>
         </Sheet >
@@ -1163,6 +1264,7 @@ function SourceBadge({ source, sourceReference }: { source: string; sourceRefere
     const colorMap: Record<string, string> = {
         'GLEIF': 'bg-orange-100 text-orange-700 border-orange-200',
         'COMPANIES_HOUSE': 'bg-blue-100 text-blue-700 border-blue-200',
+        'NATIONAL_REGISTRY': 'bg-blue-100 text-blue-700 border-blue-200',
         'USER_INPUT': 'bg-purple-100 text-purple-700 border-purple-200',
         'SYSTEM': 'bg-gray-100 text-gray-700 border-gray-200',
         'SYSTEM_DERIVED': 'bg-gray-100 text-gray-700 border-gray-200',
@@ -1170,11 +1272,22 @@ function SourceBadge({ source, sourceReference }: { source: string; sourceRefere
     };
 
     const classes = colorMap[source] || 'bg-gray-100 text-gray-700 border-gray-200';
+    
+    let displaySource = source === 'SYSTEM_DERIVED' ? 'SYSTEM' : source;
+    
+    // User Friendly override for Registry Source
+    if (source === 'NATIONAL_REGISTRY' || source === 'COMPANIES_HOUSE') {
+        if (sourceReference === 'GB_COMPANIES_HOUSE' || sourceReference?.includes('COMPANIES_HOUSE')) {
+            displaySource = 'Companies House';
+        } else if (source === 'NATIONAL_REGISTRY') {
+            displaySource = 'National Registry';
+        }
+    }
 
     return (
         <div className="flex items-center gap-1.5">
-            <span className={cn("inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border", classes)}>
-                {source === 'SYSTEM_DERIVED' ? 'SYSTEM' : source}
+            <span className={cn("inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border uppercase tracking-wider", classes)}>
+                {displaySource}
             </span>
             {sourceReference && (
                 <span className="text-[10px] text-slate-400 font-mono">

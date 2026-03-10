@@ -7,6 +7,8 @@ import {
     deriveRegistryReferencesFromGleif, 
     RegistryEnrichmentService 
 } from "@/domain/registry";
+import { CanonicalRegistryMapper } from "@/services/kyc/normalization/CanonicalRegistryMapper";
+import { KycWriteService } from "@/services/kyc/KycWriteService";
 
 // Removed top-level initialization
 
@@ -64,8 +66,22 @@ export async function refreshLocalRegistryData(leId: string, force: boolean = tr
 
             console.log("[refreshLocalRegistryData] Triggering enrich for ref:", reference.id);
             const result = await RegistryEnrichmentService.enrich(reference.id, force);
-            console.log("[refreshLocalRegistryData] Enrich result success:", result?.success);
-            if (result?.success) {
+                console.log("[refreshLocalRegistryData] Enrich result success:", result?.success);
+                
+                if (result?.success && result.record && result.evidenceId) {
+                    console.log("[refreshLocalRegistryData] Propagating registry data to master fields...");
+                    const kycWriteService = new KycWriteService();
+                    const candidates = await CanonicalRegistryMapper.mapToCandidates(result.record, result.evidenceId);
+                    
+                    for (const candidate of candidates) {
+                        // Apply as candidate (or update authoritative based on priority)
+                        // Pass 'CLIENT_LE' since leId is a ClientLE ID
+                        await kycWriteService.applyFieldCandidate(leId, candidate, undefined, 'CLIENT_LE');
+                    }
+                    console.log("[refreshLocalRegistryData] Propagation COMPLETE for", candidates.length, "fields");
+                }
+
+                if (result?.success) {
                 successCount++;
             } else {
                 lastError = result?.error;

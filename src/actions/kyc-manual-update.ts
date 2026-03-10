@@ -119,6 +119,45 @@ export async function applyManualOverride(
 }
 
 /**
+ * Promotes a specific claim to be the authoritative winner.
+ * Creates a new USER_INPUT claim with the same value, effectively overriding.
+ */
+export async function promoteClaim(
+    clientLEId: string,
+    claimId: string,
+    rowId?: string,
+    entityType: 'LEGAL_ENTITY' | 'CLIENT_LE' = 'CLIENT_LE'
+): Promise<{ success: boolean; message?: string }> {
+    try {
+        const identity = await getIdentity();
+        const userId = identity?.userId;
+        if (!userId) return { success: false, message: "Authentication required." };
+
+        // 1. Fetch the claim to promote
+        const claim = await prisma.fieldClaim.findUnique({
+            where: { id: claimId }
+        });
+
+        if (!claim) return { success: false, message: "Claim not found." };
+
+        const val = (claim.valueText ?? claim.valueNumber ?? claim.valueDate ?? claim.valueJson ?? claim.valueLeId ?? claim.valuePersonId ?? claim.valueOrgId ?? claim.valueDocId) ?? null;
+
+        // 2. Assert as a new verified manual claim
+        return await updateFieldManually(
+            clientLEId,
+            claim.fieldNo,
+            val,
+            `Promoted from ${claim.sourceType}`,
+            rowId || claim.instanceId || undefined,
+            entityType
+        );
+    } catch (error: any) {
+        console.error("promoteClaim error:", error);
+        return { success: false, message: error.message };
+    }
+}
+
+/**
  * Reverts/Applies a specific candidate value.
  * This effectively "Accepts" a candidate.
  */
