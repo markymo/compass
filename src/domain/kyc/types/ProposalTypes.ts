@@ -1,5 +1,6 @@
 
 import { ProvenanceSource } from "./ProvenanceTypes";
+export type { ProvenanceSource };
 
 export type FieldValue = {
     value: any;

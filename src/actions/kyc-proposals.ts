@@ -4,7 +4,7 @@ import { fetchGLEIFData } from "@/actions/gleif";
 import { EvidenceService } from "@/services/kyc/EvidenceService";
 import { mapGleifPayloadToFieldCandidates } from "@/services/kyc/normalization/GleifNormalizer";
 import { KycWriteService } from "@/services/kyc/KycWriteService";
-import { FieldProposal } from "@/domain/kyc/types/ProposalTypes";
+import { FieldProposal, ProvenanceSource } from "@/domain/kyc/types/ProposalTypes";
 import { getFieldDefinition } from "@/domain/kyc/FieldDefinitions";
 import { revalidatePath } from "next/cache";
 import prisma from "@/lib/prisma";
@@ -131,11 +131,11 @@ export async function refreshGleifProposals(legalEntityId: string): Promise<{ su
                 column: def.field,
                 current: evaluation.currentValue ? {
                     value: evaluation.currentValue,
-                    source: evaluation.currentSource || 'SYSTEM' // specific unknown source
+                    source: (evaluation.currentSource as ProvenanceSource) || 'SYSTEM' 
                 } : undefined,
                 proposed: {
                     value: candidate.value,
-                    source: candidate.source as any,
+                    source: candidate.source as ProvenanceSource,
                     evidenceId: candidate.evidenceId || undefined,
                     timestamp: new Date().toISOString()
                 },
@@ -202,11 +202,11 @@ export async function getGleifProposalsFromCache(legalEntityId: string): Promise
                 column: def.field,
                 current: evaluation.currentValue ? {
                     value: evaluation.currentValue,
-                    source: evaluation.currentSource || 'SYSTEM'
+                    source: (evaluation.currentSource as ProvenanceSource) || 'SYSTEM'
                 } : undefined,
                 proposed: {
                     value: candidate.value,
-                    source: 'GLEIF',
+                    source: 'GLEIF' as ProvenanceSource,
                     evidenceId: candidate.evidenceId || undefined,
                     timestamp: new Date().toISOString()
                 },
