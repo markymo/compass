@@ -57,7 +57,7 @@ export function DataInspectorPanel({
                     if (sourceType === "NATIONAL_REGISTRY") {
                         setPayload(res.payload);
                     } else {
-                        setPayload(res.payload.rawSourcePayload);
+                        setPayload(res.payload?.rawSourcePayload);
                     }
                 } else {
                     setError(res.error || "Failed to fetch registry data");
