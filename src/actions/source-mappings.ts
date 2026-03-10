@@ -515,7 +515,7 @@ export async function bootstrapDefaultMappings(sourceType: string) {
         const userId = identity?.userId || null;
 
         // Transaction-safe: re-check count inside transaction
-        const result = await prisma.$transaction(async (tx) => {
+        const result = await prisma.$transaction(async (tx: any) => {
             const existingCount = await tx.sourceFieldMapping.count({
                 where: { sourceType: sourceType as SourceType }
             });
