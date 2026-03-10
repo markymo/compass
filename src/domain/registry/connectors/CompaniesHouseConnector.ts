@@ -20,8 +20,7 @@ export class CompaniesHouseConnector implements IRegistryConnector {
         const apiKey = process.env.COMPANIES_HOUSE_API_KEY;
 
         if (!apiKey) {
-            console.warn("[CompaniesHouseConnector] No API key found, falling back to mock");
-            return await this.fetchMock(reference);
+            throw new Error("Companies House API key not configured. National registry enrichment is disabled.");
         }
 
         console.log(`[CompaniesHouseConnector] Fetching real data for UK company ${companyNumber}...`);
@@ -77,46 +76,9 @@ export class CompaniesHouseConnector implements IRegistryConnector {
 
             return record;
         } catch (error) {
-            console.error("[CompaniesHouseConnector] Real fetch failed, falling back to mock:", error);
-            return await this.fetchMock(reference);
+            console.error("[CompaniesHouseConnector] Real fetch failed:", error);
+            throw error;
         }
-    }
-
-    async fetchMock(reference: RegistryReference): Promise<CanonicalRegistryRecord> {
-        const companyNumber = reference.localRegistrationNumber;
-        // Keep the old mock logic as a safety fallback
-        const mockRaw = {
-            company_name: "BRITISH AIRWAYS PLC",
-            company_status: "active",
-            date_of_creation: "2011-05-18",
-            registered_office_address: {
-                address_line_1: "10 Downing Street",
-                locality: "London",
-                postal_code: "SW1A 2AA",
-                country: "United Kingdom"
-            },
-            officers: [
-                {
-                    name: "DOE, John",
-                    officer_role: "director",
-                    appointed_on: "2011-05-18",
-                    occupation: "Software Engineer",
-                    address: {
-                        premises: "10",
-                        address_line_1: "Downing Street",
-                        locality: "London",
-                        postal_code: "SW1A 2AA"
-                    }
-                }
-            ]
-        };
-
-        const record = this.normalize(mockRaw);
-        record.registryAuthorityId = reference.registryAuthorityId;
-        record.sourceRecordId = companyNumber;
-        record.fetchedAt = new Date();
-
-        return record;
     }
 
     normalize(raw: any): CanonicalRegistryRecord {

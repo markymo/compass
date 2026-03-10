@@ -2,6 +2,7 @@
 
 import prisma from "@/lib/prisma";
 import { getConsoleQuestions, ConsoleQuestion, resolveMasterData } from "./kyc-query";
+import { KycStateService } from "@/lib/kyc/KycStateService";
 import { listAllMasterFields, listAllMasterGroups, getMasterFieldGroup } from "@/services/masterData/definitionService";
 import { revalidatePath } from "next/cache";
 import { generateObject } from 'ai';
@@ -10,9 +11,9 @@ import { z } from 'zod';
 
 export interface Workbench4Data {
     questions: ConsoleQuestion[];
-    masterFields: Array<{ fieldNo: number; label: string; category?: string | null }>;
-    masterGroups: Array<{ key: string; label: string; category?: string | null }>;
-    customFields: Array<{ id: string; label: string }>;
+    masterFields: Array<{ fieldNo: number; label: string; category?: string | null; dataType?: string | null; currentValue?: any }>;
+    masterGroups: Array<{ key: string; label: string; category?: string | null; dataType?: string | null; currentValue?: any }>;
+    customFields: Array<{ id: string; label: string; dataType?: string | null; currentValue?: any }>;
     relationships: string[];
     questionnaires: string[];
     ownerOrgId?: string;
@@ -33,16 +34,75 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
         listAllMasterGroups()
     ]);
 
+    const ownerScopeId = await KycStateService.resolveScopeId(leId);
+    
+    // Fast path to get current values
+    const clientLE = await prisma.clientLE.findUnique({
+        where: { id: leId },
+        select: { legalEntityId: true, customData: true }
+    });
+    const subjectLeId = clientLE?.legalEntityId;
+    
+    const currentValues: Record<number, any> = {};
+    if (subjectLeId) {
+        const claims = await prisma.fieldClaim.findMany({
+            where: {
+                subjectLeId,
+                status: { in: ['VERIFIED', 'ASSERTED'] },
+                OR: [{ ownerScopeId: ownerScopeId || null }, { ownerScopeId: null }]
+            },
+            orderBy: [{ assertedAt: 'desc' }, { id: 'desc' }]
+        });
+        
+        const getSourcePriority = (source: string) => {
+            if (source === 'GLEIF') return 1;
+            if (source === 'COMPANIES_HOUSE') return 2;
+            if (source === 'USER_INPUT') return 3;
+            if (source === 'AI_EXTRACTION') return 4;
+            return 5;
+        };
+
+        const fieldGroups: Record<number, any[]> = {};
+        for (const c of claims) {
+            if (!fieldGroups[c.fieldNo]) fieldGroups[c.fieldNo] = [];
+            fieldGroups[c.fieldNo].push(c);
+        }
+        
+        for (const fieldNoStr in fieldGroups) {
+            const fieldNo = parseInt(fieldNoStr);
+            const fieldClaims = fieldGroups[fieldNo];
+            const winner = fieldClaims.sort((a, b) => {
+                const pA = getSourcePriority(a.sourceType);
+                const pB = getSourcePriority(b.sourceType);
+                if (pA !== pB) return pA - pB;
+                
+                const tA = a.assertedAt.getTime();
+                const tB = b.assertedAt.getTime();
+                if (tA !== tB) return tB - tA;
+                
+                return b.id.localeCompare(a.id);
+            })[0];
+
+            if (winner && !(winner.valueJson && typeof winner.valueJson === 'object' && (winner.valueJson as any).tombstone)) {
+                currentValues[fieldNo] = winner.valueText ?? winner.valueNumber ?? winner.valueDate ?? winner.valueJson ?? winner.valueLeId ?? winner.valuePersonId ?? winner.valueOrgId ?? winner.valueDocId;
+            }
+        }
+    }
+
     const masterFields = allFields.map((def: any) => ({
         fieldNo: def.fieldNo,
         label: def.fieldName,
-        category: def.category
+        category: def.category,
+        dataType: def.appDataType,
+        currentValue: currentValues[def.fieldNo]
     })).sort((a: any, b: any) => a.label.localeCompare(b.label));
 
     const masterGroups = allGroups.map((g: any) => ({
         key: g.key,
         label: g.label,
-        category: g.category // Groups might have categories too
+        category: g.category,
+        dataType: 'JSON',
+        currentValue: undefined // Groups are complex, skip live preview for now
     })).sort((a: any, b: any) => a.label.localeCompare(b.label));
 
     // 2. Lookups for categories
@@ -60,7 +120,17 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
     const customFieldsRaw = await prisma.customFieldDefinition.findMany({
         orderBy: { label: 'asc' }
     });
-    const customFields = customFieldsRaw.map((f: any) => ({ id: f.id, label: f.label }));
+    const customData = (clientLE?.customData as Record<string, any>) || {};
+    const customFields = customFieldsRaw.map((f: any) => {
+        const valObj = customData[f.id];
+        const val = valObj && typeof valObj === 'object' && 'value' in valObj ? valObj.value : valObj;
+        return { 
+            id: f.id, 
+            label: f.label, 
+            dataType: f.dataType, 
+            currentValue: val 
+        };
+    });
 
     // 3. Extract unique filters
     const relationships = Array.from(new Set(questions.map((q: any) => q.engagementOrgName || "Unknown"))).sort();
@@ -79,11 +149,7 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
 
         const resolvedValues = await resolveMasterData(leId, resolverRequests);
 
-        const le = await prisma.clientLE.findUnique({
-            where: { id: leId },
-            select: { customData: true }
-        });
-        const customData = (le?.customData as Record<string, any>) || {};
+        // We already have customData above, reuse it
 
         questions.forEach((q: any) => {
             if (q.customFieldDefinitionId) {

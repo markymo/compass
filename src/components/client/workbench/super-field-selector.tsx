@@ -5,17 +5,29 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Loader2, Sparkles, Plus, Check, ChevronRight, XCircle } from "lucide-react";
+import { Loader2, Sparkles, Plus, Check, ChevronRight, XCircle, Type, Calendar, Hash, ToggleLeft, FileText, Braces } from "lucide-react";
 import { getAISemanticMatch } from "@/actions/kyc-workbench";
+
+function getDataTypeIcon(dataType: string | null | undefined) {
+    if (!dataType) return null;
+    const t = dataType.toLowerCase();
+    const className = "h-3.5 w-3.5 text-slate-400 shrink-0";
+    if (t.includes('date')) return <Calendar className={className} />;
+    if (t.includes('num') || t.includes('int') || t.includes('float')) return <Hash className={className} />;
+    if (t.includes('bool') || t.includes('yes')) return <ToggleLeft className={className} />;
+    if (t.includes('doc') || t.includes('file')) return <FileText className={className} />;
+    if (t.includes('json') || t.includes('obj') || t.includes('group')) return <Braces className={className} />;
+    return <Type className={className} />;
+}
 // FIELD_DEFINITIONS and FIELD_GROUPS removed
 import { toast } from "sonner";
 
 interface Props {
     value: string | null;
     onSelect: (val: string, type: 'master' | 'group' | 'custom' | 'create' | 'clear', label?: string) => void;
-    masterFields: Array<{ fieldNo: number; label: string }>;
-    masterGroups: Array<{ key: string; label: string }>;
-    customFields: Array<{ id: string; label: string }>;
+    masterFields: Array<{ fieldNo: number; label: string; dataType?: string | null; currentValue?: any }>;
+    masterGroups: Array<{ key: string; label: string; dataType?: string | null; currentValue?: any }>;
+    customFields: Array<{ id: string; label: string; dataType?: string | null; currentValue?: any }>;
     questionText: string;
     compact?: boolean;
     disabled?: boolean;
@@ -42,6 +54,8 @@ export function SuperFieldSelector({
         label: f.label,
         type: 'master' as const,
         meta: `Standard Field ${f.fieldNo}`,
+        dataType: f.dataType,
+        currentValue: f.currentValue
     })), [masterFields]);
 
     const groupOptions = useMemo(() => masterGroups.map((g: any) => ({
@@ -49,6 +63,8 @@ export function SuperFieldSelector({
         label: g.label,
         type: 'group' as const,
         meta: 'Composite Group',
+        dataType: g.dataType,
+        currentValue: g.currentValue
     })), [masterGroups]);
 
     const customOptions = useMemo(() => customFields.map((f: any) => ({
@@ -56,6 +72,8 @@ export function SuperFieldSelector({
         label: f.label,
         type: 'custom' as const,
         meta: 'Custom Field',
+        dataType: f.dataType,
+        currentValue: f.currentValue
     })), [customFields]);
 
     const allOptions = useMemo(() => [...groupOptions, ...masterOptions, ...customOptions], [groupOptions, masterOptions, customOptions]);
@@ -220,12 +238,12 @@ export function SuperFieldSelector({
                                         <CommandItem
                                             key={o.value}
                                             onSelect={() => { onSelect(o.value.split(':')[1], 'group'); setOpen(false); }}
-                                            className="flex items-center gap-2 py-2"
+                                            className="flex flex-col items-start gap-1 py-2 cursor-pointer"
                                         >
-                                            <Check className={cn("h-4 w-4 text-indigo-600", value === o.value ? "opacity-100" : "opacity-0")} />
-                                            <div className="flex flex-col">
-                                                <span className="text-sm font-medium">{o.label}</span>
-                                                <span className="text-[10px] text-slate-400">{o.meta}</span>
+                                            <div className="flex items-center w-full gap-2">
+                                                <Check className={cn("h-4 w-4 text-indigo-600 shrink-0", value === o.value ? "opacity-100" : "opacity-0")} />
+                                                <span className="text-sm font-medium flex-1">{o.label}</span>
+                                                {getDataTypeIcon(o.dataType)}
                                             </div>
                                         </CommandItem>
                                     ))}
@@ -238,12 +256,19 @@ export function SuperFieldSelector({
                                         <CommandItem
                                             key={o.value}
                                             onSelect={() => { onSelect(o.value.split(':')[1], 'master'); setOpen(false); }}
-                                            className="flex items-center gap-2 py-2"
+                                            className="flex flex-col items-start gap-1 py-2 cursor-pointer"
                                         >
-                                            <Check className={cn("h-4 w-4 text-indigo-600", value === o.value ? "opacity-100" : "opacity-0")} />
-                                            <div className="flex flex-col">
-                                                <span className="text-sm font-medium">{o.label}</span>
-                                                <span className="text-[10px] text-slate-400">{o.meta}</span>
+                                            <div className="flex items-center w-full gap-2">
+                                                <Check className={cn("h-4 w-4 text-indigo-600 shrink-0", value === o.value ? "opacity-100" : "opacity-0")} />
+                                                <span className="text-sm font-medium flex-1">{o.label}</span>
+                                                {getDataTypeIcon(o.dataType)}
+                                            </div>
+                                            <div className="pl-6 flex flex-col w-full text-slate-500">
+                                                {o.currentValue != null && o.currentValue !== "" ? (
+                                                    <span className="text-[11px] font-medium text-slate-600 truncate italic bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100 mt-1">
+                                                        {Array.isArray(o.currentValue) ? o.currentValue.join(", ") : String(o.currentValue)}
+                                                    </span>
+                                                ) : null}
                                             </div>
                                         </CommandItem>
                                     ))}
@@ -256,12 +281,19 @@ export function SuperFieldSelector({
                                         <CommandItem
                                             key={o.value}
                                             onSelect={() => { onSelect(o.value.split(':')[1], 'custom'); setOpen(false); }}
-                                            className="flex items-center gap-2 py-2"
+                                            className="flex flex-col items-start gap-1 py-2 cursor-pointer"
                                         >
-                                            <Check className={cn("h-4 w-4 text-indigo-600", value === o.value ? "opacity-100" : "opacity-0")} />
-                                            <div className="flex flex-col">
-                                                <span className="text-sm font-medium">{o.label}</span>
-                                                <span className="text-[10px] text-slate-400">{o.meta}</span>
+                                            <div className="flex items-center w-full gap-2">
+                                                <Check className={cn("h-4 w-4 text-indigo-600 shrink-0", value === o.value ? "opacity-100" : "opacity-0")} />
+                                                <span className="text-sm font-medium flex-1">{o.label}</span>
+                                                {getDataTypeIcon(o.dataType)}
+                                            </div>
+                                            <div className="pl-6 flex flex-col w-full text-slate-500">
+                                                {o.currentValue != null && o.currentValue !== "" ? (
+                                                    <span className="text-[11px] font-medium text-slate-600 truncate italic bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100 mt-1">
+                                                        {Array.isArray(o.currentValue) ? o.currentValue.join(", ") : String(o.currentValue)}
+                                                    </span>
+                                                ) : null}
                                             </div>
                                         </CommandItem>
                                     ))}
