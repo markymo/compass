@@ -3,12 +3,13 @@
 import { BreadcrumbProvider, useBreadcrumbs } from "@/context/breadcrumb-context";
 import { StandardPageHeader } from "@/components/layout/StandardPageHeader";
 import { GuideHeader, GuideBreadcrumbItem } from "@/components/layout/GuideHeader";
-import { LegalEntityNav } from "@/components/layout/legal-entity-nav";
 import { ClientLEActions } from "@/components/client/client-le-actions";
 import { getBreadcrumbIcon } from "@/lib/breadcrumb-icon-map";
 import { DueDateBadge } from "@/components/client/due-date-badge";
 import { EditableDescription } from "@/components/client/editable-description";
 import { EditableLEI } from "@/components/client/editable-lei";
+import { HeaderNavList } from "@/components/layout/HeaderNavList";
+import { getLegalEntityTabs } from "@/config/navigation-tabs";
 
 interface LegalEntityLayoutShellProps {
     children: React.ReactNode;
@@ -20,8 +21,6 @@ interface LegalEntityLayoutShellProps {
     clientOrgName?: string;
 }
 
-import { HeaderNavList } from "@/components/layout/HeaderNavList";
-import { getLegalEntityTabs } from "@/config/navigation-tabs";
 
 function InnerShell({ children, baseBreadcrumbs, leId, leName, isSystemAdmin, leData, clientOrgName }: LegalEntityLayoutShellProps) {
     const { extraBreadcrumbs, pageTitle, pageTypeLabel, secondaryNav: contextSecondaryNav } = useBreadcrumbs();
