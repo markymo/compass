@@ -1,9 +1,8 @@
-
 import { Suspense } from "react";
 import { getDashboardTree } from "@/actions/dashboard-tree";
 import { DashboardTree } from "@/components/dashboard/dashboard-tree";
-import { Loader2 } from "lucide-react";
-import { GuideHeader } from "@/components/layout/GuideHeader";
+import { Loader2, Home, Search } from "lucide-react";
+import { StandardPageHeader } from "@/components/layout/StandardPageHeader";
 
 export const metadata = {
     title: "Scout | Compass",
@@ -13,16 +12,12 @@ export const metadata = {
 export default async function ScoutPage() {
     return (
         <div className="h-full flex flex-col">
-            <div className="p-6 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 flex justify-between items-center">
-                <div>
-                    <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-50 font-serif">
-                        Scout
-                    </h1>
-                    <p className="text-sm text-slate-500">
-                        Hierarchical overview of all your organizations and projects.
-                    </p>
-                </div>
-            </div>
+            <StandardPageHeader
+                title="Scout"
+                typeLabel="Explorer"
+                subtitle="Hierarchical overview of all your organizations and projects."
+                breadcrumbs={[{ label: "Home", href: "/app", icon: Home }, { label: "Scout", icon: Search }]}
+            />
 
             <div className="flex-1 overflow-auto p-6 bg-slate-50/50 dark:bg-slate-950/50">
                 <Suspense fallback={<TreeSkeleton />}>

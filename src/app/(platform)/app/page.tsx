@@ -15,6 +15,8 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { DashboardMetric, emptyMetrics, rollupMetrics } from "@/lib/dashboard-metrics";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
+import { StandardPageHeader } from "@/components/layout/StandardPageHeader";
+import { useBreadcrumbs } from "@/context/breadcrumb-context";
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -612,6 +614,8 @@ export default function DashboardPage() {
         return reshapeContexts(contexts);
     }, [contexts]);
 
+    const { currentBreadcrumbs } = useBreadcrumbs();
+
     if (loading) {
         return (
             <div className="h-full flex items-center justify-center">
@@ -625,17 +629,15 @@ export default function DashboardPage() {
     }
 
     return (
-        <div className="max-w-7xl mx-auto px-6 py-8 space-y-6">
-            {/* Header */}
-            <div className="flex items-center gap-3 mb-2">
-                <Link href="/app" className="p-2.5 bg-slate-100 rounded-xl hover:bg-slate-200 transition-colors block">
-                    <Home className="h-6 w-6 text-slate-600" />
-                </Link>
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight text-slate-900">Relationships Overview</h1>
-                    <p className="text-muted-foreground text-sm">Your Organisations, Legal Entities and Relationships.</p>
-                </div>
-            </div>
+        <div className="flex flex-col min-h-screen bg-slate-50/30">
+            <StandardPageHeader
+                title="Relationships Overview"
+                typeLabel="Overview"
+                subtitle="Your Organisations, Legal Entities and Relationships."
+                breadcrumbs={currentBreadcrumbs}
+            />
+
+            <div className="max-w-7xl mx-auto px-6 py-8 space-y-6 w-full">
 
             {/* Org Tree */}
             {orgNodes.length === 0 ? (
@@ -663,6 +665,7 @@ export default function DashboardPage() {
                 <Link href="/app/scout" className="text-xs text-slate-400 hover:text-slate-600 transition-colors">
                     Switch to Scout view →
                 </Link>
+            </div>
             </div>
         </div>
     );

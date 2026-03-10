@@ -41,12 +41,23 @@ import { MoreHorizontal, Settings, Trash2 } from "lucide-react";
 
 import { QuestionnaireMapper } from "./questionnaire-mapper";
 
+import { useSearchParams } from "next/navigation";
+import { HeaderNavList } from "@/components/layout/HeaderNavList";
+import { getRelationshipTabs } from "@/config/navigation-tabs";
+import { SetPageBreadcrumbs } from "@/context/breadcrumb-context";
+
 export function EngagementDetailView({ le, engagement, questionnaires, sharedDocuments, evidenceDocuments = [], invitations, members, initialTab, metrics, standingData }: EngagementDetailViewProps) {
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
     const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
     const [manageQuestionnaireId, setManageQuestionnaireId] = useState<string | null>(null);
     const [refreshKey, setRefreshKey] = useState(0);
     const router = useRouter();
+    const searchParams = useSearchParams();
+    
+    // Determine active tab from query param or initialTab prop
+    const activeTab = searchParams.get('tab') || initialTab || "workbench";
+
+    const relationshipTabs = getRelationshipTabs(le.id, engagement.id);
 
     const handleAdd = async (type: string, data: any) => {
         if (type === 'library') {
@@ -112,28 +123,33 @@ export function EngagementDetailView({ le, engagement, questionnaires, sharedDoc
 
     return (
         <div className="space-y-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                    <div className="flex items-center gap-4">
-                        <h1 className="text-2xl font-bold text-slate-900">{engagement.org.name}</h1>
-                        <DueDateBadge
-                            id={engagement.id}
-                            date={engagement.dueDate}
-                            effectiveDate={engagement.dueDate || le.dueDate}
-                            source={engagement.dueDate ? 'RELATIONSHIP' : 'LE'}
-                            level="RELATIONSHIP"
-                            label="Deadline"
-                        />
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            className="gap-2 text-indigo-600 border-indigo-200 bg-indigo-50 hover:bg-indigo-100"
-                            onClick={() => setIsInviteDialogOpen(true)}
-                        >
-                            <Users className="h-4 w-4" />
-                            Invite User
-                        </Button>
-                    </div>
+            <SetPageBreadcrumbs 
+                items={[{ label: engagement.org.name }]} // The LE layout handles the parent trail
+                title={engagement.org.name}
+                typeLabel="Supplier Relationship"
+                secondaryNav={<HeaderNavList items={relationshipTabs} />}
+            />
+
+            {/* In-Page Metadata Row (Optional, could also move to secondaryNav metadata slot later) */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 py-2 border-b border-slate-100">
+                <div className="flex items-center gap-4">
+                    <DueDateBadge
+                        id={engagement.id}
+                        date={engagement.dueDate}
+                        effectiveDate={engagement.dueDate || le.dueDate}
+                        source={engagement.dueDate ? 'RELATIONSHIP' : 'LE'}
+                        level="RELATIONSHIP"
+                        label="Deadline"
+                    />
+                    <Button
+                        size="sm"
+                        variant="outline"
+                        className="gap-2 text-indigo-600 border-indigo-200 bg-indigo-50 hover:bg-indigo-100"
+                        onClick={() => setIsInviteDialogOpen(true)}
+                    >
+                        <Users className="h-4 w-4" />
+                        Invite User
+                    </Button>
                 </div>
                 {metrics && (
                     <div className="hidden md:block">
@@ -142,7 +158,6 @@ export function EngagementDetailView({ le, engagement, questionnaires, sharedDoc
                 )}
             </div>
 
-            {/* Mobile / Tablet Tracker fallback if needed, or kept hidden/responsive in header */}
             {metrics && (
                 <div className="md:hidden">
                     <Card>
@@ -153,46 +168,9 @@ export function EngagementDetailView({ le, engagement, questionnaires, sharedDoc
                 </div>
             )}
 
-            <Tabs id="engagement-tabs" defaultValue={initialTab || "workbench"} className="w-full space-y-0">
-                <TabsList className="bg-transparent p-0 flex justify-start h-auto gap-0.5 border-b-0 space-x-1 overflow-x-auto no-scrollbar mask-fade-right">
-                    <TabsTrigger
-                        value="overview"
-                        className="relative gap-2 px-6 py-3 rounded-t-xl border border-b-0 border-slate-200 bg-slate-50 text-slate-500 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:border-slate-200 data-[state=active]:border-b-white data-[state=active]:-mb-[1px] data-[state=active]:z-10 transition-all shadow-none"
-                    >
-                        <LayoutDashboard className="h-4 w-4" />
-                        Overview
-                    </TabsTrigger>
-                    <TabsTrigger
-                        value="workbench"
-                        className="relative gap-2 px-6 py-3 rounded-t-xl border border-b-0 border-slate-200 bg-slate-50 text-slate-500 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:border-slate-200 data-[state=active]:border-b-white data-[state=active]:-mb-[1px] data-[state=active]:z-10 transition-all shadow-none"
-                    >
-                        <Sparkles className="h-4 w-4" />
-                        Workbench
-                    </TabsTrigger>
-                    <TabsTrigger
-                        value="manage"
-                        className="relative gap-2 px-6 py-3 rounded-t-xl border border-b-0 border-slate-200 bg-slate-50 text-slate-500 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:border-slate-200 data-[state=active]:border-b-white data-[state=active]:-mb-[1px] data-[state=active]:z-10 transition-all shadow-none"
-                    >
-                        <FileText className="h-4 w-4" />
-                        Questionnaires
-                    </TabsTrigger>
-                    <TabsTrigger
-                        value="documents"
-                        className="relative gap-2 px-6 py-3 rounded-t-xl border border-b-0 border-slate-200 bg-slate-50 text-slate-500 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:border-slate-200 data-[state=active]:border-b-white data-[state=active]:-mb-[1px] data-[state=active]:z-10 transition-all shadow-none"
-                    >
-                        <FolderOpen className="h-4 w-4" />
-                        Documents
-                    </TabsTrigger>
-                    <TabsTrigger
-                        value="team"
-                        className="relative gap-2 px-6 py-3 rounded-t-xl border border-b-0 border-slate-200 bg-slate-50 text-slate-500 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:border-slate-200 data-[state=active]:border-b-white data-[state=active]:-mb-[1px] data-[state=active]:z-10 transition-all shadow-none"
-                    >
-                        <Users className="h-4 w-4" />
-                        Team
-                    </TabsTrigger>
-                </TabsList>
-
-                <div className="bg-white border border-slate-200 rounded-b-xl rounded-tr-xl p-0 md:p-8 relative min-h-[600px]">
+            <Tabs value={activeTab} className="w-full space-y-0">
+                {/* Internal TabsContent remains, but TabsList is removed as it's now in the header */}
+                <div className="bg-white border border-slate-200 rounded-xl p-0 md:p-8 relative min-h-[600px]">
 
                     <TabsContent value="overview" className="mt-0">
                         <Card>

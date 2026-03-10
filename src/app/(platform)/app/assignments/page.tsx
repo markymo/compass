@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { AssignmentsList, UnifiedAssignment } from "./AssignmentsList";
 import Link from "next/link";
 import { Home } from "lucide-react";
+import { StandardPageHeader } from "@/components/layout/StandardPageHeader";
 
 export default async function GlobalAssignmentsPage() {
     const identity = await getIdentity();
@@ -44,21 +45,17 @@ export default async function GlobalAssignmentsPage() {
     ];
 
     return (
-        <div className="max-w-7xl mx-auto px-6 py-8 space-y-6">
-            {/* Header */}
-            <div className="flex items-center gap-3 mb-2">
-                <Link href="/app" className="p-2.5 bg-slate-100 rounded-xl hover:bg-slate-200 transition-colors block">
-                    <Home className="h-6 w-6 text-slate-600" />
-                </Link>
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight text-slate-900">My assigned tasks</h1>
-                    <p className="text-muted-foreground text-sm">
-                        Global view of all tasks and data points assigned to you across all clients and workspaces.
-                    </p>
-                </div>
-            </div>
+        <div className="flex flex-col min-h-screen bg-slate-50/30">
+            <StandardPageHeader
+                title="Assignments"
+                typeLabel="Tasks"
+                subtitle="Global view of all tasks and data points assigned to you across all clients and workspaces."
+                breadcrumbs={[{ label: "Home", href: "/app", icon: Home }, { label: "Assignments" }]}
+            />
 
-            <AssignmentsList assignments={unified} />
+            <div className="max-w-7xl mx-auto px-6 py-8 space-y-6 w-full">
+                <AssignmentsList assignments={unified} />
+            </div>
         </div>
     );
 }

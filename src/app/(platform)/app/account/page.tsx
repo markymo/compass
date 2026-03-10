@@ -12,6 +12,8 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { usePreferences } from "@/components/providers/user-preferences-provider";
+import { StandardPageHeader } from "@/components/layout/StandardPageHeader";
+import { useBreadcrumbs } from "@/context/breadcrumb-context";
 
 export default function AccountSettingsPage() {
     const router = useRouter();
@@ -79,6 +81,8 @@ export default function AccountSettingsPage() {
         setSaving(false);
     };
 
+    const { currentBreadcrumbs } = useBreadcrumbs();
+
     if (loading) {
         return (
             <div className="h-full flex items-center justify-center min-h-[50vh]">
@@ -90,17 +94,15 @@ export default function AccountSettingsPage() {
     if (!profile) return null;
 
     return (
-        <div className="space-y-6 max-w-4xl mx-auto pb-12 px-6 py-8">
-            {/* Header */}
-            <div className="flex items-center gap-3 mb-2">
-                <Link href="/app" className="p-2.5 bg-slate-100 rounded-xl hover:bg-slate-200 transition-colors block">
-                    <Home className="h-6 w-6 text-slate-600" />
-                </Link>
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight text-slate-900">Account Settings</h1>
-                    <p className="text-muted-foreground text-sm">Manage your personal profile, security and preferences.</p>
-                </div>
-            </div>
+        <div className="flex flex-col min-h-screen bg-slate-50/30">
+            <StandardPageHeader
+                title="Account Settings"
+                typeLabel="Settings"
+                subtitle="Manage your personal profile, security and preferences."
+                breadcrumbs={currentBreadcrumbs}
+            />
+
+            <div className="space-y-6 max-w-4xl mx-auto pb-12 px-6 py-8 w-full">
 
             <div className="grid gap-6 md:grid-cols-12 pt-4">
                 {/* Main Content Area */}
@@ -317,6 +319,7 @@ export default function AccountSettingsPage() {
                         </CardContent>
                     </Card>
                 </div>
+            </div>
             </div>
         </div>
     );

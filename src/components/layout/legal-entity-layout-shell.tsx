@@ -1,6 +1,7 @@
 "use client";
 
 import { BreadcrumbProvider, useBreadcrumbs } from "@/context/breadcrumb-context";
+import { StandardPageHeader } from "@/components/layout/StandardPageHeader";
 import { GuideHeader, GuideBreadcrumbItem } from "@/components/layout/GuideHeader";
 import { LegalEntityNav } from "@/components/layout/legal-entity-nav";
 import { ClientLEActions } from "@/components/client/client-le-actions";
@@ -19,8 +20,11 @@ interface LegalEntityLayoutShellProps {
     clientOrgName?: string;
 }
 
+import { HeaderNavList } from "@/components/layout/HeaderNavList";
+import { getLegalEntityTabs } from "@/config/navigation-tabs";
+
 function InnerShell({ children, baseBreadcrumbs, leId, leName, isSystemAdmin, leData, clientOrgName }: LegalEntityLayoutShellProps) {
-    const { extraBreadcrumbs } = useBreadcrumbs();
+    const { extraBreadcrumbs, pageTitle, pageTypeLabel, secondaryNav: contextSecondaryNav } = useBreadcrumbs();
 
     // Merge base breadcrumbs with extra breadcrumbs from context
     // Map icon names to actual Lucide icons if present
@@ -29,20 +33,21 @@ function InnerShell({ children, baseBreadcrumbs, leId, leName, isSystemAdmin, le
         icon: item.icon || (item.iconName ? getBreadcrumbIcon(item.iconName) : undefined)
     }));
 
+    const leTabs = getLegalEntityTabs(leId);
+
     return (
         <div className="flex flex-col min-h-screen bg-slate-50/50">
-            <GuideHeader
+            <StandardPageHeader
+                title={pageTitle || leName}
+                typeLabel={pageTypeLabel || "Legal Entity"}
                 breadcrumbs={combinedBreadcrumbs}
                 actions={<ClientLEActions leId={leId} leName={leName} isSystemAdmin={isSystemAdmin} />}
+                secondaryNav={contextSecondaryNav || <HeaderNavList items={leTabs} />}
             />
-            <LegalEntityNav leId={leId} />
             <main className="flex-1 max-w-6xl mx-auto w-full p-8 space-y-8">
                 {leData && (
                     <div className="flex flex-col gap-4">
                         <div className="flex items-center gap-4">
-                            <h1 className="text-4xl font-bold tracking-tight text-slate-900">
-                                {leData.name}
-                            </h1>
                             <DueDateBadge
                                 id={leData.id}
                                 date={leData.dueDate}
@@ -80,11 +85,5 @@ function InnerShell({ children, baseBreadcrumbs, leId, leName, isSystemAdmin, le
 import { AuthSessionProvider } from "@/components/providers/session-provider";
 
 export function LegalEntityLayoutShell(props: LegalEntityLayoutShellProps) {
-    return (
-        <AuthSessionProvider>
-            <BreadcrumbProvider>
-                <InnerShell {...props} />
-            </BreadcrumbProvider>
-        </AuthSessionProvider>
-    );
+    return <InnerShell {...props} />;
 }

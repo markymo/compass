@@ -45,6 +45,8 @@ export default async function EngagementPage({ params, searchParams }: PageProps
                 items={[
                     { label: fiName, iconName: "link-2" }
                 ]}
+                title={fiName}
+                typeLabel="Supplier Relationship"
             />
             <EngagementDetailView
                 le={le}

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ArrowLeft, CheckCircle2, Clock, FileText, ArrowRight, AlertCircle, Shield, Home, Landmark, Building2, KanbanSquare, LayoutDashboard } from "lucide-react";
 import Link from "next/link";
-import { GuideHeader } from "@/components/layout/GuideHeader";
+import { StandardPageHeader } from "@/components/layout/StandardPageHeader";
 import { notFound } from "next/navigation";
 import { EngagementRequirementsList } from "@/components/fi/engagement-requirements-list";
 import { EngagementActions } from "@/components/fi/engagement-actions";
@@ -23,36 +23,28 @@ export default async function FIEngagementOverviewPage({ params }: { params: Pro
 
     return (
         <div className="flex flex-col min-h-screen">
-            <GuideHeader
+            <StandardPageHeader
+                title={engagement.clientLE.name}
+                typeLabel="Engagement"
                 breadcrumbs={[
-                    { label: "", href: "/app", icon: Home },
+                    { label: "Home", href: "/app", icon: Home },
                     { label: engagement.org.name, href: `/app/s/${id}`, icon: Landmark },
                     { label: engagement.clientLE.name, icon: Building2 }
                 ]}
-            />
-
-            <div className="w-full max-w-7xl mx-auto px-6 py-8">
-                {/* Header Area */}
-                <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-8">
-                    <div>
-                        <div className="flex items-center gap-3 mb-2">
-                            <h1 className="text-3xl font-bold text-slate-900 tracking-tight">
-                                {engagement.clientLE.name}
-                            </h1>
-                            <Badge variant="outline" className="border-indigo-200 bg-indigo-50 text-indigo-700">
-                                {engagement.status || 'Active'}
-                            </Badge>
-                        </div>
-                    </div>
-
+                actions={
                     <div className="flex gap-2">
                         <EngagementActions engagementId={engagement.id} clientName={engagement.clientLE.name} />
                         <Button className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2 shadow-sm">
                             <CheckCircle2 className="w-4 h-4" /> Approve Onboarding
                         </Button>
+                        <Badge variant="outline" className="border-indigo-200 bg-indigo-50 text-indigo-700 self-center h-7">
+                            {engagement.status || 'Active'}
+                        </Badge>
                     </div>
-                </div>
+                }
+            />
 
+            <div className="w-full max-w-7xl mx-auto px-6 py-8">
                 <Tabs defaultValue="overview" className="space-y-6">
                     <TabsList className="bg-slate-100 p-1 rounded-lg border border-slate-200 inline-flex">
                         <TabsTrigger value="overview" className="gap-2 px-4 py-2 data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-indigo-600">

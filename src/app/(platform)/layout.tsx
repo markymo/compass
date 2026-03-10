@@ -7,6 +7,7 @@ import { DemoBanner } from "@/components/layout/DemoBanner";
 import { getUserAssignmentCount } from "@/actions/kyc-query";
 
 import { AuthSessionProvider } from "@/components/providers/session-provider";
+import { BreadcrumbProvider } from "@/context/breadcrumb-context";
 
 export default async function PlatformLayout({
     children,
@@ -33,7 +34,7 @@ export default async function PlatformLayout({
     const assignmentCount = userId ? await getUserAssignmentCount(userId).catch(() => 0) : 0;
 
     return (
-        <AuthSessionProvider>
+        <BreadcrumbProvider>
             <div className="flex min-h-screen flex-col bg-gray-50 dark:bg-zinc-900">
                 <DemoBanner />
                 <PlatformNavbar isSystemAdmin={isSystemAdmin} assignmentCount={assignmentCount} />
@@ -42,6 +43,6 @@ export default async function PlatformLayout({
                 </main>
                 <Footer />
             </div>
-        </AuthSessionProvider>
+        </BreadcrumbProvider>
     );
 }

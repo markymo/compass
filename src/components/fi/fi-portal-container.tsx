@@ -44,72 +44,33 @@ interface FIPortalContainerProps {
     stats: any;
 }
 
+import { useSearchParams } from "next/navigation";
+import { HeaderNavList } from "@/components/layout/HeaderNavList";
+import { getFIPortalTabs } from "@/config/navigation-tabs";
+import { SetPageBreadcrumbs } from "@/context/breadcrumb-context";
+import { Home, Landmark } from "lucide-react";
+
 export function FIPortalContainer({ org, engagements, workbenchData, questionnaires, teamMembers, stats }: FIPortalContainerProps) {
-    const [activeTab, setActiveTab] = useState("overview");
+    const searchParams = useSearchParams();
+    const activeTab = searchParams.get('tab') || "overview";
+    
+    const fiTabs = getFIPortalTabs(org.id);
 
     return (
         <div className="max-w-7xl mx-auto space-y-8 pb-20 p-8">
-            {/* Header Section */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 px-1">
-                <div>
-                    <div className="flex items-center gap-3">
-                        <div className="p-3 bg-teal-50 rounded-2xl border border-teal-100 shadow-sm">
-                            <Building2 className="h-6 w-6 text-teal-600" />
-                        </div>
-                        <div>
-                            <div className="flex items-center gap-2">
-                                <h1 className="text-3xl font-bold tracking-tight text-slate-900">
-                                    {org.name}
-                                </h1>
-                                <Badge variant="secondary" className="bg-teal-50 text-teal-700 border-teal-100 uppercase text-[10px] tracking-widest font-bold">
-                                    Supplier
-                                </Badge>
-                            </div>
-                            <p className="text-slate-500 mt-1">
-                                Supplier Dashboard & Management Portal
-                            </p>
-                        </div>
-                    </div>
-                </div>
-
-
-            </div>
-
+            <SetPageBreadcrumbs
+                items={[
+                    { label: "Home", href: "/app", icon: Home },
+                    { label: org.name, icon: Landmark }
+                ]}
+                title={org.name}
+                typeLabel="Financial Institution"
+                secondaryNav={<HeaderNavList items={fiTabs} />}
+            />
             <Tabs
                 value={activeTab}
-                onValueChange={setActiveTab}
                 className="w-full"
             >
-                <div className="flex items-center justify-between border-b border-slate-200 mb-6">
-                    <TabsList className="bg-transparent h-12 p-0 flex gap-8">
-                        <TabsTrigger
-                            value="overview"
-                            className="bg-transparent border-b-2 border-transparent data-[state=active]:border-teal-600 data-[state=active]:bg-transparent rounded-none px-1 h-12 font-semibold text-slate-500 data-[state=active]:text-teal-700 transition-all gap-2"
-                        >
-                            <LayoutDashboard className="h-4 w-4" /> Overview
-                        </TabsTrigger>
-                        <TabsTrigger
-                            value="workbench"
-                            className="bg-transparent border-b-2 border-transparent data-[state=active]:border-teal-600 data-[state=active]:bg-transparent rounded-none px-1 h-12 font-semibold text-slate-500 data-[state=active]:text-teal-700 transition-all gap-2"
-                        >
-                            <KanbanSquare className="h-4 w-4" /> Workbench
-                        </TabsTrigger>
-                        <TabsTrigger
-                            value="questionnaires"
-                            className="bg-transparent border-b-2 border-transparent data-[state=active]:border-teal-600 data-[state=active]:bg-transparent rounded-none px-1 h-12 font-semibold text-slate-500 data-[state=active]:text-teal-700 transition-all gap-2"
-                        >
-                            <FileText className="h-4 w-4" /> Questionnaires
-                        </TabsTrigger>
-                        <TabsTrigger
-                            value="team"
-                            className="bg-transparent border-b-2 border-transparent data-[state=active]:border-teal-600 data-[state=active]:bg-transparent rounded-none px-1 h-12 font-semibold text-slate-500 data-[state=active]:text-teal-700 transition-all gap-2"
-                        >
-                            <Users className="h-4 w-4" /> Team
-                        </TabsTrigger>
-                    </TabsList>
-
-
-                </div>
 
                 <TabsContent value="overview" className="mt-0 space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
                     {/* Key Metrics */}
