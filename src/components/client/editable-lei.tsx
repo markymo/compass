@@ -13,9 +13,10 @@ interface EditableLEIProps {
     leId: string;
     initialLei?: string | null;
     initialFetchedAt?: Date | null;
+    officialName?: string | null;
 }
 
-export function EditableLEI({ leId, initialLei, initialFetchedAt }: EditableLEIProps) {
+export function EditableLEI({ leId, initialLei, initialFetchedAt, officialName }: EditableLEIProps) {
     const router = useRouter();
     const [isEditing, setIsEditing] = useState(false);
     // Normal state for formatted display
@@ -71,20 +72,30 @@ export function EditableLEI({ leId, initialLei, initialFetchedAt }: EditableLEIP
     return (
         <div className="group flex flex-wrap items-center gap-2 sm:gap-3 py-1">
             <div className={cn(
-                "flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm font-mono transition-colors",
+                "flex items-center gap-2.5 px-4 py-2 rounded-full border text-sm transition-colors",
                 lei
                     ? "bg-green-50 border-green-200 text-green-800 dark:bg-green-900/20 dark:border-green-900"
                     : "bg-slate-50 border-dashed border-slate-200 text-slate-400"
             )}>
                 <Fingerprint className="h-3.5 w-3.5 opacity-70" />
 
-                {lei ? (
-                    <span>{lei}</span>
-                ) : (
-                    <span className="italic">No LEI assigned</span>
-                )}
+                <div className="flex items-center gap-2">
+                    {officialName && (
+                        <span className="font-semibold">{officialName}</span>
+                    )}
+                    {lei ? (
+                        <span className={cn(
+                           "font-mono",
+                           officialName ? "text-green-600/80 text-xs" : ""
+                        )}>
+                            {lei}
+                        </span>
+                    ) : (
+                        <span className="italic">No LEI assigned</span>
+                    )}
+                </div>
 
-                {lei && <CheckCircle className="h-3.5 w-3.5 text-green-600 ml-1" />}
+                {lei && <CheckCircle className="h-3.5 w-3.5 text-green-600 ml-0.5" />}
             </div>
 
             <Button

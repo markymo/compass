@@ -858,6 +858,12 @@ model RegistryAuthority {
   @@map("registry_authorities")
 }
 
+enum SyncStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
 model RegistryReference {
   id                      String            @id @default(uuid())
   clientLEId              String
@@ -869,6 +875,9 @@ model RegistryReference {
   derivedFromEvidenceId   String?
   confidence              Float             @default(1.0)
   status                  String            @default("NEW") // NEW, PENDING, ENRICHED, FAILED, UNSUPPORTED
+  lastSyncAttemptAt       DateTime?
+  lastSyncSucceededAt     DateTime?
+  lastSyncStatus          SyncStatus?
   createdAt               DateTime          @default(now())
   updatedAt               DateTime          @updatedAt
   clientLE                ClientLE          @relation(fields: [clientLEId], references: [id], onDelete: Cascade)

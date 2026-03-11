@@ -12,8 +12,9 @@ export class RegistryEnrichmentService {
     /**
      * Entry point for enriching a Legal Entity from a RegistryReference.
      */
-    static async enrich(referenceId: string, force: boolean = false): Promise<{ success: boolean; record?: CanonicalRegistryRecord; evidenceId?: string; error?: string }> {
-        console.log("[RegistryEnrichmentService.enrich] START for refId:", referenceId, "force:", force);
+    static async enrich(referenceId: string, options: { forceRefresh?: boolean, autoApply?: boolean } = {}): Promise<{ success: boolean; record?: CanonicalRegistryRecord; evidenceId?: string; error?: string }> {
+        const { forceRefresh = false, autoApply = false } = options;
+        console.log("[RegistryEnrichmentService.enrich] START for refId:", referenceId, "options:", options);
         // 1. Fetch the reference
         const reference = await prisma.registryReference.findUnique({
             where: { id: referenceId },
@@ -26,7 +27,7 @@ export class RegistryEnrichmentService {
         }
         console.log("[RegistryEnrichmentService.enrich] Found ref for authority:", reference.registryAuthorityId);
 
-        if (reference.status === "ENRICHED" && !force) {
+        if (reference.status === "ENRICHED" && !forceRefresh) {
             // Check staleness (e.g. 24 hours)
             const isStale = reference.updatedAt.getTime() < Date.now() - (24 * 60 * 60 * 1000);
             if (!isStale) {
@@ -50,7 +51,7 @@ export class RegistryEnrichmentService {
             console.log("[RegistryEnrichmentService.enrich] NO CONNECTOR FOUND");
             await prisma.registryReference.update({
                 where: { id: referenceId },
-                data: { status: "UNSUPPORTED" }
+                data: { status: "UNSUPPORTED", lastSyncStatus: "FAILED", lastSyncAttemptAt: new Date() }
             });
             return { success: false, error: `No connector for authority ${reference.registryAuthorityId}` };
         }
@@ -70,7 +71,7 @@ export class RegistryEnrichmentService {
             console.log("[RegistryEnrichmentService.enrich] Fetching from connector...");
             await prisma.registryReference.update({
                 where: { id: referenceId },
-                data: { status: "PENDING" }
+                data: { status: "PENDING", lastSyncAttemptAt: new Date(), lastSyncStatus: "PENDING" }
             });
 
             // 5. Execute fetch
@@ -103,7 +104,7 @@ export class RegistryEnrichmentService {
             // 8. Update reference to ENRICHED
             await prisma.registryReference.update({
                 where: { id: referenceId },
-                data: { status: "ENRICHED" }
+                data: { status: "ENRICHED", lastSyncSucceededAt: new Date(), lastSyncStatus: "SUCCESS" }
             });
 
             // 9. Sync to ClientLE for backward compatibility with existing UI
@@ -132,7 +133,7 @@ export class RegistryEnrichmentService {
 
             await prisma.registryReference.update({
                 where: { id: referenceId },
-                data: { status: "FAILED" }
+                data: { status: "FAILED", lastSyncStatus: "FAILED" }
             });
 
             return { success: false, error: error.message };

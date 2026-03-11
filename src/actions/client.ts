@@ -7,6 +7,7 @@ import { can, Action, UserWithMemberships } from "@/lib/auth/permissions";
 
 import { cookies } from "next/headers";
 import { emptyMetrics, calculateEngagementMetrics, rollupMetrics, DashboardMetric } from "@/lib/metrics-calc";
+import { LegalEntityEnrichmentService } from "@/domain/registry";
 
 // --- Authorization Helper ---
 async function ensureAuthorization(action: Action, context: { partyId?: string, clientLEId?: string, engagementId?: string }) {
@@ -420,6 +421,13 @@ export async function createClientLE(data: { name: string; jurisdiction: string;
             }
         },
     });
+
+    // Fire and forget (or await) the enrichment bootstrap
+    try {
+        await LegalEntityEnrichmentService.bootstrapEntity(newLE.id);
+    } catch (e) {
+        console.error("[createClientLE] Bootstrap failed (continuing anyway)", e);
+    }
 
     revalidatePath("/app/le");
     // Also revalidate the client dashboard if we know the path - but it uses dynamic ID so revalidating /app/clients/[id] is tricky without the ID here.

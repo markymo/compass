@@ -26,7 +26,8 @@ export default async function LegalEntityLayout({ children, params }: LayoutProp
             description: true,
             lei: true,
             dueDate: true,
-            gleifFetchedAt: true
+            gleifFetchedAt: true,
+            gleifData: true
         }
     });
 

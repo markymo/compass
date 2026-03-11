@@ -71,6 +71,7 @@ function InnerShell({ children, baseBreadcrumbs, leId, leName, isSystemAdmin, le
                                     leId={leData.id}
                                     initialLei={leData.lei}
                                     initialFetchedAt={leData.gleifFetchedAt}
+                                    officialName={leData.gleifData?.attributes?.entity?.legalName?.name}
                                 />
                             </div>
                         </div>

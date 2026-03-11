@@ -505,7 +505,14 @@ export async function createFIEngagement(clientLEId: string, fiName: string) {
 export async function getFullMasterData(clientLEId: string) {
     // 1. Fetch ClientLE (link to LegalEntity)
     const clientLE = await prisma.clientLE.findUnique({
-        where: { id: clientLEId }
+        where: { id: clientLEId },
+        include: {
+            registryReferences: {
+                include: { authority: true },
+                orderBy: { updatedAt: 'desc' },
+                take: 1
+            }
+        }
     });
 
     if (!clientLE) return { success: false, data: {} };
@@ -583,12 +590,26 @@ export async function getFullMasterData(clientLEId: string) {
     // 4. Find most recent GLEIF-sourced event for this legal entity
     const gleifLastSynced: Date | null = clientLE.gleifFetchedAt;
 
+    // 5. Extract National Registry Data if available
+    let nationalRegistryData = null;
+    if (clientLE.registryReferences && clientLE.registryReferences.length > 0) {
+        const primaryRef = clientLE.registryReferences[0];
+        nationalRegistryData = {
+            id: primaryRef.id,
+            authorityName: primaryRef.authority.name,
+            localRegistrationNumber: primaryRef.localRegistrationNumber,
+            lastSyncSucceededAt: primaryRef.lastSyncSucceededAt,
+            lastSyncStatus: primaryRef.lastSyncStatus
+        };
+    }
+
     return {
         success: true,
         data: flattened,
         customData,
         customDefinitions,
         gleifLastSynced,
+        nationalRegistryData,
         masterFields: await listAllMasterFields(), // Already fetched above, but for clarity
         masterGroups: await listAllMasterGroups()
     };

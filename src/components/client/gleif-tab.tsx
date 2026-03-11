@@ -54,7 +54,7 @@ export function GleifTab({ leId, data, fetchedAt }: GleifTabProps) {
                 <div className="flex items-center gap-3">
                     <div className="bg-white dark:bg-emerald-900/30 p-1 rounded-lg border border-emerald-100 dark:border-emerald-800 shadow-sm overflow-hidden flex items-center justify-center min-w-[40px] h-[40px]">
                         <img 
-                            src="https://www.gleif.org/newsroom/information-for-media/gleif-graphics-images/gleif-logo.png" 
+                            src="https://www.gleif.org/assets/build/img/logo/gleif-logo-new.svg" 
                             alt="GLEIF Logo" 
                             className="h-6 w-auto object-contain"
                         />

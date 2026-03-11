@@ -15,3 +15,4 @@ export * from "./RegistryAuthorityService";
 export * from "./RegistryConnectorFactory";
 export * from "./RegistryEnrichmentService";
 export * from "./deriveRegistryReferencesFromGleif";
+export * from "./LegalEntityEnrichmentService";

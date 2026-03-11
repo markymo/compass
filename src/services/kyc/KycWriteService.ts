@@ -109,8 +109,16 @@ export class KycWriteService {
             return false;
         }
 
-        // 3. Perform Update is now deprecated for legacy tables.
-        // We rely entirely on Clause 4 (FieldClaim emission) for data persistence.
+        // 3. Check for Idempotency (Material Change Check)
+        const derived = await KycStateService.getAuthoritativeValue(
+            { subjectLeId: resolvedEntityId },
+            fieldNo
+        );
+
+        if (derived && this.valuesAreEqual(derived.value, value)) {
+            console.log(`[KycWriteService] Idempotency check: Value identical for Field ${fieldNo}. Skipping claim assertion.`);
+            return true; 
+        }
 
         // 4. Emit FieldClaim for Provenance Tracking
         try {
@@ -334,26 +342,9 @@ export class KycWriteService {
         const currentValue = derived?.value || null;
         const currentSource = derived?.sourceType;
 
-        // 1. Check if values are identical
-        const valuesAreEqual = (a: any, b: any) => {
-            if (a === b) return true;
-            if (a instanceof Date && typeof b === 'string') {
-                return a.toISOString().split('T')[0] === b.split('T')[0];
-            }
-            if (typeof a === 'string' && b instanceof Date) {
-                return a.split('T')[0] === b.toISOString().split('T')[0];
-            }
-            if (a instanceof Date && b instanceof Date) {
-                return a.getTime() === b.getTime();
-            }
-            // For numbers/decimals
-            if (typeof a === 'number' && typeof b === 'string') {
-                return a === parseFloat(b);
-            }
-            return false;
-        };
 
-        if (valuesAreEqual(currentValue, candidate.value)) {
+
+        if (this.valuesAreEqual(currentValue, candidate.value)) {
             return {
                 action: 'NO_CHANGE',
                 currentValue,
@@ -378,6 +369,24 @@ export class KycWriteService {
             currentValue,
             currentSource: currentSource as ProvenanceSource
         };
+    }
+
+    private valuesAreEqual(a: any, b: any): boolean {
+        if (a === b) return true;
+        if (a instanceof Date && typeof b === 'string') {
+            return a.toISOString().split('T')[0] === b.split('T')[0];
+        }
+        if (typeof a === 'string' && b instanceof Date) {
+            return a.split('T')[0] === b.toISOString().split('T')[0];
+        }
+        if (a instanceof Date && b instanceof Date) {
+            return a.getTime() === b.getTime();
+        }
+        // For numbers/decimals
+        if (typeof a === 'number' && typeof b === 'string') {
+            return a === parseFloat(b);
+        }
+        return false;
     }
 
     private async evaluateOverwrite(

@@ -12,7 +12,7 @@ export default async function MasterRecordPage({ params }: { params: Promise<{ i
 
     if (!result.success) return notFound();
 
-    const { data: masterData, customData, customDefinitions, gleifLastSynced, masterFields, masterGroups } = result as any;
+    const { data: masterData, customData, customDefinitions, gleifLastSynced, nationalRegistryData, masterFields, masterGroups } = result as any;
 
     return (
         <div className="p-6 max-w-[1600px] mx-auto">
@@ -24,6 +24,7 @@ export default async function MasterRecordPage({ params }: { params: Promise<{ i
                 customData={customData || {}}
                 customDefinitions={customDefinitions || []}
                 gleifLastSynced={gleifLastSynced ?? undefined}
+                nationalRegistryData={nationalRegistryData}
                 masterFields={masterFields || []}
                 masterGroups={masterGroups || []}
                 categories={dataSort.categories}

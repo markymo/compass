@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Fingerprint, RefreshCcw, ArrowRight, ShieldCheck, ShieldAlert, Ban, Info, Building2, FileText, Users, Globe, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { refreshGleifProposals, acceptProposal } from "@/actions/kyc-proposals";
+import { refreshRegistryReferenceAction } from "@/actions/registry";
 import { FieldProposal, ProvenanceSource } from "@/domain/kyc/types/ProposalTypes";
 import { cn } from "@/lib/utils";
 import { FieldDetailPanel } from "./inspection/field-detail-panel";
@@ -38,13 +39,21 @@ interface DataSchemaTabProps {
     masterGroups: any[];
     categories?: CategoryDef[];
     uncategorizedFields?: any[];
+    nationalRegistryData?: {
+        id: string;
+        authorityName: string;
+        localRegistrationNumber: string;
+        lastSyncSucceededAt: Date | null;
+        lastSyncStatus: string | null;
+    } | null;
 }
 
-export function DataSchemaTab({ leId, masterData, customData = {}, customDefinitions = [], gleifLastSynced, masterFields = [], masterGroups = [], categories = [], uncategorizedFields = [] }: DataSchemaTabProps) {
+export function DataSchemaTab({ leId, masterData, customData = {}, customDefinitions = [], gleifLastSynced, masterFields = [], masterGroups = [], categories = [], uncategorizedFields = [], nationalRegistryData }: DataSchemaTabProps) {
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [proposals, setProposals] = useState<FieldProposal[] | null>(null);
     const [selectedField, setSelectedField] = useState<{ fieldNo: number; name: string; customFieldId?: string } | null>(null);
     const [lastRefreshed, setLastRefreshed] = useState<Date | undefined>(gleifLastSynced);
+    const [isRefreshingRegistry, setIsRefreshingRegistry] = useState(false);
 
     const [search, setSearch] = useState("");
     const [catFilter, setCatFilter] = useState("ALL");
@@ -157,43 +166,91 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
         }
     };
 
+    const handleRefreshRegistry = async () => {
+        if (!nationalRegistryData?.id) return;
+        setIsRefreshingRegistry(true);
+        try {
+            const result = await refreshRegistryReferenceAction(leId, nationalRegistryData.id);
+            if (result.success) {
+                toast.success("Registry data synchronized successfully.");
+            } else {
+                toast.error(result.error || "Failed to refresh registry data.");
+            }
+        } catch (e) {
+            toast.error("An unexpected error occurred while refreshing the registry.");
+        } finally {
+            setIsRefreshingRegistry(false);
+        }
+    };
+
     return (
         <div className="space-y-8">
             {/* External Sources — compact full-width bar at the top */}
             <div className="rounded-xl border border-slate-200 bg-white shadow-sm p-4">
-                <div className="flex items-center justify-between flex-wrap gap-4">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between flex-wrap gap-4">
                     <div>
                         <h2 className="text-base font-semibold text-slate-800">External Sources</h2>
                     </div>
 
-                    {/* GLEIF Source */}
-                    <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-3">
-                            <div className="h-9 w-9 rounded-full bg-orange-100 flex items-center justify-center shrink-0 overflow-hidden border border-orange-200">
-                                <img 
-                                    src="https://www.gleif.org/newsroom/information-for-media/gleif-graphics-images/gleif-logo.png" 
-                                    alt="GLEIF Logo" 
-                                    className="h-4 w-auto scale-150"
-                                />
-                            </div>
-                            <div>
-                                <div className="font-medium text-sm">Global LEI Index (GLEIF)</div>
-                                <div className="text-xs text-slate-500">
-                                    {lastRefreshed
-                                        ? <>Last synced: <span className="font-medium text-slate-700">{lastRefreshed.toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" })}</span> at <span className="font-medium text-slate-700">{lastRefreshed.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}</span></>
-                                        : "Never synced"}
+                    <div className="flex flex-col md:flex-row gap-6">
+                        {/* GLEIF Source */}
+                        <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-3">
+                                <div className="h-9 w-9 rounded-full bg-orange-100 flex items-center justify-center shrink-0 overflow-hidden border border-orange-200">
+                                    <img 
+                                        src="https://www.gleif.org/assets/build/img/logo/gleif-logo-new.svg" 
+                                        alt="GLEIF Logo" 
+                                        className="h-4 w-auto scale-150"
+                                    />
+                                </div>
+                                <div>
+                                    <div className="font-medium text-sm">Global LEI Index (GLEIF)</div>
+                                    <div className="text-xs text-slate-500">
+                                        {lastRefreshed
+                                            ? <>Last synced: <span className="font-medium text-slate-700">{lastRefreshed.toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" })}</span> at <span className="font-medium text-slate-700">{lastRefreshed.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}</span></>
+                                            : "Never synced"}
+                                    </div>
                                 </div>
                             </div>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={handleRefreshGleif}
+                                disabled={isRefreshing}
+                            >
+                                <RefreshCcw className={cn("mr-2 h-4 w-4", isRefreshing && "animate-spin")} />
+                                {isRefreshing ? "Checking..." : "Check for Updates"}
+                            </Button>
                         </div>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={handleRefreshGleif}
-                            disabled={isRefreshing}
-                        >
-                            <RefreshCcw className={cn("mr-2 h-4 w-4", isRefreshing && "animate-spin")} />
-                            {isRefreshing ? "Checking..." : "Check for Updates"}
-                        </Button>
+
+                        {/* National Registry Source */}
+                        {nationalRegistryData && (
+                            <div className="flex items-center gap-4 lg:border-l lg:pl-6 border-slate-200">
+                                <div className="flex items-center gap-3">
+                                    <div className="h-9 w-9 rounded-full bg-emerald-50 flex items-center justify-center shrink-0 border border-emerald-100 dark:border-emerald-900/50">
+                                        <Building2 className="h-4 w-4 text-emerald-600" />
+                                    </div>
+                                    <div>
+                                        <div className="font-medium text-sm">{nationalRegistryData.authorityName} - {nationalRegistryData.localRegistrationNumber}</div>
+                                        <div className="text-xs text-slate-500">
+                                            {nationalRegistryData.lastSyncSucceededAt
+                                                ? <>Last synced: <span className="font-medium text-slate-700">{new Date(nationalRegistryData.lastSyncSucceededAt).toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" })}</span></>
+                                                : "Never synced"}
+                                            {nationalRegistryData.lastSyncStatus === "FAILED" && <span className="ml-2 text-red-500 font-medium">Sync Failed</span>}
+                                        </div>
+                                    </div>
+                                </div>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={handleRefreshRegistry}
+                                    disabled={isRefreshingRegistry}
+                                >
+                                    <RefreshCcw className={cn("mr-2 h-4 w-4", isRefreshingRegistry && "animate-spin")} />
+                                    {isRefreshingRegistry ? "Checking..." : "Check for Updates"}
+                                </Button>
+                            </div>
+                        )}
                     </div>
                 </div>
 
