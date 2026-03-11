@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { LucideIcon } from "lucide-react";
 import React from "react";
@@ -19,6 +19,10 @@ interface HeaderNavListProps {
 
 export function HeaderNavList({ items }: HeaderNavListProps) {
     const pathname = usePathname();
+    const searchParams = useSearchParams();
+    
+    // Construct a full path with query string to pass to isActive for tab matching
+    const fullPath = searchParams.toString() ? `${pathname}?${searchParams.toString()}` : pathname;
 
     return (
         <div className="relative group/nav overflow-hidden">
@@ -27,7 +31,7 @@ export function HeaderNavList({ items }: HeaderNavListProps) {
                 aria-label="Secondary Navigation"
             >
                 {items.map((item) => {
-                    const active = item.isActive(pathname);
+                    const active = item.isActive(fullPath);
                     const Icon = item.icon;
                     return (
                         <Link

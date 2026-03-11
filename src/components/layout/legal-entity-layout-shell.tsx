@@ -40,17 +40,17 @@ function InnerShell({ children, baseBreadcrumbs, leId, leName, isSystemAdmin, le
     return (
         <div className="flex flex-col min-h-screen bg-slate-50/50">
             <StandardPageHeader
-                title={canEdit ? <EditableHeaderTitle leId={leId} initialValue={leName} /> : (pageTitle || leName)}
+                title={pageTitle || (canEdit ? <EditableHeaderTitle leId={leId} initialValue={leName} /> : leName)}
                 typeLabel={pageTypeLabel || "Legal Entity"}
                 breadcrumbs={combinedBreadcrumbs}
-                actions={<ClientLEActions leId={leId} leName={leName} isSystemAdmin={isSystemAdmin} />}
+                actions={!pageTypeLabel ? <ClientLEActions leId={leId} leName={leName} isSystemAdmin={isSystemAdmin} /> : undefined}
                 secondaryNav={contextSecondaryNav || <HeaderNavList items={leTabs} />}
             />
             <main className={cn(
                 "flex-1 mx-auto w-full p-8 space-y-8",
                 isWide ? "max-w-screen-2xl" : "max-w-6xl"
             )}>
-                {leData && (
+                {leData && !pageTypeLabel && (
                     <div className="flex flex-col gap-4">
                         <div className="flex items-center gap-4">
                             <DueDateBadge

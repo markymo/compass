@@ -125,7 +125,7 @@ export function EngagementDetailView({ le, engagement, questionnaires, sharedDoc
     return (
         <div className="space-y-6">
             <SetPageBreadcrumbs 
-                items={[{ label: engagement.org.name }]} // The LE layout handles the parent trail
+                items={[{ label: engagement.org.name, iconName: "link-2" }]} // The LE layout handles the parent trail
                 title={engagement.org.name}
                 typeLabel="Supplier Relationship"
                 secondaryNav={<HeaderNavList items={relationshipTabs} />}
