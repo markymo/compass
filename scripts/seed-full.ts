@@ -301,6 +301,28 @@ async function main() {
     await ensureEng('South Fork Wind', barclays, 'PREPARATION');
     await ensureEng('South Fork Wind', rabobank, 'PREPARATION');
     await ensureEng('Gode Wind 3', rabobank, 'PREPARATION');
+    
+    // --- 9. SEED REGISTRY AUTHORITIES ---
+    console.log('🏛️ Seeding Registry Authorities...');
+    const initialAuthorities = [
+        {
+            id: "RA000585",
+            registryKey: "GB_COMPANIES_HOUSE",
+            name: "Companies House",
+            countryCode: "GB",
+            jurisdiction: "UK",
+            lookupStrategy: "LOCAL_ID",
+            notes: "UK national registry for companies"
+        }
+    ];
+
+    for (const auth of initialAuthorities) {
+        await prisma.registryAuthority.upsert({
+            where: { id: auth.id },
+            update: auth,
+            create: auth
+        });
+    }
 
     console.log('✅ Full Seed Complete!');
 }
