@@ -3,19 +3,12 @@ import { StandardPageHeader } from "@/components/layout/StandardPageHeader";
 import { DashboardContent } from "@/components/dashboard/dashboard-content";
 import Link from "next/link";
 import { Home } from "lucide-react";
-import { SetPageBreadcrumbs } from "@/context/breadcrumb-context";
 
 export default async function DashboardPage() {
     const contexts = await getUserContexts();
 
     return (
         <div className="flex flex-col min-h-screen bg-slate-50/30">
-            <SetPageBreadcrumbs 
-                items={[]}
-                title="Relationships Overview"
-                typeLabel="Overview"
-            />
-            
             <StandardPageHeader
                 title="Relationships Overview"
                 typeLabel="Overview"
