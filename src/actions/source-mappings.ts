@@ -267,6 +267,44 @@ export async function toggleSourceMapping(id: string, isActive: boolean) {
         return { success: false, error: error.message };
     }
 }
+export async function deleteSourceMapping(id: string) {
+    try {
+        const identity = await getIdentity();
+        const userId = identity?.userId || null;
+
+        const before = await prisma.sourceFieldMapping.findUnique({ where: { id } });
+        if (!before) return { success: false, error: "Mapping not found" };
+
+        await prisma.sourceFieldMapping.delete({
+            where: { id }
+        });
+
+        // Audit
+        try {
+            await prisma.auditLog.create({
+                data: {
+                    userId: userId || 'SYSTEM',
+                    action: 'SOURCE_MAPPING_DELETE',
+                    entityId: id,
+                    details: {
+                        entityType: 'SourceFieldMapping',
+                        before: before,
+                        after: null,
+                        sourceType: before.sourceType,
+                        targetFieldNo: before.targetFieldNo
+                    }
+                }
+            });
+        } catch (e) {
+            console.warn("Failed to write audit log for delete", e);
+        }
+
+        return { success: true };
+    } catch (error: any) {
+        console.error("deleteSourceMapping error:", error);
+        return { success: false, error: error.message };
+    }
+}
 
 // ── Test / Preview Actions ─────────────────────────────────────────────
 

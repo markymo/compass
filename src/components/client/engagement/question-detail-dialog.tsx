@@ -434,7 +434,7 @@ export function QuestionDetailDialog({ open, onOpenChange, task, clientLEId }: Q
                             <div className="space-y-4 pt-4 border-t border-slate-100">
                                 <div className="flex items-center gap-2">
                                     <Paperclip className="h-4 w-4 text-indigo-600" />
-                                    <h4 className="text-sm font-semibold text-slate-900">Supporting Documents</h4>
+                                    <h4 className="text-sm font-semibold text-slate-900">Documents</h4>
                                 </div>
                                 <div className="bg-slate-50/50 rounded-xl border border-slate-200 p-4 space-y-4">
 

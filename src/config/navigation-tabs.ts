@@ -42,7 +42,7 @@ export const getLegalEntityTabs = (leId: string): NavItem[] => {
             isActive: (path) => matchesPath(path, `${baseUrl}/master`)
         },
         {
-            label: "Questionnaire Responses",
+            label: "Questionnaires",
             href: `${baseUrl}/workbench4`,
             icon: Clipboard,
             isActive: (path) => matchesPath(path, `${baseUrl}/workbench4`)

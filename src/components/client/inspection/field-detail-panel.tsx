@@ -179,8 +179,8 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
         try {
             const res = await promoteClaim(legalEntityId, claimId);
             if (res.success) {
-                toast.success("Claim promoted successfully");
-                loadData(); // Reload stats and candidates
+                toast.success("Suggestion promoted successfully");
+                loadData(); // Reload stats and suggestions
                 if (onUpdate) {
                     // Update parent UI with new authoritative value
                     onUpdate(data?.candidates.find(c => c.id === claimId)?.value, "USER_INPUT", new Date());
@@ -1038,7 +1038,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                         <div className="bg-slate-50/50 border-t border-slate-100 p-5">
                             <div className="flex items-center justify-between mb-3">
                                 <span className="text-xs font-semibold text-slate-600 uppercase tracking-wide flex items-center gap-1.5">
-                                    <Paperclip className="w-3.5 h-3.5" /> Supporting Documents
+                                    <Paperclip className="w-3.5 h-3.5" /> Documents
                                 </span>
                                 <div className="flex items-center gap-2">
                                     {evidenceDocs.length > 0 && (
@@ -1177,12 +1177,12 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                         </TabsContent>
                     </Tabs>
 
-                    {/* ─── Candidate Claims Section ─── */}
+                    {/* ─── Suggestions Section ─── */}
                     <div className="mt-4 pt-4 border-t border-slate-200 shrink-0">
                         <div className="flex items-center justify-between mb-4">
                             <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
                                 <Database className="w-4 h-4 text-slate-400" />
-                                Candidate Claims
+                                Suggestions
                             </h3>
                             <Badge variant="outline" className="text-[10px] font-normal text-slate-400">
                                 {data?.candidates?.length || 0} Persisted
@@ -1251,7 +1251,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                             </div>
                         )}
                         <p className="mt-4 text-[10px] text-slate-400 leading-relaxed italic">
-                            Promoting a claim will create a new verified manual entry using the source value, overriding the current authoritative choice.
+                            Promoting a suggestion will create a new verified manual entry using the source value, overriding the current authoritative choice.
                         </p>
                     </div>
                 </div>

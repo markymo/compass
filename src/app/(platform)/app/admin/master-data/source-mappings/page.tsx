@@ -35,7 +35,7 @@ import { Separator } from "@/components/ui/separator";
 import { fetchLiveRegistryRecord } from "@/actions/registry-live";
 import {
     GitBranch, Plus, Loader2, Play, Zap, CheckCircle2, AlertTriangle,
-    ChevronRight, Eye, ArrowRight, Info, FileJson, RefreshCw, Search
+    ChevronRight, Eye, ArrowRight, Info, FileJson, RefreshCw, Search, Trash2
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -49,6 +49,7 @@ import {
     getAvailableSourcePaths,
     getSamplePayloads,
     getActiveFieldDefinitions,
+    deleteSourceMapping,
 } from "@/actions/source-mappings";
 import { DataInspectorPanel } from "@/components/client/admin/source-mappings/data-inspector-panel";
 
@@ -132,6 +133,22 @@ export default function SourceMappingsPage() {
         const res = await testAllSourceMappings(sourceType);
         setTestAllResults(res);
         setTestAllLoading(false);
+    };
+
+    const handleDelete = async (id: string) => {
+        if (!confirm("Are you sure you want to delete this mapping?")) return;
+        
+        const res = await deleteSourceMapping(id);
+        if (res.success) {
+            toast.success("Mapping deleted");
+            loadData();
+            if (selectedMapping?.id === id) {
+                setSelectedMapping(null);
+                setPreviewResult(null);
+            }
+        } else {
+            toast.error(res.error || "Failed to delete");
+        }
     };
 
     const handleBootstrap = async () => {
@@ -304,16 +321,27 @@ export default function SourceMappingsPage() {
                                                         />
                                                     </TableCell>
                                                     <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            className="h-7 w-7"
-                                                            onClick={() => {
-                                                                setEditMapping(m);
-                                                            }}
-                                                        >
-                                                            <ChevronRight className="h-4 w-4" />
-                                                        </Button>
+                                                        <div className="flex items-center justify-end gap-1">
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-7 w-7 text-slate-400 hover:text-red-600"
+                                                                onClick={() => handleDelete(m.id)}
+                                                                title="Delete Mapping"
+                                                            >
+                                                                <Trash2 className="h-3.5 w-3.5" />
+                                                            </Button>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-7 w-7"
+                                                                onClick={() => {
+                                                                    setEditMapping(m);
+                                                                }}
+                                                            >
+                                                                <ChevronRight className="h-4 w-4" />
+                                                            </Button>
+                                                        </div>
                                                     </TableCell>
                                                 </TableRow>
                                             ))}

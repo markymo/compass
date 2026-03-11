@@ -12,7 +12,7 @@ export default async function Workbench4Page({ params }: { params: Promise<{ id:
     return (
         <div className="p-6">
             <div className="mb-8">
-                <h1 className="text-2xl font-bold tracking-tight text-slate-900">Questionnaire Responses</h1>
+                <h1 className="text-2xl font-bold tracking-tight text-slate-900">Questionnaires</h1>
             </div>
 
             <CrossQuestionnaireMapper
