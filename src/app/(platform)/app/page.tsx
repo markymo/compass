@@ -543,7 +543,7 @@ function RoleBadge({ role }: { role: string }) {
         colorClass = "bg-emerald-50 text-emerald-700 border-emerald-100";
     }
 
-    const label = role;
+    const label = role === "ADMIN_VISIBILITY" ? "ORG_ADMIN (NO DATA ACCESS)" : role;
 
     return (
         <Badge variant="outline" className={cn("text-[10px] font-normal px-1.5 py-0 h-4 uppercase tracking-tighter", colorClass)}>
