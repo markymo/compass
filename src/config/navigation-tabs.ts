@@ -33,13 +33,7 @@ export const getLegalEntityTabs = (leId: string): NavItem[] => {
             label: "Sources",
             href: `${baseUrl}/sources`,
             icon: Library,
-            isActive: (path) => matchesPath(path, `${baseUrl}/sources`) && !path.startsWith(`${baseUrl}/sources-v2`)
-        },
-        {
-            label: "Sources V2",
-            href: `${baseUrl}/sources-v2`,
-            icon: Layers,
-            isActive: (path) => matchesPath(path, `${baseUrl}/sources-v2`)
+            isActive: (path) => matchesPath(path, `${baseUrl}/sources`)
         },
         {
             label: "Master Record",
