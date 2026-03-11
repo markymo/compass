@@ -44,6 +44,7 @@ import { Separator } from "@/components/ui/separator";
 import { getVaultDocuments, uploadDocument, deleteDocument } from "@/actions/documents";
 import { analyzeDocument } from "@/actions/document-analysis";
 import { getLEEngagements } from "@/actions/client-le";
+import { formatUploader } from "@/lib/vault-utils";
 import { DocumentSharingDialog } from "./document-sharing-dialog";
 import {
     FileText, MoreVertical, Search, Upload, Download, Trash2, Loader2, File, ShieldCheck, Clock,
@@ -279,7 +280,6 @@ export function DocumentVault({ leId }: DocumentVaultProps) {
                                                         <div className="p-2 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-lg group-hover:bg-slate-200 dark:group-hover:bg-slate-700 transition-colors">
                                                             <File className="h-5 w-5" />
                                                         </div>
-                                                        <DocStatusBadge verified={doc.isVerified} mini />
                                                     </div>
 
                                                     <div className="mb-2 flex-1">
@@ -287,14 +287,6 @@ export function DocumentVault({ leId }: DocumentVaultProps) {
                                                             {doc.name}
                                                         </h4>
                                                         <div className="flex items-center gap-2 mt-1 flex-wrap">
-                                                            {aiData?.documentType ? (
-                                                                <span className="text-[10px] font-medium text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100 truncate max-w-full" title={aiData.documentType}>
-                                                                    {aiData.documentType}
-                                                                </span>
-                                                            ) : (
-                                                                <span className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">{doc.docType}</span>
-                                                            )}
-                                                            <span className="text-[10px] text-slate-300">•</span>
                                                             <span className="text-[10px] text-slate-400">{(doc.kbSize || 120) + ' KB'}</span>
                                                         </div>
                                                         {aiData?.summary && (
@@ -325,10 +317,8 @@ export function DocumentVault({ leId }: DocumentVaultProps) {
                                 <Table>
                                     <TableHeader className="bg-slate-50 dark:bg-slate-900/50">
                                         <TableRow className="hover:bg-transparent">
-                                            <TableHead className="w-[40%]">Document Name</TableHead>
-                                            <TableHead>Type</TableHead>
+                                            <TableHead className="w-[60%]">Document Name</TableHead>
                                             <TableHead>Date Added</TableHead>
-                                            <TableHead>Status</TableHead>
                                             <TableHead className="text-right">Actions</TableHead>
                                         </TableRow>
                                     </TableHeader>
@@ -379,22 +369,8 @@ export function DocumentVault({ leId }: DocumentVaultProps) {
                                                             </div>
                                                         </div>
                                                     </TableCell>
-                                                    <TableCell>
-                                                        {aiData?.documentType ? (
-                                                            <Badge variant="secondary" className="font-normal text-[10px] bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-100">
-                                                                {aiData.documentType}
-                                                            </Badge>
-                                                        ) : (
-                                                            <Badge variant="secondary" className="font-normal text-[10px] bg-slate-100 text-slate-600 hover:bg-slate-200 border-slate-200">
-                                                                {doc.docType?.replace(/_/g, " ")}
-                                                            </Badge>
-                                                        )}
-                                                    </TableCell>
                                                     <TableCell className="text-slate-500 text-xs font-medium">
                                                         {format(new Date(doc.createdAt), "MMM d, yyyy")}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <DocStatusBadge verified={doc.isVerified} />
                                                     </TableCell>
                                                     <TableCell className="text-right">
                                                         <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-indigo-600">
@@ -445,6 +421,14 @@ export function DocumentVault({ leId }: DocumentVaultProps) {
                                         <span>•</span>
                                         <span>{(selectedDoc.kbSize || 120) + ' KB'}</span>
                                     </SheetDescription>
+                                    <div className="mt-4 flex items-center gap-2 text-xs text-slate-400 bg-slate-50 dark:bg-slate-900/50 p-2 rounded-lg border border-slate-100 dark:border-slate-800 w-fit">
+                                        <Avatar className="h-5 w-5">
+                                            <AvatarFallback className="text-[8px] bg-slate-200 text-slate-600">
+                                                {(selectedDoc.uploadedBy?.name || selectedDoc.uploadedBy?.email || "U").substring(0, 1).toUpperCase()}
+                                            </AvatarFallback>
+                                        </Avatar>
+                                        <span>Uploaded by <span className="font-medium text-slate-600 dark:text-slate-300">{formatUploader(selectedDoc.uploadedBy)}</span></span>
+                                    </div>
                                 </div>
 
                                 <Separator className="my-6" />

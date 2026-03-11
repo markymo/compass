@@ -18,7 +18,7 @@ export interface BreadcrumbItemData {
 }
 
 interface StandardPageHeaderProps {
-    title?: string;
+    title?: string | React.ReactNode;
     subtitle?: string;
     typeLabel?: string;
     breadcrumbs: BreadcrumbItemData[];
@@ -92,11 +92,15 @@ export function StandardPageHeader({
                                 {typeLabel}
                             </span>
                         )}
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
                             {title && (
-                                <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100 truncate">
-                                    {title}
-                                </h1>
+                                typeof title === "string" ? (
+                                    <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100 truncate">
+                                        {title}
+                                    </h1>
+                                ) : (
+                                    title
+                                )
                             )}
                         </div>
                         {subtitle && (

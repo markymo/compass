@@ -8,16 +8,19 @@ import { Globe, BookOpen, Lock, Archive, Building2 } from "lucide-react";
 interface SourcesSubNavProps {
     leId: string;
     jurisdiction?: string | null;
+    registryName?: string | null;
 }
 
-export function SourcesSubNav({ leId, jurisdiction }: SourcesSubNavProps) {
+export function SourcesSubNav({ leId, jurisdiction, registryName }: SourcesSubNavProps) {
     const pathname = usePathname();
     const baseUrl = `/app/le/${leId}/sources`;
 
     // Determine Registry Label
-    let registryLabel = "National Registry";
-    if (jurisdiction === 'GB') registryLabel = "Companies House";
-    if (jurisdiction === 'FR') registryLabel = "Immatriculation (FR)";
+    let registryLabel = registryName || "National Registry";
+    if (!registryName) {
+        if (jurisdiction === 'GB') registryLabel = "Companies House";
+        if (jurisdiction === 'FR') registryLabel = "Immatriculation (FR)";
+    }
 
     const tabs = [
         {

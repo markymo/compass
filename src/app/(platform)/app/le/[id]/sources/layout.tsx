@@ -12,8 +12,20 @@ export default async function SourcesLayout({ children, params }: SourcesLayoutP
     // Fetch lightweight LE data for side nav context
     const le = await prisma.clientLE.findUnique({
         where: { id },
-        select: { jurisdiction: true }
+        select: { 
+            jurisdiction: true,
+            registryReferences: {
+                select: {
+                    authority: {
+                        select: { name: true }
+                    }
+                },
+                take: 1
+            }
+        }
     });
+
+    const registryName = le?.registryReferences?.[0]?.authority?.name;
 
     return (
         <div className="space-y-5 py-6">
@@ -21,7 +33,7 @@ export default async function SourcesLayout({ children, params }: SourcesLayoutP
             {/* Sidebar + content */}
             <div className="flex gap-8">
                 <aside className="w-64 flex-shrink-0">
-                    <SourcesSubNav leId={id} jurisdiction={le?.jurisdiction} />
+                    <SourcesSubNav leId={id} jurisdiction={le?.jurisdiction} registryName={registryName} />
                 </aside>
                 <div className="flex-1 min-w-0">
                     {children}

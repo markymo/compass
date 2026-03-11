@@ -8,6 +8,7 @@ import { getBreadcrumbIcon } from "@/lib/breadcrumb-icon-map";
 import { DueDateBadge } from "@/components/client/due-date-badge";
 import { EditableDescription } from "@/components/client/editable-description";
 import { EditableLEI } from "@/components/client/editable-lei";
+import { EditableHeaderTitle } from "@/components/client/editable-header-title";
 import { HeaderNavList } from "@/components/layout/HeaderNavList";
 import { getLegalEntityTabs } from "@/config/navigation-tabs";
 
@@ -19,10 +20,11 @@ interface LegalEntityLayoutShellProps {
     isSystemAdmin: boolean;
     leData?: any;
     clientOrgName?: string;
+    canEdit?: boolean;
 }
 
 
-function InnerShell({ children, baseBreadcrumbs, leId, leName, isSystemAdmin, leData, clientOrgName }: LegalEntityLayoutShellProps) {
+function InnerShell({ children, baseBreadcrumbs, leId, leName, isSystemAdmin, leData, clientOrgName, canEdit }: LegalEntityLayoutShellProps) {
     const { extraBreadcrumbs, pageTitle, pageTypeLabel, secondaryNav: contextSecondaryNav } = useBreadcrumbs();
 
     // Merge base breadcrumbs with extra breadcrumbs from context
@@ -37,7 +39,7 @@ function InnerShell({ children, baseBreadcrumbs, leId, leName, isSystemAdmin, le
     return (
         <div className="flex flex-col min-h-screen bg-slate-50/50">
             <StandardPageHeader
-                title={pageTitle || leName}
+                title={canEdit ? <EditableHeaderTitle leId={leId} initialValue={leName} /> : (pageTitle || leName)}
                 typeLabel={pageTypeLabel || "Legal Entity"}
                 breadcrumbs={combinedBreadcrumbs}
                 actions={<ClientLEActions leId={leId} leName={leName} isSystemAdmin={isSystemAdmin} />}

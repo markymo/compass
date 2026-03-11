@@ -554,20 +554,20 @@ export async function saveClientLEData(leId: string, schemaId: string, answers: 
 }
 
 // 5. Update LE Basic Info (e.g. Description)
-export async function updateClientLE(leId: string, data: { description?: string, lei?: string, gleifData?: any }) {
+export async function updateClientLE(leId: string, data: { name?: string, description?: string, lei?: string, gleifData?: any }) {
     try {
         await ensureAuthorization(Action.LE_UPDATE, { clientLEId: leId });
     } catch (e) {
         return { success: false, error: "Unauthorized: Access denied." };
     }
 
-    const identity = await getIdentity(); // This usage was suspicious in original code (await auth() inside try/catch block line 476 but used userId)
-    // Actually original code: const { userId } = await auth(); is line 476.
+    const identity = await getIdentity(); 
     if (!identity?.userId) return { success: false, error: "Unauthorized" };
     try {
         const updated = await prisma.clientLE.update({
             where: { id: leId },
             data: {
+                name: data.name,
                 description: data.description,
                 ...(data.lei !== undefined && { lei: data.lei }),
                 ...(data.gleifData !== undefined && {

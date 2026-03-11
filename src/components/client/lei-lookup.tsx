@@ -193,7 +193,7 @@ export function LEILookup({ onDataFetched, initialLei = "" }: LEILookupProps) {
             {/* EMPTY SEARCH STATE */}
             {mode === "SEARCH" && status === "IDLE" && searchResults.length === 0 && searchName.length > 2 && (
                 <div className="text-sm text-slate-400 italic px-1">
-                    No matches found. Try accurate spelling or switch to manual entry.
+                    No entity found on GLEIF. Enter full legal name (as per company registry) and registry jurisdiction to continue.
                 </div>
             )}
 

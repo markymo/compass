@@ -232,13 +232,13 @@ async function main() {
                         text: 'What is the legal name of the entity?',
                         order: 1,
                         masterFieldNo: 3,
-                        status: 'UNMAPPED'
+                        status: 'DRAFT'
                     },
                     {
                         text: 'What is the registered address of the entity?',
                         order: 2,
                         masterQuestionGroupId: 'REGISTERED_ADDRESS',
-                        status: 'UNMAPPED'
+                        status: 'DRAFT'
                     }
                 ]
             }

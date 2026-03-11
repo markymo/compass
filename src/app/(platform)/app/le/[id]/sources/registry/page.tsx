@@ -67,39 +67,32 @@ export default async function RegistryPage({ params }: { params: Promise<{ id: s
                 </div>
             )}
 
-            {/* Entity Summary (Basic Info from Registry) */}
+            {/* Integrated Registry Summary Banner */}
             {registryData && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <Card>
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-xs font-medium text-slate-500 uppercase tracking-wider">Registration Name</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-lg font-bold text-slate-900 dark:text-slate-100 italic truncate">
+                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between p-6 gap-6">
+                        <div className="flex-1 min-w-0">
+                            <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 px-0.5">Registration Name</h4>
+                            <div className="text-2xl font-black text-slate-900 dark:text-slate-100 italic break-words leading-tight">
                                 {registryData?.entityName || registryData?.company_name || "-"}
                             </div>
-                        </CardContent>
-                    </Card>
-                    <Card>
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-xs font-medium text-slate-500 uppercase tracking-wider">Registry Status</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <Badge variant={(registryData?.entityStatus || registryData?.company_status) === 'active' ? 'default' : 'outline'}>
-                                {registryData?.entityStatus || registryData?.company_status || "-"}
-                            </Badge>
-                        </CardContent>
-                    </Card>
-                    <Card>
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-xs font-medium text-slate-500 uppercase tracking-wider">Incorporation Date</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-sm font-medium">
-                                {registryData?.incorporationDate || registryData?.date_of_creation || "-"}
+                        </div>
+                        
+                        <div className="flex flex-wrap md:flex-nowrap items-center gap-8 md:border-l border-slate-100 dark:border-slate-800 md:pl-8">
+                            <div>
+                                <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 px-0.5">Status</h4>
+                                <Badge variant={(registryData?.entityStatus || registryData?.company_status) === 'active' ? 'default' : 'outline'} className="shadow-none">
+                                    {registryData?.entityStatus || registryData?.company_status || "-"}
+                                </Badge>
                             </div>
-                        </CardContent>
-                    </Card>
+                            <div>
+                                <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 px-0.5">Incorporated</h4>
+                                <div className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                                    {registryData?.incorporationDate || registryData?.date_of_creation || "-"}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             )}
 

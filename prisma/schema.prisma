@@ -77,6 +77,7 @@ model User {
   masterFieldAssignmentsCreated MasterFieldAssignment[] @relation("MasterFieldAssignmentsCreated")
   assignedMasterFields          MasterFieldAssignment[] @relation("AssignedMasterFields")
   masterFieldNotes              MasterFieldNote[]
+  uploadedDocuments             Document[]              @relation("UploadedDocuments")
 }
 
 model Organization {
@@ -268,10 +269,12 @@ model Document {
   masterFieldKey         String?
   prefilledForQuestionId String?
   questionId             String?
+  uploadedById           String?
   clientLE               ClientLE       @relation(fields: [clientLEId], references: [id])
   prefilledForQuestion   Question?      @relation("PrefilledQuestionDocuments", fields: [prefilledForQuestionId], references: [id])
   question               Question?      @relation("QuestionDocuments", fields: [questionId], references: [id])
   sharedWith             FIEngagement[] @relation("SharedDocuments")
+  uploadedBy             User?          @relation("UploadedDocuments", fields: [uploadedById], references: [id], onDelete: SetNull)
 }
 
 model Query {

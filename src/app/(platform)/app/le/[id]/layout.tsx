@@ -38,9 +38,22 @@ export default async function LegalEntityLayout({ children, params }: LayoutProp
     const ownerName = owner?.name;
     const ownerId = owner?.id;
 
-    // Check System Admin for Actions
+    // Check Admin status for Actions
     const identity = await getIdentity();
     const isSystemAdmin = identity?.userId ? await checkIsSystemAdmin(identity.userId) : false;
+
+    // Check ORG_Admin for Name Editing (Can be System Admin OR Client Admin of owner org)
+    let canEdit = isSystemAdmin;
+    if (!canEdit && identity?.userId && ownerId) {
+        const membership = await prisma.membership.findFirst({
+            where: {
+                userId: identity.userId,
+                organizationId: ownerId,
+                role: { in: ["ADMIN", "ORG_ADMIN", "CLIENT_ADMIN"] }
+            }
+        });
+        canEdit = !!membership;
+    }
 
     // Construct Base Breadcrumbs (Server-Side)
     const baseBreadcrumbs: GuideBreadcrumbItem[] = [
@@ -57,6 +70,7 @@ export default async function LegalEntityLayout({ children, params }: LayoutProp
             leData={le}
             clientOrgName={ownerName || "Client"}
             isSystemAdmin={isSystemAdmin}
+            canEdit={canEdit}
         >
             {children}
         </LegalEntityLayoutShell>
