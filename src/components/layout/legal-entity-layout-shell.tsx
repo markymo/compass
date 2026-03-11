@@ -11,6 +11,7 @@ import { EditableLEI } from "@/components/client/editable-lei";
 import { EditableHeaderTitle } from "@/components/client/editable-header-title";
 import { HeaderNavList } from "@/components/layout/HeaderNavList";
 import { getLegalEntityTabs } from "@/config/navigation-tabs";
+import { cn } from "@/lib/utils";
 
 interface LegalEntityLayoutShellProps {
     children: React.ReactNode;
@@ -25,7 +26,7 @@ interface LegalEntityLayoutShellProps {
 
 
 function InnerShell({ children, baseBreadcrumbs, leId, leName, isSystemAdmin, leData, clientOrgName, canEdit }: LegalEntityLayoutShellProps) {
-    const { extraBreadcrumbs, pageTitle, pageTypeLabel, secondaryNav: contextSecondaryNav } = useBreadcrumbs();
+    const { extraBreadcrumbs, pageTitle, pageTypeLabel, secondaryNav: contextSecondaryNav, isWide } = useBreadcrumbs();
 
     // Merge base breadcrumbs with extra breadcrumbs from context
     // Map icon names to actual Lucide icons if present
@@ -45,7 +46,10 @@ function InnerShell({ children, baseBreadcrumbs, leId, leName, isSystemAdmin, le
                 actions={<ClientLEActions leId={leId} leName={leName} isSystemAdmin={isSystemAdmin} />}
                 secondaryNav={contextSecondaryNav || <HeaderNavList items={leTabs} />}
             />
-            <main className="flex-1 max-w-6xl mx-auto w-full p-8 space-y-8">
+            <main className={cn(
+                "flex-1 mx-auto w-full p-8 space-y-8",
+                isWide ? "max-w-screen-2xl" : "max-w-6xl"
+            )}>
                 {leData && (
                     <div className="flex flex-col gap-4">
                         <div className="flex items-center gap-4">

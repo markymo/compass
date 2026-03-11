@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { FileText, Search, Plus, Filter, Download, ExternalLink, Clock, CheckCircle2, Sparkles, LayoutDashboard, FolderOpen, Users } from "lucide-react";
 import Link from "next/link";
+import { cn } from "@/lib/utils";
 import { AddQuestionnaireDialog } from "./add-questionnaire-dialog";
 import { KanbanBoard } from "./kanban-board";
 import { EngagementDocumentManager } from "./engagement-document-manager";
@@ -128,6 +129,7 @@ export function EngagementDetailView({ le, engagement, questionnaires, sharedDoc
                 title={engagement.org.name}
                 typeLabel="Supplier Relationship"
                 secondaryNav={<HeaderNavList items={relationshipTabs} />}
+                isWide={activeTab === 'workbench'}
             />
 
             {/* In-Page Metadata Row (Optional, could also move to secondaryNav metadata slot later) */}
@@ -170,7 +172,10 @@ export function EngagementDetailView({ le, engagement, questionnaires, sharedDoc
 
             <Tabs value={activeTab} className="w-full space-y-0">
                 {/* Internal TabsContent remains, but TabsList is removed as it's now in the header */}
-                <div className="bg-white border border-slate-200 rounded-xl p-0 md:p-8 relative min-h-[600px]">
+                <div className={cn(
+                    "bg-white border border-slate-200 rounded-xl relative min-h-[600px]",
+                    activeTab === "workbench" ? "p-0 md:p-4" : "p-0 md:p-8"
+                )}>
 
                     <TabsContent value="overview" className="mt-0">
                         <Card>

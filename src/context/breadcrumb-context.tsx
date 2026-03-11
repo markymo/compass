@@ -22,6 +22,8 @@ interface BreadcrumbContextType {
     setPageTypeLabel: (label: string | undefined) => void;
     secondaryNav?: React.ReactNode;
     setSecondaryNav: (nav: React.ReactNode | undefined) => void;
+    isWide?: boolean;
+    setIsWide: (wide: boolean) => void;
 }
 
 const BreadcrumbContext = createContext<BreadcrumbContextType | undefined>(undefined);
@@ -32,6 +34,7 @@ export function BreadcrumbProvider({ children }: { children: React.ReactNode }) 
     const [pageTitle, setPageTitle] = useState<string | undefined>(undefined);
     const [pageTypeLabel, setPageTypeLabel] = useState<string | undefined>(undefined);
     const [secondaryNav, setSecondaryNav] = useState<React.ReactNode | undefined>(undefined);
+    const [isWide, setIsWide] = useState(false);
 
     const setExtraBreadcrumbs = (items: BreadcrumbItemData[]) => {
         setExtraBreadcrumbsState(items);
@@ -71,7 +74,9 @@ export function BreadcrumbProvider({ children }: { children: React.ReactNode }) 
             pageTypeLabel,
             setPageTypeLabel,
             secondaryNav,
-            setSecondaryNav
+            setSecondaryNav,
+            isWide,
+            setIsWide
         }}>
             {children}
         </BreadcrumbContext.Provider>
@@ -91,24 +96,27 @@ interface SetPageBreadcrumbsProps {
     title?: string;
     typeLabel?: string;
     secondaryNav?: React.ReactNode;
+    isWide?: boolean;
 }
 
-export function SetPageBreadcrumbs({ items, title, typeLabel, secondaryNav }: SetPageBreadcrumbsProps) {
-    const { setExtraBreadcrumbs, clearExtraBreadcrumbs, setPageTitle, setPageTypeLabel, setSecondaryNav } = useBreadcrumbs();
+export function SetPageBreadcrumbs({ items, title, typeLabel, secondaryNav, isWide }: SetPageBreadcrumbsProps) {
+    const { setExtraBreadcrumbs, clearExtraBreadcrumbs, setPageTitle, setPageTypeLabel, setSecondaryNav, setIsWide } = useBreadcrumbs();
 
     useEffect(() => {
         setExtraBreadcrumbs(items);
         if (title) setPageTitle(title);
         if (typeLabel) setPageTypeLabel(typeLabel);
         if (secondaryNav) setSecondaryNav(secondaryNav);
+        if (isWide !== undefined) setIsWide(isWide);
         
         return () => {
             clearExtraBreadcrumbs();
             setPageTitle(undefined);
             setPageTypeLabel(undefined);
             setSecondaryNav(undefined);
+            setIsWide(false);
         };
-    }, [JSON.stringify(items), title, typeLabel, secondaryNav, setExtraBreadcrumbs, clearExtraBreadcrumbs, setPageTitle, setPageTypeLabel, setSecondaryNav]);
+    }, [JSON.stringify(items), title, typeLabel, secondaryNav, isWide, setExtraBreadcrumbs, clearExtraBreadcrumbs, setPageTitle, setPageTypeLabel, setSecondaryNav, setIsWide]);
 
     return null;
 }
