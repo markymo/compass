@@ -293,7 +293,7 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                     <div>
                         <h2 className="text-2xl font-semibold tracking-tight">Master Record</h2>
                         <p className="text-slate-500 text-sm mt-1">
-                            Verified Golden Source record.
+                            Source record
                         </p>
                     </div>
 
