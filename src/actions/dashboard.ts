@@ -201,9 +201,10 @@ export async function getUserContexts(): Promise<DashboardContexts> {
             const rawMetrics = await calculateEngagementMetrics(e.id);
             const userIsSupplier = fiIds.includes(e.fiOrgId);
 
-            // Filter metrics for Supplier view: Only show Released
+            // Filter metrics for Supplier view
             const finalMetrics = userIsSupplier ? {
-                ...emptyMetrics(),
+                total: rawMetrics.total,
+                noData: rawMetrics.noData,
                 mapped: rawMetrics.mapped,
                 answered: rawMetrics.answered,
                 approved: rawMetrics.approved,
