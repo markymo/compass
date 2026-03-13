@@ -1,7 +1,7 @@
 "use server";
 
 import prisma from "@/lib/prisma";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, unstable_noStore } from "next/cache";
 import { canManageQuestionnaire, isSystemAdmin, getUserOrgRole } from "./security";
 
 import { logActivity } from "./logging";
@@ -421,7 +421,9 @@ export async function archiveQuestionnaire(id: string) {
     }
 }
 
-export async function getQuestionnaireById(id: string) {
+export async function getQuestionnaireById(id: string, _t?: number) {
+    unstable_noStore();
+    console.log(`[SERVER] getQuestionnaireById called for ${id}${_t ? ` (t=${_t})` : ''}`);
     if (!(await canManageQuestionnaire(id))) {
         return null;
     }
@@ -645,7 +647,7 @@ export async function extractDetailedContent(id: string, images?: string[]): Pro
             const extractedItems = await extractQuestionnaireItems(processed, logger);
 
             const cleanItems = JSON.parse(JSON.stringify(extractedItems));
-            await prisma.questionnaire.update({ where: { id }, data: { extractedContent: cleanItems } });
+            await prisma.questionnaire.update({ where: { id }, data: { extractedContent: cleanItems, status: "ACTIVE" } });
             revalidatePath(`/app/admin/questionnaires/${id}`);
             return { success: true, count: extractedItems.length };
         } catch (e: any) { return { success: false, error: e.message }; }
@@ -656,7 +658,15 @@ export async function extractDetailedContent(id: string, images?: string[]): Pro
     const extRes = await extractRawText(id);
     if (!extRes.success) return { success: false, error: extRes.error };
 
-    return await parseRawText(id);
+    const parseRes = await parseRawText(id);
+    if (parseRes.success) {
+        await prisma.questionnaire.update({
+            where: { id },
+            data: { status: "ACTIVE" }
+        });
+        revalidatePath(`/app/admin/questionnaires/${id}`);
+    }
+    return parseRes;
 }
 
 // Renaming to generic save function or just updating this one
@@ -798,6 +808,7 @@ export async function updateQuestionnaireFile(id: string, formData: FormData) {
 
 // LOGGING UTILITY
 export async function appendProcessingLog(id: string, message: string, stage: string = "PROCESSING", level: "INFO" | "ERROR" | "SUCCESS" = "INFO") {
+    unstable_noStore();
     try {
         const entry = {
             timestamp: new Date().toISOString(),
@@ -851,7 +862,8 @@ async function syncQuestionsToDatabase(id: string, items: any[]) {
                 masterQuestionGroupId: item.masterQuestionGroupId || null,
                 customFieldDefinitionId: item.customFieldDefinitionId || null,
                 prefilledValue: item.prefilledValue || null,
-                answer: item.answer || null
+                answer: item.answer || null,
+                allowAttachments: true
             };
         });
 

@@ -171,9 +171,27 @@ export async function extractQuestionnaireItems(input: { content: string | strin
         }
     }
 
+    let extractionFinished = false;
     try {
         const key = process.env.OPENAI_API_KEY;
         if (logger) await logger("Calling OpenAI API...", "AI_CALL");
+        
+        // --- Simulated Micro-Step Logs ---
+        if (logger) {
+            (async () => {
+                const simulatedMsgs = [
+                    "Identifying document sections and hierarchy...",
+                    "Cross-referencing questions with Master Schema...",
+                    "Neutralizing question text for standard mapping...",
+                    "Optimizing compact labels for workbench display..."
+                ];
+                for (const msg of simulatedMsgs) {
+                    await new Promise(r => setTimeout(r, 5000));
+                    if (extractionFinished) break;
+                    await logger(`[AI_PREDICTED] ${msg}`, "AI_THINKING");
+                }
+            })();
+        }
 
         if (!key) {
             if (logger) await logger("CRITICAL: Missing API Key", "AI_CALL", "ERROR");
@@ -240,6 +258,8 @@ export async function extractQuestionnaireItems(input: { content: string | strin
         console.error("[AI Mapper] Extraction Error:", e);
         if (logger) await logger(`Extraction Error: ${e.message}`, "AI_ERROR", "ERROR");
         throw e;
+    } finally {
+        extractionFinished = true;
     }
 }
 

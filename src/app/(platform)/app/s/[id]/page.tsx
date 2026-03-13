@@ -12,23 +12,7 @@ import { StandardPageHeader } from "@/components/layout/StandardPageHeader";
 import { notFound } from "next/navigation";
 import { FIPortalContainer } from "@/components/fi/fi-portal-container";
 
-import { BreadcrumbProvider, useBreadcrumbs } from "@/context/breadcrumb-context";
-
-function FIDashboardHeader({ org }: { org: any }) {
-    const { secondaryNav, pageTitle, pageTypeLabel } = useBreadcrumbs();
-    
-    return (
-        <StandardPageHeader
-            title={pageTitle || org.name}
-            typeLabel={pageTypeLabel || "Financial Institution"}
-            breadcrumbs={[
-                { label: "Home", href: "/app", icon: Home },
-                { label: org.name, icon: Landmark }
-            ]}
-            secondaryNav={secondaryNav}
-        />
-    );
-}
+import { FIDashboardHeader } from "@/components/fi/fi-dashboard-header";
 
 export default async function FIDashboard({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;

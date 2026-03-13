@@ -335,7 +335,7 @@ model Question {
   assignedEmail               String?
   createdAt                   DateTime               @default(now())
   updatedAt                   DateTime               @updatedAt
-  allowAttachments            Boolean                @default(false)
+  allowAttachments            Boolean                @default(true)
   approvedAt                  DateTime?
   approvedByUserId            String?
   approvedMappingConfig       Json?

@@ -1,14 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { updateQuestionnaireFile, toggleQuestionnaireStatus, updateQuestionnaireName, toggleQuestionnaireGlobal, getQuestionnaireSnapshots } from "@/actions/questionnaire";
 import {
     ArrowLeft, Loader2, Play, AlertCircle, CheckCircle2,
-    FileText, Save, LayoutTemplate, Pencil, MoreVertical, Download, Eye, FileSearch, Keyboard, Globe
+    FileText, Save, LayoutTemplate, Pencil, MoreVertical, Download, Eye, FileSearch, Keyboard, Globe, RefreshCw
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -74,10 +75,21 @@ export function QuestionnaireManager({ questionnaire: initialQ, masterFields }: 
     // Dialog States
     const [showRawText, setShowRawText] = useState(false);
     const [showSource, setShowSource] = useState(false);
+    const [accordionValue, setAccordionValue] = useState<string | undefined>("journey");
 
     // Snapshot State
     const [snapshots, setSnapshots] = useState<any[]>([]);
     const [loadingSnapshots, setLoadingSnapshots] = useState(false);
+    const [refreshCounter, setRefreshCounter] = useState(0);
+
+    // Refs for polling stability
+    const statusRef = useRef(questionnaire.status);
+    const extractingRef = useRef(extracting);
+
+    useEffect(() => {
+        statusRef.current = questionnaire.status;
+        extractingRef.current = extracting;
+    }, [questionnaire.status, extracting]);
 
     // accessors
     const hasFile = !!questionnaire.fileType;
@@ -87,25 +99,67 @@ export function QuestionnaireManager({ questionnaire: initialQ, masterFields }: 
     // --- Auto-Extraction Logic ---
     useEffect(() => {
         // If we have a file, but no items and no raw text, let's try to auto-extract on load
-        if (hasFile && items.length === 0 && !rawText && !extracting) {
+        if (hasFile && items.length === 0 && !rawText && !extracting && questionnaire.status !== 'DIGITIZING') {
             handleExtractText();
         }
     }, []); // Run once on mount
 
-    // --- Fetch Snapshots ---
+    const lastSeenIndexRef = useRef(0);
+
+    // --- Real-time Logs via SSE ---
     useEffect(() => {
-        let mounted = true;
-        async function fetchSnapshots() {
-            setLoadingSnapshots(true);
-            const res = await getQuestionnaireSnapshots(questionnaire.id);
-            if (mounted && res.success) {
-                setSnapshots(res.data || []);
+        // We only listen for logs if extraction is theoretically possible or active
+        const isTerminal = questionnaire.status === 'ACTIVE' || questionnaire.status === 'FAILED' || questionnaire.status === 'ARCHIVED';
+        if (!extracting && isTerminal) return;
+
+        console.log(`[SSE-LOGS] Connecting for ${questionnaire.id}... lastIndex=${lastSeenIndexRef.current}`);
+        
+        const eventSource = new EventSource(`/api/questionnaires/${questionnaire.id}/logs?lastIndex=${lastSeenIndexRef.current}&t=${Date.now()}`);
+
+        eventSource.onopen = () => {
+            console.log(`[SSE-LOGS] Connection opened`);
+        };
+
+        eventSource.addEventListener("log_appended", (event: any) => {
+            try {
+                const newLogs = JSON.parse(event.data);
+                console.log(`[SSE-LOGS] Received ${newLogs.length} logs`);
+                
+                setQuestionnaire((prev: any) => {
+                    const existingLogs = (prev.processingLogs as any[]) || [];
+                    const updatedLogs = [...existingLogs, ...newLogs];
+                    lastSeenIndexRef.current = updatedLogs.length;
+                    return { ...prev, processingLogs: updatedLogs };
+                });
+            } catch (e) {
+                console.error("[SSE-LOGS] Failed to parse log_appended:", e);
             }
-            if (mounted) setLoadingSnapshots(false);
+        });
+
+        eventSource.onerror = (err) => {
+            console.error("[SSE-LOGS] Stream error:", err);
+            // EventSource will automatically reconnect
+        };
+
+        return () => {
+            console.log("[SSE-LOGS] Cleaning up connection");
+            eventSource.close();
+        };
+    }, [extracting, questionnaire.id, questionnaire.status]);
+
+    useEffect(() => {
+        if (extracting || questionnaire.status === 'DIGITIZING') {
+            setAccordionValue("journey");
         }
-        fetchSnapshots();
-        return () => { mounted = false; };
-    }, [questionnaire.id]);
+    }, [extracting, questionnaire.status]);
+
+    // --- Auto-scroll logs ---
+    useEffect(() => {
+        const container = document.getElementById('process-logs-container');
+        if (container) {
+            container.scrollTop = container.scrollHeight;
+        }
+    }, [questionnaire.processingLogs]);
 
     const handleNameSave = async () => {
         setIsEditingName(false);
@@ -184,9 +238,21 @@ export function QuestionnaireManager({ questionnaire: initialQ, masterFields }: 
 
     // Helper to refresh data
     const fetchQ = async () => {
-        router.refresh();
-        const fresh = await getQuestionnaireById(questionnaire.id);
-        if (fresh) setQuestionnaire(fresh);
+        console.group("[CLIENT] fetchQ Trace");
+        console.log(`[CLIENT] fetchQ called for questionnaire ${questionnaire.id}...`);
+        console.trace();
+        console.groupEnd();
+        const fresh = await getQuestionnaireById(questionnaire.id, Date.now());
+        if (fresh) {
+            const logCount = (fresh.processingLogs as any[])?.length || 0;
+            console.log(`[CLIENT] Received fresh data. Status: ${fresh.status}, Logs: ${logCount}`);
+            
+            setQuestionnaire({ ...fresh }); // Force re-render with new ref
+            if (fresh.extractedContent && (fresh.extractedContent as any[]).length > 0) {
+                console.log(`[CLIENT] Fresh items found: ${(fresh.extractedContent as any[]).length}`);
+                setItems(fresh.extractedContent as ExtractedItem[]);
+            }
+        }
         return fresh;
     };
 
@@ -262,7 +328,7 @@ export function QuestionnaireManager({ questionnaire: initialQ, masterFields }: 
             {/* Header */}
             <header className="h-16 border-b bg-white px-6 flex items-center justify-between sticky top-0 z-30 shadow-sm flex-none">
                 <div className="flex items-center gap-4">
-                    <Link href={`/app/admin/organizations/${questionnaire.fiOrgId}`}>
+                    <Link href="/app/admin/questionnaires">
                         <Button variant="ghost" size="icon" className="hover:bg-slate-100 rounded-full h-8 w-8">
                             <ArrowLeft className="w-4 h-4 text-slate-600" />
                         </Button>
@@ -327,30 +393,70 @@ export function QuestionnaireManager({ questionnaire: initialQ, masterFields }: 
             </header>
 
             {/* Digitization Journey Accordion */}
-            <Accordion type="single" collapsible className="w-full flex-none bg-white border-b px-6 shadow-sm z-20">
+            <Accordion 
+                type="single" 
+                collapsible 
+                value={accordionValue || undefined}
+                onValueChange={setAccordionValue}
+                className="w-full flex-none bg-white border-b px-6 shadow-sm z-20"
+            >
                 <AccordionItem value="journey" className="border-none">
                     <AccordionTrigger className="py-3 text-sm font-semibold text-slate-700 hover:no-underline">
                         Digitization Journey & Source Files
                     </AccordionTrigger>
                     <AccordionContent className="pb-4 pt-2 flex flex-col md:flex-row gap-6">
                         {/* Process Logs */}
-                        <div className="flex-1">
-                            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Process Logs</h4>
-                            <div className="h-40 overflow-y-auto bg-slate-900 rounded-md p-4 font-mono text-[10px] shadow-inner">
-                                {(!questionnaire.processingLogs || questionnaire.processingLogs.length === 0) ? (
+                        <div className="flex-1 flex flex-col">
+                            <div className="flex items-center justify-between mb-2">
+                                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Process Logs</h4>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => fetchQ()}
+                                    className="h-6 text-[10px] hover:bg-slate-100 text-slate-400"
+                                >
+                                    <RefreshCw className={cn("w-3 h-3 mr-1", extracting && "animate-spin")} />
+                                    Refresh logs
+                                </Button>
+                            </div>
+                            <div 
+                                id="process-logs-container"
+                                className="h-40 overflow-y-auto bg-slate-900 rounded-md p-4 font-mono text-[10px] shadow-inner"
+                            >
+                                {(!questionnaire.processingLogs || (questionnaire.processingLogs as any[]).length === 0) ? (
                                     <span className="text-slate-500">No logs available yet.</span>
                                 ) : (
-                                    questionnaire.processingLogs.map((log: any, i: number) => (
-                                        <div key={i} className="mb-1 flex gap-2">
-                                            <span className="text-slate-500 shrink-0">{new Date(log.timestamp).toLocaleTimeString()}</span>
-                                            <span className={
-                                                log.level === 'ERROR' ? 'text-red-400 font-bold' :
-                                                    log.level === 'SUCCESS' ? 'text-emerald-400' : 'text-slate-300'
-                                            }>
-                                                {log.message}
-                                            </span>
-                                        </div>
-                                    ))
+                                    (questionnaire.processingLogs as any[]).map((log: any, i: number) => {
+                                        const isLatest = i === (questionnaire.processingLogs as any[]).length - 1;
+                                        return (
+                                            <div 
+                                                key={i} 
+                                                className={cn(
+                                                    "mb-1 flex gap-2 items-start",
+                                                    isLatest && "animate-in slide-in-from-bottom-1 duration-300"
+                                                )}
+                                            >
+                                                <span className="text-slate-500 shrink-0 tabular-nums">
+                                                    {new Date(log.timestamp).toLocaleTimeString()}
+                                                </span>
+                                                <div className="flex items-center gap-2">
+                                                    {isLatest && extracting && (
+                                                        <span className="relative flex h-2 w-2">
+                                                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                                                            <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
+                                                        </span>
+                                                    )}
+                                                    <span className={cn(
+                                                        log.level === 'ERROR' ? 'text-red-400 font-bold' :
+                                                        log.level === 'SUCCESS' ? 'text-emerald-400' : 
+                                                        log.message.includes('[AI_PREDICTED]') ? 'text-slate-400 italic' : 'text-slate-300'
+                                                    )}>
+                                                        {log.message}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        );
+                                    })
                                 )}
                             </div>
                         </div>
@@ -443,14 +549,32 @@ export function QuestionnaireManager({ questionnaire: initialQ, masterFields }: 
 
             {/* Main Content: Data First Editor */}
             <main className="flex-1 overflow-hidden flex flex-col relative bg-slate-50">
-                {extracting ? (
-                    <div className="flex-1 flex flex-col items-center justify-center p-8 text-center animate-in fade-in">
-                        <Loader2 className="w-12 h-12 text-indigo-500 animate-spin mb-4" />
-                        <h2 className="text-xl font-semibold text-slate-800">Digitizing Document...</h2>
-                        <p className="text-slate-500 max-w-md mt-2">
-                            We are using AI to read your document structure. This usually takes 10-20 seconds.
-                            If it's a scanned PDF, it might take up to 3 minutes.
-                        </p>
+                {(extracting || questionnaire.status === 'DIGITIZING') && items.length === 0 ? (
+                    <div className="flex-1 p-8 animate-pulse">
+                        <div className="h-8 w-48 bg-slate-200 rounded mb-8" />
+                        <div className="space-y-4">
+                            {[1, 2, 3, 4, 5, 6, 7].map(i => (
+                                <div key={i} className="group border rounded-lg p-4 bg-white/50 flex gap-6 items-center">
+                                    <div className="w-8 h-8 bg-slate-100 rounded" />
+                                    <div className="flex-1 space-y-2">
+                                        <div className="h-4 w-3/4 bg-slate-200 rounded blur-[2px]" />
+                                        <div className="h-3 w-1/2 bg-slate-100 rounded blur-[1px]" />
+                                    </div>
+                                    <div className="w-32 h-8 bg-slate-200 rounded" />
+                                </div>
+                            ))}
+                        </div>
+                        <div className="absolute inset-0 flex items-center justify-center bg-white/10 backdrop-blur-[1px] pointer-events-none">
+                            <div className="bg-white/80 px-8 py-6 rounded-full shadow-2xl border border-indigo-100 flex items-center gap-4 animate-in zoom-in duration-300">
+                                <div className="p-3 bg-indigo-50 rounded-full">
+                                    <Loader2 className="w-6 h-6 animate-spin text-indigo-600" />
+                                </div>
+                                <div className="flex flex-col">
+                                    <span className="font-bold text-slate-800 text-lg leading-none mb-1">AI Analyst at work</span>
+                                    <span className="text-slate-500 text-sm italic">Identifying questions and cross-referencing schema...</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 ) : items.length === 0 ? (
                     <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-6">
@@ -493,8 +617,17 @@ export function QuestionnaireManager({ questionnaire: initialQ, masterFields }: 
                     </div>
                 ) : (
                     // The Mapping Workbench fills the area smoothly
-                    <div className="flex-1 pb-12">
+                    <div className="flex-1 pb-12 relative">
+                        {(extracting || questionnaire.status === 'DIGITIZING') && (
+                            <div className="absolute top-0 left-0 right-0 z-10 bg-indigo-50/80 backdrop-blur-sm border-b border-indigo-100 px-4 py-2 flex items-center justify-center gap-3 animate-in fade-in slide-in-from-top-2">
+                                <Loader2 className="w-4 h-4 animate-spin text-indigo-600" />
+                                <span className="text-xs font-medium text-indigo-800">
+                                    AI is still processing document... logs updating in real-time.
+                                </span>
+                            </div>
+                        )}
                         <QuestionnaireMapper
+                            key={`${questionnaire.id}-${questionnaire.status}-${items.length}-${refreshCounter}`}
                             questionnaireId={questionnaire.id}
                             onBack={() => router.push('/app/admin/questionnaires')}
                             standingData={undefined}
