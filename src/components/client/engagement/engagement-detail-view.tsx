@@ -226,63 +226,70 @@ export function EngagementDetailView({ le, engagement, questionnaires, sharedDoc
                                                     <Link 
                                                         key={q.id} 
                                                         href={`/app/le/${le.id}/engagement-new/${engagement.id}/questionnaire/${q.id}`}
-                                                        className="p-4 flex items-center justify-between hover:bg-slate-50/80 cursor-pointer transition-colors group/card"
+                                                        className="p-6 flex flex-col gap-4 hover:bg-slate-50/80 cursor-pointer transition-colors group/card"
                                                     >
-                                                         <div className="flex items-center gap-4">
-                                                             <div className="h-10 w-10 bg-indigo-50 text-indigo-600 rounded flex items-center justify-center">
-                                                                 <FileText className="h-5 w-5" />
-                                                             </div>
-                                                             <div>
-                                                                 <h3 className="font-medium text-slate-900 group-hover/card:text-indigo-600 transition-colors">{q.name}</h3>
-                                                                 <div className="flex items-center gap-2 mt-1">
-                                                                      {q.status === 'DIGITIZING' && (
-                                                                          <Badge variant="outline" className="text-xs bg-indigo-50 text-indigo-600 border-indigo-200 animate-pulse">
-                                                                              Digitizing...
-                                                                          </Badge>
-                                                                      )}
-                                                                     <DueDateBadge
-                                                                         id={q.id}
-                                                                         date={q.dueDate}
-                                                                         effectiveDate={q.dueDate || engagement.dueDate || le.dueDate}
-                                                                         source={q.dueDate ? 'QUESTIONNAIRE' : engagement.dueDate ? 'RELATIONSHIP' : 'LE'}
-                                                                         level="QUESTIONNAIRE"
-                                                                         label="Deadline"
-                                                                     />
+                                                         {/* Line 1: Name and Due Date */}
+                                                         <div className="flex items-center justify-between gap-4">
+                                                             <div className="flex items-center gap-4">
+                                                                 <div className="h-10 w-10 bg-indigo-50 text-indigo-600 rounded flex items-center justify-center shrink-0">
+                                                                     <FileText className="h-5 w-5" />
+                                                                 </div>
+                                                                 <div className="flex flex-col gap-1">
+                                                                     <h3 className="font-semibold text-lg text-slate-900 group-hover/card:text-indigo-600 transition-colors leading-none">{q.name}</h3>
+                                                                     {q.status === 'DIGITIZING' && (
+                                                                         <Badge variant="outline" className="w-fit text-[10px] h-4 py-0 bg-indigo-50 text-indigo-600 border-indigo-200 animate-pulse">
+                                                                             Digitizing...
+                                                                         </Badge>
+                                                                     )}
                                                                  </div>
                                                              </div>
+                                                             <div className="shrink-0">
+                                                                <DueDateBadge
+                                                                    id={q.id}
+                                                                    date={q.dueDate}
+                                                                    effectiveDate={q.dueDate || engagement.dueDate || le.dueDate}
+                                                                    source={q.dueDate ? 'QUESTIONNAIRE' : engagement.dueDate ? 'RELATIONSHIP' : 'LE'}
+                                                                    level="QUESTIONNAIRE"
+                                                                    label="Deadline"
+                                                                />
+                                                             </div>
                                                          </div>
-                                                        <div className="flex items-center gap-6" onClick={(e) => e.stopPropagation()}>
+
+                                                         {/* Line 2: Metrics and Actions */}
+                                                        <div className="flex items-center gap-6">
                                                             {q.metrics && (
-                                                                <div className="hidden lg:block shrink-0">
-                                                                    <ProgressTracker metrics={q.metrics} variant={"v2" as any} className="w-[540px] scale-[0.85] origin-right" />
+                                                                <div className="flex-1 min-w-0">
+                                                                    <ProgressTracker metrics={q.metrics} variant={"v2" as any} className="w-full bg-slate-50/20" />
                                                                 </div>
                                                             )}
-                                                            <DropdownMenu>
-                                                                <DropdownMenuTrigger asChild>
-                                                                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={(e) => e.stopPropagation()}>
-                                                                        <MoreHorizontal className="h-4 w-4" />
-                                                                    </Button>
-                                                                </DropdownMenuTrigger>
-                                                                <DropdownMenuContent align="end">
-                                                                    <DropdownMenuItem asChild>
-                                                                        <Link href={`/app/le/${le.id}/workbench4?rel=${encodeURIComponent(engagement.org.name)}&q=${encodeURIComponent(q.name)}`}>
-                                                                            <Sparkles className="h-4 w-4 mr-2" />
-                                                                            Open in Workbench
-                                                                        </Link>
-                                                                    </DropdownMenuItem>
-                                                                    <DropdownMenuItem asChild>
-                                                                        <Link href={`/app/le/${le.id}/engagement-new/${engagement.id}/questionnaire/${q.id}`}>
-                                                                            <Settings className="h-4 w-4 mr-2" />
-                                                                            Manage Questions
-                                                                        </Link>
-                                                                    </DropdownMenuItem>
-                                                                     <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteQuestionnaire(q.id, q.name)}>
-                                                                         <Trash2 className="h-4 w-4 mr-2" />
-                                                                         Remove
-                                                                     </DropdownMenuItem>
-                                                                 </DropdownMenuContent>
-                                                             </DropdownMenu>
-                                                         </div>
+                                                            <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
+                                                                <DropdownMenu>
+                                                                    <DropdownMenuTrigger asChild>
+                                                                        <Button variant="ghost" size="sm" className="h-10 w-10 p-0 hover:bg-slate-100 rounded-full">
+                                                                            <MoreHorizontal className="h-5 w-5 text-slate-400" />
+                                                                        </Button>
+                                                                    </DropdownMenuTrigger>
+                                                                    <DropdownMenuContent align="end">
+                                                                        <DropdownMenuItem asChild>
+                                                                            <Link href={`/app/le/${le.id}/workbench4?rel=${encodeURIComponent(engagement.org.name)}&q=${encodeURIComponent(q.name)}`}>
+                                                                                <Sparkles className="h-4 w-4 mr-2" />
+                                                                                Open in Workbench
+                                                                            </Link>
+                                                                        </DropdownMenuItem>
+                                                                        <DropdownMenuItem asChild>
+                                                                            <Link href={`/app/le/${le.id}/engagement-new/${engagement.id}/questionnaire/${q.id}`}>
+                                                                                <Settings className="h-4 w-4 mr-2" />
+                                                                                Manage Questions
+                                                                            </Link>
+                                                                        </DropdownMenuItem>
+                                                                         <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteQuestionnaire(q.id, q.name)}>
+                                                                             <Trash2 className="h-4 w-4 mr-2" />
+                                                                             Remove
+                                                                         </DropdownMenuItem>
+                                                                     </DropdownMenuContent>
+                                                                 </DropdownMenu>
+                                                            </div>
+                                                        </div>
                                                     </Link>
                                                  ))}
                                              </div>
