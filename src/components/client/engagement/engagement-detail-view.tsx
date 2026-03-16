@@ -153,21 +153,12 @@ export function EngagementDetailView({ le, engagement, questionnaires, sharedDoc
                     </Button>
                 </div>
                 {metrics && (
-                    <div className="hidden md:block">
-                        <ProgressTracker metrics={metrics} variant="header" />
+                    <div className="flex-1 w-full md:w-auto">
+                        <ProgressTracker metrics={metrics} variant={"v2" as any} className="w-full" />
                     </div>
                 )}
             </div>
 
-            {metrics && (
-                <div className="md:hidden">
-                    <Card>
-                        <CardContent className="p-4 flex justify-center">
-                            <ProgressTracker metrics={metrics} variant="header" />
-                        </CardContent>
-                    </Card>
-                </div>
-            )}
 
             <Tabs value={activeTab} className="w-full space-y-0">
                 {/* Internal TabsContent remains, but TabsList is removed as it's now in the header */}

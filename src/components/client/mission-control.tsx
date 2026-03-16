@@ -110,15 +110,15 @@ export function MissionControl({ metrics, leId, engagements, activity = [] }: Mi
     return (
         <div className="animate-in fade-in duration-500">
 
-            {/* Progress Tracker */}
-            <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-4">
-                <div className="overflow-x-auto pb-2 -mb-2">
-                    {metrics.readiness.metrics ? (
-                        <ProgressTracker metrics={metrics.readiness.metrics} variant="header" className="min-w-[600px] w-full max-w-5xl mx-auto" />
-                    ) : (
-                        <div className="text-center text-slate-400 text-sm">Loading metrics...</div>
-                    )}
-                </div>
+            {/* Progress Tracker V2 */}
+            <div className="animate-in fade-in slide-in-from-top-4 duration-700">
+                {metrics.readiness.metrics ? (
+                    <ProgressTracker metrics={metrics.readiness.metrics} variant={"v2" as any} className="w-full" />
+                ) : (
+                    <div className="bg-white border border-slate-200 rounded-xl p-6 text-center text-slate-400 text-sm">
+                        Loading metrics...
+                    </div>
+                )}
             </div>
 
         </div>
