@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { updateQuestionnaireFile, toggleQuestionnaireStatus, updateQuestionnaireName, toggleQuestionnaireGlobal, getQuestionnaireSnapshots } from "@/actions/questionnaire";
 import {
     ArrowLeft, Loader2, Play, AlertCircle, CheckCircle2,
-    FileText, Save, LayoutTemplate, Pencil, MoreVertical, Download, Eye, FileSearch, Keyboard, Globe, RefreshCw
+    FileText, Save, LayoutTemplate, Pencil, MoreVertical, Download, Eye, FileSearch, Keyboard, Globe, RefreshCw,
+    FileType2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -466,14 +467,34 @@ export function QuestionnaireManager({ questionnaire: initialQ, masterFields }: 
                             <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Source Assets</h4>
                             {hasFile ? (
                                 <>
-                                    <Button variant="outline" size="sm" onClick={() => setShowSource(true)} className="w-full justify-start text-slate-600">
-                                        <FileSearch className="w-4 h-4 mr-2" /> View Source Document
-                                    </Button>
-                                    <Button variant="outline" size="sm" onClick={() => window.open(iframeSrc, '_blank')} className="w-full justify-start text-slate-600">
-                                        <Download className="w-4 h-4 mr-2" /> Download Original
-                                    </Button>
+                                    <div className="flex items-center justify-between p-3 border rounded-md bg-white hover:bg-slate-50 transition-colors group">
+                                        <div className="flex items-center gap-3 overflow-hidden">
+                                            {isPDF ? (
+                                                <FileText className="w-8 h-8 text-rose-500 shrink-0" />
+                                            ) : questionnaire.fileType?.includes("word") || questionnaire.fileName?.endsWith(".docx") || questionnaire.fileName?.endsWith(".doc") ? (
+                                                <FileType2 className="w-8 h-8 text-blue-600 shrink-0" />
+                                            ) : (
+                                                <FileText className="w-8 h-8 text-slate-500 shrink-0" />
+                                            )}
+                                            <div className="flex flex-col overflow-hidden">
+                                                <span className="text-sm font-medium text-slate-700 truncate" title={questionnaire.fileName || "Document"}>
+                                                    {questionnaire.fileName || "Document"}
+                                                </span>
+                                                <span className="text-[10px] text-slate-400 uppercase tracking-wider">Source File</span>
+                                            </div>
+                                        </div>
+                                        <Button 
+                                            variant="ghost" 
+                                            size="icon" 
+                                            onClick={() => window.open(iframeSrc, '_blank')} 
+                                            className="h-8 w-8 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 shrink-0"
+                                            title="Download Document"
+                                        >
+                                            <Download className="w-4 h-4" />
+                                        </Button>
+                                    </div>
                                     {rawText && (
-                                        <Button variant="outline" size="sm" onClick={() => setShowRawText(true)} className="w-full justify-start text-slate-600">
+                                        <Button variant="outline" size="sm" onClick={() => setShowRawText(true)} className="w-full justify-start text-slate-600 mt-2">
                                             <CheckCircle2 className="w-4 h-4 mr-2" /> View Extracted Text
                                         </Button>
                                     )}
@@ -636,7 +657,6 @@ export function QuestionnaireManager({ questionnaire: initialQ, masterFields }: 
                 )}
             </main>
 
-            {/* Dialogs */}
             <Dialog open={showRawText} onOpenChange={setShowRawText}>
                 <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
                     <DialogHeader>
@@ -647,21 +667,6 @@ export function QuestionnaireManager({ questionnaire: initialQ, masterFields }: 
                     </DialogHeader>
                     <div className="flex-1 overflow-auto border rounded-md bg-slate-50 p-4 font-mono text-xs whitespace-pre-wrap">
                         {rawText || "No raw text available."}
-                    </div>
-                </DialogContent>
-            </Dialog>
-
-            <Dialog open={showSource} onOpenChange={setShowSource}>
-                <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
-                    <DialogHeader>
-                        <DialogTitle>Source Document</DialogTitle>
-                    </DialogHeader>
-                    <div className="flex-1 bg-slate-100 rounded border overflow-hidden">
-                        {iframeSrc ? (
-                            <iframe src={iframeSrc} className="w-full h-full" />
-                        ) : (
-                            <div className="flex items-center justify-center h-full text-slate-400">No Document</div>
-                        )}
                     </div>
                 </DialogContent>
             </Dialog>

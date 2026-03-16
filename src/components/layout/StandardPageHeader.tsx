@@ -24,6 +24,7 @@ interface StandardPageHeaderProps {
     breadcrumbs: BreadcrumbItemData[];
     actions?: React.ReactNode;
     secondaryNav?: React.ReactNode;
+    children?: React.ReactNode;
     className?: string;
     sticky?: boolean;
 }
@@ -35,6 +36,7 @@ export function StandardPageHeader({
     breadcrumbs,
     actions,
     secondaryNav,
+    children,
     className,
     sticky = true
 }: StandardPageHeaderProps) {
@@ -43,12 +45,14 @@ export function StandardPageHeader({
     
     return (
         <div className={cn(
-            "flex flex-col border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 dark:bg-zinc-950/95 transition-all w-full",
-            sticky && "sticky top-20 z-40",
+            "contents",
             className
         )}>
-            {/* Breadcrumb Row */}
-            <div className="flex h-12 items-center px-4 md:px-8 border-b border-slate-100 dark:border-zinc-800/50">
+            {/* Breadcrumb Row - Sticky at top-20 */}
+            <div className={cn(
+                "flex h-12 items-center px-4 md:px-8 border-b border-slate-100 dark:border-zinc-800/50 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 dark:bg-zinc-950/95 transition-all w-full z-50",
+                sticky && "sticky top-20"
+            )}>
                 <Breadcrumb className="whitespace-nowrap overflow-x-auto no-scrollbar">
                     <BreadcrumbList className="flex-nowrap">
                         {breadcrumbs.map((item, index) => {
@@ -83,44 +87,57 @@ export function StandardPageHeader({
                 </Breadcrumb>
             </div>
 
-            {/* Title Row - Only render if title or actions exist */}
-            {(title || actions) && (
-                <div className="flex items-center justify-between px-4 py-6 md:px-8">
-                    <div className="flex flex-col gap-1.5 min-w-0">
-                        {typeLabel && (
-                            <span className="w-fit px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest bg-slate-100 text-slate-500 dark:bg-zinc-800 dark:text-zinc-400 border border-slate-200 dark:border-zinc-700 shrink-0 mb-1">
-                                {typeLabel}
-                            </span>
-                        )}
-                        <div className="flex items-center gap-3 min-w-0">
-                            {title && (
-                                typeof title === "string" ? (
-                                    <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100 truncate">
-                                        {title}
-                                    </h1>
-                                ) : (
-                                    title
-                                )
+            {/* Content Area - Scrolls away (bg-white ensures it goes 'under' the sticky crumbs) */}
+            <div className="bg-white dark:bg-zinc-950">
+                {/* Title Row - Only render if title or actions exist */}
+                {(title || actions) && (
+                    <div className="flex items-center justify-between px-4 py-6 md:px-8">
+                        <div className="flex flex-col gap-1.5 min-w-0">
+                            {typeLabel && (
+                                <span className="w-fit px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest bg-slate-100 text-slate-500 dark:bg-zinc-800 dark:text-zinc-400 border border-slate-200 dark:border-zinc-700 shrink-0 mb-1">
+                                    {typeLabel}
+                                </span>
+                            )}
+                            <div className="flex items-center gap-3 min-w-0">
+                                {title && (
+                                    typeof title === "string" ? (
+                                        <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100 truncate">
+                                            {title}
+                                        </h1>
+                                    ) : (
+                                        title
+                                    )
+                                )}
+                            </div>
+                            {subtitle && (
+                                <p className="text-sm text-muted-foreground truncate">
+                                    {subtitle}
+                                </p>
                             )}
                         </div>
-                        {subtitle && (
-                            <p className="text-sm text-muted-foreground truncate">
-                                {subtitle}
-                            </p>
+
+                        {actions && (
+                            <div className="flex items-center gap-2 shrink-0 ml-4">
+                                {actions}
+                            </div>
                         )}
                     </div>
+                )}
 
-                    {actions && (
-                        <div className="flex items-center gap-2 shrink-0 ml-4">
-                            {actions}
-                        </div>
-                    )}
-                </div>
-            )}
+                {/* Extra Content Area (Optional) */}
+                {children && (
+                    <div className="px-4 md:px-8 pb-4">
+                        {children}
+                    </div>
+                )}
+            </div>
 
-            {/* Secondary Navigation Row (Tabs) */}
+            {/* Secondary Navigation Row (Tabs) - Sticky below Breadcrumbs */}
             {secondaryNav && (
-                <div className="px-4 md:px-8">
+                <div className={cn(
+                    "px-4 md:px-8 border-b border-transparent bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 dark:bg-zinc-950/95 transition-all w-full z-40",
+                    sticky && "sticky top-[calc(5rem+3rem)] border-slate-100 dark:border-zinc-800/50 shadow-sm"
+                )}>
                     {secondaryNav}
                 </div>
             )}

@@ -40,19 +40,23 @@ function InnerShell({ children, baseBreadcrumbs, leId, leName, isSystemAdmin, le
     return (
         <div className="flex flex-col min-h-screen bg-slate-50/50">
             <StandardPageHeader
-                title={pageTitle || (canEdit ? <EditableHeaderTitle leId={leId} initialValue={leName} /> : leName)}
+                title={pageTitle || (leData?.gleifData?.attributes?.entity?.legalName?.name || (canEdit ? <EditableHeaderTitle leId={leId} initialValue={leName} /> : leName))}
                 typeLabel={pageTypeLabel || "Legal Entity"}
                 breadcrumbs={combinedBreadcrumbs}
                 actions={!pageTypeLabel ? <ClientLEActions leId={leId} leName={leName} isSystemAdmin={isSystemAdmin} /> : undefined}
                 secondaryNav={contextSecondaryNav || <HeaderNavList items={leTabs} />}
-            />
-            <main className={cn(
-                "flex-1 mx-auto w-full p-8 space-y-8",
-                isWide ? "max-w-screen-2xl" : "max-w-6xl"
-            )}>
+            >
                 {leData && !pageTypeLabel && (
-                    <div className="flex flex-col gap-4">
-                        <div className="flex items-center gap-4">
+                    <div className="flex flex-col gap-4 py-3 border-t border-slate-50 mt-1">
+                        <div className="max-w-4xl">
+                            <EditableDescription
+                                leId={leData.id}
+                                initialValue={leData.description}
+                                leName={leData.name}
+                                clientOrgName={clientOrgName || "Client"}
+                            />
+                        </div>
+                        <div className="flex items-center gap-6">
                             <DueDateBadge
                                 id={leData.id}
                                 date={leData.dueDate}
@@ -61,16 +65,7 @@ function InnerShell({ children, baseBreadcrumbs, leId, leName, isSystemAdmin, le
                                 level="LE"
                                 label="Deadline"
                             />
-                        </div>
-
-                        <div className="max-w-2xl">
-                            <EditableDescription
-                                leId={leData.id}
-                                initialValue={leData.description}
-                                leName={leData.name}
-                                clientOrgName={clientOrgName || "Client"}
-                            />
-                            <div className="mt-4">
+                            <div className="shrink-0">
                                 <EditableLEI
                                     leId={leData.id}
                                     initialLei={leData.lei}
@@ -81,6 +76,12 @@ function InnerShell({ children, baseBreadcrumbs, leId, leName, isSystemAdmin, le
                         </div>
                     </div>
                 )}
+            </StandardPageHeader>
+            <main className={cn(
+                "flex-1 mx-auto w-full p-8 space-y-8",
+                isWide ? "max-w-screen-2xl" : "max-w-6xl"
+            )}>
+                {/* Content moved to Header */}
 
                 {children}
             </main>
