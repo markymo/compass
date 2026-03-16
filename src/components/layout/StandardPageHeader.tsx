@@ -91,7 +91,7 @@ export function StandardPageHeader({
             <div className="bg-white dark:bg-zinc-950">
                 {/* Title Row - Only render if title or actions exist */}
                 {(title || actions) && (
-                    <div className="flex items-center justify-between px-4 py-6 md:px-8">
+                    <div className="flex items-center justify-between px-4 py-4 md:px-8">
                         <div className="flex flex-col gap-1.5 min-w-0">
                             {typeLabel && (
                                 <span className="w-fit px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest bg-slate-100 text-slate-500 dark:bg-zinc-800 dark:text-zinc-400 border border-slate-200 dark:border-zinc-700 shrink-0 mb-1">

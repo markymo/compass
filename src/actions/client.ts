@@ -603,6 +603,15 @@ export async function updateClientLE(leId: string, data: { name?: string, descri
         });
         console.log(`[updateClientLE] Update successful:`, JSON.stringify(updated, null, 2));
 
+        // TRIGGER REGISTRY BOOTSTRAP on LEI/GLEIF data changes
+        if (data.lei !== undefined || data.gleifData !== undefined) {
+            console.log(`[updateClientLE] Triggering bootstrap for new LEI/GLEIF data for LE: ${leId}`);
+            // We await it here so that by the time revalidatePath runs, the new references exist
+            await LegalEntityEnrichmentService.bootstrapEntity(leId).catch(e => {
+                console.error("[updateClientLE] Bootstrap error:", e);
+            });
+        }
+
         revalidatePath(`/app/le/${leId}`);
         revalidatePath(`/app/le/${leId}/v2`);
         return { success: true };

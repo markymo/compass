@@ -4,7 +4,8 @@ import { notFound } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Users, Building2, Fingerprint, ShieldCheck } from "lucide-react";
-import { RegistryRefreshButton } from "@/components/client/registry-refresh-button"; // New Import
+import { RegistryRefreshButton } from "@/components/client/registry-refresh-button";
+import { RawPayloadViewer } from "@/components/client/raw-payload-viewer";
 
 export default async function RegistryPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
@@ -55,15 +56,27 @@ export default async function RegistryPage({ params }: { params: Promise<{ id: s
                     </div>
                 </div>
 
-                <RegistryRefreshButton leId={le.id} lastRefreshed={le.registryFetchedAt} />
+                <div className="flex items-center gap-3">
+                    <RawPayloadViewer data={registryData || primaryRef || (le as any).gleifData} />
+                    <RegistryRefreshButton leId={le.id} lastRefreshed={le.registryFetchedAt} />
+                </div>
             </div>
 
             {/* Empty State / Initial Fetch Prompt */}
             {!registryData && (
                 <div className="flex flex-col items-center justify-center p-12 bg-slate-50 dark:bg-slate-900/10 border border-dashed border-slate-200 dark:border-slate-800 rounded-lg text-slate-400">
                     <Building2 className="h-10 w-10 mb-3 opacity-30" />
-                    <p className="font-medium text-slate-600 dark:text-slate-300">No Registry Data Available</p>
-                    <p className="text-sm mb-4">Click "Refresh Data" to fetch the latest official records.</p>
+                    {primaryRef?.status === 'UNSUPPORTED' ? (
+                        <>
+                            <p className="font-medium text-slate-600 dark:text-slate-300">Integration Not Yet Implemented</p>
+                            <p className="text-sm mb-4 text-center max-w-md">An automated data connector for <b>{displayTitle}</b> is on our roadmap. In the meantime, please verify data or upload records manually.</p>
+                        </>
+                    ) : (
+                        <>
+                            <p className="font-medium text-slate-600 dark:text-slate-300">No Registry Data Available</p>
+                            <p className="text-sm mb-4">Click "Refresh Data" to fetch the latest official records.</p>
+                        </>
+                    )}
                 </div>
             )}
 

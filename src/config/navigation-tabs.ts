@@ -8,7 +8,8 @@ import {
     FileText,
     FolderOpen,
     Users,
-    KanbanSquare
+    KanbanSquare,
+    CreditCard
 } from "lucide-react";
 import { NavItem } from "@/components/layout/HeaderNavList";
 
@@ -144,6 +145,31 @@ export const getQuestionnaireTabs = (leId: string, engagementId: string, questio
             href: `${baseUrl}?tab=source`,
             icon: Sparkles,
             isActive: (path) => matchesTab(path, "source")
+        }
+    ];
+};
+
+export const getClientDashboardTabs = (clientId: string): NavItem[] => {
+    const baseUrl = `/app/clients/${clientId}`;
+
+    return [
+        {
+            label: "Overview",
+            href: baseUrl,
+            icon: LayoutDashboard,
+            isActive: (path) => matchesPath(path, baseUrl, true)
+        },
+        {
+            label: "Billing & Invoicing",
+            href: `${baseUrl}/billing`,
+            icon: CreditCard,
+            isActive: (path) => matchesPath(path, `${baseUrl}/billing`)
+        },
+        {
+            label: "Team",
+            href: `${baseUrl}/team`,
+            icon: Users,
+            isActive: (path) => matchesPath(path, `${baseUrl}/team`)
         }
     ];
 };

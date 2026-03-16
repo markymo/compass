@@ -12,6 +12,7 @@ import { EditableHeaderTitle } from "@/components/client/editable-header-title";
 import { HeaderNavList } from "@/components/layout/HeaderNavList";
 import { getLegalEntityTabs } from "@/config/navigation-tabs";
 import { cn } from "@/lib/utils";
+import { Fingerprint, CheckCircle, Pencil } from "lucide-react";
 
 interface LegalEntityLayoutShellProps {
     children: React.ReactNode;
@@ -40,23 +41,54 @@ function InnerShell({ children, baseBreadcrumbs, leId, leName, isSystemAdmin, le
     return (
         <div className="flex flex-col min-h-screen bg-slate-50/50">
             <StandardPageHeader
-                title={pageTitle || (leData?.gleifData?.attributes?.entity?.legalName?.name || (canEdit ? <EditableHeaderTitle leId={leId} initialValue={leName} /> : leName))}
+                title={
+                    <div className="flex flex-col gap-1 min-w-0">
+                        {/* Row 1: Name + LEI Metadata */}
+                        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                            {canEdit ? (
+                                <EditableHeaderTitle 
+                                    leId={leId} 
+                                    initialValue={leName} 
+                                    isVerified={!!leData?.lei}
+                                />
+                            ) : (
+                                <h1 className={cn(
+                                    "text-2xl md:text-3xl font-bold tracking-tight truncate",
+                                    leData?.lei ? "text-emerald-600" : "text-slate-900"
+                                )}>
+                                    {leName}
+                                </h1>
+                            )}
+                            
+                            <div className="shrink-0 flex items-center">
+                                <EditableLEI
+                                    leId={leId}
+                                    initialLei={leData.lei}
+                                    initialFetchedAt={leData.gleifFetchedAt}
+                                    officialName={leData.gleifData?.attributes?.entity?.legalName?.name}
+                                    variant="minimal"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Row 2: Description */}
+                        {!pageTypeLabel && (
+                            <div className="max-w-4xl -mt-0.5">
+                                <EditableDescription
+                                    leId={leId}
+                                    initialValue={leData?.description}
+                                    leName={leName}
+                                    clientOrgName={clientOrgName || "Client"}
+                                />
+                            </div>
+                        )}
+                    </div>
+                }
                 typeLabel={pageTypeLabel || "Legal Entity"}
                 breadcrumbs={combinedBreadcrumbs}
-                actions={!pageTypeLabel ? <ClientLEActions leId={leId} leName={leName} isSystemAdmin={isSystemAdmin} /> : undefined}
-                secondaryNav={contextSecondaryNav || <HeaderNavList items={leTabs} />}
-            >
-                {leData && !pageTypeLabel && (
-                    <div className="flex flex-col gap-4 py-3 border-t border-slate-50 mt-1">
-                        <div className="max-w-4xl">
-                            <EditableDescription
-                                leId={leData.id}
-                                initialValue={leData.description}
-                                leName={leData.name}
-                                clientOrgName={clientOrgName || "Client"}
-                            />
-                        </div>
-                        <div className="flex items-center gap-6">
+                actions={
+                    <div className="flex items-center gap-4">
+                        {!pageTypeLabel && leData && (
                             <DueDateBadge
                                 id={leData.id}
                                 date={leData.dueDate}
@@ -65,18 +97,16 @@ function InnerShell({ children, baseBreadcrumbs, leId, leName, isSystemAdmin, le
                                 level="LE"
                                 label="Deadline"
                             />
-                            <div className="shrink-0">
-                                <EditableLEI
-                                    leId={leData.id}
-                                    initialLei={leData.lei}
-                                    initialFetchedAt={leData.gleifFetchedAt}
-                                    officialName={leData.gleifData?.attributes?.entity?.legalName?.name}
-                                />
-                            </div>
-                        </div>
+                        )}
+                        <ClientLEActions 
+                            leId={leId} 
+                            leName={leName} 
+                            isSystemAdmin={isSystemAdmin} 
+                        />
                     </div>
-                )}
-            </StandardPageHeader>
+                }
+                secondaryNav={contextSecondaryNav || <HeaderNavList items={leTabs} />}
+            />
             <main className={cn(
                 "flex-1 mx-auto w-full p-8 space-y-8",
                 isWide ? "max-w-screen-2xl" : "max-w-6xl"
@@ -88,8 +118,6 @@ function InnerShell({ children, baseBreadcrumbs, leId, leName, isSystemAdmin, le
         </div>
     );
 }
-
-import { AuthSessionProvider } from "@/components/providers/session-provider";
 
 export function LegalEntityLayoutShell(props: LegalEntityLayoutShellProps) {
     return <InnerShell {...props} />;

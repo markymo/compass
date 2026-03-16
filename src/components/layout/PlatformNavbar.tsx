@@ -41,9 +41,7 @@ export function PlatformNavbar({ isSystemAdmin = false, assignmentCount = 0 }: P
                         </Button>
                     )}
                     {isSystemAdmin && <DemoSwitcher />}
-                    <AuthSessionProvider>
-                        <UserNav />
-                    </AuthSessionProvider>
+                    <UserNav />
                 </div>
             </div>
         </header>

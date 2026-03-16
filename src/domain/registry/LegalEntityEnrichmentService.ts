@@ -75,14 +75,38 @@ export class LegalEntityEnrichmentService {
 
             for (const refData of registryRefs) {
                 // Ensure authority exists first
+                const existingAuth = await prisma.registryAuthority.findUnique({
+                    where: { id: refData.registryAuthorityId! }
+                });
+
+                let authorityName = existingAuth?.name || refData.registryAuthorityId!;
+                let countryCode = existingAuth?.countryCode || "UNKNOWN";
+
+                // Retroactively fetch name if it's currently just a placeholder ID
+                if (!existingAuth || existingAuth.name === existingAuth.id) {
+                    try {
+                        console.log(`[LegalEntityEnrichmentService] Resolving name for authority: ${refData.registryAuthorityId!}`);
+                        const raRes = await fetch(`https://api.gleif.org/api/v1/registration-authorities/${refData.registryAuthorityId!}`);
+                        if (raRes.ok) {
+                            const raJson = await raRes.json();
+                            authorityName = raJson.data?.attributes?.internationalOrganizationName 
+                                || raJson.data?.attributes?.internationalName 
+                                || authorityName;
+                            countryCode = raJson.data?.attributes?.jurisdiction || countryCode;
+                        }
+                    } catch (e) {
+                        console.warn(`[LegalEntityEnrichmentService] Failed to resolve authority name for ${refData.registryAuthorityId!}`);
+                    }
+                }
+
                 await prisma.registryAuthority.upsert({
                     where: { id: refData.registryAuthorityId! },
                     update: {},
                     create: {
                         id: refData.registryAuthorityId!,
                         registryKey: refData.registryAuthorityId!,
-                        name: refData.registryAuthorityId!, // Fallback name
-                        countryCode: "UNKNOWN"
+                        name: authorityName,
+                        countryCode: countryCode
                     }
                 });
 

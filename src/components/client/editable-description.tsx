@@ -109,7 +109,7 @@ export function EditableDescription({ leId, initialValue, leName, clientOrgName 
 
     return (
         <div
-            className="group relative cursor-pointer min-h-[60px] flex flex-col justify-center"
+            className="group relative cursor-pointer min-h-[24px] flex flex-col justify-center"
             onClick={() => setIsEditing(true)}
         >
             <div className="flex items-start justify-between gap-4">
@@ -142,8 +142,6 @@ export function EditableDescription({ leId, initialValue, leName, clientOrgName 
                 </div>
             </div>
 
-            {/* Hover bar hint */}
-            <div className="absolute -bottom-2 left-0 w-full h-[1px] bg-slate-200 opacity-0 group-hover:opacity-100 transition-opacity" />
         </div>
     );
 }

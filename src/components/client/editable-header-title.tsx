@@ -10,9 +10,10 @@ interface EditableHeaderTitleProps {
     leId: string;
     initialValue: string;
     isSystemAdmin?: boolean;
+    isVerified?: boolean;
 }
 
-export function EditableHeaderTitle({ leId, initialValue, isSystemAdmin }: EditableHeaderTitleProps) {
+export function EditableHeaderTitle({ leId, initialValue, isSystemAdmin, isVerified }: EditableHeaderTitleProps) {
     const [isEditing, setIsEditing] = useState(false);
     const [value, setValue] = useState(initialValue);
     const [isSaving, setIsSaving] = useState(false);
@@ -85,22 +86,22 @@ export function EditableHeaderTitle({ leId, initialValue, isSystemAdmin }: Edita
 
     return (
         <div 
-            className="group relative flex items-center gap-3 cursor-pointer min-w-0"
+            className="group relative flex items-center gap-2 cursor-pointer min-w-0"
             onClick={() => setIsEditing(true)}
         >
-            <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100 truncate">
+            <h1 className={cn(
+                "text-2xl md:text-3xl font-bold tracking-tight truncate",
+                isVerified ? "text-emerald-600" : "text-slate-900 dark:text-slate-100"
+            )}>
                 {value}
             </h1>
             
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-1.5 shrink-0">
                 {saveStatus === "success" && <CheckCircle2 className="h-4 w-4 text-green-500" />}
                 {saveStatus === "error" && <AlertCircle className="h-4 w-4 text-red-500" />}
                 
-                <Pencil className="h-4 w-4 text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+                <Pencil className="h-3.5 w-3.5 text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
             </div>
-
-            {/* Hint bar below */}
-            <div className="absolute -bottom-1 left-0 w-full h-[1px] bg-slate-200 dark:bg-zinc-800 opacity-0 group-hover:opacity-100 transition-opacity" />
         </div>
     );
 }

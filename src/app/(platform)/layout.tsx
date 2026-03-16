@@ -34,15 +34,17 @@ export default async function PlatformLayout({
     const assignmentCount = userId ? await getUserAssignmentCount(userId).catch(() => 0) : 0;
 
     return (
-        <BreadcrumbProvider>
-            <div className="flex min-h-screen flex-col bg-gray-50 dark:bg-zinc-900">
-                <DemoBanner />
-                <PlatformNavbar isSystemAdmin={isSystemAdmin} assignmentCount={assignmentCount} />
-                <main className="flex-1 container mx-auto p-4 md:p-8">
-                    {children}
-                </main>
-                <Footer />
-            </div>
-        </BreadcrumbProvider>
+        <AuthSessionProvider>
+            <BreadcrumbProvider>
+                <div className="flex min-h-screen flex-col bg-gray-50 dark:bg-zinc-900">
+                    <DemoBanner />
+                    <PlatformNavbar isSystemAdmin={isSystemAdmin} assignmentCount={assignmentCount} />
+                    <main className="flex-1 container mx-auto p-4 md:p-8">
+                        {children}
+                    </main>
+                    <Footer />
+                </div>
+            </BreadcrumbProvider>
+        </AuthSessionProvider>
     );
 }
