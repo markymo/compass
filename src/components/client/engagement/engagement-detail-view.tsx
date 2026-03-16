@@ -29,6 +29,7 @@ interface EngagementDetailViewProps {
     standingData?: any;
     invitations: any[];
     members: any[];
+    manageQuestionnaireId?: string;
 }
 
 import { instantiateQuestionnaire, generateEngagementAnswers } from "@/actions/kanban-actions";
@@ -44,13 +45,12 @@ import { QuestionnaireMapper } from "./questionnaire-mapper";
 
 import { useSearchParams } from "next/navigation";
 import { HeaderNavList } from "@/components/layout/HeaderNavList";
-import { getRelationshipTabs } from "@/config/navigation-tabs";
+import { getRelationshipTabs, getQuestionnaireTabs } from "@/config/navigation-tabs";
 import { SetPageBreadcrumbs } from "@/context/breadcrumb-context";
 
-export function EngagementDetailView({ le, engagement, questionnaires, sharedDocuments, evidenceDocuments = [], invitations, members, initialTab, metrics, standingData }: EngagementDetailViewProps) {
+export function EngagementDetailView({ le, engagement, questionnaires, sharedDocuments, evidenceDocuments = [], invitations, members, initialTab, metrics, standingData, manageQuestionnaireId: propsManageQuestionnaireId }: EngagementDetailViewProps) {
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
     const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
-    const [manageQuestionnaireId, setManageQuestionnaireId] = useState<string | null>(null);
     const [refreshKey, setRefreshKey] = useState(0);
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -58,7 +58,34 @@ export function EngagementDetailView({ le, engagement, questionnaires, sharedDoc
     // Determine active tab from query param or initialTab prop (defaulting to manage)
     const activeTab = searchParams.get('tab') || initialTab || "manage";
 
+    // Support both prop and state for manageQuestionnaireId during transition/fallback
+    // though prefer URL routing now
+    const manageQuestionnaireId = propsManageQuestionnaireId;
+
     const relationshipTabs = getRelationshipTabs(le.id, engagement.id);
+    const questionnaireTabs = getQuestionnaireTabs(le.id, engagement.id, manageQuestionnaireId || "");
+
+    // Contextual Data for Active Questionnaire
+    const activeQuestionnaire = manageQuestionnaireId ? questionnaires.find(q => q.id === manageQuestionnaireId) : null;
+    const currentTabs = manageQuestionnaireId ? questionnaireTabs : relationshipTabs;
+    const currentTitle = activeQuestionnaire ? activeQuestionnaire.name : engagement.org.name;
+    const currentTypeLabel = activeQuestionnaire ? "Supplier Relationship Questionnaire" : "Supplier Relationship";
+
+    // Build breadcrumbs dynamically
+    const breadcrumbItems = [
+        { 
+            label: engagement.org.name, 
+            href: !manageQuestionnaireId ? undefined : `/app/le/${le.id}/engagement-new/${engagement.id}`,
+            iconName: "link-2" 
+        }
+    ];
+
+    if (activeQuestionnaire) {
+        breadcrumbItems.push({
+            label: activeQuestionnaire.name,
+            iconName: "clipboard-list"
+        } as any);
+    }
 
     const handleAdd = async (type: string, data: any) => {
         if (type === 'library') {
@@ -125,21 +152,21 @@ export function EngagementDetailView({ le, engagement, questionnaires, sharedDoc
     return (
         <div className="space-y-6">
             <SetPageBreadcrumbs 
-                items={[{ label: engagement.org.name, iconName: "link-2" }]} // The LE layout handles the parent trail
-                title={engagement.org.name}
-                typeLabel="Supplier Relationship"
-                secondaryNav={<HeaderNavList items={relationshipTabs} />}
+                items={breadcrumbItems}
+                title={currentTitle}
+                typeLabel={currentTypeLabel}
+                secondaryNav={<HeaderNavList items={currentTabs} />}
             />
 
             {/* In-Page Metadata Row (Optional, could also move to secondaryNav metadata slot later) */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 py-2 border-b border-slate-100">
                 <div className="flex items-center gap-4">
                     <DueDateBadge
-                        id={engagement.id}
-                        date={engagement.dueDate}
-                        effectiveDate={engagement.dueDate || le.dueDate}
-                        source={engagement.dueDate ? 'RELATIONSHIP' : 'LE'}
-                        level="RELATIONSHIP"
+                        id={activeQuestionnaire?.id || engagement.id}
+                        date={activeQuestionnaire?.dueDate || engagement.dueDate}
+                        effectiveDate={activeQuestionnaire?.dueDate || engagement.dueDate || le.dueDate}
+                        source={activeQuestionnaire ? 'QUESTIONNAIRE' : engagement.dueDate ? 'RELATIONSHIP' : 'LE'}
+                        level={activeQuestionnaire ? 'QUESTIONNAIRE' : 'RELATIONSHIP'}
                         label="Deadline"
                     />
                     <Button
@@ -172,7 +199,7 @@ export function EngagementDetailView({ le, engagement, questionnaires, sharedDoc
                         {manageQuestionnaireId ? (
                             <QuestionnaireMapper
                                 questionnaireId={manageQuestionnaireId}
-                                onBack={() => setManageQuestionnaireId(null)}
+                                onBack={() => router.push(`/app/le/${le.id}/engagement-new/${engagement.id}`)}
                                 standingData={standingData}
                             />
                         ) : (
@@ -196,63 +223,69 @@ export function EngagementDetailView({ le, engagement, questionnaires, sharedDoc
                                         ) : (
                                             <div className="divide-y divide-slate-100">
                                                 {questionnaires.map((q: any) => (
-                                                    <div key={q.id} className="p-4 flex items-center justify-between hover:bg-slate-50/50">
-                                                        <div className="flex items-center gap-4">
-                                                            <div className="h-10 w-10 bg-indigo-50 text-indigo-600 rounded flex items-center justify-center">
-                                                                <FileText className="h-5 w-5" />
-                                                            </div>
-                                                            <div>
-                                                                <h3 className="font-medium text-slate-900">{q.name}</h3>
-                                                                <div className="flex items-center gap-2 mt-1">
-                                                                    {q.status === 'DIGITIZING' ? (
-                                                                        <Badge variant="outline" className="text-xs bg-indigo-50 text-indigo-600 border-indigo-200 animate-pulse">
-                                                                            Digitizing...
-                                                                        </Badge>
-                                                                    ) : (
-                                                                        <Badge variant="secondary" className="text-[10px]">
-                                                                            {q.mappings ? 'Standard' : 'Custom'}
-                                                                        </Badge>
-                                                                    )}
-                                                                    <span className="text-slate-300 text-[10px]">•</span>
-                                                                    <DueDateBadge
-                                                                        id={q.id}
-                                                                        date={q.dueDate}
-                                                                        effectiveDate={q.dueDate || engagement.dueDate || le.dueDate}
-                                                                        source={q.dueDate ? 'QUESTIONNAIRE' : engagement.dueDate ? 'RELATIONSHIP' : 'LE'}
-                                                                        level="QUESTIONNAIRE"
-                                                                        label="Deadline"
-                                                                    />
+                                                    <Link 
+                                                        key={q.id} 
+                                                        href={`/app/le/${le.id}/engagement-new/${engagement.id}/questionnaire/${q.id}`}
+                                                        className="p-4 flex items-center justify-between hover:bg-slate-50/80 cursor-pointer transition-colors group/card"
+                                                    >
+                                                         <div className="flex items-center gap-4">
+                                                             <div className="h-10 w-10 bg-indigo-50 text-indigo-600 rounded flex items-center justify-center">
+                                                                 <FileText className="h-5 w-5" />
+                                                             </div>
+                                                             <div>
+                                                                 <h3 className="font-medium text-slate-900 group-hover/card:text-indigo-600 transition-colors">{q.name}</h3>
+                                                                 <div className="flex items-center gap-2 mt-1">
+                                                                      {q.status === 'DIGITIZING' && (
+                                                                          <Badge variant="outline" className="text-xs bg-indigo-50 text-indigo-600 border-indigo-200 animate-pulse">
+                                                                              Digitizing...
+                                                                          </Badge>
+                                                                      )}
+                                                                     <DueDateBadge
+                                                                         id={q.id}
+                                                                         date={q.dueDate}
+                                                                         effectiveDate={q.dueDate || engagement.dueDate || le.dueDate}
+                                                                         source={q.dueDate ? 'QUESTIONNAIRE' : engagement.dueDate ? 'RELATIONSHIP' : 'LE'}
+                                                                         level="QUESTIONNAIRE"
+                                                                         label="Deadline"
+                                                                     />
+                                                                 </div>
+                                                             </div>
+                                                         </div>
+                                                        <div className="flex items-center gap-6" onClick={(e) => e.stopPropagation()}>
+                                                            {q.metrics && (
+                                                                <div className="hidden lg:block shrink-0">
+                                                                    <ProgressTracker metrics={q.metrics} variant={"v2" as any} className="w-[540px] scale-[0.85] origin-right" />
                                                                 </div>
-                                                            </div>
-                                                        </div>
-                                                        <div className="flex items-center gap-2">
-                                                            <Button asChild variant="outline" size="sm" className="hidden lg:flex gap-2">
-                                                                <Link href={`/app/le/${le.id}/workbench4?rel=${encodeURIComponent(engagement.org.name)}&q=${encodeURIComponent(q.name)}`}>
-                                                                    <Sparkles className="h-4 w-4 text-indigo-500" />
-                                                                    Open in Workbench
-                                                                </Link>
-                                                            </Button>
-                                                            <Button onClick={() => setManageQuestionnaireId(q.id)} variant="ghost" size="sm" className="gap-2">
-                                                                <Settings className="h-4 w-4" />
-                                                                Manage
-                                                            </Button>
+                                                            )}
                                                             <DropdownMenu>
                                                                 <DropdownMenuTrigger asChild>
-                                                                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                                                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={(e) => e.stopPropagation()}>
                                                                         <MoreHorizontal className="h-4 w-4" />
                                                                     </Button>
                                                                 </DropdownMenuTrigger>
                                                                 <DropdownMenuContent align="end">
-                                                                    <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteQuestionnaire(q.id, q.name)}>
-                                                                        <Trash2 className="h-4 w-4 mr-2" />
-                                                                        Remove
+                                                                    <DropdownMenuItem asChild>
+                                                                        <Link href={`/app/le/${le.id}/workbench4?rel=${encodeURIComponent(engagement.org.name)}&q=${encodeURIComponent(q.name)}`}>
+                                                                            <Sparkles className="h-4 w-4 mr-2" />
+                                                                            Open in Workbench
+                                                                        </Link>
                                                                     </DropdownMenuItem>
-                                                                </DropdownMenuContent>
-                                                            </DropdownMenu>
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
+                                                                    <DropdownMenuItem asChild>
+                                                                        <Link href={`/app/le/${le.id}/engagement-new/${engagement.id}/questionnaire/${q.id}`}>
+                                                                            <Settings className="h-4 w-4 mr-2" />
+                                                                            Manage Questions
+                                                                        </Link>
+                                                                    </DropdownMenuItem>
+                                                                     <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteQuestionnaire(q.id, q.name)}>
+                                                                         <Trash2 className="h-4 w-4 mr-2" />
+                                                                         Remove
+                                                                     </DropdownMenuItem>
+                                                                 </DropdownMenuContent>
+                                                             </DropdownMenu>
+                                                         </div>
+                                                    </Link>
+                                                 ))}
+                                             </div>
                                         )}
                                     </CardContent>
                                 </Card>
@@ -348,6 +381,20 @@ export function EngagementDetailView({ le, engagement, questionnaires, sharedDoc
                                 )}
                             </CardContent>
                         </Card>
+                    </TabsContent>
+
+                    <TabsContent value="source" className="mt-0">
+                        <div className="text-center py-20 bg-slate-50 border-2 border-dashed border-slate-200 rounded-xl m-8">
+                            <Sparkles className="h-10 w-10 text-indigo-400 mx-auto mb-4" />
+                            <h3 className="text-lg font-semibold text-slate-800">Source & Processing</h3>
+                            <p className="text-slate-500 max-w-sm mx-auto mt-2">
+                                Review the original source document and view the processing logs for this questionnaire mapping.
+                            </p>
+                            <Button variant="outline" className="mt-6 gap-2">
+                                <FileText className="h-4 w-4" />
+                                View Source Document
+                            </Button>
+                        </div>
                     </TabsContent>
                 </div>
             </Tabs>

@@ -122,3 +122,28 @@ export const getFIPortalTabs = (orgId: string): NavItem[] => {
         }
     ];
 };
+
+export const getQuestionnaireTabs = (leId: string, engagementId: string, questionnaireId: string): NavItem[] => {
+    const baseUrl = `/app/le/${leId}/engagement-new/${engagementId}/questionnaire/${questionnaireId}`;
+    
+    const matchesTab = (path: string, tabValue: string | null) => {
+        const url = new URL(path, 'http://localhost');
+        const tab = url.searchParams.get('tab');
+        return tab === tabValue || (tabValue === null && !tab);
+    };
+
+    return [
+        {
+            label: "Questions",
+            href: `${baseUrl}?tab=manage`,
+            icon: FileText,
+            isActive: (path) => matchesTab(path, "manage") || matchesTab(path, null)
+        },
+        {
+            label: "Source & Processing",
+            href: `${baseUrl}?tab=source`,
+            icon: Sparkles,
+            isActive: (path) => matchesTab(path, "source")
+        }
+    ];
+};

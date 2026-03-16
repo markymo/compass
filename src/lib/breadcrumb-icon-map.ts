@@ -1,10 +1,11 @@
-import { Link2, Landmark, Building2, Home, LucideIcon } from "lucide-react";
+import { Link2, Landmark, Building2, Home, ClipboardList, LucideIcon } from "lucide-react";
 
 export const BREADCRUMB_ICON_MAP: Record<string, LucideIcon> = {
     "link-2": Link2,
     "landmark": Landmark,
     "building-2": Building2,
-    "home": Home
+    "home": Home,
+    "clipboard-list": ClipboardList
 };
 
 export function getBreadcrumbIcon(iconName?: string): LucideIcon | undefined {

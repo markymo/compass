@@ -9,7 +9,7 @@ import { Action, can } from "@/lib/auth/permissions";
 import { getMasterFieldDefinition, listAllMasterFields, listAllMasterGroups } from "@/services/masterData/definitionService";
 import { getIdentity } from "@/lib/auth";
 import { getUserFIOrg } from "./security";
-import { calculateEngagementMetrics } from "@/lib/metrics-calc";
+import { calculateEngagementMetrics, calculateQuestionnaireMetrics } from "@/lib/metrics-calc";
 import { generateText } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
 import { KycStateService } from "@/lib/kyc/KycStateService";
@@ -370,11 +370,17 @@ export async function getEngagementDetails(engagementId: string) {
         // Combine both for the UI, or prioritize Instances
         // For Client View, we mostly care about Instances (what we are working on)
         // effectively 'questionnaires' in the UI maps to 'questionnaireInstances'
-        const combinedQuestionnaires = Array.from(
+        const combinedQuestionnairesRaw = Array.from(
             new Map(
                 [...engagement.questionnaireInstances, ...engagement.questionnaires].map((item: any) => [item.id, item])
             ).values()
         );
+
+        // Fetch metrics for each questionnaire
+        const questionnaires = await Promise.all(combinedQuestionnairesRaw.map(async (q: any) => ({
+            ...q,
+            metrics: await calculateQuestionnaireMetrics(q.id)
+        })));
 
         // Fetch Pending Invitations
         const rawInvitations = await prisma.invitation.findMany({
@@ -411,7 +417,7 @@ export async function getEngagementDetails(engagementId: string) {
         return {
             success: true,
             engagement,
-            questionnaires: combinedQuestionnaires,
+            questionnaires,
             invitations,
             members,
             metrics
