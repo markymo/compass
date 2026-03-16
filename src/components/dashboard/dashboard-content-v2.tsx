@@ -386,8 +386,8 @@ function ClientOrgCard({ org }: { org: OrgNode }) {
                     <div className="flex flex-col border-l border-slate-200 pl-4 h-full">
                         <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-[2px]">Sign-Off</span>
                         <div className="flex justify-between pr-2 items-end">
-                            <span className="text-[10px] font-bold text-emerald-600 uppercase">Appr</span>
-                            <span className="text-[10px] font-bold text-indigo-600 uppercase">Rlsd</span>
+                            <span className="text-[10px] font-bold text-indigo-600 uppercase">APPR</span>
+                            <span className="text-[10px] font-bold text-emerald-600 uppercase">RLSD</span>
                         </div>
                     </div>
                 </div>
@@ -441,10 +441,10 @@ function ClientOrgCard({ org }: { org: OrgNode }) {
                         {/* Sign-off Fractions */}
                         <div className="border-l border-slate-100 pl-4 pr-1 flex items-center justify-between h-full">
                              <div className="flex items-baseline gap-0.5">
-                                 <span className={cn("text-[13px] font-bold font-mono", org.metrics.approved > 0 ? "text-emerald-600" : "text-slate-300")}>{org.metrics.approved}</span>
+                                 <span className={cn("text-[13px] font-bold font-mono", org.metrics.approved > 0 ? "text-indigo-600" : "text-slate-300")}>{org.metrics.approved}</span>
                              </div>
                              <div className="flex items-baseline gap-0.5">
-                                 <span className={cn("text-[13px] font-bold font-mono", org.metrics.released > 0 ? "text-indigo-600" : "text-slate-300")}>{org.metrics.released}</span>
+                                 <span className={cn("text-[13px] font-bold font-mono", org.metrics.released > 0 ? "text-emerald-600" : "text-slate-300")}>{org.metrics.released}</span>
                              </div>
                         </div>
                     </>
@@ -551,10 +551,10 @@ function NestedTreeRow({ item, level, orgType }: { item: OrgChild; level: number
                                 {/* Signoff Fractions */}
                                 <div className="border-l border-slate-100 pl-4 pr-1 flex items-center justify-between h-full opacity-90">
                                     <div className="flex items-baseline gap-0.5">
-                                        <span className={cn("text-xs font-bold font-mono", item.metrics.approved > 0 ? "text-emerald-600" : "text-slate-300")}>{item.metrics.approved}</span>
+                                        <span className={cn("text-xs font-bold font-mono", item.metrics.approved > 0 ? "text-indigo-600" : "text-slate-300")}>{item.metrics.approved}</span>
                                     </div>
                                     <div className="flex items-baseline gap-0.5">
-                                        <span className={cn("text-xs font-bold font-mono", item.metrics.released > 0 ? "text-indigo-600" : "text-slate-300")}>{item.metrics.released}</span>
+                                        <span className={cn("text-xs font-bold font-mono", item.metrics.released > 0 ? "text-emerald-600" : "text-slate-300")}>{item.metrics.released}</span>
                                     </div>
                                 </div>
                             </>

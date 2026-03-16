@@ -10,8 +10,7 @@ export default async function DashboardPageV2() {
     return (
         <div className="flex flex-col min-h-screen bg-slate-50/30">
             <StandardPageHeader
-                title="Relationships Overview (v2)"
-                typeLabel="Overview"
+                title="Relationships (v2)"
                 subtitle="Your Organisations, Legal Entities and Relationships."
                 breadcrumbs={[{ label: "Home", href: "/app", icon: Home }]}
             />
