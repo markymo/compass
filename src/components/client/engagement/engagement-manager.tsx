@@ -186,7 +186,7 @@ export function EngagementManager({ leId, initialEngagements, leDueDate }: Engag
                                 <div className="min-w-0">
                                     <h3 className="font-bold text-base md:text-lg text-slate-900 truncate">
                                         <Link
-                                            href={eng.id.startsWith("temp-") ? "#" : `/app/le/${leId}/engagement-new/${eng.id}?tab=overview`}
+                                            href={eng.id.startsWith("temp-") ? "#" : `/app/le/${leId}/engagement-new/${eng.id}?tab=manage`}
                                             className="hover:underline hover:text-indigo-600 transition-colors"
                                         >
                                             {typeof eng.org === 'string' ? eng.org : eng.org?.name}
@@ -197,14 +197,10 @@ export function EngagementManager({ leId, initialEngagements, leDueDate }: Engag
                                         <Badge variant="outline" className={cn(
                                             "text-[10px] uppercase font-bold px-1.5 py-0",
                                             eng.status === 'INVITED' ? "bg-blue-50 text-blue-700 border-blue-200" :
-                                                eng.status === 'CONNECTED' ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
-                                                    "bg-slate-100 text-slate-600 border-slate-200"
+                                                "bg-slate-100 text-slate-600 border-slate-200"
                                         )}>
                                             {eng.status === 'PREPARATION' ? 'DRAFT' : eng.status}
                                         </Badge>
-
-                                        <span className="text-slate-400 text-xs hidden md:inline">•</span>
-                                        <span className="text-xs text-slate-500">{eng.questionnaires?.length || 0} Questionnaires</span>
 
                                         <span className="text-slate-400 text-xs hidden md:inline">•</span>
                                         <DueDateBadge
@@ -223,30 +219,12 @@ export function EngagementManager({ leId, initialEngagements, leDueDate }: Engag
                             <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto pb-1 md:pb-0 no-scrollbar">
                                 <Link href={eng.id.startsWith("temp-") ? "#" : `/app/le/${leId}/engagement-new/${eng.id}?tab=manage`} className="flex-1 md:flex-none">
                                     <Button
-                                        variant="ghost"
-                                        disabled={eng.id.startsWith("temp-")}
-                                        className="w-full md:w-auto text-slate-600 hover:text-indigo-600 hover:bg-slate-50 text-xs md:text-sm whitespace-nowrap"
-                                    >
-                                        Manage Qs
-                                    </Button>
-                                </Link>
-                                <Link href={eng.id.startsWith("temp-") ? "#" : `/app/le/${leId}/engagement-new/${eng.id}?tab=workbench`} className="flex-1 md:flex-none">
-                                    <Button
                                         variant="outline"
+                                        size="sm"
                                         disabled={eng.id.startsWith("temp-")}
-                                        className="w-full md:w-auto gap-2 group-hover:bg-indigo-50 group-hover:text-indigo-600 group-hover:border-indigo-200 text-xs md:text-sm whitespace-nowrap"
+                                        className="w-full md:w-auto text-slate-600 hover:text-indigo-600 hover:bg-slate-50 text-xs whitespace-nowrap"
                                     >
-                                        {eng.id.startsWith("temp-") ? (
-                                            <>
-                                                <Loader2 className="h-3 w-3 animate-spin" />
-                                                Creating...
-                                            </>
-                                        ) : (
-                                            <>
-                                                Workbench
-                                                <ArrowUpRight className="h-3 w-3" />
-                                            </>
-                                        )}
+                                        Questionnaires
                                     </Button>
                                 </Link>
 
@@ -268,6 +246,35 @@ export function EngagementManager({ leId, initialEngagements, leDueDate }: Engag
                                 </DropdownMenu>
                             </div>
                         </CardContent>
+
+                        {/* Nested Questionnaires Section */}
+                        {eng.questionnaires && eng.questionnaires.length > 0 && (
+                            <div className="px-4 md:px-6 pb-4 md:pb-6 pt-0 border-t border-slate-50">
+                                <div className="mt-4 space-y-2">
+                                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                                        <Plus className="h-3 w-3" />
+                                        Active Questionnaires
+                                    </div>
+                                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                                        {eng.questionnaires.map((q: any) => (
+                                            <div key={q.id} className="group/q flex items-center justify-between p-3 rounded-lg bg-slate-50/50 border border-slate-100 hover:border-indigo-100 hover:bg-white transition-all">
+                                                <div className="min-w-0">
+                                                    <p className="text-xs font-semibold text-slate-700 truncate">{q.name}</p>
+                                                    <p className="text-[10px] text-slate-500 mt-0.5">{q.status || 'In Progress'}</p>
+                                                </div>
+                                                <Link 
+                                                    href={`/app/le/${leId}/workbench4?rel=${encodeURIComponent(typeof eng.org === 'string' ? eng.org : eng.org?.name)}&q=${encodeURIComponent(q.name)}`}
+                                                    className="p-1.5 rounded-md hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 transition-colors"
+                                                    title="Open in Workbench"
+                                                >
+                                                    <ArrowUpRight className="h-3.5 w-3.5" />
+                                                </Link>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </Card>
                 ))}
 

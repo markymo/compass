@@ -15,7 +15,7 @@ export default async function FITeamPage({ params }: { params: Promise<{ id: str
         <div className="flex flex-col min-h-screen">
             <GuideHeader
                 breadcrumbs={[
-                    { label: "", href: "/app", icon: Home },
+                    { label: "Home", href: "/app", icon: Home },
                     { label: org.name, href: `/app/s/${id}`, icon: Users },
                     { label: "Team Members", icon: Users }
                 ]}

@@ -38,11 +38,12 @@ import {
     Lock,
     Share2
 } from "lucide-react";
+import { useSearchParams, usePathname, useRouter } from "next/navigation";
+import { FieldDetailPanel } from "../inspection/field-detail-panel";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { FieldDetailPanel } from "../inspection/field-detail-panel";
 
 interface Props {
     leId: string;
@@ -50,13 +51,35 @@ interface Props {
 }
 
 export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
+    const searchParams = useSearchParams();
+    const pathname = usePathname();
+    const router = useRouter();
+
+    // Initialize from URL or defaults
     const [data, setData] = useState<Workbench4Data>(initialData);
-    const [search, setSearch] = useState("");
-    const [relFilter, setRelFilter] = useState<string>("ALL");
-    const [qFilter, setQFilter] = useState<string>("ALL");
-    const [mappingTypeFilter, setMappingTypeFilter] = useState<string>("ALL"); // ALL, MAPPED, UNMAPPED
-    const [catFilter, setCatFilter] = useState<string>("ALL");
+    const [search, setSearch] = useState(searchParams.get("s") || "");
+    const [relFilter, setRelFilter] = useState<string>(searchParams.get("rel") || "ALL");
+    const [qFilter, setQFilter] = useState<string>(searchParams.get("q") || "ALL");
+    const [mappingTypeFilter, setMappingTypeFilter] = useState<string>(searchParams.get("m") || "ALL"); // ALL, MAPPED, UNMAPPED
+    const [catFilter, setCatFilter] = useState<string>(searchParams.get("cat") || "ALL");
     const [pinnedIds, setPinnedIds] = useState<Set<string>>(new Set());
+
+    const isAutoFiltered = useMemo(() => {
+        return searchParams.get("rel") || searchParams.get("q") || searchParams.get("s") || searchParams.get("cat") || searchParams.get("m");
+    }, [searchParams]);
+
+    // Update URL when filters change
+    const updateUrl = (updates: Record<string, string | null>) => {
+        const params = new URLSearchParams(searchParams.toString());
+        Object.entries(updates).forEach(([key, value]) => {
+            if (value === "ALL" || value === "" || value === null) {
+                params.delete(key);
+            } else {
+                params.set(key, value);
+            }
+        });
+        router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    };
 
     const [isPending, startTransition] = useTransition();
     const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -227,16 +250,40 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
                         className="pl-9 bg-slate-50/50 border-slate-200"
                         value={search}
                         onChange={(e) => {
-                            setSearch(e.target.value);
+                            const val = e.target.value;
+                            setSearch(val);
+                            updateUrl({ s: val });
                             clearPinned();
                         }}
                     />
                 </div>
 
                 <div className="flex items-center gap-2">
+                    {isAutoFiltered && (
+                        <Badge variant="outline" className="mr-2 bg-indigo-50 text-indigo-600 border-indigo-100 flex items-center gap-1.5 py-1 px-2 animate-in fade-in slide-in-from-right-2 duration-500">
+                            <Sparkles className="h-3 w-3" />
+                            <span className="text-[10px] font-bold uppercase tracking-wider">Filters Applied</span>
+                            <button 
+                                onClick={() => {
+                                    setSearch("");
+                                    setRelFilter("ALL");
+                                    setQFilter("ALL");
+                                    setCatFilter("ALL");
+                                    setMappingTypeFilter("ALL");
+                                    router.replace(pathname, { scroll: false });
+                                }}
+                                className="ml-1 hover:text-indigo-800 transition-colors"
+                            >
+                                <X className="h-3 w-3" />
+                            </button>
+                        </Badge>
+                    )}
                     <Filter className="h-4 w-4 text-slate-500 mr-1" />
 
-                    <Select value={relFilter} onValueChange={handleFilterChange(setRelFilter)}>
+                    <Select value={relFilter} onValueChange={(val) => {
+                        handleFilterChange(setRelFilter)(val);
+                        updateUrl({ rel: val });
+                    }}>
                         <SelectTrigger className="w-[180px] bg-slate-50/50">
                             <SelectValue placeholder="Relationship" />
                         </SelectTrigger>
@@ -248,7 +295,10 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
                         </SelectContent>
                     </Select>
 
-                    <Select value={qFilter} onValueChange={handleFilterChange(setQFilter)}>
+                    <Select value={qFilter} onValueChange={(val) => {
+                        handleFilterChange(setQFilter)(val);
+                        updateUrl({ q: val });
+                    }}>
                         <SelectTrigger className="w-[200px] bg-slate-50/50">
                             <SelectValue placeholder="Questionnaire" />
                         </SelectTrigger>
@@ -260,7 +310,10 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
                         </SelectContent>
                     </Select>
 
-                    <Select value={catFilter} onValueChange={handleFilterChange(setCatFilter)}>
+                    <Select value={catFilter} onValueChange={(val) => {
+                        handleFilterChange(setCatFilter)(val);
+                        updateUrl({ cat: val });
+                    }}>
                         <SelectTrigger className="w-[160px] bg-slate-50/50">
                             <SelectValue placeholder="Category" />
                         </SelectTrigger>
@@ -272,7 +325,10 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
                         </SelectContent>
                     </Select>
 
-                    <Select value={mappingTypeFilter} onValueChange={handleFilterChange(setMappingTypeFilter)}>
+                    <Select value={mappingTypeFilter} onValueChange={(val) => {
+                        handleFilterChange(setMappingTypeFilter)(val);
+                        updateUrl({ m: val });
+                    }}>
                         <SelectTrigger className="w-[150px] bg-slate-50/50">
                             <SelectValue placeholder="Mapping" />
                         </SelectTrigger>

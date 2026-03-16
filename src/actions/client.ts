@@ -467,6 +467,9 @@ export async function getClientLEData(leId: string) {
                     org: true,
                     questionnaires: {
                         where: { isDeleted: false }
+                    },
+                    questionnaireInstances: {
+                        where: { isDeleted: false }
                     }
                 }
             },
@@ -482,6 +485,13 @@ export async function getClientLEData(leId: string) {
     }
 
     le.fiEngagements.forEach((eng: any) => {
+        // Combine both many-to-many and one-to-many relations for compatibility
+        const combined = Array.from(
+            new Map(
+                [...(eng.questionnaireInstances || []), ...(eng.questionnaires || [])].map((q: any) => [q.id, q])
+            ).values()
+        );
+        eng.questionnaires = combined;
         console.log(`[getClientLEData] Engagement ${eng.org.name} has ${eng.questionnaires.length} ACTIVE questionnaires`);
     });
 

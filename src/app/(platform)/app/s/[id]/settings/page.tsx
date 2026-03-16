@@ -15,7 +15,7 @@ export default async function FISettingsPage({ params }: { params: Promise<{ id:
         <div className="flex flex-col min-h-screen">
             <GuideHeader
                 breadcrumbs={[
-                    { label: "", href: "/app", icon: Home },
+                    { label: "Home", href: "/app", icon: Home },
                     { label: org.name, href: `/app/s/${id}`, icon: Settings },
                     { label: "Settings", icon: Settings }
                 ]}

@@ -66,22 +66,10 @@ export const getRelationshipTabs = (leId: string, engagementId: string): NavItem
 
     return [
         {
-            label: "Overview",
-            href: `${baseUrl}?tab=overview`,
-            icon: LayoutDashboard,
-            isActive: (path) => matchesTab(path, "overview")
-        },
-        {
-            label: "Workbench",
-            href: `${baseUrl}?tab=workbench`,
-            icon: Sparkles,
-            isActive: (path) => matchesTab(path, "workbench") || matchesTab(path, null) // Default tab
-        },
-        {
             label: "Questionnaires",
             href: `${baseUrl}?tab=manage`,
             icon: FileText,
-            isActive: (path) => matchesTab(path, "manage")
+            isActive: (path) => matchesTab(path, "manage") || matchesTab(path, null) // Default tab
         },
         {
             label: "Documents",

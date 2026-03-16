@@ -55,8 +55,8 @@ export function EngagementDetailView({ le, engagement, questionnaires, sharedDoc
     const router = useRouter();
     const searchParams = useSearchParams();
     
-    // Determine active tab from query param or initialTab prop
-    const activeTab = searchParams.get('tab') || initialTab || "workbench";
+    // Determine active tab from query param or initialTab prop (defaulting to manage)
+    const activeTab = searchParams.get('tab') || initialTab || "manage";
 
     const relationshipTabs = getRelationshipTabs(le.id, engagement.id);
 
@@ -129,7 +129,6 @@ export function EngagementDetailView({ le, engagement, questionnaires, sharedDoc
                 title={engagement.org.name}
                 typeLabel="Supplier Relationship"
                 secondaryNav={<HeaderNavList items={relationshipTabs} />}
-                isWide={activeTab === 'workbench'}
             />
 
             {/* In-Page Metadata Row (Optional, could also move to secondaryNav metadata slot later) */}
@@ -173,20 +172,10 @@ export function EngagementDetailView({ le, engagement, questionnaires, sharedDoc
             <Tabs value={activeTab} className="w-full space-y-0">
                 {/* Internal TabsContent remains, but TabsList is removed as it's now in the header */}
                 <div className={cn(
-                    "bg-white border border-slate-200 rounded-xl relative min-h-[600px]",
-                    activeTab === "workbench" ? "p-0 md:p-4" : "p-0 md:p-8"
+                    "bg-white border border-slate-200 rounded-xl relative min-h-[600px] p-0 md:p-8"
                 )}>
 
-                    <TabsContent value="overview" className="mt-0">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Relationship Overview</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <p className="text-slate-500">History and contact details coming soon...</p>
-                            </CardContent>
-                        </Card>
-                    </TabsContent>
+
 
                     <TabsContent value="manage" className="mt-0 space-y-4">
                         {manageQuestionnaireId ? (
@@ -246,8 +235,14 @@ export function EngagementDetailView({ le, engagement, questionnaires, sharedDoc
                                                             </div>
                                                         </div>
                                                         <div className="flex items-center gap-2">
-                                                            <Button onClick={() => setManageQuestionnaireId(q.id)} variant="outline" size="sm">
-                                                                <Settings className="h-4 w-4 mr-2" />
+                                                            <Button asChild variant="outline" size="sm" className="hidden lg:flex gap-2">
+                                                                <Link href={`/app/le/${le.id}/workbench4?rel=${encodeURIComponent(engagement.org.name)}&q=${encodeURIComponent(q.name)}`}>
+                                                                    <Sparkles className="h-4 w-4 text-indigo-500" />
+                                                                    Open in Workbench
+                                                                </Link>
+                                                            </Button>
+                                                            <Button onClick={() => setManageQuestionnaireId(q.id)} variant="ghost" size="sm" className="gap-2">
+                                                                <Settings className="h-4 w-4" />
                                                                 Manage
                                                             </Button>
                                                             <DropdownMenu>
@@ -282,27 +277,7 @@ export function EngagementDetailView({ le, engagement, questionnaires, sharedDoc
                         />
                     </TabsContent>
 
-                    <TabsContent value="workbench" className="mt-6 md:mt-0 p-4 md:p-0">
-                        <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-4 gap-4">
-                            <div className="space-y-1">
-                                <h3 className="text-lg font-medium text-slate-900">Task Board</h3>
-                                <p className="text-sm text-slate-500">Manage questions and track progress</p>
-                            </div>
-                            <Button onClick={handleBatchGenerate} className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2 shadow-sm">
-                                <Sparkles className="h-4 w-4" />
-                                Draft Answers for All
-                            </Button>
-                        </div>
-                        <div className="min-h-[calc(100vh-250px)] w-full md:border md:rounded-lg bg-slate-50/50 md:p-4">
-                            <KanbanBoard
-                                key={refreshKey}
-                                engagementId={engagement.id}
-                                clientLEId={le.id}
-                                fiName={engagement.org.name}
-                                questionnaires={questionnaires}
-                            />
-                        </div>
-                    </TabsContent>
+
 
                     <TabsContent value="team" className="mt-0 space-y-6">
                         {/* Active Members Card */}

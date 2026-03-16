@@ -58,7 +58,7 @@ export default async function LegalEntityLayout({ children, params }: LayoutProp
 
     // Construct Base Breadcrumbs (Server-Side)
     const baseBreadcrumbs: GuideBreadcrumbItem[] = [
-        { label: "", href: "/app", iconName: "home" },
+        { label: "Home", href: "/app", iconName: "home" },
         { label: ownerName || "Client", href: ownerId ? `/app/clients/${ownerId}` : "/app", iconName: "building-2" },
         { label: le.name, href: `/app/le/${le.id}`, iconName: "landmark" }
     ];
