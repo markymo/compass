@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
 import { GleifRefreshButton } from "./gleif-refresh-button";
+import { RawPayloadViewer } from "./raw-payload-viewer";
 
 interface GleifTabProps {
     leId: string;
@@ -72,7 +73,10 @@ export function GleifTab({ leId, data, fetchedAt }: GleifTabProps) {
                     </div>
                 </div>
 
-                <GleifRefreshButton leId={leId} lastRefreshed={fetchedAt} />
+                <div className="flex flex-col items-end gap-1.5">
+                    <GleifRefreshButton leId={leId} lastRefreshed={fetchedAt} />
+                    <RawPayloadViewer data={data} />
+                </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

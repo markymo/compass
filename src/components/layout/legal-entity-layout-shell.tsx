@@ -42,37 +42,41 @@ function InnerShell({ children, baseBreadcrumbs, leId, leName, isSystemAdmin, le
         <div className="flex flex-col min-h-screen bg-slate-50/50">
             <StandardPageHeader
                 title={
-                    <div className="flex flex-col gap-1 min-w-0">
-                        {/* Row 1: Name + LEI Metadata */}
-                        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                            {canEdit ? (
-                                <EditableHeaderTitle 
-                                    leId={leId} 
-                                    initialValue={leName} 
-                                    isVerified={!!leData?.lei}
-                                />
-                            ) : (
-                                <h1 className={cn(
-                                    "text-2xl md:text-3xl font-bold tracking-tight truncate",
-                                    leData?.lei ? "text-emerald-600" : "text-slate-900"
-                                )}>
-                                    {leName}
-                                </h1>
-                            )}
-                            
-                            <div className="shrink-0 flex items-center">
-                                <EditableLEI
-                                    leId={leId}
-                                    initialLei={leData.lei}
-                                    initialFetchedAt={leData.gleifFetchedAt}
-                                    officialName={leData.gleifData?.attributes?.entity?.legalName?.name}
-                                    variant="minimal"
-                                />
+                    pageTitle ? (
+                        <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900 truncate">
+                            {pageTitle}
+                        </h1>
+                    ) : (
+                        <div className="flex flex-col gap-1 min-w-0">
+                            {/* Row 1: Name + LEI Metadata */}
+                            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                                {canEdit ? (
+                                    <EditableHeaderTitle 
+                                        leId={leId} 
+                                        initialValue={leName} 
+                                        isVerified={!!leData?.lei}
+                                    />
+                                ) : (
+                                    <h1 className={cn(
+                                        "text-2xl md:text-3xl font-bold tracking-tight truncate",
+                                        leData?.lei ? "text-emerald-600" : "text-slate-900"
+                                    )}>
+                                        {leName}
+                                    </h1>
+                                )}
+                                
+                                <div className="shrink-0 flex items-center">
+                                    <EditableLEI
+                                        leId={leId}
+                                        initialLei={leData.lei}
+                                        initialFetchedAt={leData.gleifFetchedAt}
+                                        officialName={leData.gleifData?.attributes?.entity?.legalName?.name}
+                                        variant="minimal"
+                                    />
+                                </div>
                             </div>
-                        </div>
 
-                        {/* Row 2: Description */}
-                        {!pageTypeLabel && (
+                            {/* Row 2: Description */}
                             <div className="max-w-4xl -mt-0.5">
                                 <EditableDescription
                                     leId={leId}
@@ -81,8 +85,8 @@ function InnerShell({ children, baseBreadcrumbs, leId, leName, isSystemAdmin, le
                                     clientOrgName={clientOrgName || "Client"}
                                 />
                             </div>
-                        )}
-                    </div>
+                        </div>
+                    )
                 }
                 typeLabel={pageTypeLabel || "Legal Entity"}
                 breadcrumbs={combinedBreadcrumbs}

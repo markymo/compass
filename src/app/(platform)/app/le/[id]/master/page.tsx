@@ -2,6 +2,8 @@ import { getFullMasterData } from "@/actions/client-le";
 import { getCategoriesWithFields } from "@/actions/master-data-sort";
 import { notFound } from "next/navigation";
 import { DataSchemaTab } from "@/components/client/data-schema-tab";
+import { SetPageBreadcrumbs } from "@/context/breadcrumb-context";
+
 
 export default async function MasterRecordPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
@@ -16,6 +18,9 @@ export default async function MasterRecordPage({ params }: { params: Promise<{ i
 
     return (
         <div className="p-6 max-w-[1600px] mx-auto">
+            <SetPageBreadcrumbs 
+                items={[]}
+            />
 
 
             <DataSchemaTab

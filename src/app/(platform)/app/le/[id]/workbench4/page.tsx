@@ -1,6 +1,7 @@
 import { getWorkbench4Data } from "@/actions/kyc-workbench";
 import { CrossQuestionnaireMapper } from "@/components/client/workbench/cross-questionnaire-mapper";
 import { notFound } from "next/navigation";
+import { SetPageBreadcrumbs } from "@/context/breadcrumb-context";
 
 export default async function Workbench4Page({ params }: { params: Promise<{ id: string }> }) {
     const { id: leId } = await params;
@@ -11,9 +12,9 @@ export default async function Workbench4Page({ params }: { params: Promise<{ id:
 
     return (
         <div className="p-6">
-            <div className="mb-8">
-                <h1 className="text-2xl font-bold tracking-tight text-slate-900">Questionnaires</h1>
-            </div>
+            <SetPageBreadcrumbs 
+                items={[]}
+            />
 
             <CrossQuestionnaireMapper
                 leId={leId}

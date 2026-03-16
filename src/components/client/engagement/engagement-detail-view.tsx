@@ -75,7 +75,7 @@ export function EngagementDetailView({ le, engagement, questionnaires, sharedDoc
     const breadcrumbItems = [
         { 
             label: engagement.org.name, 
-            href: !manageQuestionnaireId ? undefined : `/app/le/${le.id}/engagement-new/${engagement.id}`,
+            href: activeQuestionnaire ? `/app/le/${le.id}/engagement-new/${engagement.id}` : undefined,
             iconName: "link-2" 
         }
     ];

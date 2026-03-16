@@ -36,13 +36,29 @@ export function BreadcrumbProvider({ children }: { children: React.ReactNode }) 
     const [secondaryNav, setSecondaryNav] = useState<React.ReactNode | undefined>(undefined);
     const [isWide, setIsWide] = useState(false);
 
-    const setExtraBreadcrumbs = (items: BreadcrumbItemData[]) => {
+    const setExtraBreadcrumbs = React.useCallback((items: BreadcrumbItemData[]) => {
         setExtraBreadcrumbsState(items);
-    };
+    }, []);
 
-    const clearExtraBreadcrumbs = () => {
+    const clearExtraBreadcrumbs = React.useCallback(() => {
         setExtraBreadcrumbsState([]);
-    };
+    }, []);
+
+    const setPageTitleStable = React.useCallback((title: string | undefined) => {
+        setPageTitle(title);
+    }, []);
+
+    const setPageTypeLabelStable = React.useCallback((label: string | undefined) => {
+        setPageTypeLabel(label);
+    }, []);
+
+    const setSecondaryNavStable = React.useCallback((nav: React.ReactNode | undefined) => {
+        setSecondaryNav(nav);
+    }, []);
+
+    const setIsWideStable = React.useCallback((wide: boolean) => {
+        setIsWide(wide);
+    }, []);
 
     const currentBreadcrumbs = useMemo(() => {
         // Start with Home
@@ -63,21 +79,36 @@ export function BreadcrumbProvider({ children }: { children: React.ReactNode }) 
         return trail;
     }, [pathname, extraBreadcrumbs]);
 
+    const contextValue = useMemo(() => ({
+        extraBreadcrumbs, 
+        setExtraBreadcrumbs, 
+        clearExtraBreadcrumbs, 
+        currentBreadcrumbs,
+        pageTitle,
+        setPageTitle: setPageTitleStable,
+        pageTypeLabel,
+        setPageTypeLabel: setPageTypeLabelStable,
+        secondaryNav,
+        setSecondaryNav: setSecondaryNavStable,
+        isWide,
+        setIsWide: setIsWideStable
+    }), [
+        extraBreadcrumbs, 
+        setExtraBreadcrumbs, 
+        clearExtraBreadcrumbs, 
+        currentBreadcrumbs,
+        pageTitle,
+        setPageTitleStable,
+        pageTypeLabel,
+        setPageTypeLabelStable,
+        secondaryNav,
+        setSecondaryNavStable,
+        isWide,
+        setIsWideStable
+    ]);
+
     return (
-        <BreadcrumbContext.Provider value={{ 
-            extraBreadcrumbs, 
-            setExtraBreadcrumbs, 
-            clearExtraBreadcrumbs, 
-            currentBreadcrumbs,
-            pageTitle,
-            setPageTitle,
-            pageTypeLabel,
-            setPageTypeLabel,
-            secondaryNav,
-            setSecondaryNav,
-            isWide,
-            setIsWide
-        }}>
+        <BreadcrumbContext.Provider value={contextValue}>
             {children}
         </BreadcrumbContext.Provider>
     );
@@ -104,17 +135,15 @@ export function SetPageBreadcrumbs({ items, title, typeLabel, secondaryNav, isWi
 
     useEffect(() => {
         setExtraBreadcrumbs(items);
-        if (title) setPageTitle(title);
-        if (typeLabel) setPageTypeLabel(typeLabel);
-        if (secondaryNav) setSecondaryNav(secondaryNav);
+        setPageTitle(title);
+        setPageTypeLabel(typeLabel);
+        setSecondaryNav(secondaryNav);
         if (isWide !== undefined) setIsWide(isWide);
         
         return () => {
+            // Only clear breadcrumbs, let the next page's SetPageBreadcrumbs take over title/nav
+            // to avoid race conditions during page transitions.
             clearExtraBreadcrumbs();
-            setPageTitle(undefined);
-            setPageTypeLabel(undefined);
-            setSecondaryNav(undefined);
-            setIsWide(false);
         };
     }, [JSON.stringify(items), title, typeLabel, secondaryNav, isWide, setExtraBreadcrumbs, clearExtraBreadcrumbs, setPageTitle, setPageTypeLabel, setSecondaryNav, setIsWide]);
 

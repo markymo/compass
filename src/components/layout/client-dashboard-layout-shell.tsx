@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { HeaderNavList } from "@/components/layout/HeaderNavList";
 import { StandardPageHeader } from "@/components/layout/StandardPageHeader";
 import { getClientDashboardTabs } from "@/config/navigation-tabs";
+import { useBreadcrumbs } from "@/context/breadcrumb-context";
 
 interface ClientDashboardLayoutShellProps {
     children: React.ReactNode;

@@ -4,6 +4,7 @@ import { MissionControl, ActivityFeed } from "@/components/client/mission-contro
 import { getRecentLEActivity } from "@/lib/le-activity";
 import { EngagementManager } from "@/components/client/engagement/engagement-manager";
 import { LEUsersTab } from "@/components/client/le-users-tab";
+import { SetPageBreadcrumbs } from "@/context/breadcrumb-context";
 
 export default async function LEDashboardPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
@@ -22,6 +23,11 @@ export default async function LEDashboardPage({ params }: { params: Promise<{ id
 
     return (
         <div className="space-y-12 animate-in fade-in duration-500">
+            <SetPageBreadcrumbs 
+                items={[]} 
+                title={undefined} 
+                typeLabel={undefined} 
+            />
             <div className="pt-0">
                 {metrics ? (
                     <MissionControl

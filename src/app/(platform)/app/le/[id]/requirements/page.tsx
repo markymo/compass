@@ -8,6 +8,7 @@ import Link from "next/link";
 import { getClientLEData } from "@/actions/client";
 import { notFound } from "next/navigation";
 import { RemoveRequirementButton } from "@/components/client/remove-requirement-button";
+import { SetPageBreadcrumbs } from "@/context/breadcrumb-context";
 
 export default async function RequirementsPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
@@ -20,15 +21,11 @@ export default async function RequirementsPage({ params }: { params: Promise<{ i
 
     return (
         <div className="max-w-5xl mx-auto space-y-8 pb-20">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Questionnaire Library</h1>
-                    <p className="text-muted-foreground">{data.le.name}</p>
-                </div>
-                <Link href={`/app/le/${id}`} className="text-sm text-blue-600 hover:underline">
-                    &larr; Back to Smart Form
-                </Link>
-            </div>
+            <SetPageBreadcrumbs 
+                items={[{ label: "Questionnaire Library", iconName: "book-open" }]}
+                title="Questionnaire Library"
+                typeLabel="Repository"
+            />
 
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
