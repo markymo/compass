@@ -12,6 +12,8 @@ import {
     SheetTitle,
 } from "@/components/ui/sheet";
 
+import { BRAND } from "@/config/brand";
+
 export function Navbar() {
     const { data: session } = useSession();
     return (
@@ -19,7 +21,7 @@ export function Navbar() {
             <div className="container mx-auto flex h-20 items-center justify-between px-4 md:px-6">
                 <Link href="/" className="flex items-center gap-1">
                     <span className="text-2xl font-bold tracking-tight text-slate-900 font-sans flex items-baseline gap-1">
-                        ONpro<span className="inline-block w-3 h-3 bg-amber-500" />
+                        {BRAND.name}<span className="inline-block w-3 h-3 bg-amber-500" />
                     </span>
                 </Link>
 

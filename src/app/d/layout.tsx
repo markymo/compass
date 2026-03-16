@@ -13,8 +13,10 @@ const inter = Inter({
     subsets: ["latin"],
 });
 
+import { BRAND } from "@/config/brand";
+
 export const metadata: Metadata = {
-    title: "ONpro | Private Preview",
+    title: `${BRAND.name} | Private Preview`,
     description: "Advanced financial infrastructure.",
 };
 
@@ -36,7 +38,7 @@ export default function ExperimentalLayout({
                 {/* Minimal Navigation Header */}
                 <header className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-6 md:px-12">
                     <div className="flex items-center gap-1">
-                        <span className="text-xl font-bold tracking-tighter">ONpro</span>
+                        <span className="text-xl font-bold tracking-tighter">{BRAND.name}</span>
                         <div className="h-2 w-2 bg-teal-500" />
                     </div>
                     <nav className="hidden md:flex items-center gap-8 text-sm font-medium tracking-wide text-slate-300">
@@ -56,7 +58,7 @@ export default function ExperimentalLayout({
                 {/* Simple Footer */}
                 <footer className="py-12 px-6 md:px-12 border-t border-white/10 text-slate-500 text-xs">
                     <div className="max-w-7xl mx-auto flex justify-between">
-                        <p>&copy; 2026 ONpro Financial Infrastructure.</p>
+                        <p>&copy; {BRAND.year} {BRAND.legalName}.</p>
                         <div className="flex gap-4">
                             <a href="#" className="hover:text-teal-500">Privacy</a>
                             <a href="#" className="hover:text-teal-500">Terms</a>

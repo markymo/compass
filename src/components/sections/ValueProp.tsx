@@ -2,6 +2,7 @@
 
 import { Building2, Landmark, CheckCircle2, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { BRAND } from "@/config/brand";
 
 export function ValueProp() {
     return (
@@ -12,7 +13,7 @@ export function ValueProp() {
                         One Platform, Two massive Advantages
                     </h2>
                     <p className="mt-4 text-lg text-slate-600 max-w-2xl mx-auto">
-                        Whether you are raising capital or providing it, ONpro
+                        Whether you are raising capital or providing it, {BRAND.name}
                         removes the friction from the equation.
                     </p>
                 </div>
@@ -30,7 +31,7 @@ export function ValueProp() {
                         </h3>
                         <p className="text-slate-600 mb-8 text-lg leading-relaxed">
                             Why fill out 20+ complicated forms when you can fill out just one?
-                            ONpro acts as a project management tool for your advisory team,
+                            {BRAND.name} acts as a project management tool for your advisory team,
                             giving you a single picture of your entire onboarding status.
                         </p>
 
@@ -64,7 +65,7 @@ export function ValueProp() {
                             For Financial Institutions
                         </h3>
                         <p className="text-slate-300 mb-8 text-lg leading-relaxed">
-                            By validating against the ONpro Master Schema, you signal to the market
+                            By validating against the {BRAND.name} Master Schema, you signal to the market
                             that you prioritize efficiency. Improve data quality, remove inconsistency,
                             and streamline your KYC processes.
                         </p>

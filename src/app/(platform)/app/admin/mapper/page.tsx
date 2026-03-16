@@ -15,6 +15,7 @@ import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { BRAND } from "@/config/brand";
 
 // Server Actions
 import { uploadAndExtractQuestionnaire } from "@/actions/questionnaire-ingest";
@@ -333,7 +334,7 @@ export default function MapperPage() {
                                 <TableHeader>
                                     <TableRow>
                                         <TableHead className="w-[40%]">Question / Requirement</TableHead>
-                                        <TableHead className="w-[40%]">ONPro Master Mapping</TableHead>
+                                        <TableHead className="w-[40%]">{BRAND.name} Master Mapping</TableHead>
                                         <TableHead className="w-[10%]">Confidence</TableHead>
                                     </TableRow>
                                 </TableHeader>

@@ -19,8 +19,10 @@ const inter = Inter({
   subsets: ["latin"],
 });
 
+import { BRAND } from "@/config/brand";
+
 export const metadata: Metadata = {
-  title: "ONpro | Sovereign Identity for Finance",
+  title: `${BRAND.name} | Sovereign Identity for Finance`,
   description: "The single source of truth for corporate debt finance onboarding.",
 };
 

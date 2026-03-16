@@ -10,6 +10,8 @@ interface PlatformNavbarProps {
     assignmentCount?: number;
 }
 
+import { BRAND } from "@/config/brand";
+
 export function PlatformNavbar({ isSystemAdmin = false, assignmentCount = 0 }: PlatformNavbarProps) {
     return (
         <header className="sticky top-0 left-0 right-0 z-50 border-b border-slate-200 bg-white/80 backdrop-blur-xl">
@@ -17,7 +19,7 @@ export function PlatformNavbar({ isSystemAdmin = false, assignmentCount = 0 }: P
                 <div className="flex items-center gap-8">
                     <Link href="/" className="flex items-center gap-1">
                         <span className="text-xl font-bold tracking-tight text-slate-900 font-sans flex items-baseline gap-1">
-                            ONpro<span className="inline-block w-2.5 h-2.5 bg-amber-500" />
+                            {BRAND.name}<span className="inline-block w-2.5 h-2.5 bg-amber-500" />
                         </span>
                     </Link>
                 </div>

@@ -3,6 +3,7 @@ import { Footer } from "@/components/layout/Footer";
 import { Building2, CheckCircle, Mail, MessageSquare, Shield, Users } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { BRAND } from "@/config/brand";
 
 export default function Solutions() {
     return (
@@ -18,7 +19,7 @@ export default function Solutions() {
                                 Endless Efficiency.
                             </h1>
                             <p className="mt-6 text-lg leading-8 text-slate-600">
-                                ONpro moves complex KYC and onboarding processes out of the chaos of email and into a secure, structured platform. Whether you are a Corporate, a Lender, or an Advisor, we make the process work for you.
+                                {BRAND.name} moves complex KYC and onboarding processes out of the chaos of email and into a secure, structured platform. Whether you are a Corporate, a Lender, or an Advisor, we make the process work for you.
                             </p>
                             <div className="mt-10 flex items-center justify-center gap-x-6">
                                 <Button size="lg" variant="premium">
@@ -87,7 +88,7 @@ export default function Solutions() {
                                 Built for Every Stakeholder
                             </h2>
                             <p className="mt-4 text-lg text-slate-600">
-                                ONpro unifies the workflow, providing value to every participant in the deal.
+                                {BRAND.name} unifies the workflow, providing value to every participant in the deal.
                             </p>
                         </div>
 

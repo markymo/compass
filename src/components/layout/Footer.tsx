@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Compass } from "lucide-react";
+import { BRAND } from "@/config/brand";
 
 export function Footer() {
     return (
@@ -8,7 +8,7 @@ export function Footer() {
                 <div className="col-span-1 md:col-span-2">
                     <Link href="/" className="mb-6 flex items-center gap-1">
                         <span className="text-2xl font-bold text-white font-sans tracking-tight flex items-baseline gap-1">
-                            ONpro<span className="inline-block w-3 h-3 bg-amber-500" />
+                            {BRAND.name}<span className="inline-block w-3 h-3 bg-amber-500" />
                         </span>
                     </Link>
                     <p className="max-w-sm text-sm leading-relaxed text-slate-300">
@@ -36,7 +36,7 @@ export function Footer() {
                 </div>
             </div>
             <div className="container mx-auto mt-12 border-t border-slate-800 px-4 pt-8 text-center text-xs text-slate-500 md:px-6 md:text-left flex flex-col md:flex-row justify-between items-center">
-                <span>&copy; {new Date().getFullYear()} ONpro. All rights reserved.</span>
+                <span>&copy; {BRAND.year} {BRAND.name}. All rights reserved.</span>
                 <div className="flex gap-6 mt-4 md:mt-0">
                     <Link href="/terms" className="hover:text-slate-300">Terms</Link>
                     <Link href="/privacy" className="hover:text-slate-300">Privacy</Link>

@@ -3,6 +3,7 @@ import { Footer } from "@/components/layout/Footer";
 import { Upload, Sparkles, Zap, ArrowRight, BrainCircuit, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { BRAND } from "@/config/brand";
 
 export default function HowItWorks() {
     return (
@@ -17,7 +18,7 @@ export default function HowItWorks() {
                         <p className="text-xl text-slate-600 leading-relaxed">
                             Stop filling out multiple compliance forms. <br className="hidden md:block" />
                             Stop maintaining "Master Spreadsheets". <br className="hidden md:block" />
-                            ONpro builds your Knowledge Base automatically as you work.
+                            {BRAND.name} builds your Knowledge Base automatically as you work.
                         </p>
                     </div>
 
@@ -66,7 +67,7 @@ export default function HowItWorks() {
                                 </div>
                                 <h2 className="text-3xl font-bold text-slate-900">2. We build your "Knowledge Base"</h2>
                                 <p className="text-lg text-slate-600 leading-relaxed">
-                                    As you work, ONpro is learning. It automatically extracts your answers, policies, and corporate details
+                                    As you work, {BRAND.name} is learning. It automatically extracts your answers, policies, and corporate details
                                     to build your live <strong>Knowledge Base</strong> library. Your knowledge base grows organically with every question you answer.
                                 </p>
                             </div>
@@ -94,7 +95,7 @@ export default function HowItWorks() {
                                 </div>
                                 <h2 className="text-3xl font-bold text-slate-900">3. Never repeat yourself</h2>
                                 <p className="text-lg text-slate-600 leading-relaxed">
-                                    The next time a questionnaire comes in, ONpro auto-fills it using your Knowledge Base.
+                                    The next time a questionnaire comes in, {BRAND.name} auto-fills it using your Knowledge Base.
                                     You only need to answer the <em>new</em> questions—the "delta".
                                     And guess what? Those new answers instantly update your Knowledge Base for next time.
                                 </p>

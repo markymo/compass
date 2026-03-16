@@ -1,4 +1,5 @@
 import { ArrowRight, CheckCircle2, ShieldCheck, Zap } from "lucide-react";
+import { BRAND } from "@/config/brand";
 
 export default function ExperimentalPage() {
     return (
@@ -55,7 +56,7 @@ export default function ExperimentalPage() {
                     <span className="text-teal-500 font-mono text-xs uppercase tracking-widest mb-6">/ Security First</span>
                     <h2 className="text-4xl md:text-5xl font-bold mb-8">Uncompromising Data Sovereignty.</h2>
                     <p className="text-lg text-slate-400 leading-relaxed mb-8 max-w-md">
-                        Your data never leaves your control until you explicitly grant access. ONpro utilizes advanced permissioning architectures to ensure you remain the sole custodian of your corporate identity.
+                        Your data never leaves your control until you explicitly grant access. {BRAND.name} utilizes advanced permissioning architectures to ensure you remain the sole custodian of your corporate identity.
                     </p>
                     <ul className="space-y-4">
                         {[
@@ -93,7 +94,7 @@ export default function ExperimentalPage() {
             <section className="py-40 px-6 text-center">
                 <div className="max-w-3xl mx-auto">
                     <h2 className="text-4xl md:text-5xl font-bold mb-8">Ready to redefine your infrastructure?</h2>
-                    <p className="text-xl text-slate-400 mb-12">Join the leading financial institutions using ONpro.</p>
+                    <p className="text-xl text-slate-400 mb-12">Join the leading financial institutions using {BRAND.name}.</p>
                     <button className="px-12 py-5 bg-white text-black font-bold text-lg hover:bg-slate-200 transition-colors">
                         Start Integration
                     </button>

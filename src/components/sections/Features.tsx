@@ -2,6 +2,7 @@
 
 import { AlertCircle, CheckCircle2, FileJson, Shield, Zap } from "lucide-react";
 import { motion } from "framer-motion";
+import { BRAND } from "@/config/brand";
 
 const features = [
     {
@@ -78,7 +79,7 @@ export function Features() {
                         </div>
                         <div className="space-y-6">
                             <h3 className="text-2xl font-bold text-slate-900 font-serif flex items-center gap-2">
-                                <CheckCircle2 className="h-6 w-6 text-emerald-600" /> The ONpro Way
+                                <CheckCircle2 className="h-6 w-6 text-emerald-600" /> The {BRAND.name} Way
                             </h3>
                             <ul className="space-y-4 text-slate-700">
                                 <li className="flex items-start gap-3">

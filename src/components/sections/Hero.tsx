@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { MoveRight } from "lucide-react";
 import { motion } from "framer-motion";
+import { BRAND } from "@/config/brand";
 
 export function Hero() {
     return (
@@ -19,9 +20,9 @@ export function Hero() {
                     transition={{ duration: 0.5, delay: 0.1 }}
                     className="mx-auto w-fit text-left text-5xl font-bold tracking-tight text-slate-900 md:text-7xl font-serif"
                 >
-                    <span className="text-amber-500">ON</span>boarding<br />
-                    <span className="text-amber-500">ON</span>going<br />
-                    <span className="text-amber-500">ON</span>pro
+                    Compliance<br />
+                    Collaboration<br />
+                    <span className="text-amber-500">{BRAND.name}</span>
                 </motion.h1>
 
                 <motion.p
@@ -30,7 +31,7 @@ export function Hero() {
                     transition={{ duration: 0.5, delay: 0.2 }}
                     className="mx-auto mt-8 max-w-2xl text-xl text-slate-600 leading-relaxed font-light"
                 >
-                    ONpro unifies the onboarding process with a single Master Schema.
+                    {BRAND.name} unifies the onboarding process with a single Master Schema.
                     We replace the chaos of duplicative forms with a streamlined, professional workflow.
                 </motion.p>
 

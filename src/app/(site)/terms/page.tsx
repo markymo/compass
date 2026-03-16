@@ -1,4 +1,5 @@
 import React from "react";
+import { BRAND } from "@/config/brand";
 
 export default function TermsPage() {
     return (
@@ -14,7 +15,7 @@ export default function TermsPage() {
 
                 <section className="space-y-6 text-slate-700 dark:text-slate-300">
                     <p>
-                        1. ONpro (“we” or “us”) owns and operates this website (“Site”).
+                        1. {BRAND.name} (“we” or “us”) owns and operates this website (“Site”).
                     </p>
 
                     <p>
@@ -70,7 +71,7 @@ export default function TermsPage() {
                     </p>
 
                     <p>
-                        7. We are the proprietor of the “ONpro” trade marks in the United Kingdom and other countries.
+                        7. We are the proprietor of the “{BRAND.name}” trade marks in the United Kingdom and other countries.
                         All other trade marks, product names and company names or logos used in our site are our property
                         or that of their respective owners. No permission is given by us in respect of the use of any such
                         trade marks, get-up, product names, company names, logos or titles and such use may constitute an
@@ -141,7 +142,7 @@ export default function TermsPage() {
                     </p>
 
                     <p>
-                        13. You agree that we may collect, store and use information about you, and may record calls made to ONpro telephone numbers, in accordance with our privacy policy.
+                        13. You agree that we may collect, store and use information about you, and may record calls made to {BRAND.name} telephone numbers, in accordance with our privacy policy.
                     </p>
 
                     <p>
