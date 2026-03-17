@@ -21,7 +21,7 @@ export function ValueProp() {
                 <div className="grid gap-8 lg:grid-cols-2 items-stretch">
 
                     {/* For Clients */}
-                    <div className="group relative overflow-hidden rounded-3xl border border-slate-200 bg-slate-50/50 p-8 md:p-12 transition-all hover:border-slate-300 hover:shadow-lg flex flex-col">
+                    <div className="group relative overflow-hidden rounded-3xl border border-amber-200 bg-amber-50 p-8 md:p-12 transition-all hover:border-amber-300 hover:shadow-lg flex flex-col">
                         <div className="h-12 w-12 bg-white rounded-xl shadow-sm flex items-center justify-center mb-8 border border-slate-100">
                             <Building2 className="h-6 w-6 text-slate-900" />
                         </div>

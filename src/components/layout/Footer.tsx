@@ -12,9 +12,7 @@ export function Footer() {
                         </span>
                     </Link>
                     <p className="max-w-sm text-sm leading-relaxed text-slate-300">
-                        The Single Source of Truth for company data.{" "}
-                        Built for compliance.{" "}
-                        Built for long-term trust.
+                        The Single Source of Truth for company data
                     </p>
                 </div>
 
