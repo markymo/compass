@@ -27,12 +27,6 @@ export function Navbar() {
 
                 <nav className="hidden gap-8 md:flex">
                     <Link
-                        href="/solutions"
-                        className="text-sm font-medium text-slate-600 transition-colors hover:text-slate-900"
-                    >
-                        Solutions
-                    </Link>
-                    <Link
                         href="/how-it-works"
                         className="text-sm font-medium text-slate-600 transition-colors hover:text-slate-900"
                     >
@@ -80,12 +74,6 @@ export function Navbar() {
                                     <SheetTitle>Navigation Menu</SheetTitle>
                                 </SheetHeader>
                                 <nav className="flex flex-col gap-6 mt-10">
-                                    <Link
-                                        href="/solutions"
-                                        className="text-lg font-medium text-slate-600 transition-colors hover:text-slate-900"
-                                    >
-                                        Solutions
-                                    </Link>
                                     <Link
                                         href="/how-it-works"
                                         className="text-lg font-medium text-slate-600 transition-colors hover:text-slate-900"
