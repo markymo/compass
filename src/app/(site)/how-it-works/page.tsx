@@ -13,7 +13,7 @@ export default function HowItWorks() {
                 <div className="container mx-auto px-4 md:px-6">
                     <div className="mx-auto max-w-3xl text-center">
                         <h1 className="text-4xl font-extrabold tracking-tight text-slate-900 md:text-6xl mb-6">
-                            Smart. Organic. Effortless.
+                            Client-Centric. Organic. Effortless.
                         </h1>
                         <p className="text-xl text-slate-600 leading-relaxed">
                             Stop filling out multiple compliance forms. <br className="hidden md:block" />

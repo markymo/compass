@@ -15,11 +15,11 @@ export default function Solutions() {
                     <div className="container mx-auto px-4 md:px-6">
                         <div className="mx-auto max-w-3xl text-center">
                             <h1 className="text-4xl font-extrabold tracking-tight text-slate-900 sm:text-6xl font-serif">
-                                One Workflow. <br />
-                                Endless Efficiency.
+                                The First Client-Centric <br />
+                                Onboarding System.
                             </h1>
                             <p className="mt-6 text-lg leading-8 text-slate-600">
-                                {BRAND.name} moves complex KYC and onboarding processes out of the chaos of email and into a secure, structured platform. Whether you are a Corporate, a Lender, or an Advisor, we make the process work for you.
+                                {BRAND.name} is the first platform of its kind, aimed primarily at KYC and onboarding processes for corporate clients. We move complex workflows out of the chaos of email and into a secure, structured platform.
                             </p>
                             <div className="mt-10 flex items-center justify-center gap-x-6">
                                 <Button size="lg" variant="premium">
@@ -100,20 +100,20 @@ export default function Solutions() {
                                 </div>
                                 <h3 className="text-xl font-bold text-slate-900 mb-4">For Corporates</h3>
                                 <p className="text-slate-600 mb-6">
-                                    Stop repeating yourself. Complete the Master Schema once and grant access to all your lenders.
+                                    Stop repeating yourself. {BRAND.name} is flexes to accommodate your information requirements across all geographies, sectors and products.
                                 </p>
                                 <ul className="space-y-3">
                                     <li className="flex gap-2 text-sm text-slate-700">
                                         <CheckCircle className="h-5 w-5 text-blue-500 flex-shrink-0" />
-                                        <span>Write once, reuse everywhere</span>
+                                        <span>Single Source of Truth, pre-populated from public sources</span>
                                     </li>
                                     <li className="flex gap-2 text-sm text-slate-700">
                                         <CheckCircle className="h-5 w-5 text-blue-500 flex-shrink-0" />
-                                        <span>Maintain a single source of truth</span>
+                                        <span>Full visibility & control</span>
                                     </li>
                                     <li className="flex gap-2 text-sm text-slate-700">
                                         <CheckCircle className="h-5 w-5 text-blue-500 flex-shrink-0" />
-                                        <span>Full audit trail of data sharing</span>
+                                        <span>Auditable, permission-based sharing</span>
                                     </li>
                                 </ul>
                             </div>

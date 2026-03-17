@@ -15,7 +15,7 @@ export default function About() {
 
                         <div className="prose prose-lg text-slate-600">
                             <p>
-                                {BRAND.name} was born from a simple observation: <strong>Complexity in capital markets is often artificial.</strong>
+                                {BRAND.name} is the first client-centric onboarding system, born from a simple observation: <strong>Complexity in capital markets is often artificial.</strong>
                             </p>
                             <p>
                                 When corporate entities raise senior debt finance, the "onboarding" process creates massive friction.

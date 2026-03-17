@@ -20,9 +20,9 @@ export function Hero() {
                     transition={{ duration: 0.5, delay: 0.1 }}
                     className="mx-auto w-fit text-left text-5xl font-bold tracking-tight text-slate-900 md:text-7xl font-serif"
                 >
-                    Compliance<br />
-                    Collaboration<br />
-                    <span className="text-amber-500">{BRAND.name}</span>
+                    The First<br />
+                    Client-Centric<br />
+                    <span className="text-amber-500">Onboarding System</span>
                 </motion.h1>
 
                 <motion.p
@@ -31,8 +31,8 @@ export function Hero() {
                     transition={{ duration: 0.5, delay: 0.2 }}
                     className="mx-auto mt-8 max-w-2xl text-xl text-slate-600 leading-relaxed font-light"
                 >
-                    {BRAND.name} unifies the onboarding process with a single Master Schema.
-                    We replace the chaos of duplicative forms with a streamlined, professional workflow.
+                    Aimed primarily at KYC and onboarding processes for corporate clients.
+                    {BRAND.name} replaces the chaos of duplicative forms with a streamlined, professional workflow.
                 </motion.p>
 
                 <motion.div

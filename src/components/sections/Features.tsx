@@ -6,19 +6,19 @@ import { BRAND } from "@/config/brand";
 
 const features = [
     {
-        icon: <FileJson className="h-6 w-6 text-slate-700" />,
-        title: "One Master Schema",
-        description: "Map your data once to the industry-standard schema. No more copy-pasting into twenty different spreadsheets.",
+        icon: <Zap className="h-6 w-6 text-amber-600" />,
+        title: "Infinite Flexibility",
+        description: "CoParity flexes to accommodate new information requirements arising from different geographies, sectors and products.",
     },
     {
         icon: <Shield className="h-6 w-6 text-slate-700" />,
         title: "Secure & Sovereign",
-        description: "Your data is ring-fenced. You control exactly who sees what. granular permissions at the field level.",
+        description: "Your data is ring-fenced. You control exactly what information is output to each supplier organisation, at field level.",
     },
     {
         icon: <Zap className="h-6 w-6 text-amber-600" />,
         title: "Instant Distribution",
-        description: "FIs receive data in their preferred format—whether that's PDF, Excel, or direct API integration.",
+        description: "Instantly verify and release data as it's available, in the preferred format of the recipient – whether that's PDF, Excel, Word or direct API integration.",
     },
 ];
 
@@ -60,39 +60,39 @@ export function Features() {
                     <div className="grid gap-12 lg:grid-cols-2">
                         <div className="space-y-6">
                             <h3 className="text-2xl font-bold text-red-600 font-serif flex items-center gap-2">
-                                <AlertCircle className="h-6 w-6" /> The Old Way
+                                <AlertCircle className="h-6 w-6" /> Conventional Processes
                             </h3>
                             <ul className="space-y-4 text-slate-600">
                                 <li className="flex items-start gap-3">
                                     <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-red-500/50" />
-                                    <span>Duplicative emails to 20+ banks</span>
+                                    <span>Duplicative emails from each institution</span>
                                 </li>
                                 <li className="flex items-start gap-3">
                                     <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-red-500/50" />
-                                    <span>Inconsistent questions & interpretations</span>
+                                    <span>Inconsistent questions & interpretation</span>
                                 </li>
                                 <li className="flex items-start gap-3">
                                     <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-red-500/50" />
-                                    <span>Security risks with attachments</span>
+                                    <span>Manual or no process tracking</span>
                                 </li>
                             </ul>
                         </div>
                         <div className="space-y-6">
                             <h3 className="text-2xl font-bold text-slate-900 font-serif flex items-center gap-2">
-                                <CheckCircle2 className="h-6 w-6 text-emerald-600" /> The {BRAND.name} Way
+                                <CheckCircle2 className="h-6 w-6 text-emerald-600" /> CoParity's Approach
                             </h3>
                             <ul className="space-y-4 text-slate-700">
                                 <li className="flex items-start gap-3">
                                     <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
-                                    <span className="font-medium">Single Source of Truth</span>
+                                    <span className="font-medium">Single Source of Truth, pre-populated from public sources</span>
                                 </li>
                                 <li className="flex items-start gap-3">
                                     <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
-                                    <span className="font-medium">Standardized Master Schema</span>
+                                    <span className="font-medium">Full visibility & control</span>
                                 </li>
                                 <li className="flex items-start gap-3">
                                     <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
-                                    <span className="font-medium">Auditable, permissioned sharing</span>
+                                    <span className="font-medium">Auditable, permission-based sharing</span>
                                 </li>
                             </ul>
                         </div>
