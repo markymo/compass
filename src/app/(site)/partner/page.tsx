@@ -2,58 +2,58 @@
 
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
-import { ArrowRight, CheckCircle2 } from "lucide-react";
+import { ArrowRight, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { BRAND } from "@/config/brand";
 import Image from "next/image";
 import { motion } from "framer-motion";
+import { BRAND } from "@/config/brand";
 
-import step1 from "@/assets/how-it-works/step-1.png";
-import step2 from "@/assets/how-it-works/step-2.png";
-import step3 from "@/assets/how-it-works/step-3.png";
-import step4 from "@/assets/how-it-works/step-4.png";
-import step5 from "@/assets/how-it-works/step-5.png";
+import step1 from "@/assets/partner/step-1.png";
+import step2 from "@/assets/partner/step-2.png";
+import step3 from "@/assets/partner/step-3.png";
+import step4 from "@/assets/partner/step-4.png";
+import step5 from "@/assets/partner/step-5.png";
 
 const steps = [
     {
         number: "01",
-        title: "Create your Legal Entity",
-        description: "There is no complex setup. Simply input your entity’s legal name and national registry or Legal Entity Identifier. CoParity automatically populates publicly available information.",
+        title: "Upload your requirements",
+        description: "Upload a set of information requirements to CoParity (for example – UK large corporates).",
         image: step1,
         color: "amber"
     },
     {
         number: "02",
-        title: "Build your “Knowledge Base”",
-        description: "Select suppliers from CoParity’s existing database, invite new suppliers, or upload data requirements yourself using our intuitive interface.",
+        title: "Seamless integration",
+        description: "CoParity integrates your data requirements into its standard data set, expanding it if necessary.",
         image: step2,
         color: "slate"
     },
     {
         number: "03",
-        title: "Never repeat yourself",
-        description: "As you work through your consolidated question list, CoParity learns and applies the responses to questions from other suppliers.",
+        title: "Team & Permissions",
+        description: "Instantly add team members and manage permissions for each client engagement.",
         image: step3,
         color: "amber"
     },
     {
         number: "04",
-        title: "Controlled verification and release",
-        description: "With progress monitoring and separate permissions for response, verification and release, you can fully utilise internal and external teams whilst retaining full control.",
+        title: "Real-time sign off",
+        description: "Review and sign off client responses as they come in.",
         image: step4,
         color: "slate"
     },
     {
         number: "05",
-        title: "Preserve for the next time",
-        description: "Update, verify and re-release your data at the touch of a button, when you start the next process or are asked for a refresh.",
+        title: "Effortless refresh",
+        description: "Clients can re-verify and refresh at the press of a key: no need to compromise your refresh requirements.",
         image: step5,
         color: "amber"
     }
 ];
 
-export default function HowItWorks() {
+export default function PartnerPage() {
     return (
         <div className="flex min-h-screen flex-col bg-white">
             <Navbar />
@@ -61,22 +61,33 @@ export default function HowItWorks() {
                 <div className="container mx-auto px-4 md:px-6">
                     {/* Hero Section */}
                     <div className="mx-auto max-w-4xl text-center mb-24">
+                        <motion.div
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-50 border border-amber-100 text-amber-700 text-sm font-medium mb-8"
+                        >
+                            <Sparkles className="h-4 w-4" />
+                            <span>PARTNER COLLABORATION</span>
+                        </motion.div>
                         <motion.h1 
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.1 }}
                             className="text-4xl font-bold tracking-tight text-slate-900 md:text-7xl mb-8 font-serif"
                         >
-                            Client-Centric. Organic. Effortless.
+                            Geared to clients&rsquo; needs&hellip; and yours
                         </motion.h1>
-                        <div className="space-y-4 text-xl md:text-2xl text-slate-600 leading-relaxed font-light">
-                            <p>Stop filling out multiple compliance forms.</p>
-                            <p>Stop maintaining &ldquo;Master Spreadsheets&rdquo;.</p>
-                            <p className="font-medium text-slate-900">
-                                {BRAND.name} builds your Knowledge Base automatically as you work.
-                            </p>
-                        </div>
+                        <motion.p 
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.2 }}
+                            className="text-xl md:text-2xl text-slate-600 leading-relaxed font-light max-w-3xl mx-auto"
+                        >
+                            {BRAND.name} improves data accuracy and verification, reduces
+                            onboarding time, strengthens client relationships and frees your front
+                            office and onboarding specialists for value-adding activity.
+                        </motion.p>
                     </div>
-
 
                     {/* Step-by-Step Sections */}
                     <div className="space-y-32 md:space-y-48">
@@ -87,7 +98,7 @@ export default function HowItWorks() {
                             >
                                 <div className="flex-1 space-y-8">
                                     <div className="space-y-4">
-                                        <span className="text-amber-500 font-bold tracking-widest uppercase text-sm">{BRAND.name} process &bull; STEP {step.number}</span>
+                                        <span className="text-amber-500 font-bold tracking-widest uppercase text-sm">PARTNER WORKFLOW &bull; STEP {step.number}</span>
                                         <h2 className="text-3xl md:text-5xl font-bold text-slate-900 font-serif leading-tight">
                                             {step.title}
                                         </h2>
@@ -115,11 +126,11 @@ export default function HowItWorks() {
                     <div className="mt-48 text-center py-32 px-4 rounded-3xl bg-slate-50 border border-slate-100">
                         <div className="max-w-2xl mx-auto space-y-10">
                             <h3 className="text-3xl md:text-5xl font-bold font-serif text-slate-900 leading-tight">
-                                Ready to stop the busywork?
+                                Ready to collaborate?
                             </h3>
-                            <Link href="/login">
+                            <Link href={`mailto:${BRAND.email}`}>
                                 <Button size="lg" className="h-16 px-12 text-xl bg-slate-900 text-white hover:bg-slate-800 transition-all font-semibold rounded-xl shadow-lg shadow-slate-900/10">
-                                    Get Started <ArrowRight className="ml-2 h-6 w-6" />
+                                    Contact us <ArrowRight className="ml-2 h-6 w-6" />
                                 </Button>
                             </Link>
                         </div>

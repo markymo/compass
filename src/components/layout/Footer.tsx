@@ -20,6 +20,7 @@ export function Footer() {
                     <h3 className="mb-6 text-sm font-semibold text-white uppercase tracking-wider">Product</h3>
                     <ul className="space-y-3 text-sm">
                         <li><Link href="/how-it-works" className="hover:text-amber-500 transition-colors">How it Works</Link></li>
+                        <li><Link href="/partner" className="hover:text-amber-500 transition-colors">Partner</Link></li>
                     </ul>
                 </div>
 
