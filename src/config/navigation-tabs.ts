@@ -9,7 +9,8 @@ import {
     FolderOpen,
     Users,
     KanbanSquare,
-    CreditCard
+    CreditCard,
+    PackageCheck
 } from "lucide-react";
 import { NavItem } from "@/components/layout/HeaderNavList";
 
@@ -77,6 +78,12 @@ export const getRelationshipTabs = (leId: string, engagementId: string): NavItem
             href: `${baseUrl}?tab=documents`,
             icon: FolderOpen,
             isActive: (path) => matchesTab(path, "documents")
+        },
+        {
+            label: "Output Pack",
+            href: `${baseUrl}?tab=output`,
+            icon: PackageCheck,
+            isActive: (path) => matchesTab(path, "output")
         },
         {
             label: "Team",

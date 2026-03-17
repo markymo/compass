@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { AddQuestionnaireDialog } from "./add-questionnaire-dialog";
 import { KanbanBoard } from "./kanban-board";
 import { EngagementDocumentManager } from "./engagement-document-manager";
+import { OutputPackBuilder } from "./output-pack-builder";
 import { DueDateBadge } from "@/components/client/due-date-badge";
 
 import { ProgressTracker } from "@/components/shared/progress-tracker";
@@ -306,6 +307,10 @@ export function EngagementDetailView({ le, engagement, questionnaires, sharedDoc
                             documents={sharedDocuments || []}
                             evidenceDocuments={evidenceDocuments}
                         />
+                    </TabsContent>
+
+                    <TabsContent value="output" className="mt-0">
+                        <OutputPackBuilder />
                     </TabsContent>
 
 
