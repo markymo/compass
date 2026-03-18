@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { Settings, ClipboardCheck } from "lucide-react";
+import { ClipboardCheck } from "lucide-react";
 import { UserNav } from "./UserNav";
 import { Button } from "@/components/ui/button";
 import { DemoSwitcher } from "./DemoSwitcher";
-import { AuthSessionProvider } from "@/components/providers/session-provider";
+import { AdminCogLink } from "./AdminCogLink";
+
 
 interface PlatformNavbarProps {
     isSystemAdmin?: boolean;
@@ -35,13 +36,7 @@ export function PlatformNavbar({ isSystemAdmin = false, assignmentCount = 0 }: P
                             )}
                         </Link>
                     </Button>
-                    {isSystemAdmin && (
-                        <Button variant="ghost" size="icon" asChild className="text-slate-500 hover:text-slate-900">
-                            <Link href="/app/admin">
-                                <Settings className="h-5 w-5" />
-                            </Link>
-                        </Button>
-                    )}
+                    {isSystemAdmin && <AdminCogLink />}
                     {isSystemAdmin && <DemoSwitcher />}
                     <UserNav />
                 </div>
@@ -49,3 +44,4 @@ export function PlatformNavbar({ isSystemAdmin = false, assignmentCount = 0 }: P
         </header>
     );
 }
+

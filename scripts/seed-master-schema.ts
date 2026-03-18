@@ -87,6 +87,49 @@ async function main() {
         groupCount++;
     }
     console.log(` ✅ Seeded ${groupCount} Field Groups.`);
+
+    // 3. System Categories (derived from field model names)
+    // This creates MasterDataCategory rows and links fields via categoryId,
+    // ensuring the master record list view groups fields by category.
+    const normalize = (name: string) =>
+        name.trim().toLowerCase().replace(/[\s\W]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+
+    // Collect distinct model names used as categories
+    const categoryNames = Array.from(
+        new Set(Object.values(FIELD_DEFINITIONS).map(d => d.model).filter(Boolean))
+    );
+
+    let catCount = 0;
+    const categoryMap = new Map<string, string>(); // displayName -> id
+
+    for (let i = 0; i < categoryNames.length; i++) {
+        const name = categoryNames[i];
+        const key = normalize(name);
+        if (!key) continue;
+
+        const cat = await prisma.masterDataCategory.upsert({
+            where: { key },
+            update: { displayName: name },
+            create: { key, displayName: name, order: i }
+        });
+        categoryMap.set(name, cat.id);
+        catCount++;
+    }
+
+    // Link fields to their categories
+    for (const fieldNoStr of Object.keys(FIELD_DEFINITIONS)) {
+        const fieldNo = Number(fieldNoStr);
+        const def = FIELD_DEFINITIONS[fieldNo];
+        const catId = categoryMap.get(def.model);
+        if (catId) {
+            await prisma.masterFieldDefinition.update({
+                where: { fieldNo },
+                data: { categoryId: catId, categoryLabel: def.model }
+            });
+        }
+    }
+    console.log(` ✅ Seeded ${catCount} System Categories and linked all fields.`);
+
 }
 
 main()

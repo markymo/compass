@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { isSystemAdmin } from "@/actions/admin";
-import { ShieldAlert } from "lucide-react";
+import { AdminSidebar } from "@/components/layout/AdminSidebar";
+import { AdminBreadcrumb } from "@/components/layout/AdminBreadcrumb";
 
 export default async function AdminLayout({
     children,
@@ -10,7 +11,6 @@ export default async function AdminLayout({
     const isAdmin = await isSystemAdmin();
 
     if (!isAdmin) {
-        // Security through obscurity: Return 404-like UI instead of throwing to avoid Next.js Sync/Async timing bugs
         return (
             <div className="flex h-[50vh] flex-col items-center justify-center gap-4 text-center">
                 <h1 className="text-4xl font-bold tracking-tight">404</h1>
@@ -20,16 +20,12 @@ export default async function AdminLayout({
     }
 
     return (
-        <div className="flex flex-col gap-6">
-            <div className="bg-amber-50 dark:bg-amber-950/30 border-l-4 border-amber-500 p-4 flex items-center gap-3 shadow-sm rounded-r-md">
-                <ShieldAlert className="h-5 w-5 text-amber-600 dark:text-amber-500" />
-                <div className="text-sm text-amber-900 dark:text-amber-200">
-                    <span className="font-semibold block sm:inline">System Admin Area:</span>{" "}
-                    <span className="opacity-90">Exercise caution. Configuration changes will affect all tenants.</span>
-                </div>
+        <div className="flex -mx-4 md:-mx-8 -mt-4 md:-mt-8 min-h-[calc(100vh-5rem)]">
+            <AdminSidebar />
+            <div className="flex-1 p-6 md:p-8 overflow-auto">
+                <AdminBreadcrumb />
+                {children}
             </div>
-
-            {children}
         </div>
     );
 }
