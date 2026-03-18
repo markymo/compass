@@ -19,7 +19,7 @@ interface NavItem {
 }
 
 const adminNavItems: NavItem[] = [
-    { title: "Dashboard", href: "/app/admin", icon: ShieldCheck },
+    { title: "Pulse", href: "/app/admin/pulse", icon: Activity },
     { title: "Organizations", href: "/app/admin/organizations", icon: Building2 },
     { title: "Users", href: "/app/admin/users", icon: Users },
     { title: "AI Mapper", href: "/app/admin/mapper", icon: Wand2 },
@@ -38,7 +38,7 @@ const adminNavItems: NavItem[] = [
             { title: "Source Mappings", href: "/app/admin/master-data/source-mappings", icon: GitBranch },
         ]
     },
-    { title: "Pulse", href: "/app/admin/pulse", icon: Activity },
+    { title: "Dashboard (old)", href: "/app/admin", icon: ShieldCheck },
 ];
 
 function isActive(pathname: string, href: string): boolean {
