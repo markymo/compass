@@ -64,6 +64,8 @@ export async function updateMasterField(
         fieldName?: string;
         category?: string;
         notes?: string;
+        description?: string;
+        domain?: string;
         isActive?: boolean;
     }
 ) {

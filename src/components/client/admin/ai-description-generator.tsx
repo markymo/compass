@@ -9,6 +9,7 @@ import { generateFieldDescription, updateFieldDescription } from "@/actions/mast
 import { toast } from "sonner";
 import { Progress } from "@/components/ui/progress";
 import { useRouter } from "next/navigation";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 interface AIDescriptionGeneratorProps {
     fields: any[]; // Expecting MasterFieldDefinition objects
@@ -104,21 +105,22 @@ export function AIDescriptionGenerator({ fields }: AIDescriptionGeneratorProps) 
     };
 
     return (
-        <Card className="mb-6 border-indigo-100 dark:border-indigo-900/50 shadow-sm bg-gradient-to-br from-indigo-50/50 to-white dark:from-indigo-950/20 dark:to-slate-950">
-            <CardHeader className="pb-3 flex flex-row items-center justify-between">
-                <div>
-                    <CardTitle className="flex items-center gap-2 text-indigo-900 dark:text-indigo-400">
-                        <Sparkles className="h-5 w-5 text-indigo-500" />
-                        AI Description Generator
-                    </CardTitle>
-                    <CardDescription className="mt-1.5">
-                        Automatically generate semantic definitions for fields that are missing notes.
-                        <strong> {emptyFields.length} out of {fields.length}</strong> fields currently need descriptions.
-                    </CardDescription>
-                </div>
-            </CardHeader>
-            <CardContent>
-                <div className="space-y-4">
+        <Accordion type="single" collapsible className="mb-6 border border-indigo-100 dark:border-indigo-900/50 shadow-sm rounded-xl bg-gradient-to-br from-indigo-50/50 to-white dark:from-indigo-950/20 dark:to-slate-950 px-4">
+            <AccordionItem value="ai-generator" className="border-none">
+                <AccordionTrigger className="hover:no-underline py-4">
+                    <div className="flex flex-col text-left">
+                        <div className="flex items-center gap-2 text-indigo-900 dark:text-indigo-400 font-semibold text-lg">
+                            <Sparkles className="h-5 w-5 text-indigo-500" />
+                            AI Description Generator (for testing purposes)
+                        </div>
+                        <span className="text-sm font-normal text-slate-500 dark:text-slate-400 mt-1.5">
+                            Automatically generate semantic definitions for fields that are missing notes.
+                            <strong> {emptyFields.length} out of {fields.length}</strong> fields currently need descriptions.
+                        </span>
+                    </div>
+                </AccordionTrigger>
+                <AccordionContent>
+                    <div className="pt-2 pb-4 space-y-4">
                     <div>
                         <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-2 block">
                             System Prompt Template
@@ -179,8 +181,9 @@ export function AIDescriptionGenerator({ fields }: AIDescriptionGeneratorProps) 
                             )}
                         </Button>
                     </div>
-                </div>
-            </CardContent>
-        </Card>
+                    </div>
+                </AccordionContent>
+            </AccordionItem>
+        </Accordion>
     );
 }

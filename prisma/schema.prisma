@@ -660,6 +660,8 @@ model MasterFieldDefinition {
   isMultiValue       Boolean                @default(false)
   options            String[]               @default([])
   notes              String?
+  description        String?
+  domain             String?
   category           String?
   categoryId         String?
   categoryLabel      String?

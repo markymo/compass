@@ -4,13 +4,15 @@ import { useState } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Search, Settings, HelpCircle, Check, X, Loader2 } from "lucide-react";
+import { Search, Settings, HelpCircle, Check, X, Loader2, MoreVertical } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { FieldEditDialog } from "./field-edit-dialog";
-import { updateFieldDescription } from "@/actions/master-data-ai";
+import { FieldDetailSheet } from "./field-detail-sheet";
 import { useRouter } from "next/navigation";
+import { updateFieldDescription } from "@/actions/master-data-ai";
 import { toast } from "sonner";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 interface FieldGlossaryTableProps {
     initialFields: any[];
@@ -28,11 +30,38 @@ export function FieldGlossaryTable({ initialFields }: FieldGlossaryTableProps) {
     const [editNotesText, setEditNotesText] = useState("");
     const [isSavingNotes, setIsSavingNotes] = useState(false);
 
-    const filteredFields = [...initialFields].filter((f: any) =>
-        f.fieldName.toLowerCase().includes(search.toLowerCase()) ||
-        (f.category || "").toLowerCase().includes(search.toLowerCase()) ||
-        f.fieldNo.toString() === search
-    );
+    const [filterCategory, setFilterCategory] = useState<string>("all");
+    const [filterDomain, setFilterDomain] = useState<string>("all");
+    const [filterDataType, setFilterDataType] = useState<string>("all");
+    const [filterStatus, setFilterStatus] = useState<string>("all");
+
+    // Dynamic unique options
+    const uniqueCategories = Array.from(new Set(initialFields.map(f => f.category || "General"))).sort();
+    const uniqueDomains = Array.from(new Set(initialFields.map(f => f.domain || "None"))).sort();
+    const uniqueDataTypes = Array.from(new Set(initialFields.map(f => f.appDataType))).sort();
+
+    const filteredFields = [...initialFields].filter((f: any) => {
+        const matchesSearch = f.fieldName.toLowerCase().includes(search.toLowerCase()) ||
+            (f.category || "").toLowerCase().includes(search.toLowerCase()) ||
+            f.fieldNo.toString() === search;
+
+        const matchesCategory = filterCategory === "all" || (f.category || "General") === filterCategory;
+        const matchesDomain = filterDomain === "all" || (f.domain || "None") === filterDomain;
+        const matchesDataType = filterDataType === "all" || f.appDataType === filterDataType;
+        const matchesStatus = filterStatus === "all" || 
+            (filterStatus === "active" && f.isActive) || 
+            (filterStatus === "inactive" && !f.isActive);
+
+        return matchesSearch && matchesCategory && matchesDomain && matchesDataType && matchesStatus;
+    });
+
+    const hasActiveFilters = filterCategory !== "all" || filterDomain !== "all" || filterDataType !== "all" || filterStatus !== "all";
+    const clearFilters = () => {
+        setFilterCategory("all");
+        setFilterDomain("all");
+        setFilterDataType("all");
+        setFilterStatus("all");
+    };
 
     if (sortConfig !== null) {
         filteredFields.sort((a: any, b: any) => {
@@ -103,17 +132,79 @@ export function FieldGlossaryTable({ initialFields }: FieldGlossaryTableProps) {
 
     return (
         <div className="space-y-4">
-            <div className="flex gap-2 justify-end mb-4">
-                <div className="relative">
-                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
-                    <Input
-                        className="pl-9 w-[300px] bg-white dark:bg-slate-900"
-                        placeholder="Search fields by name, category or No..."
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                    />
+            <div className="flex flex-col gap-3 mb-4">
+                <div className="flex flex-wrap gap-2 items-center justify-between">
+                    <div className="flex flex-wrap gap-2 items-center">
+                        <div className="relative">
+                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
+                            <Input
+                                className="pl-9 w-[250px] bg-white dark:bg-slate-900 h-9"
+                                placeholder="Search fields..."
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                            />
+                        </div>
+
+                        <Select value={filterCategory} onValueChange={setFilterCategory}>
+                            <SelectTrigger className="w-[140px] h-9 bg-white dark:bg-slate-900 border-slate-200">
+                                <SelectValue placeholder="Category" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">All Categories</SelectItem>
+                                {uniqueCategories.map(cat => (
+                                    <SelectItem key={cat as string} value={cat as string}>{cat as string}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+
+                        <Select value={filterDomain} onValueChange={setFilterDomain}>
+                            <SelectTrigger className="w-[140px] h-9 bg-white dark:bg-slate-900 border-slate-200">
+                                <SelectValue placeholder="Domain" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">All Domains</SelectItem>
+                                {uniqueDomains.map(dom => (
+                                    <SelectItem key={dom as string} value={dom as string}>{dom as string}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+
+                        <Select value={filterDataType} onValueChange={setFilterDataType}>
+                            <SelectTrigger className="w-[140px] h-9 bg-white dark:bg-slate-900 border-slate-200">
+                                <SelectValue placeholder="Data Type" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">All Data Types</SelectItem>
+                                {uniqueDataTypes.map(type => (
+                                    <SelectItem key={type as string} value={type as string}>{type as string}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+
+                        <Select value={filterStatus} onValueChange={setFilterStatus}>
+                            <SelectTrigger className="w-[130px] h-9 bg-white dark:bg-slate-900 border-slate-200">
+                                <SelectValue placeholder="Status" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">All Statuses</SelectItem>
+                                <SelectItem value="active">Active</SelectItem>
+                                <SelectItem value="inactive">Inactive</SelectItem>
+                            </SelectContent>
+                        </Select>
+
+                        {hasActiveFilters && (
+                            <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="h-9 px-2 text-slate-500 hover:text-slate-900"
+                                onClick={clearFilters}
+                            >
+                                <X className="h-4 w-4 mr-1" /> Clear
+                            </Button>
+                        )}
+                    </div>
+                    <Button variant="outline" size="sm" className="h-9">Export CSV</Button>
                 </div>
-                <Button variant="outline">Export CSV</Button>
             </div>
 
             <div className="border rounded-lg bg-white dark:bg-slate-950 overflow-hidden shadow-sm border-slate-200 dark:border-slate-800">
@@ -137,6 +228,39 @@ export function FieldGlossaryTable({ initialFields }: FieldGlossaryTableProps) {
                                 onClick={() => requestSort('category')}
                             >
                                 Category{getSortIndicator('category')}
+                            </TableHead>
+                            <TableHead>
+                                <div className="flex items-center gap-1">
+                                    <span 
+                                        className="cursor-pointer hover:text-indigo-600 transition-colors"
+                                        onClick={() => requestSort('domain')}
+                                    >
+                                        Domain{getSortIndicator('domain')}
+                                    </span>
+                                    <Dialog>
+                                        <DialogTrigger asChild>
+                                            <HelpCircle className="h-3.5 w-3.5 text-slate-400 hover:text-slate-700 cursor-pointer" />
+                                        </DialogTrigger>
+                                        <DialogContent className="sm:max-w-[425px]">
+                                            <DialogHeader>
+                                                <DialogTitle>About Domains</DialogTitle>
+                                                <DialogDescription asChild>
+                                                    <div className="pt-3 space-y-3 font-normal text-slate-600 dark:text-slate-300 text-sm">
+                                                        <p>
+                                                            A <strong>Domain</strong> (sometimes considered a <i>Template</i>) groups data points by their business context or use case.
+                                                        </p>
+                                                        <p>
+                                                            A field can hold an array of multiple domain tags (e.g., <em>"Onboarding"</em>, <em>"Insurance"</em>). You typically won't see more than 5 or 6 domains in total.
+                                                        </p>
+                                                        <p>
+                                                            This concept is foundational for tenanted systems. For instance, if we spin up a version of this product for a customer managing insurance quotes or renewals, they will only see the documentation and data fields necessary for that specific Domain.
+                                                        </p>
+                                                    </div>
+                                                </DialogDescription>
+                                            </DialogHeader>
+                                        </DialogContent>
+                                    </Dialog>
+                                </div>
                             </TableHead>
                             <TableHead
                                 className="cursor-pointer hover:text-indigo-600 transition-colors"
@@ -220,6 +344,15 @@ export function FieldGlossaryTable({ initialFields }: FieldGlossaryTableProps) {
                                         {field.category || "General"}
                                     </Badge>
                                 </TableCell>
+                                <TableCell>
+                                    {field.domain ? (
+                                        <Badge variant="secondary" className="bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:text-purple-300 font-normal">
+                                            {field.domain}
+                                        </Badge>
+                                    ) : (
+                                        <span className="text-xs text-slate-400 italic">None</span>
+                                    )}
+                                </TableCell>
                                 <TableCell className="font-mono text-xs text-slate-500">
                                     {field.appDataType}
                                 </TableCell>
@@ -238,7 +371,7 @@ export function FieldGlossaryTable({ initialFields }: FieldGlossaryTableProps) {
                                         onClick={() => handleEdit(field)}
                                         title="Edit Field Metadata"
                                     >
-                                        <Settings className="h-4 w-4" />
+                                        <MoreVertical className="h-4 w-4" />
                                     </Button>
                                 </TableCell>
                             </TableRow>
@@ -255,7 +388,7 @@ export function FieldGlossaryTable({ initialFields }: FieldGlossaryTableProps) {
             </div>
 
             {selectedField && (
-                <FieldEditDialog
+                <FieldDetailSheet
                     field={selectedField}
                     open={isEditDialogOpen}
                     onOpenChange={setIsEditDialogOpen}

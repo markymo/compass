@@ -1,0 +1,210 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
+import { Loader2, Save, FileText, Database, Link as LinkIcon, BookOpen } from "lucide-react";
+import { updateMasterField } from "@/actions/master-data-governance";
+import { useRouter } from "next/navigation";
+
+interface FieldDetailSheetProps {
+    field: any;
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+}
+
+export function FieldDetailSheet({ field, open, onOpenChange }: FieldDetailSheetProps) {
+    const router = useRouter();
+    const [loading, setLoading] = useState(false);
+    
+    // Initialize form state
+    const [formData, setFormData] = useState({
+        fieldName: field?.fieldName || "",
+        category: field?.category || "",
+        domain: field?.domain || "",
+        description: field?.description || "",
+        notes: field?.notes || ""
+    });
+
+    // Update form state when the selected field changes
+    useEffect(() => {
+        if (field) {
+            setFormData({
+                fieldName: field.fieldName || "",
+                category: field.category || "",
+                domain: field.domain || "",
+                description: field.description || "",
+                notes: field.notes || ""
+            });
+        }
+    }, [field]);
+
+    const handleSave = async () => {
+        setLoading(true);
+        try {
+            const res = await updateMasterField(field.fieldNo, formData);
+            if (res.success) {
+                toast.success("Field metadata updated successfully");
+                router.refresh();
+            } else {
+                toast.error(res.error || "Failed to update field");
+            }
+        } catch (error) {
+            toast.error("An error occurred");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    if (!field) return null;
+
+    return (
+        <Sheet open={open} onOpenChange={onOpenChange}>
+            <SheetContent className="w-full sm:max-w-[750px] flex flex-col h-full bg-white dark:bg-slate-950">
+                <SheetHeader className="pb-4 border-b border-slate-200">
+                    <SheetTitle className="sr-only">{field.fieldName}</SheetTitle>
+                    <SheetDescription className="sr-only">Details for {field.fieldName}</SheetDescription>
+                    
+                    <div className="flex flex-col gap-1.5">
+                        <div className="flex items-start justify-between">
+                            <h2 className="text-xl font-bold text-slate-900 leading-tight">
+                                {field.fieldName} <span className="text-slate-400 font-medium text-lg">({field.fieldNo})</span>
+                            </h2>
+                            <Badge variant="outline" className={field.isActive ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-slate-100 text-slate-500"}>
+                                {field.isActive ? "Active" : "Inactive"}
+                            </Badge>
+                        </div>
+                        <div className="flex gap-2">
+                            {field.category && <Badge variant="secondary" className="bg-blue-50 text-blue-700 font-normal">{field.category}</Badge>}
+                            {field.domain && <Badge variant="secondary" className="bg-purple-50 text-purple-700 font-normal">{field.domain}</Badge>}
+                            <span className="text-xs text-slate-500 font-mono self-center ml-2">{field.appDataType}</span>
+                        </div>
+                    </div>
+                </SheetHeader>
+
+                <div className="flex-1 overflow-y-auto pt-6 pb-20 space-y-8 px-1">
+                    
+                    {/* General Metadata Section */}
+                    <section className="space-y-4">
+                        <h3 className="text-sm font-semibold flex items-center gap-2 text-slate-800 border-b pb-2">
+                            <Database className="w-4 h-4 text-slate-400" /> Core Metadata
+                        </h3>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="grid gap-2">
+                                <Label htmlFor="fieldName" className="text-xs text-slate-500">Field Name</Label>
+                                <Input
+                                    id="fieldName"
+                                    value={formData.fieldName}
+                                    onChange={(e) => setFormData({ ...formData, fieldName: e.target.value })}
+                                    className="bg-white"
+                                />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="category" className="text-xs text-slate-500">Category</Label>
+                                <Input
+                                    id="category"
+                                    value={formData.category}
+                                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                                    className="bg-white"
+                                />
+                            </div>
+                            <div className="grid gap-2 col-span-2">
+                                <Label htmlFor="domain" className="text-xs text-slate-500">Domain Classification</Label>
+                                <Input
+                                    id="domain"
+                                    placeholder="e.g. Onboarding, Insurance Renewals, Compliance"
+                                    value={formData.domain}
+                                    onChange={(e) => setFormData({ ...formData, domain: e.target.value })}
+                                    className="bg-white"
+                                />
+                            </div>
+                        </div>
+                    </section>
+
+                    {/* Documentation Section */}
+                    <section className="space-y-4">
+                        <h3 className="text-sm font-semibold flex items-center gap-2 text-slate-800 border-b pb-2">
+                            <BookOpen className="w-4 h-4 text-slate-400" /> Documentation
+                        </h3>
+                        <div className="grid gap-4">
+                            <div className="grid gap-2">
+                                <Label htmlFor="description" className="text-xs text-slate-500 flex justify-between">
+                                    <span>Public Description</span>
+                                    <span className="text-[10px] text-slate-400 font-normal">Visible to users</span>
+                                </Label>
+                                <Textarea
+                                    id="description"
+                                    placeholder="Formal definition of what this field represents..."
+                                    value={formData.description}
+                                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                                    className="min-h-[80px] bg-white resize-y"
+                                />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="notes" className="text-xs text-slate-500 flex justify-between">
+                                    <span>Private Admin Notes</span>
+                                    <span className="text-[10px] text-slate-400 font-normal">Internal only</span>
+                                </Label>
+                                <Textarea
+                                    id="notes"
+                                    placeholder="Implementation details, gotchas, or legacy mapping notes..."
+                                    value={formData.notes}
+                                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                                    className="min-h-[80px] bg-yellow-50/30 border-yellow-200 resize-y"
+                                />
+                            </div>
+                        </div>
+                        <div className="flex justify-end pt-2">
+                            <Button onClick={handleSave} disabled={loading} size="sm" className="bg-indigo-600 hover:bg-indigo-700">
+                                {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                                Save Metadata Changes
+                            </Button>
+                        </div>
+                    </section>
+
+                    {/* Source Mappings Section */}
+                    <section className="space-y-4">
+                        <div className="flex items-center justify-between border-b pb-2">
+                            <h3 className="text-sm font-semibold flex items-center gap-2 text-slate-800">
+                                <LinkIcon className="w-4 h-4 text-slate-400" /> Source Mappings
+                            </h3>
+                            <Button variant="outline" size="sm" className="h-7 text-xs">Add Mapping</Button>
+                        </div>
+                        
+                        {field.sourceMappings && field.sourceMappings.length > 0 ? (
+                            <div className="space-y-2">
+                                {field.sourceMappings.map((mapping: any) => (
+                                    <div key={mapping.id} className="bg-white border rounded-md p-3 text-sm flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <Badge variant="outline" className="bg-slate-50">{mapping.sourceType}</Badge>
+                                            <span className="font-mono text-xs text-slate-600 truncate max-w-[250px]" title={mapping.sourcePath}>
+                                                {mapping.sourcePath}
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center gap-4">
+                                            <span className="text-xs text-slate-400">{mapping.transformType}</span>
+                                            <Badge variant={mapping.isActive ? "default" : "secondary"} className={mapping.isActive ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-100" : ""}>
+                                                {mapping.priority}
+                                            </Badge>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="text-center py-8 border border-dashed rounded-lg bg-white">
+                                <FileText className="w-8 h-8 text-slate-200 mx-auto mb-2" />
+                                <p className="text-sm text-slate-500 font-medium">No source mappings</p>
+                                <p className="text-xs text-slate-400 max-w-[250px] mx-auto mt-1">This field is entirely manually populated with no automated sourcing.</p>
+                            </div>
+                        )}
+                    </section>
+                </div>
+            </SheetContent>
+        </Sheet>
+    );
+}

@@ -6,6 +6,9 @@ export default async function FieldGlossaryPage() {
     let fields: any[] = [];
     try {
         fields = await (prisma as any).masterFieldDefinition.findMany({
+            include: {
+                sourceMappings: true
+            },
             orderBy: [
                 { category: 'asc' },
                 { order: 'asc' }
