@@ -131,7 +131,7 @@ export async function getPulseData(options?: { days?: number; includeAllEnvs?: b
                     actionBreakdown: stats.actionBreakdown,
                 };
             })
-            .sort((a: any, b: any) => b.score - a.score);
+            .sort((a: any, b: any) => b.totalActions - a.totalActions);
 
         // ====================================================================
         // Section B: Daily Action Summary (for trend chart)
@@ -147,7 +147,7 @@ export async function getPulseData(options?: { days?: number; includeAllEnvs?: b
 
         const dailyTrend = Array.from(dailyMap.entries())
             .map(([date, stats]: [string, any]) => ({ date, ...stats }))
-            .sort((a: any, b: any) => a.name.localeCompare(b.name));
+            .sort((a: any, b: any) => a.date.localeCompare(b.date));
 
         // ====================================================================
         // Section C: Per-LE Engagement Health
