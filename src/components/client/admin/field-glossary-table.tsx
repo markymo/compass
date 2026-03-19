@@ -82,22 +82,26 @@ export function FieldGlossaryTable({ initialFields }: FieldGlossaryTableProps) {
         {
             accessorKey: "fieldNo",
             header: "No.",
+            size: 50,
             cell: ({ row }) => <div className="font-medium text-slate-400 font-mono text-xs">{row.getValue("fieldNo")}</div>,
             enableHiding: false,
         },
         {
             accessorKey: "fieldName",
             header: "Field Name",
+            size: 180,
             cell: ({ row }) => <FieldNameCell key={row.original.fieldNo} row={row} router={router} />,
         },
         {
             accessorKey: "notes",
             header: "Description",
+            size: 200,
             cell: ({ row }) => <DescriptionCell key={row.original.fieldNo} row={row} router={router} />,
         },
         {
             accessorKey: "category",
             header: "Category",
+            size: 130,
             cell: ({ row }) => <EditableTextCell key={row.original.fieldNo + "_cat"} row={row} fieldKey="category" fallback="General" router={router} />,
         },
         {
@@ -128,25 +132,30 @@ export function FieldGlossaryTable({ initialFields }: FieldGlossaryTableProps) {
         {
             accessorKey: "appDataType",
             header: "Data Type",
+            size: 80,
             cell: ({ row }) => <EditableSelectCell key={row.original.fieldNo} row={row} fieldKey="appDataType" options={["TEXT", "NUMBER", "BOOLEAN", "DATE", "JSON"]} router={router} />,
         },
         {
             id: "sampleContent",
             header: "Sample Content",
+            size: 120,
             cell: () => <span className="text-[11px] text-slate-400 italic bg-slate-50 px-2 py-1 rounded">Data View Pending...</span>,
         },
         {
             accessorKey: "order",
             header: "Order",
+            size: 60,
             cell: ({ row }) => <EditableTextCell key={row.original.fieldNo + "_order"} row={row} fieldKey="order" fallback="0" router={router} type="number" />,
         },
         {
             accessorKey: "isActive",
             header: "Status",
+            size: 70,
             cell: ({ row }) => <EditableStatusCell key={row.original.fieldNo} row={row} router={router} />,
         },
         {
             id: "actions",
+            size: 40,
             enableHiding: false,
             cell: ({ row }) => (
                 <div className="text-right">
@@ -236,8 +245,8 @@ export function FieldGlossaryTable({ initialFields }: FieldGlossaryTableProps) {
                 </div>
             </div>
 
-            <div className="border rounded-lg bg-white dark:bg-slate-950 overflow-x-auto shadow-sm">
-                <Table className="min-w-max">
+            <div className="border rounded-lg bg-white dark:bg-slate-950 shadow-sm">
+                <Table className="w-full table-fixed">
                     <TableHeader>
                         {table.getHeaderGroups().map((headerGroup) => (
                             <TableRow key={headerGroup.id} className="bg-slate-50">
@@ -246,7 +255,8 @@ export function FieldGlossaryTable({ initialFields }: FieldGlossaryTableProps) {
                                     return (
                                         <TableHead 
                                             key={header.id} 
-                                            className={isSortable ? "cursor-pointer select-none hover:text-indigo-600" : ""}
+                                            style={{ width: header.getSize() }}
+                                            className={`overflow-hidden ${isSortable ? "cursor-pointer select-none hover:text-indigo-600" : ""}`}
                                             onClick={isSortable ? header.column.getToggleSortingHandler() : undefined}
                                         >
                                             {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
@@ -265,7 +275,7 @@ export function FieldGlossaryTable({ initialFields }: FieldGlossaryTableProps) {
                             table.getRowModel().rows.map((row) => (
                                 <TableRow key={row.id} className="hover:bg-indigo-50/30 transition-colors group">
                                     {row.getVisibleCells().map((cell) => (
-                                        <TableCell key={cell.id} className="align-top py-1.5 px-3">
+                                        <TableCell key={cell.id} className="align-top py-1.5 px-3 overflow-hidden text-ellipsis">
                                             {flexRender(cell.column.columnDef.cell, cell.getContext())}
                                         </TableCell>
                                     ))}
@@ -309,7 +319,7 @@ function FieldNameCell({ row, router }: { row: any, router: any }) {
     };
 
     return (
-        <div className="flex flex-col max-w-[250px] min-w-[150px]">
+        <div className="flex flex-col">
             {isEditing ? (
                 <Input autoFocus value={val} onChange={(e)=>setVal(e.target.value)} onBlur={handleSaveName} onKeyDown={(e) => { if(e.key === 'Enter') handleSaveName(); if(e.key === 'Escape') { setIsEditing(false); setVal(field.fieldName); } }} className="h-7 text-sm font-semibold"/>
             ) : (
@@ -350,7 +360,7 @@ function DescriptionCell({ row, router }: { row: any, router: any }) {
 
     if (isEditing) {
         return (
-            <div className="space-y-1 min-w-[250px]">
+            <div className="space-y-1">
                 <Textarea 
                     autoFocus 
                     value={val} 
@@ -367,7 +377,7 @@ function DescriptionCell({ row, router }: { row: any, router: any }) {
     }
 
     return (
-        <div className="cursor-pointer group max-w-[300px]" onClick={() => setIsEditing(true)}>
+        <div className="cursor-pointer group" onClick={() => setIsEditing(true)}>
             {field.notes ? (
                 <span className="text-[11px] text-slate-500 line-clamp-1 italic group-hover:text-indigo-600 leading-tight block">
                     {field.notes}
