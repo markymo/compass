@@ -120,14 +120,30 @@ export function AdminSidebar() {
     const [isCollapsed, setIsCollapsed] = useState(false);
 
     return (
-        <aside className={cn(
-            "shrink-0 border-r border-slate-200 bg-white dark:border-slate-800 dark:bg-zinc-900 transition-all duration-300",
-            isCollapsed ? "w-16" : "w-56"
-        )}>
-            <div className="sticky top-20 flex flex-col gap-1 p-4 max-h-[calc(100vh-5rem)] overflow-y-auto overflow-x-hidden scrollbar-none">
-                <div className={cn("mb-3 flex items-center gap-2", isCollapsed ? "justify-center" : "px-3")}>
-                    <ShieldCheck className="h-4 w-4 text-amber-600 shrink-0" />
-                    {!isCollapsed && <span className="text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">Admin</span>}
+        <aside 
+            className="shrink-0 border-r border-slate-200 bg-white dark:border-slate-800 dark:bg-zinc-900 transition-all duration-300 overflow-x-hidden"
+            style={{ 
+                width: isCollapsed ? '64px' : '224px',
+                minWidth: isCollapsed ? '64px' : '224px',
+                maxWidth: isCollapsed ? '64px' : '224px'
+            }}
+        >
+            <div className="sticky top-20 flex flex-col gap-1 p-4 max-h-[calc(100vh-5rem)] overflow-y-auto overflow-x-hidden" style={{ width: isCollapsed ? '64px' : '224px' }}>
+                {/* Header row with Admin label + collapse toggle */}
+                <div className={cn("mb-3 flex items-center gap-2", isCollapsed ? "justify-center" : "justify-between px-3")}>
+                    <div className="flex items-center gap-2">
+                        <ShieldCheck className="h-4 w-4 text-amber-600 shrink-0" />
+                        {!isCollapsed && <span className="text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">Admin</span>}
+                    </div>
+                    <button 
+                        onClick={() => setIsCollapsed(!isCollapsed)}
+                        className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-md transition-colors shrink-0"
+                        title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={cn("transition-transform duration-300", isCollapsed ? "rotate-180" : "")}>
+                            <path d="m15 18-6-6 6-6"/>
+                        </svg>
+                    </button>
                 </div>
                 <nav className="space-y-0.5">
                     {adminNavItems.map(item => (
@@ -144,19 +160,6 @@ export function AdminSidebar() {
                         <NavLink key={"short-" + item.href} item={item} isCollapsed={isCollapsed} />
                     ))}
                 </nav>
-                
-                {/* Collapse Toggle */}
-                <div className="mt-8 pt-4 flex justify-center">
-                    <button 
-                        onClick={() => setIsCollapsed(!isCollapsed)}
-                        className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors border border-transparent hover:border-slate-200 dark:hover:border-slate-700"
-                        title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={cn("transition-transform duration-300", isCollapsed ? "rotate-180" : "")}>
-                            <path d="m15 18-6-6 6-6"/>
-                        </svg>
-                    </button>
-                </div>
             </div>
         </aside>
     );

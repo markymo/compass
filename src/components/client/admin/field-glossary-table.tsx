@@ -87,8 +87,13 @@ export function FieldGlossaryTable({ initialFields }: FieldGlossaryTableProps) {
         },
         {
             accessorKey: "fieldName",
-            header: "Field Name & Description",
+            header: "Field Name",
             cell: ({ row }) => <FieldNameCell row={row} router={router} />,
+        },
+        {
+            accessorKey: "notes",
+            header: "Description",
+            cell: ({ row }) => <DescriptionCell row={row} router={router} />,
         },
         {
             accessorKey: "category",
@@ -129,6 +134,11 @@ export function FieldGlossaryTable({ initialFields }: FieldGlossaryTableProps) {
             id: "sampleContent",
             header: "Sample Content",
             cell: () => <span className="text-[11px] text-slate-400 italic bg-slate-50 px-2 py-1 rounded">Data View Pending...</span>,
+        },
+        {
+            accessorKey: "order",
+            header: "Order",
+            cell: ({ row }) => <EditableTextCell row={row} fieldKey="order" fallback="0" router={router} type="number" />,
         },
         {
             accessorKey: "isActive",
@@ -255,7 +265,7 @@ export function FieldGlossaryTable({ initialFields }: FieldGlossaryTableProps) {
                             table.getRowModel().rows.map((row) => (
                                 <TableRow key={row.id} className="hover:bg-indigo-50/30 transition-colors group">
                                     {row.getVisibleCells().map((cell) => (
-                                        <TableCell key={cell.id} className="align-top py-3">
+                                        <TableCell key={cell.id} className="align-top py-1.5 px-3">
                                             {flexRender(cell.column.columnDef.cell, cell.getContext())}
                                         </TableCell>
                                     ))}
@@ -285,10 +295,6 @@ function FieldNameCell({ row, router }: { row: any, router: any }) {
     const [isEditing, setIsEditing] = useState(false);
     const [val, setVal] = useState(field.fieldName);
 
-    const [isNotesEditing, setIsNotesEditing] = useState(false);
-    const [notesVal, setNotesVal] = useState(field.notes || "");
-    const [saving, setSaving] = useState(false);
-
     const handleSaveName = async () => {
         setIsEditing(false);
         if (val !== field.fieldName && val.trim()) {
@@ -298,61 +304,91 @@ function FieldNameCell({ row, router }: { row: any, router: any }) {
         } else { setVal(field.fieldName); }
     };
 
-    const handleSaveNotes = async () => {
-        setSaving(true);
-        const res = await updateFieldDescription(field.fieldNo, notesVal);
-        setSaving(false);
-        setIsNotesEditing(false);
-        if(res.success) {
-            toast.success("Notes updated");
-            router.refresh();
-        } else {
-            toast.error("Failed to save notes");
-            setNotesVal(field.notes || "");
-        }
-    };
-
     return (
-        <div className="flex flex-col max-w-[400px] min-w-[200px]">
+        <div className="flex flex-col max-w-[250px] min-w-[150px]">
             {isEditing ? (
                 <Input autoFocus value={val} onChange={(e)=>setVal(e.target.value)} onBlur={handleSaveName} onKeyDown={(e) => { if(e.key === 'Enter') handleSaveName(); if(e.key === 'Escape') { setIsEditing(false); setVal(field.fieldName); } }} className="h-7 text-sm font-semibold"/>
             ) : (
-                <span onDoubleClick={() => setIsEditing(true)} className="font-semibold text-slate-900 group-hover:text-indigo-700 cursor-pointer">{val}</span>
+                <span onClick={() => setIsEditing(true)} className="font-semibold text-slate-900 group-hover:text-indigo-700 cursor-pointer truncate" title={val}>{val}</span>
             )}
-            
-            {isNotesEditing ? (
-                <div className="mt-1 space-y-1">
-                    <Textarea autoFocus value={notesVal} onChange={(e)=>setNotesVal(e.target.value)} className="min-h-[50px] text-xs resize-none" onKeyDown={(e)=>{if(e.key==='Enter' && !e.shiftKey){e.preventDefault(); handleSaveNotes();} if(e.key==='Escape'){setIsNotesEditing(false); setNotesVal(field.notes||"");}}}/>
-                    <div className="flex gap-1"><Button size="sm" onClick={handleSaveNotes} disabled={saving} className="h-5 px-2 text-[10px] bg-indigo-600 hover:bg-indigo-700">Save</Button><Button size="sm" variant="ghost" onClick={()=>{setIsNotesEditing(false);setNotesVal(field.notes||"");}} disabled={saving} className="h-5 px-2 text-[10px]">Cancel</Button></div>
-                </div>
-            ) : (
-                <div className="cursor-pointer rounded -ml-1 mt-0.5 p-1 hover:bg-indigo-50 border border-transparent hover:border-indigo-100" onClick={() => setIsNotesEditing(true)}>
-                    {field.notes ? <span className="text-[11px] text-slate-500 line-clamp-2 italic">{field.notes}</span> : <span className="text-[10px] text-slate-400 italic">Add description...</span>}
-                </div>
-            )}
-            {field.isMultiValue && <span className="text-[10px] mt-1 uppercase tracking-wider text-blue-600 font-bold">Repeating</span>}
+            {field.isMultiValue && <span className="text-[9px] mt-0.5 uppercase tracking-wider text-blue-600 font-bold">Repeating</span>}
         </div>
     );
 }
 
-function EditableTextCell({ row, fieldKey, fallback, router }: { row: any, fieldKey: string, fallback?: string, router: any }) {
+function DescriptionCell({ row, router }: { row: any, router: any }) {
+    const field = row.original;
     const [isEditing, setIsEditing] = useState(false);
-    const [val, setVal] = useState(row.original[fieldKey] || fallback || "");
+    const [val, setVal] = useState(field.notes || "");
+    const [saving, setSaving] = useState(false);
+
+    const handleSave = async () => {
+        setSaving(true);
+        const res = await updateFieldDescription(field.fieldNo, val);
+        setSaving(false);
+        setIsEditing(false);
+        if(res.success) {
+            toast.success("Description updated");
+            router.refresh();
+        } else {
+            toast.error("Failed to save description");
+            setVal(field.notes || "");
+        }
+    };
+
+    if (isEditing) {
+        return (
+            <div className="space-y-1 min-w-[250px]">
+                <Textarea 
+                    autoFocus 
+                    value={val} 
+                    onChange={(e)=>setVal(e.target.value)} 
+                    className="min-h-[60px] text-xs resize-none" 
+                    onKeyDown={(e)=>{
+                        if(e.key==='Enter' && !e.shiftKey){e.preventDefault(); handleSave();} 
+                        if(e.key==='Escape'){setIsEditing(false); setVal(field.notes||"");}
+                    }}
+                />
+                <div className="flex gap-1">
+                    <Button size="sm" onClick={handleSave} disabled={saving} className="h-5 px-2 text-[10px] bg-indigo-600 hover:bg-indigo-700">Save</Button>
+                    <Button size="sm" variant="ghost" onClick={()=>{setIsEditing(false);setVal(field.notes||"");}} disabled={saving} className="h-5 px-2 text-[10px]">Cancel</Button>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="cursor-pointer group max-w-[300px]" onClick={() => setIsEditing(true)}>
+            {field.notes ? (
+                <span className="text-[11px] text-slate-500 line-clamp-1 italic group-hover:text-indigo-600 leading-tight block">
+                    {field.notes}
+                </span>
+            ) : (
+                <span className="text-[10px] text-slate-400 italic">Add description...</span>
+            )}
+        </div>
+    );
+}
+
+function EditableTextCell({ row, fieldKey, fallback, router, type = "text" }: { row: any, fieldKey: string, fallback?: string, router: any, type?: string }) {
+    const [isEditing, setIsEditing] = useState(false);
+    const [val, setVal] = useState(row.original[fieldKey]?.toString() || fallback || "");
 
     const handleSave = async () => {
         setIsEditing(false);
-        if (val !== row.original[fieldKey]) {
-            const res = await updateMasterField(row.original.fieldNo, { [fieldKey]: val });
+        const processedVal = type === "number" ? parseInt(val, 10) : val;
+        if (processedVal !== row.original[fieldKey]) {
+            const res = await updateMasterField(row.original.fieldNo, { [fieldKey]: processedVal });
             if(res.success) toast.success("Updated successfully");
-            else setVal(row.original[fieldKey] || fallback || "");
+            else setVal(row.original[fieldKey]?.toString() || fallback || "");
             router.refresh();
         }
     };
 
     if (isEditing) {
-        return <Input autoFocus value={val} onChange={(e)=>setVal(e.target.value)} onBlur={handleSave} onKeyDown={(e) => { if(e.key === 'Enter') handleSave(); if(e.key==='Escape'){ setIsEditing(false); setVal(row.original[fieldKey] || fallback || ""); } }} className="h-7 text-xs"/>;
+        return <Input autoFocus type={type} value={val} onChange={(e)=>setVal(e.target.value)} onBlur={handleSave} onKeyDown={(e) => { if(e.key === 'Enter') handleSave(); if(e.key==='Escape'){ setIsEditing(false); setVal(row.original[fieldKey]?.toString() || fallback || ""); } }} className="h-7 text-xs"/>;
     }
-    return <Badge onDoubleClick={()=>setIsEditing(true)} variant="secondary" className="bg-slate-100 text-slate-700 font-normal cursor-pointer hover:bg-slate-200">{val}</Badge>;
+    return <Badge onClick={()=>setIsEditing(true)} variant="secondary" className="bg-slate-100 text-slate-700 font-normal cursor-pointer hover:bg-slate-200">{val}</Badge>;
 }
 
 function EditableTagsCell({ row, fieldKey, router }: { row: any, fieldKey: string, router: any }) {
@@ -377,9 +413,9 @@ function EditableTagsCell({ row, fieldKey, router }: { row: any, fieldKey: strin
         return <Input autoFocus value={val} onChange={(e)=>setVal(e.target.value)} onBlur={handleSave} onKeyDown={(e) => { if(e.key === 'Enter') handleSave(); if(e.key==='Escape'){ setIsEditing(false); setVal(initialArr.join(", ")); } }} className="h-7 text-xs min-w-[120px]"/>;
     }
 
-    if (initialArr.length === 0) return <span onDoubleClick={()=>setIsEditing(true)} className="text-xs text-slate-400 italic cursor-pointer">None</span>;
+    if (initialArr.length === 0) return <span onClick={()=>setIsEditing(true)} className="text-xs text-slate-400 italic cursor-pointer">None</span>;
     return (
-        <div className="flex flex-wrap gap-1" onDoubleClick={()=>setIsEditing(true)}>
+        <div className="flex flex-wrap gap-1" onClick={()=>setIsEditing(true)}>
             {initialArr.map((d: string) => <Badge key={d} variant="secondary" className="bg-purple-50 text-purple-700 font-normal cursor-pointer hover:bg-purple-100">{d}</Badge>)}
         </div>
     );
@@ -406,7 +442,7 @@ function EditableSelectCell({ row, fieldKey, options, router }: { row: any, fiel
             </Select>
         );
     }
-    return <span onDoubleClick={()=>setIsEditing(true)} className="font-mono text-xs text-slate-500 cursor-pointer">{originalVal}</span>;
+    return <span onClick={()=>setIsEditing(true)} className="font-mono text-xs text-slate-500 cursor-pointer">{originalVal}</span>;
 }
 
 function EditableStatusCell({ row, router }: { row: any, router: any }) {
@@ -424,7 +460,7 @@ function EditableStatusCell({ row, router }: { row: any, router: any }) {
     };
 
     return (
-        <div onDoubleClick={toggleStatus} className="cursor-pointer" title="Double click to toggle">
+        <div onClick={toggleStatus} className="cursor-pointer" title="Click to toggle">
             {loading ? <Loader2 className="h-4 w-4 animate-spin text-slate-400" /> : (
                 isActive ? <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100">Active</Badge> 
                          : <Badge variant="outline" className="text-slate-400 hover:bg-slate-50">Inactive</Badge>
