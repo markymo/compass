@@ -7,7 +7,7 @@ import {
     ShieldCheck, Building2, Users, Wand2, FileText,
     UserCheck, MessageSquarePlus, Database, Activity,
     ListTree, LayoutGrid, Settings2, ArrowUpDown, GitBranch,
-    ChevronDown
+    ChevronDown, Zap
 } from "lucide-react";
 import { useState } from "react";
 
@@ -39,6 +39,10 @@ const adminNavItems: NavItem[] = [
         ]
     },
     { title: "Dashboard (old)", href: "/app/admin", icon: ShieldCheck },
+];
+
+const rddShortcutItems: NavItem[] = [
+    { title: "Field Glossary", href: "/app/admin/master-data/fields", icon: ListTree },
 ];
 
 function isActive(pathname: string, href: string): boolean {
@@ -121,6 +125,16 @@ export function AdminSidebar() {
                 <nav className="space-y-0.5">
                     {adminNavItems.map(item => (
                         <NavLink key={item.href} item={item} />
+                    ))}
+                </nav>
+
+                <div className="mt-6 mb-2 flex items-center gap-2 px-3 pt-6 border-t border-slate-200 dark:border-slate-800">
+                    <Zap className="h-4 w-4 text-indigo-500 fill-indigo-500/20" />
+                    <span className="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">RDD&apos;s Shortcuts</span>
+                </div>
+                <nav className="space-y-0.5">
+                    {rddShortcutItems.map(item => (
+                        <NavLink key={"short-" + item.href} item={item} />
                     ))}
                 </nav>
             </div>
