@@ -26,7 +26,7 @@ export function FieldDetailSheet({ field, open, onOpenChange }: FieldDetailSheet
     const [formData, setFormData] = useState({
         fieldName: field?.fieldName || "",
         category: field?.category || "",
-        domain: field?.domain || "",
+        domain: field?.domain?.join(", ") || "",
         description: field?.description || "",
         notes: field?.notes || ""
     });
@@ -37,7 +37,7 @@ export function FieldDetailSheet({ field, open, onOpenChange }: FieldDetailSheet
             setFormData({
                 fieldName: field.fieldName || "",
                 category: field.category || "",
-                domain: field.domain || "",
+                domain: field.domain?.join(", ") || "",
                 description: field.description || "",
                 notes: field.notes || ""
             });
@@ -47,7 +47,8 @@ export function FieldDetailSheet({ field, open, onOpenChange }: FieldDetailSheet
     const handleSave = async () => {
         setLoading(true);
         try {
-            const res = await updateMasterField(field.fieldNo, formData);
+            const domainsArray = formData.domain ? formData.domain.split(",").map((d: string) => d.trim()).filter(Boolean) : [];
+            const res = await updateMasterField(field.fieldNo, { ...formData, domain: domainsArray });
             if (res.success) {
                 toast.success("Field metadata updated successfully");
                 router.refresh();
@@ -79,9 +80,11 @@ export function FieldDetailSheet({ field, open, onOpenChange }: FieldDetailSheet
                                 {field.isActive ? "Active" : "Inactive"}
                             </Badge>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex flex-wrap gap-2 mt-1">
                             {field.category && <Badge variant="secondary" className="bg-blue-50 text-blue-700 font-normal">{field.category}</Badge>}
-                            {field.domain && <Badge variant="secondary" className="bg-purple-50 text-purple-700 font-normal">{field.domain}</Badge>}
+                            {field.domain && field.domain.length > 0 && field.domain.map((d: string) => (
+                                <Badge key={d} variant="secondary" className="bg-purple-50 text-purple-700 font-normal">{d}</Badge>
+                            ))}
                             <span className="text-xs text-slate-500 font-mono self-center ml-2">{field.appDataType}</span>
                         </div>
                     </div>

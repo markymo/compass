@@ -65,7 +65,7 @@ export async function updateMasterField(
         category?: string;
         notes?: string;
         description?: string;
-        domain?: string;
+        domain?: string[];
         isActive?: boolean;
     }
 ) {
@@ -80,6 +80,41 @@ export async function updateMasterField(
         return { success: true };
     } catch (e) {
         console.error("[updateMasterField] Error:", e);
+        return { success: false, error: String(e) };
+    }
+}
+
+/**
+ * createMasterField: Creates a new master field definition.
+ */
+export async function createMasterField(data: {
+    fieldName: string;
+    appDataType: string;
+    category?: string;
+    description?: string;
+    notes?: string;
+    domain?: string[];
+    isActive?: boolean;
+}) {
+    try {
+        const field = await (prisma as any).masterFieldDefinition.create({
+            data: {
+                fieldName: data.fieldName,
+                appDataType: data.appDataType,
+                category: data.category,
+                description: data.description,
+                notes: data.notes,
+                domain: data.domain || [],
+                isActive: data.isActive !== undefined ? data.isActive : true,
+                order: 999, // default last
+            }
+        });
+        invalidateDefinitionCache();
+        revalidatePath("/app/admin/master-data");
+        revalidatePath("/app/admin/master-data/fields");
+        return { success: true, field };
+    } catch (e) {
+        console.error("[createMasterField] Error:", e);
         return { success: false, error: String(e) };
     }
 }

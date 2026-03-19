@@ -8,6 +8,7 @@ import { Search, Settings, HelpCircle, Check, X, Loader2, MoreVertical } from "l
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { FieldDetailSheet } from "./field-detail-sheet";
+import { FieldCreateSheet } from "./field-create-sheet";
 import { useRouter } from "next/navigation";
 import { updateFieldDescription } from "@/actions/master-data-ai";
 import { toast } from "sonner";
@@ -23,6 +24,7 @@ export function FieldGlossaryTable({ initialFields }: FieldGlossaryTableProps) {
     const [search, setSearch] = useState("");
     const [selectedField, setSelectedField] = useState<any>(null);
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+    const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
     const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null);
 
     // Inline edit state
@@ -37,7 +39,7 @@ export function FieldGlossaryTable({ initialFields }: FieldGlossaryTableProps) {
 
     // Dynamic unique options
     const uniqueCategories = Array.from(new Set(initialFields.map(f => f.category || "General"))).sort();
-    const uniqueDomains = Array.from(new Set(initialFields.map(f => f.domain || "None"))).sort();
+    const uniqueDomains = Array.from(new Set(initialFields.flatMap(f => f.domain && f.domain.length > 0 ? f.domain : ["None"]))).sort();
     const uniqueDataTypes = Array.from(new Set(initialFields.map(f => f.appDataType))).sort();
 
     const filteredFields = [...initialFields].filter((f: any) => {
@@ -46,7 +48,7 @@ export function FieldGlossaryTable({ initialFields }: FieldGlossaryTableProps) {
             f.fieldNo.toString() === search;
 
         const matchesCategory = filterCategory === "all" || (f.category || "General") === filterCategory;
-        const matchesDomain = filterDomain === "all" || (f.domain || "None") === filterDomain;
+        const matchesDomain = filterDomain === "all" || (f.domain && f.domain.includes(filterDomain)) || ((!f.domain || f.domain.length === 0) && filterDomain === "None");
         const matchesDataType = filterDataType === "all" || f.appDataType === filterDataType;
         const matchesStatus = filterStatus === "all" || 
             (filterStatus === "active" && f.isActive) || 
@@ -203,7 +205,10 @@ export function FieldGlossaryTable({ initialFields }: FieldGlossaryTableProps) {
                             </Button>
                         )}
                     </div>
-                    <Button variant="outline" size="sm" className="h-9">Export CSV</Button>
+                    <div className="flex items-center gap-2">
+                        <Button variant="outline" size="sm" className="h-9">Export CSV</Button>
+                        <Button onClick={() => setIsCreateDialogOpen(true)} size="sm" className="h-9 bg-indigo-600 hover:bg-indigo-700 text-white">Add Field</Button>
+                    </div>
                 </div>
             </div>
 
@@ -345,10 +350,14 @@ export function FieldGlossaryTable({ initialFields }: FieldGlossaryTableProps) {
                                     </Badge>
                                 </TableCell>
                                 <TableCell>
-                                    {field.domain ? (
-                                        <Badge variant="secondary" className="bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:text-purple-300 font-normal">
-                                            {field.domain}
-                                        </Badge>
+                                    {field.domain && field.domain.length > 0 ? (
+                                        <div className="flex flex-wrap gap-1">
+                                            {field.domain.map((d: string) => (
+                                                <Badge key={d} variant="secondary" className="bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:text-purple-300 font-normal">
+                                                    {d}
+                                                </Badge>
+                                            ))}
+                                        </div>
                                     ) : (
                                         <span className="text-xs text-slate-400 italic">None</span>
                                     )}
@@ -392,6 +401,13 @@ export function FieldGlossaryTable({ initialFields }: FieldGlossaryTableProps) {
                     field={selectedField}
                     open={isEditDialogOpen}
                     onOpenChange={setIsEditDialogOpen}
+                />
+            )}
+
+            {isCreateDialogOpen && (
+                <FieldCreateSheet
+                    open={isCreateDialogOpen}
+                    onOpenChange={setIsCreateDialogOpen}
                 />
             )}
         </div>

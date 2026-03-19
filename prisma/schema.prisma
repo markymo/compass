@@ -654,14 +654,14 @@ model FieldClaim {
 }
 
 model MasterFieldDefinition {
-  fieldNo            Int                    @id
+  fieldNo            Int                    @id @default(autoincrement())
   fieldName          String
   appDataType        String
   isMultiValue       Boolean                @default(false)
   options            String[]               @default([])
   notes              String?
   description        String?
-  domain             String?
+  domain             String[]               @default(["Onboarding"])
   category           String?
   categoryId         String?
   categoryLabel      String?
