@@ -88,17 +88,17 @@ export function FieldGlossaryTable({ initialFields }: FieldGlossaryTableProps) {
         {
             accessorKey: "fieldName",
             header: "Field Name",
-            cell: ({ row }) => <FieldNameCell row={row} router={router} />,
+            cell: ({ row }) => <FieldNameCell key={row.original.fieldNo} row={row} router={router} />,
         },
         {
             accessorKey: "notes",
             header: "Description",
-            cell: ({ row }) => <DescriptionCell row={row} router={router} />,
+            cell: ({ row }) => <DescriptionCell key={row.original.fieldNo} row={row} router={router} />,
         },
         {
             accessorKey: "category",
             header: "Category",
-            cell: ({ row }) => <EditableTextCell row={row} fieldKey="category" fallback="General" router={router} />,
+            cell: ({ row }) => <EditableTextCell key={row.original.fieldNo + "_cat"} row={row} fieldKey="category" fallback="General" router={router} />,
         },
         {
             accessorKey: "domain",
@@ -123,12 +123,12 @@ export function FieldGlossaryTable({ initialFields }: FieldGlossaryTableProps) {
                     </Dialog>
                 </div>
             ),
-            cell: ({ row }) => <EditableTagsCell row={row} fieldKey="domain" router={router} />,
+            cell: ({ row }) => <EditableTagsCell key={row.original.fieldNo} row={row} fieldKey="domain" router={router} />,
         },
         {
             accessorKey: "appDataType",
             header: "Data Type",
-            cell: ({ row }) => <EditableSelectCell row={row} fieldKey="appDataType" options={["TEXT", "NUMBER", "BOOLEAN", "DATE", "JSON"]} router={router} />,
+            cell: ({ row }) => <EditableSelectCell key={row.original.fieldNo} row={row} fieldKey="appDataType" options={["TEXT", "NUMBER", "BOOLEAN", "DATE", "JSON"]} router={router} />,
         },
         {
             id: "sampleContent",
@@ -138,12 +138,12 @@ export function FieldGlossaryTable({ initialFields }: FieldGlossaryTableProps) {
         {
             accessorKey: "order",
             header: "Order",
-            cell: ({ row }) => <EditableTextCell row={row} fieldKey="order" fallback="0" router={router} type="number" />,
+            cell: ({ row }) => <EditableTextCell key={row.original.fieldNo + "_order"} row={row} fieldKey="order" fallback="0" router={router} type="number" />,
         },
         {
             accessorKey: "isActive",
             header: "Status",
-            cell: ({ row }) => <EditableStatusCell row={row} router={router} />,
+            cell: ({ row }) => <EditableStatusCell key={row.original.fieldNo} row={row} router={router} />,
         },
         {
             id: "actions",
@@ -295,6 +295,10 @@ function FieldNameCell({ row, router }: { row: any, router: any }) {
     const [isEditing, setIsEditing] = useState(false);
     const [val, setVal] = useState(field.fieldName);
 
+    useEffect(() => {
+        if (!isEditing) setVal(field.fieldName);
+    }, [field.fieldName, isEditing]);
+
     const handleSaveName = async () => {
         setIsEditing(false);
         if (val !== field.fieldName && val.trim()) {
@@ -322,7 +326,15 @@ function DescriptionCell({ row, router }: { row: any, router: any }) {
     const [val, setVal] = useState(field.notes || "");
     const [saving, setSaving] = useState(false);
 
+    useEffect(() => {
+        if (!isEditing) setVal(field.notes || "");
+    }, [field.notes, isEditing]);
+
     const handleSave = async () => {
+        if (val === field.notes) {
+            setIsEditing(false);
+            return;
+        }
         setSaving(true);
         const res = await updateFieldDescription(field.fieldNo, val);
         setSaving(false);
@@ -343,16 +355,13 @@ function DescriptionCell({ row, router }: { row: any, router: any }) {
                     autoFocus 
                     value={val} 
                     onChange={(e)=>setVal(e.target.value)} 
+                    onBlur={handleSave}
                     className="min-h-[60px] text-xs resize-none" 
                     onKeyDown={(e)=>{
                         if(e.key==='Enter' && !e.shiftKey){e.preventDefault(); handleSave();} 
                         if(e.key==='Escape'){setIsEditing(false); setVal(field.notes||"");}
                     }}
                 />
-                <div className="flex gap-1">
-                    <Button size="sm" onClick={handleSave} disabled={saving} className="h-5 px-2 text-[10px] bg-indigo-600 hover:bg-indigo-700">Save</Button>
-                    <Button size="sm" variant="ghost" onClick={()=>{setIsEditing(false);setVal(field.notes||"");}} disabled={saving} className="h-5 px-2 text-[10px]">Cancel</Button>
-                </div>
             </div>
         );
     }
@@ -373,6 +382,10 @@ function DescriptionCell({ row, router }: { row: any, router: any }) {
 function EditableTextCell({ row, fieldKey, fallback, router, type = "text" }: { row: any, fieldKey: string, fallback?: string, router: any, type?: string }) {
     const [isEditing, setIsEditing] = useState(false);
     const [val, setVal] = useState(row.original[fieldKey]?.toString() || fallback || "");
+
+    useEffect(() => {
+        if (!isEditing) setVal(row.original[fieldKey]?.toString() || fallback || "");
+    }, [row.original, fieldKey, isEditing, fallback]);
 
     const handleSave = async () => {
         setIsEditing(false);
@@ -396,6 +409,10 @@ function EditableTagsCell({ row, fieldKey, router }: { row: any, fieldKey: strin
     const initialArr = (rawDomain && rawDomain.length > 0) ? rawDomain : [];
     const [isEditing, setIsEditing] = useState(false);
     const [val, setVal] = useState(initialArr.join(", "));
+
+    useEffect(() => {
+        if (!isEditing) setVal(initialArr.join(", "));
+    }, [initialArr, isEditing]);
 
     const handleSave = async () => {
         setIsEditing(false);
