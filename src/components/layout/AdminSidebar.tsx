@@ -22,7 +22,6 @@ const adminNavItems: NavItem[] = [
     { title: "Pulse", href: "/app/admin/pulse", icon: Activity },
     { title: "Organizations", href: "/app/admin/organizations", icon: Building2 },
     { title: "Users", href: "/app/admin/users", icon: Users },
-    { title: "AI Mapper", href: "/app/admin/mapper", icon: Wand2 },
     { title: "Questionnaires", href: "/app/admin/questionnaires", icon: FileText },
     { title: "Demo Room", href: "/app/admin/demo", icon: UserCheck },
     { title: "Feedback", href: "/app/admin/feedback", icon: MessageSquarePlus },
