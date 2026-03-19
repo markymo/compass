@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Search, Settings, HelpCircle, Check, X, Loader2, MoreVertical, SlidersHorizontal } from "lucide-react";
+import { Search, Settings, HelpCircle, Check, X, Loader2, MoreVertical, SlidersHorizontal, ArrowUpDown } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
@@ -34,7 +34,7 @@ interface FieldGlossaryTableProps {
 
 export function FieldGlossaryTable({ initialFields }: FieldGlossaryTableProps) {
     const router = useRouter();
-    const [sorting, setSorting] = useState<SortingState>([]);
+    const [sorting, setSorting] = useState<SortingState>([{ id: "order", desc: false }]);
     const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
     
     // External filter states
@@ -73,9 +73,11 @@ export function FieldGlossaryTable({ initialFields }: FieldGlossaryTableProps) {
         setFilterDataType("all");
         setFilterStatus("all");
         setSearch("");
+        setSorting([{ id: "order", desc: false }]);
     };
 
-    const hasActiveFilters = filterCategory !== "all" || filterDomain !== "all" || filterDataType !== "all" || filterStatus !== "all" || search !== "";
+    const isDefaultSorting = sorting.length === 1 && sorting[0].id === "order" && !sorting[0].desc;
+    const hasActiveFilters = filterCategory !== "all" || filterDomain !== "all" || filterDataType !== "all" || filterStatus !== "all" || search !== "" || !isDefaultSorting;
 
     // Columns Definition
     const columns = useMemo<ColumnDef<any>[]>(() => [
@@ -221,6 +223,9 @@ export function FieldGlossaryTable({ initialFields }: FieldGlossaryTableProps) {
                     )}
                 </div>
                 <div className="flex items-center gap-2 mt-2 xl:mt-0 justify-end">
+                    <Button variant="outline" size="sm" className="h-9 gap-2 shadow-sm text-sm border-slate-200 text-slate-600 hover:text-indigo-600" onClick={() => setSorting([{ id: "order", desc: false }])}>
+                        <ArrowUpDown className="h-4 w-4" /> Reset Sort
+                    </Button>
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                             <Button variant="outline" size="sm" className="h-9 gap-2 shadow-sm text-sm">
