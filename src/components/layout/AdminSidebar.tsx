@@ -42,6 +42,7 @@ const adminNavItems: NavItem[] = [
 
 const rddShortcutItems: NavItem[] = [
     { title: "Field Glossary", href: "/app/admin/master-data/fields", icon: ListTree },
+    { title: "Source Mappings", href: "/app/admin/master-data/source-mappings", icon: GitBranch },
     { title: "Taxonomy Sorting", href: "/app/admin/master-data/sort", icon: ArrowUpDown },
 ];
 

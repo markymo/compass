@@ -67,6 +67,8 @@ export async function updateMasterField(
         description?: string;
         domain?: string[];
         isActive?: boolean;
+        order?: number;
+        appDataType?: string;
     }
 ) {
     try {
@@ -91,10 +93,12 @@ export async function createMasterField(data: {
     fieldName: string;
     appDataType: string;
     category?: string;
+    categoryId?: string;
     description?: string;
     notes?: string;
     domain?: string[];
     isActive?: boolean;
+    order?: number;
 }) {
     try {
         const field = await (prisma as any).masterFieldDefinition.create({
@@ -102,11 +106,12 @@ export async function createMasterField(data: {
                 fieldName: data.fieldName,
                 appDataType: data.appDataType,
                 category: data.category,
+                categoryId: data.categoryId,
                 description: data.description,
                 notes: data.notes,
                 domain: data.domain || [],
                 isActive: data.isActive !== undefined ? data.isActive : true,
-                order: 999, // default last
+                order: data.order ?? 999,
             }
         });
         invalidateDefinitionCache();

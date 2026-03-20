@@ -148,8 +148,11 @@ export default function MasterDataSortBuilder({ initialData }: { initialData: an
     const handleSaveFields = async () => {
         setIsSaving(true);
         try {
-            const payload = categories.flatMap((c: any) => c.fields.map((f: any) => ({ fieldNo: f.fieldNo, order: f.order })));
-            // Note: Does not currently save fields moved to different categories. To do that we'd need to update categoryId too, but it's okay based on prompt.
+            const payload = categories.flatMap((c: any) => c.fields.map((f: any) => ({ 
+                fieldNo: f.fieldNo, 
+                order: f.order,
+                categoryId: c.id // Explicitly pass the current parent category ID
+            })));
             await updateFieldOrder(payload);
             toast.success("Field order saved successfully");
             router.refresh();

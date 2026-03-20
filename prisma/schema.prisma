@@ -61,6 +61,7 @@ model User {
   adminComments                 AdminTodoComment[]
   auditLogs                     AuditLog[]
   comments                      Comment[]
+  uploadedDocuments             Document[]              @relation("UploadedDocuments")
   engagementActivities          EngagementActivity[]
   leActivities                  LEActivity[]
   memberships                   Membership[]
@@ -77,7 +78,6 @@ model User {
   masterFieldAssignmentsCreated MasterFieldAssignment[] @relation("MasterFieldAssignmentsCreated")
   assignedMasterFields          MasterFieldAssignment[] @relation("AssignedMasterFields")
   masterFieldNotes              MasterFieldNote[]
-  uploadedDocuments             Document[]              @relation("UploadedDocuments")
 }
 
 model Organization {
@@ -273,8 +273,8 @@ model Document {
   clientLE               ClientLE       @relation(fields: [clientLEId], references: [id])
   prefilledForQuestion   Question?      @relation("PrefilledQuestionDocuments", fields: [prefilledForQuestionId], references: [id])
   question               Question?      @relation("QuestionDocuments", fields: [questionId], references: [id])
+  uploadedBy             User?          @relation("UploadedDocuments", fields: [uploadedById], references: [id])
   sharedWith             FIEngagement[] @relation("SharedDocuments")
-  uploadedBy             User?          @relation("UploadedDocuments", fields: [uploadedById], references: [id], onDelete: SetNull)
 }
 
 model Query {
@@ -409,8 +409,8 @@ model MasterFieldNote {
   createdByUserId String
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
-  createdByUser   User     @relation(fields: [createdByUserId], references: [id])
   clientLE        ClientLE @relation(fields: [clientLEId], references: [id], onDelete: Cascade)
+  createdByUser   User     @relation(fields: [createdByUserId], references: [id])
 
   @@unique([clientLEId, fieldNo])
   @@map("master_field_notes")
@@ -432,8 +432,8 @@ model UsageLog {
   action    String
   path      String?
   details   Json?
-  env       String   @default("unknown")
   createdAt DateTime @default(now())
+  env       String   @default("unknown")
 
   @@index([userId])
   @@index([env, createdAt(sort: Desc)])
@@ -660,18 +660,18 @@ model MasterFieldDefinition {
   isMultiValue       Boolean                @default(false)
   options            String[]               @default([])
   notes              String?
-  description        String?
-  domain             String[]               @default(["Onboarding"])
   category           String?
   categoryId         String?
   categoryLabel      String?
   isActive           Boolean                @default(true)
-  order              Int                    @default(0)
+  order              Float                  @default(0)
   createdAt          DateTime               @default(now())
   updatedAt          DateTime               @updatedAt
   modelField         String?
-  groupItems         MasterFieldGroupItem[]
+  description        String?
+  domain             String[]               @default(["Onboarding"])
   masterDataCategory MasterDataCategory?    @relation(fields: [categoryId], references: [id])
+  groupItems         MasterFieldGroupItem[]
   sourceMappings     SourceFieldMapping[]
 
   @@index([isActive, order])
@@ -682,7 +682,7 @@ model MasterDataCategory {
   id          String                  @id @default(uuid())
   key         String                  @unique
   displayName String
-  order       Int                     @default(0)
+  order       Float                   @default(0)
   fields      MasterFieldDefinition[]
 
   @@map("master_data_categories")
@@ -695,7 +695,7 @@ model MasterFieldGroup {
   description String?
   category    String?
   isActive    Boolean                @default(true)
-  order       Int                    @default(0)
+  order       Float                  @default(0)
   createdAt   DateTime               @default(now())
   updatedAt   DateTime               @updatedAt
   items       MasterFieldGroupItem[]
@@ -721,6 +721,103 @@ model MasterFieldGroupItem {
   @@index([fieldNo])
   @@index([hideFromFieldPicker])
   @@map("master_field_group_items")
+}
+
+model SourceFieldMapping {
+  id                String                @id @default(uuid())
+  sourceType        SourceType
+  sourcePath        String
+  targetFieldNo     Int
+  confidenceDefault Float                 @default(1.0)
+  transformType     MappingTransformType  @default(DIRECT)
+  transformConfig   Json?
+  priority          Int                   @default(100)
+  isActive          Boolean               @default(true)
+  notes             String?
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+  createdByUserId   String?
+  updatedByUserId   String?
+  targetField       MasterFieldDefinition @relation(fields: [targetFieldNo], references: [fieldNo])
+
+  @@unique([sourceType, sourcePath, targetFieldNo])
+  @@index([sourceType, isActive])
+  @@index([sourceType, priority])
+  @@map("source_field_mappings")
+}
+
+model SourceSamplePayload {
+  id         String     @id @default(uuid())
+  sourceType SourceType
+  label      String
+  payload    Json
+  isDefault  Boolean    @default(false)
+  createdAt  DateTime   @default(now())
+
+  @@index([sourceType, isDefault])
+  @@map("source_sample_payloads")
+}
+
+model RegistryAuthority {
+  id             String              @id
+  registryKey    String              @unique
+  name           String
+  countryCode    String?
+  jurisdiction   String?
+  lookupStrategy String?
+  apiType        String?
+  baseUrl        String?
+  isActive       Boolean             @default(true)
+  notes          String?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  references     RegistryReference[]
+
+  @@map("registry_authorities")
+}
+
+model RegistryReference {
+  id                      String            @id @default(uuid())
+  clientLEId              String
+  sourceSystem            SourceType        @default(GLEIF)
+  sourceRecordId          String?
+  registryAuthorityId     String
+  localRegistrationNumber String
+  registryCountryCode     String?
+  derivedFromEvidenceId   String?
+  confidence              Float             @default(1.0)
+  status                  String            @default("NEW")
+  createdAt               DateTime          @default(now())
+  updatedAt               DateTime          @updatedAt
+  lastSyncAttemptAt       DateTime?
+  lastSyncStatus          SyncStatus?
+  lastSyncSucceededAt     DateTime?
+  fetches                 RegistryFetch[]
+  clientLE                ClientLE          @relation(fields: [clientLEId], references: [id], onDelete: Cascade)
+  authority               RegistryAuthority @relation(fields: [registryAuthorityId], references: [id])
+
+  @@unique([clientLEId, registryAuthorityId, localRegistrationNumber])
+  @@index([status])
+  @@map("registry_references")
+}
+
+model RegistryFetch {
+  id                  String            @id @default(uuid())
+  registryReferenceId String
+  connectorKey        String?
+  status              String
+  requestedAt         DateTime          @default(now())
+  completedAt         DateTime?
+  httpStatus          Int?
+  errorCode           String?
+  errorMessage        String?
+  rawPayloadJson      Json?
+  normalizedJson      Json?
+  evidenceId          String?
+  reference           RegistryReference @relation(fields: [registryReferenceId], references: [id], onDelete: Cascade)
+
+  @@index([registryReferenceId])
+  @@map("registry_fetches")
 }
 
 enum QuestionStatus {
@@ -805,107 +902,8 @@ enum MappingTransformType {
   JOIN_ARRAY
 }
 
-model SourceFieldMapping {
-  id                String               @id @default(uuid())
-  sourceType        SourceType
-  sourcePath        String
-  targetFieldNo     Int
-  confidenceDefault Float                @default(1.0)
-  transformType     MappingTransformType @default(DIRECT)
-  transformConfig   Json?
-  priority          Int                  @default(100)
-  isActive          Boolean              @default(true)
-  notes             String?
-
-  createdAt         DateTime             @default(now())
-  updatedAt         DateTime             @updatedAt
-  createdByUserId   String?
-  updatedByUserId   String?
-
-  targetField       MasterFieldDefinition @relation(fields: [targetFieldNo], references: [fieldNo])
-
-  @@unique([sourceType, sourcePath, targetFieldNo])
-  @@index([sourceType, isActive])
-  @@index([sourceType, priority])
-  @@map("source_field_mappings")
-}
-
-model SourceSamplePayload {
-  id         String     @id @default(uuid())
-  sourceType SourceType
-  label      String
-  payload    Json
-  isDefault  Boolean    @default(false)
-  createdAt  DateTime   @default(now())
-
-  @@index([sourceType, isDefault])
-  @@map("source_sample_payloads")
-}
-
-model RegistryAuthority {
-  id             String              @id // RAID, e.g. RA000585
-  registryKey    String              @unique // internal key, e.g. GB_COMPANIES_HOUSE
-  name           String
-  countryCode    String?
-  jurisdiction   String?
-  lookupStrategy String? // e.g. "LOCAL_ID"
-  apiType        String? // e.g. "REST", "SOAP"
-  baseUrl        String?
-  isActive       Boolean             @default(true)
-  notes          String?
-  createdAt      DateTime            @default(now())
-  updatedAt      DateTime            @updatedAt
-  references     RegistryReference[]
-
-  @@map("registry_authorities")
-}
-
 enum SyncStatus {
   PENDING
   SUCCESS
   FAILED
-}
-
-model RegistryReference {
-  id                      String            @id @default(uuid())
-  clientLEId              String
-  sourceSystem            SourceType        @default(GLEIF)
-  sourceRecordId          String? // e.g. LEI
-  registryAuthorityId     String
-  localRegistrationNumber String
-  registryCountryCode     String?
-  derivedFromEvidenceId   String?
-  confidence              Float             @default(1.0)
-  status                  String            @default("NEW") // NEW, PENDING, ENRICHED, FAILED, UNSUPPORTED
-  lastSyncAttemptAt       DateTime?
-  lastSyncSucceededAt     DateTime?
-  lastSyncStatus          SyncStatus?
-  createdAt               DateTime          @default(now())
-  updatedAt               DateTime          @updatedAt
-  clientLE                ClientLE          @relation(fields: [clientLEId], references: [id], onDelete: Cascade)
-  authority               RegistryAuthority @relation(fields: [registryAuthorityId], references: [id])
-  fetches                 RegistryFetch[]
-
-  @@unique([clientLEId, registryAuthorityId, localRegistrationNumber])
-  @@index([status])
-  @@map("registry_references")
-}
-
-model RegistryFetch {
-  id                  String            @id @default(uuid())
-  registryReferenceId String
-  connectorKey        String? // e.g. CompaniesHouseConnector
-  status              String // SUCCESS, FAILURE
-  requestedAt         DateTime          @default(now())
-  completedAt         DateTime?
-  httpStatus          Int?
-  errorCode           String?
-  errorMessage        String?
-  rawPayloadJson      Json?
-  normalizedJson      Json?
-  evidenceId          String?
-  reference           RegistryReference @relation(fields: [registryReferenceId], references: [id], onDelete: Cascade)
-
-  @@index([registryReferenceId])
-  @@map("registry_fetches")
 }

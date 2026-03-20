@@ -17,8 +17,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Search, Settings, HelpCircle, Check, X, Loader2, MoreVertical, SlidersHorizontal, ArrowUpDown } from "lucide-react";
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Search, Settings, HelpCircle, Check, X, Loader2, MoreVertical, SlidersHorizontal, ArrowUpDown, Plus, ChevronUp, ChevronDown } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
@@ -26,6 +26,7 @@ import { FieldDetailSheet } from "./field-detail-sheet";
 import { FieldCreateSheet } from "./field-create-sheet";
 import { updateFieldDescription } from "@/actions/master-data-ai";
 import { updateMasterField } from "@/actions/master-data-governance";
+import { moveFieldOrder } from "@/actions/master-data-sort";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
@@ -48,6 +49,58 @@ export function FieldGlossaryTable({ initialFields }: FieldGlossaryTableProps) {
     const [selectedField, setSelectedField] = useState<any>(null);
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+
+    // --- Inline Insertion State ---
+    const [insertingBelowFieldNo, setInsertingBelowFieldNo] = useState<number | null>(null);
+    const [newFieldDraft, setNewFieldDraft] = useState<any>(null);
+    const [isCreating, setIsCreating] = useState(false);
+
+    const handleInsertBelow = (field: any) => {
+        // 1. Sort global data by order to find the next item
+        const sorted = [...initialFields].sort((a, b) => (a.order || 0) - (b.order || 0));
+        const idx = sorted.findIndex(f => f.fieldNo === field.fieldNo);
+        
+        let newOrder = (field.order || 0) + 10;
+        if (idx !== -1 && idx < sorted.length - 1) {
+            const nextField = sorted[idx + 1];
+            newOrder = ((field.order || 0) + (nextField.order || 0)) / 2;
+        }
+
+        setNewFieldDraft({
+            fieldName: "",
+            description: "",
+            appDataType: "TEXT",
+            category: field.category || undefined,
+            categoryId: field.categoryId || undefined,
+            domain: field.domain || ["Onboarding"],
+            order: newOrder
+        });
+        setInsertingBelowFieldNo(field.fieldNo);
+    };
+
+    const handleCreateField = async (draft: any) => {
+        if (!draft.fieldName.trim()) {
+            toast.error("Field name is required");
+            return;
+        }
+        setIsCreating(true);
+        try {
+            const { createMasterField } = await import("@/actions/master-data-governance");
+            const res = await createMasterField(draft);
+            if (res.success) {
+                toast.success("Field created successfully");
+                setInsertingBelowFieldNo(null);
+                setNewFieldDraft(null);
+                router.refresh();
+            } else {
+                toast.error(res.error || "Failed to create field");
+            }
+        } catch (e) {
+            toast.error("An error occurred");
+        } finally {
+            setIsCreating(false);
+        }
+    };
 
     const data = useMemo(() => [...initialFields].filter((f: any) => {
         const matchesSearch = f.fieldName.toLowerCase().includes(search.toLowerCase()) ||
@@ -79,6 +132,24 @@ export function FieldGlossaryTable({ initialFields }: FieldGlossaryTableProps) {
 
     const isDefaultSorting = sorting.length === 1 && sorting[0].id === "order" && !sorting[0].desc;
     const hasActiveFilters = filterCategory !== "all" || filterDomain !== "all" || filterDataType !== "all" || filterStatus !== "all" || search !== "" || !isDefaultSorting;
+
+    // Build a lookup for first/last field within each category (for arrow disable logic)
+    const categoryBoundaries = useMemo(() => {
+        if (!isDefaultSorting) return new Map<number, { isFirst: boolean; isLast: boolean }>();
+        const grouped = new Map<string | null, any[]>();
+        for (const f of data) {
+            const catKey = f.categoryId ?? "__uncategorized__";
+            if (!grouped.has(catKey)) grouped.set(catKey, []);
+            grouped.get(catKey)!.push(f);
+        }
+        const result = new Map<number, { isFirst: boolean; isLast: boolean }>();
+        for (const fields of grouped.values()) {
+            fields.forEach((f: any, i: number) => {
+                result.set(f.fieldNo, { isFirst: i === 0, isLast: i === fields.length - 1 });
+            });
+        }
+        return result;
+    }, [data, isDefaultSorting]);
 
     // Columns Definition
     const columns = useMemo<ColumnDef<any>[]>(() => [
@@ -190,8 +261,8 @@ export function FieldGlossaryTable({ initialFields }: FieldGlossaryTableProps) {
         {
             accessorKey: "order",
             header: "Order",
-            size: 60,
-            cell: ({ row }) => <EditableTextCell key={row.original.fieldNo + "_order"} row={row} fieldKey="order" fallback="0" router={router} type="number" />,
+            size: 90,
+            cell: ({ row }) => <OrderCell key={row.original.fieldNo + "_order"} row={row} router={router} isOrderSorted={isDefaultSorting} categoryBoundaries={categoryBoundaries} />,
         },
         {
             accessorKey: "isActive",
@@ -205,16 +276,30 @@ export function FieldGlossaryTable({ initialFields }: FieldGlossaryTableProps) {
             enableHiding: false,
             cell: ({ row }) => (
                 <div className="text-right">
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-indigo-600" onClick={() => {
-                        setSelectedField(row.original);
-                        setIsEditDialogOpen(true);
-                    }}>
-                        <MoreVertical className="h-4 w-4" />
-                    </Button>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-indigo-600">
+                                <MoreVertical className="h-4 w-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => {
+                                setSelectedField(row.original);
+                                setIsEditDialogOpen(true);
+                            }}>
+                                <Settings className="mr-2 h-4 w-4 text-slate-400" />
+                                Edit Details
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleInsertBelow(row.original)}>
+                                <Plus className="mr-2 h-4 w-4 text-emerald-500" />
+                                Insert Below
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 </div>
             ),
         }
-    ], [router]);
+    ], [router, isDefaultSorting, categoryBoundaries]);
 
     const table = useReactTable({
         data,
@@ -322,13 +407,26 @@ export function FieldGlossaryTable({ initialFields }: FieldGlossaryTableProps) {
                     <TableBody>
                         {table.getRowModel().rows?.length ? (
                             table.getRowModel().rows.map((row) => (
-                                <TableRow key={row.id} className="hover:bg-indigo-50/30 transition-colors group">
-                                    {row.getVisibleCells().map((cell) => (
-                                        <TableCell key={cell.id} className="align-top py-1.5 px-3 overflow-hidden text-ellipsis">
-                                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                                        </TableCell>
-                                    ))}
-                                </TableRow>
+                                <React.Fragment key={row.id}>
+                                    <TableRow className="hover:bg-indigo-50/30 transition-colors group">
+                                        {row.getVisibleCells().map((cell) => (
+                                            <TableCell key={cell.id} className="align-top py-1.5 px-3 overflow-hidden text-ellipsis">
+                                                {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                            </TableCell>
+                                        ))}
+                                    </TableRow>
+                                    {insertingBelowFieldNo === row.original.fieldNo && (
+                                        <NewFieldInlineRow 
+                                            draft={newFieldDraft} 
+                                            isCreating={isCreating}
+                                            onCancel={() => {
+                                                setInsertingBelowFieldNo(null);
+                                                setNewFieldDraft(null);
+                                            }}
+                                            onSave={handleCreateField}
+                                        />
+                                    )}
+                                </React.Fragment>
                             ))
                         ) : (
                             <TableRow>
@@ -448,7 +546,7 @@ function EditableTextCell({ row, fieldKey, fallback, router, type = "text" }: { 
 
     const handleSave = async () => {
         setIsEditing(false);
-        const processedVal = type === "number" ? parseInt(val, 10) : val;
+        const processedVal = type === "number" ? parseFloat(val) : val;
         if (processedVal !== row.original[fieldKey]) {
             const res = await updateMasterField(row.original.fieldNo, { [fieldKey]: processedVal });
             if(res.success) toast.success("Updated successfully");
@@ -544,3 +642,173 @@ function EditableStatusCell({ row, router }: { row: any, router: any }) {
         </div>
     );
 }
+
+// --- New Field Inline Row Component ---
+
+function NewFieldInlineRow({ draft, isCreating, onCancel, onSave }: { draft: any, isCreating: boolean, onCancel: () => void, onSave: (draft: any) => void }) {
+    const [val, setVal] = useState(draft);
+
+    return (
+        <TableRow className="bg-emerald-50/20 border-emerald-100 hover:bg-emerald-50/40 transition-colors animate-in fade-in slide-in-from-top-1 duration-200">
+            <TableCell className="py-2 px-3">
+                <div className="font-medium text-slate-300 font-mono text-xs italic">NEW</div>
+            </TableCell>
+            <TableCell className="py-2 px-3">
+                <Input 
+                    autoFocus 
+                    placeholder="Field Name..." 
+                    value={val.fieldName} 
+                    onChange={(e) => setVal({ ...val, fieldName: e.target.value })}
+                    className="h-8 text-sm font-semibold border-emerald-200 focus-visible:ring-emerald-500 bg-white"
+                />
+            </TableCell>
+            <TableCell className="py-2 px-3">
+                <Input 
+                    placeholder="Description (Optional)..." 
+                    value={val.description} 
+                    onChange={(e) => setVal({ ...val, description: e.target.value })}
+                    className="h-8 text-[11px] border-emerald-100 focus-visible:ring-emerald-500 bg-white"
+                />
+            </TableCell>
+            <TableCell className="py-2 px-3">
+                <Badge variant="outline" className="bg-white text-slate-500 border-slate-200 h-5 text-[10px] font-normal italic">
+                    {val.category || "General"}
+                </Badge>
+            </TableCell>
+            <TableCell className="py-2 px-3">
+                 <div className="flex flex-wrap gap-1">
+                    {val.domain.map((d: string) => (
+                        <Badge key={d} variant="secondary" className="bg-purple-50 text-purple-700 h-5 text-[9px] font-normal border-purple-100">
+                            {d}
+                        </Badge>
+                    ))}
+                </div>
+            </TableCell>
+            <TableCell className="py-2 px-3">
+                <div className="font-mono text-[10px] text-slate-400">{val.appDataType}</div>
+            </TableCell>
+            <TableCell className="py-2 px-3">
+                <span className="text-[10px] text-slate-400 italic">None</span>
+            </TableCell>
+            <TableCell className="py-2 px-3">
+                <span className="text-[10px] text-slate-400 italic">...</span>
+            </TableCell>
+            <TableCell className="py-2 px-3">
+                <div className="font-mono text-[10px] text-slate-400">{val.order.toFixed(1)}</div>
+            </TableCell>
+            <TableCell className="py-2 px-3">
+                <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 h-5 text-[9px] uppercase tracking-wider">Draft</Badge>
+            </TableCell>
+            <TableCell className="py-2 px-3">
+                <div className="flex items-center gap-1 justify-end">
+                    <Button 
+                        size="icon" 
+                        variant="ghost" 
+                        className="h-7 w-7 text-slate-400 hover:text-red-500" 
+                        onClick={onCancel}
+                        disabled={isCreating}
+                    >
+                        <X className="h-4 w-4" />
+                    </Button>
+                    <Button 
+                        size="icon" 
+                        variant="ghost" 
+                        className="h-7 w-7 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-100" 
+                        onClick={() => onSave(val)}
+                        disabled={isCreating}
+                    >
+                        {isCreating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                    </Button>
+                </div>
+            </TableCell>
+        </TableRow>
+    );
+}
+
+// --- Order Cell with Up/Down Arrows ---
+
+function OrderCell({ row, router, isOrderSorted, categoryBoundaries }: { 
+    row: any; 
+    router: any; 
+    isOrderSorted: boolean;
+    categoryBoundaries: Map<number, { isFirst: boolean; isLast: boolean }>;
+}) {
+    const field = row.original;
+    const [isEditing, setIsEditing] = useState(false);
+    const [val, setVal] = useState(field.order?.toString() || "0");
+    const [movingDir, setMovingDir] = useState<"up" | "down" | null>(null);
+
+    useEffect(() => {
+        if (!isEditing) setVal(field.order?.toString() || "0");
+    }, [field.order, isEditing]);
+
+    const handleSave = async () => {
+        setIsEditing(false);
+        const processedVal = parseFloat(val);
+        if (processedVal !== field.order) {
+            const res = await updateMasterField(field.fieldNo, { order: processedVal });
+            if (res.success) toast.success("Order updated");
+            else setVal(field.order?.toString() || "0");
+            router.refresh();
+        }
+    };
+
+    const handleMove = async (direction: "up" | "down") => {
+        setMovingDir(direction);
+        try {
+            const res = await moveFieldOrder(field.fieldNo, direction);
+            if (res.success) {
+                router.refresh();
+            } else {
+                toast.error(res.error || "Could not move");
+            }
+        } catch {
+            toast.error("Failed to reorder");
+        } finally {
+            setMovingDir(null);
+        }
+    };
+
+    const bounds = categoryBoundaries.get(field.fieldNo);
+
+    if (isEditing) {
+        return <Input autoFocus type="number" value={val} onChange={(e) => setVal(e.target.value)} onBlur={handleSave} onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') { setIsEditing(false); setVal(field.order?.toString() || "0"); } }} className="h-7 text-xs w-16" />;
+    }
+
+    return (
+        <div className="flex items-center gap-0.5">
+            {isOrderSorted && (
+                <div className="flex flex-col -space-y-0.5">
+                    <button
+                        onClick={() => handleMove("up")}
+                        disabled={!!movingDir || bounds?.isFirst}
+                        className={cn(
+                            "p-0 h-4 w-4 flex items-center justify-center rounded transition-colors",
+                            bounds?.isFirst 
+                                ? "text-slate-200 cursor-not-allowed" 
+                                : "text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 cursor-pointer"
+                        )}
+                        title="Move up"
+                    >
+                        {movingDir === "up" ? <Loader2 className="h-3 w-3 animate-spin" /> : <ChevronUp className="h-3 w-3" />}
+                    </button>
+                    <button
+                        onClick={() => handleMove("down")}
+                        disabled={!!movingDir || bounds?.isLast}
+                        className={cn(
+                            "p-0 h-4 w-4 flex items-center justify-center rounded transition-colors",
+                            bounds?.isLast 
+                                ? "text-slate-200 cursor-not-allowed" 
+                                : "text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 cursor-pointer"
+                        )}
+                        title="Move down"
+                    >
+                        {movingDir === "down" ? <Loader2 className="h-3 w-3 animate-spin" /> : <ChevronDown className="h-3 w-3" />}
+                    </button>
+                </div>
+            )}
+            <Badge onClick={() => setIsEditing(true)} variant="secondary" className="bg-slate-100 text-slate-700 font-normal cursor-pointer hover:bg-slate-200">{val}</Badge>
+        </div>
+    );
+}
+

@@ -1,20 +1,19 @@
-// @ts-nocheck
-import { PrismaClient } from '@prisma/client';
-import bcrypt from 'bcryptjs';
-import { FIELD_DEFINITIONS } from '../src/domain/kyc/FieldDefinitions';
-import { FIELD_GROUPS } from '../src/domain/kyc/FieldGroups';
+const { PrismaClient } = require('@prisma/client');
+const bcrypt = require('bcryptjs');
+const { FIELD_DEFINITIONS } = require('../src/domain/kyc/FieldDefinitions');
+const { FIELD_GROUPS } = require('../src/domain/kyc/FieldGroups');
 
 const prisma = new PrismaClient();
 
 async function main() {
-    console.log('🚀 Starting Refreshed Full Authoritative Seed...');
+    console.log('🚀 Starting Refreshed Full Authoritative Seed (JS)...');
 
     const passwordHash = await bcrypt.hash('password123', 10);
 
     // --- 1. SEED ORGANIZATIONS ---
     console.log('🏢 Seeding Organizations...');
 
-    async function ensureOrg(name: string, types: string[], domain: string) {
+    async function ensureOrg(name, types, domain) {
         let org = await prisma.organization.findFirst({ where: { name } });
         if (!org) {
             org = await prisma.organization.create({
@@ -37,7 +36,7 @@ async function main() {
     // --- 2. SEED USERS ---
     console.log('👤 Seeding Users...');
 
-    async function ensureUser(email: string, name: string, isDemo: boolean = true) {
+    async function ensureUser(email, name, isDemo = true) {
         return await prisma.user.upsert({
             where: { email },
             update: { name, password: passwordHash, isDemoActor: isDemo },
@@ -53,7 +52,7 @@ async function main() {
     // --- 3. SEED MEMBERSHIPS ---
     console.log('🔑 Seeding Memberships...');
 
-    async function ensureMembership(userId: string, orgId: string, role: string) {
+    async function ensureMembership(userId, orgId, role) {
         let member = await prisma.membership.findFirst({
             where: { userId, organizationId: orgId, clientLEId: null }
         });
@@ -89,7 +88,7 @@ async function main() {
                 fieldName: def.fieldName,
                 appDataType: def.appDataType,
                 isMultiValue: def.isMultiValue,
-                options: (def as any).options || [],
+                options: def.options || [],
                 notes: def.notes,
                 category: def.model,
                 modelField: def.field,
@@ -100,7 +99,7 @@ async function main() {
                 fieldName: def.fieldName,
                 appDataType: def.appDataType,
                 isMultiValue: def.isMultiValue,
-                options: (def as any).options || [],
+                options: def.options || [],
                 notes: def.notes,
                 category: def.model,
                 modelField: def.field,
@@ -132,14 +131,14 @@ async function main() {
 
     // --- 5.5. SEED SYSTEM CATEGORIES ---
     console.log('📂 Seeding System Categories...');
-    const normalize = (name: string) =>
+    const normalize = (name) =>
         name.trim().toLowerCase().replace(/[\s\W]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
 
     const categoryNames = Array.from(
         new Set(Object.values(FIELD_DEFINITIONS).map(d => d.model).filter(Boolean))
     );
 
-    const categoryMap = new Map<string, string>(); // displayName -> id
+    const categoryMap = new Map(); // displayName -> id
 
     for (let i = 0; i < categoryNames.length; i++) {
         const name = categoryNames[i];
@@ -167,11 +166,10 @@ async function main() {
         }
     }
 
-
     // --- 6. SEED LEGAL ENTITIES & CLIENT LEs ---
     console.log('🏛️ Seeding Core Legal Entities...');
 
-    async function ensureLE(ref: string, name: string, ownerOrg: any, details: any = {}) {
+    async function ensureLE(ref, name, ownerOrg, details = {}) {
         let le = await prisma.legalEntity.upsert({
             where: { reference: ref },
             update: {},
@@ -202,7 +200,7 @@ async function main() {
                 startAt: new Date()
             }
         }).catch(() => {
-            // If ID uniqueness fails, just ignore
+            // Uniqueness fail usually means already exists
         });
 
         return { le, clientLE };
@@ -217,7 +215,7 @@ async function main() {
     // --- 7. SEED ENGAGEMENTS & QUESTIONNAIRES ---
     console.log('🤝 Seeding Engagements & Questionnaires...');
 
-    async function ensureEngagement(fiOrg: any, clientLE: any, status: string = 'CONNECTED') {
+    async function ensureEngagement(fiOrg, clientLE, status = 'CONNECTED') {
         return await prisma.fIEngagement.upsert({
             where: { fiOrgId_clientLEId: { fiOrgId: fiOrg.id, clientLEId: clientLE.id } },
             update: { status },
@@ -230,7 +228,7 @@ async function main() {
     const engHornsea = await ensureEngagement(natwest, leHornsea.clientLE, 'PREPARATION');
     
     // Questionnaires
-    async function ensureQuestionnaire(fiOrg: any, eng: any, name: string, questions: any[]) {
+    async function ensureQuestionnaire(fiOrg, eng, name, questions) {
         let q = await prisma.questionnaire.findFirst({ where: { name, fiEngagementId: eng.id } });
         if (!q) {
             q = await prisma.questionnaire.create({
