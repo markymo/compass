@@ -1,4 +1,5 @@
 "use client";
+import { cn } from "@/lib/utils";
 
 import React, { useState, useEffect, useMemo } from "react";
 import {
@@ -136,6 +137,49 @@ export function FieldGlossaryTable({ initialFields }: FieldGlossaryTableProps) {
             header: "Data Type",
             size: 80,
             cell: ({ row }) => <EditableSelectCell key={row.original.fieldNo} row={row} fieldKey="appDataType" options={["TEXT", "NUMBER", "BOOLEAN", "DATE", "JSON"]} router={router} />,
+        },
+        {
+            id: "sources",
+            header: "Source",
+            size: 100,
+            cell: ({ row }) => {
+                const mappings = row.original.sourceMappings || [];
+                if (mappings.length === 0) return <span className="text-[10px] text-slate-400">Manual</span>;
+
+                const uniqueSources = Array.from(new Set(mappings.map((m: any) => m.sourceType)));
+
+                return (
+                    <div className="flex flex-wrap gap-1">
+                        {uniqueSources.map((source: any) => {
+                            let colorClass = "bg-slate-100 text-slate-600 border-slate-200";
+                            let label = source;
+
+                            if (source === "GLEIF") {
+                                colorClass = "bg-blue-50 text-blue-700 border-blue-200";
+                            } else if (source === "COMPANIES_HOUSE") {
+                                colorClass = "bg-emerald-50 text-emerald-700 border-emerald-200 text-[9px]";
+                                label = "Companies House";
+                            } else if (source === "NATIONAL_REGISTRY") {
+                                colorClass = "bg-amber-50 text-amber-700 border-amber-200";
+                                label = "Registry";
+                            } else if (source === "AI_EXTRACTION") {
+                                colorClass = "bg-purple-50 text-purple-700 border-purple-200";
+                                label = "AI";
+                            }
+
+                            return (
+                                <Badge
+                                    key={source}
+                                    variant="outline"
+                                    className={cn("px-1.5 py-0 h-4 text-[10px] font-medium whitespace-nowrap", colorClass)}
+                                >
+                                    {label}
+                                </Badge>
+                            );
+                        })}
+                    </div>
+                );
+            }
         },
         {
             id: "sampleContent",

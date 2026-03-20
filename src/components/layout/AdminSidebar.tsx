@@ -32,7 +32,7 @@ const adminNavItems: NavItem[] = [
         children: [
             { title: "Field Glossary", href: "/app/admin/master-data/fields", icon: ListTree },
             { title: "Groups", href: "/app/admin/master-data/groups", icon: LayoutGrid },
-            { title: "Taxonomy Order", href: "/app/admin/master-data/sort", icon: ArrowUpDown },
+            { title: "Taxonomy Sorting", href: "/app/admin/master-data/sort", icon: ArrowUpDown },
             { title: "System", href: "/app/admin/master-data/system", icon: Settings2 },
             { title: "Source Mappings", href: "/app/admin/master-data/source-mappings", icon: GitBranch },
         ]
@@ -42,6 +42,7 @@ const adminNavItems: NavItem[] = [
 
 const rddShortcutItems: NavItem[] = [
     { title: "Field Glossary", href: "/app/admin/master-data/fields", icon: ListTree },
+    { title: "Taxonomy Sorting", href: "/app/admin/master-data/sort", icon: ArrowUpDown },
 ];
 
 function isActive(pathname: string, href: string): boolean {
