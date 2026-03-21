@@ -76,7 +76,7 @@ export async function addRequirement(clientLEId: string, fiOrgId: string, questi
             where: { id: engagement.id },
             data: {
                 questionnaires: {
-                    connect: questionnaireIds.map(id => ({ id }))
+                    connect: questionnaireIds.map((id: any) => ({ id }))
                 }
             }
         });

@@ -11,6 +11,8 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
+import { BRAND } from "@/config/brand";
+
 export default function LoginPage() {
     const [isLoading, setIsLoading] = useState(false);
     const [email, setEmail] = useState("");
@@ -49,7 +51,7 @@ export default function LoginPage() {
                 <CardHeader className="text-center flex flex-col items-center">
                     <div className="mb-4 flex flex-col items-center">
                         <span className="text-4xl font-bold tracking-tight text-slate-900 font-sans">
-                            ONpro<span className="text-amber-500 text-5xl leading-none">.</span>
+                            {BRAND.name}<span className="text-amber-500 text-5xl leading-none">.</span>
                         </span>
                     </div>
                     <CardTitle className="text-2xl font-sans font-bold">Welcome back</CardTitle>

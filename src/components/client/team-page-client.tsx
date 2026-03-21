@@ -45,21 +45,16 @@ export default function ClientTeamPage({
     }
 
     return (
-        <div className="flex flex-col min-h-screen bg-slate-50/50">
-            <div className="p-8 max-w-6xl mx-auto w-full space-y-8">
-                {/* Header */}
-                <div className="flex items-center justify-between">
-                    <div>
-                        <Link href={`/app/clients/${clientId}`} className="text-sm text-slate-500 hover:text-slate-800 flex items-center gap-1 mb-2">
-                            <ArrowLeft className="h-4 w-4" /> Back to Dashboard
-                        </Link>
-                        <h1 className="text-3xl font-bold text-slate-900">Team Management</h1>
-                        <p className="text-slate-500">Manage users and permissions for {orgName}</p>
-                    </div>
-                    {canManage && (
-                        <InviteMemberDialog orgId={clientId} />
-                    )}
+        <div className="max-w-6xl mx-auto w-full space-y-8 p-8">
+            <div className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-2xl font-bold text-slate-900 leading-none mb-1">Team Management</h1>
+                    <p className="text-slate-500 text-sm">Manage user access and permissions for {orgName}.</p>
                 </div>
+                {canManage && (
+                    <InviteMemberDialog orgId={clientId} />
+                )}
+            </div>
 
                 <Tabs defaultValue="active" className="w-full">
                     <TabsList className="grid w-full grid-cols-2 max-w-[400px]">
@@ -150,7 +145,6 @@ export default function ClientTeamPage({
                     </TabsContent>
                 </Tabs>
             </div>
-        </div>
     );
 }
 
@@ -238,7 +232,7 @@ function UserPermissionRow({ user, allClientLEs, canManage, clientId }: { user: 
                 </div>
 
                 <div className="space-y-1">
-                    {allClientLEs.map(le => {
+                    {allClientLEs.map((le: any) => {
                         const currentRole = getLeRole(le.id);
                         const isLeAdmin = currentRole === "LE_ADMIN";
                         const isLeUser = currentRole === "LE_USER";

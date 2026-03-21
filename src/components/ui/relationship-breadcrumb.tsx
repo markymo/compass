@@ -41,7 +41,7 @@ export function RelationshipBreadcrumb({
                     </div>
                     <Breadcrumb>
                         <BreadcrumbList>
-                            {clientPath.map((item, index) => (
+                            {clientPath.map((item: any, index: any) => (
                                 <div key={index} className="flex items-center">
                                     <BreadcrumbItem>
                                         {item.href ? (
@@ -75,7 +75,7 @@ export function RelationshipBreadcrumb({
                     </div>
                     <Breadcrumb>
                         <BreadcrumbList className="justify-end bg-slate-50 px-2 py-0.5 rounded-md border border-slate-100">
-                            {supplierPath.map((item, index) => (
+                            {supplierPath.map((item: any, index: any) => (
                                 <div key={index} className="flex items-center">
                                     <BreadcrumbItem>
                                         {item.href ? (

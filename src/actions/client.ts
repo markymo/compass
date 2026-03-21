@@ -7,6 +7,7 @@ import { can, Action, UserWithMemberships } from "@/lib/auth/permissions";
 
 import { cookies } from "next/headers";
 import { emptyMetrics, calculateEngagementMetrics, rollupMetrics, DashboardMetric } from "@/lib/metrics-calc";
+import { LegalEntityEnrichmentService } from "@/domain/registry";
 
 // --- Authorization Helper ---
 async function ensureAuthorization(action: Action, context: { partyId?: string, clientLEId?: string, engagementId?: string }) {
@@ -96,25 +97,34 @@ export async function ensureUserOrg(userId: string, userEmail: string = "") {
             console.log(`[ensureUserOrg] Found placeholder user ${existingUserByEmail.id} for ${userEmail}. Merging...`);
 
             // Transactional Merge
-            await prisma.$transaction(async (tx) => {
-                // 1. Move Memberships
+            await prisma.$transaction(async (tx: any) => {
+                // 0. Free up the email on the placeholder so we can assign it to the new user ID
+                await tx.user.update({
+                    where: { id: existingUserByEmail.id },
+                    data: { email: `${existingUserByEmail.id}@merged.demo.com` }
+                });
+
+                // 1. Create New User first to satisfy foreign keys
+                // We use upsert in case the userId is already in the DB from a concurrent request.
+                await tx.user.upsert({
+                    where: { id: userId },
+                    update: { email: userEmail, name: existingUserByEmail.name },
+                    create: { id: userId, email: userEmail, name: existingUserByEmail.name }
+                });
+
+                // 2. Move Memberships
                 await tx.membership.updateMany({
                     where: { userId: existingUserByEmail.id },
                     data: { userId: userId }
                 });
 
-                // 2. Move Comments/Activities/Todos if any (Optional but good practice)
+                // 3. Move Comments/Activities/Todos if any (Optional but good practice)
                 await tx.comment.updateMany({ where: { userId: existingUserByEmail.id }, data: { userId: userId } });
                 await tx.questionActivity.updateMany({ where: { userId: existingUserByEmail.id }, data: { userId: userId } });
 
-                // 3. Delete Placeholder
+                // 4. Delete Placeholder
                 await tx.user.delete({
                     where: { id: existingUserByEmail.id }
-                });
-
-                // 4. Create New User (The upsert below would do this, but we do it inside tx to be safe)
-                await tx.user.create({
-                    data: { id: userId, email: userEmail, name: existingUserByEmail.name }
                 });
             });
 
@@ -130,18 +140,18 @@ export async function ensureUserOrg(userId: string, userEmail: string = "") {
         }
     }
 
-    // Ensure User exists (Standard Upsert for non-merge cases)
-    const userExists = await prisma.user.findUnique({ where: { id: userId } });
-    if (!userExists) {
-        await prisma.user.create({
-            data: { id: userId, email: userEmail || "unknown@demo.com" }
-        });
-    } else {
-        // Update email if needed
-        if (userEmail && userExists.email !== userEmail) {
-            await prisma.user.update({ where: { id: userId }, data: { email: userEmail } });
+    // Ensure User exists (Atomic upsert to handle concurrent requests)
+    await prisma.user.upsert({
+        where: { id: userId },
+        update: {
+            // Update email if we have a better one than the placeholder or current
+            ...(userEmail && userEmail !== "unknown@demo.com" ? { email: userEmail } : {})
+        },
+        create: {
+            id: userId,
+            email: userEmail || "unknown@demo.com"
         }
-    }
+    });
 
     // Removed auto-creation of personal organizations for new users.
     // They will now land on an empty dashboard state until invited to an organization.
@@ -172,7 +182,7 @@ export async function getUserOrganizations() {
 
     // Deduplicate and filter nulls
     const uniqueOrgs = new Map();
-    memberships.forEach(m => {
+    memberships.forEach((m: any) => {
         if (m.organization) {
             uniqueOrgs.set(m.organization.id, m.organization);
         }
@@ -412,6 +422,13 @@ export async function createClientLE(data: { name: string; jurisdiction: string;
         },
     });
 
+    // Fire and forget (or await) the enrichment bootstrap
+    try {
+        await LegalEntityEnrichmentService.bootstrapEntity(newLE.id);
+    } catch (e) {
+        console.error("[createClientLE] Bootstrap failed (continuing anyway)", e);
+    }
+
     revalidatePath("/app/le");
     // Also revalidate the client dashboard if we know the path - but it uses dynamic ID so revalidating /app/clients/[id] is tricky without the ID here.
     // Ideally we return the path to redirect or revalidatePath acts globally enough.
@@ -450,11 +467,15 @@ export async function getClientLEData(leId: string) {
                     org: true,
                     questionnaires: {
                         where: { isDeleted: false }
+                    },
+                    questionnaireInstances: {
+                        where: { isDeleted: false }
                     }
                 }
             },
-            // Phase 2: Include Profile Data
-            identityProfile: true
+            registryReferences: {
+                include: { authority: true }
+            }
         }
     });
 
@@ -463,7 +484,14 @@ export async function getClientLEData(leId: string) {
         return null;
     }
 
-    le.fiEngagements.forEach(eng => {
+    le.fiEngagements.forEach((eng: any) => {
+        // Combine both many-to-many and one-to-many relations for compatibility
+        const combined = Array.from(
+            new Map(
+                [...(eng.questionnaireInstances || []), ...(eng.questionnaires || [])].map((q: any) => [q.id, q])
+            ).values()
+        );
+        eng.questionnaires = combined;
         console.log(`[getClientLEData] Engagement ${eng.org.name} has ${eng.questionnaires.length} ACTIVE questionnaires`);
     });
 
@@ -544,20 +572,20 @@ export async function saveClientLEData(leId: string, schemaId: string, answers: 
 }
 
 // 5. Update LE Basic Info (e.g. Description)
-export async function updateClientLE(leId: string, data: { description?: string, lei?: string, gleifData?: any }) {
+export async function updateClientLE(leId: string, data: { name?: string, description?: string, lei?: string, gleifData?: any }) {
     try {
         await ensureAuthorization(Action.LE_UPDATE, { clientLEId: leId });
     } catch (e) {
         return { success: false, error: "Unauthorized: Access denied." };
     }
 
-    const identity = await getIdentity(); // This usage was suspicious in original code (await auth() inside try/catch block line 476 but used userId)
-    // Actually original code: const { userId } = await auth(); is line 476.
+    const identity = await getIdentity(); 
     if (!identity?.userId) return { success: false, error: "Unauthorized" };
     try {
         const updated = await prisma.clientLE.update({
             where: { id: leId },
             data: {
+                name: data.name,
                 description: data.description,
                 ...(data.lei !== undefined && { lei: data.lei }),
                 ...(data.gleifData !== undefined && {
@@ -574,6 +602,15 @@ export async function updateClientLE(leId: string, data: { description?: string,
             }
         });
         console.log(`[updateClientLE] Update successful:`, JSON.stringify(updated, null, 2));
+
+        // TRIGGER REGISTRY BOOTSTRAP on LEI/GLEIF data changes
+        if (data.lei !== undefined || data.gleifData !== undefined) {
+            console.log(`[updateClientLE] Triggering bootstrap for new LEI/GLEIF data for LE: ${leId}`);
+            // We await it here so that by the time revalidatePath runs, the new references exist
+            await LegalEntityEnrichmentService.bootstrapEntity(leId).catch(e => {
+                console.error("[updateClientLE] Bootstrap error:", e);
+            });
+        }
 
         revalidatePath(`/app/le/${leId}`);
         revalidatePath(`/app/le/${leId}/v2`);
@@ -651,25 +688,9 @@ export async function getDashboardMetrics(leId: string) {
         // Our new logic puts things in buckets based on status.
         // Let's rely on the buckets for the score to be consistent.
 
-        const eTotal = m.noData + m.drafted + m.approved + m.released + m.acknowledged;
-        // Strict answered: Approved, Released, Ack. 
-        // Drafted might be "In Progress".
-        // Old logic: "answeredQuestions" included Internal Review.
-        const eAnswered = m.approved + m.released + m.acknowledged + (m.drafted > 0 ? m.drafted : 0);
-        // Wait, 'drafted' bucket in new logic includes DRAFT and INTERNAL_REVIEW.
-        // In old logic, DRAFT with no answer was valid?
-        // Old logic: `isAnswered = ... || INTERNAL_REVIEW || ...`
-        // We should probably refine `calculateEngagementMetrics` to be more granular if we want exact score match,
-        // but for now, let's treat "Drafted" as "Has Attention" or similar?
-        // Actually, the Score is arbitrary. Let's make it: Approved + Released + Ack.
-
-        // Re-reading old logic: 
-        // isAnswered = SUPPLIER_SIGNED_OFF || CLIENT_SIGNED_OFF || SHARED || SUPPLIER_REVIEW || INTERNAL_REVIEW || isLocked
-        // This maps to: Acknowledged, Approved, Released, Drafted (partial).
-        // Let's include Drafted in 'Answered' for the score if we want to be generous, or exclude it.
-        // Given "Readiness", Drafted usually implies some work done.
-
-        const effectiveAnswered = m.approved + m.released + m.acknowledged + m.drafted; // Drafted includes internal review
+        const eTotal = m.noData + m.mapped;
+        const eAnswered = m.answered;
+        const effectiveAnswered = m.answered;
 
         engagementStats.set(eng.id, { total: eTotal, answered: effectiveAnswered });
 
@@ -683,10 +704,10 @@ export async function getDashboardMetrics(leId: string) {
 
     // Map back to 'cpStatus' for frontend compatibility
     const cpStatus = {
-        draft: leMetrics.noData + leMetrics.prepopulated + leMetrics.systemUpdated,
-        internalReview: leMetrics.drafted,
+        draft: leMetrics.noData,
+        internalReview: leMetrics.mapped,
         shared: leMetrics.released,
-        done: leMetrics.approved + leMetrics.acknowledged
+        done: leMetrics.approved
     };
 
     // C. Activity Feed (Team-wide, filtered by this LE)
@@ -700,7 +721,7 @@ export async function getDashboardMetrics(leId: string) {
 
     // Create a map of UserId -> Name
     const userMap = new Map<string, string>();
-    memberships.forEach(m => {
+    memberships.forEach((m: any) => {
         if (m.user) userMap.set(m.userId, m.user.name || m.user.email);
     });
     // Add current user to map if missing (e.g. Org Admin not explicit LE member)
@@ -731,7 +752,7 @@ export async function getDashboardMetrics(leId: string) {
             },
             metrics: leMetrics // New Standardized Metrics
         },
-        pipeline: le.fiEngagements.map(e => {
+        pipeline: le.fiEngagements.map((e: any) => {
             // Find earliest invitation date
             const earliestInvite = e.invitations.length > 0
                 ? e.invitations.reduce((min: any, inv: any) => inv.createdAt < min.createdAt ? inv : min, e.invitations[0])
@@ -759,7 +780,7 @@ export async function getDashboardMetrics(leId: string) {
                 acceptedDate: earliestAccepted ? (earliestAccepted.usedAt || earliestAccepted.updatedAt) : null
             };
         }),
-        activity: logs.map(l => ({
+        activity: logs.map((l: any) => ({
             id: l.id,
             action: l.action,
             time: l.createdAt,
@@ -797,7 +818,7 @@ export async function deleteClientLE(leId: string) {
         const engagements = await prisma.fIEngagement.findMany({
             where: { clientLEId: leId }
         });
-        const engagementIds = engagements.map(e => e.id);
+        const engagementIds = engagements.map((e: any) => e.id);
 
         // 2. Soft Delete all Questionnaires linked to these engagements
         await prisma.questionnaire.updateMany({
@@ -913,7 +934,7 @@ export async function forceDeleteClientLE(leId: string) {
     try {
         console.log(`[forceDeleteClientLE] Admin ${userId} invoking Force Delete on LE ${leId}`);
 
-        await prisma.$transaction(async (tx) => {
+        await prisma.$transaction(async (tx: any) => {
             // 1. Delete all Engagements (and their sub-relations if not cascaded)
             // Note: FIEngagement deletion needs to carefully matching relation names if using deleteMany
             // But let's check schema again. FIEngagement doesn't have cascade on DB level for ClientLE?
@@ -923,7 +944,7 @@ export async function forceDeleteClientLE(leId: string) {
             // 1.1 Delete Questionnaires linked to Engagements of this LE
             // Find Engagements first
             const engs = await tx.fIEngagement.findMany({ where: { clientLEId: leId }, select: { id: true } });
-            const engIds = engs.map(e => e.id);
+            const engIds = engs.map((e: any) => e.id);
 
             if (engIds.length > 0) {
                 // Delete Questionnaires (Instances)
@@ -988,7 +1009,7 @@ export async function searchFIs(query: string) {
             orderBy: { name: 'asc' }
         });
 
-        return fis.map(fi => ({
+        return fis.map((fi: any) => ({
             value: fi.id, // Use ID as value for uniqueness
             label: fi.name,
             description: fi.description || "Financial Institution"
@@ -1076,7 +1097,7 @@ export async function getClientDashboardData(clientId: string) {
             });
 
             // Hydrate with permissions
-            activeLes = rawLes.map(le => ({
+            activeLes = rawLes.map((le: any) => ({
                 ...le,
                 myPermissions: deriveLEPermissions(directMembership.role)
             }));
@@ -1194,7 +1215,7 @@ export async function getLEUsers(leId: string): Promise<LEUser[]> {
         include: { user: true }
     });
 
-    return memberships.map(m => ({
+    return memberships.map((m: any) => ({
         userId: m.userId,
         name: m.user.name,
         email: m.user.email,

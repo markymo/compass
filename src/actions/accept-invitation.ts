@@ -145,6 +145,17 @@ export async function acceptInvitation(rawToken: string) {
             });
         }
 
+        // --- UsageLog (Unified platform-wide analytics) ---
+        const { logActivityDirect } = await import("./logging");
+        logActivityDirect(user.id, "INVITATION_ACCEPTED", `/invite`, {
+            email: invite.sentToEmail,
+            role: invite.role,
+            scope: scopeType,
+            organizationId: invite.organizationId,
+            clientLEId: invite.clientLEId,
+            fiEngagementId: invite.fiEngagementId,
+        });
+
         // 7. Mark invitation as used (idempotent guard at top handles double-clicks)
         await prisma.invitation.update({
             where: { id: invite.id },
@@ -161,7 +172,7 @@ export async function acceptInvitation(rawToken: string) {
             if (owner) redirectUrl = `/app/clients/${owner.partyId}`;
             else redirectUrl = `/app/le/${invite.clientLE.id}`;
         } else if (invite.fiEngagement) {
-            redirectUrl = `/app/fi/${invite.fiEngagement.fiOrgId}`;
+            redirectUrl = `/app/s/${invite.fiEngagement.fiOrgId}`;
         }
 
         // Revalidate

@@ -134,7 +134,7 @@ export function LEUsersTab({ leId }: LEUsersTabProps) {
                                 </TableCell>
                             </TableRow>
                         ) : (
-                            users.map((user) => (
+                            users.map((user: any) => (
                                 <TableRow key={user.userId}>
                                     <TableCell>
                                         <div className="flex items-center gap-3">

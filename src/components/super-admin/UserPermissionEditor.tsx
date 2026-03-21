@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, PlusCircle, Building2, Briefcase, ChevronDown, ChevronRight, LayoutDashboard, ShieldCheck, DoorOpen, Pencil, CheckCircle2, KeyRound } from "lucide-react";
+import { Loader2, PlusCircle, Building2, Landmark, ChevronDown, ChevronRight, LayoutDashboard, ShieldCheck, DoorOpen, Pencil, CheckCircle2, KeyRound } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -225,7 +225,7 @@ export function UserPermissionEditor({ profile, userId }: UserPermissionEditorPr
                                                 <CommandList>
                                                     <CommandEmpty>No clients found.</CommandEmpty>
                                                     <CommandGroup>
-                                                        {orgSearchResults.map((org) => (
+                                                        {orgSearchResults.map((org: any) => (
                                                             <CommandItem
                                                                 key={org.id}
                                                                 value={org.id}
@@ -435,7 +435,7 @@ function OrganizationCard({ membership, onUpdateClientRole, onUpdateLERole, load
                             {membership.les.map((le: any) => (
                                 <div key={le.id} className="grid grid-cols-12 items-center px-3 py-2 rounded-md hover:bg-white transition-colors border border-transparent hover:border-slate-200 group">
                                     <div className="col-span-6 flex items-center gap-3">
-                                        <Briefcase className="h-4 w-4 text-slate-400 group-hover:text-primary transition-colors" />
+                                        <Landmark className="h-4 w-4 text-slate-400 group-hover:text-primary transition-colors" />
                                         <span className="font-medium text-sm text-slate-700">{le.name}</span>
                                     </div>
                                     <div className="col-span-2">

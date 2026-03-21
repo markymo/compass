@@ -1,17 +1,19 @@
 "use server";
 
 import prisma from "@/lib/prisma";
-import { EngagementStatus } from "@prisma/client";
+import { EngagementStatus, SourceType } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { ExtractedItem } from "./ai-mapper"; // Importing type
 import { MasterSchemaDefinition } from "@/types/schema";
 import { Action, can } from "@/lib/auth/permissions";
-import { FIELD_DEFINITIONS } from "@/domain/kyc/FieldDefinitions";
+import { getMasterFieldDefinition, listAllMasterFields, listAllMasterGroups } from "@/services/masterData/definitionService";
 import { getIdentity } from "@/lib/auth";
 import { getUserFIOrg } from "./security";
-import { calculateEngagementMetrics } from "@/lib/metrics-calc";
+import { calculateEngagementMetrics, calculateQuestionnaireMetrics } from "@/lib/metrics-calc";
 import { generateText } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
+import { KycStateService } from "@/lib/kyc/KycStateService";
+import { FieldClaimService } from "@/lib/kyc/FieldClaimService";
 
 export async function createLegalEntity(data: { name: string; jurisdiction: string; clientOrgId: string }) {
     if (!data.name || !data.clientOrgId) {
@@ -160,7 +162,7 @@ export async function getEffectiveRequirements(clientLEId: string) {
                 items = content.fields;
             }
 
-            items.forEach(item => {
+            items.forEach((item: any) => {
                 // Support both direct extraction schema and question schema
                 // Question schema might have 'question' text but we look for 'masterKey' mapping
 
@@ -172,7 +174,7 @@ export async function getEffectiveRequirements(clientLEId: string) {
                     const key = item.masterKey;
 
                     // Verify key exists in Master Schema
-                    const fieldDef = allFields.find(f => f.key === key);
+                    const fieldDef = allFields.find((f: any) => f.key === key);
                     if (fieldDef) {
                         if (!requirements.has(key)) {
                             requirements.set(key, { definition: fieldDef, requiredBy: new Set() });
@@ -194,7 +196,7 @@ export async function getEffectiveRequirements(clientLEId: string) {
 
     // 5. Format Output
     // Show ALL fields from Master Schema, annotated with requirement info
-    const fields = allFields.map(fieldDef => {
+    const fields = allFields.map((fieldDef: any) => {
         const key = fieldDef.key;
         const req = requirements.get(key);
 
@@ -207,7 +209,7 @@ export async function getEffectiveRequirements(clientLEId: string) {
 
     // Calculate generic progress
     const total = fields.length;
-    const filled = fields.filter(f => f.currentValue !== undefined && f.currentValue !== "").length;
+    const filled = fields.filter((f: any) => f.currentValue !== undefined && f.currentValue !== "").length;
 
     // Start with all requirements, but also include fields that HAVE answers even if not required anymore?
     // For now, let's stick to "Effective Requirements". 
@@ -239,44 +241,62 @@ export async function getLEEngagements(clientLEId: string) {
 }
 
 export async function updateStandingDataProperty(clientLEId: string, propertyKey: string, payload: { value: any, status?: string }) {
-    // For Demo: Use a hardcoded schema ID or find the first one
-    const masterSchema = await prisma.masterSchema.findFirst() || { id: "demo-schema-id" };
-
     try {
-        let record = await prisma.clientLERecord.findFirst({
-            where: { clientLEId }
-        });
+        // 1. Resolve fieldNo from the propertyKey (if numeric) or find in definitions
+        let fieldNo = parseInt(propertyKey);
+        if (isNaN(fieldNo)) {
+            const allFields = await listAllMasterFields();
+            const def = allFields.find((f: any) => (f as any).modelField === propertyKey || f.fieldName === propertyKey);
+            if (!def) return { success: false, error: `Unknown property: ${propertyKey}` };
+            fieldNo = def.fieldNo;
+        }
 
-        const propertyData = {
-            value: payload.value,
-            status: payload.status || "VERIFIED",
-            updatedAt: new Date().toISOString()
+        // 2. Resolve Subject and Scope
+        const clientLE = await prisma.clientLE.findUnique({
+            where: { id: clientLEId }
+        });
+        const subjectLeId = clientLE?.legalEntityId;
+        const ownerScopeId = await KycStateService.resolveScopeId(clientLEId);
+
+        if (!subjectLeId) return { success: false, error: "Subject not resolved" };
+
+        const def = await getMasterFieldDefinition(fieldNo);
+        const claimInput: any = {
+            fieldNo,
+            subjectLeId,
+            ownerScopeId,
+            sourceType: SourceType.USER_INPUT,
+            sourceReference: "Manual UI Update",
         };
 
-        if (!record) {
-            await prisma.clientLERecord.create({
-                data: {
-                    clientLEId,
-                    masterSchemaId: masterSchema.id,
-                    data: { [propertyKey]: propertyData },
-                    status: "DRAFT"
-                }
-            });
-        } else {
-            const currentData = (record.data as Record<string, any>) || {};
-            const newData = {
-                ...currentData,
-                [propertyKey]: propertyData
-            };
+        // Assign value to the correct slot
+        switch (def.appDataType) {
+            case 'TEXT': claimInput.valueText = payload.value; break;
+            case 'NUMBER': claimInput.valueNumber = payload.value; break;
+            case 'DATE':
+            case 'DATETIME': claimInput.valueDate = new Date(payload.value); break;
+            case 'PERSON_REF': claimInput.valuePersonId = payload.value; break;
+            case 'ORG_REF': claimInput.valueLeId = payload.value; break;
+            case 'DOCUMENT_REF': claimInput.valueDocId = payload.value; break;
+            case 'JSONB': claimInput.valueJson = payload.value; break;
+        }
 
-            await prisma.clientLERecord.update({
-                where: { id: record.id },
-                data: { data: newData }
-            });
+        const claim = await FieldClaimService.assertClaim(claimInput);
+
+        // If status is provided, and it's VERIFIED, we can auto-verify (for legacy compatibility)
+        if (payload.status === "VERIFIED") {
+            await FieldClaimService.verifyClaim(claim.id, "SYSTEM_USER");
         }
 
         revalidatePath(`/app/le/${clientLEId}`);
-        return { success: true, propertyData };
+        return {
+            success: true,
+            propertyData: {
+                value: payload.value,
+                status: payload.status || "VERIFIED",
+                updatedAt: new Date().toISOString()
+            }
+        };
     } catch (error) {
         console.error("Failed to update standing data property:", error);
         return { success: false, error: "Update failed" };
@@ -317,6 +337,7 @@ export async function getEngagementDetails(engagementId: string) {
                         name: true,
                         status: true,
                         mappings: true,
+                        dueDate: true,
                         createdAt: true,
                         updatedAt: true
                     }
@@ -328,6 +349,7 @@ export async function getEngagementDetails(engagementId: string) {
                         name: true,
                         status: true,
                         mappings: true,
+                        dueDate: true,
                         createdAt: true,
                         updatedAt: true
                     },
@@ -348,11 +370,17 @@ export async function getEngagementDetails(engagementId: string) {
         // Combine both for the UI, or prioritize Instances
         // For Client View, we mostly care about Instances (what we are working on)
         // effectively 'questionnaires' in the UI maps to 'questionnaireInstances'
-        const combinedQuestionnaires = Array.from(
+        const combinedQuestionnairesRaw = Array.from(
             new Map(
-                [...engagement.questionnaireInstances, ...engagement.questionnaires].map(item => [item.id, item])
+                [...engagement.questionnaireInstances, ...engagement.questionnaires].map((item: any) => [item.id, item])
             ).values()
         );
+
+        // Fetch metrics for each questionnaire
+        const questionnaires = await Promise.all(combinedQuestionnairesRaw.map(async (q: any) => ({
+            ...q,
+            metrics: await calculateQuestionnaireMetrics(q.id)
+        })));
 
         // Fetch Pending Invitations
         const rawInvitations = await prisma.invitation.findMany({
@@ -365,15 +393,15 @@ export async function getEngagementDetails(engagementId: string) {
         });
 
         // Manually fetch and attach the creator User details (no direct relation in schema)
-        const creatorIds = [...new Set(rawInvitations.map(inv => inv.createdByUserId))];
+        const creatorIds = [...new Set(rawInvitations.map((inv: any) => inv.createdByUserId))];
         const creators = await prisma.user.findMany({
             where: { id: { in: creatorIds } },
             select: { id: true, name: true, email: true }
         });
 
-        const invitations = rawInvitations.map(inv => ({
+        const invitations = rawInvitations.map((inv: any) => ({
             ...inv,
-            createdByUser: creators.find(c => c.id === inv.createdByUserId) || null
+            createdByUser: creators.find((c: any) => c.id === inv.createdByUserId) || null
         }));
 
         // Fetch Active Members (Scoped to the LE for now, as Suppliers are invited to the LE or Org)
@@ -389,7 +417,7 @@ export async function getEngagementDetails(engagementId: string) {
         return {
             success: true,
             engagement,
-            questionnaires: combinedQuestionnaires,
+            questionnaires,
             invitations,
             members,
             metrics
@@ -481,60 +509,44 @@ export async function createFIEngagement(clientLEId: string, fiName: string) {
  * This is used for the Questionnaire Mapper to show existing values.
  */
 export async function getFullMasterData(clientLEId: string) {
-    // 1. Fetch ClientLE and IdentityProfile (link to LegalEntity)
+    // 1. Fetch ClientLE (link to LegalEntity)
     const clientLE = await prisma.clientLE.findUnique({
         where: { id: clientLEId },
         include: {
-            identityProfile: true,
+            registryReferences: {
+                include: { authority: true },
+                orderBy: { updatedAt: 'desc' },
+                take: 1
+            }
         }
     });
 
     if (!clientLE) return { success: false, data: {} };
 
-    // 2. Resolve LegalEntity ID
-    const legalEntityId = clientLE.identityProfile?.legalEntityId;
-    let legalEntity: any = null;
+    // 2. Resolve Subject and Scope
+    const subjectLeId = clientLE.legalEntityId;
+    const ownerScopeId = await KycStateService.resolveScopeId(clientLEId);
 
-    if (legalEntityId) {
-        legalEntity = await prisma.legalEntity.findUnique({
-            where: { id: legalEntityId },
-            include: {
-                constitutionalProfile: true,
-                entityInfoProfile: true,
-                leiRegistration: true,
-                relationshipProfile: true,
-                // Add other profiles as needed based on Schema
+    const flattened: Record<number, { value: any, source?: string, sourceReference?: string }> = {};
+
+    if (subjectLeId) {
+        const allFields = await listAllMasterFields();
+        for (const def of allFields) {
+            if (def.isMultiValue) continue; // Skip repeating fields for now
+
+            const derived = await KycStateService.getAuthoritativeValue(
+                { subjectLeId },
+                def.fieldNo,
+                ownerScopeId || undefined
+            );
+
+            if (derived) {
+                flattened[def.fieldNo] = {
+                    value: derived.value,
+                    source: derived.isScoped ? 'USER_INPUT' : (derived.evidenceProvider || derived.sourceType || 'MASTER_RECORD'),
+                    sourceReference: derived.sourceReference ?? undefined
+                };
             }
-        });
-    }
-
-    const flattened: Record<number, { value: any, source?: string }> = {};
-
-    for (const def of Object.values(FIELD_DEFINITIONS)) {
-        if (!def.model || !def.field) continue;
-        if (def.isRepeating) continue; // Skip repeating fields for now
-
-        let val: any = undefined;
-
-        // Route lookup based on Model
-        if (def.model === 'IdentityProfile') {
-            // IdentityProfile is on ClientLE (and LegalEntity, but ClientLE is entry)
-            val = clientLE.identityProfile ? (clientLE.identityProfile as any)[def.field] : undefined;
-        }
-        else if (legalEntity) {
-            // Other profiles are on LegalEntity
-            const profileKey = def.model.charAt(0).toLowerCase() + def.model.slice(1);
-            const profile = legalEntity[profileKey];
-            if (profile) {
-                val = profile[def.field];
-            }
-        }
-
-        if (val !== undefined && val !== null) {
-            flattened[def.fieldNo] = {
-                value: val,
-                source: 'MASTER_RECORD'
-            };
         }
     }
 
@@ -561,7 +573,7 @@ export async function getFullMasterData(clientLEId: string) {
 
     // Collect Field IDs from the Data itself (The "Stored at LE Level" truth)
     const targetDefIds = new Set<string>();
-    Object.keys(customData).forEach(key => {
+    Object.keys(customData).forEach((key: any) => {
         // Simple uuid check or length check to avoid junk
         if (key.length > 20) targetDefIds.add(key);
     });
@@ -581,32 +593,80 @@ export async function getFullMasterData(clientLEId: string) {
     // IF `customData` has keys that we missed (e.g. from previous owners), we could fetch them here.
     // For now, let's stick to active contexts.
 
+    // 4. Find most recent GLEIF-sourced event for this legal entity
+    const gleifLastSynced: Date | null = clientLE.gleifFetchedAt;
+
+    // 5. Extract National Registry Data if available
+    let nationalRegistryData = null;
+    if (clientLE.registryReferences && clientLE.registryReferences.length > 0) {
+        const primaryRef = clientLE.registryReferences[0];
+        nationalRegistryData = {
+            id: primaryRef.id,
+            authorityName: primaryRef.authority.name,
+            localRegistrationNumber: primaryRef.localRegistrationNumber,
+            lastSyncSucceededAt: primaryRef.lastSyncSucceededAt,
+            lastSyncStatus: primaryRef.lastSyncStatus
+        };
+    }
+
     return {
         success: true,
         data: flattened,
         customData,
-        customDefinitions
+        customDefinitions,
+        gleifLastSynced,
+        nationalRegistryData,
+        masterFields: await listAllMasterFields(), // Already fetched above, but for clarity
+        masterGroups: await listAllMasterGroups()
     };
 }
 
-export async function generateLEDescription(clientOrgName: string, leName: string) {
+import { generateLEDescription } from "./ai-actions";
+
+// generateLEDescription moved to ai-actions.ts
+
+export async function updateLEDueDate(leId: string, dueDate: Date | null) {
     try {
-        const key = process.env.OPENAI_API_KEY;
-        if (!key) throw new Error("Server Misconfiguration: OPENAI_API_KEY is missing.");
-
-        const openai = createOpenAI({ apiKey: key });
-
-        const prompt = `Generate a single, factual, unemotional sentence describing a financial or corporate project involving the client '${clientOrgName}' and the legal entity '${leName}'. If possible, infer or include relevant dates and geography from their names. Do not use marketing speak or subjective terms like 'exciting'. Just state the facts of the relationship/project. Do not include introductory phrases. Just the sentence itself.`;
-
-        const { text } = await generateText({
-            model: openai('gpt-4o'),
-            prompt: prompt,
-            temperature: 0.7 // add a bit of variety
+        await prisma.clientLE.update({
+            where: { id: leId },
+            data: { dueDate }
         });
+        revalidatePath(`/app/le/${leId}`);
+        return { success: true };
+    } catch (error) {
+        console.error("Failed to update LE due date:", error);
+        return { success: false, error: "Database update failed" };
+    }
+}
 
-        return { success: true, description: text.trim().replace(/^"|"$/g, '') }; // Clean up quotes if generated
-    } catch (e: any) {
-        console.error("[generateLEDescription Error]", e);
-        return { success: false, error: e.message };
+export async function updateEngagementDueDate(engagementId: string, dueDate: Date | null) {
+    try {
+        const engagement = await prisma.fIEngagement.update({
+            where: { id: engagementId },
+            data: { dueDate },
+            include: { clientLE: true }
+        });
+        revalidatePath(`/app/le/${engagement.clientLEId}/engagement-new/${engagementId}`);
+        return { success: true };
+    } catch (error) {
+        console.error("Failed to update engagement due date:", error);
+        return { success: false, error: "Database update failed" };
+    }
+}
+
+export async function updateQuestionnaireDueDate(questionnaireId: string, dueDate: Date | null) {
+    try {
+        const questionnaire = await prisma.questionnaire.update({
+            where: { id: questionnaireId },
+            data: { dueDate },
+            include: { fiEngagement: true }
+        });
+        if (questionnaire.fiEngagement) {
+            revalidatePath(`/app/le/${questionnaire.fiEngagement.clientLEId}/engagement-new/${questionnaire.fiEngagementId}`);
+        }
+        return { success: true };
+    } catch (error) {
+        console.error("Failed to update questionnaire due date:", error);
+        return { success: false, error: "Database update failed" };
     }
 }

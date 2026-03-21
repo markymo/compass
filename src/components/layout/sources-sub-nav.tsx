@@ -8,16 +8,19 @@ import { Globe, BookOpen, Lock, Archive, Building2 } from "lucide-react";
 interface SourcesSubNavProps {
     leId: string;
     jurisdiction?: string | null;
+    registryName?: string | null;
 }
 
-export function SourcesSubNav({ leId, jurisdiction }: SourcesSubNavProps) {
+export function SourcesSubNav({ leId, jurisdiction, registryName }: SourcesSubNavProps) {
     const pathname = usePathname();
     const baseUrl = `/app/le/${leId}/sources`;
 
     // Determine Registry Label
-    let registryLabel = "National Registry";
-    if (jurisdiction === 'GB') registryLabel = "Companies House";
-    if (jurisdiction === 'FR') registryLabel = "Immatriculation (FR)";
+    let registryLabel = registryName || "National Registry";
+    if (!registryName) {
+        if (jurisdiction === 'GB') registryLabel = "Companies House";
+        if (jurisdiction === 'FR') registryLabel = "Immatriculation (FR)";
+    }
 
     const tabs = [
         {
@@ -39,7 +42,7 @@ export function SourcesSubNav({ leId, jurisdiction }: SourcesSubNavProps) {
             isActive: (path: string) => path.startsWith(`${baseUrl}/knowledge`)
         },
         {
-            label: "Digital Vault",
+            label: "Document Vault",
             href: `${baseUrl}/vault`,
             icon: Lock,
             isActive: (path: string) => path.startsWith(`${baseUrl}/vault`)
@@ -48,7 +51,7 @@ export function SourcesSubNav({ leId, jurisdiction }: SourcesSubNavProps) {
 
     return (
         <nav className="flex flex-col space-y-1 w-64 pr-8">
-            {tabs.map((tab) => {
+            {tabs.map((tab: any) => {
                 const active = tab.isActive(pathname);
                 const Icon = tab.icon;
                 return (
@@ -56,13 +59,13 @@ export function SourcesSubNav({ leId, jurisdiction }: SourcesSubNavProps) {
                         key={tab.label}
                         href={tab.href}
                         className={cn(
-                            "group flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors",
+                            "group flex items-center gap-3 px-3 py-2 text-sm font-medium transition-colors border-l-2",
                             active
-                                ? "bg-slate-100 text-slate-900"
-                                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                                ? "border-amber-500 text-blue-600"
+                                : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50"
                         )}
                     >
-                        <Icon className={cn("h-4 w-4", active ? "text-indigo-600" : "text-slate-400 group-hover:text-slate-500")} />
+                        <Icon className={cn("h-4 w-4", active ? "text-blue-600" : "text-slate-400 group-hover:text-slate-500")} />
                         {tab.label}
                     </Link>
                 );

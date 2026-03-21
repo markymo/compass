@@ -9,7 +9,7 @@ import { render } from "@react-email/render";
 import { SupplierInviteEmail } from "@/components/emails/supplier-invite-email";
 import crypto from "crypto";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Removed top-level initialization to prevent errors during module import if API key is missing.
 
 /**
  * Invite a supplier to collaborate on an existing engagement.
@@ -98,6 +98,7 @@ export async function inviteSupplier(
             inviteLink: inviteLink
         }));
 
+        const resend = new Resend(process.env.RESEND_API_KEY);
         await resend.emails.send({
             from: 'Compass <onboarding@resend.dev>', // Use resend.dev for testing unless verified domain
             to: email,

@@ -42,7 +42,7 @@ export async function generateAIAnswers(contextText: string, questions: Question
         });
 
         // Use originalIndex as the ID
-        const questionsPrompt = questions.map((q) =>
+        const questionsPrompt = questions.map((q: any) =>
             `ID: ${q.id}\nQuestion: ${q.text}\nCategory: ${q.category || "General"}`
         ).join("\n\n");
 
@@ -120,7 +120,7 @@ export async function learnFromAnswer(clientLEId: string, questionText: string, 
             return { success: false, error: "No Knowledge Base" };
         }
 
-        const contextText = standingDataSections.map(section =>
+        const contextText = standingDataSections.map((section: any) =>
             `SECTION_ID: ${section.id}\ncategory: ${section.category}\ncontent:\n${section.content}\n`
         ).join("\n---\n");
 
@@ -168,8 +168,8 @@ export async function learnFromAnswer(clientLEId: string, questionText: string, 
 
         // 2. Apply Updates
         const updatePromises = object.updates
-            .filter(u => u.hasChanges)
-            .map(async (u) => {
+            .filter((u: any) => u.hasChanges)
+            .map(async (u: any) => {
                 const sectionId = u.sectionId.trim();
                 logToFile(`[Learning] Updating Section ${sectionId}: ${u.reasoning}`);
 
@@ -236,7 +236,7 @@ export async function generateAnswers(leId: string, questionnaireId: string, loc
             select: { lei: true, gleifData: true, nationalRegistryData: true }
         });
 
-        let contextText = standingDataSections.map(section =>
+        let contextText = standingDataSections.map((section: any) =>
             `SECTION: ${section.category}\nCONTENT:\n${section.content}\n`
         ).join("\n---\n");
 
@@ -305,7 +305,7 @@ ${activeOfficers}
 
         const items = questionnaire.extractedContent as any[];
         const questions: QuestionPrompt[] = items
-            .map((item, idx) => ({ ...item, originalIndex: idx }))
+            .map((item: any, idx: number) => ({ ...item, originalIndex: idx }))
             .filter((item: any) => {
                 const type = (item.type || "").toLowerCase();
                 if (type !== "question") return false;
@@ -337,7 +337,7 @@ ${activeOfficers}
         }
 
         // 4. Map back to our friendly format
-        const finalResults: SuggestedAnswer[] = result.answers.map(ans => {
+        const finalResults: SuggestedAnswer[] = result.answers.map((ans: any) => {
             return {
                 questionId: ans.questionId,
                 suggestedAnswer: ans.answer,

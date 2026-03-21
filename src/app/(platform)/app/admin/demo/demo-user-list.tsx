@@ -69,7 +69,7 @@ export function DemoUserList({ users }: DemoUserProps) {
 
     return (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {users.map((user) => (
+            {users.map((user: any) => (
                 <Card key={user.id} className="overflow-hidden border-amber-100 shadow-sm hover:shadow-md transition-all group">
                     <CardHeader className="bg-amber-50/50 border-b border-amber-100 pb-4 relative">
                         <div className="flex justify-between items-start mb-2">

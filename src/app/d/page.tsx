@@ -1,4 +1,5 @@
 import { ArrowRight, CheckCircle2, ShieldCheck, Zap } from "lucide-react";
+import { BRAND } from "@/config/brand";
 
 export default function ExperimentalPage() {
     return (
@@ -55,14 +56,14 @@ export default function ExperimentalPage() {
                     <span className="text-teal-500 font-mono text-xs uppercase tracking-widest mb-6">/ Security First</span>
                     <h2 className="text-4xl md:text-5xl font-bold mb-8">Uncompromising Data Sovereignty.</h2>
                     <p className="text-lg text-slate-400 leading-relaxed mb-8 max-w-md">
-                        Your data never leaves your control until you explicitly grant access. ONpro utilizes advanced permissioning architectures to ensure you remain the sole custodian of your corporate identity.
+                        Your data never leaves your control until you explicitly grant access. {BRAND.name} utilizes advanced permissioning architectures to ensure you remain the sole custodian of your corporate identity.
                     </p>
                     <ul className="space-y-4">
                         {[
                             "Role-Based Access Control",
                             "Granular Field-Level Permissions",
                             "Audit-Ready Logs"
-                        ].map((item) => (
+                        ].map((item: any) => (
                             <li key={item} className="flex items-center gap-3 text-slate-300">
                                 <CheckCircle2 className="h-5 w-5 text-teal-500" />
                                 {item}
@@ -79,7 +80,7 @@ export default function ExperimentalPage() {
                         { label: "Onboarding Time", value: "-85%", desc: "Reduction in processing" },
                         { label: "Data Accuracy", value: "100%", desc: "Verified source of truth" },
                         { label: "Global Reach", value: "24/7", desc: "Always-on availability" }
-                    ].map((stat) => (
+                    ].map((stat: any) => (
                         <div key={stat.label} className="border-l border-teal-500/30 pl-8">
                             <div className="text-6xl font-bold text-white mb-2">{stat.value}</div>
                             <div className="text-xl text-teal-500 font-medium mb-1">{stat.label}</div>
@@ -93,7 +94,7 @@ export default function ExperimentalPage() {
             <section className="py-40 px-6 text-center">
                 <div className="max-w-3xl mx-auto">
                     <h2 className="text-4xl md:text-5xl font-bold mb-8">Ready to redefine your infrastructure?</h2>
-                    <p className="text-xl text-slate-400 mb-12">Join the leading financial institutions using ONpro.</p>
+                    <p className="text-xl text-slate-400 mb-12">Join the leading financial institutions using {BRAND.name}.</p>
                     <button className="px-12 py-5 bg-white text-black font-bold text-lg hover:bg-slate-200 transition-colors">
                         Start Integration
                     </button>

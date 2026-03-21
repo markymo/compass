@@ -5,7 +5,7 @@
  * All Field-No-mapped columns must have corresponding meta entries.
  */
 
-export type ProvenanceSource = 'GLEIF' | 'COMPANIES_HOUSE' | 'USER_INPUT' | 'SYSTEM';
+export type ProvenanceSource = 'GLEIF' | 'COMPANIES_HOUSE' | 'NATIONAL_REGISTRY' | 'USER_INPUT' | 'SYSTEM';
 
 export type ProvenanceMetadata = {
     field_no: number;

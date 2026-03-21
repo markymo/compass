@@ -2,16 +2,18 @@
 
 import { useEffect, useState } from "react";
 import { getAccountSettings, updateAccountSettings, getUserPermissions } from "@/actions/account";
-import { GuideHeader } from "@/components/layout/GuideHeader";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, Shield, User, Bell, Home, Key, ExternalLink } from "lucide-react";
+import { Loader2, Shield, User, Bell, Home, Key, ExternalLink, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { usePreferences } from "@/components/providers/user-preferences-provider";
+import { StandardPageHeader } from "@/components/layout/StandardPageHeader";
+import { useBreadcrumbs } from "@/context/breadcrumb-context";
 
 export default function AccountSettingsPage() {
     const router = useRouter();
@@ -25,6 +27,7 @@ export default function AccountSettingsPage() {
     const [phone, setPhone] = useState("");
     const [emailEnabled, setEmailEnabled] = useState(true);
     const [permissions, setPermissions] = useState<any[]>([]);
+    const { preferences, updatePreference } = usePreferences();
 
     useEffect(() => {
         async function fetchSettings() {
@@ -78,6 +81,8 @@ export default function AccountSettingsPage() {
         setSaving(false);
     };
 
+    const { currentBreadcrumbs } = useBreadcrumbs();
+
     if (loading) {
         return (
             <div className="h-full flex items-center justify-center min-h-[50vh]">
@@ -89,15 +94,17 @@ export default function AccountSettingsPage() {
     if (!profile) return null;
 
     return (
-        <div className="space-y-6 max-w-4xl mx-auto pb-12">
-            <GuideHeader
-                breadcrumbs={[
-                    { label: "", href: "/app", icon: Home },
-                    { label: "Account Settings" }
-                ]}
+        <div className="flex flex-col min-h-screen bg-slate-50/30">
+            <StandardPageHeader
+                title="Account Settings"
+                typeLabel="Settings"
+                subtitle="Manage your personal profile, security and preferences."
+                breadcrumbs={currentBreadcrumbs}
             />
 
-            <div className="grid gap-6 md:grid-cols-12">
+            <div className="space-y-6 max-w-4xl mx-auto pb-12 px-6 py-8 w-full">
+
+            <div className="grid gap-6 md:grid-cols-12 pt-4">
                 {/* Main Content Area */}
                 <div className="md:col-span-8 space-y-6">
 
@@ -254,6 +261,35 @@ export default function AccountSettingsPage() {
 
                 {/* Sidebar Area */}
                 <div className="md:col-span-4 space-y-6">
+                    {/* Personalization (Whimsy Mode) */}
+                    <Card>
+                        <CardHeader>
+                            <div className="flex items-center gap-2">
+                                <Sparkles className="h-5 w-5 text-purple-500" />
+                                <CardTitle>Personalization</CardTitle>
+                            </div>
+                            <CardDescription>Add a touch of magic to your workflow.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-6">
+                            <div className="flex items-center justify-between space-x-2">
+                                <div className="flex flex-col space-y-1">
+                                    <Label htmlFor="whimsy-mode" className="font-medium inline-flex items-center gap-2">
+                                        Whimsy Mode
+                                    </Label>
+                                    <span className="text-[13px] text-muted-foreground">Enable lighthearted labels (e.g., "big sleeps" for deadlines).</span>
+                                </div>
+                                <Switch
+                                    id="whimsy-mode"
+                                    checked={!!preferences.whimsyMode}
+                                    onCheckedChange={async (val) => {
+                                        await updatePreference("whimsyMode", val);
+                                        toast.success(val ? "Whimsy Mode activated! ✨" : "Whimsy Mode deactivated.");
+                                    }}
+                                />
+                            </div>
+                        </CardContent>
+                    </Card>
+
                     {/* Notifications */}
                     <Card>
                         <CardHeader>
@@ -283,6 +319,7 @@ export default function AccountSettingsPage() {
                         </CardContent>
                     </Card>
                 </div>
+            </div>
             </div>
         </div>
     );

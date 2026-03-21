@@ -3,6 +3,7 @@
 import { getIdentity } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { logActivity } from "./logging";
 
 export async function getStandingDataSections(leId: string) {
     const identity = await getIdentity();
@@ -32,7 +33,7 @@ export async function getStandingDataSections(leId: string) {
         });
 
         const recentLearnings = logs
-            .filter(log => {
+            .filter((log: any) => {
                 const d = (log.details as any) || {};
                 // Backwards compatibility: if log has no LE ID, maybe show it? 
                 // Better to be strict: only show if matches LE ID.
@@ -41,7 +42,7 @@ export async function getStandingDataSections(leId: string) {
                 return d.clientLEId === leId;
             })
             .slice(0, 5) // Take top 5 after filter
-            .map(log => {
+            .map((log: any) => {
                 const details = (log.details as any) || {};
                 return {
                     id: log.id,
@@ -82,6 +83,13 @@ export async function updateStandingDataSection(leId: string, category: string, 
         });
 
         revalidatePath(`/app/le/${leId}/v2`);
+
+        // UsageLog (platform-wide analytics)
+        logActivity("STANDING_DATA_UPDATED", `/app/le/${leId}`, {
+            category,
+            contentLength: content.length,
+        });
+
         return { success: true, data: section };
     } catch (error: any) {
         console.error("[updateStandingDataSection]", error);
@@ -146,6 +154,52 @@ export async function getMasterFieldDocuments(leId: string, fieldKey: string) {
     } catch (error: any) {
         console.error("[getMasterFieldDocuments]", error);
         return { success: false, error: "Failed to fetch documents", documents: [] };
+    }
+}
+
+/**
+ * Assign a Master Data field to a user within the ClientLE workspace.
+ */
+export async function setMasterFieldAssignment(leId: string, fieldNo: number, assignedToUserId: string | null) {
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+
+    try {
+        if (!assignedToUserId) {
+            // Unassign
+            await prisma.masterFieldAssignment.deleteMany({
+                where: {
+                    clientLEId: leId,
+                    fieldNo: fieldNo
+                }
+            });
+        } else {
+            // Assign / Reassign
+            await prisma.masterFieldAssignment.upsert({
+                where: {
+                    clientLEId_fieldNo: {
+                        clientLEId: leId,
+                        fieldNo: fieldNo
+                    }
+                },
+                update: {
+                    assignedToUserId,
+                    assignedByUserId: identity.userId,
+                },
+                create: {
+                    clientLEId: leId,
+                    fieldNo: fieldNo,
+                    assignedToUserId,
+                    assignedByUserId: identity.userId,
+                }
+            });
+        }
+
+        revalidatePath(`/app/le/${leId}/master`);
+        return { success: true };
+    } catch (error: any) {
+        console.error("[setMasterFieldAssignment]", error);
+        return { success: false, error: "Failed to set assignment" };
     }
 }
 

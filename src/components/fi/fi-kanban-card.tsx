@@ -77,7 +77,7 @@ export function FIKanbanCard({ engagement }: FIKanbanCardProps) {
                     <Badge variant="outline" className="text-[10px] h-5 px-1.5 bg-slate-50">
                         {engagement.status}
                     </Badge>
-                    <Link href={`/app/fi/engagements/${engagement.id}`}>
+                    <Link href={`/app/s/engagements/${engagement.id}`}>
                         <Button variant="ghost" size="sm" className="h-6 text-xs gap-1 pr-1 pl-2 hover:bg-indigo-50 hover:text-indigo-600">
                             Review <ArrowRight className="w-3 h-3" />
                         </Button>

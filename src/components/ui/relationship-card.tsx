@@ -2,7 +2,7 @@
 
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Building2, Briefcase, Landmark, ArrowDown } from "lucide-react";
+import { Building2, Landmark, ArrowDown } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
@@ -55,7 +55,7 @@ export function RelationshipCard({
 
                 {/* Client LE - Indented */}
                 <div className="flex items-center gap-2 pl-6 mb-3">
-                    <Briefcase className="w-4 h-4 text-emerald-500" />
+                    <Landmark className="w-4 h-4 text-emerald-500" />
                     <CardTitle className="text-lg text-emerald-700">
                         {leName}
                     </CardTitle>
@@ -85,7 +85,7 @@ export function RelationshipCard({
                 )}
 
                 {userIsSupplier && (
-                    <Link href={`/app/fi/${fiOrgId}/engagements/${id}`} className="flex-1">
+                    <Link href={`/app/s/${fiOrgId}/engagements/${id}`} className="flex-1">
                         <div className="w-full bg-blue-50 text-blue-700 hover:bg-blue-100 h-9 rounded-md flex items-center justify-center text-xs font-medium transition-colors border border-blue-200">
                             Enter as Supplier
                         </div>

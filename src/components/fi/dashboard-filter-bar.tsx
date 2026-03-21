@@ -54,7 +54,7 @@ export function DashboardFilterBar({ availableQuestionnaires = [], availableClie
                 </SelectTrigger>
                 <SelectContent>
                     <SelectItem value="all">All Clients</SelectItem>
-                    {availableClients.map((c) => (
+                    {availableClients.map((c: any) => (
                         <SelectItem key={c} value={c}>{c}</SelectItem>
                     ))}
                 </SelectContent>
@@ -72,7 +72,7 @@ export function DashboardFilterBar({ availableQuestionnaires = [], availableClie
                 </SelectTrigger>
                 <SelectContent>
                     <SelectItem value="all">All Questionnaires</SelectItem>
-                    {availableQuestionnaires.map((q) => (
+                    {availableQuestionnaires.map((q: any) => (
                         <SelectItem key={q} value={q}>{q}</SelectItem>
                     ))}
                 </SelectContent>

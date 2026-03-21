@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -18,14 +18,21 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { MoreVertical, Trash2 } from "lucide-react";
+import { DueDateBadge } from "@/components/client/due-date-badge";
 
 interface EngagementManagerProps {
     leId: string;
     initialEngagements: any[];
+    leDueDate: Date | null;
 }
 
-export function EngagementManager({ leId, initialEngagements }: EngagementManagerProps) {
+export function EngagementManager({ leId, initialEngagements, leDueDate }: EngagementManagerProps) {
     const [engagements, setEngagements] = useState(initialEngagements);
+
+    useEffect(() => {
+        setEngagements(initialEngagements);
+    }, [initialEngagements]);
+
     const [isAdding, setIsAdding] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -63,7 +70,7 @@ export function EngagementManager({ leId, initialEngagements }: EngagementManage
                 questionnaires: []
             };
             // Replace temp with real
-            setEngagements(prev => prev.map(e => e.id === tempId ? realEng : e));
+            setEngagements(prev => prev.map((e: any) => e.id === tempId ? realEng : e));
             toast.success(`Relationship with ${fiName} created`);
         } else {
             // Rollback
@@ -76,7 +83,7 @@ export function EngagementManager({ leId, initialEngagements }: EngagementManage
     const handleDelete = async (details: { id: string, name: string }) => {
         const previousEngagements = [...engagements];
         // Optimistic delete
-        setEngagements(prev => prev.filter(e => e.id !== details.id));
+        setEngagements(prev => prev.filter((e: any) => e.id !== details.id));
 
         toast.promise(deleteEngagementByClient(details.id), {
             loading: "Deleting engagement...",
@@ -96,8 +103,9 @@ export function EngagementManager({ leId, initialEngagements }: EngagementManage
                     <p className="text-sm text-slate-500">Manage your connections with connected supply chain partners.</p>
                 </div>
                 {!isAdding && (
-                    <Button onClick={() => setIsAdding(true)} variant="outline" size="icon" title="Add Supplier">
-                        <Plus className="h-4 w-4" />
+                    <Button onClick={() => setIsAdding(true)} className="bg-indigo-600 hover:bg-indigo-700 text-white" size="sm" title="Add Supplier">
+                        <Plus className="h-4 w-4 mr-1.5" />
+                        Relationship
                     </Button>
                 )}
             </div>
@@ -116,7 +124,7 @@ export function EngagementManager({ leId, initialEngagements }: EngagementManage
                                         className="border-0 focus:ring-0 shadow-none px-0 h-12 text-base"
                                         onValueChange={(val) => {
                                             if (val.length > 2) {
-                                                searchFIs(val).then(res => setSearchResults(res));
+                                                searchFIs(val).then((res: any) => setSearchResults(res));
                                             }
                                         }}
                                     />
@@ -141,7 +149,7 @@ export function EngagementManager({ leId, initialEngagements }: EngagementManage
                                         </Button>
                                     </CommandEmpty>
                                     <CommandGroup heading="Available Institutions">
-                                        {searchResults.map((framework) => (
+                                        {searchResults.map((framework: any) => (
                                             <CommandItem
                                                 key={framework.value}
                                                 value={framework.value}
@@ -168,7 +176,7 @@ export function EngagementManager({ leId, initialEngagements }: EngagementManage
 
             {/* List */}
             <div className="grid gap-4">
-                {engagements.map((eng) => (
+                {engagements.map((eng: any) => (
                     <Card key={eng.id} className="hover:border-indigo-300 transition-colors group border-slate-200 shadow-sm">
                         <CardContent className="p-4 md:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
                             <div className="flex items-start md:items-center gap-4">
@@ -178,7 +186,7 @@ export function EngagementManager({ leId, initialEngagements }: EngagementManage
                                 <div className="min-w-0">
                                     <h3 className="font-bold text-base md:text-lg text-slate-900 truncate">
                                         <Link
-                                            href={eng.id.startsWith("temp-") ? "#" : `/app/le/${leId}/engagement-new/${eng.id}?tab=overview`}
+                                            href={eng.id.startsWith("temp-") ? "#" : `/app/le/${leId}/engagement-new/${eng.id}?tab=manage`}
                                             className="hover:underline hover:text-indigo-600 transition-colors"
                                         >
                                             {typeof eng.org === 'string' ? eng.org : eng.org?.name}
@@ -189,14 +197,20 @@ export function EngagementManager({ leId, initialEngagements }: EngagementManage
                                         <Badge variant="outline" className={cn(
                                             "text-[10px] uppercase font-bold px-1.5 py-0",
                                             eng.status === 'INVITED' ? "bg-blue-50 text-blue-700 border-blue-200" :
-                                                eng.status === 'CONNECTED' ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
-                                                    "bg-slate-100 text-slate-600 border-slate-200"
+                                                "bg-slate-100 text-slate-600 border-slate-200"
                                         )}>
                                             {eng.status === 'PREPARATION' ? 'DRAFT' : eng.status}
                                         </Badge>
 
                                         <span className="text-slate-400 text-xs hidden md:inline">•</span>
-                                        <span className="text-xs text-slate-500">{eng.questionnaires?.length || 0} Questionnaires</span>
+                                        <DueDateBadge
+                                            id={eng.id}
+                                            date={eng.dueDate}
+                                            effectiveDate={eng.dueDate || leDueDate}
+                                            source={eng.dueDate ? 'RELATIONSHIP' : 'LE'}
+                                            level="RELATIONSHIP"
+                                            label="Deadline"
+                                        />
                                     </div>
                                 </div>
                             </div>
@@ -205,30 +219,12 @@ export function EngagementManager({ leId, initialEngagements }: EngagementManage
                             <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto pb-1 md:pb-0 no-scrollbar">
                                 <Link href={eng.id.startsWith("temp-") ? "#" : `/app/le/${leId}/engagement-new/${eng.id}?tab=manage`} className="flex-1 md:flex-none">
                                     <Button
-                                        variant="ghost"
-                                        disabled={eng.id.startsWith("temp-")}
-                                        className="w-full md:w-auto text-slate-600 hover:text-indigo-600 hover:bg-slate-50 text-xs md:text-sm whitespace-nowrap"
-                                    >
-                                        Manage Qs
-                                    </Button>
-                                </Link>
-                                <Link href={eng.id.startsWith("temp-") ? "#" : `/app/le/${leId}/engagement-new/${eng.id}?tab=workbench`} className="flex-1 md:flex-none">
-                                    <Button
                                         variant="outline"
+                                        size="sm"
                                         disabled={eng.id.startsWith("temp-")}
-                                        className="w-full md:w-auto gap-2 group-hover:bg-indigo-50 group-hover:text-indigo-600 group-hover:border-indigo-200 text-xs md:text-sm whitespace-nowrap"
+                                        className="w-full md:w-auto text-slate-600 hover:text-indigo-600 hover:bg-slate-50 text-xs whitespace-nowrap"
                                     >
-                                        {eng.id.startsWith("temp-") ? (
-                                            <>
-                                                <Loader2 className="h-3 w-3 animate-spin" />
-                                                Creating...
-                                            </>
-                                        ) : (
-                                            <>
-                                                Workbench
-                                                <ArrowUpRight className="h-3 w-3" />
-                                            </>
-                                        )}
+                                        Questionnaires
                                     </Button>
                                 </Link>
 
@@ -250,6 +246,35 @@ export function EngagementManager({ leId, initialEngagements }: EngagementManage
                                 </DropdownMenu>
                             </div>
                         </CardContent>
+
+                        {/* Nested Questionnaires Section */}
+                        {eng.questionnaires && eng.questionnaires.length > 0 && (
+                            <div className="px-4 md:px-6 pb-4 md:pb-6 pt-0 border-t border-slate-50">
+                                <div className="mt-4 space-y-2">
+                                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                                        <Plus className="h-3 w-3" />
+                                        Active Questionnaires
+                                    </div>
+                                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                                        {eng.questionnaires.map((q: any) => (
+                                            <div key={q.id} className="group/q flex items-center justify-between p-3 rounded-lg bg-slate-50/50 border border-slate-100 hover:border-indigo-100 hover:bg-white transition-all">
+                                                <div className="min-w-0">
+                                                    <p className="text-xs font-semibold text-slate-700 truncate">{q.name}</p>
+                                                    <p className="text-[10px] text-slate-500 mt-0.5">{q.status || 'In Progress'}</p>
+                                                </div>
+                                                <Link 
+                                                    href={`/app/le/${leId}/workbench4?rel=${encodeURIComponent(typeof eng.org === 'string' ? eng.org : eng.org?.name)}&q=${encodeURIComponent(q.name)}`}
+                                                    className="p-1.5 rounded-md hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 transition-colors"
+                                                    title="Open in Workbench"
+                                                >
+                                                    <ArrowUpRight className="h-3.5 w-3.5" />
+                                                </Link>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </Card>
                 ))}
 

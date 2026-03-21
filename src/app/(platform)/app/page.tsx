@@ -1,42 +1,30 @@
+import { getUserContexts } from "@/actions/dashboard";
+import { StandardPageHeader } from "@/components/layout/StandardPageHeader";
+import { DashboardContentV2 } from "@/components/dashboard/dashboard-content-v2";
+import Link from "next/link";
+import { Home } from "lucide-react";
 
-import { Suspense } from "react";
-import { getDashboardTree } from "@/actions/dashboard-tree";
-import { DashboardTree } from "@/components/dashboard/dashboard-tree";
-import { Loader2 } from "lucide-react";
-import { GuideHeader } from "@/components/layout/GuideHeader";
+export default async function DashboardPage() {
+    const contexts = await getUserContexts();
 
-export const metadata = {
-    title: "Scout | Compass",
-    description: "Hierarchical view of your universe",
-};
-
-export default async function ScoutPage() {
     return (
-        <div className="h-full flex flex-col bg-slate-50/50 dark:bg-slate-950/50">
-            <div className="flex-1 overflow-auto p-4 md:p-6">
-                <Suspense fallback={<TreeSkeleton />}>
-                    <DashboardTreeLoader />
-                </Suspense>
-            </div>
-        </div>
-    );
-}
+        <div className="flex flex-col min-h-screen bg-slate-50/30">
+            <StandardPageHeader
+                title="Relationships"
+                subtitle="Your Organisations, Legal Entities and Relationships."
+                breadcrumbs={[{ label: "Home", href: "/app", icon: Home }]}
+            />
 
-async function DashboardTreeLoader() {
-    const items = await getDashboardTree();
-    return <DashboardTree items={items} />;
-}
+            <div className="max-w-7xl mx-auto px-6 py-8 space-y-6 w-full">
+                <DashboardContentV2 contexts={contexts} />
 
-function TreeSkeleton() {
-    return (
-        <div className="w-full border rounded-xl bg-white p-4 space-y-4 shadow-sm">
-            <div className="flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
-                <span className="text-sm text-slate-500">Loading hierarchy...</span>
+                {/* Footer link to Scout */}
+                <div className="pt-4 border-t border-slate-100 text-center">
+                    <Link href="/app/scout" className="text-xs text-slate-400 hover:text-slate-600 transition-colors">
+                        Switch to Scout view →
+                    </Link>
+                </div>
             </div>
-            <div className="h-8 bg-slate-100 rounded w-full animate-pulse" />
-            <div className="h-8 bg-slate-100 rounded w-full animate-pulse" />
-            <div className="h-8 bg-slate-100 rounded w-full animate-pulse" />
         </div>
     );
 }

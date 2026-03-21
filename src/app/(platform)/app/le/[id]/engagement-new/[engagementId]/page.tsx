@@ -41,11 +41,6 @@ export default async function EngagementPage({ params, searchParams }: PageProps
 
     return (
         <div className="w-full px-2 md:px-6 space-y-6 pb-20 pt-6">
-            <SetPageBreadcrumbs
-                items={[
-                    { label: fiName, iconName: "link-2" }
-                ]}
-            />
             <EngagementDetailView
                 le={le}
                 engagement={engagement}

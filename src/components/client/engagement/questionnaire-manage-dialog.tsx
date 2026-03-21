@@ -13,9 +13,7 @@ import { Loader2, Save, Sparkles, AlertCircle, CheckCircle2 } from "lucide-react
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
-import { getQuestionnaireById, saveQuestionnaireChanges, analyzeQuestionnaire } from "@/actions/questionnaire";
-import { FIELD_DEFINITIONS } from "@/domain/kyc/FieldDefinitions";
-import { FIELD_GROUPS } from "@/domain/kyc/FieldGroups";
+import { getQuestionnaireById, saveQuestionnaireChanges, analyzeQuestionnaire, getMasterSchemaContext } from "@/actions/questionnaire";
 
 interface QuestionnaireManageDialogProps {
     open: boolean;
@@ -33,6 +31,8 @@ export function QuestionnaireManageDialog({ open, onOpenChange, questionnaireId,
     // Data State
     const [questionnaire, setQuestionnaire] = useState<any>(null);
     const [questions, setQuestions] = useState<any[]>([]);
+    const [masterFields, setMasterFields] = useState<any[]>([]);
+    const [masterGroups, setMasterGroups] = useState<any[]>([]);
 
     // Filter State
     const [filter, setFilter] = useState("");
@@ -46,13 +46,22 @@ export function QuestionnaireManageDialog({ open, onOpenChange, questionnaireId,
     const loadData = async () => {
         setLoading(true);
         try {
-            const data = await getQuestionnaireById(questionnaireId);
+            const [data, schemaContext] = await Promise.all([
+                getQuestionnaireById(questionnaireId),
+                getMasterSchemaContext()
+            ]);
+
             if (data) {
                 setQuestionnaire(data);
                 setQuestions(data.questions || []);
             } else {
                 toast.error("Failed to load questionnaire");
                 onOpenChange(false);
+            }
+
+            if (schemaContext) {
+                setMasterFields(schemaContext.masterFields);
+                setMasterGroups(schemaContext.masterGroups);
             }
         } catch (error) {
             console.error(error);
@@ -70,7 +79,7 @@ export function QuestionnaireManageDialog({ open, onOpenChange, questionnaireId,
             // The action expects an array of items. API signature: saveQuestionnaireChanges(id, items, mappings?)
 
             // We map the editable state back to items
-            const itemsToSave = questions.map(q => ({
+            const itemsToSave = questions.map((q: any) => ({
                 type: "question",
                 text: q.text,
                 originalText: q.originalText || q.text,
@@ -116,7 +125,7 @@ export function QuestionnaireManageDialog({ open, onOpenChange, questionnaireId,
                     // But here we are matching against existing DB questions.
                     // Best effort: Match by exact text or similar text.
 
-                    const match = newQuestions.find(q => q.text === sug.text || q.originalText === sug.text);
+                    const match = newQuestions.find((q: any) => q.text === sug.text || q.originalText === sug.text);
                     if (match) {
                         if (sug.suggestedKey) {
                             // Check if it's a Group or Field
@@ -124,8 +133,8 @@ export function QuestionnaireManageDialog({ open, onOpenChange, questionnaireId,
                             // The suggestion object from ai-mapper usually has 'suggestedKey' normalized.
 
                             // Let's check if the key exists in Groups or Fields
-                            const isGroup = FIELD_GROUPS[sug.suggestedKey];
-                            const isField = FIELD_DEFINITIONS[parseInt(sug.suggestedKey)];
+                            const isGroup = masterGroups.find((g: any) => g.key === sug.suggestedKey);
+                            const isField = masterFields.find((f: any) => f.fieldNo === parseInt(sug.suggestedKey));
 
                             if (isGroup) {
                                 match.masterQuestionGroupId = sug.suggestedKey;
@@ -167,7 +176,7 @@ export function QuestionnaireManageDialog({ open, onOpenChange, questionnaireId,
     };
 
     // Filtered list
-    const filteredQuestions = questions.filter(q =>
+    const filteredQuestions = questions.filter((q: any) =>
         (q.text || "").toLowerCase().includes(filter.toLowerCase())
     );
 
@@ -217,7 +226,7 @@ export function QuestionnaireManageDialog({ open, onOpenChange, questionnaireId,
                                         No questions found.
                                     </div>
                                 ) : (
-                                    filteredQuestions.map((q, idx) => {
+                                    filteredQuestions.map((q: any, idx: any) => {
                                         // Find index in original array for updates
                                         const realIndex = questions.indexOf(q);
 
@@ -251,9 +260,9 @@ export function QuestionnaireManageDialog({ open, onOpenChange, questionnaireId,
                                                                 </SelectTrigger>
                                                                 <SelectContent>
                                                                     <SelectItem value="none">-- None --</SelectItem>
-                                                                    {Object.values(FIELD_GROUPS).map((g) => (
-                                                                        <SelectItem key={g.id} value={g.id}>
-                                                                            {g.label} ({g.id})
+                                                                    {masterGroups.map((g: any) => (
+                                                                        <SelectItem key={g.key} value={g.key}>
+                                                                            {g.fieldName || g.key} ({g.key})
                                                                         </SelectItem>
                                                                     ))}
                                                                 </SelectContent>
@@ -271,7 +280,7 @@ export function QuestionnaireManageDialog({ open, onOpenChange, questionnaireId,
                                                                 </SelectTrigger>
                                                                 <SelectContent className="max-h-[300px]">
                                                                     <SelectItem value="none">-- None --</SelectItem>
-                                                                    {Object.values(FIELD_DEFINITIONS).map((f) => (
+                                                                    {masterFields.map((f: any) => (
                                                                         <SelectItem key={f.fieldNo} value={f.fieldNo.toString()}>
                                                                             {f.fieldNo}. {f.fieldName}
                                                                         </SelectItem>

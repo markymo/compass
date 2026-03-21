@@ -16,11 +16,11 @@ interface FIBreadcrumbProps {
 export function FIBreadcrumb({ items, className }: FIBreadcrumbProps) {
     return (
         <nav className={cn("flex items-center text-sm text-slate-500 mb-4", className)} aria-label="Breadcrumb">
-            <Link href="/app/fi" className="hover:text-indigo-600 transition-colors">
+            <Link href="/app/s" className="hover:text-indigo-600 transition-colors">
                 FI Dashboard
             </Link>
 
-            {items.map((item, index) => (
+            {items.map((item: any, index: any) => (
                 <div key={index} className="flex items-center">
                     <ChevronRight className="w-4 h-4 mx-2 text-slate-400" />
                     {item.href ? (

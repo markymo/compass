@@ -70,9 +70,7 @@ function InlineTextEditor({ value, onSave, className }: { value: string, onSave:
 // ------------------------------------
 
 // Server Actions
-import { saveQuestionnaireChanges, analyzeQuestionnaire, getOrgCustomFields, getQuestionnaireById, createCustomFieldDefinition, compactifyQuestion } from "@/actions/questionnaire";
-import { FIELD_DEFINITIONS } from "@/domain/kyc/FieldDefinitions";
-import { FIELD_GROUPS } from "@/domain/kyc/FieldGroups";
+import { saveQuestionnaireChanges, analyzeQuestionnaire, getOrgCustomFields, getQuestionnaireById, createCustomFieldDefinition, compactifyQuestion, getMasterSchemaContext } from "@/actions/questionnaire";
 
 interface QuestionnaireMapperProps {
     questionnaireId: string;
@@ -98,6 +96,10 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
     // Custom Fields
     const [customFields, setCustomFields] = useState<any[]>([]);
 
+    // Master Schema Context
+    const [masterFields, setMasterFields] = useState<any[]>([]);
+    const [masterGroups, setMasterGroups] = useState<any[]>([]);
+
     // Generation State
     const [generatingCompact, setGeneratingCompact] = useState<Record<string, boolean>>({});
 
@@ -108,21 +110,33 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
     const loadData = async () => {
         setLoading(true);
         try {
-            const data = (await getQuestionnaireById(questionnaireId)) as any;
-            if (data) {
-                setQuestionnaire(data);
+            console.log(`[MAPPER] Loading data for ${questionnaireId}...`);
+            const t = Date.now();
+            const [qData, schemaContext] = await Promise.all([
+                getQuestionnaireById(questionnaireId, t),
+                getMasterSchemaContext()
+            ]);
+            
+            if (qData) {
+                console.log(`[MAPPER] Received data. Status: ${qData.status}, Questions: ${qData.questions?.length || 0}`);
+                setQuestionnaire(qData);
                 // Sort by order
-                const sorted = [...(data.questions || [])].sort((a: any, b: any) => a.order - b.order);
+                const sorted = [...(qData.questions || [])].sort((a: any, b: any) => a.order - b.order);
                 setQuestions(sorted);
                 if (sorted.length > 0) setSelectedQuestionId(sorted[0].id);
 
                 // Fetch custom fields
-                if (data.fiOrgId) {
-                    loadCustomFields(data.fiOrgId);
+                if (qData.fiOrgId) {
+                    loadCustomFields(qData.fiOrgId);
                 }
             }
+
+            if (schemaContext) {
+                setMasterFields(schemaContext.masterFields);
+                setMasterGroups(schemaContext.masterGroups);
+            }
         } catch (e) {
-            toast.error("Failed to load questionnaire");
+            toast.error("Failed to load questionnaire data");
         } finally {
             setLoading(false);
         }
@@ -140,9 +154,9 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
     // Auto-generate missing compact texts after load
     useEffect(() => {
         if (!loading && questions.length > 0) {
-            const missing = questions.filter(q => !q.compactText && q.text);
+            const missing = questions.filter((q: any) => !q.compactText && q.text);
             if (missing.length > 0) {
-                missing.forEach((q, idx) => {
+                missing.forEach((q: any, idx: any) => {
                     // Stagger generation slightly to avoid hammering the server all at exactly same ms
                     setTimeout(() => {
                         handleGenerateCompactText(q.id, q.text, true);
@@ -176,7 +190,7 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
             if (!questionnaire) return;
 
             // Map back to format expected by backend
-            const itemsToSave = questions.map(q => ({
+            const itemsToSave = questions.map((q: any) => ({
                 type: "question",
                 text: q.text,
                 originalText: q.originalText || q.text,
@@ -212,7 +226,7 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
                 let count = 0;
 
                 result.suggestions.forEach((sug: any) => {
-                    const match = newQuestions.find(q => q.text === sug.text || q.originalText === sug.text);
+                    const match = newQuestions.find((q: any) => q.text === sug.text || q.originalText === sug.text);
 
                     if (match) {
                         // Apply Threshold
@@ -227,8 +241,8 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
 
                         // Priority 1: Master Key
                         if (sug.suggestedKey) {
-                            const isGroup = FIELD_GROUPS[sug.suggestedKey];
-                            const isField = FIELD_DEFINITIONS[parseInt(sug.suggestedKey)];
+                            const isGroup = masterGroups.find((g: any) => g.key === sug.suggestedKey);
+                            const isField = masterFields.find((f: any) => f.fieldNo === parseInt(sug.suggestedKey));
 
                             if (isGroup) {
                                 match.masterQuestionGroupId = sug.suggestedKey;
@@ -255,7 +269,7 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
     };
 
     const updateQuestion = (id: string, updates: any) => {
-        setQuestions(prev => prev.map(q => {
+        setQuestions(prev => prev.map((q: any) => {
             if (q.id === id) {
                 const updated = { ...q, ...updates };
                 // Mutually exclusive logic
@@ -278,7 +292,7 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
     };
 
     const handleAddQuestion = () => {
-        const newOrder = questions.length > 0 ? Math.max(...questions.map(q => q.order)) + 1 : 1;
+        const newOrder = questions.length > 0 ? Math.max(...questions.map((q: any) => q.order)) + 1 : 1;
         const newQuestion: any = {
             id: `temp-${Date.now()}`,
             text: "New Question",
@@ -295,10 +309,10 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
             const index = prev.findIndex(q => q.id === id);
             if (index === -1) return prev;
 
-            const newQuestions = prev.filter(q => q.id !== id);
+            const newQuestions = prev.filter((q: any) => q.id !== id);
 
             // Re-order remaining questions
-            const reordered = newQuestions.map((q, i) => ({
+            const reordered = newQuestions.map((q: any, i: any) => ({
                 ...q,
                 order: i + 1
             }));
@@ -329,7 +343,7 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
             newQuestions[index] = temp;
 
             // Re-assign orders based on new array position
-            return newQuestions.map((q, i) => ({ ...q, order: i + 1 }));
+            return newQuestions.map((q: any, i: any) => ({ ...q, order: i + 1 }));
         });
     };
 
@@ -345,7 +359,7 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
             newQuestions[index] = temp;
 
             // Re-assign orders based on new array position
-            return newQuestions.map((q, i) => ({ ...q, order: i + 1 }));
+            return newQuestions.map((q: any, i: any) => ({ ...q, order: i + 1 }));
         });
     };
 
@@ -360,7 +374,7 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
 
                 // Add to local list
                 const newField = res.data;
-                setCustomFields(prev => [...prev, newField].sort((a, b) => a.label.localeCompare(b.label)));
+                setCustomFields(prev => [...prev, newField].sort((a: any, b: any) => a.label.localeCompare(b.label)));
 
                 // Select it
                 if (selectedQuestionId) {
@@ -374,9 +388,9 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
         }
     };
 
-    const selectedQuestion = questions.find(q => q.id === selectedQuestionId);
+    const selectedQuestion = questions.find((q: any) => q.id === selectedQuestionId);
 
-    const filteredQuestions = questions.filter(q =>
+    const filteredQuestions = questions.filter((q: any) =>
         (q.text || "").toLowerCase().includes(filter.toLowerCase())
     );
 
@@ -493,7 +507,7 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
                         {/* Table Body */}
                         <div className="flex-1 overflow-y-auto">
                             <div className="divide-y divide-slate-100">
-                                {filteredQuestions.map(q => {
+                                {filteredQuestions.map((q: any) => {
                                     const isMapped = q.masterFieldNo || q.masterQuestionGroupId || q.customFieldDefinitionId;
 
                                     // Determine current value for selector
@@ -612,14 +626,14 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
                             </div>
                             <ScrollArea className="flex-1">
                                 <div className="divide-y divide-slate-100">
-                                    {filteredQuestions.map(q => {
+                                    {filteredQuestions.map((q: any) => {
                                         const isMapped = q.masterFieldNo || q.masterQuestionGroupId || q.customFieldDefinitionId;
                                         return (
-                                            <button
+                                            <div
                                                 key={q.id}
                                                 onClick={() => setSelectedQuestionId(q.id)}
                                                 className={cn(
-                                                    "w-full text-left p-4 hover:bg-white transition-colors flex gap-3 text-sm relative group",
+                                                    "w-full text-left p-4 hover:bg-white transition-colors flex gap-3 text-sm relative group cursor-pointer",
                                                     selectedQuestionId === q.id ? "bg-white shadow-sm z-10" : ""
                                                 )}
                                             >
@@ -662,7 +676,7 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
                                                         <svg width="12" height="12" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-3 w-3"><path d="M5.5 1C5.22386 1 5 1.22386 5 1.5C5 1.77614 5.22386 2 5.5 2H9.5C9.77614 2 10 1.77614 10 1.5C10 1.22386 9.77614 1 9.5 1H5.5ZM3 3.5C3 3.22386 3.22386 3 3.5 3H11.5C11.7761 3 12 3.22386 12 3.5C12 3.77614 11.7761 4 11.5 4H11V12C11 12.5523 10.5523 13 10 13H5C4.44772 13 4 12.5523 4 12V4H3.5C3.22386 4 3 3.77614 3 3.5ZM5 4H10V12H5V4Z" fill="currentColor" fillRule="evenodd" clipRule="evenodd"></path></svg>
                                                     </Button>
                                                 </div>
-                                            </button>
+                                            </div>
                                         );
                                     })}
                                 </div>
@@ -676,7 +690,7 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
                             {/* Stats Footer */}
                             <div className="p-3 border-t bg-slate-100/50 flex justify-between items-center text-xs text-slate-500 font-medium">
                                 <span>{filteredQuestions.length} Questions</span>
-                                <span>{questions.filter(q => q.masterFieldNo || q.masterQuestionGroupId || q.customFieldDefinitionId).length} Mapped</span>
+                                <span>{questions.filter((q: any) => q.masterFieldNo || q.masterQuestionGroupId || q.customFieldDefinitionId).length} Mapped</span>
                             </div>
                         </div>
 
@@ -830,24 +844,25 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
     }) {
         const [open, setOpen] = useState(false);
         const [search, setSearch] = useState("");
+
         // Flatten Options
-        const masterOptions = useMemo(() => Object.values(FIELD_DEFINITIONS).map(f => ({
+        const masterOptions = useMemo(() => masterFields.map((f: any) => ({
             value: `master:${f.fieldNo.toString()}`,
             label: f.fieldName,
             type: 'master',
             meta: `Standard Field ${f.fieldNo}`,
             description: f.notes
-        })), []);
+        })), [masterFields]);
 
-        const groupOptions = useMemo(() => Object.values(FIELD_GROUPS).map(g => ({
-            value: `group:${g.id}`,
-            label: g.label,
+        const groupOptions = useMemo(() => masterGroups.map((g: any) => ({
+            value: `group:${g.key}`,
+            label: g.fieldName || g.key,
             type: 'group',
             meta: 'Composite Field',
-            description: g.description
-        })), []);
+            description: g.notes
+        })), [masterGroups]);
 
-        const customOptions = useMemo(() => customFields.map(f => ({
+        const customOptions = useMemo(() => customFields.map((f: any) => ({
             value: `custom:${f.id}`,
             label: f.label,
             type: 'custom',
@@ -856,7 +871,7 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
         })), [customFields]);
 
         const allOptions = [...groupOptions, ...masterOptions, ...customOptions];
-        const selectedOption = allOptions.find(o => o.value === value);
+        const selectedOption = allOptions.find((o: any) => o.value === value);
 
         return (
             <Popover open={open} onOpenChange={setOpen}>
@@ -916,7 +931,7 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
 
                             {/* Filter Logic since we disabled default cmdk filtering for custom create logic */}
                             {(() => {
-                                const filtered = allOptions.filter(o =>
+                                const filtered = allOptions.filter((o: any) =>
                                     o.label.toLowerCase().includes(search.toLowerCase()) ||
                                     o.meta.toLowerCase().includes(search.toLowerCase()) ||
                                     (o.description && o.description.toLowerCase().includes(search.toLowerCase()))
@@ -926,7 +941,7 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
                                 return (
                                     <>
                                         <CommandGroup heading="Field Groups (Recommended)">
-                                            {filtered.filter(o => o.type === 'group').map(option => (
+                                            {filtered.filter((o: any) => o.type === 'group').map((option: any) => (
                                                 <CommandItem
                                                     key={option.value}
                                                     value={option.label}
@@ -945,7 +960,7 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
                                         </CommandGroup>
                                         <CommandSeparator />
                                         <CommandGroup heading="Standard Fields">
-                                            {filtered.filter(o => o.type === 'master').map(option => (
+                                            {filtered.filter((o: any) => o.type === 'master').map((option: any) => (
                                                 <CommandItem
                                                     key={option.value}
                                                     value={option.label} // Use label for cmdk internal keying
@@ -964,7 +979,7 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
                                         </CommandGroup>
                                         <CommandSeparator />
                                         <CommandGroup heading="Custom Fields">
-                                            {filtered.filter(o => o.type === 'custom').map(option => (
+                                            {filtered.filter((o: any) => o.type === 'custom').map((option: any) => (
                                                 <CommandItem
                                                     key={option.value}
                                                     value={option.label}

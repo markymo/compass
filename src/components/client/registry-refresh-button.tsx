@@ -23,11 +23,11 @@ export function RegistryRefreshButton({ leId, lastRefreshed, className }: Regist
             if (result.success) {
                 toast.success("Registry data updated successfully");
             } else {
-                toast.error(result.error || "Failed to update registry data");
+                toast.error(`Error: ${result.error || "Unknown"}`);
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error(error);
-            toast.error("Network error during refresh");
+            toast.error(`Crash: ${error.message || JSON.stringify(error)}`);
         } finally {
             setIsLoading(false);
         }

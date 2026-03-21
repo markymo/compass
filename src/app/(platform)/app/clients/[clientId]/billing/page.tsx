@@ -1,9 +1,6 @@
-
 import { getClientBillingData } from "@/actions/billing";
 import { BillingPageClient } from "./client-page";
-import { GuideHeader } from "@/components/layout/GuideHeader";
-import { Building2, CreditCard, Home } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import { Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 
@@ -17,7 +14,7 @@ export default async function BillingPage({ params }: BillingPageProps) {
 
     if (!response.success || !response.data) {
         return (
-            <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+            <div className="flex flex-col items-center justify-center py-20 gap-4">
                 <div className="p-4 bg-red-50 rounded-full text-red-500">
                     <Building2 className="h-8 w-8" />
                 </div>
@@ -32,21 +29,9 @@ export default async function BillingPage({ params }: BillingPageProps) {
         );
     }
 
-    const { orgName } = response.data;
-
     return (
-        <div className="flex flex-col min-h-screen bg-slate-50/30">
-            <GuideHeader
-                breadcrumbs={[
-                    { label: "My Universe", href: "/app", icon: Home },
-                    { label: orgName, href: `/app/clients/${clientId}`, icon: Building2 },
-                    { label: "Billing", icon: CreditCard }
-                ]}
-            />
-
-            <main className="max-w-5xl mx-auto w-full p-6 md:p-8 space-y-8">
-                <BillingPageClient data={response.data} />
-            </main>
-        </div>
+        <main className="max-w-5xl mx-auto w-full p-6 md:p-8 space-y-8">
+            <BillingPageClient data={response.data} />
+        </main>
     );
 }

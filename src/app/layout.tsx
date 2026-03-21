@@ -6,6 +6,8 @@ import { UsageTracker } from "@/components/usage-tracker";
 import { AuthSessionProvider } from "@/components/providers/session-provider";
 import { Suspense } from "react";
 import { Toaster } from "@/components/ui/sonner";
+import { DevFeedbackGate } from "@/components/dev/dev-feedback-gate";
+import { UserPreferencesProvider } from "@/components/providers/user-preferences-provider";
 
 const outfit = Outfit({
   variable: "--font-heading",
@@ -17,8 +19,10 @@ const inter = Inter({
   subsets: ["latin"],
 });
 
+import { BRAND } from "@/config/brand";
+
 export const metadata: Metadata = {
-  title: "ONpro | Sovereign Identity for Finance",
+  title: `${BRAND.name} | Sovereign Identity for Finance`,
   description: "The single source of truth for corporate debt finance onboarding.",
 };
 
@@ -38,11 +42,14 @@ export default function RootLayout({
         )}
       >
         <AuthSessionProvider>
-          <Suspense fallback={null}>
-            <UsageTracker />
-          </Suspense>
-          {children}
-          <Toaster />
+          <UserPreferencesProvider>
+            <Suspense fallback={null}>
+              <UsageTracker />
+            </Suspense>
+            {children}
+            <Toaster />
+            <DevFeedbackGate />
+          </UserPreferencesProvider>
         </AuthSessionProvider>
       </body>
     </html>

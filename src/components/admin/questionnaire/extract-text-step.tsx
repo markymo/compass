@@ -42,8 +42,8 @@ export function ExtractTextStep({ questionnaireId, initialText, analysisResults,
     };
 
     const hasResults = analysisResults && analysisResults.length > 0;
-    const questions = hasResults ? analysisResults!.filter(i => i.type === "QUESTION") : [];
-    const sections = hasResults ? analysisResults!.filter(i => i.type === "SECTION") : [];
+    const questions = hasResults ? analysisResults!.filter((i: any) => i.type === "QUESTION") : [];
+    const sections = hasResults ? analysisResults!.filter((i: any) => i.type === "SECTION") : [];
 
     return (
         <Card className="w-full h-full flex flex-col border-0 shadow-none">

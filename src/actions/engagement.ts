@@ -16,7 +16,7 @@ export async function manageEngagementQuestionnaires(engagementId: string, quest
             where: { id: engagementId },
             data: {
                 questionnaires: {
-                    set: questionnaireIds.map(id => ({ id }))
+                    set: questionnaireIds.map((id: any) => ({ id }))
                 }
             }
         });

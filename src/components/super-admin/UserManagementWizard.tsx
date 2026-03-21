@@ -94,7 +94,7 @@ export function UserManagementWizard() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {users.map((u) => {
+                                    {users.map((u: any) => {
                                         const leCount = Object.keys(u.leRoles).length;
                                         return (
                                             <TableRow key={u.user.id}>

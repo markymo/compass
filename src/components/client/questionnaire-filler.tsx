@@ -39,7 +39,7 @@ export function QuestionnaireFiller({ leId, questionnaireId, initialQuestions, q
                 cats.add(q.category || "Uncategorized");
             }
         });
-        return Array.from(cats).sort((a, b) => {
+        return Array.from(cats).sort((a: any, b: any) => {
             if (a === "Uncategorized") return 1;
             if (b === "Uncategorized") return -1;
             return a.localeCompare(b);
@@ -74,7 +74,7 @@ export function QuestionnaireFiller({ leId, questionnaireId, initialQuestions, q
             }
 
             const newGhostAnswers: Record<string, SuggestedAnswer> = {};
-            res.data.forEach(ans => {
+            res.data.forEach((ans: any) => {
                 newGhostAnswers[ans.questionId] = ans;
             });
             setGhostAnswers(newGhostAnswers);
@@ -121,7 +121,7 @@ export function QuestionnaireFiller({ leId, questionnaireId, initialQuestions, q
         const ghost = ghostAnswers[index.toString()];
         if (!ghost) return;
 
-        setQuestions(prev => prev.map((q, i) => {
+        setQuestions(prev => prev.map((q: any, i: any) => {
             if (i === index) {
                 return { ...q, answer: ghost.suggestedAnswer };
             }
@@ -203,7 +203,7 @@ export function QuestionnaireFiller({ leId, questionnaireId, initialQuestions, q
                         Sections
                     </div>
                     <div className="space-y-1 px-2">
-                        {categories.map(cat => {
+                        {categories.map((cat: any) => {
                             const progress = getCategoryProgress(cat);
                             const isComplete = progress.answered === progress.total && progress.total > 0;
                             const isActive = activeCategory === cat;
@@ -269,7 +269,7 @@ export function QuestionnaireFiller({ leId, questionnaireId, initialQuestions, q
                                                         </label>
                                                         <button
                                                             onClick={() => {
-                                                                setQuestions(prev => prev.map((q, i) => i === realIndex ? { ...q, isLocked: !q.isLocked } : q));
+                                                                setQuestions(prev => prev.map((q: any, i: any) => i === realIndex ? { ...q, isLocked: !q.isLocked } : q));
                                                             }}
                                                             className={`p-1 rounded-full transition-colors ${isLocked ? "text-amber-500 bg-amber-50" : "text-slate-300 hover:text-slate-500"}`}
                                                         >
@@ -306,7 +306,7 @@ export function QuestionnaireFiller({ leId, questionnaireId, initialQuestions, q
                                                                     onChange={(e) => {
                                                                         if (isLocked) return;
                                                                         const val = e.target.value;
-                                                                        setQuestions(prev => prev.map((q, i) => i === realIndex ? { ...q, answer: val } : q));
+                                                                        setQuestions(prev => prev.map((q: any, i: any) => i === realIndex ? { ...q, answer: val } : q));
                                                                     }}
                                                                     readOnly={isLocked}
                                                                 />

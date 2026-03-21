@@ -4,6 +4,7 @@ import { GuideHeader } from "@/components/layout/GuideHeader";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { LifeBuoy, BookOpen, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { BRAND } from "@/config/brand";
 
 export default function HelpPage() {
     return (
@@ -20,7 +21,7 @@ export default function HelpPage() {
                     <CardHeader>
                         <BookOpen className="h-8 w-8 text-indigo-500 mb-2" />
                         <CardTitle>Documentation</CardTitle>
-                        <CardDescription>Explore comprehensive guides and API references for the ONPro platform.</CardDescription>
+                        <CardDescription>Explore comprehensive guides and API references for the {BRAND.name} platform.</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <Button variant="outline" className="w-full">View Guides (Coming Soon)</Button>
@@ -34,7 +35,7 @@ export default function HelpPage() {
                         <CardDescription>Need direct assistance? Our compliance engineering team is here to help.</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <Button className="w-full" onClick={() => window.location.href = "mailto:support@onpro.com"}>Email Support</Button>
+                        <Button className="w-full" onClick={() => window.location.href = `mailto:${BRAND.email}`}>Email Support</Button>
                     </CardContent>
                 </Card>
             </div>

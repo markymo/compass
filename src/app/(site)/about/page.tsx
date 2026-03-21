@@ -1,6 +1,6 @@
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
-//comment for deploy
+import { BRAND } from "@/config/brand";
 
 export default function About() {
     return (
@@ -10,12 +10,12 @@ export default function About() {
                 <div className="container mx-auto px-4 md:px-6">
                     <div className="mx-auto max-w-3xl">
                         <h1 className="text-4xl font-extrabold tracking-tight text-slate-900 md:text-5xl mb-8">
-                            About ONpro
+                            About {BRAND.name}
                         </h1>
 
                         <div className="prose prose-lg text-slate-600">
                             <p>
-                                ONpro was born from a simple observation: <strong>Complexity in capital markets is often artificial.</strong>
+                                {BRAND.name} is the first client-centric onboarding system, born from a simple observation: <strong>Complexity in capital markets is often artificial.</strong>
                             </p>
                             <p>
                                 When corporate entities raise senior debt finance, the "onboarding" process creates massive friction.
@@ -49,13 +49,13 @@ export default function About() {
 
                                 <div className="space-y-4 text-slate-600 text-lg leading-relaxed">
                                     <p>
-                                        Rob brings over 20 years of experience in derivatives markets to ONpro, with a specialized focus on infrastructure, structured trade, and export finance.
+                                        Rob brings over 20 years of experience in derivatives markets to {BRAND.name}, with a specialized focus on infrastructure, structured trade, and export finance.
                                     </p>
                                     <p>
                                         Before establishing Riskbridge in 2017, Rob was a Managing Director at <strong>Chatham Financial</strong>, where he founded and led the Global Infrastructure and Project Finance Advisory Team. Previously, as a Director at <strong>Barclays Capital</strong>, he led derivatives coverage for the Infrastructure and PFI/PPP sectors..
                                     </p>
                                     <p>
-                                        He has overseen hedging processes for more than <strong>£40bn</strong> of infrastructure debt issuance, executing some of the largest trades in the market. It is this deep operational experience that drives the ONpro mission: to eliminate the administrative overhead that burdens modern capital markets.
+                                        He has overseen hedging processes for more than <strong>£40bn</strong> of infrastructure debt issuance, executing some of the largest trades in the market. It is this deep operational experience that drives the {BRAND.name} mission: to eliminate the administrative overhead that burdens modern capital markets.
                                     </p>
                                     <p className="text-sm text-slate-500 pt-4 font-medium">
                                         MBA, Manchester Business School • Aeronautical Engineering, Imperial College
@@ -82,13 +82,13 @@ export default function About() {
 
                                 <div className="space-y-4 text-slate-600 text-lg leading-relaxed">
                                     <p>
-                                        Mark combines deep technical expertise with a strategic vision for financial infrastructure. As a veteran of complex systems architecture, he oversees the engineering philosophy that makes ONpro secure, scalable, and intuitive.
+                                        Mark combines deep technical expertise with a strategic vision for financial infrastructure. As a veteran of complex systems architecture, he oversees the engineering philosophy that makes {BRAND.name} secure, scalable, and intuitive.
                                     </p>
                                     <p>
                                         With a background spanning enterprise software and fintech innovation, Mark identified the critical data disconnects in traditional banking workflows. His focus is on building "sovereign identity" architectures—systems where clients retain absolute control over their data while facilitating seamless institutional access.
                                     </p>
                                     <p>
-                                        He leads the product and engineering teams at ONpro, ensuring that every line of code serves the dual mandate of <strong>uncompromising security</strong> and <strong>radical efficiency</strong>.
+                                        He leads the product and engineering teams at {BRAND.name}, ensuring that every line of code serves the dual mandate of <strong>uncompromising security</strong> and <strong>radical efficiency</strong>.
                                     </p>
                                 </div>
                             </div>

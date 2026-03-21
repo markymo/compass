@@ -1,9 +1,10 @@
 import { getClientLEData, getDashboardMetrics } from "@/actions/client";
 import { notFound } from "next/navigation";
-import { EditableDescription } from "@/components/client/editable-description";
-import { EditableLEI } from "@/components/client/editable-lei";
-import { MissionControl } from "@/components/client/mission-control";
+import { MissionControl, ActivityFeed } from "@/components/client/mission-control";
 import { getRecentLEActivity } from "@/lib/le-activity";
+import { EngagementManager } from "@/components/client/engagement/engagement-manager";
+import { LEUsersTab } from "@/components/client/le-users-tab";
+import { SetPageBreadcrumbs } from "@/context/breadcrumb-context";
 
 export default async function LEDashboardPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
@@ -21,53 +22,41 @@ export default async function LEDashboardPage({ params }: { params: Promise<{ id
     const { le } = data;
 
     return (
-        <div className="space-y-8">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-
-                {/* Main Content Column (2/3) */}
-                <div className="md:col-span-2 space-y-6">
-                    <div className="flex flex-col gap-4">
-                        <h1 className="text-4xl font-bold tracking-tight text-slate-900">
-                            {le.name}
-                        </h1>
-
-                        <div className="max-w-2xl">
-                            <EditableDescription
-                                leId={le.id}
-                                initialValue={(le as any).description}
-                                leName={le.name}
-                                clientOrgName={le.owners?.[0]?.party?.name || "Client"}
-                            />
-                            <div className="mt-4">
-                                <EditableLEI
-                                    leId={le.id}
-                                    initialLei={(le as any).lei}
-                                    initialFetchedAt={(le as any).gleifFetchedAt}
-                                />
-                            </div>
-                        </div>
+        <div className="space-y-12 animate-in fade-in duration-500">
+            <SetPageBreadcrumbs 
+                items={[]} 
+                title={undefined} 
+                typeLabel={undefined} 
+            />
+            <div className="pt-0">
+                {metrics ? (
+                    <MissionControl
+                        metrics={metrics}
+                        leId={le.id}
+                        engagements={(le as any).fiEngagements || []}
+                        activity={activity}
+                    />
+                ) : (
+                    <div className="p-8 text-center border-2 border-dashed border-slate-200 rounded-lg text-slate-500">
+                        Metrics unavailable.
                     </div>
+                )}
+            </div>
 
-                    <div className="pt-4">
-                        {metrics ? (
-                            <MissionControl
-                                metrics={metrics}
-                                leId={le.id}
-                                engagements={(le as any).fiEngagements || []}
-                                activity={activity}
-                            />
-                        ) : (
-                            <div className="p-8 text-center border-2 border-dashed border-slate-200 rounded-lg text-slate-500">
-                                Metrics unavailable.
-                            </div>
-                        )}
-                    </div>
-                </div>
+            <div className="pt-4 border-t border-slate-200">
+                <EngagementManager
+                    leId={le.id}
+                    initialEngagements={(le as any).fiEngagements || []}
+                    leDueDate={(le as any).dueDate}
+                />
+            </div>
 
-                {/* Sidebar Column (1/3) */}
-                <div className="space-y-6">
-                    {/* Placeholder for future widgets or stats */}
-                </div>
+            <div className="pt-4 border-t border-slate-200">
+                <LEUsersTab leId={le.id} />
+            </div>
+
+            <div className="pt-4 border-t border-slate-200">
+                <ActivityFeed activity={activity} />
             </div>
         </div>
     );

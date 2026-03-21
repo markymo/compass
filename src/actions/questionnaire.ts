@@ -1,12 +1,20 @@
 "use server";
 
 import prisma from "@/lib/prisma";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, unstable_noStore } from "next/cache";
 import { canManageQuestionnaire, isSystemAdmin, getUserOrgRole } from "./security";
 
 import { logActivity } from "./logging";
 
 import { getUserFIOrg } from "./security";
+import { listAllMasterFields, listAllMasterGroups } from "@/services/masterData/definitionService";
+
+export async function getMasterSchemaContext() {
+    return {
+        masterFields: await listAllMasterFields(),
+        masterGroups: await listAllMasterGroups()
+    };
+}
 
 export async function createQuestionnaire(identifier: string | null | undefined, formData: FormData) {
     const name = formData.get("name") as string;
@@ -107,9 +115,9 @@ export async function createQuestionnaire(identifier: string | null | undefined,
         });
 
         revalidatePath(`/app/admin/organizations/${targetOrgId}`);
-        revalidatePath(`/app/fi/questionnaires`); // Refresh FI view
+        revalidatePath(`/app/s/questionnaires`); // Refresh FI view
         if (engagementId) {
-            revalidatePath(`/app/fi/engagements/${engagementId}`);
+            revalidatePath(`/app/s/engagements/${engagementId}`);
             revalidatePath(`/app/le`); // Revalidate Client views
         }
 
@@ -199,6 +207,8 @@ export async function createCustomFieldDefinition(orgId: string, label: string, 
     if (!orgId) return { success: false, error: "Organization ID required" };
 
     try {
+        console.log(`[createCustomFieldDefinition] Attempting to create field for Org: ${orgId}, Label: ${label}`);
+
         // Generate a machine-readable key
         let key = label.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
         if (!key) key = "custom_field"; // Fallback
@@ -220,10 +230,11 @@ export async function createCustomFieldDefinition(orgId: string, label: string, 
             }
         });
 
+        console.log(`[createCustomFieldDefinition] SUCCESS: Created field ${field.id} (${field.key})`);
         revalidatePath(`/app/admin/organizations/${orgId}`);
         return { success: true, data: field };
     } catch (e: any) {
-        console.error("Failed to create Custom Field:", e);
+        console.error(`[createCustomFieldDefinition] ERROR for Org ${orgId}:`, e);
         return { success: false, error: e.message };
     }
 }
@@ -237,7 +248,7 @@ export async function createManualQuestionnaire(data: { name: string, fiOrgId?: 
     }
 
     let { name, fiOrgId, questions, isGlobal = false } = data;
-    const questionLines = questions.split("\n").map(q => q.trim()).filter(q => q.length > 0);
+    const questionLines = questions.split("\n").map((q: any) => q.trim()).filter((q: any) => q.length > 0);
 
     if (questionLines.length === 0) {
         return { success: false, error: "At least one question is required" };
@@ -259,10 +270,10 @@ export async function createManualQuestionnaire(data: { name: string, fiOrgId?: 
         // Generate compact text for each question using AI
         console.log("[createManualQuestionnaire] Generating compact text for", questionLines.length, "questions...");
         const compactResults = await Promise.all(
-            questionLines.map(q => compactifyQuestion(q))
+            questionLines.map((q: any) => compactifyQuestion(q))
         );
 
-        const extractedContent = questionLines.map((text, index) => ({
+        const extractedContent = questionLines.map((text: any, index: any) => ({
             type: "question",
             text: text,
             compactText: compactResults[index]?.compactText || null,
@@ -410,7 +421,9 @@ export async function archiveQuestionnaire(id: string) {
     }
 }
 
-export async function getQuestionnaireById(id: string) {
+export async function getQuestionnaireById(id: string, _t?: number) {
+    unstable_noStore();
+    console.log(`[SERVER] getQuestionnaireById called for ${id}${_t ? ` (t=${_t})` : ''}`);
     if (!(await canManageQuestionnaire(id))) {
         return null;
     }
@@ -451,7 +464,7 @@ export async function analyzeQuestionnaire(id: string) {
             // Fallback: Construct "processed" object from existing questions
             // This allows "Auto-Map" to work on manually created questionnaires or legacy imports
             const questionsText = q.questions.length > 0
-                ? q.questions.map(q => `${q.order}. ${q.text}`).join("\n")
+                ? q.questions.map((q: any) => `${q.order}. ${q.text}`).join("\n")
                 : (q.extractedContent as any[] || []).filter((i: any) => i.type === 'question').map((i: any) => `${i.order || ''}. ${i.text}`).join("\n");
 
             if (!questionsText) {
@@ -634,7 +647,7 @@ export async function extractDetailedContent(id: string, images?: string[]): Pro
             const extractedItems = await extractQuestionnaireItems(processed, logger);
 
             const cleanItems = JSON.parse(JSON.stringify(extractedItems));
-            await prisma.questionnaire.update({ where: { id }, data: { extractedContent: cleanItems } });
+            await prisma.questionnaire.update({ where: { id }, data: { extractedContent: cleanItems, status: "ACTIVE" } });
             revalidatePath(`/app/admin/questionnaires/${id}`);
             return { success: true, count: extractedItems.length };
         } catch (e: any) { return { success: false, error: e.message }; }
@@ -645,7 +658,15 @@ export async function extractDetailedContent(id: string, images?: string[]): Pro
     const extRes = await extractRawText(id);
     if (!extRes.success) return { success: false, error: extRes.error };
 
-    return await parseRawText(id);
+    const parseRes = await parseRawText(id);
+    if (parseRes.success) {
+        await prisma.questionnaire.update({
+            where: { id },
+            data: { status: "ACTIVE" }
+        });
+        revalidatePath(`/app/admin/questionnaires/${id}`);
+    }
+    return parseRes;
 }
 
 // Renaming to generic save function or just updating this one
@@ -787,6 +808,7 @@ export async function updateQuestionnaireFile(id: string, formData: FormData) {
 
 // LOGGING UTILITY
 export async function appendProcessingLog(id: string, message: string, stage: string = "PROCESSING", level: "INFO" | "ERROR" | "SUCCESS" = "INFO") {
+    unstable_noStore();
     try {
         const entry = {
             timestamp: new Date().toISOString(),
@@ -822,8 +844,8 @@ async function syncQuestionsToDatabase(id: string, items: any[]) {
 
     // 2. Filter for Questions only (or map others if we expand model later)
     const questionsToCreate = items
-        .filter(i => (i.type || "").toLowerCase() === "question")
-        .map((item, index) => {
+        .filter((i: any) => (i.type || "").toLowerCase() === "question")
+        .map((item: any, index: any) => {
             console.log(`[syncQuestionsToDatabase] Question "${item.text?.slice(0, 30)}..." has compactText: "${item.compactText}"`);
 
             // Map the new fields if present in the "items" (which comes from extractedContent or mappings overlay)
@@ -834,12 +856,14 @@ async function syncQuestionsToDatabase(id: string, items: any[]) {
                 text: item.text || item.originalText || "Untitled Question",
                 compactText: item.compactText || null,
                 order: item.order || index + 1,
-                status: "DRAFT" as const,
+                status: "DRAFT" as any,
                 // NEW: Persist Mapping
                 masterFieldNo: item.masterFieldNo || null,
                 masterQuestionGroupId: item.masterQuestionGroupId || null,
                 customFieldDefinitionId: item.customFieldDefinitionId || null,
-                prefilledValue: item.prefilledValue || null
+                prefilledValue: item.prefilledValue || null,
+                answer: item.answer || null,
+                allowAttachments: true
             };
         });
 

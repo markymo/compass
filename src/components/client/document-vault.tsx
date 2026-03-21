@@ -44,6 +44,7 @@ import { Separator } from "@/components/ui/separator";
 import { getVaultDocuments, uploadDocument, deleteDocument } from "@/actions/documents";
 import { analyzeDocument } from "@/actions/document-analysis";
 import { getLEEngagements } from "@/actions/client-le";
+import { formatUploader } from "@/lib/vault-utils";
 import { DocumentSharingDialog } from "./document-sharing-dialog";
 import {
     FileText, MoreVertical, Search, Upload, Download, Trash2, Loader2, File, ShieldCheck, Clock,
@@ -71,7 +72,7 @@ interface DocumentVaultProps {
 }
 
 type ViewMode = 'grid' | 'list';
-type FilterType = 'ALL' | 'CORPORATE' | 'IDENTITY' | 'FINANCIAL' | 'OTHER' | 'SHARED' | 'EVIDENCE';
+
 
 export function DocumentVault({ leId }: DocumentVaultProps) {
     const [documents, setDocuments] = useState<any[]>([]);
@@ -79,7 +80,7 @@ export function DocumentVault({ leId }: DocumentVaultProps) {
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
     const [viewMode, setViewMode] = useState<ViewMode>('list');
-    const [activeFilter, setActiveFilter] = useState<FilterType>('ALL');
+
     const [selectedDoc, setSelectedDoc] = useState<any>(null);
     const [isSheetOpen, setIsSheetOpen] = useState(false);
 
@@ -112,15 +113,10 @@ export function DocumentVault({ leId }: DocumentVaultProps) {
         loadDocuments();
     }, [leId]);
 
-    const filteredDocs = documents.filter(doc => {
+    const filteredDocs = documents.filter((doc: any) => {
         const matchesSearch = doc.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
             doc.docType?.toLowerCase().includes(searchQuery.toLowerCase());
-
-        if (!matchesSearch) return false;
-
-        if (activeFilter === 'ALL') return true;
-        if (activeFilter === 'SHARED') return doc.sharedWith && doc.sharedWith.length > 0;
-        return doc.docType === activeFilter;
+        return matchesSearch;
     });
 
     const handleDelete = async (id: string) => {
@@ -143,33 +139,33 @@ export function DocumentVault({ leId }: DocumentVaultProps) {
         setIsSheetOpen(true);
     };
 
-    const FilterPill = ({ type, label, icon: Icon }: { type: FilterType, label: string, icon: any }) => (
-        <Button
-            variant={activeFilter === type ? "default" : "outline"}
-            size="sm"
-            className={cn(
-                "rounded-full h-8 px-4 text-xs font-medium transition-all",
-                activeFilter === type
-                    ? "bg-slate-900 text-white hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 border-transparent shadow-md"
-                    : "text-slate-600 bg-white hover:bg-slate-50 border-slate-200 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-800"
-            )}
-            onClick={() => setActiveFilter(type)}
-        >
-            <Icon className="mr-2 h-3.5 w-3.5" />
-            {label}
-            <span className={cn(
-                "ml-2 text-[10px] px-1.5 py-0.5 rounded-full bg-white/20",
-                activeFilter !== type && "bg-slate-100 text-slate-500 dark:bg-slate-800"
-            )}>
-                {type === 'ALL'
-                    ? documents.length
-                    : type === 'SHARED'
-                        ? documents.filter(d => d.sharedWith?.length > 0).length
-                        : documents.filter(d => d.docType === type).length
-                }
-            </span>
-        </Button>
-    );
+    // Direct file upload handler (no modal)
+    const handleDirectUpload = async (file: File) => {
+        try {
+            const newBlob = await upload(file.name, file, {
+                access: 'public',
+                handleUploadUrl: '/api/upload',
+            });
+
+            const res = await uploadDocument(leId, {
+                name: file.name,
+                type: file.type || "application/pdf",
+                fileUrl: newBlob.url,
+                docType: "OTHER",
+                kbSize: Math.round(file.size / 1024)
+            });
+
+            if (res.success) {
+                toast.success("Document uploaded successfully");
+                loadDocuments();
+            } else {
+                toast.error(res.error || "Failed to save document metadata");
+            }
+        } catch (error) {
+            console.error(error);
+            toast.error("Upload failed. Check console for details.");
+        }
+    };
 
     return (
         <div className="flex flex-col h-[700px] w-full bg-slate-50/50 dark:bg-slate-950/20 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-sm">
@@ -177,12 +173,11 @@ export function DocumentVault({ leId }: DocumentVaultProps) {
             <div className="flex flex-col border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-4 gap-4">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div className="flex items-center gap-2">
-                        <div className="bg-gradient-to-br from-indigo-500 to-purple-600 p-2 rounded-lg shadow-sm">
-                            <ShieldCheck className="h-5 w-5 text-white" />
+                        <div className="bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-2 rounded-lg shadow-sm">
+                            <ShieldCheck className="h-5 w-5 text-slate-600 dark:text-slate-300" />
                         </div>
                         <div>
-                            <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Digital Vault</h2>
-                            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Secure storage & knowledge base</p>
+                            <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Document Vault</h2>
                         </div>
                     </div>
                     <div className="flex items-center gap-2 w-full md:w-auto">
@@ -214,20 +209,29 @@ export function DocumentVault({ leId }: DocumentVaultProps) {
                                 <LayoutGrid className="h-4 w-4" />
                             </Button>
                         </div>
-                        <UploadDocumentDialog leId={leId} onSuccess={loadDocuments} />
+                        <>
+                            <input
+                                type="file"
+                                id="vault-file-upload"
+                                className="hidden"
+                                accept=".pdf,.docx,.jpg,.png,.xlsx,.csv"
+                                onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) {
+                                        handleDirectUpload(file);
+                                        e.target.value = '';
+                                    }
+                                }}
+                            />
+                            <Button className="shadow-sm h-9" onClick={() => document.getElementById('vault-file-upload')?.click()}>
+                                <Upload className="w-4 h-4 mr-2" />
+                                Upload
+                            </Button>
+                        </>
                     </div>
                 </div>
 
-                <div className="flex items-center overflow-x-auto pb-1 -mb-1 hide-scrollbar">
-                    <div className="flex space-x-2">
-                        <FilterPill type="ALL" label="All" icon={FolderOpen} />
-                        <FilterPill type="CORPORATE" label="Corporate" icon={FileText} />
-                        <FilterPill type="IDENTITY" label="Identity" icon={File} />
-                        <FilterPill type="FINANCIAL" label="Financial" icon={FileText} />
-                        <FilterPill type="EVIDENCE" label="Evidence" icon={ShieldCheck} />
-                        <FilterPill type="SHARED" label="Shared" icon={Building2} />
-                    </div>
-                </div>
+
             </div>
 
             {/* Content Area */}
@@ -239,20 +243,25 @@ export function DocumentVault({ leId }: DocumentVaultProps) {
                     </div>
                 ) : filteredDocs.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-full max-h-[400px] border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50/50 p-8 text-center">
-                        <div className="bg-slate-100 dark:bg-slate-800 h-16 w-16 rounded-full flex items-center justify-center mb-4">
-                            <FileText className="h-8 w-8 text-slate-400" />
+                        <div className="bg-slate-100 dark:bg-slate-800 h-12 w-12 rounded-full flex items-center justify-center mb-4">
+                            <FileText className="h-6 w-6 text-slate-400" />
                         </div>
                         <h3 className="text-lg font-medium text-slate-900 dark:text-slate-100">No documents found</h3>
                         <p className="text-slate-500 mb-6 max-w-sm text-sm">
                             {searchQuery ? "Try adjusting your search or filters." : "Upload documents to the secure vault to get started."}
                         </p>
-                        {!searchQuery && <UploadDocumentDialog leId={leId} onSuccess={loadDocuments} />}
+                        {!searchQuery && (
+                            <Button className="shadow-sm" onClick={() => document.getElementById('vault-file-upload')?.click()}>
+                                <Upload className="w-4 h-4 mr-2" />
+                                Upload Document
+                            </Button>
+                        )}
                     </div>
                 ) : (
                     <>
                         {viewMode === 'grid' ? (
                             <div className="grid gap-4 min-[450px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 pb-20">
-                                {filteredDocs.map((doc) => {
+                                {filteredDocs.map((doc: any) => {
                                     const aiData = doc.metadata?.extractedKnowledge;
                                     return (
                                         <div
@@ -260,23 +269,17 @@ export function DocumentVault({ leId }: DocumentVaultProps) {
                                             className="group cursor-pointer h-full"
                                             onClick={() => handleDocClick(doc)}
                                         >
-                                            <Card className="h-full hover:shadow-lg hover:-translate-y-1 transition-all duration-200 border-slate-200 hover:border-indigo-300 dark:border-slate-800 dark:hover:border-indigo-700 relative overflow-hidden">
+                                            <Card className="h-full hover:shadow-lg hover:-translate-y-1 transition-all duration-200 border-slate-200 hover:border-slate-300 dark:border-slate-800 dark:hover:border-slate-700 relative overflow-hidden">
                                                 {aiData && (
-                                                    <div className="absolute top-0 right-0 p-1.5 bg-indigo-500/10 rounded-bl-xl border-l border-b border-indigo-100 dark:border-indigo-900/50 backdrop-blur-sm">
-                                                        <Sparkles className="w-3 h-3 text-indigo-600 dark:text-indigo-400" />
+                                                    <div className="absolute top-0 right-0 p-1.5 bg-slate-100 dark:bg-slate-800 rounded-bl-xl border-l border-b border-slate-200 dark:border-slate-700 backdrop-blur-sm">
+                                                        <Sparkles className="w-3 h-3 text-indigo-500 dark:text-indigo-400" />
                                                     </div>
                                                 )}
                                                 <CardContent className="p-4 flex flex-col h-full">
                                                     <div className="flex items-start justify-between mb-3">
-                                                        <div className={cn(
-                                                            "p-2.5 rounded-lg transition-colors",
-                                                            doc.docType === 'FINANCIAL' ? "bg-emerald-50 text-emerald-600 group-hover:bg-emerald-100" :
-                                                                doc.docType === 'IDENTITY' ? "bg-blue-50 text-blue-600 group-hover:bg-blue-100" :
-                                                                    "bg-indigo-50 text-indigo-600 group-hover:bg-indigo-100"
-                                                        )}>
-                                                            <File className="h-6 w-6" />
+                                                        <div className="p-2 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-lg group-hover:bg-slate-200 dark:group-hover:bg-slate-700 transition-colors">
+                                                            <File className="h-5 w-5" />
                                                         </div>
-                                                        <DocStatusBadge verified={doc.isVerified} mini />
                                                     </div>
 
                                                     <div className="mb-2 flex-1">
@@ -284,14 +287,6 @@ export function DocumentVault({ leId }: DocumentVaultProps) {
                                                             {doc.name}
                                                         </h4>
                                                         <div className="flex items-center gap-2 mt-1 flex-wrap">
-                                                            {aiData?.documentType ? (
-                                                                <span className="text-[10px] font-medium text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100 truncate max-w-full" title={aiData.documentType}>
-                                                                    {aiData.documentType}
-                                                                </span>
-                                                            ) : (
-                                                                <span className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">{doc.docType}</span>
-                                                            )}
-                                                            <span className="text-[10px] text-slate-300">•</span>
                                                             <span className="text-[10px] text-slate-400">{(doc.kbSize || 120) + ' KB'}</span>
                                                         </div>
                                                         {aiData?.summary && (
@@ -322,15 +317,13 @@ export function DocumentVault({ leId }: DocumentVaultProps) {
                                 <Table>
                                     <TableHeader className="bg-slate-50 dark:bg-slate-900/50">
                                         <TableRow className="hover:bg-transparent">
-                                            <TableHead className="w-[40%]">Document Name</TableHead>
-                                            <TableHead>Type</TableHead>
+                                            <TableHead className="w-[60%]">Document Name</TableHead>
                                             <TableHead>Date Added</TableHead>
-                                            <TableHead>Status</TableHead>
                                             <TableHead className="text-right">Actions</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {filteredDocs.map((doc) => {
+                                        {filteredDocs.map((doc: any) => {
                                             const aiData = doc.metadata?.extractedKnowledge;
                                             return (
                                                 <TableRow
@@ -376,22 +369,8 @@ export function DocumentVault({ leId }: DocumentVaultProps) {
                                                             </div>
                                                         </div>
                                                     </TableCell>
-                                                    <TableCell>
-                                                        {aiData?.documentType ? (
-                                                            <Badge variant="secondary" className="font-normal text-[10px] bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-100">
-                                                                {aiData.documentType}
-                                                            </Badge>
-                                                        ) : (
-                                                            <Badge variant="secondary" className="font-normal text-[10px] bg-slate-100 text-slate-600 hover:bg-slate-200 border-slate-200">
-                                                                {doc.docType?.replace(/_/g, " ")}
-                                                            </Badge>
-                                                        )}
-                                                    </TableCell>
                                                     <TableCell className="text-slate-500 text-xs font-medium">
                                                         {format(new Date(doc.createdAt), "MMM d, yyyy")}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <DocStatusBadge verified={doc.isVerified} />
                                                     </TableCell>
                                                     <TableCell className="text-right">
                                                         <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-indigo-600">
@@ -415,14 +394,14 @@ export function DocumentVault({ leId }: DocumentVaultProps) {
                     {selectedDoc && (
                         <div className="flex flex-col h-full">
                             {/* Decorative Header Background */}
-                            <div className="h-24 bg-gradient-to-r from-indigo-500 to-purple-600 shrink-0 relative">
-                                <div className="absolute -bottom-8 left-6 p-1 bg-white dark:bg-slate-950 rounded-xl shadow-sm">
-                                    <div className="h-14 w-14 bg-slate-100 dark:bg-slate-800 rounded-lg flex items-center justify-center text-indigo-600">
-                                        <File className="h-8 w-8" />
+                            <div className="h-24 bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shrink-0 relative">
+                                <div className="absolute -bottom-6 left-6 p-1 bg-white dark:bg-slate-950 rounded-xl shadow-sm border border-slate-100 dark:border-slate-800">
+                                    <div className="h-12 w-12 bg-slate-100 dark:bg-slate-800 rounded-lg flex items-center justify-center text-slate-500 dark:text-slate-400">
+                                        <File className="h-6 w-6" />
                                     </div>
                                 </div>
                                 <Button
-                                    className="absolute top-4 right-4 bg-white/10 hover:bg-white/20 text-white border-0"
+                                    className="absolute top-4 right-4 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border-0"
                                     size="icon"
                                     onClick={() => setIsSheetOpen(false)}
                                 >
@@ -442,6 +421,14 @@ export function DocumentVault({ leId }: DocumentVaultProps) {
                                         <span>•</span>
                                         <span>{(selectedDoc.kbSize || 120) + ' KB'}</span>
                                     </SheetDescription>
+                                    <div className="mt-4 flex items-center gap-2 text-xs text-slate-400 bg-slate-50 dark:bg-slate-900/50 p-2 rounded-lg border border-slate-100 dark:border-slate-800 w-fit">
+                                        <Avatar className="h-5 w-5">
+                                            <AvatarFallback className="text-[8px] bg-slate-200 text-slate-600">
+                                                {(selectedDoc.uploadedBy?.name || selectedDoc.uploadedBy?.email || "U").substring(0, 1).toUpperCase()}
+                                            </AvatarFallback>
+                                        </Avatar>
+                                        <span>Uploaded by <span className="font-medium text-slate-600 dark:text-slate-300">{formatUploader(selectedDoc.uploadedBy)}</span></span>
+                                    </div>
                                 </div>
 
                                 <Separator className="my-6" />
@@ -451,7 +438,7 @@ export function DocumentVault({ leId }: DocumentVaultProps) {
                                     {/* Knowledge Base Extraction Section (New Feature) */}
                                     <section className="space-y-3">
                                         <div className="flex items-center gap-2">
-                                            <div className="bg-purple-100 dark:bg-purple-900/30 p-1.5 rounded-md text-purple-600 dark:text-purple-400">
+                                            <div className="bg-slate-100 dark:bg-slate-800 p-1.5 rounded-md text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
                                                 <Sparkles className="h-4 w-4" />
                                             </div>
                                             <h3 className="font-semibold text-sm text-slate-900 dark:text-slate-100">Knowledge Extraction</h3>
@@ -646,7 +633,7 @@ function KnowledgeExtraction({ doc }: { doc: any }) {
             ) : (
                 <Button
                     size="sm"
-                    className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white border-0 shadow-md transition-all hover:shadow-lg hover:-translate-y-0.5"
+                    className="w-full transition-all shadow-sm"
                     onClick={handleExtract}
                 >
                     <Bot className="w-4 h-4 mr-2" />
@@ -756,7 +743,7 @@ function UploadDocumentDialog({ leId, onSuccess }: { leId: string, onSuccess: ()
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                <Button className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm h-9">
+                <Button className="shadow-sm h-9">
                     <Upload className="w-4 h-4 mr-2" />
                     Upload
                 </Button>

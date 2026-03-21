@@ -7,18 +7,24 @@ import { Copy, Calendar, MapPin, Globe, Fingerprint, Building2, CheckCircle2, Cl
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
+import { GleifRefreshButton } from "./gleif-refresh-button";
+import { RawPayloadViewer } from "./raw-payload-viewer";
+
 interface GleifTabProps {
+    leId: string;
     data: any; // Raw GLEIF JSON
     fetchedAt: Date | string | null;
 }
 
-export function GleifTab({ data, fetchedAt }: GleifTabProps) {
+export function GleifTab({ leId, data, fetchedAt }: GleifTabProps) {
     if (!data || !data.attributes) {
         return (
             <div className="flex flex-col items-center justify-center p-12 text-slate-400">
                 <Building2 className="h-12 w-12 mb-4 opacity-50" />
                 <p>No GLEIF data available for this entity.</p>
-                <p className="text-sm">Add an LEI in the Overview tab to fetch data.</p>
+                <div className="mt-4">
+                    <GleifRefreshButton leId={leId} lastRefreshed={fetchedAt} />
+                </div>
             </div>
         );
     }
@@ -45,24 +51,32 @@ export function GleifTab({ data, fetchedAt }: GleifTabProps) {
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
 
             {/* Header / Info Bar */}
-            <div className="flex items-center justify-between bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-lg p-4">
+            <div className="flex items-center justify-between bg-emerald-50/50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-900/30 rounded-lg p-4">
                 <div className="flex items-center gap-3">
-                    <div className="bg-blue-100 dark:bg-blue-900/30 p-2 rounded-full">
-                        <CheckCircle2 className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                    <div className="bg-white dark:bg-emerald-900/30 p-1 rounded-lg border border-emerald-100 dark:border-emerald-800 shadow-sm overflow-hidden flex items-center justify-center min-w-[40px] h-[40px]">
+                        <img 
+                            src="https://www.gleif.org/assets/build/img/logo/gleif-logo-new.svg" 
+                            alt="GLEIF Logo" 
+                            className="h-6 w-auto object-contain"
+                        />
                     </div>
                     <div>
-                        <h3 className="font-medium text-blue-900 dark:text-blue-100">Official GLEIF Record</h3>
-                        <p className="text-sm text-blue-700 dark:text-blue-300">
-                            Data verified against the Global Legal Entity Identifier Foundation.
+                        <div className="flex items-center gap-2">
+                            <h3 className="font-bold text-emerald-900 dark:text-emerald-100 text-lg tracking-tight">GLEIF</h3>
+                            <Badge variant="outline" className="text-[10px] h-5 px-1.5 font-bold bg-emerald-500 text-white border-none">
+                                VERIFIED DATA
+                            </Badge>
+                        </div>
+                        <p className="text-sm text-emerald-700 dark:text-emerald-300">
+                            Official Global Legal Entity Identifier record
                         </p>
                     </div>
                 </div>
-                {fetchedAt && (
-                    <div className="flex items-center gap-2 text-xs text-slate-500 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-md border shadow-sm">
-                        <Clock className="h-3.5 w-3.5" />
-                        Last Refreshed: {new Date(fetchedAt).toLocaleString()}
-                    </div>
-                )}
+
+                <div className="flex flex-col items-end gap-1.5">
+                    <GleifRefreshButton leId={leId} lastRefreshed={fetchedAt} />
+                    <RawPayloadViewer data={data} />
+                </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

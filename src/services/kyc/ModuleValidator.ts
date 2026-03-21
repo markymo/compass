@@ -1,105 +1,73 @@
 import prisma from '@/lib/prisma';
-import {
-    ValidationResult
-} from '@/domain/kyc/types/ValidationTypes';
-// Reuse helper? Or make it shared?
-// To avoid circular dependency or class coupling, I'll inline the helper or move it to utils.
-// For now, inline is fine.
-
-// Typed registry to avoid dynamic access and ensure type safety
-const DELEGATES = {
-    IdentityProfile: prisma.identityProfile,
-    EntityInfoProfile: prisma.entityInfoProfile,
-    LeiRegistration: prisma.leiRegistration,
-    RelationshipProfile: prisma.relationshipProfile,
-    ConstitutionalProfile: prisma.constitutionalProfile,
-    ComplianceProfile: prisma.complianceProfile,
-    TaxProfile: prisma.taxProfile,
-    FinancialProfile: prisma.financialProfile,
-    DerivativesProfile: prisma.derivativesProfile,
-    TradingProfile: prisma.tradingProfile,
-    ContactProfile: prisma.contactProfile,
-    // Repeating
-    EntityName: prisma.entityName,
-    IndustryClassification: prisma.industryClassification,
-    Stakeholder: prisma.stakeholder,
-    TaxRegistration: prisma.taxRegistration,
-    AuthorizedTrader: prisma.authorizedTrader,
-    Contact: prisma.contact,
-    SettlementInstruction: prisma.settlementInstruction,
-};
-
-type ModuleName = keyof typeof DELEGATES;
+import { KycStateService } from '@/lib/kyc/KycStateService';
+import { getFieldDefinition } from '@/domain/kyc/FieldDefinitions';
+import { ValidationResult } from '@/domain/kyc/types/ValidationTypes';
 
 export class ModuleValidator {
 
     /**
      * Validates a module for completeness at a workflow gate.
-     * Based on hardcoded rules for Phase 2C.
+     * Transitioned to use KycStateService for FieldClaim-backed validation.
      */
     async validateModule(legalEntityId: string, moduleName: string): Promise<ValidationResult> {
         const errors: string[] = [];
 
-        // Check if module is known
-        if (!(moduleName in DELEGATES)) {
-            return { valid: false, errors: [`Unknown module: ${moduleName}`] };
-        }
-
-        const delegate = DELEGATES[moduleName as ModuleName];
-
-        // Fetch data
-        // We treat all as findMany for simplicity in type handling, then check count
-        // But 1:1 delegates don't have findMany.
-        // We need to differentiate 1:1 vs 1:N in the registry or logic?
-        // FieldDefinitions has 'isRepeating'. We could use that via lookup.
-        // For now, let's just try/catch or check function existence check (hacky but works)
-
-        let data: any;
-
-        // Define repeating modules
-        const REPEATING_MODULES = new Set([
-            'EntityName',
-            'IndustryClassification',
-            'Stakeholder',
-            'TaxRegistration',
-            'AuthorizedTrader',
-            'Contact',
-            'SettlementInstruction',
-        ]);
-
-        const isRepeating = REPEATING_MODULES.has(moduleName);
-
-        // Fetch data
-        if (isRepeating) {
-            // @ts-ignore - findMany exists on repeating delegates
-            data = await delegate.findMany({ where: { legalEntityId } });
-        } else {
-            // For 1:1 profiles, legalEntityId is unique
-            // @ts-ignore - findUnique exists on 1:1 delegates
-            data = await delegate.findUnique({ where: { legalEntityId } });
-        }
-
-        if (!data || (Array.isArray(data) && data.length === 0)) {
-            // Is empty/missing allowed? Depends on the module.
-            // For a "completeness" check, usually NO.
-            return { valid: false, errors: [`Module ${moduleName} has no data`] };
-        }
-
-        // Route to specific validation logic
+        // Map ModuleName to Field Numbers for validation
         switch (moduleName) {
-            case 'AuthorizedTrader':
-                this.validateAuthorizedTrader(data as any[], errors);
+            case 'IdentityProfile': {
+                const results = await Promise.all([
+                    KycStateService.getAuthoritativeValue({ subjectLeId: legalEntityId }, 3), // Legal Name
+                    KycStateService.getAuthoritativeValue({ subjectLeId: legalEntityId }, 2), // LEI
+                ]);
+                if (!results[0]?.value) errors.push('Missing Legal Name (Field 3)');
+                if (!results[1]?.value) errors.push('Missing LEI (Field 2)');
                 break;
+            }
 
-            case 'IdentityProfile':
-                this.validateIdentityProfile(data, errors);
+            case 'AuthorizedTrader': {
+                // Fetch collection for primary field (96: Full Name)
+                const traders = await KycStateService.getAuthoritativeCollection({ subjectLeId: legalEntityId }, 96);
+                if (traders.length === 0) {
+                    errors.push('Module AuthorizedTrader has no data');
+                } else {
+                    // For each trader found via Field 96, check its other fields using the same instanceId
+                    for (const trader of traders) {
+                        const instanceId = trader.instanceId;
+                        // email (97), proof of authority (100)
+                        const [email, proof] = await Promise.all([
+                            this.getScopedInstanceValue(legalEntityId, 97, instanceId),
+                            this.getScopedInstanceValue(legalEntityId, 100, instanceId)
+                        ]);
+
+                        const traderName = trader.value || 'Unknown';
+                        if (!email) errors.push(`Trader '${traderName}' missing email (Field 97)`);
+                        if (!proof) errors.push(`Trader '${traderName}' missing Proof of Trading Authority (Field 100)`);
+                    }
+                }
                 break;
+            }
 
-            case 'Stakeholder':
-                this.validateStakeholder(data as any[], errors);
+            case 'Stakeholder': {
+                // Stakeholders can be Individuals (65) or Corporates (69)
+                const [individuals, corporates] = await Promise.all([
+                    KycStateService.getAuthoritativeCollection({ subjectLeId: legalEntityId }, 65),
+                    KycStateService.getAuthoritativeCollection({ subjectLeId: legalEntityId }, 69),
+                ]);
+
+                if (individuals.length === 0 && corporates.length === 0) {
+                    errors.push('Module Stakeholder has no data');
+                }
+                // Specific row validations could be added here similar to AuthorizedTrader
                 break;
+            }
 
-            // Default: if data exists, valid for now
+            default:
+                // For other modules, we just check if any claims exist for fields in that "module"
+                // This is a loose check until more specific rules are added.
+                const claims = await prisma.fieldClaim.findFirst({
+                    where: { subjectLeId: legalEntityId }
+                });
+                if (!claims) errors.push(`Module ${moduleName} has no data`);
         }
 
         return {
@@ -108,38 +76,19 @@ export class ModuleValidator {
         };
     }
 
-    // --- Specific Module Validations ---
-
-    private validateAuthorizedTrader(rows: any[], errors: string[]) {
-        rows.forEach((row, index) => {
-            // Field 100: Document OR Attestation
-            const hasDoc = !!row.authorityDocumentId;
-            const hasAttestation = !!row.authorityAttestationText && row.authorityAttestationText.trim().length > 0;
-
-            if (!hasDoc && !hasAttestation) {
-                errors.push(`Trader '${row.fullName || 'Unknown'}' (Row ${index + 1}) missing Proof of Authority (Field 100: Document or Attestation required)`);
-            }
-
-            if (!row.email) errors.push(`Trader '${row.fullName || 'Unknown'}' (Row ${index + 1}) missing email`);
+    private async getScopedInstanceValue(leId: string, fieldNo: number, instanceId?: string) {
+        if (!instanceId) return null;
+        const claims = await prisma.fieldClaim.findMany({
+            where: {
+                subjectLeId: leId,
+                fieldNo,
+                instanceId,
+                status: { in: ['VERIFIED', 'ASSERTED'] }
+            },
+            orderBy: { assertedAt: 'desc' },
+            take: 1
         });
+        return claims[0]?.valueText || claims[0]?.valueNumber || claims[0]?.valueJson || null;
     }
 
-    private validateIdentityProfile(data: any, errors: string[]) {
-        if (!data.legalName) errors.push('Missing Legal Name');
-        if (!data.leiCode) errors.push('Missing LEI');
-
-        if (errors.length > 0) {
-            console.log(`[ModuleValidator] IdentityProfile Errors. Data found:`, JSON.stringify(data, null, 2));
-        }
-    }
-
-    private validateStakeholder(rows: any[], errors: string[]) {
-        rows.forEach((row, index) => {
-            if (row.stakeholderType === 'INDIVIDUAL') {
-                if (!row.fullName) errors.push(`Stakeholder #${index + 1} (Individual) missing Full Name`);
-            } else if (row.stakeholderType === 'CORPORATE') {
-                if (!row.legalName) errors.push(`Stakeholder #${index + 1} (Corporate) missing Legal Name`);
-            }
-        });
-    }
 }

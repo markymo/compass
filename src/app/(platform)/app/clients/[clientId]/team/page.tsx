@@ -63,13 +63,13 @@ export default async function TeamPageWrapper({ params }: { params: Promise<{ cl
         orderBy: { name: 'asc' }
     });
 
-    console.log(`[TeamPageWrapper] Fetched ${allClientLEs.length} Client LEs for ${clientId}:`, allClientLEs.map(l => l.name));
+    console.log(`[TeamPageWrapper] Fetched ${allClientLEs.length} Client LEs for ${clientId}:`, allClientLEs.map((l: any) => l.name));
 
 
     // Deduplicate and Group Users
     const userMap = new Map<string, any>();
 
-    activeMembers.forEach(m => {
+    activeMembers.forEach((m: any) => {
         if (!userMap.has(m.userId)) {
             userMap.set(m.userId, {
                 id: m.userId,

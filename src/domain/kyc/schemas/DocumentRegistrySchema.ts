@@ -8,7 +8,7 @@ import { z } from 'zod';
 
 export const DocumentRegistrySchema = z.object({
     legalEntityId: z.string().uuid(),
-    ownerType: z.enum(['LEGAL_ENTITY', 'STAKEHOLDER', 'AUTHORIZED_TRADER']),
+    ownerType: z.enum(['LEGAL_ENTITY']),
     ownerId: z.string().uuid(),
     fieldNo: z.number().int().positive(),
     filePath: z.string().min(1),

@@ -23,7 +23,7 @@ export function DynamicForm({ leId, schemaId, definition, initialData }: Dynamic
     const [loading, setLoading] = useState(false);
 
     // Initialize form with existing data or default empty string for all fields
-    const defaultValues = definition.fields.reduce((acc, field) => {
+    const defaultValues = definition.fields.reduce((acc: any, field: any) => {
         acc[field.key] = initialData?.[field.key] ?? "";
         return acc;
     }, {} as Record<string, any>);
@@ -64,7 +64,7 @@ export function DynamicForm({ leId, schemaId, definition, initialData }: Dynamic
                             </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                            {field.options?.map(opt => (
+                            {field.options?.map((opt: any) => (
                                 <SelectItem key={opt} value={opt}>{opt}</SelectItem>
                             ))}
                         </SelectContent>
@@ -83,7 +83,7 @@ export function DynamicForm({ leId, schemaId, definition, initialData }: Dynamic
         <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                 <div className="grid gap-6 md:grid-cols-2">
-                    {(definition.fields || []).map((field) => (
+                    {(definition.fields || []).map((field: any) => (
                         <FormField
                             key={field.id}
                             control={form.control}

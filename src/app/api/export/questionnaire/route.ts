@@ -4,6 +4,7 @@ import * as XLSX from "xlsx";
 import { renderToStream } from "@react-pdf/renderer";
 import React from "react";
 import { QuestionnairePDF } from "@/components/pdf/questionnaire-pdf";
+import { KycStateService } from "@/lib/kyc/KycStateService";
 
 export async function POST(req: NextRequest) {
     try {
@@ -23,6 +24,10 @@ export async function POST(req: NextRequest) {
         if (!engagement) {
             return NextResponse.json({ error: "Engagement not found" }, { status: 404 });
         }
+
+        // --- Resolved Master Data Context ---
+        const subjectLeId = engagement.clientLE.legalEntityId;
+        const ownerScopeId = await KycStateService.resolveScopeId(engagement.clientLEId);
 
         // 2. Fetch Questions (Logic mirroring kanban-actions)
         // Filters: by engagement, and optional questionnaireId
@@ -48,20 +53,44 @@ export async function POST(req: NextRequest) {
             }
         });
 
-        // 3. Transform Data
-        const exportData = questions.map(q => ({
-            id: q.id,
-            status: q.status,
-            question: q.text,
-            answer: q.answer || "",
-            notes: q.comments.map(c => `[${c.user?.name || 'User'}]: ${c.text}`).join("\n")
+        const exportData = await Promise.all(questions.map(async (q: any) => {
+            let resolvedAnswer = q.answer || "";
+            const isReleased = (q.status as any) === 'RELEASED';
+            const snapshotDate = isReleased ? (q as any).releasedAt : undefined;
+
+            // Use KycStateService to get the latest authoritative value if mapped
+            if (subjectLeId && q.masterFieldNo) {
+                const derived = await KycStateService.getAuthoritativeValue(
+                    { subjectLeId },
+                    q.masterFieldNo,
+                    ownerScopeId || undefined,
+                    snapshotDate
+                );
+
+                if (derived) {
+                    // Handle complex values (e.g. JSON or multiple lines)
+                    if (typeof derived.value === 'object' && derived.value !== null) {
+                        resolvedAnswer = JSON.stringify(derived.value);
+                    } else {
+                        resolvedAnswer = String(derived.value ?? "");
+                    }
+                }
+            }
+
+            return {
+                id: q.id,
+                status: q.status,
+                question: q.text,
+                answer: resolvedAnswer,
+                notes: q.comments.map((c: any) => `[${c.user?.name || 'User'}]: ${c.text}`).join("\n")
+            };
         }));
 
         const filename = `${engagement.clientLE.name.replace(/\s+/g, '_')}_Questionnaire_${new Date().toISOString().split('T')[0]}`;
 
         // 4. Handle Excel
         if (format === 'EXCEL') {
-            const worksheet = XLSX.utils.json_to_sheet(exportData.map(d => ({
+            const worksheet = XLSX.utils.json_to_sheet(exportData.map((d: any) => ({
                 Question: d.question,
                 Answer: d.answer,
                 Status: d.status,

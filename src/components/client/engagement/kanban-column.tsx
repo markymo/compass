@@ -41,7 +41,7 @@ export function KanbanColumn({ id, title, description, tasks, onTaskClick }: Kan
                         )}
                     >
                         <div className="space-y-3 min-h-[50px]">
-                            {tasks.map((task, index) => (
+                            {tasks.map((task: any, index: any) => (
                                 <QuestionCard
                                     key={task.id}
                                     task={task}

@@ -20,7 +20,7 @@ export function DemoSwitcher() {
     useEffect(() => {
         if (open && actors.length === 0) {
             setLoading(true);
-            getDemoActors().then(data => {
+            getDemoActors().then((data: any) => {
                 setActors(data);
                 setLoading(false);
             });
@@ -69,7 +69,7 @@ export function DemoSwitcher() {
                                     <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                                 </div>
                             )}
-                            {!loading && actors.map((actor) => (
+                            {!loading && actors.map((actor: any) => (
                                 <CommandItem
                                     key={actor.id}
                                     onSelect={() => handleImpersonate(actor.id)}

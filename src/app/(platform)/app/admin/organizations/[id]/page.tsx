@@ -101,7 +101,7 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
     useEffect(() => {
         if (!unwrappedParams?.id) return;
 
-        const hasProcessing = questionnaires.some(q => q.status === "DIGITIZING");
+        const hasProcessing = questionnaires.some((q: any) => q.status === "DIGITIZING");
         if (!hasProcessing) return;
 
         const interval = setInterval(() => {
@@ -166,7 +166,7 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
     if (!org) return <div>Organization not found</div>;
 
     // Filter Questionnaires
-    const displayedQuestionnaires = questionnaires.filter(q => showArchived ? true : q.status !== "ARCHIVED");
+    const displayedQuestionnaires = questionnaires.filter((q: any) => showArchived ? true : q.status !== "ARCHIVED");
 
     return (
         <div className="space-y-6">

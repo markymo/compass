@@ -95,7 +95,7 @@ export function QuestionnairePDF({ title, orgName, clientName, questions }: Ques
                     <Text style={styles.subtitle}>Date: {new Date().toLocaleDateString()}</Text>
                 </View>
 
-                {categories.map((cat) => (
+                {categories.map((cat: any) => (
                     <View key={cat as string}>
                         <Text style={styles.categoryHeader}>{cat as string}</Text>
                         {questions

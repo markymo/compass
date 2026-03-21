@@ -56,7 +56,7 @@ export default function UserAdminPage() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {users.map(u => {
+                                {users.map((u: any) => {
                                     const isSystemAdmin = u.memberships.some((m: any) => m.orgType === "SYSTEM");
                                     return (
                                         <TableRow key={u.userId}>

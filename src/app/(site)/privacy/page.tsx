@@ -1,5 +1,6 @@
 import React from "react";
 import Link from "next/link";
+import { BRAND } from "@/config/brand";
 
 export default function PrivacyPage() {
     return (
@@ -15,14 +16,14 @@ export default function PrivacyPage() {
 
                 <section className="space-y-6 text-slate-700 dark:text-slate-300">
                     <p>
-                        ONpro (“we” or “us”) is committed to protecting your privacy. This policy details how we collect, use, and store
+                        {BRAND.name} (“we” or “us”) is committed to protecting your privacy. This policy details how we collect, use, and store
                         your personal information.
                     </p>
 
                     <div>
                         <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">Introduction</h3>
                         <p>
-                            ONpro is registered with the UK Information Commissioner's Office (ICO).
+                            {BRAND.name} is registered with the UK Information Commissioner's Office (ICO).
                             Reference number: [Insert ICO Reference Number]
                         </p>
                     </div>
@@ -30,7 +31,7 @@ export default function PrivacyPage() {
                     <div>
                         <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">Call Recording</h3>
                         <p>
-                            Telephone calls to ONpro telephone numbers, including employee mobile devices, may be recorded for the following purposes in connection with our business:
+                            Telephone calls to {BRAND.name} telephone numbers, including employee mobile devices, may be recorded for the following purposes in connection with our business:
                         </p>
                         <ul className="list-disc pl-6 mt-2 space-y-1">
                             <li>Establishing the facts of a conversation</li>
@@ -70,7 +71,7 @@ export default function PrivacyPage() {
                     <div>
                         <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">Your Rights</h3>
                         <p>
-                            Under the General Data Protection Regulation (GDPR), you have the right to access, rectify, erase, restrict the processing or portability of data that we hold on you. You may enforce these rights by contacting us via email at <a href="mailto:advice@onpro.com" className="text-amber-500 hover:underline">advice@onpro.com</a>.
+                            Under the General Data Protection Regulation (GDPR), you have the right to access, rectify, erase, restrict the processing or portability of data that we hold on you. You may enforce these rights by contacting us via email at <a href={`mailto:${BRAND.email}`} className="text-amber-500 hover:underline">{BRAND.email}</a>.
                         </p>
                     </div>
 
@@ -91,7 +92,7 @@ export default function PrivacyPage() {
                     <div>
                         <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">Contact Us</h3>
                         <p>
-                            For further information on how your information is used, collected or stored, to access, correct, amend or delete any information we hold on you, or to opt out of marketing communications at any time, please contact us at <a href="mailto:advice@onpro.com" className="text-amber-500 hover:underline">advice@onpro.com</a>.
+                            For further information on how your information is used, collected or stored, to access, correct, amend or delete any information we hold on you, or to opt out of marketing communications at any time, please contact us at <a href={`mailto:${BRAND.email}`} className="text-amber-500 hover:underline">{BRAND.email}</a>.
                         </p>
                     </div>
                 </section>

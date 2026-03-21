@@ -40,7 +40,7 @@ export function CreateQuestionnaireWizard({ sourceDocuments }: WizardProps) {
 
     useEffect(() => {
         if (open && fis.length === 0) {
-            getFIs().then(res => setFis(res));
+            getFIs().then((res: any) => setFis(res));
         }
     }, [open, fis.length]);
 
@@ -96,6 +96,7 @@ export function CreateQuestionnaireWizard({ sourceDocuments }: WizardProps) {
     const [isUploading, setIsUploading] = useState(false);
     const [uploadStatus, setUploadStatus] = useState<"idle" | "success" | "error">("idle");
     const [statusMessage, setStatusMessage] = useState("");
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); setIsDragging(true); };
@@ -117,12 +118,13 @@ export function CreateQuestionnaireWizard({ sourceDocuments }: WizardProps) {
         setStatusMessage("Starting AI extraction...");
         startBackgroundExtraction(id).catch(e => console.error("Background extraction failed:", e));
 
-        // Wait just a moment for the DB status to update to DIGITIZING
+        // Close modal and redirect quickly
+        setOpen(false);
+        router.push(`/app/admin/questionnaires/${id}`);
+        // Reset state after a delay to avoid UI flicker while modal is closing
         setTimeout(() => {
-            setOpen(false);
-            router.push(`/app/admin/questionnaires/${id}`);
             resetUploadState();
-        }, 1500);
+        }, 500);
     };
 
     const processFile = async (file: File) => {
@@ -133,9 +135,10 @@ export function CreateQuestionnaireWizard({ sourceDocuments }: WizardProps) {
             return;
         }
 
+        setSelectedFile(file);
         setIsUploading(true);
         setUploadStatus("idle");
-        setStatusMessage(`Creating record for ${file.name}...`);
+        setStatusMessage(`Uploading ${file.name}...`);
 
         try {
             const blob = await upload(file.name, file, { access: 'public', handleUploadUrl: '/api/upload' });
@@ -149,7 +152,7 @@ export function CreateQuestionnaireWizard({ sourceDocuments }: WizardProps) {
 
             if (result.success && result.questionnaireId) {
                 setUploadStatus("success");
-                setStatusMessage(`Upload successful! Redirecting to extraction...`);
+                setStatusMessage(`Extraction starting...`);
                 await triggerExtraction(result.questionnaireId);
             } else {
                 setUploadStatus("error");
@@ -171,6 +174,7 @@ export function CreateQuestionnaireWizard({ sourceDocuments }: WizardProps) {
         setIsUploading(false);
         setUploadStatus("idle");
         setStatusMessage("");
+        setSelectedFile(null);
     };
 
     // -- Tab 3: Existing Document State --
@@ -259,6 +263,10 @@ export function CreateQuestionnaireWizard({ sourceDocuments }: WizardProps) {
                                                     <span className="text-[10px] font-bold text-indigo-600">AI</span>
                                                 </div>
                                             </div>
+                                        ) : selectedFile ? (
+                                            <div className="p-4 bg-emerald-50 rounded-full animate-in zoom-in duration-200">
+                                                <CheckCircle2 className="h-8 w-8 text-emerald-500" />
+                                            </div>
                                         ) : uploadStatus === "success" ? (
                                             <CheckCircle2 className="h-12 w-12 text-green-500" />
                                         ) : uploadStatus === "error" ? (
@@ -271,14 +279,21 @@ export function CreateQuestionnaireWizard({ sourceDocuments }: WizardProps) {
 
                                         <div className="space-y-1">
                                             <h3 className="font-semibold text-lg text-slate-900">
-                                                {isUploading ? "Processing Document..." : "Click or drag document to upload"}
+                                                {isUploading ? "Uploading Document..." : selectedFile ? "File Selected" : "Click or drag document to upload"}
                                             </h3>
                                             <p className="text-sm border-slate-500 max-w-sm mx-auto text-slate-500">
-                                                {statusMessage || "Supported files: PDF, DOCX, TXT"}
+                                                {selectedFile ? (
+                                                    <span className="font-medium text-slate-700">{selectedFile.name} ({(selectedFile.size / 1024).toFixed(1)} KB)</span>
+                                                ) : (
+                                                    statusMessage || "Supported files: PDF, DOCX, TXT"
+                                                )}
                                             </p>
+                                            {isUploading && statusMessage && (
+                                                <p className="text-xs text-indigo-600 font-medium animate-pulse">{statusMessage}</p>
+                                            )}
                                         </div>
 
-                                        {!isUploading && uploadStatus === "idle" && (
+                                        {!isUploading && !selectedFile && uploadStatus === "idle" && (
                                             <Button variant="outline" type="button" className="mt-4 border-slate-300">
                                                 Browse Files
                                             </Button>
@@ -305,7 +320,7 @@ export function CreateQuestionnaireWizard({ sourceDocuments }: WizardProps) {
                                         </div>
                                     ) : (
                                         <div className="divide-y divide-slate-100">
-                                            {sourceDocuments.map(doc => (
+                                            {sourceDocuments.map((doc: any) => (
                                                 <div
                                                     key={doc.id}
                                                     onClick={() => !isExtractingExisting && setSelectedSourceId(doc.id)}
@@ -398,7 +413,7 @@ export function CreateQuestionnaireWizard({ sourceDocuments }: WizardProps) {
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="SYSTEM_INTERNAL_NONE">Internal / System (Default)</SelectItem>
-                                            {fis.map(fi => (
+                                            {fis.map((fi: any) => (
                                                 <SelectItem key={fi.id} value={fi.id}>{fi.name}</SelectItem>
                                             ))}
                                         </SelectContent>

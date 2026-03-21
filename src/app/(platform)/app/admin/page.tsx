@@ -1,7 +1,7 @@
 
 import prisma from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Users, Building2, Database, Wand2, FileText, AlertCircle, ShieldCheck, BarChart3, UserCheck } from "lucide-react";
+import { Users, Building2, Database, Wand2, FileText, AlertCircle, ShieldCheck, BarChart3, UserCheck, MessageSquarePlus, Activity } from "lucide-react";
 import Link from "next/link";
 
 export default async function AdminDashboardPage() {
@@ -12,7 +12,7 @@ export default async function AdminDashboardPage() {
         prisma.questionnaire.findMany({ // Get unique questionnaires by name
             distinct: ['name'],
             select: { id: true }
-        }).then(qs => qs.length)
+        }).then((qs: any) => qs.length)
     ]);
 
     const cards = [
@@ -63,6 +63,27 @@ export default async function AdminDashboardPage() {
             icon: UserCheck,
             color: "text-amber-600",
         },
+        {
+            title: "Product Feedback",
+            description: "Review notes from product review sessions",
+            href: "/app/admin/feedback",
+            icon: MessageSquarePlus,
+            color: "text-indigo-600",
+        },
+        {
+            title: "Master Data",
+            description: "Govern field definitions, groups, and active states",
+            href: "/app/admin/master-data",
+            icon: Database,
+            color: "text-purple-600",
+        },
+        {
+            title: "Pulse",
+            description: "User activity, adoption tracking, and LE engagement health",
+            href: "/app/admin/pulse",
+            icon: Activity,
+            color: "text-rose-600",
+        },
     ];
 
     return (
@@ -77,30 +98,8 @@ export default async function AdminDashboardPage() {
             </div>
 
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-                <Link href="/app/admin/todo" className="group">
-                    <Card className="h-full border-blue-200 bg-blue-50/50 shadow-sm transition-all duration-300 hover:shadow-lg hover:-translate-y-1 dark:border-slate-800">
-                        <CardHeader className="flex flex-row items-center justify-between pb-2">
-                            <CardTitle className="text-base font-semibold text-blue-900 dark:text-slate-200">
-                                Internal Tasks
-                            </CardTitle>
-                            <div className="rounded-full p-2.5 bg-white shadow-sm">
-                                <FileText className="h-5 w-5 text-blue-600" />
-                            </div>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="flex items-center justify-between mb-1">
-                                <div className="text-2xl font-bold text-slate-900 dark:text-white">
-                                    Board
-                                </div>
-                            </div>
-                            <CardDescription className="text-xs font-medium text-slate-500 line-clamp-2">
-                                Manage "Stuff" and Backlog items
-                            </CardDescription>
-                        </CardContent>
-                    </Card>
-                </Link>
 
-                {cards.map((card) => (
+                {cards.map((card: any) => (
                     <Link key={card.title} href={card.href} className="group">
                         <Card className="h-full border-slate-200 shadow-sm transition-all duration-300 hover:shadow-lg hover:-translate-y-1 dark:border-slate-800">
                             <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -128,7 +127,7 @@ export default async function AdminDashboardPage() {
 
             <div className="rounded-xl border border-slate-200 bg-slate-50 p-8 text-center dark:border-slate-800 dark:bg-slate-900/50">
                 <p className="text-sm text-slate-500">
-                    Platform metrics and system health monitoring coming soon.
+                    System health monitoring coming soon.
                 </p>
             </div>
         </div>

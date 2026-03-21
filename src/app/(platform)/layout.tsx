@@ -4,6 +4,10 @@ import { Badge } from "@/components/ui/badge";
 import { PlatformNavbar } from "@/components/layout/PlatformNavbar";
 import { Footer } from "@/components/layout/Footer";
 import { DemoBanner } from "@/components/layout/DemoBanner";
+import { getUserAssignmentCount } from "@/actions/kyc-query";
+
+import { AuthSessionProvider } from "@/components/providers/session-provider";
+import { BreadcrumbProvider } from "@/context/breadcrumb-context";
 
 export default async function PlatformLayout({
     children,
@@ -27,14 +31,20 @@ export default async function PlatformLayout({
         isSystemAdmin = await checkIsSystemAdmin(userId);
     }
 
+    const assignmentCount = userId ? await getUserAssignmentCount(userId).catch(() => 0) : 0;
+
     return (
-        <div className="flex min-h-screen flex-col bg-gray-50 dark:bg-zinc-900">
-            <DemoBanner />
-            <PlatformNavbar isSystemAdmin={isSystemAdmin} />
-            <main className="flex-1 container mx-auto p-4 md:p-8">
-                {children}
-            </main>
-            <Footer />
-        </div>
+        <AuthSessionProvider>
+            <BreadcrumbProvider>
+                <div className="flex min-h-screen flex-col bg-gray-50 dark:bg-zinc-900">
+                    <DemoBanner />
+                    <PlatformNavbar isSystemAdmin={isSystemAdmin} assignmentCount={assignmentCount} />
+                    <main className="flex-1 container mx-auto p-4 md:p-8">
+                        {children}
+                    </main>
+                    <Footer />
+                </div>
+            </BreadcrumbProvider>
+        </AuthSessionProvider>
     );
 }

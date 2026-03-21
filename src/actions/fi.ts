@@ -167,7 +167,7 @@ export async function uploadQuestionnaire(formData: FormData) {
             }
         });
 
-        revalidatePath("/app/fi/questionnaires");
+        revalidatePath("/app/s/questionnaires");
         return { success: true, data: q };
     } catch (e) {
         console.error(e);
@@ -310,13 +310,104 @@ export async function getFIEngagements(fiOrgId?: string): Promise<ApplicationEng
     });
 
     // Map instances to 'questionnaires' property for frontend compatibility
-    return engagements.map(e => ({
+    return engagements.map((e: any) => ({
         ...e,
         questionnaires: e.questionnaireInstances
     }));
 }
 
 // 2.b Get Questions for Dashboard (Kanban Items)
+import { listAllMasterFields, listAllMasterGroups } from "@/services/masterData/definitionService";
+
+export interface FIWorkbenchData {
+    questions: any[];
+    les: string[];
+    questionnaires: string[];
+    categories: string[];
+}
+
+export async function getFIWorkbenchData(fiOrgId: string): Promise<FIWorkbenchData> {
+    const identity = await getIdentity();
+    if (!identity?.userId) return { questions: [], les: [], questionnaires: [], categories: [] };
+    const { userId } = identity;
+
+    // Verify access
+    const membership = await prisma.membership.findFirst({
+        where: { userId, organizationId: fiOrgId, organization: { types: { has: "FI" } } }
+    });
+    if (!membership) return { questions: [], les: [], questionnaires: [], categories: [] };
+
+    const questionsRaw = await prisma.question.findMany({
+        where: {
+            questionnaire: {
+                fiOrgId: fiOrgId,
+                isDeleted: false
+            },
+            status: { in: ["SHARED", "RELEASED"] }
+        },
+        include: {
+            questionnaire: {
+                include: {
+                    fiEngagement: {
+                        include: { clientLE: true }
+                    }
+                }
+            }
+        },
+        orderBy: { updatedAt: 'desc' }
+    });
+
+    const [allFields, allGroups] = await Promise.all([
+        listAllMasterFields(),
+        listAllMasterGroups()
+    ]);
+
+    const fieldCategoryMap = new Map(allFields.map((f: any) => [f.fieldNo, f.category]));
+    const groupCategoryMap = new Map(allGroups.map((g: any) => [g.key, g.category]));
+
+    const questions = questionsRaw.map((q: any) => {
+        let category = "Uncategorized";
+        if (q.masterFieldNo) category = fieldCategoryMap.get(q.masterFieldNo) || "Uncategorized";
+        else if (q.masterQuestionGroupId) category = groupCategoryMap.get(q.masterQuestionGroupId) || "Uncategorized";
+        else if (q.customFieldDefinitionId) category = "Custom";
+
+        return {
+            ...q,
+            category,
+            leName: q.questionnaire.fiEngagement?.clientLE.name || "Unknown",
+            questionnaireName: q.questionnaire.name
+        };
+    });
+
+    return {
+        questions: JSON.parse(JSON.stringify(questions)),
+        les: Array.from(new Set(questions.map((q: any) => q.leName))).sort() as string[],
+        questionnaires: Array.from(new Set(questions.map((q: any) => q.questionnaireName))).sort() as string[],
+        categories: Array.from(new Set(questions.map((q: any) => q.category))).sort() as string[]
+    };
+}
+
+export async function getFITeamMembers(fiOrgId: string) {
+    const identity = await getIdentity();
+    if (!identity?.userId) return [];
+
+    const members = await prisma.membership.findMany({
+        where: { organizationId: fiOrgId },
+        include: {
+            user: true
+        },
+        orderBy: { role: 'asc' }
+    });
+
+    return members.map((m: any) => ({
+        id: m.user?.id || 'unknown',
+        name: m.user?.name || 'Unknown User',
+        email: m.user?.email || 'No Email',
+        role: m.role,
+        image: m.user?.image
+    }));
+}
+
 export async function getFIDashboardQuestions(filters?: { clientLEId?: string; questionnaireName?: string; fiOrgId?: string }) {
     const identity = await getIdentity();
     if (!identity?.userId) return [];
@@ -495,19 +586,22 @@ export async function assignQuestionnaireToEngagement(engagementId: string, temp
 
                 // 3. Deep Clone Questions (Snapshot)
                 questions: {
-                    create: template.questions.map(q => ({
+                    create: template.questions.map((q: any) => ({
                         text: q.text,
                         compactText: q.compactText,
                         order: q.order,
                         status: "DRAFT",
                         sourceSectionId: q.sourceSectionId,
+                        masterFieldNo: q.masterFieldNo,
+                        masterQuestionGroupId: q.masterQuestionGroupId,
+                        customFieldDefinitionId: q.customFieldDefinitionId,
                         // Note: We do NOT copy 'answer' or 'activities' or 'comments' as this is a fresh start
                     }))
                 }
             }
         });
 
-        revalidatePath(`/app/fi/engagements/${engagementId}`);
+        revalidatePath(`/app/s/engagements/${engagementId}`);
         return { success: true, data: instance };
 
     } catch (e: any) {
@@ -543,7 +637,7 @@ export async function deleteEngagement(id: string) {
             where: { id }, // Already guarded by check above
             data: { isDeleted: true }
         });
-        revalidatePath("/app/fi");
+        revalidatePath("/app/s");
         return { success: true };
     } catch (e) {
         return { success: false, error: "Failed to delete engagement" };
@@ -568,7 +662,7 @@ export async function archiveEngagement(id: string) {
             where: { id },
             data: { status: "ARCHIVED" }
         });
-        revalidatePath("/app/fi");
+        revalidatePath("/app/s");
         return { success: true };
     } catch (e) {
         return { success: false, error: "Failed to archive engagement" };

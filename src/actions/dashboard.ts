@@ -3,11 +3,13 @@
 import prisma from "@/lib/prisma";
 import { getIdentity } from "@/lib/auth";
 
+import { DashboardMetric, emptyMetrics, calculateEngagementMetrics, rollupMetrics } from "@/lib/metrics-calc";
+
 export type DashboardContexts = {
-    clients: Array<{ id: string; name: string; role: string; source: "DIRECT" | "DERIVED" }>;
-    financialInstitutions: Array<{ id: string; name: string; role: string }>;
+    clients: Array<{ id: string; name: string; role: string; source: "DIRECT" | "DERIVED"; metrics: DashboardMetric }>;
+    financialInstitutions: Array<{ id: string; name: string; role: string; metrics: DashboardMetric }>;
     lawFirms: Array<{ id: string; name: string; role: string }>;
-    legalEntities: Array<{ id: string; name: string; clientName: string; role: string }>;
+    legalEntities: Array<{ id: string; name: string; clientName: string; role: string; metrics: DashboardMetric }>;
     relationships: Array<{
         id: string;
         leName: string;
@@ -19,6 +21,8 @@ export type DashboardContexts = {
         clientLEId: string;
         userIsClient: boolean;
         userIsSupplier: boolean;
+        metrics: DashboardMetric;
+        questionnaires?: Array<{ id: string; name: string; status: string; updatedAt: Date }>;
     }>;
 };
 
@@ -52,18 +56,18 @@ export async function getUserContexts(): Promise<DashboardContexts> {
         relationships: []
     };
 
-    const clientMap = new Map<string, { id: string; name: string; role: string; source: "DIRECT" | "DERIVED" }>();
-    const leMap = new Map<string, { id: string; name: string; clientName: string; role: string }>();
+    const clientMap = new Map<string, { id: string; name: string; role: string; source: "DIRECT" | "DERIVED"; metrics: DashboardMetric }>();
+    const fiMap = new Map<string, { id: string; name: string; role: string; metrics: DashboardMetric }>();
+    const leMap = new Map<string, { id: string; name: string; clientName: string; role: string; metrics: DashboardMetric }>();
 
     for (const m of memberships) {
         // A. Direct Party Memberships
         if (m.organization) {
             const org = m.organization;
             if (org.types.includes("CLIENT")) {
-                clientMap.set(org.id, { id: org.id, name: org.name, role: m.role, source: "DIRECT" });
+                clientMap.set(org.id, { id: org.id, name: org.name, role: m.role, source: "DIRECT", metrics: emptyMetrics() });
 
                 // IF Admin of Client, fetch ALL its owned LEs (for management view)
-                // Note: Implicit access to DATA is denied, but visibility for management is allowed.
                 if (m.role === "ADMIN" || m.role === "CLIENT_ADMIN" || m.role === "ORG_ADMIN") {
                     const orgLEs = await prisma.clientLE.findMany({
                         where: {
@@ -81,25 +85,26 @@ export async function getUserContexts(): Promise<DashboardContexts> {
                         }
                     });
 
-                    orgLEs.forEach(le => {
+                    orgLEs.forEach((le: any) => {
                         const ownerName = le.owners[0]?.party.name || "Unknown Client";
                         if (!leMap.has(le.id)) {
                             leMap.set(le.id, {
                                 id: le.id,
                                 name: le.name,
                                 clientName: ownerName,
-                                role: "ADMIN_VISIBILITY" // Special marker? Or just ADMIN?
+                                role: "ADMIN_VISIBILITY",
+                                metrics: emptyMetrics()
                             });
                         }
                     });
                 }
 
             } else if (org.types.includes("FI")) {
-                context.financialInstitutions.push({ id: org.id, name: org.name, role: m.role });
+                fiMap.set(org.id, { id: org.id, name: org.name, role: m.role, metrics: emptyMetrics() });
             } else if (org.types.includes("LAW_FIRM" as any)) {
                 context.lawFirms.push({ id: org.id, name: org.name, role: m.role });
             } else if (org.types.includes("SYSTEM")) {
-                // System Admin: Fetch ALL LEs owned by System
+                // System Admin
                 const orgLEs = await prisma.clientLE.findMany({
                     where: {
                         owners: { some: { partyId: org.id, endAt: null } },
@@ -116,14 +121,15 @@ export async function getUserContexts(): Promise<DashboardContexts> {
                     }
                 });
 
-                orgLEs.forEach(le => {
+                orgLEs.forEach((le: any) => {
                     const ownerName = le.owners[0]?.party.name || "Unknown System";
                     if (!leMap.has(le.id)) {
                         leMap.set(le.id, {
                             id: le.id,
                             name: le.name,
                             clientName: ownerName,
-                            role: m.role
+                            role: m.role,
+                            metrics: emptyMetrics()
                         });
                     }
                 });
@@ -133,27 +139,24 @@ export async function getUserContexts(): Promise<DashboardContexts> {
         // B. Direct Worksheet (LE) Memberships
         if (m.clientLE) {
             const le = m.clientLE;
-            // Current owner name
             const ownerName = le.owners[0]?.party.name || "Unknown Client";
 
-            // Upsert (prefer direct role)
-            // Existing logic maps ID to role.
             leMap.set(le.id, {
                 id: le.id,
                 name: le.name,
                 clientName: ownerName,
-                role: m.role
+                role: m.role,
+                metrics: emptyMetrics()
             });
 
-            // Implied Client Access (Derived)
-            // Add all current owners to the client list as DERIVED
-            le.owners.forEach(owner => {
+            le.owners.forEach((owner: any) => {
                 if (!clientMap.has(owner.partyId)) {
                     clientMap.set(owner.partyId, {
                         id: owner.party.id,
                         name: owner.party.name,
                         role: "DERIVED",
-                        source: "DERIVED"
+                        source: "DERIVED",
+                        metrics: emptyMetrics()
                     });
                 }
             });
@@ -161,10 +164,10 @@ export async function getUserContexts(): Promise<DashboardContexts> {
     }
 
     context.clients = Array.from(clientMap.values());
+    context.financialInstitutions = Array.from(fiMap.values());
     context.legalEntities = Array.from(leMap.values());
-    const leIds = context.legalEntities.map(l => l.id);
-
-    const fiIds = context.financialInstitutions.map(fi => fi.id);
+    const leIds = context.legalEntities.map((l: any) => l.id);
+    const fiIds = context.financialInstitutions.map((fi: any) => fi.id);
 
     // 2. Fetch Relationships (Engagements) for visible LEs OR visible FIs
     if (leIds.length > 0 || fiIds.length > 0) {
@@ -185,12 +188,44 @@ export async function getUserContexts(): Promise<DashboardContexts> {
                             include: { party: true }
                         }
                     }
+                },
+                questionnaireInstances: {
+                    where: { status: "SHARED", isDeleted: false },
+                    select: { id: true, name: true, status: true, updatedAt: true }
                 }
             }
         });
 
-        context.relationships = engagements.map(e => {
+        context.relationships = await Promise.all(engagements.map(async (e: any) => {
             const owner = e.clientLE.owners[0];
+            const rawMetrics = await calculateEngagementMetrics(e.id);
+            const userIsSupplier = fiIds.includes(e.fiOrgId);
+
+            // Filter metrics for Supplier view
+            const finalMetrics = userIsSupplier ? {
+                total: rawMetrics.total,
+                noData: rawMetrics.noData,
+                mapped: rawMetrics.mapped,
+                answered: rawMetrics.answered,
+                approved: rawMetrics.approved,
+                released: rawMetrics.released
+            } : rawMetrics;
+
+            // Rollup metrics to LE and Client
+            const le = leMap.get(e.clientLEId);
+            if (le) rollupMetrics(le.metrics, finalMetrics);
+
+            if (owner) {
+                const client = clientMap.get(owner.partyId);
+                if (client) rollupMetrics(client.metrics, finalMetrics);
+            }
+
+            // Rollup to FI if user is a supplier
+            if (userIsSupplier) {
+                const fi = fiMap.get(e.fiOrgId);
+                if (fi) rollupMetrics(fi.metrics, finalMetrics);
+            }
+
             return {
                 id: e.id,
                 leName: e.clientLE.name,
@@ -201,9 +236,11 @@ export async function getUserContexts(): Promise<DashboardContexts> {
                 fiOrgId: e.fiOrgId,
                 clientLEId: e.clientLEId,
                 userIsClient: leIds.includes(e.clientLEId),
-                userIsSupplier: fiIds.includes(e.fiOrgId)
+                userIsSupplier,
+                metrics: finalMetrics,
+                questionnaires: userIsSupplier ? e.questionnaireInstances : undefined
             };
-        });
+        }));
     }
 
     return context;

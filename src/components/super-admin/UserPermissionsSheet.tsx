@@ -9,7 +9,7 @@ import { Separator } from "@/components/ui/separator";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { assignClientRole, assignLERole } from "@/actions/super-admin-users";
-import { Loader2, ShieldAlert, Building2, Briefcase } from "lucide-react";
+import { Loader2, ShieldAlert, Building2, Landmark } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 interface UserPermissionsSheetProps {
@@ -103,7 +103,7 @@ export function UserPermissionsSheet({ isOpen, onClose, user, clientName, client
                     {/* SECTION 2: ROOM KEYS */}
                     <div className="flex-1 flex flex-col min-h-0">
                         <div className="flex items-center gap-2 mb-4">
-                            <Briefcase className="w-4 h-4 text-slate-500" />
+                            <Landmark className="w-4 h-4 text-slate-500" />
                             <h3 className="font-semibold text-sm uppercase tracking-wide text-slate-700">Legal Entity Access (Rooms)</h3>
                         </div>
 
@@ -114,7 +114,7 @@ export function UserPermissionsSheet({ isOpen, onClose, user, clientName, client
                                         No Legal Entities found for this client.
                                     </div>
                                 ) : (
-                                    les.map(le => {
+                                    les.map((le: any) => {
                                         const currentRole = user.leRoles[le.id] || "NONE";
                                         // Effect of Admin?
                                         // If Admin, they see it, but don't have "Enter" unless they have a role.

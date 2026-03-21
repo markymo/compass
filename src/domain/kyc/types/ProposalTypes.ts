@@ -1,5 +1,6 @@
 
-export type ProvenanceSource = 'GLEIF' | 'COMPANIES_HOUSE' | 'USER_INPUT' | 'SYSTEM';
+import { ProvenanceSource } from "./ProvenanceTypes";
+export type { ProvenanceSource };
 
 export type FieldValue = {
     value: any;

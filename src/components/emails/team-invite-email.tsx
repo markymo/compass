@@ -13,6 +13,7 @@ import {
     Tailwind,
 } from "@react-email/components";
 import * as React from "react";
+import { BRAND } from "@/config/brand";
 
 interface TeamInviteEmailProps {
     inviterName: string;
@@ -32,7 +33,7 @@ export const TeamInviteEmail = ({
     return (
         <Html>
             <Head />
-            <Preview>{inviterName} has invited you to join {scopeLabel} on ONpro</Preview>
+            <Preview>{inviterName} has invited you to join {scopeLabel} on {BRAND.name}</Preview>
             <Tailwind>
                 <Body className="bg-white my-auto mx-auto font-sans">
                     <Container className="border border-solid border-[#eaeaea] rounded my-[40px] mx-auto p-[20px] max-w-[465px]">
@@ -40,7 +41,7 @@ export const TeamInviteEmail = ({
                             You&apos;ve been invited
                         </Heading>
                         <Text className="text-black text-[14px] leading-[24px]">
-                            <strong>{inviterName}</strong> has invited you to join <strong>{scopeLabel}</strong> on ONpro.
+                            <strong>{inviterName}</strong> has invited you to join <strong>{scopeLabel}</strong> on {BRAND.name}.
                         </Text>
 
                         <Section className="bg-slate-50 p-4 rounded-md border border-slate-200 my-4 text-center">

@@ -72,7 +72,7 @@ export function QuestionnaireSearch({ clientLEId }: { clientLEId: string }) {
 
     function toggleForm(id: string) {
         setSelectedFormIds(prev =>
-            prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+            prev.includes(id) ? prev.filter((x: any) => x !== id) : [...prev, id]
         );
     }
 
@@ -139,7 +139,7 @@ export function QuestionnaireSearch({ clientLEId }: { clientLEId: string }) {
                                     <span className="text-xs">Searching...</span>
                                 </div>
                             ) : results.length > 0 ? (
-                                results.map(fi => (
+                                results.map((fi: any) => (
                                     <div
                                         key={fi.id}
                                         className="flex items-center justify-between p-3 mx-2 rounded-lg hover:bg-white hover:shadow-sm border border-transparent hover:border-slate-100 cursor-pointer transition-all group"
@@ -189,7 +189,7 @@ export function QuestionnaireSearch({ clientLEId }: { clientLEId: string }) {
                             ) : (
                                 <div className="space-y-3">
                                     <h4 className="text-sm font-medium text-muted-foreground mb-3">Select Questionnaires to Add</h4>
-                                    {availableForms.map(form => (
+                                    {availableForms.map((form: any) => (
                                         <div
                                             key={form.id}
                                             className={`flex items-start space-x-3 p-4 border rounded-xl transition-all cursor-pointer ${selectedFormIds.includes(form.id) ? 'bg-blue-50 border-blue-200 shadow-sm' : 'bg-white hover:border-blue-200'}`}

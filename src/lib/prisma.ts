@@ -1,19 +1,16 @@
-import { PrismaClient } from '@prisma/client'
+import { PrismaClient } from '@prisma/client';
+import { legacyAuditExtension } from './prisma-audit';
 
 const prismaClientSingleton = () => {
-    // In development, Neon can get exhausted by hot-reload connections. 
-    // Usually connection_limit=1 in the connection string helps, but let's just log init.
-    // console.log("Initializing new PrismaClient..."); 
-    // Triggering client reload...
-    return new PrismaClient()
+    return new PrismaClient().$extends(legacyAuditExtension);
 }
 
 declare const globalThis: {
-    prismaGlobal1: ReturnType<typeof prismaClientSingleton>
+    prismaGlobal2: ReturnType<typeof prismaClientSingleton>
 } & typeof global
 
-const prisma = globalThis.prismaGlobal1 ?? prismaClientSingleton()
+const prisma = (globalThis as any).prismaGlobal2 || prismaClientSingleton()
 
 export default prisma
 
-if (process.env.NODE_ENV !== 'production') globalThis.prismaGlobal1 = prisma
+if (process.env.NODE_ENV !== 'production') (globalThis as any).prismaGlobal2 = prisma

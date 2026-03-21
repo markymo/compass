@@ -29,7 +29,7 @@ export function QuestionnaireQAMode({ questions }: QuestionnaireQAModeProps) {
         questions.length > 0 ? questions[0].id : null
     );
 
-    const activeQuestion = questions.find(q => q.id === activeQuestionId);
+    const activeQuestion = questions.find((q: any) => q.id === activeQuestionId);
 
     return (
         <div className="flex h-full bg-slate-50">
@@ -41,7 +41,7 @@ export function QuestionnaireQAMode({ questions }: QuestionnaireQAModeProps) {
                 </div>
                 <ScrollArea className="flex-1">
                     <div className="divide-y divide-slate-100">
-                        {questions.map((q, idx) => (
+                        {questions.map((q: any, idx: any) => (
                             <button
                                 key={q.id}
                                 onClick={() => setActiveQuestionId(q.id)}

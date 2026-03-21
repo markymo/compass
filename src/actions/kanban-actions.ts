@@ -2,10 +2,12 @@
 
 import { getIdentity } from "@/lib/auth";
 import prisma from "@/lib/prisma";
-import { QuestionStatus } from "@prisma/client";
+import { QuestionStatus, Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
+import { KycStateService } from "@/lib/kyc/KycStateService";
 import { generateAIAnswers, learnFromAnswer } from "./ai-autofill";
 import { recordActivity, LEActivityType } from "@/lib/le-activity";
+import { logActivity } from "./logging";
 
 /**
  * Parses the 'extractedContent' JSON of a Questionnaire and creates individual Question records.
@@ -51,7 +53,7 @@ export async function populateQuestionsFromExtraction(questionnaireId: string) {
         const customFieldIdMap = new Map<string, string>(); // key -> id
 
         if (newFieldsToCreate.size > 0) {
-            for (const [key, proposal] of newFieldsToCreate) {
+            for (const [key, proposal] of Array.from(newFieldsToCreate.entries())) {
                 // We upsert to ensure we don't duplicate if it already exists for this Org
                 const cf = await prisma.customFieldDefinition.upsert({
                     where: {
@@ -92,6 +94,9 @@ export async function populateQuestionsFromExtraction(questionnaireId: string) {
                         status: 'DRAFT' as QuestionStatus,
                         sourceSectionId: item.section || null,
 
+                        // COORDINATOR WORKFLOW: Initially assign to the triggering LE Admin
+                        assignedToUserId: userId,
+
                         // MAP AI FIELDS
                         masterFieldNo: item.masterKey ? parseInt(item.masterKey) : null,
                         masterQuestionGroupId: item.masterQuestionGroupId || null,
@@ -128,8 +133,18 @@ export async function populateQuestionsFromExtraction(questionnaireId: string) {
  */
 export async function getBoardQuestions(engagementId: string) {
     const identity = await getIdentity();
-    if (!identity?.userId) return []; // Security: Add Org check later
+    if (!identity?.userId) return [];
     const { userId } = identity;
+
+    // 0. Resolve Subject and Scope Context for Master Data
+    const engagement = await prisma.fIEngagement.findUnique({
+        where: { id: engagementId },
+        include: { clientLE: true }
+    });
+
+    const subjectLeId = engagement?.clientLE?.legalEntityId;
+    const clientLEId = engagement?.clientLEId;
+    const ownerScopeId = clientLEId ? await KycStateService.resolveScopeId(clientLEId) : null;
 
     const questions = await prisma.question.findMany({
         where: {
@@ -164,52 +179,94 @@ export async function getBoardQuestions(engagementId: string) {
                 orderBy: { createdAt: 'desc' },
                 include: { user: true }
             },
-            // @ts-ignore: schema additions
-            documents: true
+            // @ts-ignore
+            documents: true,
+            // @ts-ignore
+            supplierNoteUpdatedByUser: true,
+            questionnaire: {
+                select: { name: true }
+            }
         }
     });
 
-    // Map to frontend Task shape
-    return questions.map(q => ({
-        id: q.id,
-        questionnaireId: q.questionnaireId,
-        question: q.text,
-        compactText: (q as any).compactText || undefined,
-        answer: q.answer || undefined,
-        status: q.status,
-        isLocked: (q as any).isLocked,
-        assignedToUserId: q.assignedToUserId,
-        assignedEmail: (q as any).assignedEmail,
-        assignee: q.assignedToUserId
-            ? { name: (q as any).assignedToUser?.name || (q as any).assignedToUser?.email || 'User', type: 'USER' }
-            : ((q as any).assignedEmail ? { name: (q as any).assignedEmail, type: 'INVITEE' } : undefined),
-        commentCount: (q as any).comments?.length || 0,
-        comments: ((q as any).comments || []).map((c: any) => ({
-            id: c.id,
-            text: c.text,
-            author: c.user?.name || "User",
-            type: c.type || "USER",
-            time: c.createdAt.toLocaleDateString() // Ideally relative time
-        })),
-        // @ts-ignore: Prisma client lag
-        activities: q.activities ? q.activities.map((a: any) => ({
-            id: a.id,
-            type: a.type,
-            details: a.details,
-            userName: a.user.name || "User",
-            createdAt: a.createdAt
-        })) : [],
-        // @ts-ignore
-        allowAttachments: q.allowAttachments,
-        // @ts-ignore
-        documents: q.documents ? q.documents.map((d: any) => ({
-            id: d.id,
-            name: d.name,
-            fileType: d.fileType,
-            fileUrl: d.fileUrl,
-            kbSize: d.kbSize
-        })) : []
+    // 1. Resolve Master Data for each question
+    const resolvedQuestions = await Promise.all(questions.map(async (q: any) => {
+        let finalAnswer = q.answer || undefined;
+        const isReleased = q.status === 'RELEASED';
+        const snapshotDate = isReleased ? (q as any).releasedAt : undefined;
+
+        // If mapped to master data, try to resolve the authoritative value
+        if (subjectLeId && q.masterFieldNo) {
+            const derived = await KycStateService.getAuthoritativeValue(
+                { subjectLeId },
+                q.masterFieldNo,
+                ownerScopeId || undefined,
+                snapshotDate
+            );
+
+            if (derived) {
+                if (typeof derived.value === 'object' && derived.value !== null) {
+                    finalAnswer = JSON.stringify(derived.value);
+                } else {
+                    finalAnswer = String(derived.value ?? "");
+                }
+            }
+        }
+
+        return {
+            id: q.id,
+            questionnaireId: q.questionnaireId,
+            questionnaireName: (q as any).questionnaire?.name || "Unknown Questionnaire",
+            legalEntityName: engagement?.clientLE?.name || "Unknown Entity",
+            question: q.text,
+            compactText: (q as any).compactText || undefined,
+            answer: finalAnswer,
+            status: q.status,
+            isLocked: (q as any).isLocked || isReleased,
+            assignedToUserId: q.assignedToUserId,
+            assignedEmail: (q as any).assignedEmail,
+            assignee: q.assignedToUserId
+                ? { name: (q as any).assignedToUser?.name || (q as any).assignedToUser?.email || 'User', type: 'USER' }
+                : ((q as any).assignedEmail ? { name: (q as any).assignedEmail, type: 'INVITEE' } : undefined),
+            commentCount: (q as any).comments?.length || 0,
+            comments: ((q as any).comments || []).map((c: any) => ({
+                id: c.id,
+                text: c.text,
+                author: c.user?.name || "User",
+                type: c.type || "USER",
+                time: c.createdAt.toLocaleDateString()
+            })),
+            // @ts-ignore: Prisma client lag
+            activities: q.activities ? q.activities.map((a: any) => ({
+                id: a.id,
+                type: a.type,
+                details: a.details,
+                userName: a.user.name || "User",
+                createdAt: a.createdAt
+            })) : [],
+            // @ts-ignore
+            allowAttachments: q.allowAttachments,
+            // @ts-ignore
+            documents: q.documents ? q.documents.map((d: any) => ({
+                id: d.id,
+                name: d.name,
+                fileType: d.fileType,
+                fileUrl: d.fileUrl,
+                kbSize: d.kbSize
+            })) : [],
+            masterFieldNo: q.masterFieldNo,
+            customFieldDefinitionId: (q as any).customFieldDefinitionId,
+            masterQuestionGroupId: (q as any).masterQuestionGroupId,
+            approvedAt: (q as any).approvedAt,
+            releasedAt: (q as any).releasedAt,
+            sharedAt: (q as any).sharedAt,
+            supplierNote: (q as any).supplierNote,
+            supplierNoteUpdatedAt: (q as any).supplierNoteUpdatedAt?.toLocaleString(),
+            supplierNoteUpdatedBy: (q as any).supplierNoteUpdatedByUser?.name || (q as any).supplierNoteUpdatedByUser?.email || null
+        };
     }));
+
+    return resolvedQuestions;
 }
 
 /**
@@ -221,6 +278,15 @@ export async function updateQuestionStatus(questionId: string, newStatus: Questi
     const { userId } = identity;
 
     try {
+        const question = await prisma.question.findUnique({
+            where: { id: questionId },
+            select: { status: true }
+        });
+
+        if (question?.status === 'RELEASED' || newStatus === 'RELEASED') {
+            return { success: false, error: "Released questions cannot be moved via Drag-and-Drop. Use the Detail Panel." };
+        }
+
         await prisma.question.update({
             where: { id: questionId },
             data: { status: newStatus }
@@ -228,6 +294,194 @@ export async function updateQuestionStatus(questionId: string, newStatus: Questi
         return { success: true };
     } catch (e) {
         return { success: false, error: "Update failed" };
+    }
+}
+
+/**
+ * Approve Question Mapping
+ */
+export async function approveQuestionMapping(questionId: string) {
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+    const { userId } = identity;
+
+    try {
+        const question = await prisma.question.findUnique({
+            where: { id: questionId },
+            select: { masterFieldNo: true, customFieldDefinitionId: true, masterQuestionGroupId: true, status: true }
+        });
+
+        if (!question?.masterFieldNo && !question?.customFieldDefinitionId && !question?.masterQuestionGroupId) {
+            return { success: false, error: "Cannot approve unmapped question" };
+        }
+        if (question.status !== 'DRAFT') {
+            return { success: false, error: "Only draft mappings can be approved" };
+        }
+
+        const approvedMappingConfig = {
+            fieldNo: question.masterFieldNo,
+            customFieldId: question.customFieldDefinitionId,
+            groupId: question.masterQuestionGroupId
+        };
+
+        await prisma.question.update({
+            where: { id: questionId },
+            data: {
+                status: 'APPROVED',
+                approvedAt: new Date(),
+                approvedByUserId: userId,
+                approvedMappingConfig
+            }
+        });
+
+        await prisma.questionActivity.create({
+            data: {
+                questionId,
+                userId,
+                type: "MAPPING_APPROVED",
+                details: approvedMappingConfig
+            }
+        });
+
+        revalidatePath("/(platform)/app/le/[id]/engagement-new/[engagementId]", "page");
+        return { success: true };
+    } catch (e) {
+        return { success: false, error: "Approval failed" };
+    }
+}
+
+/**
+ * Share Question (Toggle)
+ */
+export async function shareQuestion(questionId: string, isShared: boolean) {
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+    const { userId } = identity;
+
+    try {
+        const question = await prisma.question.findUnique({
+            where: { id: questionId },
+            select: { status: true }
+        });
+
+        if (!question) return { success: false, error: "Question not found" };
+
+        if (isShared) {
+            if (question.status !== 'APPROVED' && question.status !== 'SHARED') {
+                return { success: false, error: "Question must be approved before sharing" };
+            }
+        }
+
+        const newStatus = isShared ? 'SHARED' : 'APPROVED';
+
+        await prisma.question.update({
+            where: { id: questionId },
+            data: {
+                status: newStatus,
+                sharedAt: isShared ? new Date() : null,
+                sharedByUserId: isShared ? userId : null
+            }
+        });
+
+        await prisma.questionActivity.create({
+            data: {
+                questionId,
+                userId,
+                type: isShared ? "QUESTION_SHARED" : "QUESTION_UNSHARED",
+                details: {}
+            }
+        });
+
+        revalidatePath("/(platform)/app/le/[id]/engagement-new/[engagementId]", "page");
+        return { success: true };
+    } catch (e) {
+        return { success: false, error: "Sharing failed" };
+    }
+}
+
+/**
+ * Release Question (Lockdown)
+ */
+export async function releaseQuestion(questionId: string) {
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+    const { userId } = identity;
+
+    // TODO: Verify LE_ADMIN role
+
+    try {
+        await prisma.question.update({
+            where: { id: questionId },
+            data: {
+                status: 'RELEASED',
+                releasedAt: new Date(),
+                releasedByUserId: userId,
+                isLocked: true
+            }
+        });
+
+        await prisma.questionActivity.create({
+            data: {
+                questionId,
+                userId,
+                type: "QUESTION_RELEASED",
+                details: {}
+            }
+        });
+
+        revalidatePath("/(platform)/app/le/[id]/engagement-new/[engagementId]", "page");
+        return { success: true };
+    } catch (e) {
+        return { success: false, error: "Release failed" };
+    }
+}
+
+/**
+ * Update Question Mapping with Safety Reset
+ */
+export async function updateQuestionMapping(questionId: string, fieldNo: number | null) {
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+    const { userId } = identity;
+
+    try {
+        const question = await prisma.question.findUnique({
+            where: { id: questionId },
+            select: { status: true }
+        });
+
+        if (question?.status === 'RELEASED') {
+            return { success: false, error: "Cannot change mapping of a released question" };
+        }
+
+        await prisma.question.update({
+            where: { id: questionId },
+            data: {
+                masterFieldNo: fieldNo,
+                masterQuestionGroupId: null,
+                customFieldDefinitionId: null,
+                status: fieldNo ? 'DRAFT' : 'DRAFT', // The Safety Reset
+                approvedAt: null,
+                approvedByUserId: null,
+                sharedAt: null,
+                sharedByUserId: null,
+                approvedMappingConfig: Prisma.JsonNull
+            }
+        });
+
+        await prisma.questionActivity.create({
+            data: {
+                questionId,
+                userId,
+                type: "MAPPING_UPDATED",
+                details: { fieldNo }
+            }
+        });
+
+        revalidatePath("/(platform)/app/le/[id]/engagement-new/[engagementId]", "page");
+        return { success: true };
+    } catch (e) {
+        return { success: false, error: "Mapping update failed" };
     }
 }
 
@@ -290,26 +544,32 @@ export async function updateAnswer(questionId: string, answer: string) {
     const { userId } = identity;
 
     try {
-        await prisma.question.update({
+        const question = await prisma.question.update({
             where: { id: questionId },
-            data: { answer: answer }
-        });
-
-        // Fetch full question data to get context for AI Learning
-        // We need the ClientLE ID
-        const questionData = await prisma.question.findUnique({
-            where: { id: questionId },
+            data: { answer: answer },
             include: {
                 questionnaire: {
                     include: {
-                        engagements: true
+                        engagements: true,
+                        fiEngagement: true
                     }
                 }
             }
         });
 
-        const engagement = questionData?.questionnaire.engagements[0];
+        const engagement = question?.questionnaire.fiEngagement || question?.questionnaire.engagements[0];
         const clientLEId = engagement?.clientLEId;
+
+        // SYNC TO MASTER DATA (FieldClaims) if mapped
+        if (clientLEId && question.masterFieldNo) {
+            const { applyManualOverride } = await import("./kyc-manual-update");
+            await applyManualOverride(
+                clientLEId,
+                question.masterFieldNo,
+                answer,
+                `Updated via Questionnaire Workbench`
+            );
+        }
 
         // Log Activity
         // @ts-ignore: Prisma client lag
@@ -325,21 +585,28 @@ export async function updateAnswer(questionId: string, answer: string) {
 
         // Fire LEActivity (LE-level timeline)
         if (clientLEId) {
-            const wasFirstAnswer = !questionData?.answer; // answered fresh
+            const wasFirstAnswer = !question?.answer; // answered fresh
             recordActivity(clientLEId, userId,
                 wasFirstAnswer ? LEActivityType.QUESTION_ANSWERED : LEActivityType.QUESTION_UPDATED,
-                { questionId, questionText: questionData?.text?.slice(0, 80) }
+                { questionId, questionText: question?.text?.slice(0, 80) }
             ); // fire-and-forget
+
+            // UsageLog (platform-wide analytics)
+            logActivity(
+                wasFirstAnswer ? "QUESTION_ANSWERED" : "QUESTION_UPDATED",
+                `/app/le/${clientLEId}`,
+                { questionId, questionText: question?.text?.slice(0, 80) }
+            );
         }
 
         // TRIGGER LEARNING LOOP (Fire and forget, or await?)
         // Let's await to ensure it runs, but wrap in try-catch so it doesn't block success
-        if (clientLEId && answer && answer.length > 5 && questionData) {
+        if (clientLEId && answer && answer.length > 5 && question) {
             // Running in background (no await) would be better for UX speed, 
             // but Vercel serverless functions might kill it. 
             // We'll await it for safety in this prototype.
             // Running fire-and-forget to prevent UI blocking
-            learnFromAnswer(clientLEId, questionData.text, answer, userId).catch(err => {
+            learnFromAnswer(clientLEId, question.text, answer, userId).catch(err => {
                 console.error("Learning Loop background error:", err);
             });
         }
@@ -547,7 +814,7 @@ export async function generateSingleQuestionAnswer(questionId: string) {
     }
 
     // Format Context
-    let contextText = standingDataSections.map(section =>
+    let contextText = standingDataSections.map((section: any) =>
         `SECTION: ${section.category}\nCONTENT:\n${section.content}\n`
     ).join("\n---\n");
 
@@ -698,14 +965,14 @@ export async function generateEngagementAnswers(engagementId: string) {
             return { success: false, error: "Knowledge Base is empty. Please add content first." };
         }
 
-        const contextText = standingDataSections.map(section =>
+        const contextText = standingDataSections.map((section: any) =>
             `SECTION: ${section.category}\nCONTENT:\n${section.content}\n`
         ).join("\n---\n");
 
         // 3. Collect all UNLOCKED questions
         let allQuestions: any[] = [];
-        engagement.questionnaires.forEach(q => {
-            q.questions.forEach(question => {
+        engagement.questionnaires.forEach((q: any) => {
+            q.questions.forEach((question: any) => {
                 // @ts-ignore: Prisma client lag
                 if (!question.isLocked) {
                     allQuestions.push({
@@ -735,8 +1002,31 @@ export async function generateEngagementAnswers(engagementId: string) {
             // Update Question
             const qUpdate = prisma.question.update({
                 where: { id: questionId },
-                data: { answer: ans.answer }
+                data: { answer: ans.answer },
+                include: {
+                    questionnaire: {
+                        include: {
+                            engagements: true,
+                            fiEngagement: true
+                        }
+                    }
+                }
             });
+
+            // Sync to Master Data if mapped
+            const syncToMaster = async (questionData: any) => {
+                const engagement = questionData?.questionnaire.fiEngagement || questionData?.questionnaire.engagements[0];
+                const cLEId = engagement?.clientLEId;
+                if (cLEId && questionData.masterFieldNo) {
+                    const { applyManualOverride } = await import("./kyc-manual-update");
+                    await applyManualOverride(
+                        cLEId,
+                        questionData.masterFieldNo,
+                        ans.answer,
+                        `AI Generated answer`
+                    );
+                }
+            };
 
             // Create Activity
             // @ts-ignore: Prisma client lag
@@ -754,7 +1044,9 @@ export async function generateEngagementAnswers(engagementId: string) {
                 }
             });
 
-            return prisma.$transaction([qUpdate, actCreate]);
+            const [updatedQ] = await prisma.$transaction([qUpdate, actCreate]);
+            await syncToMaster(updatedQ);
+            return updatedQ;
         });
 
         await Promise.all(updatePromises);
@@ -790,7 +1082,7 @@ export async function getLETeamMembers(clientLEId: string) {
         // });
         const invitations: any[] = [];
 
-        const members = memberships.map(m => ({
+        const members = memberships.map((m: any) => ({
             id: m.userId,
             email: m.user.email,
             name: m.user.name || m.user.email,
@@ -798,7 +1090,7 @@ export async function getLETeamMembers(clientLEId: string) {
             role: m.role
         }));
 
-        const invitees = invitations.map(i => ({
+        const invitees = invitations.map((i: any) => ({
             id: undefined,
             email: i.email,
             name: i.email,
@@ -828,6 +1120,7 @@ export async function assignQuestion(questionId: string, assignee: { userId?: st
             where: { id: questionId },
             data: {
                 assignedToUserId: assignee?.userId || null,
+                assignedByUserId: actorId, // Audit: who made the assignment
                 assignedEmail: assignee?.email || null
             }
         });
@@ -838,10 +1131,11 @@ export async function assignQuestion(questionId: string, assignee: { userId?: st
                 questionId,
                 userId: actorId,
                 type: "ASSIGNED",
+                // @ts-ignore
                 details: {
-                    assignedToUserId: null,
-                    // @ts-ignore
-                    assignedEmail: nullassignee?.email
+                    assignedToUserId: assignee?.userId || null,
+                    assignedByUserId: actorId,
+                    assignedEmail: assignee?.email || null
                 }
             },
             include: { user: true }
@@ -915,5 +1209,57 @@ export async function getEngagementEvidenceDocuments(engagementId: string) {
     } catch (e) {
         console.error("Evidence documents fetch error:", e);
         return { success: false, error: "Failed to fetch evidence documents", documents: [] };
+    }
+}
+
+/**
+ * Update the Note for Supplier for a question
+ */
+export async function updateSupplierNote(questionId: string, note: string) {
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+    const { userId } = identity;
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+
+    try {
+        const question = await prisma.question.update({
+            where: { id: questionId },
+            data: {
+                supplierNote: note,
+                supplierNoteUpdatedAt: new Date(),
+                supplierNoteUpdatedByUserId: userId
+            }
+        });
+
+        // Log Activity
+        const activity = await prisma.questionActivity.create({
+            data: {
+                questionId,
+                userId,
+                type: "SUPPLIER_NOTE_UPDATED",
+                details: {}
+            },
+            include: { user: true }
+        });
+
+        revalidatePath("/(platform)/app/le/[id]/engagement-new/[engagementId]", "page");
+
+        return {
+            success: true,
+            supplierNote: question.supplierNote,
+            supplierNoteUpdatedAt: question.supplierNoteUpdatedAt?.toLocaleString(),
+            supplierNoteUpdatedBy: user?.name || user?.email || "User",
+            activity: {
+                id: activity.id,
+                type: activity.type,
+                details: activity.details,
+                userName: activity.user.name || "User",
+                createdAt: activity.createdAt
+            }
+        };
+    } catch (e) {
+        console.error("Update Supplier Note Error:", e);
+        return { success: false, error: "Failed to update Note for Supplier" };
     }
 }

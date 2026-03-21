@@ -50,7 +50,7 @@ export async function learnFromAnswers(leId: string, qaPairs: QAPair[]): Promise
     }
 
     // 1. Filter valid pairs (non-empty answers)
-    const validPairs = qaPairs.filter(p => p.answer && p.answer.trim().length > 2);
+    const validPairs = qaPairs.filter((p: any) => p.answer && p.answer.trim().length > 2);
     logToFile(`[learnFromAnswers] Valid pairs after filtering: ${validPairs.length}`, validPairs);
 
     if (validPairs.length === 0) return { success: true, count: 0 };
@@ -66,11 +66,11 @@ export async function learnFromAnswers(leId: string, qaPairs: QAPair[]): Promise
         });
 
         // 3. Prepare AI Context
-        const currentKnowledge = existingSections.map(s =>
+        const currentKnowledge = existingSections.map((s: any) =>
             `SECTION: ${s.category}\n---\n${s.content}\n---`
         ).join("\n\n");
 
-        const newInformation = validPairs.map(p =>
+        const newInformation = validPairs.map((p: any) =>
             `Q: ${p.question}\nA: ${p.answer}\n(Category: ${p.category || "General"})`
         ).join("\n\n");
 
@@ -119,7 +119,7 @@ export async function learnFromAnswers(leId: string, qaPairs: QAPair[]): Promise
         }
 
         // 5. Update Database
-        await Promise.all(updates.map(async (update) => {
+        await Promise.all(updates.map(async (update: any) => {
             // MAP DISPLAY NAME TO DB KEY
             const dbCategoryKey = CATEGORY_MAP[update.category];
 

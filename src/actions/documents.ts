@@ -3,12 +3,16 @@
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { del } from '@vercel/blob';
+import { getIdentity } from "@/lib/auth";
 
 /**
  * Save Document Metadata after Vercel Blob Upload
  */
 export async function uploadDocument(clientLEId: string, data: { name: string, type: string, fileUrl: string, docType?: string, kbSize?: number }) {
     try {
+        const identity = await getIdentity();
+        if (!identity) return { success: false, error: "Unauthenticated" };
+
         const doc = await prisma.document.create({
             data: {
                 clientLEId,
@@ -17,7 +21,8 @@ export async function uploadDocument(clientLEId: string, data: { name: string, t
                 fileUrl: data.fileUrl,
                 kbSize: data.kbSize || 0,
                 docType: data.docType || "UNCATEGORIZED",
-                isVerified: false
+                isVerified: false,
+                uploadedById: identity.userId
             }
         });
         revalidatePath(`/app/le/${clientLEId}`);
@@ -42,6 +47,12 @@ export async function getVaultDocuments(clientLEId: string) {
                         id: true,
                         org: { select: { name: true } }
                     }
+                },
+                uploadedBy: {
+                    select: {
+                        name: true,
+                        email: true
+                    }
                 }
             }
         });
@@ -62,7 +73,15 @@ export async function getEngagementDocuments(engagementId: string) {
             include: {
                 sharedDocuments: {
                     where: { isDeleted: false },
-                    orderBy: { createdAt: 'desc' }
+                    orderBy: { createdAt: 'desc' },
+                    include: {
+                        uploadedBy: {
+                            select: {
+                                name: true,
+                                email: true
+                            }
+                        }
+                    }
                 }
             }
         });

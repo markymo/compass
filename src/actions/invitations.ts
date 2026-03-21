@@ -10,6 +10,8 @@ import { Resend } from "resend";
 import { render } from "@react-email/render";
 import { TeamInviteEmail } from "@/components/emails/team-invite-email";
 import { recordActivity, LEActivityType } from "@/lib/le-activity";
+import { logActivity } from "./logging";
+import { BRAND } from "@/config/brand";
 
 // ============================================================================
 // Types
@@ -164,7 +166,7 @@ export async function inviteUser(payload: InvitePayload) {
 
     try {
         // Resolve human-readable scope label and inviter name for the email
-        let scopeLabel = "ONpro";
+        let scopeLabel = BRAND.name;
         if (payload.organizationId) {
             const org = await prisma.organization.findUnique({ where: { id: payload.organizationId }, select: { name: true } });
             if (org) scopeLabel = org.name;
@@ -183,7 +185,7 @@ export async function inviteUser(payload: InvitePayload) {
         const html = await render(TeamInviteEmail({ inviterName, scopeLabel, role: payload.role, inviteLink: acceptUrl, recipientEmail: payload.email }));
 
         await resend.emails.send({
-            from: "ONpro <noreply@onpro.io>",
+            from: `${BRAND.name} <noreply@onpro.io>`,
             to: payload.email,
             subject: `You've been invited to join ${scopeLabel}`,
             html,
@@ -200,6 +202,13 @@ export async function inviteUser(payload: InvitePayload) {
             role: payload.role,
         });
     }
+
+    // UsageLog (platform-wide analytics)
+    logActivity("INVITATION_SENT", `/invite`, {
+        invitedEmail: payload.email,
+        role: payload.role,
+        scope: scopeType,
+    });
 
     // Revalidate relevant pages
     if (payload.organizationId) revalidatePath(`/app/clients/${payload.organizationId}/team`);
@@ -235,7 +244,7 @@ export async function getPendingInvitations(organizationId: string) {
     const leIds = (await prisma.clientLEOwner.findMany({
         where: { partyId: organizationId, endAt: null },
         select: { clientLEId: true },
-    })).map((o) => o.clientLEId);
+    })).map((o: any) => o.clientLEId);
 
     // @ts-ignore: Prisma cache lag — organizationId, clientLEId, clientLE include are new fields
     return await (prisma.invitation.findMany as any)({

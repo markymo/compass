@@ -178,7 +178,7 @@ export function AdminTodoDialog({ open, onOpenChange, task }: AdminTodoDialogPro
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="unassigned">Unassigned</SelectItem>
-                                            {systemAdmins.map((admin) => (
+                                            {systemAdmins.map((admin: any) => (
                                                 <SelectItem key={admin.id} value={admin.id}>
                                                     {admin.name}
                                                 </SelectItem>
@@ -235,7 +235,7 @@ export function AdminTodoDialog({ open, onOpenChange, task }: AdminTodoDialogPro
                                 {localComments.length === 0 && (
                                     <p className="text-xs text-slate-400 text-center py-4">No comments yet</p>
                                 )}
-                                {localComments.map((c) => (
+                                {localComments.map((c: any) => (
                                     <div key={c.id} className="flex gap-2">
                                         <Avatar className="h-6 w-6 border bg-white">
                                             <AvatarFallback className="text-[10px] bg-indigo-50 text-indigo-700">

@@ -17,7 +17,7 @@ export function StandingDataManager({ clientLEId, requirements, standingData }: 
     const groupedRequirements: Record<string, any[]> = {};
     const uncategorized: any[] = [];
 
-    requirements.forEach(req => {
+    requirements.forEach((req: any) => {
         if (req.categoryId) {
             if (!groupedRequirements[req.categoryId]) groupedRequirements[req.categoryId] = [];
             groupedRequirements[req.categoryId].push(req);
@@ -35,8 +35,8 @@ export function StandingDataManager({ clientLEId, requirements, standingData }: 
                 </div>
             </div>
 
-            <Accordion type="multiple" defaultValue={MASTER_SCHEMA_CATEGORIES.map(c => c.id)} className="space-y-4">
-                {MASTER_SCHEMA_CATEGORIES.map(category => {
+            <Accordion type="multiple" defaultValue={MASTER_SCHEMA_CATEGORIES.map((c: any) => c.id)} className="space-y-4">
+                {MASTER_SCHEMA_CATEGORIES.map((category: any) => {
                     const fields = groupedRequirements[category.id];
                     if (!fields || fields.length === 0) return null;
 
@@ -51,7 +51,7 @@ export function StandingDataManager({ clientLEId, requirements, standingData }: 
                                 </div>
                             </AccordionTrigger>
                             <AccordionContent className="pt-2 pb-6 grid gap-4 md:grid-cols-2">
-                                {fields.map(field => {
+                                {fields.map((field: any) => {
                                     // Parse initial data
                                     let initialData = standingData[field.key] || null;
                                     if (typeof initialData === 'string') {
@@ -90,7 +90,7 @@ export function StandingDataManager({ clientLEId, requirements, standingData }: 
                             </div>
                         </AccordionTrigger>
                         <AccordionContent className="pt-2 pb-6 grid gap-4 md:grid-cols-2">
-                            {uncategorized.map(field => {
+                            {uncategorized.map((field: any) => {
                                 let initialData = standingData[field.key] || null;
                                 if (typeof initialData === 'string') {
                                     initialData = {

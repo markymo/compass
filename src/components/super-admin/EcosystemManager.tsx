@@ -17,7 +17,7 @@ import {
     PlusCircle,
     ChevronDown,
     ChevronRight,
-    Briefcase,
+    Landmark,
     Globe,
     PlugZap,
     Loader2
@@ -62,7 +62,7 @@ export function EcosystemManager({ tree, initialSuppliers }: EcosystemManagerPro
                         No clients found. Create one to get started.
                     </div>
                 ) : (
-                    tree.map((client) => (
+                    tree.map((client: any) => (
                         <ClientCard key={client.id} client={client} suppliers={initialSuppliers} />
                     ))
                 )}
@@ -270,7 +270,7 @@ function WorkspaceItem({ workspace, suppliers }: any) {
                     >
                         {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                     </Button>
-                    <Briefcase className="h-4 w-4 text-slate-500" />
+                    <Landmark className="h-4 w-4 text-slate-500" />
                     <div>
                         <div className="font-medium text-sm">{workspace.name}</div>
                         <div className="text-xs text-muted-foreground flex items-center gap-2">

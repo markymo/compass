@@ -30,8 +30,7 @@ import PDFParser from 'pdf2json';
 // LOGGING INTERFACE
 type Logger = (message: string, stage?: string, level?: "INFO" | "ERROR" | "SUCCESS") => Promise<void>;
 
-import { FIELD_GROUPS } from "@/domain/kyc/FieldGroups";
-import { FIELD_DEFINITIONS } from "@/domain/kyc/FieldDefinitions";
+import { listAllMasterFields, listAllMasterGroupsWithItems } from "@/services/masterData/definitionService";
 
 // 1. Process Document: Convert to Base64 (Images/PDF) or Text (Docx/Txt)
 export async function parseDocument(formData: FormData, logger?: Logger): Promise<{ content: string | string[], type: "image" | "text", mime: string }> {
@@ -104,18 +103,21 @@ export async function extractQuestionnaireItems(input: { content: string | strin
     let schemaContext = "";
 
     // 1. Field Groups
-    const groups = Object.values(FIELD_GROUPS);
+    const [groups, fields] = await Promise.all([
+        listAllMasterGroupsWithItems(),
+        listAllMasterFields()
+    ]);
+
     if (groups.length > 0) {
         schemaContext += "MASTER FIELD GROUPS (Composite - Prefer these):\n";
-        schemaContext += groups.map(g => `- GroupID: "${g.id}" Label: "${g.label}" (Fields: ${g.fieldNos.join(',')})`).join('\n');
+        schemaContext += groups.map((g: any) => `- GroupKey: "${g.key}" Label: "${g.label}" (Fields: ${g.fieldNos.join(',')})`).join('\n');
         schemaContext += "\n\n";
     }
 
     // 2. Atomic Fields
-    const fields = Object.values(FIELD_DEFINITIONS);
     if (fields.length > 0) {
         schemaContext += "MASTER ATOMIC FIELDS:\n";
-        schemaContext += fields.map(f => `- Field ${f.fieldNo} (Key: "${f.fieldNo}"): ${f.fieldName} (${f.dataType}) - ${f.notes || ''}`).join('\n');
+        schemaContext += fields.map((f: any) => `- Field ${f.fieldNo} (Key: "${f.fieldNo}"): ${f.fieldName} (${f.appDataType}) - ${f.notes || ''}`).join('\n');
         schemaContext += "\n\n";
     } else {
         // Fallback if definitions are missing
@@ -153,7 +155,7 @@ export async function extractQuestionnaireItems(input: { content: string | strin
     } else {
         // Image Mode
         if (Array.isArray(content)) {
-            content.forEach((b64) => {
+            content.forEach((b64: any) => {
                 userContent.push({
                     type: "image",
                     // @ts-ignore
@@ -169,9 +171,27 @@ export async function extractQuestionnaireItems(input: { content: string | strin
         }
     }
 
+    let extractionFinished = false;
     try {
         const key = process.env.OPENAI_API_KEY;
         if (logger) await logger("Calling OpenAI API...", "AI_CALL");
+        
+        // --- Simulated Micro-Step Logs ---
+        if (logger) {
+            (async () => {
+                const simulatedMsgs = [
+                    "Identifying document sections and hierarchy...",
+                    "Cross-referencing questions with Master Schema...",
+                    "Neutralizing question text for standard mapping...",
+                    "Optimizing compact labels for workbench display..."
+                ];
+                for (const msg of simulatedMsgs) {
+                    await new Promise(r => setTimeout(r, 5000));
+                    if (extractionFinished) break;
+                    await logger(`[AI_PREDICTED] ${msg}`, "AI_THINKING");
+                }
+            })();
+        }
 
         if (!key) {
             if (logger) await logger("CRITICAL: Missing API Key", "AI_CALL", "ERROR");
@@ -211,7 +231,7 @@ export async function extractQuestionnaireItems(input: { content: string | strin
         if (logger) await logger(`AI Response Received. Processing items...`, "AI_RESPONSE");
 
         // Post-process: Normalize types and handle nulls
-        const safeItems = object.items.map(item => {
+        const safeItems = object.items.map((item: any) => {
             let type: any = item.type ? item.type.toLowerCase() : "note";
             if (!["question", "section", "instruction", "note"].includes(type)) {
                 type = "note"; // Fallback
@@ -230,7 +250,7 @@ export async function extractQuestionnaireItems(input: { content: string | strin
                 newFieldProposal: item.newFieldProposal || undefined,
                 order: 0 // Will be populated by index
             };
-        }).map((item, idx) => ({ ...item, order: idx + 1 }));
+        }).map((item: any, idx) => ({ ...item, order: idx + 1 }));
 
         if (logger) await logger(`Extraction Complete. Found ${safeItems.length} items.`, "COMPLETE", "SUCCESS");
         return safeItems;
@@ -238,6 +258,8 @@ export async function extractQuestionnaireItems(input: { content: string | strin
         console.error("[AI Mapper] Extraction Error:", e);
         if (logger) await logger(`Extraction Error: ${e.message}`, "AI_ERROR", "ERROR");
         throw e;
+    } finally {
+        extractionFinished = true;
     }
 }
 
@@ -256,8 +278,8 @@ export interface MappingSuggestion {
 export async function generateMappingSuggestions(input: { content: string | string[], type: "image" | "text", mime: string }): Promise<MappingSuggestion[]> {
     const items = await extractQuestionnaireItems(input); // Add logger here if we expose it?
     return items
-        .filter(i => i.type === "question")
-        .map(i => ({
+        .filter((i: any) => i.type === "question")
+        .map((i: any) => ({
             text: i.text,
             suggestedKey: i.masterQuestionGroupId || i.masterKey,
             confidence: i.confidence || 0,

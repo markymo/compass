@@ -11,6 +11,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useState, Suspense } from "react";
 import { toast } from "sonner";
 import { registerUser } from "@/actions/auth-register";
+import { BRAND } from "@/config/brand";
 
 function RegisterForm() {
     const searchParams = useSearchParams();
@@ -78,12 +79,12 @@ function RegisterForm() {
             <CardHeader className="text-center flex flex-col items-center">
                 <div className="mb-4 flex flex-col items-center">
                     <span className="text-4xl font-bold tracking-tight text-slate-900 font-sans">
-                        ONpro<span className="text-amber-500 text-5xl leading-none">.</span>
+                        {BRAND.name}<span className="text-amber-500 text-5xl leading-none">.</span>
                     </span>
                 </div>
                 <CardTitle className="text-2xl font-sans font-bold">Create an account</CardTitle>
                 <CardDescription>
-                    {inviteToken ? "Register to accept your invitation" : "Get started with Compass"}
+                    {inviteToken ? "Register to accept your invitation" : `Get started with ${BRAND.name}`}
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">

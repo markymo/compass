@@ -99,14 +99,14 @@ export function AdminKanbanBoard() {
         if (!destination) return;
         if (source.droppableId === destination.droppableId && source.index === destination.index) return;
 
-        const movedTask = tasks.find(t => t.id === draggableId);
+        const movedTask = tasks.find((t: any) => t.id === draggableId);
         if (!movedTask) return;
 
         // Optimistic Update
         const newStatus = destination.droppableId as AdminTodoStatus;
         const previousTasks = [...tasks];
 
-        setTasks(prev => prev.map(t =>
+        setTasks(prev => prev.map((t: any) =>
             t.id === draggableId ? { ...t, status: newStatus } : t
         ));
 
@@ -154,13 +154,13 @@ export function AdminKanbanBoard() {
 
             <DragDropContext onDragEnd={onDragEnd}>
                 <div className="flex-1 flex gap-6 overflow-x-auto pb-4">
-                    {columns.map(col => (
+                    {columns.map((col: any) => (
                         <AdminKanbanColumn
                             key={col.id}
                             id={col.id}
                             title={col.title}
                             description={col.desc}
-                            tasks={tasks.filter(t => t.status === col.id)}
+                            tasks={tasks.filter((t: any) => t.status === col.id)}
                             onTaskClick={handleTaskClick}
                         />
                     ))}

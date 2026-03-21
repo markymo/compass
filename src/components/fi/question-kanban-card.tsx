@@ -25,19 +25,18 @@ export function QuestionKanbanCard({ question }: QuestionKanbanCardProps) {
 
     // Status color mapping
     const statusColors: Record<string, string> = {
-        'DRAFT': 'bg-slate-100 text-slate-700',
-        'INTERNAL_REVIEW': 'bg-blue-50 text-blue-700 border-blue-200',
+        'DRAFT': 'bg-blue-50 text-blue-700 border-blue-200',
+        'APPROVED': 'bg-emerald-100 text-emerald-800 border-emerald-200',
         'SHARED': 'bg-amber-50 text-amber-700 border-amber-200',
-        'QUERY': 'bg-red-50 text-red-700 border-red-200',
-        'DONE': 'bg-green-50 text-green-700 border-green-200',
+        'RELEASED': 'bg-green-50 text-green-700 border-green-200',
     };
 
     const engageId = question.questionnaire?.fiEngagement?.id;
     const questId = question.questionnaire?.id;
 
-    // Construct URL: /app/fi/engagements/[engagementId]/workbench/[questionnaireId]?question=[questionId]
+    // Construct URL: /app/s/engagements/[engagementId]/workbench/[questionnaireId]?question=[questionId]
     const workbenchUrl = engageId && questId
-        ? `/app/fi/engagements/${engageId}/workbench/${questId}?question=${question.id}`
+        ? `/app/s/engagements/${engageId}/workbench/${questId}?question=${question.id}`
         : "#";
 
     return (

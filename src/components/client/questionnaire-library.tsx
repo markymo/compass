@@ -113,10 +113,10 @@ export function QuestionnaireLibrary({ leId }: QuestionnaireLibraryProps) {
         const res = await removeQuestionnaireFromLibrary(leId, qId);
         if (res.success) {
             // Success
-            setEngagements(prev => prev.map(eng => ({
+            setEngagements(prev => prev.map((eng: any) => ({
                 ...eng,
                 questionnaires: eng.questionnaires.filter((q: any) => q.id !== qId)
-            })).filter(eng => eng.questionnaires.length > 0));
+            })).filter((eng: any) => eng.questionnaires.length > 0));
         } else {
             alert("Failed to remove questionnaire");
         }
@@ -208,7 +208,7 @@ export function QuestionnaireLibrary({ leId }: QuestionnaireLibraryProps) {
                     </div>
                 ) : (
                     <div className="space-y-4">
-                        {engagements.map((eng) => (
+                        {engagements.map((eng: any) => (
                             <Card key={eng.id} className="overflow-hidden group hover:shadow-md transition-shadow border-slate-200">
                                 <CardHeader className="pb-3 bg-slate-50/50 border-b">
                                     <div className="flex items-center justify-between">
@@ -300,7 +300,7 @@ export function QuestionnaireLibrary({ leId }: QuestionnaireLibraryProps) {
                                     <Loader2 className="h-5 w-5 animate-spin text-slate-300" />
                                 </div>
                             ) : searchResults.length > 0 ? (
-                                searchResults.map((q) => (
+                                searchResults.map((q: any) => (
                                     <div key={q.id} className="p-3 border rounded-lg hover:bg-slate-50 transition-colors group">
                                         <div className="flex items-start justify-between">
                                             <div className="space-y-1">

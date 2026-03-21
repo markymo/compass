@@ -50,7 +50,7 @@ export function ClientSelector({ value, onChange }: ClientSelectorProps) {
         setClients(res);
         // Update selected name if value exists
         if (value) {
-            const found = res.find(c => c.id === value);
+            const found = res.find((c: any) => c.id === value);
             if (found) setSelectedName(found.name);
         }
     }
@@ -76,7 +76,7 @@ export function ClientSelector({ value, onChange }: ClientSelectorProps) {
                     <CommandList>
                         <CommandEmpty>No client found.</CommandEmpty>
                         <CommandGroup>
-                            {clients.map((client) => (
+                            {clients.map((client: any) => (
                                 <CommandItem
                                     key={client.id}
                                     value={client.id} // Shadcn command usually uses label for search, but we drive it manually

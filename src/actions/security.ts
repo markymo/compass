@@ -95,7 +95,7 @@ export async function canManageQuestionnaire(questionnaireId: string) {
         // Filter out nulls (shouldn't happen due to query but safe typing)
         const clientOrgIds = userClientMemberships
             .map((m: { organizationId: string | null }) => m.organizationId)
-            .filter((id): id is string => id !== null);
+            .filter((id: any): id is string => id !== null);
 
         // Find LEs for these Orgs
         const clientLEs = await prisma.clientLE.findMany({
@@ -104,7 +104,7 @@ export async function canManageQuestionnaire(questionnaireId: string) {
             },
             select: { id: true }
         });
-        const clientLEIds = clientLEs.map(le => le.id);
+        const clientLEIds = clientLEs.map((le: any) => le.id);
 
         if (clientLEIds.length > 0) {
             // Check if any of these LEs have an engagement with this questionnaire

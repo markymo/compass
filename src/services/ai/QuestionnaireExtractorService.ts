@@ -3,8 +3,7 @@ import { generateObject, generateText } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
 import { z } from 'zod'; // Import z from zod directly
 import { DocumentIngestionService, ExtractResult } from "@/services/ingestion/DocumentIngestionService";
-import { FIELD_DEFINITIONS, FieldDefinition } from "@/domain/kyc/FieldDefinitions";
-import { getAllFieldGroups } from "@/domain/kyc/FieldGroups";
+import { listAllMasterFields, listAllMasterGroupsWithItems } from "@/services/masterData/definitionService";
 import { STANDARD_CATEGORIES } from "@/lib/constants";
 
 // --- Schema Definitions ---
@@ -39,7 +38,7 @@ export class QuestionnaireExtractorService {
         legalEntityId: string // Context, though maybe not needed for raw extraction
     ): Promise<QuestionnaireItem[]> {
 
-        const context = this.buildSchemaContext();
+        const context = await this.buildSchemaContext();
 
         if (ingestionResult.strategy === 'vision') {
             return this.extractFromVision(ingestionResult, context);
@@ -124,18 +123,23 @@ export class QuestionnaireExtractorService {
         return object.items;
     }
 
-    private buildSchemaContext(): string {
+    private async buildSchemaContext(): Promise<string> {
         // 1. Categories
         const categories = STANDARD_CATEGORIES.join(", ");
 
         // 2. Field Groups (Summarized)
-        const groups = getAllFieldGroups().map(g =>
-            `- GroupID: "${g.id}" Label: "${g.label}" (Fields: ${g.fieldNos.join(',')})`
+        const [groups, allFields] = await Promise.all([
+            listAllMasterGroupsWithItems(),
+            listAllMasterFields()
+        ]);
+
+        const groupContext = groups.map((g: any) =>
+            `- GroupID: "${g.key}" Label: "${g.label}" (Fields: ${g.fieldNos.join(',')})`
         ).join("\n");
 
         // 3. Definitions (Summarized - just key/label to save tokens)
-        const fields = Object.values(FIELD_DEFINITIONS).map((f: FieldDefinition) =>
-            `- Field ${f.fieldNo} (Key: "${f.fieldNo}"): ${f.fieldName} (${f.dataType}) - ${f.notes || ''}`
+        const fieldContext = allFields.map((f: any) =>
+            `- Field ${f.fieldNo} (Key: "${f.fieldNo}"): ${f.fieldName} (${f.appDataType}) - ${f.notes || ''}`
         ).join("\n");
 
         return `
@@ -143,10 +147,10 @@ export class QuestionnaireExtractorService {
         ${categories}
 
         MASTER FIELD GROUPS (Composite - Prefer these):
-        ${groups}
+        ${groupContext}
 
         MASTER ATOMIC FIELDS:
-        ${fields}
+        ${fieldContext}
         `;
     }
 }
