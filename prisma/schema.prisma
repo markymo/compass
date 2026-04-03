@@ -669,6 +669,7 @@ model MasterFieldDefinition {
   updatedAt          DateTime               @updatedAt
   modelField         String?
   description        String?
+  fmsbRef            String?                @db.VarChar(15)
   domain             String[]               @default(["Onboarding"])
   masterDataCategory MasterDataCategory?    @relation(fields: [categoryId], references: [id])
   groupItems         MasterFieldGroupItem[]

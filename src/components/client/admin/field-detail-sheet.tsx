@@ -27,6 +27,7 @@ export function FieldDetailSheet({ field, open, onOpenChange }: FieldDetailSheet
         fieldName: field?.fieldName || "",
         category: field?.category || "",
         domain: field?.domain?.join(", ") || "",
+        fmsbRef: field?.fmsbRef || "",
         description: field?.description || "",
         notes: field?.notes || ""
     });
@@ -38,6 +39,7 @@ export function FieldDetailSheet({ field, open, onOpenChange }: FieldDetailSheet
                 fieldName: field.fieldName || "",
                 category: field.category || "",
                 domain: field.domain?.join(", ") || "",
+                fmsbRef: field.fmsbRef || "",
                 description: field.description || "",
                 notes: field.notes || ""
             });
@@ -116,7 +118,17 @@ export function FieldDetailSheet({ field, open, onOpenChange }: FieldDetailSheet
                                     className="bg-white"
                                 />
                             </div>
-                            <div className="grid gap-2 col-span-2">
+                            <div className="grid gap-2">
+                                <Label htmlFor="fmsbRef" className="text-xs text-slate-500">FMSB Ref.</Label>
+                                <Input
+                                    id="fmsbRef"
+                                    value={formData.fmsbRef}
+                                    placeholder="e.g. FMSB-01"
+                                    onChange={(e) => setFormData({ ...formData, fmsbRef: e.target.value })}
+                                    className="bg-white"
+                                />
+                            </div>
+                            <div className="grid gap-2">
                                 <Label htmlFor="domain" className="text-xs text-slate-500">Domain Classification</Label>
                                 <Input
                                     id="domain"

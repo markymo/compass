@@ -379,3 +379,13 @@ This enables the "Branching" magic where Vercel creates a separate DB for every 
     Running Preview migrations...
     ```
 5.  If you see that, **IT WORKS!**
+
+## 13. Troubleshooting (Common Errors)
+
+### Error: P3005 "The database schema is not empty"
+- **Cause**: Vercel `prisma migrate deploy` tried to run on a database that already contains tables but lacks a migration history (`_prisma_migrations`). This usually happens when switching from `db push` to `migrate deploy`.
+- **Fix**: You must "baseline" the database by manually resolving the initial migrations against production. See **Section 9b** for exact steps.
+
+### Error: P1002 "Timed out trying to acquire a postgres advisory lock"
+- **Cause**: A previous Prisma command (like a manual `migrate resolve` from your local machine, or an interrupted Vercel build) hung or was violently killed without properly disconnecting. The Neon database server still sees the old connection as active and is keeping the database locked. Subsequent Vercel builds will fail after 10 seconds waiting for the lock.
+- **Fix**: The fastest way to release a "ghost" lock is to go to your **Neon Dashboard**, select the currently locked branch (e.g., `main`), and manually **Suspend** or **Restart** the compute endpoint. This drops all active connections instantly and frees the lock for Vercel.
