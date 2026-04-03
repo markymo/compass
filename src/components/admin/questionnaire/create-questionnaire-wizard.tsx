@@ -9,9 +9,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, Loader2, Sparkles, UploadCloud, FileText, FileType2, Search, ArrowRight, CheckCircle2, AlertCircle } from "lucide-react";
+import { Plus, Loader2, Sparkles, UploadCloud, FileText, FileType2, Search, ArrowRight, CheckCircle2, AlertCircle, Copy } from "lucide-react";
 import { getFIs } from "@/actions/questionnaire-library";
-import { createManualQuestionnaire, generateAIQuestions, startBackgroundExtraction } from "@/actions/questionnaire";
+import { createManualQuestionnaire, generateAIQuestions, startBackgroundExtraction, cloneQuestionnaire } from "@/actions/questionnaire";
 import { uploadSourceDocument } from "@/actions/admin";
 import { upload } from "@vercel/blob/client";
 import { toast } from "sonner";
@@ -21,9 +21,10 @@ import { formatDistanceToNow } from "date-fns";
 
 interface WizardProps {
     sourceDocuments: any[];
+    allQuestionnaires?: any[];
 }
 
-export function CreateQuestionnaireWizard({ sourceDocuments }: WizardProps) {
+export function CreateQuestionnaireWizard({ sourceDocuments, allQuestionnaires = [] }: WizardProps) {
     const [open, setOpen] = useState(false);
     const [activeTab, setActiveTab] = useState("upload");
     const router = useRouter();
@@ -188,6 +189,33 @@ export function CreateQuestionnaireWizard({ sourceDocuments }: WizardProps) {
         // Reset handled in triggerExtraction
     };
 
+    // -- Tab 4: Clone State --
+    const [selectedCloneId, setSelectedCloneId] = useState<string>("");
+    const [cloneNewName, setCloneNewName] = useState("");
+    const [cloneFiOrgId, setCloneFiOrgId] = useState("");
+    const [isCloning, setIsCloning] = useState(false);
+
+    const onCloneSubmit = async () => {
+        if (!selectedCloneId) return;
+        
+        // Pass FI Org ID directly, backend defaults to system org if SYSTEM_INTERNAL_NONE or undefined
+        setIsCloning(true);
+        const res = await cloneQuestionnaire(selectedCloneId, cloneFiOrgId, cloneNewName);
+        setIsCloning(false);
+
+        if (res.success) {
+            toast.success("Questionnaire cloned successfully.");
+            setOpen(false);
+            // reset state
+            setSelectedCloneId("");
+            setCloneNewName("");
+            setCloneFiOrgId("");
+            router.push(`/app/admin/questionnaires/${res.id}`);
+        } else {
+            toast.error(res.error || "Failed to clone.");
+        }
+    };
+
     return (
         <Dialog open={open} onOpenChange={(isOpen) => {
             setOpen(isOpen);
@@ -196,6 +224,9 @@ export function CreateQuestionnaireWizard({ sourceDocuments }: WizardProps) {
                 resetManualState();
                 setIsExtractingExisting(false);
                 setSelectedSourceId("");
+                setSelectedCloneId("");
+                setCloneNewName("");
+                setCloneFiOrgId("");
             }
         }}>
             <DialogTrigger asChild>
@@ -217,12 +248,15 @@ export function CreateQuestionnaireWizard({ sourceDocuments }: WizardProps) {
 
                 <div className="flex-1 overflow-y-auto px-6 py-4">
                     <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex flex-col h-full">
-                        <TabsList className="grid w-full grid-cols-3 mb-6 bg-slate-200/50 shrink-0">
+                        <TabsList className="grid w-full grid-cols-4 mb-6 bg-slate-200/50 shrink-0">
                             <TabsTrigger value="upload" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
                                 <UploadCloud className="h-4 w-4 mr-2" /> Upload File
                             </TabsTrigger>
                             <TabsTrigger value="existing" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
                                 <Search className="h-4 w-4 mr-2" /> Draft from Vault
+                            </TabsTrigger>
+                            <TabsTrigger value="clone" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+                                <Copy className="h-4 w-4 mr-2" /> Clone
                             </TabsTrigger>
                             <TabsTrigger value="manual" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
                                 <FileText className="h-4 w-4 mr-2" /> Start from Scratch
@@ -367,6 +401,73 @@ export function CreateQuestionnaireWizard({ sourceDocuments }: WizardProps) {
                                             <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Processing...</>
                                         ) : (
                                             <>Extract with AI <Sparkles className="h-4 w-4 ml-2" /></>
+                                        )}
+                                    </Button>
+                                </div>
+                            </div>
+                        </TabsContent>
+
+                        {/* PATH 4: CLONE */}
+                        <TabsContent value="clone" className="flex-1 mt-0">
+                            <div className="space-y-4 max-h-[500px] overflow-y-auto px-1 pb-4">
+                                <div className="text-center space-y-2 mb-4">
+                                    <h3 className="text-lg font-medium text-slate-800">Clone Existing Template</h3>
+                                    <p className="text-sm text-slate-500">Duplicate an existing active template into a new independent draft.</p>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label htmlFor="sourceQuestionnaire">Select Template to Clone <span className="text-red-500">*</span></Label>
+                                    <Select onValueChange={setSelectedCloneId} value={selectedCloneId}>
+                                        <SelectTrigger id="sourceQuestionnaire" className="bg-white">
+                                            <SelectValue placeholder="-- Select a Template --" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {allQuestionnaires.map((q: any) => (
+                                                <SelectItem key={q.id} value={q.id}>{q.name}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label htmlFor="cloneFi">Target Financial Institution</Label>
+                                    <Select onValueChange={setCloneFiOrgId} value={cloneFiOrgId}>
+                                        <SelectTrigger id="cloneFi" className="bg-white">
+                                            <SelectValue placeholder="Internal / System (Default)" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="SYSTEM_INTERNAL_NONE">Internal / System (Default)</SelectItem>
+                                            {fis.map((fi: any) => (
+                                                <SelectItem key={fi.id} value={fi.id}>{fi.name}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label htmlFor="cloneNewName">New Questionnaire Name (Optional)</Label>
+                                    <Input
+                                        id="cloneNewName"
+                                        placeholder="Leave blank to use original name + (Copy)"
+                                        className="bg-white"
+                                        value={cloneNewName}
+                                        onChange={(e) => setCloneNewName(e.target.value)}
+                                    />
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                        The cloned template will be set to DRAFT status and will not be immediately published globally.
+                                    </p>
+                                </div>
+
+                                <div className="pt-4 flex justify-end shrink-0">
+                                    <Button
+                                        onClick={onCloneSubmit}
+                                        disabled={!selectedCloneId || isCloning}
+                                        className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                                    >
+                                        {isCloning ? (
+                                            <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Cloning...</>
+                                        ) : (
+                                            <><Copy className="h-4 w-4 mr-2" /> Clone Template</>
                                         )}
                                     </Button>
                                 </div>

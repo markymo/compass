@@ -24,7 +24,7 @@ export default async function AdminQuestionnairesPage() {
                     <h1 className="text-3xl font-bold tracking-tight text-slate-900">Questionnaire Hub</h1>
                     <p className="text-slate-500 mt-1">Manage all questionnaires, templates, and raw source documents.</p>
                 </div>
-                <CreateQuestionnaireWizard sourceDocuments={sourceDocuments} />
+                <CreateQuestionnaireWizard sourceDocuments={sourceDocuments} allQuestionnaires={allItems} />
             </div>
 
             <Card className="border-slate-200 shadow-sm">
