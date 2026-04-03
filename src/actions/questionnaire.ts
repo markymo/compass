@@ -906,3 +906,84 @@ export async function getQuestionnaireSnapshots(templateId: string) {
     }
 }
 
+
+export async function cloneQuestionnaire(sourceId: string, newFIOrgId?: string, newName?: string) {
+    let targetFiId = newFIOrgId;
+    if (!targetFiId || targetFiId === "SYSTEM_INTERNAL_NONE") {
+        const sysOrg = await prisma.organization.findFirst({
+            where: { types: { has: "SYSTEM" } }
+        });
+        if (sysOrg) {
+            targetFiId = sysOrg.id;
+        } else {
+            return { success: false, error: "System Organization not found." };
+        }
+    }
+
+    const resolvedTargetFiId = targetFiId as string;
+    const userRole = await getUserOrgRole(resolvedTargetFiId);
+    const sysAdmin = await isSystemAdmin();
+    if (!sysAdmin && userRole !== "ADMIN" && userRole !== "MEMBER") {
+        return { success: false, error: "Unauthorized for target organization" };
+    }
+
+    try {
+        const source = await prisma.questionnaire.findUnique({
+            where: { id: sourceId },
+            include: { questions: true }
+        });
+
+        if (!source) return { success: false, error: "Source questionnaire not found" };
+
+        const cloneName = newName && newName.trim() !== "" ? newName : `${source.name} (Copy)`;
+
+        const extractedToCopy = source.extractedContent ? JSON.parse(JSON.stringify(source.extractedContent)) : undefined;
+        const mappingsToCopy = source.mappings ? JSON.parse(JSON.stringify(source.mappings)) : undefined;
+
+        const clone = await prisma.questionnaire.create({
+            data: {
+                fiOrgId: resolvedTargetFiId,
+                name: cloneName,
+                status: "DRAFT",
+                extractedContent: extractedToCopy,
+                mappings: mappingsToCopy,
+                isGlobal: false,
+                isTemplate: true
+            }
+        });
+
+        if (source.questions.length > 0) {
+            const questionData = source.questions.map((q: any) => ({
+                questionnaireId: clone.id,
+                text: q.text,
+                compactText: q.compactText,
+                order: q.order,
+                masterFieldNo: q.masterFieldNo,
+                masterQuestionGroupId: q.masterQuestionGroupId,
+                customFieldDefinitionId: q.customFieldDefinitionId,
+                sourceSectionId: q.sourceSectionId,
+                expectedDataType: q.expectedDataType,
+                allowAttachments: q.allowAttachments,
+                status: "DRAFT" as any
+            }));
+
+            await prisma.question.createMany({
+                data: questionData
+            });
+        }
+
+        await logActivity("CLONE_QUESTIONNAIRE", `/app/admin/organizations/${resolvedTargetFiId}`, {
+            originalId: source.id,
+            newId: clone.id,
+            name: cloneName
+        });
+
+        revalidatePath(`/app/admin/questionnaires`);
+        revalidatePath(`/app/admin/organizations/${resolvedTargetFiId}`);
+        
+        return { success: true, id: clone.id };
+    } catch (e: any) {
+        console.error("Clone failed:", e);
+        return { success: false, error: e.message || "Database error during cloning" };
+    }
+}
