@@ -72,6 +72,7 @@ export function FieldGlossaryTable({ initialFields }: FieldGlossaryTableProps) {
             appDataType: "TEXT",
             category: field.category || undefined,
             categoryId: field.categoryId || undefined,
+            fmsbRef: field.fmsbRef || undefined,
             domain: field.domain || ["Onboarding"],
             order: newOrder
         });
@@ -177,6 +178,12 @@ export function FieldGlossaryTable({ initialFields }: FieldGlossaryTableProps) {
             header: "Category",
             size: 130,
             cell: ({ row }) => <EditableTextCell key={row.original.fieldNo + "_cat"} row={row} fieldKey="category" fallback="General" router={router} />,
+        },
+        {
+            accessorKey: "fmsbRef",
+            header: "FMSB Ref.",
+            size: 100,
+            cell: ({ row }) => <EditableTextCell key={row.original.fieldNo + "_fmsb"} row={row} fieldKey="fmsbRef" fallback="-" router={router} />,
         },
         {
             accessorKey: "domain",
@@ -674,6 +681,14 @@ function NewFieldInlineRow({ draft, isCreating, onCancel, onSave }: { draft: any
                 <Badge variant="outline" className="bg-white text-slate-500 border-slate-200 h-5 text-[10px] font-normal italic">
                     {val.category || "General"}
                 </Badge>
+            </TableCell>
+            <TableCell className="py-2 px-3">
+                <Input 
+                    placeholder="FMSB Ref..." 
+                    value={val.fmsbRef || ""} 
+                    onChange={(e) => setVal({ ...val, fmsbRef: e.target.value })}
+                    className="h-8 text-[11px] border-emerald-100 focus-visible:ring-emerald-500 bg-white"
+                />
             </TableCell>
             <TableCell className="py-2 px-3">
                  <div className="flex flex-wrap gap-1">

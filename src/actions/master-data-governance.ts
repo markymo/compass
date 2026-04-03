@@ -65,6 +65,7 @@ export async function updateMasterField(
         category?: string;
         notes?: string;
         description?: string;
+        fmsbRef?: string;
         domain?: string[];
         isActive?: boolean;
         order?: number;
@@ -96,6 +97,7 @@ export async function createMasterField(data: {
     categoryId?: string;
     description?: string;
     notes?: string;
+    fmsbRef?: string;
     domain?: string[];
     isActive?: boolean;
     order?: number;
@@ -109,6 +111,7 @@ export async function createMasterField(data: {
                 categoryId: data.categoryId,
                 description: data.description,
                 notes: data.notes,
+                fmsbRef: data.fmsbRef,
                 domain: data.domain || [],
                 isActive: data.isActive !== undefined ? data.isActive : true,
                 order: data.order ?? 999,

@@ -26,6 +26,7 @@ export function FieldCreateSheet({ open, onOpenChange }: FieldCreateSheetProps) 
         fieldName: "",
         category: "General",
         domain: "Onboarding",
+        fmsbRef: "",
         description: "",
         notes: "",
         appDataType: "TEXT",
@@ -48,6 +49,7 @@ export function FieldCreateSheet({ open, onOpenChange }: FieldCreateSheetProps) 
                     fieldName: "",
                     category: "General",
                     domain: "Onboarding",
+                    fmsbRef: "",
                     description: "",
                     notes: "",
                     appDataType: "TEXT",
@@ -126,6 +128,16 @@ export function FieldCreateSheet({ open, onOpenChange }: FieldCreateSheetProps) 
                                     placeholder="e.g. Onboarding, Insurance"
                                     value={formData.domain}
                                     onChange={(e) => setFormData({ ...formData, domain: e.target.value })}
+                                    className="bg-white"
+                                />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="newFmsbRef" className="text-xs text-slate-500">FMSB Ref.</Label>
+                                <Input
+                                    id="newFmsbRef"
+                                    placeholder="e.g. FMSB-01"
+                                    value={formData.fmsbRef}
+                                    onChange={(e) => setFormData({ ...formData, fmsbRef: e.target.value })}
                                     className="bg-white"
                                 />
                             </div>
