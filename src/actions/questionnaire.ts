@@ -920,7 +920,8 @@ export async function cloneQuestionnaire(sourceId: string, newFIOrgId?: string, 
         }
     }
 
-    const userRole = await getUserOrgRole(targetFiId);
+    const resolvedTargetFiId = targetFiId as string;
+    const userRole = await getUserOrgRole(resolvedTargetFiId);
     const sysAdmin = await isSystemAdmin();
     if (!sysAdmin && userRole !== "ADMIN" && userRole !== "MEMBER") {
         return { success: false, error: "Unauthorized for target organization" };
@@ -941,7 +942,7 @@ export async function cloneQuestionnaire(sourceId: string, newFIOrgId?: string, 
 
         const clone = await prisma.questionnaire.create({
             data: {
-                fiOrgId: targetFiId,
+                fiOrgId: resolvedTargetFiId,
                 name: cloneName,
                 status: "DRAFT",
                 extractedContent: extractedToCopy,
@@ -952,7 +953,7 @@ export async function cloneQuestionnaire(sourceId: string, newFIOrgId?: string, 
         });
 
         if (source.questions.length > 0) {
-            const questionData = source.questions.map(q => ({
+            const questionData = source.questions.map((q: any) => ({
                 questionnaireId: clone.id,
                 text: q.text,
                 compactText: q.compactText,
@@ -971,14 +972,14 @@ export async function cloneQuestionnaire(sourceId: string, newFIOrgId?: string, 
             });
         }
 
-        await logActivity("CLONE_QUESTIONNAIRE", `/app/admin/organizations/${targetFiId}`, {
+        await logActivity("CLONE_QUESTIONNAIRE", `/app/admin/organizations/${resolvedTargetFiId}`, {
             originalId: source.id,
             newId: clone.id,
             name: cloneName
         });
 
         revalidatePath(`/app/admin/questionnaires`);
-        revalidatePath(`/app/admin/organizations/${targetFiId}`);
+        revalidatePath(`/app/admin/organizations/${resolvedTargetFiId}`);
         
         return { success: true, id: clone.id };
     } catch (e: any) {
