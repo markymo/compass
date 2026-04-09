@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Database, LayoutGrid, ListTree, Settings2, ArrowUpDown, GitBranch } from "lucide-react";
+import { Database, LayoutGrid, ListTree, Settings2, ArrowUpDown, GitBranch, ListOrdered } from "lucide-react";
 import Link from "next/link";
 import prisma from "@/lib/prisma";
 
@@ -58,6 +58,13 @@ export default async function MasterDataAdminPage() {
             href: "/app/admin/master-data/source-mappings",
             icon: GitBranch,
             color: "text-green-500"
+        },
+        {
+            title: "Option Sets",
+            description: "Manage reusable dropdown data sources for Master Data fields.",
+            href: "/app/admin/master-data/option-sets",
+            icon: ListOrdered,
+            color: "text-indigo-500"
         }
     ];
 

@@ -70,6 +70,8 @@ export async function updateMasterField(
         isActive?: boolean;
         order?: number;
         appDataType?: string;
+        isMultiValue?: boolean;
+        optionSetId?: string | null;
     }
 ) {
     try {
@@ -101,6 +103,8 @@ export async function createMasterField(data: {
     domain?: string[];
     isActive?: boolean;
     order?: number;
+    isMultiValue?: boolean;
+    optionSetId?: string | null;
 }) {
     try {
         const field = await (prisma as any).masterFieldDefinition.create({
@@ -115,6 +119,8 @@ export async function createMasterField(data: {
                 domain: data.domain || [],
                 isActive: data.isActive !== undefined ? data.isActive : true,
                 order: data.order ?? 999,
+                isMultiValue: data.isMultiValue || false,
+                optionSetId: data.optionSetId || undefined,
             }
         });
         invalidateDefinitionCache();

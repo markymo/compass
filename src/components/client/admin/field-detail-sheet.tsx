@@ -11,6 +11,9 @@ import { toast } from "sonner";
 import { Loader2, Save, FileText, Database, Link as LinkIcon, BookOpen } from "lucide-react";
 import { updateMasterField } from "@/actions/master-data-governance";
 import { useRouter } from "next/navigation";
+import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { getOptionSets } from "@/actions/master-data-option-sets";
 
 interface FieldDetailSheetProps {
     field: any;
@@ -21,6 +24,15 @@ interface FieldDetailSheetProps {
 export function FieldDetailSheet({ field, open, onOpenChange }: FieldDetailSheetProps) {
     const router = useRouter();
     const [loading, setLoading] = useState(false);
+    const [optionSets, setOptionSets] = useState<any[]>([]);
+
+    useEffect(() => {
+        if (open) {
+            getOptionSets().then(res => {
+                if (res.success) setOptionSets(res.optionSets || []);
+            });
+        }
+    }, [open]);
     
     // Initialize form state
     const [formData, setFormData] = useState({
@@ -29,7 +41,9 @@ export function FieldDetailSheet({ field, open, onOpenChange }: FieldDetailSheet
         domain: field?.domain?.join(", ") || "",
         fmsbRef: field?.fmsbRef || "",
         description: field?.description || "",
-        notes: field?.notes || ""
+        notes: field?.notes || "",
+        isMultiValue: field?.isMultiValue || false,
+        optionSetId: field?.optionSetId || "none"
     });
 
     // Update form state when the selected field changes
@@ -41,7 +55,9 @@ export function FieldDetailSheet({ field, open, onOpenChange }: FieldDetailSheet
                 domain: field.domain?.join(", ") || "",
                 fmsbRef: field.fmsbRef || "",
                 description: field.description || "",
-                notes: field.notes || ""
+                notes: field.notes || "",
+                isMultiValue: field.isMultiValue || false,
+                optionSetId: field.optionSetId || "none"
             });
         }
     }, [field]);
@@ -50,7 +66,15 @@ export function FieldDetailSheet({ field, open, onOpenChange }: FieldDetailSheet
         setLoading(true);
         try {
             const domainsArray = formData.domain ? formData.domain.split(",").map((d: string) => d.trim()).filter(Boolean) : [];
-            const res = await updateMasterField(field.fieldNo, { ...formData, domain: domainsArray });
+            const payload: any = { 
+                ...formData, 
+                domain: domainsArray
+            };
+            if (payload.optionSetId === "none" || field.appDataType !== "SELECT") {
+                payload.optionSetId = null;
+            }
+
+            const res = await updateMasterField(field.fieldNo, payload);
             if (res.success) {
                 toast.success("Field metadata updated successfully");
                 router.refresh();
@@ -137,6 +161,36 @@ export function FieldDetailSheet({ field, open, onOpenChange }: FieldDetailSheet
                                     onChange={(e) => setFormData({ ...formData, domain: e.target.value })}
                                     className="bg-white"
                                 />
+                            </div>
+
+                            {field.appDataType === "SELECT" && (
+                                <>
+                                    <div className="grid gap-2">
+                                        <Label className="text-xs text-slate-500">Option Set</Label>
+                                        <Select value={formData.optionSetId} onValueChange={(val) => setFormData({ ...formData, optionSetId: val })}>
+                                            <SelectTrigger className="w-full bg-white">
+                                                <SelectValue placeholder="Select Option Set" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="none">-- Select Option Set --</SelectItem>
+                                                {optionSets.map(os => (
+                                                    <SelectItem key={os.id} value={os.id}>{os.name}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </>
+                            )}
+                            <div className="grid gap-2 border rounded-md p-3 justify-center text-left max-w-[fit-content] h-[fit-content]">
+                                <div className="flex flex-row gap-3 items-center">
+                                    <div className="space-y-0.5">
+                                        <Label className="text-xs text-slate-500 font-semibold cursor-pointer">Allow Multiple Values</Label>
+                                    </div>
+                                    <Switch
+                                        checked={formData.isMultiValue}
+                                        onCheckedChange={(val) => setFormData({ ...formData, isMultiValue: val })}
+                                    />
+                                </div>
                             </div>
                         </div>
                     </section>
