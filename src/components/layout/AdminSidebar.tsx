@@ -7,7 +7,7 @@ import {
     ShieldCheck, Building2, Users, Wand2, FileText,
     UserCheck, MessageSquarePlus, Database, Activity,
     ListTree, LayoutGrid, Settings2, ArrowUpDown, GitBranch,
-    ChevronDown, Zap
+    ChevronDown, Zap, ListOrdered
 } from "lucide-react";
 import { useState } from "react";
 
@@ -35,6 +35,7 @@ const adminNavItems: NavItem[] = [
             { title: "Taxonomy Sorting", href: "/app/admin/master-data/sort", icon: ArrowUpDown },
             { title: "System", href: "/app/admin/master-data/system", icon: Settings2 },
             { title: "Source Mappings", href: "/app/admin/master-data/source-mappings", icon: GitBranch },
+            { title: "Option Sets", href: "/app/admin/master-data/option-sets", icon: ListOrdered },
         ]
     },
     { title: "Dashboard (old)", href: "/app/admin", icon: ShieldCheck },
@@ -44,6 +45,7 @@ const rddShortcutItems: NavItem[] = [
     { title: "Field Glossary", href: "/app/admin/master-data/fields", icon: ListTree },
     { title: "Source Mappings", href: "/app/admin/master-data/source-mappings", icon: GitBranch },
     { title: "Taxonomy Sorting", href: "/app/admin/master-data/sort", icon: ArrowUpDown },
+    { title: "Option Sets", href: "/app/admin/master-data/option-sets", icon: ListOrdered },
 ];
 
 function isActive(pathname: string, href: string): boolean {
