@@ -43,7 +43,8 @@ export function FieldDetailSheet({ field, open, onOpenChange }: FieldDetailSheet
         description: field?.description || "",
         notes: field?.notes || "",
         isMultiValue: field?.isMultiValue || false,
-        optionSetId: field?.optionSetId || "none"
+        optionSetId: field?.optionSetId || "none",
+        appDataType: field?.appDataType || "TEXT"
     });
 
     // Update form state when the selected field changes
@@ -57,7 +58,8 @@ export function FieldDetailSheet({ field, open, onOpenChange }: FieldDetailSheet
                 description: field.description || "",
                 notes: field.notes || "",
                 isMultiValue: field.isMultiValue || false,
-                optionSetId: field.optionSetId || "none"
+                optionSetId: field.optionSetId || "none",
+                appDataType: field.appDataType || "TEXT"
             });
         }
     }, [field]);
@@ -70,8 +72,11 @@ export function FieldDetailSheet({ field, open, onOpenChange }: FieldDetailSheet
                 ...formData, 
                 domain: domainsArray
             };
-            if (payload.optionSetId === "none" || field.appDataType !== "SELECT") {
+            if (payload.optionSetId === "none" || payload.appDataType !== "SELECT") {
                 payload.optionSetId = null;
+            }
+            if (payload.appDataType !== "SELECT") {
+                payload.isMultiValue = false;
             }
 
             const res = await updateMasterField(field.fieldNo, payload);
@@ -153,6 +158,22 @@ export function FieldDetailSheet({ field, open, onOpenChange }: FieldDetailSheet
                                 />
                             </div>
                             <div className="grid gap-2">
+                                <Label className="text-xs text-slate-500">Data Type</Label>
+                                <Select value={formData.appDataType} onValueChange={(val) => setFormData({ ...formData, appDataType: val })}>
+                                    <SelectTrigger className="w-full bg-white">
+                                        <SelectValue placeholder="Select Data Type" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="TEXT">Text (String)</SelectItem>
+                                        <SelectItem value="NUMBER">Number</SelectItem>
+                                        <SelectItem value="BOOLEAN">Boolean</SelectItem>
+                                        <SelectItem value="DATE">Date</SelectItem>
+                                        <SelectItem value="JSON">JSON</SelectItem>
+                                        <SelectItem value="SELECT">Dropdown Selection</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="grid gap-2">
                                 <Label htmlFor="domain" className="text-xs text-slate-500">Domain Classification</Label>
                                 <Input
                                     id="domain"
@@ -163,7 +184,7 @@ export function FieldDetailSheet({ field, open, onOpenChange }: FieldDetailSheet
                                 />
                             </div>
 
-                            {field.appDataType === "SELECT" && (
+                            {formData.appDataType === "SELECT" && (
                                 <>
                                     <div className="grid gap-2">
                                         <Label className="text-xs text-slate-500">Option Set</Label>
