@@ -3,6 +3,7 @@
 import prisma from "@/lib/prisma";
 import { revalidatePath, unstable_noStore } from "next/cache";
 import { canManageQuestionnaire, isSystemAdmin, getUserOrgRole } from "./security";
+import { getIdentity } from "@/lib/auth";
 
 import { logActivity } from "./logging";
 
@@ -985,5 +986,143 @@ export async function cloneQuestionnaire(sourceId: string, newFIOrgId?: string, 
     } catch (e: any) {
         console.error("Clone failed:", e);
         return { success: false, error: e.message || "Database error during cloning" };
+    }
+}
+
+export async function shareQuestionnaireLaterally(sourceQuestionnaireId: string, targetEngagementIds: string[]) {
+    try {
+        const identity = await getIdentity();
+        const userId = identity?.userId;
+        if (!userId) return { success: false, error: "Authentication required" };
+
+        const source = await prisma.questionnaire.findUnique({
+            where: { id: sourceQuestionnaireId },
+            include: { questions: { include: { documents: true } }, fiEngagement: { include: { clientLE: true } } }
+        });
+
+        if (!source || !source.fiEngagementId) {
+            return { success: false, error: "Source questionnaire must be attached to an engagement." };
+        }
+
+        const clientLEId = source.fiEngagement?.clientLEId;
+        if (!clientLEId) return { success: false, error: "Source context missing." };
+
+        // Verify user has access to this LE
+        const hasAccess = await prisma.membership.findFirst({
+            where: { userId, clientLEId, role: { in: ["ADMIN", "MEMBER"] } }
+        });
+
+        if (!hasAccess && !(await isSystemAdmin())) {
+            return { success: false, error: "Unauthorized to share on behalf of this Legal Entity" };
+        }
+
+        // Validate targets belong to same LE
+        const targets = await prisma.fIEngagement.findMany({
+            where: { id: { in: targetEngagementIds }, clientLEId, isDeleted: false },
+            include: { org: true }
+        });
+
+        if (targets.length !== targetEngagementIds.length) {
+            return { success: false, error: "Some target engagements are invalid or deleted." };
+        }
+
+        let newIds = [];
+
+        // Clone for each target
+        for (const target of targets) {
+            const clone = await prisma.questionnaire.create({
+                data: {
+                    fiOrgId: target.fiOrgId,
+                    fiEngagementId: target.id,
+                    name: source.name,
+                    status: "DRAFT", // Resets for the target FI
+                    extractedContent: source.extractedContent ? JSON.parse(JSON.stringify(source.extractedContent)) : undefined,
+                    mappings: source.mappings ? JSON.parse(JSON.stringify(source.mappings)) : undefined,
+                    isGlobal: false,
+                    isTemplate: false,
+                    ownerOrgId: source.ownerOrgId,
+                    fileUrl: source.fileUrl,
+                    fileName: source.fileName,
+                    fileType: source.fileType
+                }
+            });
+
+            if (source.questions.length > 0) {
+                const questionData = source.questions.map((q: any) => ({
+                    questionnaireId: clone.id,
+                    text: q.text,
+                    compactText: q.compactText,
+                    order: q.order,
+                    masterFieldNo: q.masterFieldNo,
+                    masterQuestionGroupId: q.masterQuestionGroupId,
+                    customFieldDefinitionId: q.customFieldDefinitionId,
+                    sourceSectionId: q.sourceSectionId,
+                    expectedDataType: q.expectedDataType,
+                    allowAttachments: q.allowAttachments,
+                    answer: q.answer, // Natively copy the raw answer string
+                    status: (q.answer ? "ANSWERED" : "OPEN") as any, // Reset status
+                    prefilledValue: q.prefilledValue
+                    // Notice we explicitly strip assignedToUserId, comments, supplierNote, approvedAt etc.
+                }));
+
+                await prisma.question.createMany({
+                    data: questionData
+                });
+
+                // Attach existing documents to the cloned questions
+                const newQuestions = await prisma.question.findMany({ where: { questionnaireId: clone.id } });
+                for (const oldQ of source.questions) {
+                    if (oldQ.documents && oldQ.documents.length > 0) {
+                        // find matching new Q
+                        const newQ = newQuestions.find((nq: any) => nq.text === oldQ.text && nq.order === oldQ.order);
+                        if (newQ) {
+                            for (const doc of oldQ.documents) {
+                                await prisma.document.update({
+                                    where: { id: doc.id },
+                                    data: { question: { connect: { id: newQ.id } } }
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+
+            newIds.push(clone.id);
+
+            await logActivity("SHARE_QUESTIONNAIRE_LATERALLY", `/app/le/${clientLEId}`, {
+                sourceQuestionnaireId: source.id,
+                targetEngagementId: target.id,
+                newQuestionnaireId: clone.id
+            });
+        }
+
+        revalidatePath(`/app/le/${clientLEId}`);
+        for(let tid of targetEngagementIds) {
+            revalidatePath(`/app/le/${clientLEId}/engagement/${tid}`);
+        }
+        
+        return { success: true, count: newIds.length, ids: newIds };
+    } catch (e: any) {
+        console.error("Lateral Share failed:", e);
+        return { success: false, error: e.message || "Database error sharing questionnaire" };
+    }
+}
+
+export async function getOtherEngagements(clientLEId: string, currentEngagementId: string) {
+    try {
+        const engagements = await prisma.fIEngagement.findMany({
+            where: {
+                clientLEId,
+                id: { not: currentEngagementId },
+                isDeleted: false,
+                status: { not: "ARCHIVED" }
+            },
+            include: { org: true },
+            orderBy: { org: { name: 'asc' } }
+        });
+        return { success: true, data: engagements };
+    } catch (error) {
+        console.error("Failed to fetch other engagements:", error);
+        return { success: false, error: "Database error" };
     }
 }

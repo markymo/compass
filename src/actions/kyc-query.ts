@@ -186,7 +186,17 @@ export async function getFieldDetail(
         }
 
         if (!subjectLeId) {
-            throw new Error("Could not resolve LegalEntity subject for this request.");
+            return {
+                fieldNo: 0,
+                fieldName: "Unknown Group / Missing Subject",
+                isRepeating: false,
+                dataType: "JSON",
+                current: null,
+                assignment: null,
+                history: [],
+                candidates: [],
+                notes: "LegalEntity subject missing. Data cannot be resolved."
+            };
         }
 
         try {
@@ -306,7 +316,17 @@ export async function getFieldDetail(
     }
 
     if (!subjectLeId) {
-        throw new Error("Could not resolve LegalEntity subject for this request.");
+        return {
+            fieldNo,
+            fieldName: def?.fieldName || "Unknown Field",
+            isRepeating: def?.isMultiValue || false,
+            dataType: def?.appDataType || 'string',
+            current: null,
+            assignment: null,
+            history: [],
+            candidates: [],
+            notes: "LegalEntity subject missing. Data cannot be resolved."
+        };
     }
 
     // 1. Get Current Value via KycStateService

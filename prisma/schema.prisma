@@ -674,9 +674,26 @@ model MasterFieldDefinition {
   masterDataCategory MasterDataCategory?    @relation(fields: [categoryId], references: [id])
   groupItems         MasterFieldGroupItem[]
   sourceMappings     SourceFieldMapping[]
+  optionSetId        String?
+  optionSet          MasterDataOptionSet?   @relation(fields: [optionSetId], references: [id])
 
   @@index([isActive, order])
   @@map("master_field_definitions")
+}
+
+model MasterDataOptionSet {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  valueType   String   @default("STRING")
+  options     Json
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  fields MasterFieldDefinition[]
+
+  @@map("master_data_option_sets")
 }
 
 model MasterDataCategory {

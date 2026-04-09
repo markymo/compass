@@ -214,7 +214,7 @@ export function FieldGlossaryTable({ initialFields }: FieldGlossaryTableProps) {
             accessorKey: "appDataType",
             header: "Data Type",
             size: 80,
-            cell: ({ row }) => <EditableSelectCell key={row.original.fieldNo} row={row} fieldKey="appDataType" options={["TEXT", "NUMBER", "BOOLEAN", "DATE", "JSON"]} router={router} />,
+            cell: ({ row }) => <EditableSelectCell key={row.original.fieldNo} row={row} fieldKey="appDataType" options={["TEXT", "NUMBER", "BOOLEAN", "DATE", "JSON", "SELECT"]} router={router} />,
         },
         {
             id: "sources",

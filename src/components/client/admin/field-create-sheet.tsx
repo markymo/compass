@@ -11,7 +11,9 @@ import { Loader2, Save, Database, BookOpen } from "lucide-react";
 import { createMasterField } from "@/actions/master-data-governance";
 import { useRouter } from "next/navigation";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-
+import { Switch } from "@/components/ui/switch";
+import { getOptionSets } from "@/actions/master-data-option-sets";
+import { useEffect } from "react";
 interface FieldCreateSheetProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
@@ -20,7 +22,16 @@ interface FieldCreateSheetProps {
 export function FieldCreateSheet({ open, onOpenChange }: FieldCreateSheetProps) {
     const router = useRouter();
     const [loading, setLoading] = useState(false);
+    const [optionSets, setOptionSets] = useState<any[]>([]);
     
+    useEffect(() => {
+        if (open) {
+            getOptionSets().then(res => {
+                if (res.success) setOptionSets(res.optionSets || []);
+            });
+        }
+    }, [open]);
+
     // Initialize form state
     const [formData, setFormData] = useState({
         fieldName: "",
@@ -30,7 +41,9 @@ export function FieldCreateSheet({ open, onOpenChange }: FieldCreateSheetProps) 
         description: "",
         notes: "",
         appDataType: "TEXT",
-        isActive: true
+        isActive: true,
+        optionSetId: "none",
+        isMultiValue: false
     });
 
     const handleSave = async () => {
@@ -42,7 +55,19 @@ export function FieldCreateSheet({ open, onOpenChange }: FieldCreateSheetProps) 
         setLoading(true);
         try {
             const domainsArray = formData.domain ? formData.domain.split(",").map(d => d.trim()).filter(Boolean) : [];
-            const res = await createMasterField({ ...formData, domain: domainsArray });
+            const payload: any = { 
+                ...formData, 
+                domain: domainsArray 
+            };
+            if (payload.optionSetId === "none") {
+                payload.optionSetId = undefined;
+            }
+            if (payload.appDataType !== "SELECT") {
+                payload.optionSetId = undefined;
+                payload.isMultiValue = false;
+            }
+
+            const res = await createMasterField(payload);
             if (res.success) {
                 toast.success("Field created successfully");
                 setFormData({
@@ -53,7 +78,9 @@ export function FieldCreateSheet({ open, onOpenChange }: FieldCreateSheetProps) 
                     description: "",
                     notes: "",
                     appDataType: "TEXT",
-                    isActive: true
+                    isActive: true,
+                    optionSetId: "none",
+                    isMultiValue: false
                 });
                 onOpenChange(false);
                 router.refresh();
@@ -106,9 +133,39 @@ export function FieldCreateSheet({ open, onOpenChange }: FieldCreateSheetProps) 
                                         <SelectItem value="BOOLEAN">Boolean</SelectItem>
                                         <SelectItem value="DATE">Date</SelectItem>
                                         <SelectItem value="JSON">JSON</SelectItem>
+                                        <SelectItem value="SELECT">Dropdown Selection</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
+
+                            {formData.appDataType === "SELECT" && (
+                                <>
+                                    <div className="grid gap-2 col-span-2">
+                                        <Label className="text-xs text-slate-500">Option Set *</Label>
+                                        <Select value={formData.optionSetId} onValueChange={(val) => setFormData({ ...formData, optionSetId: val })}>
+                                            <SelectTrigger className="w-full bg-white">
+                                                <SelectValue placeholder="Select Option Set" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="none">-- Select Option Set --</SelectItem>
+                                                {optionSets.map(os => (
+                                                    <SelectItem key={os.id} value={os.id}>{os.name}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="grid gap-2 col-span-2 flex-row items-center border rounded-md p-3">
+                                        <div className="flex-1 space-y-1">
+                                            <p className="text-sm font-medium leading-none">Allow Multiple Selections</p>
+                                            <p className="text-xs text-muted-foreground">End users can pick more than one option.</p>
+                                        </div>
+                                        <Switch
+                                            checked={formData.isMultiValue}
+                                            onCheckedChange={(val) => setFormData({ ...formData, isMultiValue: val })}
+                                        />
+                                    </div>
+                                </>
+                            )}
 
                             <div className="grid gap-2">
                                 <Label htmlFor="newCategory" className="text-xs text-slate-500">Category</Label>
