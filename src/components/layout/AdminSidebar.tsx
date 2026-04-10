@@ -7,9 +7,9 @@ import {
     ShieldCheck, Building2, Users, Wand2, FileText,
     UserCheck, MessageSquarePlus, Database, Activity,
     ListTree, LayoutGrid, Settings2, ArrowUpDown, GitBranch,
-    ChevronDown, Zap, ListOrdered
+    ChevronDown, Zap, ListOrdered, LayoutDashboard
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface NavItem {
     title: string;
@@ -30,6 +30,7 @@ const adminNavItems: NavItem[] = [
         href: "/app/admin/master-data",
         icon: Database,
         children: [
+            { title: "Manager", href: "/app/admin/master-data/manager", icon: LayoutDashboard },
             { title: "Field Glossary", href: "/app/admin/master-data/fields", icon: ListTree },
             { title: "Groups", href: "/app/admin/master-data/groups", icon: LayoutGrid },
             { title: "Taxonomy Sorting", href: "/app/admin/master-data/sort", icon: ArrowUpDown },
@@ -42,6 +43,7 @@ const adminNavItems: NavItem[] = [
 ];
 
 const rddShortcutItems: NavItem[] = [
+    { title: "Data Manager", href: "/app/admin/master-data/manager", icon: LayoutDashboard },
     { title: "Field Glossary", href: "/app/admin/master-data/fields", icon: ListTree },
     { title: "Source Mappings", href: "/app/admin/master-data/source-mappings", icon: GitBranch },
     { title: "Taxonomy Sorting", href: "/app/admin/master-data/sort", icon: ArrowUpDown },
@@ -121,7 +123,14 @@ function NavLink({ item, depth = 0, isCollapsed = false }: { item: NavItem; dept
 }
 
 export function AdminSidebar() {
+    const pathname = usePathname();
     const [isCollapsed, setIsCollapsed] = useState(false);
+
+    useEffect(() => {
+        if (pathname.includes("/app/admin/master-data/manager")) {
+            setIsCollapsed(true);
+        }
+    }, [pathname]);
 
     return (
         <aside 
