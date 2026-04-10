@@ -28,7 +28,7 @@ import { CategoryCombobox } from "./category-combobox";
 import { updateUserPreferences } from "@/actions/user-preferences";
 import { updateFieldDescription } from "@/actions/master-data-ai";
 import { updateMasterField } from "@/actions/master-data-governance";
-import { syncCategoriesFromFields, updateCategoryOrder, updateFieldOrder, moveFieldOrder } from "@/actions/master-data-sort";
+import { updateCategoryOrder, updateFieldOrder, moveFieldOrder } from "@/actions/master-data-sort";
 import { setSystemSetting } from "@/actions/system";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -51,7 +51,6 @@ export default function MasterDataManager({ initialData, rawFields, initialNote,
     const [categories, setCategories] = useState<any[]>(initialData.categories || []);
     const [uncategorizedFields, setUncategorizedFields] = useState<any[]>(initialData.uncategorizedFields || []);
     const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
-    const [isSyncing, setIsSyncing] = useState(false);
     const [isSavingOrder, setIsSavingOrder] = useState(false);
 
     // -- Table States --
@@ -190,19 +189,6 @@ export default function MasterDataManager({ initialData, rawFields, initialNote,
         }
     };
 
-    const handleSync = async () => {
-        if (!confirm("Run internal migration for categories?")) return;
-        setIsSyncing(true);
-        try {
-            await syncCategoriesFromFields();
-            toast.success("Categories synced successfully");
-            router.refresh();
-        } catch (e) {
-            toast.error("Error syncing categories");
-        } finally {
-            setIsSyncing(false);
-        }
-    };
 
     const handleInsertBelow = (field: any) => {
         let newOrder = (field.order || 0) + 10;
@@ -443,9 +429,7 @@ export default function MasterDataManager({ initialData, rawFields, initialNote,
                 <div className="flex items-center gap-2 mt-2 xl:mt-0 justify-end">
                     <Button variant="outline" size="sm" onClick={handleSaveCategories} disabled={isSavingOrder} className="h-9 gap-1.5 shadow-sm text-sm"><Save className="w-3.5 h-3.5" /> Save Categories</Button>
                     <Button variant="outline" size="sm" onClick={handleSaveFields} disabled={isSavingOrder} className="h-9 gap-1.5 shadow-sm text-sm"><Save className="w-3.5 h-3.5" /> Save Fields</Button>
-                    <Button variant="secondary" size="sm" onClick={handleSync} disabled={isSyncing} className="h-9 gap-1.5 shadow-sm text-sm">
-                        <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? "animate-spin" : ""}`} /> Sync
-                    </Button>
+
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild><Button variant="outline" size="sm" className="h-9 gap-2 shadow-sm text-sm"><SlidersHorizontal className="h-4 w-4" /> Columns</Button></DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-[180px]">

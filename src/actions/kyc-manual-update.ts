@@ -50,7 +50,7 @@ export async function updateFieldManually(
             ownerScopeId,
             sourceType: SourceType.USER_INPUT,
             sourceReference: reason,
-            collectionId: def.isMultiValue ? (def.category || 'GENERAL') : undefined,
+            collectionId: def.isMultiValue ? (def.categoryId || 'GENERAL') : undefined,
             instanceId: rowId // For multi-value, rowId is the stable instance key
         };
 
@@ -318,7 +318,7 @@ export async function removeMultiValueEntry(
         await FieldClaimService.emitTombstone(
             { subjectLeId },
             fieldNo,
-            claim.collectionId || def.category || 'GENERAL',
+            claim.collectionId || def.categoryId || 'GENERAL',
             claim.instanceId,
             ownerScopeId
         );
@@ -344,11 +344,11 @@ export async function applyBulkOverride(
     try {
         const allFields = await listAllMasterFields();
         const fieldNos = allFields
-            .filter((f: any) => f.category === modelName)
+            .filter((f: any) => f.masterDataCategory?.displayName === modelName)
             .map((f: any) => f.fieldNo);
 
         for (const [fieldName, value] of Object.entries(updates)) {
-            const def = allFields.find((f: any) => f.category === modelName && f.fieldName === fieldName);
+            const def = allFields.find((f: any) => f.masterDataCategory?.displayName === modelName && f.fieldName === fieldName);
             if (def) {
                 await updateFieldManually(clientLEId, def.fieldNo, value, reason, rowId, entityType);
             }

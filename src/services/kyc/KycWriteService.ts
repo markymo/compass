@@ -181,7 +181,7 @@ export class KycWriteService {
 
         // 2. Map fieldNames to fieldNos
         const allFields = await listAllMasterFields();
-        const modelFields = allFields.filter((f: any) => f.category === modelName);
+        const modelFields = allFields.filter((f: any) => f.masterDataCategory?.displayName === modelName);
         const nameToNo = new Map<string, number>();
         modelFields.forEach((def: any) => {
             if ((def as any).modelField) nameToNo.set((def as any).modelField, def.fieldNo);

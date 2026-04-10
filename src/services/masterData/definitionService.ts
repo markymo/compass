@@ -19,7 +19,8 @@ export async function getMasterFieldDefinition(fieldNo: number): Promise<MasterF
         // If not in cache, one last attempt to find it 
         // (might be a newly added field before cache refresh)
         const fresh = await prisma.masterFieldDefinition.findUnique({
-            where: { fieldNo, isActive: true }
+            where: { fieldNo, isActive: true },
+            include: { masterDataCategory: true }
         });
         if (!fresh) {
             throw new Error(`Unknown or Inactive Field No: ${fieldNo}`);
@@ -35,7 +36,8 @@ export async function getMasterFieldDefinition(fieldNo: number): Promise<MasterF
  */
 export async function refreshDefinitionCache() {
     const all = await prisma.masterFieldDefinition.findMany({
-        where: { isActive: true }
+        where: { isActive: true },
+        include: { masterDataCategory: true }
     });
     definitionCache = {};
     all.forEach((d: any) => {
