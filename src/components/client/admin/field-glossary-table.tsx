@@ -446,8 +446,8 @@ export function FieldGlossaryTable({ initialFields }: FieldGlossaryTableProps) {
                 </Table>
             </div>
 
-            {selectedField && <FieldDetailSheet field={selectedField} open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen} />}
-            {isCreateDialogOpen && <FieldCreateSheet open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen} />}
+            {selectedField && <FieldDetailSheet field={selectedField} open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen} categories={[]} />}
+            {isCreateDialogOpen && <FieldCreateSheet open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen} categories={[]} />}
         </div>
     );
 }

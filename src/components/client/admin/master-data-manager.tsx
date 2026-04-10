@@ -10,6 +10,7 @@ import {
     getSortedRowModel,
     SortingState,
     VisibilityState,
+    ColumnSizingState
 } from "@tanstack/react-table";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +24,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 
 import { FieldDetailSheet } from "./field-detail-sheet";
 import { FieldCreateSheet } from "./field-create-sheet";
+import { CategoryCombobox } from "./category-combobox";
+import { updateUserPreferences } from "@/actions/user-preferences";
 import { updateFieldDescription } from "@/actions/master-data-ai";
 import { updateMasterField } from "@/actions/master-data-governance";
 import { syncCategoriesFromFields, updateCategoryOrder, updateFieldOrder, moveFieldOrder } from "@/actions/master-data-sort";
@@ -34,9 +37,10 @@ interface MasterDataManagerProps {
     initialData: any;
     rawFields: any[];
     initialNote: string;
+    initialUserConfig?: any;
 }
 
-export default function MasterDataManager({ initialData, rawFields, initialNote }: MasterDataManagerProps) {
+export default function MasterDataManager({ initialData, rawFields, initialNote, initialUserConfig }: MasterDataManagerProps) {
     const router = useRouter();
 
     // -- Note State --
@@ -51,13 +55,34 @@ export default function MasterDataManager({ initialData, rawFields, initialNote 
     const [isSavingOrder, setIsSavingOrder] = useState(false);
 
     // -- Table States --
-    const [sorting, setSorting] = useState<SortingState>([{ id: "order", desc: false }]);
-    const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
+    const [sorting, setSorting] = useState<SortingState>(initialUserConfig?.sorting || [{ id: "order", desc: false }]);
+    const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(initialUserConfig?.columnVisibility || {});
+    const [columnSizing, setColumnSizing] = useState<ColumnSizingState>(initialUserConfig?.columnSizing || {});
+    
+    // Filter State (also saved)
     const [search, setSearch] = useState("");
-    const [filterCategory, setFilterCategory] = useState<string>("all");
-    const [filterDomain, setFilterDomain] = useState<string>("all");
-    const [filterDataType, setFilterDataType] = useState<string>("all");
-    const [filterStatus, setFilterStatus] = useState<string>("all");
+    const [filterCategory, setFilterCategory] = useState<string>(initialUserConfig?.filterCategory || "all");
+    const [filterDomain, setFilterDomain] = useState<string>(initialUserConfig?.filterDomain || "all");
+    const [filterDataType, setFilterDataType] = useState<string>(initialUserConfig?.filterDataType || "all");
+    const [filterStatus, setFilterStatus] = useState<string>(initialUserConfig?.filterStatus || "all");
+
+    // -- Persistence Effect --
+    useEffect(() => {
+        const timeoutId = setTimeout(() => {
+            updateUserPreferences({
+                masterDataManager: {
+                    sorting,
+                    columnVisibility,
+                    columnSizing,
+                    filterCategory,
+                    filterDomain,
+                    filterDataType,
+                    filterStatus
+                }
+            });
+        }, 1000); // 1s debounce
+        return () => clearTimeout(timeoutId);
+    }, [sorting, columnVisibility, columnSizing, filterCategory, filterDomain, filterDataType, filterStatus]);
 
     const [selectedField, setSelectedField] = useState<any>(null);
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -217,16 +242,20 @@ export default function MasterDataManager({ initialData, rawFields, initialNote 
 
     // Integrate flat fields for search visibility and table context
     const flatFields = useMemo(() => {
-        const out = categories.flatMap(c => c.fields);
+        const out = categories.flatMap(c => c.fields.map((f: any) => ({
+            ...f,
+            categoryId: c.id,
+            masterDataCategory: { id: c.id, displayName: c.displayName }
+        })));
         return [...out, ...uncategorizedFields];
     }, [categories, uncategorizedFields]);
 
     const data = useMemo(() => flatFields.filter((f: any) => {
         const matchesSearch = f.fieldName.toLowerCase().includes(search.toLowerCase()) ||
-            (f.category || "").toLowerCase().includes(search.toLowerCase()) ||
+            (f.masterDataCategory?.displayName || "").toLowerCase().includes(search.toLowerCase()) ||
             f.fieldNo.toString() === search;
 
-        const matchesCategory = filterCategory === "all" || (f.category || "General") === filterCategory;
+        const matchesCategory = filterCategory === "all" || (f.masterDataCategory?.displayName || "Uncategorized") === filterCategory;
         const matchesDomain = filterDomain === "all" || (f.domain && f.domain.includes(filterDomain)) || ((!f.domain || f.domain.length === 0) && filterDomain === "None");
         const matchesDataType = filterDataType === "all" || f.appDataType === filterDataType;
         const matchesStatus = filterStatus === "all" || 
@@ -236,7 +265,7 @@ export default function MasterDataManager({ initialData, rawFields, initialNote 
         return matchesSearch && matchesCategory && matchesDomain && matchesDataType && matchesStatus;
     }), [flatFields, search, filterCategory, filterDomain, filterDataType, filterStatus]);
 
-    const uniqueCategories = Array.from(new Set(rawFields.map(f => f.category || "General"))).sort();
+    const uniqueCategories = Array.from(new Set(rawFields.map(f => f.masterDataCategory?.displayName || "Uncategorized"))).sort();
     const uniqueDomains = Array.from(new Set(rawFields.flatMap(f => f.domain && f.domain.length > 0 ? f.domain : ["None"]))).sort();
     const uniqueDataTypes = Array.from(new Set(rawFields.map(f => f.appDataType))).sort();
 
@@ -278,10 +307,10 @@ export default function MasterDataManager({ initialData, rawFields, initialNote 
             cell: ({ row }) => <DescriptionCell key={row.original.fieldNo} row={row} router={router} />,
         },
         {
-            accessorKey: "category",
+            id: "category",
             header: "Category",
-            size: 130,
-            cell: ({ row }) => <EditableTextCell key={row.original.fieldNo + "_cat"} row={row} fieldKey="category" fallback="General" router={router} />,
+            size: 140,
+            cell: ({ row }) => <EditableCategoryCell key={row.original.fieldNo + "_cat"} row={row} categories={categories} router={router} />,
         },
         {
             accessorKey: "fmsbRef",
@@ -359,9 +388,10 @@ export default function MasterDataManager({ initialData, rawFields, initialNote 
         columnResizeMode: "onChange",
         getCoreRowModel: getCoreRowModel(),
         onSortingChange: setSorting,
+        onColumnSizingChange: setColumnSizing,
         getSortedRowModel: getSortedRowModel(),
         onColumnVisibilityChange: setColumnVisibility,
-        state: { sorting, columnVisibility }
+        state: { sorting, columnVisibility, columnSizing }
     });
 
     // Extract sizes for CSS Grid styling representing the flat table columns + drag handle
@@ -562,8 +592,8 @@ export default function MasterDataManager({ initialData, rawFields, initialNote 
                 </div>
             </div>
 
-            {selectedField && <FieldDetailSheet field={selectedField} open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen} />}
-            {isCreateDialogOpen && <FieldCreateSheet open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen} />}
+            {selectedField && <FieldDetailSheet field={selectedField} open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen} categories={categories} />}
+            {isCreateDialogOpen && <FieldCreateSheet open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen} categories={categories} />}
         </div>
     );
 }
@@ -740,6 +770,47 @@ function EditableSelectCell({ row, fieldKey, options, router }: { row: any, fiel
         );
     }
     return <span onClick={()=>setIsEditing(true)} className="font-mono text-xs text-slate-500 cursor-pointer">{originalVal}</span>;
+}
+
+function EditableCategoryCell({ row, categories, router }: { row: any, categories: any[], router: any }) {
+    const [isEditing, setIsEditing] = useState(false);
+    const originalCatId = row.original.masterDataCategory?.id;
+
+    const handleSave = async (categoryId: string, newCategoryName: string) => {
+        setIsEditing(false);
+        if (categoryId === originalCatId && !newCategoryName) return;
+
+        const res = await updateMasterField(row.original.fieldNo, { 
+            categoryId: categoryId || null, 
+            newCategoryName 
+        });
+        if(res.success) {
+            router.refresh();
+        }
+    };
+
+    if (isEditing) {
+        return (
+            <CategoryCombobox 
+                categories={categories}
+                categoryId={originalCatId}
+                newCategoryName=""
+                onSelectionChange={handleSave}
+                defaultOpen={true}
+                onClose={() => setIsEditing(false)}
+                className="h-7 text-xs shadow-md border-indigo-200"
+            />
+        );
+    }
+    
+    return (
+        <span 
+            onClick={() => setIsEditing(true)} 
+            className="text-slate-700 text-sm py-1 font-medium cursor-pointer border-b border-transparent hover:border-slate-300 transition-colors w-full inline-block"
+        >
+            {row.original.masterDataCategory?.displayName || "Uncategorized"}
+        </span>
+    );
 }
 
 function EditableStatusCell({ row, router }: { row: any, router: any }) {

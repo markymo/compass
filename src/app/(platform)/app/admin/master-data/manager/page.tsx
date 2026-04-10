@@ -1,6 +1,7 @@
 import prisma from "@/lib/prisma";
 import MasterDataManager from "@/components/client/admin/master-data-manager";
 import { getCategoriesWithFields } from "@/actions/master-data-sort";
+import { getUserPreferences } from "@/actions/user-preferences";
 
 export default async function MasterDataManagerPage() {
     // 1. Fetch the temporary note from system settings
@@ -27,7 +28,8 @@ export default async function MasterDataManagerPage() {
     try {
         rawFields = await (prisma as any).masterFieldDefinition.findMany({
             include: {
-                sourceMappings: true
+                sourceMappings: true,
+                masterDataCategory: true
             },
             orderBy: [
                 { order: 'asc' },
@@ -36,6 +38,17 @@ export default async function MasterDataManagerPage() {
         });
     } catch (e) {
         console.error("Failed to fetch raw fields", e);
+    }
+
+    // 3. Fetch User Preferences for UI state (Column sizes, visibility, etc.)
+    let initialUserConfig = null;
+    try {
+        const prefRes = await getUserPreferences();
+        if (prefRes.success && prefRes.preferences?.masterDataManager) {
+            initialUserConfig = prefRes.preferences.masterDataManager;
+        }
+    } catch (e) {
+        console.error("Failed to fetch user preferences", e);
     }
 
     return (
@@ -50,7 +63,8 @@ export default async function MasterDataManagerPage() {
             <MasterDataManager 
                 initialData={data} 
                 rawFields={rawFields} 
-                initialNote={temporaryNote} 
+                initialNote={temporaryNote}
+                initialUserConfig={initialUserConfig}
             />
         </div>
     );

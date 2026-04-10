@@ -8,18 +8,21 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Loader2, Save, Database, BookOpen } from "lucide-react";
-import { createMasterField } from "@/actions/master-data-governance";
-import { useRouter } from "next/navigation";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { getOptionSets } from "@/actions/master-data-option-sets";
 import { useEffect } from "react";
+import { createMasterField } from "@/actions/master-data-governance";
+import { useRouter } from "next/navigation";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { CategoryCombobox } from "./category-combobox";
+
 interface FieldCreateSheetProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
+    categories: any[];
 }
 
-export function FieldCreateSheet({ open, onOpenChange }: FieldCreateSheetProps) {
+export function FieldCreateSheet({ open, onOpenChange, categories=[] }: FieldCreateSheetProps) {
     const router = useRouter();
     const [loading, setLoading] = useState(false);
     const [optionSets, setOptionSets] = useState<any[]>([]);
@@ -35,7 +38,8 @@ export function FieldCreateSheet({ open, onOpenChange }: FieldCreateSheetProps) 
     // Initialize form state
     const [formData, setFormData] = useState({
         fieldName: "",
-        category: "General",
+        categoryId: "",
+        newCategoryName: "",
         domain: "Onboarding",
         fmsbRef: "",
         description: "",
@@ -72,7 +76,8 @@ export function FieldCreateSheet({ open, onOpenChange }: FieldCreateSheetProps) 
                 toast.success("Field created successfully");
                 setFormData({
                     fieldName: "",
-                    category: "General",
+                    categoryId: "",
+                    newCategoryName: "",
                     domain: "Onboarding",
                     fmsbRef: "",
                     description: "",
@@ -169,12 +174,11 @@ export function FieldCreateSheet({ open, onOpenChange }: FieldCreateSheetProps) 
 
                             <div className="grid gap-2">
                                 <Label htmlFor="newCategory" className="text-xs text-slate-500">Category</Label>
-                                <Input
-                                    id="newCategory"
-                                    value={formData.category}
-                                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                                    className="bg-white"
-                                    placeholder="e.g. General"
+                                <CategoryCombobox 
+                                    categories={categories}
+                                    categoryId={formData.categoryId}
+                                    newCategoryName={formData.newCategoryName}
+                                    onSelectionChange={(id, name) => setFormData({...formData, categoryId: id, newCategoryName: name})}
                                 />
                             </div>
 

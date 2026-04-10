@@ -14,14 +14,16 @@ import { useRouter } from "next/navigation";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getOptionSets } from "@/actions/master-data-option-sets";
+import { CategoryCombobox } from "./category-combobox";
 
 interface FieldDetailSheetProps {
     field: any;
     open: boolean;
     onOpenChange: (open: boolean) => void;
+    categories: any[];
 }
 
-export function FieldDetailSheet({ field, open, onOpenChange }: FieldDetailSheetProps) {
+export function FieldDetailSheet({ field, open, onOpenChange, categories=[] }: FieldDetailSheetProps) {
     const router = useRouter();
     const [loading, setLoading] = useState(false);
     const [optionSets, setOptionSets] = useState<any[]>([]);
@@ -37,7 +39,8 @@ export function FieldDetailSheet({ field, open, onOpenChange }: FieldDetailSheet
     // Initialize form state
     const [formData, setFormData] = useState({
         fieldName: field?.fieldName || "",
-        category: field?.category || "",
+        categoryId: field?.categoryId || "",
+        newCategoryName: "",
         domain: field?.domain?.join(", ") || "",
         fmsbRef: field?.fmsbRef || "",
         description: field?.description || "",
@@ -52,7 +55,8 @@ export function FieldDetailSheet({ field, open, onOpenChange }: FieldDetailSheet
         if (field) {
             setFormData({
                 fieldName: field.fieldName || "",
-                category: field.category || "",
+                categoryId: field.categoryId || "",
+                newCategoryName: "",
                 domain: field.domain?.join(", ") || "",
                 fmsbRef: field.fmsbRef || "",
                 description: field.description || "",
@@ -112,7 +116,7 @@ export function FieldDetailSheet({ field, open, onOpenChange }: FieldDetailSheet
                             </Badge>
                         </div>
                         <div className="flex flex-wrap gap-2 mt-1">
-                            {field.category && <Badge variant="secondary" className="bg-blue-50 text-blue-700 font-normal">{field.category}</Badge>}
+                            {field.masterDataCategory?.displayName && <Badge variant="secondary" className="bg-blue-50 text-blue-700 font-normal">{field.masterDataCategory.displayName}</Badge>}
                             {field.domain && field.domain.length > 0 && field.domain.map((d: string) => (
                                 <Badge key={d} variant="secondary" className="bg-purple-50 text-purple-700 font-normal">{d}</Badge>
                             ))}
@@ -139,12 +143,12 @@ export function FieldDetailSheet({ field, open, onOpenChange }: FieldDetailSheet
                                 />
                             </div>
                             <div className="grid gap-2">
-                                <Label htmlFor="category" className="text-xs text-slate-500">Category</Label>
-                                <Input
-                                    id="category"
-                                    value={formData.category}
-                                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                                    className="bg-white"
+                                <Label className="text-xs text-slate-500">Category</Label>
+                                <CategoryCombobox 
+                                    categories={categories}
+                                    categoryId={formData.categoryId}
+                                    newCategoryName={formData.newCategoryName}
+                                    onSelectionChange={(id, name) => setFormData({...formData, categoryId: id, newCategoryName: name})}
                                 />
                             </div>
                             <div className="grid gap-2">

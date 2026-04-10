@@ -10,7 +10,7 @@ export default async function FieldGlossaryPage() {
                 sourceMappings: true
             },
             orderBy: [
-                { category: 'asc' },
+                { categoryId: 'asc' },
                 { order: 'asc' }
             ]
         });
