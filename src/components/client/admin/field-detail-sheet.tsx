@@ -14,6 +14,8 @@ import { useRouter } from "next/navigation";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getOptionSets } from "@/actions/master-data-option-sets";
+import { upsertSourceMapping } from "@/actions/source-mappings";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { CategoryCombobox } from "./category-combobox";
 
 interface FieldDetailSheetProps {
@@ -67,6 +69,44 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[] }: F
             });
         }
     }, [field]);
+
+    const [isAddMappingOpen, setIsAddMappingOpen] = useState(false);
+    const [mappingForm, setMappingForm] = useState({
+        sourceType: "GLEIF",
+        sourcePath: "",
+        transformType: "DIRECT"
+    });
+    const [isMappingSaving, setIsMappingSaving] = useState(false);
+
+    const handleSaveMapping = async () => {
+        if (!mappingForm.sourcePath.trim()) {
+            toast.error("Source path is required");
+            return;
+        }
+        setIsMappingSaving(true);
+        try {
+            const res = await upsertSourceMapping({
+                sourceType: mappingForm.sourceType as any,
+                sourcePath: mappingForm.sourcePath.trim(),
+                targetFieldNo: field.fieldNo,
+                transformType: mappingForm.transformType as any,
+                confidenceDefault: 1.0,
+                priority: 100
+            });
+            if (res.success) {
+                toast.success("Mapping added successfully");
+                setIsAddMappingOpen(false);
+                setMappingForm({ sourceType: "GLEIF", sourcePath: "", transformType: "DIRECT" });
+                router.refresh();
+            } else {
+                toast.error(res.error || "Failed to add mapping");
+            }
+        } catch (e) {
+            toast.error("An error occurred adding the mapping");
+        } finally {
+            setIsMappingSaving(false);
+        }
+    };
 
     const handleSave = async () => {
         setLoading(true);
@@ -267,7 +307,63 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[] }: F
                             <h3 className="text-sm font-semibold flex items-center gap-2 text-slate-800">
                                 <LinkIcon className="w-4 h-4 text-slate-400" /> Source Mappings
                             </h3>
-                            <Button variant="outline" size="sm" className="h-7 text-xs">Add Mapping</Button>
+                            <Dialog open={isAddMappingOpen} onOpenChange={setIsAddMappingOpen}>
+                                <DialogTrigger asChild>
+                                    <Button variant="outline" size="sm" className="h-7 text-xs">Add Mapping</Button>
+                                </DialogTrigger>
+                                <DialogContent className="sm:max-w-[425px]">
+                                    <DialogHeader>
+                                        <DialogTitle>Add Source Mapping</DialogTitle>
+                                        <DialogDescription>
+                                            Connect an incoming payload path to this master field automatically.
+                                        </DialogDescription>
+                                    </DialogHeader>
+                                    <div className="grid gap-4 py-4">
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="sourceType">Source Type</Label>
+                                            <Select value={mappingForm.sourceType} onValueChange={(val) => setMappingForm({ ...mappingForm, sourceType: val })}>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select type" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="GLEIF">GLEIF</SelectItem>
+                                                    <SelectItem value="NATIONAL_REGISTRY">National Registry</SelectItem>
+                                                    <SelectItem value="COMPANIES_HOUSE">Companies House</SelectItem>
+                                                    <SelectItem value="USER_INPUT">User Input / Other</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="sourcePath">JSON Path (e.g. data.attributes.name)</Label>
+                                            <Input
+                                                id="sourcePath"
+                                                value={mappingForm.sourcePath}
+                                                onChange={(e) => setMappingForm({ ...mappingForm, sourcePath: e.target.value })}
+                                            />
+                                        </div>
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="transformType">Transform Type</Label>
+                                            <Select value={mappingForm.transformType} onValueChange={(val) => setMappingForm({ ...mappingForm, transformType: val })}>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select transform" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="DIRECT">Direct (String/Number)</SelectItem>
+                                                    <SelectItem value="DATE_TO_ISO">Date to ISO String</SelectItem>
+                                                    <SelectItem value="EXTRACT">Extract Nested Payload</SelectItem>
+                                                    <SelectItem value="MAP">Map Dictionary</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    </div>
+                                    <DialogFooter>
+                                        <Button onClick={handleSaveMapping} disabled={isMappingSaving}>
+                                            {isMappingSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                            Save Mapping
+                                        </Button>
+                                    </DialogFooter>
+                                </DialogContent>
+                            </Dialog>
                         </div>
                         
                         {field.sourceMappings && field.sourceMappings.length > 0 ? (
