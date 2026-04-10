@@ -62,8 +62,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                     });
                     // @ts-ignore
                     session.user.isSystemAdmin = !!sysAdmin;
-                } catch (e) {
-                    console.error("Failed to check sys admin in session", e);
+                } catch (e: any) {
+                    // Downgrade to console.warn to prevent Next.js dev overlay from throwing fatal errors 
+                    // during Neon serverless pooler cold-starts.
+                    console.warn(`[auth] Transient connection delay evaluating SysAdmin: ${e.message?.substring(0, 80)}...`);
                 }
             }
             return session;

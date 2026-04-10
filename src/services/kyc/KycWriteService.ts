@@ -141,7 +141,7 @@ export class KycWriteService {
                 verifiedByUserId: (provenance as any).verifiedBy || (provenance as any).verified_by || undefined,
                 assertedAt: new Date(),
                 // Repeating Field Contract:
-                collectionId: def.isMultiValue ? (def.category || 'GENERAL') : undefined,
+                collectionId: def.isMultiValue ? (def.categoryId || 'GENERAL') : undefined,
                 instanceId: rowId || undefined
             });
         } catch (err) {
