@@ -1,3 +1,4 @@
+// TODO: Remove this page in 1 month (May 12, 2026) -> Hidden from menus on April 12, 2026
 import { getCategoriesWithFields } from "@/actions/master-data-sort";
 import MasterDataSortBuilder from "./sort-builder";
 

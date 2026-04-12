@@ -24,7 +24,7 @@ export function DataInspectorPanel({
     readOnly = false,
     title
 }: DataInspectorPanelProps) {
-    const [query, setQuery] = useState("");
+    const [query, setQuery] = useState(sourceType === "GLEIF" ? "213800SN8QHYGA7QUF79" : "");
     const [loading, setLoading] = useState(false);
     const [payload, setPayload] = useState<any>(null);
     const [error, setError] = useState<string | null>(null);

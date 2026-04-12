@@ -1,4 +1,4 @@
-import { getClientLEData, getDashboardMetrics } from "@/actions/client";
+import { getClientLEData, getDashboardMetrics, getCurrentUserLERole } from "@/actions/client";
 import { notFound } from "next/navigation";
 import { MissionControl, ActivityFeed } from "@/components/client/mission-control";
 import { getRecentLEActivity } from "@/lib/le-activity";
@@ -9,10 +9,11 @@ import { SetPageBreadcrumbs } from "@/context/breadcrumb-context";
 export default async function LEDashboardPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
 
-    const [data, metrics, activity] = await Promise.all([
+    const [data, metrics, activity, leRole] = await Promise.all([
         getClientLEData(id),
         getDashboardMetrics(id),
         getRecentLEActivity(id, 15),
+        getCurrentUserLERole(id),
     ]);
 
     if (!data) {
@@ -52,7 +53,10 @@ export default async function LEDashboardPage({ params }: { params: Promise<{ id
             </div>
 
             <div className="pt-4 border-t border-slate-200">
-                <LEUsersTab leId={le.id} />
+                <LEUsersTab
+                    leId={le.id}
+                    canManageUsers={leRole === "LE_ADMIN" || leRole === "ORG_ADMIN" || leRole === "SYSTEM_ADMIN"}
+                />
             </div>
 
             <div className="pt-4 border-t border-slate-200">
