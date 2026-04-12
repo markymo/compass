@@ -37,6 +37,9 @@ function InnerShell({ children, baseBreadcrumbs, leId, leName, isSystemAdmin, le
     }));
 
     const leTabs = getLegalEntityTabs(leId);
+    
+    // Determine official name from GLEIF payload
+    const officialName = leData?.gleifData?.attributes?.entity?.legalName?.name;
 
     return (
         <div className="flex flex-col min-h-screen bg-slate-50/50">
@@ -49,8 +52,15 @@ function InnerShell({ children, baseBreadcrumbs, leId, leName, isSystemAdmin, le
                     ) : (
                         <div className="flex flex-col gap-1 min-w-0">
                             {/* Row 1: Name + LEI Metadata */}
-                            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                                {canEdit ? (
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                                {officialName ? (
+                                    <div className="flex items-center gap-2" title="Official Legal Name (GLEIF)">
+                                        <h1 className="text-2xl md:text-3xl font-bold tracking-tight truncate text-emerald-700">
+                                            {officialName}
+                                        </h1>
+                                        <CheckCircle className="h-5 w-5 text-emerald-600 shrink-0" />
+                                    </div>
+                                ) : canEdit ? (
                                     <EditableHeaderTitle 
                                         leId={leId} 
                                         initialValue={leName} 
@@ -68,9 +78,9 @@ function InnerShell({ children, baseBreadcrumbs, leId, leName, isSystemAdmin, le
                                 <div className="shrink-0 flex items-center">
                                     <EditableLEI
                                         leId={leId}
-                                        initialLei={leData.lei}
-                                        initialFetchedAt={leData.gleifFetchedAt}
-                                        officialName={leData.gleifData?.attributes?.entity?.legalName?.name}
+                                        initialLei={leData?.lei}
+                                        initialFetchedAt={leData?.gleifFetchedAt}
+                                        officialName={officialName}
                                         variant="minimal"
                                     />
                                 </div>

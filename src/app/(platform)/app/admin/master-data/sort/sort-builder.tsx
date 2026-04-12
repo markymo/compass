@@ -3,9 +3,8 @@
 import { useState } from "react";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { syncCategoriesFromFields, updateCategoryOrder, updateFieldOrder } from "@/actions/master-data-sort";
-import { GripVertical, Save, RefreshCw, ChevronDown, ChevronRight, ArrowUp, ArrowDown, Info } from "lucide-react";
+import { updateCategoryOrder, updateFieldOrder } from "@/actions/master-data-sort";
+import { GripVertical, Save, ChevronDown, ChevronRight, ArrowUp, ArrowDown } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
@@ -30,7 +29,6 @@ export default function MasterDataSortBuilder({ initialData }: { initialData: an
     const [uncategorizedFields, setUncategorizedFields] = useState<FieldDef[]>(initialData.uncategorizedFields || []);
 
     const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
-    const [isSyncing, setIsSyncing] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
 
     const toggleCollapse = (id: string) => {
@@ -163,19 +161,6 @@ export default function MasterDataSortBuilder({ initialData }: { initialData: an
         }
     };
 
-    const handleSync = async () => {
-        if (!confirm("Run internal migration for categories?")) return;
-        setIsSyncing(true);
-        try {
-            await syncCategoriesFromFields();
-            toast.success("Categories synced successfully");
-            router.refresh();
-        } catch (e) {
-            toast.error("Error syncing categories");
-        } finally {
-            setIsSyncing(false);
-        }
-    };
 
     return (
         <div className="space-y-6">
@@ -188,43 +173,6 @@ export default function MasterDataSortBuilder({ initialData }: { initialData: an
                     <Save className="w-4 h-4 mr-2" />
                     Save Field Order
                 </Button>
-                <div className="flex-1"></div>
-                <div className="flex items-center gap-1">
-                    <Button variant="secondary" onClick={handleSync} disabled={isSyncing}>
-                        <RefreshCw className={`w-4 h-4 mr-2 ${isSyncing ? "animate-spin" : ""}`} />
-                        Sync Categories
-                    </Button>
-                    <Dialog>
-                        <DialogTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-500 hover:text-slate-800">
-                                <Info className="w-5 h-5" />
-                            </Button>
-                        </DialogTrigger>
-                        <DialogContent className="max-w-md">
-                            <DialogHeader>
-                                <DialogTitle>About "Sync Categories"</DialogTitle>
-                                <DialogDescription asChild>
-                                    <div className="space-y-3 pt-4 text-slate-600 dark:text-slate-300 text-left text-sm">
-                                        <p>
-                                            The <strong>Sync Categories</strong> button is an administrative utility that runs a data migration in the background.
-                                        </p>
-                                        <p>
-                                            Before this update, categories existed only as loose text strings attached to individual fields. To enable drag-and-drop sorting platform-wide, we created a new master category table with stable IDs.
-                                        </p>
-                                        <ul className="list-disc pl-5 space-y-1">
-                                            <li><strong>Scans</strong>: Looks at all existing master data fields and reads their legacy string-based category names.</li>
-                                            <li><strong>Creates</strong>: If a category string is missing from the master table, it creates a pristine, stable category entity for it.</li>
-                                            <li><strong>Links</strong>: Securely links all those fields permanently to their respective formal category IDs.</li>
-                                        </ul>
-                                        <p className="pt-2 italic">
-                                            You should rarely need to click this. Use it only if new fields are manually imported with legacy string categories rather than direct category IDs, to sweep them into the new architecture.
-                                        </p>
-                                    </div>
-                                </DialogDescription>
-                            </DialogHeader>
-                        </DialogContent>
-                    </Dialog>
-                </div>
             </div>
 
             <DragDropContext onDragEnd={handleDragEnd}>

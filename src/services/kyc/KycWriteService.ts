@@ -141,7 +141,7 @@ export class KycWriteService {
                 verifiedByUserId: (provenance as any).verifiedBy || (provenance as any).verified_by || undefined,
                 assertedAt: new Date(),
                 // Repeating Field Contract:
-                collectionId: def.isMultiValue ? (def.category || 'GENERAL') : undefined,
+                collectionId: def.isMultiValue ? (def.categoryId || 'GENERAL') : undefined,
                 instanceId: rowId || undefined
             });
         } catch (err) {
@@ -181,7 +181,7 @@ export class KycWriteService {
 
         // 2. Map fieldNames to fieldNos
         const allFields = await listAllMasterFields();
-        const modelFields = allFields.filter((f: any) => f.category === modelName);
+        const modelFields = allFields.filter((f: any) => f.masterDataCategory?.displayName === modelName);
         const nameToNo = new Map<string, number>();
         modelFields.forEach((def: any) => {
             if ((def as any).modelField) nameToNo.set((def as any).modelField, def.fieldNo);

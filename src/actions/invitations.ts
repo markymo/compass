@@ -264,6 +264,34 @@ export async function getPendingInvitations(organizationId: string) {
     });
 }
 
+export async function getLEPendingInvitations(clientLEId: string) {
+    const identity = await getIdentity();
+    if (!identity?.userId) return [];
+
+    // Simple auth check similar to others
+    const sysAdmin = await isSystemAdmin();
+    if (!sysAdmin) {
+        const hasAccess = await can(
+            { id: identity.userId, memberships: await prisma.membership.findMany({ where: { userId: identity.userId } }) },
+            Action.LE_MANAGE_USERS,
+            { clientLEId },
+            prisma
+        );
+        if (!hasAccess) return [];
+    }
+
+    // @ts-ignore
+    return await (prisma.invitation.findMany as any)({
+        where: {
+            clientLEId,
+            usedAt: null,
+            revokedAt: null,
+            expiresAt: { gt: new Date() },
+        },
+        orderBy: { createdAt: "desc" },
+    });
+}
+
 // ============================================================================
 // revokeInvitation
 // ============================================================================

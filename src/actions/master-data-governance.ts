@@ -62,7 +62,8 @@ export async function updateMasterField(
     fieldNo: number,
     data: {
         fieldName?: string;
-        category?: string;
+        categoryId?: string | null;
+        newCategoryName?: string;
         notes?: string;
         description?: string;
         fmsbRef?: string;
@@ -75,9 +76,36 @@ export async function updateMasterField(
     }
 ) {
     try {
+        let finalData = { ...data };
+        delete finalData.newCategoryName;
+
+        if (data.newCategoryName) {
+            const normalize = (name: string) => name.trim().toLowerCase().replace(/[\s\W]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
+            let baseKey = normalize(data.newCategoryName);
+            
+            let key = baseKey;
+            let suffix = 2;
+            let exists = await (prisma as any).masterDataCategory.findUnique({ where: { key }});
+            while (exists) {
+                key = `${baseKey}-${suffix}`;
+                suffix++;
+                exists = await (prisma as any).masterDataCategory.findUnique({ where: { key }});
+            }
+
+            const maxOrderCat = await (prisma as any).masterDataCategory.findFirst({ orderBy: { order: 'desc' }});
+            const newCat = await (prisma as any).masterDataCategory.create({
+                data: {
+                    key: key,
+                    displayName: data.newCategoryName.trim(),
+                    order: (maxOrderCat?.order || 0) + 1
+                }
+            });
+            finalData.categoryId = newCat.id;
+        }
+
         await (prisma as any).masterFieldDefinition.update({
             where: { fieldNo },
-            data
+            data: finalData
         });
         invalidateDefinitionCache();
         revalidatePath("/app/admin/master-data");
@@ -95,8 +123,8 @@ export async function updateMasterField(
 export async function createMasterField(data: {
     fieldName: string;
     appDataType: string;
-    category?: string;
     categoryId?: string;
+    newCategoryName?: string;
     description?: string;
     notes?: string;
     fmsbRef?: string;
@@ -107,12 +135,45 @@ export async function createMasterField(data: {
     optionSetId?: string | null;
 }) {
     try {
+        let finalCategoryId = data.categoryId;
+
+        if (data.newCategoryName) {
+            const normalize = (name: string) => name.trim().toLowerCase().replace(/[\s\W]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
+            let baseKey = normalize(data.newCategoryName);
+            
+            let key = baseKey;
+            let suffix = 2;
+            let exists = await (prisma as any).masterDataCategory.findUnique({ where: { key }});
+            while (exists) {
+                key = `${baseKey}-${suffix}`;
+                suffix++;
+                exists = await (prisma as any).masterDataCategory.findUnique({ where: { key }});
+            }
+
+            const maxOrderCat = await (prisma as any).masterDataCategory.findFirst({ orderBy: { order: 'desc' }});
+            const newCat = await (prisma as any).masterDataCategory.create({
+                data: {
+                    key: key,
+                    displayName: data.newCategoryName.trim(),
+                    order: (maxOrderCat?.order || 0) + 1
+                }
+            });
+            finalCategoryId = newCat.id;
+        }
+
+        // Fix PosgreSQL sequence drift by manually deriving the next PK
+        const maxField = await (prisma as any).masterFieldDefinition.findFirst({
+            orderBy: { fieldNo: 'desc' },
+            select: { fieldNo: true }
+        });
+        const nextFieldNo = (maxField?.fieldNo || 0) + 1;
+
         const field = await (prisma as any).masterFieldDefinition.create({
             data: {
+                fieldNo: nextFieldNo,
                 fieldName: data.fieldName,
                 appDataType: data.appDataType,
-                category: data.category,
-                categoryId: data.categoryId,
+                categoryId: finalCategoryId,
                 description: data.description,
                 notes: data.notes,
                 fmsbRef: data.fmsbRef,

@@ -426,7 +426,7 @@ export async function getFieldDetail(
         fieldName: def?.fieldName,
         isRepeating: def?.isMultiValue || false,
         dataType: def?.appDataType || 'string',
-        category: def?.category || undefined,
+        category: (def as any)?.masterDataCategory?.displayName || undefined,
         modelField: (def as any).modelField || undefined, // We'll need to check how this is stored in DB
         options: def?.options || [],
         notes: def?.notes || undefined,
