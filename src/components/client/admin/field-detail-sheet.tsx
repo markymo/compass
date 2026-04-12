@@ -8,15 +8,16 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Loader2, Save, FileText, Database, Link as LinkIcon, BookOpen } from "lucide-react";
+import { Loader2, Save, FileText, Database, Link as LinkIcon, BookOpen, ScanSearch, Trash2 } from "lucide-react";
 import { updateMasterField } from "@/actions/master-data-governance";
 import { useRouter } from "next/navigation";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getOptionSets } from "@/actions/master-data-option-sets";
-import { upsertSourceMapping } from "@/actions/source-mappings";
+import { upsertSourceMapping, deleteSourceMapping } from "@/actions/source-mappings";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { CategoryCombobox } from "./category-combobox";
+import { DataInspectorPanel } from "@/components/client/admin/source-mappings/data-inspector-panel";
 
 interface FieldDetailSheetProps {
     field: any;
@@ -71,12 +72,28 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[] }: F
     }, [field]);
 
     const [isAddMappingOpen, setIsAddMappingOpen] = useState(false);
+    const [isBrowserOpen, setIsBrowserOpen] = useState(false);
+    const [deletingMappingId, setDeletingMappingId] = useState<string | null>(null);
     const [mappingForm, setMappingForm] = useState({
         sourceType: "GLEIF",
         sourcePath: "",
         transformType: "DIRECT"
     });
     const [isMappingSaving, setIsMappingSaving] = useState(false);
+
+    const liveSourceTypes = ["GLEIF", "NATIONAL_REGISTRY", "COMPANIES_HOUSE"];
+
+    const handleDeleteMapping = async (mappingId: string) => {
+        setDeletingMappingId(mappingId);
+        const res = await deleteSourceMapping(mappingId);
+        setDeletingMappingId(null);
+        if (res.success) {
+            toast.success("Mapping removed");
+            router.refresh();
+        } else {
+            toast.error(res.error || "Failed to remove mapping");
+        }
+    };
 
     const handleSaveMapping = async () => {
         if (!mappingForm.sourcePath.trim()) {
@@ -334,13 +351,30 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[] }: F
                                             </Select>
                                         </div>
                                         <div className="grid gap-2">
-                                            <Label htmlFor="sourcePath">JSON Path (e.g. data.attributes.name)</Label>
-                                            <Input
-                                                id="sourcePath"
-                                                value={mappingForm.sourcePath}
-                                                onChange={(e) => setMappingForm({ ...mappingForm, sourcePath: e.target.value })}
-                                            />
-                                        </div>
+                                             <Label htmlFor="sourcePath">JSON Path</Label>
+                                             <div className="flex gap-2">
+                                                 <Input
+                                                     id="sourcePath"
+                                                     value={mappingForm.sourcePath}
+                                                     onChange={(e) => setMappingForm({ ...mappingForm, sourcePath: e.target.value })}
+                                                     placeholder="e.g. entity.legalName.name"
+                                                     className="font-mono text-sm flex-1"
+                                                 />
+                                                 {liveSourceTypes.includes(mappingForm.sourceType) && (
+                                                     <Button
+                                                         type="button"
+                                                         variant="outline"
+                                                         size="sm"
+                                                         className="shrink-0 h-9 gap-1.5 text-blue-600 border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                                                         onClick={() => setIsBrowserOpen(true)}
+                                                     >
+                                                         <ScanSearch className="h-3.5 w-3.5" />
+                                                         Browse
+                                                     </Button>
+                                                 )}
+                                             </div>
+                                             <p className="text-[10px] text-slate-400">Dot-notation path into the source JSON, or click Browse to pick visually.</p>
+                                         </div>
                                         <div className="grid gap-2">
                                             <Label htmlFor="transformType">Transform Type</Label>
                                             <Select value={mappingForm.transformType} onValueChange={(val) => setMappingForm({ ...mappingForm, transformType: val })}>
@@ -364,23 +398,61 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[] }: F
                                     </DialogFooter>
                                 </DialogContent>
                             </Dialog>
+
+                            {/* Live Data Browser — secondary dialog triggered from Browse button */}
+                            <Dialog open={isBrowserOpen} onOpenChange={setIsBrowserOpen}>
+                                <DialogContent className="sm:max-w-4xl h-[90vh] flex flex-col p-0 overflow-hidden gap-0">
+                                    <DialogHeader className="px-6 py-4 border-b border-slate-200 shrink-0">
+                                        <DialogTitle className="flex items-center gap-2 text-sm">
+                                            <ScanSearch className="h-4 w-4 text-blue-500" />
+                                            Browse {mappingForm.sourceType === "GLEIF" ? "GLEIF" : "Registry"} Schema
+                                        </DialogTitle>
+                                        <DialogDescription className="text-xs">
+                                            Fetch a live record, then click <span className="font-semibold text-blue-600">⊕ Add</span> on any field to use it as the source path.
+                                        </DialogDescription>
+                                    </DialogHeader>
+                                    <div className="flex-1 overflow-hidden p-4">
+                                        <DataInspectorPanel
+                                            sourceType={mappingForm.sourceType}
+                                            existingMappings={field.sourceMappings || []}
+                                            readOnly={false}
+                                            onSelectPath={(path) => {
+                                                setMappingForm(f => ({ ...f, sourcePath: path }));
+                                                setIsBrowserOpen(false);
+                                            }}
+                                        />
+                                    </div>
+                                </DialogContent>
+                            </Dialog>
                         </div>
                         
                         {field.sourceMappings && field.sourceMappings.length > 0 ? (
                             <div className="space-y-2">
                                 {field.sourceMappings.map((mapping: any) => (
-                                    <div key={mapping.id} className="bg-white border rounded-md p-3 text-sm flex items-center justify-between">
-                                        <div className="flex items-center gap-3">
-                                            <Badge variant="outline" className="bg-slate-50">{mapping.sourceType}</Badge>
-                                            <span className="font-mono text-xs text-slate-600 truncate max-w-[250px]" title={mapping.sourcePath}>
+                                    <div key={mapping.id} className="bg-white border rounded-md p-3 text-sm flex items-center justify-between group">
+                                        <div className="flex items-center gap-3 min-w-0">
+                                            <Badge variant="outline" className="bg-slate-50 shrink-0">{mapping.sourceType}</Badge>
+                                            <span className="font-mono text-xs text-slate-600 truncate" title={mapping.sourcePath}>
                                                 {mapping.sourcePath}
                                             </span>
                                         </div>
-                                        <div className="flex items-center gap-4">
+                                        <div className="flex items-center gap-3 shrink-0 ml-3">
                                             <span className="text-xs text-slate-400">{mapping.transformType}</span>
                                             <Badge variant={mapping.isActive ? "default" : "secondary"} className={mapping.isActive ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-100" : ""}>
                                                 {mapping.priority}
                                             </Badge>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-6 w-6 text-slate-300 hover:text-red-500 hover:bg-red-50"
+                                                disabled={deletingMappingId === mapping.id}
+                                                onClick={() => handleDeleteMapping(mapping.id)}
+                                                title="Remove mapping"
+                                            >
+                                                {deletingMappingId === mapping.id
+                                                    ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                                    : <Trash2 className="h-3.5 w-3.5" />}
+                                            </Button>
                                         </div>
                                     </div>
                                 ))}

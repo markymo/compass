@@ -169,6 +169,27 @@ export async function upsertSourceMapping(input: UpsertMappingInput) {
             });
         }
 
+        // ── Resolve ID by natural key if not explicitly provided ───────────
+        // If no id was passed but a record with the same (sourceType, sourcePath,
+        // targetFieldNo) already exists, treat this as an update rather than a
+        // create. This makes the action idempotent and prevents false P2002 errors
+        // when the UI is stale and the user re-submits a mapping that already exists.
+        let resolvedId = input.id;
+        if (!resolvedId) {
+            const existing = await prisma.sourceFieldMapping.findFirst({
+                where: {
+                    sourceType: input.sourceType,
+                    sourcePath: input.sourcePath,
+                    targetFieldNo: input.targetFieldNo,
+                },
+                select: { id: true }
+            });
+            if (existing) {
+                resolvedId = existing.id;
+                beforeState = await prisma.sourceFieldMapping.findUnique({ where: { id: resolvedId } });
+            }
+        }
+
         // ── Upsert ──
         const data = {
             sourceType: input.sourceType,
@@ -180,13 +201,13 @@ export async function upsertSourceMapping(input: UpsertMappingInput) {
             priority,
             notes: input.notes || null,
             updatedByUserId: userId,
-            ...(input.id ? {} : { createdByUserId: userId }),
+            ...(resolvedId ? {} : { createdByUserId: userId }),
         };
 
         let mapping;
-        if (input.id) {
+        if (resolvedId) {
             mapping = await prisma.sourceFieldMapping.update({
-                where: { id: input.id },
+                where: { id: resolvedId },
                 data,
                 include: { targetField: true }
             });
@@ -202,7 +223,7 @@ export async function upsertSourceMapping(input: UpsertMappingInput) {
             await prisma.auditLog.create({
                 data: {
                     userId: userId || 'SYSTEM',
-                    action: input.id ? 'SOURCE_MAPPING_UPDATE' : 'SOURCE_MAPPING_CREATE',
+                    action: resolvedId ? 'SOURCE_MAPPING_UPDATE' : 'SOURCE_MAPPING_CREATE',
                     entityId: mapping.id,
                     details: {
                         entityType: 'SourceFieldMapping',
@@ -220,10 +241,6 @@ export async function upsertSourceMapping(input: UpsertMappingInput) {
         return { success: true, mapping, warnings };
     } catch (error: any) {
         console.error("upsertSourceMapping error:", error);
-        // Handle unique constraint violations
-        if (error.code === 'P2002') {
-            return { success: false, error: "A mapping with this source path and target field already exists" };
-        }
         return { success: false, error: error.message };
     }
 }
