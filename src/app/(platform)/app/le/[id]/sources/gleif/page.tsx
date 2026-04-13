@@ -18,11 +18,9 @@ export default async function GleifPage({ params }: { params: Promise<{ id: stri
             />
             <GleifTab
                 leId={le.id}
-                data={{
-                    ...(le as any).gleifData,
-                    nationalRegistryData: (le as any).nationalRegistryData
-                }}
+                data={(le as any).gleifData}
                 fetchedAt={(le as any).gleifFetchedAt}
+                nationalRegistryData={(le as any).nationalRegistryData}
             />
         </>
     );
