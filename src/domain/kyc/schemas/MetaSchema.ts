@@ -11,7 +11,7 @@ import type { MetaValidationError } from '../types/ValidationTypes';
 
 export const MetaEntrySchema = z.object({
     field_no: z.number().int().positive(),
-    source: z.enum(['GLEIF', 'COMPANIES_HOUSE', 'USER_INPUT', 'SYSTEM']),
+    source: z.enum(['GLEIF', 'REGISTRATION_AUTHORITY', 'USER_INPUT', 'SYSTEM']),
     evidence_id: z.string().uuid().optional(),
     timestamp: z.string().datetime(),
     confidence: z.number().min(0).max(1).optional(),
@@ -98,7 +98,7 @@ export function validateMetaForFields(
  */
 export function createMetaEntry(
     fieldNo: number,
-    source: 'GLEIF' | 'COMPANIES_HOUSE' | 'USER_INPUT' | 'SYSTEM',
+    source: 'GLEIF' | 'REGISTRATION_AUTHORITY' | 'USER_INPUT' | 'SYSTEM',
     options?: {
         evidence_id?: string;
         verified_by?: string;

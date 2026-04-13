@@ -547,18 +547,32 @@ function MasterFieldDisplay({ label, fieldNo, value, source, sourceReference, on
     );
 }
 
-function SourceBadge({ source, sourceReference, timestamp }: { source: ProvenanceSource, sourceReference?: string, timestamp?: string }) {
+function SourceBadge({ source, sourceReference, timestamp }: { source: string, sourceReference?: string, timestamp?: string }) {
     const colorMap: Record<string, string> = {
         'GLEIF': 'bg-orange-100 text-orange-700 border-orange-200',
+        'REGISTRATION_AUTHORITY': 'bg-blue-100 text-blue-700 border-blue-200',
         'COMPANIES_HOUSE': 'bg-blue-100 text-blue-700 border-blue-200',
+        'NATIONAL_REGISTRY': 'bg-blue-100 text-blue-700 border-blue-200',
         'USER_INPUT': 'bg-purple-100 text-purple-700 border-purple-200',
         'SYSTEM': 'bg-gray-100 text-gray-700 border-gray-200',
         'MASTER_RECORD': 'bg-slate-100 text-slate-700 border-slate-200'
     };
 
+    // Resolve display label for registry authority sources
+    let displaySource: string = source;
+    if (source === 'REGISTRATION_AUTHORITY' || source === 'COMPANIES_HOUSE' || source === 'NATIONAL_REGISTRY') {
+        if (sourceReference === 'GB_COMPANIES_HOUSE' || sourceReference?.includes('COMPANIES_HOUSE')) {
+            displaySource = 'Companies House';
+        } else if (sourceReference) {
+            displaySource = sourceReference.replace(/^[A-Z]{2}_/, '').replace(/_/g, ' ');
+        } else {
+            displaySource = 'Registry';
+        }
+    }
+
     return (
         <Badge variant="outline" className={cn("text-[10px] h-5", colorMap[source] || colorMap['SYSTEM'])}>
-            {source}
+            {displaySource}
             {sourceReference && <span className="ml-1 opacity-50">· {sourceReference}</span>}
             {timestamp && <span className="ml-1 opacity-50">· {new Date(timestamp).toLocaleDateString()}</span>}
         </Badge>

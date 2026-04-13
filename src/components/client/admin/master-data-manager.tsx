@@ -637,6 +637,12 @@ const SOURCE_CONFIG: Record<string, { label: string; bg: string; content: React.
         bg: "bg-emerald-50 border-emerald-200",
         content: <img src="https://www.gleif.org/assets/build/img/logo/gleif-logo-new.svg" alt="GLEIF" className="h-3 w-auto max-w-[28px] object-contain" />
     },
+    REGISTRATION_AUTHORITY: {
+        label: "Registration Authority",
+        bg: "bg-blue-50 border-blue-200",
+        content: <img src="/images/Companies_House.png" alt="Registration Authority" className="h-3.5 w-auto max-w-[16px] object-contain" />
+    },
+    // Legacy values (pre-migration data that may still render)
     COMPANIES_HOUSE: {
         label: "Companies House",
         bg: "bg-blue-50 border-blue-200",

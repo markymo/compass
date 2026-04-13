@@ -121,13 +121,13 @@ export class KycStateService {
      */
     private static pickWinner(claims: FieldClaim[], requestedScopeId?: string): FieldClaim | null {
         // 1. Filter by status and scope tiers
-        // 2. Priority by source trust: GLEIF (1) > COMPANIES_HOUSE (2) > USER_INPUT (3) > AI (4) > SYSTEM (5)
+        // 2. Priority by source trust: GLEIF (1) > REGISTRATION_AUTHORITY (2) > USER_INPUT (3) > AI (4) > SYSTEM (5)
         // 3. Newest assertedAt
         // 4. Tie-breaker claim id desc
 
         const getSourcePriority = (source: string) => {
             if (source === 'GLEIF') return 1;
-            if (source === 'COMPANIES_HOUSE') return 2;
+            if (source === 'REGISTRATION_AUTHORITY') return 2;
             if (source === 'USER_INPUT') return 3;
             if (source === 'AI_EXTRACTION') return 4;
             return 5;

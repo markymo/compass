@@ -49,16 +49,11 @@ export function DataInspectorPanel({
                     setError(res.error || "Failed to fetch data");
                     setPayload(null);
                 }
-            } else if (sourceType === "NATIONAL_REGISTRY" || sourceType === "COMPANIES_HOUSE") {
+            } else if (sourceType === "REGISTRATION_AUTHORITY") {
                 const res = await fetchLiveRegistryRecord(query);
                 if (res.success) {
-                    // For NATIONAL_REGISTRY, show the canonical record
-                    // For COMPANIES_HOUSE (Raw), show the raw payload embedded in it
-                    if (sourceType === "NATIONAL_REGISTRY") {
-                        setPayload(res.payload);
-                    } else {
-                        setPayload(res.payload?.rawSourcePayload);
-                    }
+                    // Show the canonical registry record (normalized form)
+                    setPayload(res.payload);
                 } else {
                     setError(res.error || "Failed to fetch registry data");
                     setPayload(null);
