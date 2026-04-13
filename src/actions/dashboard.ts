@@ -2,6 +2,7 @@
 
 import prisma from "@/lib/prisma";
 import { getIdentity } from "@/lib/auth";
+import { getLEDisplayName } from "@/lib/le-display-name";
 
 import { DashboardMetric, emptyMetrics, calculateEngagementMetrics, rollupMetrics } from "@/lib/metrics-calc";
 
@@ -78,6 +79,7 @@ export async function getUserContexts(): Promise<DashboardContexts> {
                         select: {
                             id: true,
                             name: true,
+                            gleifData: true,
                             owners: {
                                 where: { endAt: null },
                                 select: { party: { select: { name: true } } }
@@ -90,7 +92,7 @@ export async function getUserContexts(): Promise<DashboardContexts> {
                         if (!leMap.has(le.id)) {
                             leMap.set(le.id, {
                                 id: le.id,
-                                name: le.name,
+                                name: getLEDisplayName(le),
                                 clientName: ownerName,
                                 role: "ADMIN_VISIBILITY",
                                 metrics: emptyMetrics()
@@ -114,6 +116,7 @@ export async function getUserContexts(): Promise<DashboardContexts> {
                     select: {
                         id: true,
                         name: true,
+                        gleifData: true,
                         owners: {
                             where: { endAt: null },
                             select: { party: { select: { name: true } } }
@@ -126,7 +129,7 @@ export async function getUserContexts(): Promise<DashboardContexts> {
                     if (!leMap.has(le.id)) {
                         leMap.set(le.id, {
                             id: le.id,
-                            name: le.name,
+                            name: getLEDisplayName(le),
                             clientName: ownerName,
                             role: m.role,
                             metrics: emptyMetrics()
@@ -143,7 +146,7 @@ export async function getUserContexts(): Promise<DashboardContexts> {
 
             leMap.set(le.id, {
                 id: le.id,
-                name: le.name,
+                name: getLEDisplayName(le),
                 clientName: ownerName,
                 role: m.role,
                 metrics: emptyMetrics()
@@ -228,7 +231,7 @@ export async function getUserContexts(): Promise<DashboardContexts> {
 
             return {
                 id: e.id,
-                leName: e.clientLE.name,
+                leName: getLEDisplayName(e.clientLE),
                 clientId: owner?.partyId || '',
                 clientName: owner?.party.name || 'Unknown Client',
                 supplierName: e.org.name,

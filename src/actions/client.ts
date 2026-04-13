@@ -8,6 +8,7 @@ import { can, Action, UserWithMemberships } from "@/lib/auth/permissions";
 import { cookies } from "next/headers";
 import { emptyMetrics, calculateEngagementMetrics, rollupMetrics, DashboardMetric } from "@/lib/metrics-calc";
 import { LegalEntityEnrichmentService } from "@/domain/registry";
+import { getLEDisplayName } from "@/lib/le-display-name";
 
 // --- Authorization Helper ---
 async function ensureAuthorization(action: Action, context: { partyId?: string, clientLEId?: string, engagementId?: string }) {
@@ -1096,9 +1097,10 @@ export async function getClientDashboardData(clientId: string) {
                 orderBy: { createdAt: 'desc' },
             });
 
-            // Hydrate with permissions
+            // Hydrate with permissions and display name
             activeLes = rawLes.map((le: any) => ({
                 ...le,
+                displayName: getLEDisplayName(le),
                 myPermissions: deriveLEPermissions(directMembership.role)
             }));
 
@@ -1166,6 +1168,7 @@ export async function getClientDashboardData(clientId: string) {
                 if (m.clientLE && !m.clientLE.isDeleted && m.clientLE.status !== "ARCHIVED") {
                     const leWithPerms = {
                         ...m.clientLE,
+                        displayName: getLEDisplayName(m.clientLE),
                         myPermissions: deriveLEPermissions(m.role)
                     };
                     leMap.set(m.clientLE.id, leWithPerms);
