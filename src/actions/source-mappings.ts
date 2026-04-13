@@ -2,6 +2,7 @@
 
 import prisma from "@/lib/prisma";
 import { getIdentity } from "@/lib/auth";
+import { revalidatePath } from "next/cache";
 import { parsePath, resolveDotPath, discoverPaths, resolvePathString, PathParseError } from "@/services/kyc/normalization/pathResolver";
 import { applyTransform } from "@/services/kyc/normalization/transforms";
 import { SourceType, MappingTransformType, MasterFieldDefinition, SourceFieldMapping } from "@prisma/client";
@@ -238,6 +239,10 @@ export async function upsertSourceMapping(input: UpsertMappingInput) {
             console.warn("Failed to write audit log for source mapping upsert", e);
         }
 
+        // ── Revalidate ──
+        revalidatePath("/app/admin/master-data/manager");
+        revalidatePath("/app/admin/master-data/fields");
+
         return { success: true, mapping, warnings };
     } catch (error: any) {
         console.error("upsertSourceMapping error:", error);
@@ -315,6 +320,10 @@ export async function deleteSourceMapping(id: string) {
         } catch (e) {
             console.warn("Failed to write audit log for delete", e);
         }
+
+        // ── Revalidate ──
+        revalidatePath("/app/admin/master-data/manager");
+        revalidatePath("/app/admin/master-data/fields");
 
         return { success: true };
     } catch (error: any) {
