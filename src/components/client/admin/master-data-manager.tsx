@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Search, Settings, HelpCircle, Check, X, Loader2, MoreVertical, SlidersHorizontal, Plus, ChevronRight, ChevronDown, ChevronUp, GripVertical, Save, RefreshCw, GitBranch } from "lucide-react";
+import { Search, Settings, HelpCircle, Check, X, Loader2, MoreVertical, SlidersHorizontal, Plus, ChevronRight, ChevronDown, ChevronUp, GripVertical, Save, RefreshCw } from "lucide-react";
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -98,6 +98,15 @@ export default function MasterDataManager({ initialData, rawFields, initialNote,
         }
     }, [rawFields]);
 
+    // Helper: always open a field using the rawFields version (which has sourceMappings)
+    // rather than whatever row.original provided (which comes from categories state,
+    // a separate query that never includes sourceMappings).
+    const openFieldDetail = (fieldNoOrRow: any) => {
+        const fieldNo = typeof fieldNoOrRow === 'number' ? fieldNoOrRow : fieldNoOrRow?.fieldNo;
+        const withMappings = rawFields.find((f: any) => f.fieldNo === fieldNo);
+        setSelectedField(withMappings || fieldNoOrRow);
+        setIsEditDialogOpen(true);
+    };
     const [insertingBelowFieldNo, setInsertingBelowFieldNo] = useState<number | null>(null);
     const [newFieldDraft, setNewFieldDraft] = useState<any>(null);
     const [isCreating, setIsCreating] = useState(false);
@@ -237,14 +246,25 @@ export default function MasterDataManager({ initialData, rawFields, initialNote,
     };
 
     // Integrate flat fields for search visibility and table context
+    // Merge sourceMappings from rawFields (the only query that includes them)
+    // so that the Source column and row.original always reflect real DB state.
     const flatFields = useMemo(() => {
-        const out = categories.flatMap(c => c.fields.map((f: any) => ({
-            ...f,
-            categoryId: c.id,
-            masterDataCategory: { id: c.id, displayName: c.displayName }
-        })));
-        return [...out, ...uncategorizedFields];
-    }, [categories, uncategorizedFields]);
+        const rawFieldsMap = new Map(rawFields.map((f: any) => [f.fieldNo, f]));
+        const out = categories.flatMap(c => c.fields.map((f: any) => {
+            const raw = rawFieldsMap.get(f.fieldNo) || {};
+            return {
+                ...f,
+                sourceMappings: (raw as any).sourceMappings || [],
+                categoryId: c.id,
+                masterDataCategory: { id: c.id, displayName: c.displayName }
+            };
+        }));
+        const uncatMapped = uncategorizedFields.map((f: any) => {
+            const raw = rawFieldsMap.get(f.fieldNo) || {};
+            return { ...f, sourceMappings: (raw as any).sourceMappings || [] };
+        });
+        return [...out, ...uncatMapped];
+    }, [categories, uncategorizedFields, rawFields]);
 
     const data = useMemo(() => flatFields.filter((f: any) => {
         const matchesSearch = f.fieldName.toLowerCase().includes(search.toLowerCase()) ||
@@ -329,28 +349,31 @@ export default function MasterDataManager({ initialData, rawFields, initialNote,
         {
             id: "sources",
             header: "Source",
-            size: 110,
+            size: 115,
             cell: ({ row }) => {
-                const mappings = row.original.sourceMappings || [];
-                const uniqueSources = Array.from(new Set(mappings.map((m: any) => m.sourceType)));
+                const mappings: any[] = row.original.sourceMappings || [];
+                const bySource = mappings.reduce((acc: Record<string, number>, m: any) => {
+                    acc[m.sourceType] = (acc[m.sourceType] || 0) + 1;
+                    return acc;
+                }, {});
+                const sources = Object.keys(bySource);
                 return (
-                    <div
-                        className="flex flex-wrap gap-1 cursor-pointer group/src"
-                        title="Click to manage source mappings"
-                        onClick={() => { setSelectedField(row.original); setIsEditDialogOpen(true); }}
-                    >
-                        {mappings.length === 0 ? (
-                            <span className="flex items-center gap-1 text-[10px] text-slate-400 group-hover/src:text-blue-500 transition-colors">
-                                <GitBranch className="h-3 w-3" />
-                                Add
-                            </span>
-                        ) : (
-                            uniqueSources.map((source: any) => (
-                                <Badge key={source as string} variant="outline" className="px-1.5 py-0 h-4 text-[9px] bg-slate-50 group-hover/src:border-blue-300 group-hover/src:text-blue-600 transition-colors">
-                                    {source as string}
-                                </Badge>
-                            ))
-                        )}
+                    <div className="flex items-center gap-0.5">
+                        {sources.map((source) => (
+                            <SourceChip
+                                key={source}
+                                sourceType={source}
+                                count={bySource[source]}
+                                onClick={() => openFieldDetail(row.original)}
+                            />
+                        ))}
+                        <button
+                            onClick={() => openFieldDetail(row.original)}
+                            className="h-5 w-5 rounded-full border border-dashed border-slate-300 hover:border-indigo-400 flex items-center justify-center text-slate-400 hover:text-indigo-500 transition-colors ml-0.5"
+                            title="Add source mapping"
+                        >
+                            <Plus className="h-2.5 w-2.5" />
+                        </button>
                     </div>
                 );
             }
@@ -379,7 +402,7 @@ export default function MasterDataManager({ initialData, rawFields, initialNote,
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => { setSelectedField(row.original); setIsEditDialogOpen(true); }}>
+                            <DropdownMenuItem onClick={() => { openFieldDetail(row.original); }}>
                                 <Settings className="mr-2 h-4 w-4 text-slate-400" /> Edit Details
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleInsertBelow(row.original)}>
@@ -603,6 +626,58 @@ export default function MasterDataManager({ initialData, rawFields, initialNote,
             {selectedField && <FieldDetailSheet field={selectedField} open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen} categories={categories} />}
             {isCreateDialogOpen && <FieldCreateSheet open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen} categories={categories} />}
         </div>
+    );
+}
+
+// --- Source Chip Component ---
+
+const SOURCE_CONFIG: Record<string, { label: string; bg: string; content: React.ReactNode }> = {
+    GLEIF: {
+        label: "GLEIF",
+        bg: "bg-emerald-50 border-emerald-200",
+        content: <img src="https://www.gleif.org/assets/build/img/logo/gleif-logo-new.svg" alt="GLEIF" className="h-3 w-auto max-w-[28px] object-contain" />
+    },
+    COMPANIES_HOUSE: {
+        label: "Companies House",
+        bg: "bg-blue-50 border-blue-200",
+        content: <img src="/images/Companies_House.png" alt="Companies House" className="h-3.5 w-auto max-w-[16px] object-contain" />
+    },
+    NATIONAL_REGISTRY: {
+        label: "National Registry",
+        bg: "bg-blue-50 border-blue-200",
+        content: <img src="/images/Companies_House.png" alt="National Registry" className="h-3.5 w-auto max-w-[16px] object-contain" />
+    },
+    USER_INPUT: {
+        label: "User Input",
+        bg: "bg-slate-50 border-slate-200",
+        content: <span className="text-[8px] font-bold text-slate-500">UI</span>
+    },
+    AI_EXTRACTION: {
+        label: "AI Extraction",
+        bg: "bg-purple-50 border-purple-200",
+        content: <span className="text-[8px] font-bold text-purple-500">AI</span>
+    },
+    SYSTEM_DERIVED: {
+        label: "System",
+        bg: "bg-amber-50 border-amber-200",
+        content: <span className="text-[8px] font-bold text-amber-600">SY</span>
+    },
+};
+
+function SourceChip({ sourceType, count, onClick }: { sourceType: string; count: number; onClick: () => void }) {
+    const config = SOURCE_CONFIG[sourceType] || {
+        label: sourceType,
+        bg: "bg-slate-100 border-slate-300",
+        content: <span className="text-[7px] font-bold text-slate-500 truncate px-0.5">{sourceType.slice(0, 2)}</span>
+    };
+    return (
+        <button
+            onClick={onClick}
+            className={`h-5 w-5 rounded-full border flex items-center justify-center overflow-hidden hover:scale-110 transition-transform ${config.bg}`}
+            title={`${config.label} — ${count} mapping${count !== 1 ? "s" : ""}`}
+        >
+            {config.content}
+        </button>
     );
 }
 
