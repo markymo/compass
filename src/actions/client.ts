@@ -1192,7 +1192,42 @@ export async function getClientDashboardData(clientId: string) {
     }
 }
 
-// 12. Get LE Users
+// 12. Get Current User's Effective Role for an LE
+// Returns 'LE_ADMIN', 'LE_USER', 'ORG_ADMIN' (owner), 'SYSTEM_ADMIN', or null.
+export async function getCurrentUserLERole(leId: string): Promise<string | null> {
+    const identity = await getIdentity();
+    if (!identity?.userId) return null;
+    const { userId } = identity;
+
+    // 1. System Admin override
+    const isSysAdmin = await checkIsSystemAdmin(userId);
+    if (isSysAdmin) return "SYSTEM_ADMIN";
+
+    // 2. Direct LE membership (LE_ADMIN or LE_USER)
+    const leMembership = await prisma.membership.findFirst({
+        where: { userId, clientLEId: leId, role: { in: ["LE_ADMIN", "LE_USER"] } },
+        select: { role: true }
+    });
+    if (leMembership) return leMembership.role;
+
+    // 3. Org membership for the LE's owner org (inherits ORG_ADMIN rights)
+    const owners = await prisma.clientLEOwner.findMany({
+        where: { clientLEId: leId, endAt: null },
+        select: { partyId: true }
+    });
+    const ownerOrgIds = owners.map((o: any) => o.partyId);
+    if (ownerOrgIds.length > 0) {
+        const orgMembership = await prisma.membership.findFirst({
+            where: { userId, organizationId: { in: ownerOrgIds }, role: { in: ["ADMIN", "ORG_ADMIN", "CLIENT_ADMIN"] } },
+            select: { role: true }
+        });
+        if (orgMembership) return "ORG_ADMIN";
+    }
+
+    return null;
+}
+
+// 12b. Get LE Users
 export interface LEUser {
     userId: string;
     name: string | null;

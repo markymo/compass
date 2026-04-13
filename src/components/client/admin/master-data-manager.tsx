@@ -18,7 +18,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Search, Settings, HelpCircle, Check, X, Loader2, MoreVertical, SlidersHorizontal, Plus, ChevronRight, ChevronDown, ChevronUp, GripVertical, Save, RefreshCw } from "lucide-react";
+import { Search, Settings, HelpCircle, Check, X, Loader2, MoreVertical, SlidersHorizontal, Plus, ChevronRight, ChevronDown, ChevronUp, GripVertical, Save, RefreshCw, GitBranch } from "lucide-react";
+
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
@@ -87,7 +88,16 @@ export default function MasterDataManager({ initialData, rawFields, initialNote,
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
 
-    // --- Inline Insertion State ---
+    // Keep selectedField fresh after router.refresh() re-supplies rawFields from the server.
+    // Without this, the sheet shows a stale field (empty sourceMappings) even after a
+    // successful save, causing a false "mapping already exists" error on the next attempt.
+    useEffect(() => {
+        if (selectedField) {
+            const updated = rawFields.find((f: any) => f.fieldNo === selectedField.fieldNo);
+            if (updated) setSelectedField(updated);
+        }
+    }, [rawFields]);
+
     const [insertingBelowFieldNo, setInsertingBelowFieldNo] = useState<number | null>(null);
     const [newFieldDraft, setNewFieldDraft] = useState<any>(null);
     const [isCreating, setIsCreating] = useState(false);
@@ -319,14 +329,28 @@ export default function MasterDataManager({ initialData, rawFields, initialNote,
         {
             id: "sources",
             header: "Source",
-            size: 100,
+            size: 110,
             cell: ({ row }) => {
                 const mappings = row.original.sourceMappings || [];
-                if (mappings.length === 0) return <span className="text-[10px] text-slate-400">Manual</span>;
                 const uniqueSources = Array.from(new Set(mappings.map((m: any) => m.sourceType)));
                 return (
-                    <div className="flex flex-wrap gap-1">
-                        {uniqueSources.map((source: any) => <Badge key={source as string} variant="outline" className="px-1.5 py-0 h-4 text-[9px] bg-slate-50">{source as string}</Badge>)}
+                    <div
+                        className="flex flex-wrap gap-1 cursor-pointer group/src"
+                        title="Click to manage source mappings"
+                        onClick={() => { setSelectedField(row.original); setIsEditDialogOpen(true); }}
+                    >
+                        {mappings.length === 0 ? (
+                            <span className="flex items-center gap-1 text-[10px] text-slate-400 group-hover/src:text-blue-500 transition-colors">
+                                <GitBranch className="h-3 w-3" />
+                                Add
+                            </span>
+                        ) : (
+                            uniqueSources.map((source: any) => (
+                                <Badge key={source as string} variant="outline" className="px-1.5 py-0 h-4 text-[9px] bg-slate-50 group-hover/src:border-blue-300 group-hover/src:text-blue-600 transition-colors">
+                                    {source as string}
+                                </Badge>
+                            ))
+                        )}
                     </div>
                 );
             }

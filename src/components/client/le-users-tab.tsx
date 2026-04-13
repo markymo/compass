@@ -14,9 +14,10 @@ import { toast } from "sonner";
 
 interface LEUsersTabProps {
     leId: string;
+    canManageUsers?: boolean;
 }
 
-export function LEUsersTab({ leId }: LEUsersTabProps) {
+export function LEUsersTab({ leId, canManageUsers = false }: LEUsersTabProps) {
     const [users, setUsers] = useState<LEUser[]>([]);
     const [invites, setInvites] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -96,40 +97,47 @@ export function LEUsersTab({ leId }: LEUsersTabProps) {
                     <p className="text-slate-500 mt-1">Manage access and permissions for this Legal Entity.</p>
                 </div>
 
-                <Card className="w-full md:w-auto min-w-[400px]">
-                    <CardHeader className="pb-3">
-                        <CardTitle className="text-sm font-medium flex items-center gap-2">
-                            <UserPlus className="h-4 w-4" />
-                            Invite New Member
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <form onSubmit={handleInvite} className="flex gap-2">
-                            <div className="flex-1 space-y-2">
-                                <Input
-                                    placeholder="colleague@example.com"
-                                    type="email"
-                                    value={inviteEmail}
-                                    onChange={(e) => setInviteEmail(e.target.value)}
-                                    required
-                                    className="h-9"
-                                />
-                            </div>
-                            <Select value={inviteRole} onValueChange={setInviteRole}>
-                                <SelectTrigger className="w-[110px] h-9">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent className="bg-white">
-                                    <SelectItem value="LE_USER">LE User</SelectItem>
-                                    <SelectItem value="LE_ADMIN">LE Admin</SelectItem>
-                                </SelectContent>
-                            </Select>
-                            <Button type="submit" size="sm" disabled={inviting} className="h-9">
-                                {inviting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Invite"}
-                            </Button>
-                        </form>
-                    </CardContent>
-                </Card>
+                {canManageUsers ? (
+                    <Card className="w-full md:w-auto min-w-[400px]">
+                        <CardHeader className="pb-3">
+                            <CardTitle className="text-sm font-medium flex items-center gap-2">
+                                <UserPlus className="h-4 w-4" />
+                                Invite New Member
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <form onSubmit={handleInvite} className="flex gap-2">
+                                <div className="flex-1 space-y-2">
+                                    <Input
+                                        placeholder="colleague@example.com"
+                                        type="email"
+                                        value={inviteEmail}
+                                        onChange={(e) => setInviteEmail(e.target.value)}
+                                        required
+                                        className="h-9"
+                                    />
+                                </div>
+                                <Select value={inviteRole} onValueChange={setInviteRole}>
+                                    <SelectTrigger className="w-[110px] h-9">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent className="bg-white">
+                                        <SelectItem value="LE_USER">LE User</SelectItem>
+                                        <SelectItem value="LE_ADMIN">LE Admin</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <Button type="submit" size="sm" disabled={inviting} className="h-9">
+                                    {inviting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Invite"}
+                                </Button>
+                            </form>
+                        </CardContent>
+                    </Card>
+                ) : (
+                    <div className="flex items-center gap-2 text-sm text-slate-500 bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5">
+                        <Shield className="h-4 w-4 text-slate-400 shrink-0" />
+                        <span>View only — contact an LE Admin to manage membership.</span>
+                    </div>
+                )}
             </div>
 
             {/* Users Table */}
@@ -140,7 +148,7 @@ export function LEUsersTab({ leId }: LEUsersTabProps) {
                             <TableHead>User</TableHead>
                             <TableHead>Role</TableHead>
                             <TableHead>Status</TableHead>
-                            <TableHead className="text-right">Joined</TableHead>
+                            <TableHead className="text-right">{canManageUsers ? "Actions" : "Joined"}</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -234,16 +242,20 @@ export function LEUsersTab({ leId }: LEUsersTabProps) {
                                             </div>
                                         </TableCell>
                                         <TableCell className="text-right">
-                                            <Button 
-                                                variant="ghost" 
-                                                size="sm" 
-                                                className="h-8 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
-                                                onClick={() => handleRevoke(inv.id)}
-                                                disabled={revokingId === inv.id}
-                                            >
-                                                {revokingId === inv.id ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <X className="h-3 w-3 mr-1" />}
-                                                Revoke
-                                            </Button>
+                                            {canManageUsers ? (
+                                                <Button 
+                                                    variant="ghost" 
+                                                    size="sm" 
+                                                    className="h-8 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+                                                    onClick={() => handleRevoke(inv.id)}
+                                                    disabled={revokingId === inv.id}
+                                                >
+                                                    {revokingId === inv.id ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <X className="h-3 w-3 mr-1" />}
+                                                    Revoke
+                                                </Button>
+                                            ) : (
+                                                <span className="text-xs text-slate-400">—</span>
+                                            )}
                                         </TableCell>
                                     </TableRow>
                                 ))}

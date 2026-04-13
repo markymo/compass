@@ -38,6 +38,8 @@ export async function refreshGleifData(leId: string) {
 
         if (updateResult.success) {
             revalidatePath(`/app/le/${leId}/sources/gleif`);
+            revalidatePath(`/app/le/${leId}/sources/registry`);
+            revalidatePath(`/app/le/${leId}/master`);
             return { success: true };
         } else {
             return { success: false, error: updateResult.error || "Failed to update record" };

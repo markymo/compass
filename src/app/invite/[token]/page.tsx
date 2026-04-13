@@ -1,19 +1,23 @@
-import { acceptInvitation } from "@/actions/accept-invitation";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertCircle, Building2, ArrowRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { AlertCircle, Building2 } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getIdentity } from "@/lib/auth";
 import { Badge } from "@/components/ui/badge";
 import crypto from "crypto";
 import prisma from "@/lib/prisma";
+import { InvitationAcceptFlow } from "@/components/client/invitation-accept-flow";
+import { acceptInvitation } from "@/actions/accept-invitation";
 
 // This is a Public Page (outside (platform) layout)
-export default async function InvitationPage({ params }: { params: { token: string } }) {
+export default async function InvitationPage({ params, searchParams }: { params: { token: string }, searchParams: { autoAccept?: string } }) {
     const { token } = await params;
+    const sp = await searchParams;
+    const autoAccept = sp?.autoAccept === "1";
     const identity = await getIdentity();
     const userId = identity?.userId;
+    const userEmail = identity?.email || undefined;
 
     // 1. Hash Token for Lookup
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
@@ -61,6 +65,16 @@ export default async function InvitationPage({ params }: { params: { token: stri
 
     // Determine context display based on scope type
     const isLoggedIn = !!userId;
+
+    // Auto-Accept: if user just registered and was redirected back here, complete the flow silently.
+    if (autoAccept && isLoggedIn) {
+        const acceptRes = await acceptInvitation(token);
+        if (acceptRes.success && acceptRes.redirectUrl) {
+            redirect(acceptRes.redirectUrl);
+        }
+        // If it fails (e.g. already used), fall through and show the normal page.
+    }
+
     const orgName =
         invite.organization?.name ??
         invite.fiEngagement?.org?.name ??
@@ -85,11 +99,11 @@ export default async function InvitationPage({ params }: { params: { token: stri
                         <div className="mx-auto bg-indigo-50 p-3 rounded-full w-fit mb-4">
                             <Building2 className="w-8 h-8 text-indigo-600" />
                         </div>
-                        <CardTitle>You've been invited!</CardTitle>
-                        <CardDescription>
-                            Accept the invitation below to join <br />
-                            <span className="font-semibold text-slate-900 text-lg">{orgName}</span>
+                        <CardTitle className="text-2xl">Welcome to {orgName}!</CardTitle>
+                        <CardDescription className="text-base mt-2">
+                            You've been invited to access the platform.
                         </CardDescription>
+
                     </CardHeader>
                     <CardContent className="space-y-4">
                         <div className="bg-slate-50 p-4 rounded-lg border border-slate-100 space-y-3">
@@ -108,43 +122,18 @@ export default async function InvitationPage({ params }: { params: { token: stri
                                 </Badge>
                             </div>
                         </div>
-
-                        {!isLoggedIn && (
-                            <div className="text-sm text-slate-500 text-center bg-yellow-50 p-3 rounded text-yellow-800 border border-yellow-100">
-                                You must sign in with <strong>{invite.sentToEmail}</strong> to accept this invitation.
-                            </div>
-                        )}
                     </CardContent>
                     <CardFooter className="flex flex-col gap-3">
-                        {isLoggedIn ? (
-                            <form action={async () => {
-                                "use server";
-                                const res = await acceptInvitation(token);
-                                if (res.redirectUrl) redirect(res.redirectUrl);
-                                if (res.error) {
-                                    // In a real app we'd pass this error back to UI via separate client component
-                                    // For now, redirecting to error or throwing simple error
-                                    throw new Error(res.error);
-                                }
-                            }} className="w-full">
-                                <Button className="w-full gap-2 text-lg py-6" size="lg">
-                                    Accept Invitation <ArrowRight className="w-5 h-5" />
-                                </Button>
-                            </form>
-                        ) : (
-                            <div className="w-full grid gap-3">
-                                <Link href={`/login?callbackUrl=${encodeURIComponent(`/invite/${token}`)}`}>
-                                    <Button className="w-full gap-2" variant="default">
-                                        Sign In to Accept
-                                    </Button>
-                                </Link>
-                                <Link href={`/register?callbackUrl=${encodeURIComponent(`/invite/${token}`)}&email=${encodeURIComponent(invite.sentToEmail)}`}>
-                                    <Button className="w-full gap-2" variant="outline">
-                                        Create Account
-                                    </Button>
-                                </Link>
-                            </div>
-                        )}
+                        <div className="w-full">
+                            <InvitationAcceptFlow
+                                token={token}
+                                sentToEmail={invite.sentToEmail}
+                                isLoggedIn={isLoggedIn}
+                                userEmail={userEmail}
+                                scopeName={orgName}
+                                role={invite.role}
+                            />
+                        </div>
                     </CardFooter>
                 </Card>
             </div>

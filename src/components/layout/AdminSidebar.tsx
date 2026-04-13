@@ -33,7 +33,7 @@ const adminNavItems: NavItem[] = [
             { title: "Manager", href: "/app/admin/master-data/manager", icon: LayoutDashboard },
             { title: "Field Glossary", href: "/app/admin/master-data/fields", icon: ListTree },
             { title: "Groups", href: "/app/admin/master-data/groups", icon: LayoutGrid },
-            { title: "Taxonomy Sorting", href: "/app/admin/master-data/sort", icon: ArrowUpDown },
+
             { title: "System", href: "/app/admin/master-data/system", icon: Settings2 },
             { title: "Source Mappings", href: "/app/admin/master-data/source-mappings", icon: GitBranch },
             { title: "Option Sets", href: "/app/admin/master-data/option-sets", icon: ListOrdered },
@@ -46,7 +46,7 @@ const rddShortcutItems: NavItem[] = [
     { title: "Data Manager", href: "/app/admin/master-data/manager", icon: LayoutDashboard },
     { title: "Field Glossary", href: "/app/admin/master-data/fields", icon: ListTree },
     { title: "Source Mappings", href: "/app/admin/master-data/source-mappings", icon: GitBranch },
-    { title: "Taxonomy Sorting", href: "/app/admin/master-data/sort", icon: ArrowUpDown },
+
     { title: "Option Sets", href: "/app/admin/master-data/option-sets", icon: ListOrdered },
 ];
 

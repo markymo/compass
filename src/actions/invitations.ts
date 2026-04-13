@@ -126,19 +126,130 @@ export async function inviteUser(payload: InvitePayload) {
         return { success: false, error: "A pending invitation for this user and scope already exists." };
     }
 
-    // 4. Already a member check
-    if (payload.organizationId || payload.clientLEId) {
-        const existingUser = await prisma.user.findUnique({ where: { email: payload.email } });
+    // 4. Already a member check & Auto-Add Logic
+    let existingUser = null;
+    let isMember = false;
+    let targetOrgId = payload.organizationId;
+    let targetLEId = payload.clientLEId;
+
+    if (payload.fiEngagementId) {
+        const eng = await prisma.fIEngagement.findUnique({ where: { id: payload.fiEngagementId } });
+        if (eng) targetOrgId = eng.fiOrgId;
+    }
+
+    if (targetOrgId || targetLEId || payload.fiEngagementId) {
+        existingUser = await prisma.user.findUnique({ where: { email: payload.email } });
+        
         if (existingUser) {
             const membershipWhere: any = { userId: existingUser.id };
-            if (payload.organizationId) membershipWhere.organizationId = payload.organizationId;
-            if (payload.clientLEId) membershipWhere.clientLEId = payload.clientLEId;
+            if (targetOrgId) membershipWhere.organizationId = targetOrgId;
+            if (targetLEId) membershipWhere.clientLEId = targetLEId;
 
-            const isMember = await prisma.membership.findFirst({ where: membershipWhere });
+            isMember = (await prisma.membership.findFirst({ where: membershipWhere })) !== null;
             if (isMember) {
                 return { success: false, error: "User is already a member of this organisation." };
             }
         }
+    }
+
+    // 5. Intelligent Fork: Auto-Add Existing Users
+    if (existingUser) {
+        // Create Membership directly
+        await prisma.membership.create({
+            data: {
+                userId: existingUser.id,
+                organizationId: targetOrgId ?? null,
+                clientLEId: targetLEId ?? null,
+                role: payload.role,
+            }
+        });
+
+        if (payload.fiEngagementId) {
+            const eng = await prisma.fIEngagement.findUnique({ where: { id: payload.fiEngagementId } });
+            if (eng?.status === "INVITED") {
+                await prisma.fIEngagement.update({
+                    where: { id: payload.fiEngagementId },
+                    data: { status: "CONNECTED" },
+                });
+            }
+            await prisma.engagementActivity.create({
+                data: {
+                    fiEngagementId: payload.fiEngagementId,
+                    userId: existingUser.id,
+                    type: "TEAM_MEMBER_ADDED",
+                    details: { email: payload.email, role: payload.role },
+                },
+            });
+        }
+
+        // Determine Redirect URL for the email
+        let dashboardUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/app`;
+        if (targetOrgId) dashboardUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/app/clients/${targetOrgId}`;
+        else if (targetLEId) dashboardUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/app/le/${targetLEId}`;
+        else if (payload.fiEngagementId) dashboardUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/app/s/${targetOrgId}`;
+
+        try {
+            // Resolve scope label
+            let scopeLabel = BRAND.name;
+            if (payload.organizationId) {
+                const org = await prisma.organization.findUnique({ where: { id: payload.organizationId } });
+                if (org) scopeLabel = org.name;
+            } else if (payload.clientLEId) {
+                const le = await prisma.clientLE.findUnique({ where: { id: payload.clientLEId } });
+                if (le) scopeLabel = le.name;
+            } else if (payload.fiEngagementId) {
+                const eng = await prisma.fIEngagement.findUnique({ where: { id: payload.fiEngagementId }, include: { clientLE: true } });
+                if (eng?.clientLE) scopeLabel = eng.clientLE.name;
+            }
+
+            const inviter = await prisma.user.findUnique({ where: { id: userId }, select: { name: true, email: true } });
+            const inviterName = inviter?.name || inviter?.email || "A team member";
+
+            const resend = new Resend(process.env.RESEND_API_KEY);
+            // Re-using TeamInviteEmail for now but telling them they've been added.
+            // Ideally we'd have a TeamAddedEmail template, but we can parameterize it if needed.
+            // Or just use the existing one, the URL goes to their dashboard!
+            const html = await render(TeamInviteEmail({ 
+                inviterName, 
+                scopeLabel, 
+                role: payload.role, 
+                inviteLink: dashboardUrl, // Direct to dashboard instead of /invite token
+                recipientEmail: payload.email 
+            }));
+
+            await resend.emails.send({
+                from: `${BRAND.name} <noreply@app.coparity.tech>`,
+                to: payload.email,
+                subject: `You have been granted access to ${scopeLabel}`,
+                html,
+            });
+        } catch (emailErr) {
+            console.error("[Resend] Failed to send added notification email:", emailErr);
+        }
+
+        // Logging
+        if (payload.clientLEId) {
+            recordActivity(payload.clientLEId, userId, LEActivityType.TEAM_MEMBER_INVITED, {
+                invitedEmail: payload.email,
+                role: payload.role,
+                note: "Auto-Added Existing User"
+            });
+        }
+
+        logActivity("USER_ADDED_DIRECTLY", `/invite`, {
+            email: payload.email,
+            role: payload.role,
+            scope: getScopeType(payload),
+        });
+
+        if (payload.organizationId) revalidatePath(`/app/clients/${payload.organizationId}/team`);
+        if (payload.clientLEId) {
+            const le = await prisma.clientLE.findUnique({ where: { id: payload.clientLEId }, include: { owners: true } });
+            if (le?.owners[0]) revalidatePath(`/app/clients/${le.owners[0].partyId}/team`);
+            revalidatePath(`/app/le/${payload.clientLEId}`);
+        }
+
+        return { success: true, message: `User ${payload.email} was found and instantly granted access.` };
     }
 
     // 5. Generate token — store hash only (security)
@@ -162,7 +273,8 @@ export async function inviteUser(payload: InvitePayload) {
     });
 
     // 7. Send invitation email via Resend
-    const acceptUrl = `${process.env.NEXT_PUBLIC_APP_URL}/invite/${rawToken}`;
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+    const acceptUrl = `${baseUrl.replace(/\/$/, '')}/invite/${rawToken}`;
 
     try {
         // Resolve human-readable scope label and inviter name for the email
@@ -185,7 +297,7 @@ export async function inviteUser(payload: InvitePayload) {
         const html = await render(TeamInviteEmail({ inviterName, scopeLabel, role: payload.role, inviteLink: acceptUrl, recipientEmail: payload.email }));
 
         await resend.emails.send({
-            from: `${BRAND.name} <noreply@onpro.io>`,
+            from: `${BRAND.name} <noreply@app.coparity.tech>`,
             to: payload.email,
             subject: `You've been invited to join ${scopeLabel}`,
             html,

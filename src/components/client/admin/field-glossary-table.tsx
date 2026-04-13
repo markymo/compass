@@ -50,6 +50,15 @@ export function FieldGlossaryTable({ initialFields }: FieldGlossaryTableProps) {
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
 
+    // Keep selectedField fresh after router.refresh() re-supplies initialFields from the server.
+    // Without this, the sheet shows stale sourceMappings causing false duplicate-mapping errors.
+    useEffect(() => {
+        if (selectedField) {
+            const updated = initialFields.find((f: any) => f.fieldNo === selectedField.fieldNo);
+            if (updated) setSelectedField(updated);
+        }
+    }, [initialFields]);
+
     // --- Inline Insertion State ---
     const [insertingBelowFieldNo, setInsertingBelowFieldNo] = useState<number | null>(null);
     const [newFieldDraft, setNewFieldDraft] = useState<any>(null);

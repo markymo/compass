@@ -45,13 +45,7 @@ export default async function MasterDataAdminPage() {
             icon: Settings2,
             color: "text-slate-500"
         },
-        {
-            title: "Taxonomy Order",
-            description: "Configure display ordering for categories and fields.",
-            href: "/app/admin/master-data/sort",
-            icon: ArrowUpDown,
-            color: "text-amber-500"
-        },
+
         {
             title: "Source Mappings",
             description: "Configure how external data (GLEIF, registries) maps to master fields.",
