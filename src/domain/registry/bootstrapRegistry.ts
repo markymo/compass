@@ -17,6 +17,15 @@ export async function bootstrapRegistryAuthorities() {
             lookupStrategy: "LOCAL_ID",
             notes: "UK national registry for companies"
         },
+        {
+            id: "RA000242",
+            registryKey: "DE_HANDELSREGISTER",
+            name: "Gemeinsames Registerportal der Länder (Frankfurt am Main)",
+            countryCode: "DE",
+            jurisdiction: "DE",
+            lookupStrategy: "LOCAL_ID",
+            notes: "German national registry portal"
+        },
         // Future extensions:
         // { id: "RA000431", registryKey: "NL_KVK", name: "Kamer van Koophandel", countryCode: "NL" }
     ];
