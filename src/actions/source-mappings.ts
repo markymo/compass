@@ -57,8 +57,8 @@ export async function getActiveFieldDefinitions() {
     try {
         const fields = await prisma.masterFieldDefinition.findMany({
             where: { isActive: true },
-            orderBy: { fieldNo: 'asc' },
-            select: { fieldNo: true, fieldName: true, appDataType: true }
+            orderBy: [{ order: 'asc' }, { fieldNo: 'asc' }],
+            select: { fieldNo: true, fieldName: true, appDataType: true, masterDataCategory: { select: { displayName: true } } }
         });
         return { success: true, fields };
     } catch (error: any) {
