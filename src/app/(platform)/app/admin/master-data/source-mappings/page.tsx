@@ -1,6 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import {
+    ColumnDef,
+    flexRender,
+    getCoreRowModel,
+    useReactTable,
+    ColumnSizingState
+} from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -35,8 +42,11 @@ import { Separator } from "@/components/ui/separator";
 import { fetchLiveRegistryRecord } from "@/actions/registry-live";
 import {
     GitBranch, Plus, Loader2, Play, Zap, CheckCircle2, AlertTriangle,
-    ChevronRight, Eye, ArrowRight, Info, FileJson, RefreshCw, Search, Trash2
+    ChevronRight, Eye, ArrowRight, Info, FileJson, RefreshCw, Search, Trash2,
+    ChevronsUpDown, Check
 } from "lucide-react";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
@@ -52,6 +62,7 @@ import {
     deleteSourceMapping,
 } from "@/actions/source-mappings";
 import { DataInspectorPanel } from "@/components/client/admin/source-mappings/data-inspector-panel";
+import { getUserPreferences, updateUserPreferences } from "@/actions/user-preferences";
 
 const TRANSFORM_TYPES = [
     { value: 'DIRECT', label: 'Direct (as-is)' },
@@ -81,6 +92,9 @@ export default function SourceMappingsPage() {
     // For passing paths from the Inspector to the Form
     const [prefilledPath, setPrefilledPath] = useState<string>("");
 
+    // -- Column Sizing State (persisted per user) --
+    const [columnSizing, setColumnSizing] = useState<ColumnSizingState>({});
+
     const handleSelectPathFromInspector = (path: string) => {
         setPrefilledPath(path);
         setAddDialogOpen(true);
@@ -108,7 +122,87 @@ export default function SourceMappingsPage() {
         getActiveFieldDefinitions().then(res => {
             if (res.success) setFieldDefs(res.fields);
         });
+        // Load saved column sizes
+        getUserPreferences().then(res => {
+            if (res.success && res.preferences?.sourceMappingsTable?.columnSizing) {
+                setColumnSizing(res.preferences.sourceMappingsTable.columnSizing);
+            }
+        });
     }, []);
+
+    // Persist column sizing
+    useEffect(() => {
+        if (Object.keys(columnSizing).length === 0) return;
+        const timeoutId = setTimeout(() => {
+            updateUserPreferences({
+                sourceMappingsTable: { columnSizing }
+            });
+        }, 1000);
+        return () => clearTimeout(timeoutId);
+    }, [columnSizing]);
+
+    // -- TanStack Table column definitions --
+    const tableColumns = useMemo<ColumnDef<any>[]>(() => [
+        {
+            id: "sourcePath",
+            accessorKey: "sourcePath",
+            header: "Source Path",
+            size: 280,
+            minSize: 120,
+        },
+        {
+            id: "targetField",
+            accessorKey: "targetFieldNo",
+            header: "Target Field",
+            size: 200,
+            minSize: 100,
+        },
+        {
+            id: "transformType",
+            accessorKey: "transformType",
+            header: "Transform",
+            size: 120,
+            minSize: 80,
+        },
+        {
+            id: "confidence",
+            accessorKey: "confidenceDefault",
+            header: "Conf",
+            size: 65,
+            minSize: 50,
+        },
+        {
+            id: "priority",
+            accessorKey: "priority",
+            header: "Pri",
+            size: 55,
+            minSize: 40,
+        },
+        {
+            id: "active",
+            accessorKey: "isActive",
+            header: "Active",
+            size: 60,
+            minSize: 50,
+            enableResizing: false,
+        },
+        {
+            id: "actions",
+            header: "",
+            size: 70,
+            minSize: 60,
+            enableResizing: false,
+        },
+    ], []);
+
+    const mappingsTable = useReactTable({
+        data: mappings,
+        columns: tableColumns,
+        columnResizeMode: "onChange",
+        getCoreRowModel: getCoreRowModel(),
+        onColumnSizingChange: setColumnSizing,
+        state: { columnSizing },
+    });
 
     const handleToggle = async (id: string, isActive: boolean) => {
         const res = await toggleSourceMapping(id, isActive);
@@ -253,100 +347,128 @@ export default function SourceMappingsPage() {
                                 </Card>
                             ) : (
                                 <Card>
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow className="bg-slate-50 dark:bg-slate-900/50">
-                                                <TableHead className="w-[35%]">
-                                                    <ColumnInfo label="Source Path" info="Where to find this value in the source JSON" />
-                                                </TableHead>
-                                                <TableHead className="w-[25%]">
-                                                    <ColumnInfo label="Target Field" info="Which master field receives this value" />
-                                                </TableHead>
-                                                <TableHead className="w-[15%]">
-                                                    <ColumnInfo label="Transform" info="DIRECT copies as-is. Others convert dates, country codes, or arrays before saving" />
-                                                </TableHead>
-                                                <TableHead className="text-center w-[8%]">
-                                                    <ColumnInfo label="Conf" info="How trustworthy this value is (0–1). Reduced automatically if a transform fails" center />
-                                                </TableHead>
-                                                <TableHead className="text-center w-[7%]">
-                                                    <ColumnInfo label="Pri" info="Tiebreaker when two mappings write to the same field. The lower number wins" center />
-                                                </TableHead>
-                                                <TableHead className="text-center w-[5%]">
-                                                    <ColumnInfo label="Active" info="Turn off without deleting. Inactive mappings are ignored" center />
-                                                </TableHead>
-                                                <TableHead className="text-right w-[5%]"></TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {mappings.map((m: any) => (
-                                                <TableRow
-                                                    key={m.id}
-                                                    className={cn(
-                                                        "cursor-pointer transition-colors",
-                                                        !m.isActive && "opacity-50",
-                                                        selectedMapping?.id === m.id && "bg-green-50/50 dark:bg-green-900/10"
-                                                    )}
-                                                    onClick={() => handlePreview(m)}
-                                                >
-                                                    <TableCell>
-                                                        <code className="text-xs bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded font-mono text-green-700 dark:text-green-400">
-                                                            {m.sourcePath}
-                                                        </code>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <div className="flex items-center gap-1.5">
-                                                            <Badge variant="outline" className="text-[10px] font-mono px-1.5">
-                                                                F{m.targetFieldNo}
+                                    <div className="overflow-x-auto">
+                                        <table style={{ width: mappingsTable.getTotalSize(), tableLayout: "fixed" }}>
+                                            <thead>
+                                                {mappingsTable.getHeaderGroups().map(headerGroup => (
+                                                    <tr key={headerGroup.id} className="bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200">
+                                                        {headerGroup.headers.map(header => {
+                                                            const colInfo: Record<string, string> = {
+                                                                sourcePath: "Where to find this value in the source JSON",
+                                                                targetField: "Which master field receives this value",
+                                                                transformType: "DIRECT copies as-is. Others convert dates, country codes, or arrays before saving",
+                                                                confidence: "How trustworthy this value is (0–1). Reduced automatically if a transform fails",
+                                                                priority: "Tiebreaker when two mappings write to the same field. The lower number wins",
+                                                                active: "Turn off without deleting. Inactive mappings are ignored",
+                                                            };
+                                                            const isCenter = ["confidence", "priority", "active"].includes(header.id);
+                                                            const isRight = header.id === "actions";
+                                                            return (
+                                                                <th
+                                                                    key={header.id}
+                                                                    className={cn(
+                                                                        "relative px-3 py-2.5 text-xs font-semibold text-slate-500 select-none",
+                                                                        isCenter && "text-center",
+                                                                        isRight && "text-right"
+                                                                    )}
+                                                                    style={{ width: header.getSize() }}
+                                                                >
+                                                                    {colInfo[header.id] ? (
+                                                                        <ColumnInfo
+                                                                            label={flexRender(header.column.columnDef.header, header.getContext()) as string}
+                                                                            info={colInfo[header.id]}
+                                                                            center={isCenter}
+                                                                        />
+                                                                    ) : (
+                                                                        flexRender(header.column.columnDef.header, header.getContext())
+                                                                    )}
+                                                                    {header.column.getCanResize() && (
+                                                                        <div
+                                                                            onMouseDown={header.getResizeHandler()}
+                                                                            onTouchStart={header.getResizeHandler()}
+                                                                            className={cn(
+                                                                                "absolute right-0 top-0 h-full w-1.5 cursor-col-resize select-none touch-none transition-colors hover:bg-indigo-500",
+                                                                                header.column.getIsResizing() && "bg-indigo-500"
+                                                                            )}
+                                                                        />
+                                                                    )}
+                                                                </th>
+                                                            );
+                                                        })}
+                                                    </tr>
+                                                ))}
+                                            </thead>
+                                            <tbody>
+                                                {mappings.map((m: any) => (
+                                                    <tr
+                                                        key={m.id}
+                                                        className={cn(
+                                                            "cursor-pointer transition-colors border-b border-slate-100 last:border-b-0 hover:bg-slate-50/50",
+                                                            !m.isActive && "opacity-50",
+                                                            selectedMapping?.id === m.id && "bg-green-50/50 dark:bg-green-900/10"
+                                                        )}
+                                                        onClick={() => handlePreview(m)}
+                                                    >
+                                                        <td className="px-3 py-2.5" style={{ width: mappingsTable.getColumn("sourcePath")?.getSize() }}>
+                                                            <code className="text-xs bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded font-mono text-green-700 dark:text-green-400">
+                                                                {m.sourcePath}
+                                                            </code>
+                                                        </td>
+                                                        <td className="px-3 py-2.5" style={{ width: mappingsTable.getColumn("targetField")?.getSize() }}>
+                                                            <div className="flex items-center gap-1.5">
+                                                                <Badge variant="outline" className="text-[10px] font-mono px-1.5">
+                                                                    F{m.targetFieldNo}
+                                                                </Badge>
+                                                                <span className="text-sm text-slate-700 dark:text-slate-300 truncate">
+                                                                    {m.targetField?.fieldName}
+                                                                </span>
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-3 py-2.5" style={{ width: mappingsTable.getColumn("transformType")?.getSize() }}>
+                                                            <Badge variant="secondary" className="text-[10px]">
+                                                                {m.transformType}
                                                             </Badge>
-                                                            <span className="text-sm text-slate-700 dark:text-slate-300">
-                                                                {m.targetField?.fieldName}
-                                                            </span>
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <Badge variant="secondary" className="text-[10px]">
-                                                            {m.transformType}
-                                                        </Badge>
-                                                    </TableCell>
-                                                    <TableCell className="text-center text-sm font-mono text-slate-600">
-                                                        {m.confidenceDefault}
-                                                    </TableCell>
-                                                    <TableCell className="text-center text-sm font-mono text-slate-600">
-                                                        {m.priority}
-                                                    </TableCell>
-                                                    <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
-                                                        <Switch
-                                                            checked={m.isActive}
-                                                            onCheckedChange={(checked) => handleToggle(m.id, checked)}
-                                                        />
-                                                    </TableCell>
-                                                    <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                                                        <div className="flex items-center justify-end gap-1">
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                className="h-7 w-7 text-slate-400 hover:text-red-600"
-                                                                onClick={() => handleDelete(m.id)}
-                                                                title="Delete Mapping"
-                                                            >
-                                                                <Trash2 className="h-3.5 w-3.5" />
-                                                            </Button>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                className="h-7 w-7"
-                                                                onClick={() => {
-                                                                    setEditMapping(m);
-                                                                }}
-                                                            >
-                                                                <ChevronRight className="h-4 w-4" />
-                                                            </Button>
-                                                        </div>
-                                                    </TableCell>
-                                                </TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
+                                                        </td>
+                                                        <td className="px-3 py-2.5 text-center text-sm font-mono text-slate-600" style={{ width: mappingsTable.getColumn("confidence")?.getSize() }}>
+                                                            {m.confidenceDefault}
+                                                        </td>
+                                                        <td className="px-3 py-2.5 text-center text-sm font-mono text-slate-600" style={{ width: mappingsTable.getColumn("priority")?.getSize() }}>
+                                                            {m.priority}
+                                                        </td>
+                                                        <td className="px-3 py-2.5 text-center" style={{ width: mappingsTable.getColumn("active")?.getSize() }} onClick={(e) => e.stopPropagation()}>
+                                                            <Switch
+                                                                checked={m.isActive}
+                                                                onCheckedChange={(checked) => handleToggle(m.id, checked)}
+                                                            />
+                                                        </td>
+                                                        <td className="px-3 py-2.5 text-right" style={{ width: mappingsTable.getColumn("actions")?.getSize() }} onClick={(e) => e.stopPropagation()}>
+                                                            <div className="flex items-center justify-end gap-1">
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    className="h-7 w-7 text-slate-400 hover:text-red-600"
+                                                                    onClick={() => handleDelete(m.id)}
+                                                                    title="Delete Mapping"
+                                                                >
+                                                                    <Trash2 className="h-3.5 w-3.5" />
+                                                                </Button>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    className="h-7 w-7"
+                                                                    onClick={() => {
+                                                                        setEditMapping(m);
+                                                                    }}
+                                                                >
+                                                                    <ChevronRight className="h-4 w-4" />
+                                                                </Button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 </Card>
                             )}
 
@@ -655,22 +777,11 @@ function MappingFormDialog({
                             Dot-notation relative to payload root. Advisory autocomplete from sample data.
                         </p>
                     </div>
-                    <div className="grid gap-2">
-                        <Label>Target Field</Label>
-                        <Select value={targetFieldNo} onValueChange={setTargetFieldNo}>
-                            <SelectTrigger>
-                                <SelectValue placeholder="Select a field…" />
-                            </SelectTrigger>
-                            <SelectContent className="max-h-64">
-                                {fieldDefs.map((f: any) => (
-                                    <SelectItem key={f.fieldNo} value={String(f.fieldNo)}>
-                                        <span className="font-mono text-xs text-slate-500 mr-1.5">F{f.fieldNo}</span>
-                                        {f.fieldName}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
+                    <TargetFieldPicker
+                        fieldDefs={fieldDefs}
+                        value={targetFieldNo}
+                        onChange={setTargetFieldNo}
+                    />
                     <div className="grid grid-cols-2 gap-4">
                         <div className="grid gap-2">
                             <Label>Transform</Label>
@@ -875,3 +986,156 @@ function ColumnInfo({ label, info, center }: { label: string; info: string; cent
         </div>
     );
 }
+
+// ── Target Field Searchable Picker ─────────────────────────────────────
+
+const DATA_TYPE_COLORS: Record<string, string> = {
+    TEXT: "bg-blue-50 text-blue-600 border-blue-100",
+    NUMBER: "bg-amber-50 text-amber-600 border-amber-100",
+    DATE: "bg-purple-50 text-purple-600 border-purple-100",
+    BOOLEAN: "bg-teal-50 text-teal-600 border-teal-100",
+    JSON: "bg-orange-50 text-orange-600 border-orange-100",
+    SELECT: "bg-indigo-50 text-indigo-600 border-indigo-100",
+};
+
+function TargetFieldPicker({
+    fieldDefs,
+    value,
+    onChange,
+}: {
+    fieldDefs: any[];
+    value: string;
+    onChange: (value: string) => void;
+}) {
+    const [open, setOpen] = useState(false);
+
+    const selectedField = fieldDefs.find((f: any) => String(f.fieldNo) === value);
+
+    // Group fields by category
+    const grouped = useMemo(() => {
+        const groups: Record<string, any[]> = {};
+        for (const f of fieldDefs) {
+            const cat = f.masterDataCategory?.displayName || "Uncategorized";
+            if (!groups[cat]) groups[cat] = [];
+            groups[cat].push(f);
+        }
+        // Sort categories alphabetically, but put Uncategorized last
+        const sorted = Object.entries(groups).sort(([a], [b]) => {
+            if (a === "Uncategorized") return 1;
+            if (b === "Uncategorized") return -1;
+            return a.localeCompare(b);
+        });
+        return sorted;
+    }, [fieldDefs]);
+
+    return (
+        <div className="grid gap-2">
+            <Label className="flex items-center gap-2">
+                <span>Target Field</span>
+                <Badge variant="outline" className="text-[9px] font-normal text-slate-400 border-slate-200 px-1.5">
+                    {fieldDefs.length} available
+                </Badge>
+            </Label>
+            <Popover open={open} onOpenChange={setOpen}>
+                <PopoverTrigger asChild>
+                    <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={open}
+                        className={cn(
+                            "w-full justify-between h-auto min-h-[40px] py-2 font-normal text-left",
+                            !value && "text-slate-400"
+                        )}
+                    >
+                        {selectedField ? (
+                            <div className="flex items-center gap-2 overflow-hidden">
+                                <Badge variant="outline" className="font-mono text-[10px] px-1.5 shrink-0 bg-slate-50 border-slate-200 text-slate-600">
+                                    F{selectedField.fieldNo}
+                                </Badge>
+                                <span className="truncate text-sm font-medium text-slate-800">
+                                    {selectedField.fieldName}
+                                </span>
+                                <Badge className={cn("text-[9px] px-1 py-0 border shrink-0 shadow-none", DATA_TYPE_COLORS[selectedField.appDataType] || "bg-slate-50 text-slate-500 border-slate-200")}>
+                                    {selectedField.appDataType}
+                                </Badge>
+                            </div>
+                        ) : (
+                            <span className="text-sm">Search and select a target field…</span>
+                        )}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[460px] p-0" align="start">
+                    <Command>
+                        <CommandInput
+                            placeholder="Search by name, number, or category…"
+                        />
+                        <CommandList className="max-h-[320px]">
+                            <CommandEmpty>
+                                <div className="flex flex-col items-center gap-1 py-6 text-slate-400">
+                                    <Search className="h-5 w-5 opacity-40" />
+                                    <span className="text-sm">No matching fields</span>
+                                    <span className="text-xs">Try a different search term</span>
+                                </div>
+                            </CommandEmpty>
+                            {grouped.map(([category, fields], gIdx) => (
+                                <CommandGroup
+                                    key={category}
+                                    heading={
+                                        <span className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                                            {category}
+                                            <span className="text-[9px] font-normal text-slate-300">({fields.length})</span>
+                                        </span>
+                                    }
+                                >
+                                    {fields.map((f: any) => {
+                                        const isSelected = String(f.fieldNo) === value;
+                                        return (
+                                            <CommandItem
+                                                key={f.fieldNo}
+                                                value={`${f.fieldNo} ${f.fieldName} ${category}`}
+                                                onSelect={() => {
+                                                    onChange(String(f.fieldNo));
+                                                    setOpen(false);
+                                                }}
+                                                className={cn(
+                                                    "flex items-center gap-2.5 py-2 px-2 cursor-pointer",
+                                                    isSelected && "bg-green-50/80 dark:bg-green-900/20"
+                                                )}
+                                            >
+                                                <div className={cn(
+                                                    "flex items-center justify-center h-5 w-5 rounded-md border shrink-0 transition-colors",
+                                                    isSelected
+                                                        ? "bg-green-600 border-green-600 text-white"
+                                                        : "border-slate-200 bg-white text-transparent"
+                                                )}>
+                                                    <Check className="h-3 w-3" />
+                                                </div>
+                                                <Badge variant="outline" className="font-mono text-[10px] px-1.5 shrink-0 bg-slate-50/80 border-slate-200 text-slate-500 shadow-none">
+                                                    F{f.fieldNo}
+                                                </Badge>
+                                                <span className={cn(
+                                                    "flex-1 text-sm truncate",
+                                                    isSelected ? "font-semibold text-green-800" : "text-slate-700"
+                                                )}>
+                                                    {f.fieldName}
+                                                </span>
+                                                <Badge className={cn(
+                                                    "text-[9px] px-1.5 py-0 border shadow-none shrink-0",
+                                                    DATA_TYPE_COLORS[f.appDataType] || "bg-slate-50 text-slate-500 border-slate-200"
+                                                )}>
+                                                    {f.appDataType}
+                                                </Badge>
+                                            </CommandItem>
+                                        );
+                                    })}
+                                </CommandGroup>
+                            ))}
+                        </CommandList>
+                    </Command>
+                </PopoverContent>
+            </Popover>
+        </div>
+    );
+}
+
