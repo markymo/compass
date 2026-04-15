@@ -492,7 +492,7 @@ const DEFAULT_GLEIF_MAPPINGS = [
     { sourcePath: 'entity.creationDate', targetFieldNo: 27, confidenceDefault: 1.0, transformType: 'DATE_TO_ISO' as any, priority: 10, notes: 'Entity creation/incorporation date' },
 ];
 
-const DEFAULT_NATIONAL_REGISTRY_MAPPINGS = [
+const DEFAULT_REGISTRATION_AUTHORITY_MAPPINGS = [
     { sourcePath: 'entityName', targetFieldNo: 3, confidenceDefault: 1.0, priority: 10, notes: 'Legal entity name' },
     { sourcePath: 'entityStatus', targetFieldNo: 26, confidenceDefault: 1.0, priority: 10, notes: 'Entity status' },
     { sourcePath: 'incorporationDate', targetFieldNo: 27, confidenceDefault: 1.0, transformType: 'DATE_TO_ISO' as any, priority: 10, notes: 'Incorporation date' },
@@ -540,9 +540,9 @@ const SAMPLE_GLEIF_PAYLOAD = {
     }
 };
 
-// Sample National Registry payload (Super Schema format)
-const SAMPLE_NATIONAL_REGISTRY_PAYLOAD = {
-    sourceType: "COMPANIES_HOUSE",
+// Sample Registration Authority payload (Super Schema format)
+const SAMPLE_REGISTRATION_AUTHORITY_PAYLOAD = {
+    sourceType: "REGISTRATION_AUTHORITY",
     registryKey: "GB_COMPANIES_HOUSE",
     registryAuthorityId: "RA000585",
     sourceRecordId: "000617987",
@@ -566,12 +566,12 @@ const SAMPLE_NATIONAL_REGISTRY_PAYLOAD = {
 };
 
 export async function bootstrapDefaultMappings(sourceType: string) {
-    if (sourceType !== 'GLEIF' && sourceType !== 'NATIONAL_REGISTRY') {
+    if (sourceType !== 'GLEIF' && sourceType !== 'REGISTRATION_AUTHORITY') {
         return { success: false, error: `Bootstrap not available for ${sourceType}.` };
     }
 
-    const defaultMappings = sourceType === 'GLEIF' ? DEFAULT_GLEIF_MAPPINGS : DEFAULT_NATIONAL_REGISTRY_MAPPINGS;
-    const samplePayload = sourceType === 'GLEIF' ? SAMPLE_GLEIF_PAYLOAD : SAMPLE_NATIONAL_REGISTRY_PAYLOAD;
+    const defaultMappings = sourceType === 'GLEIF' ? DEFAULT_GLEIF_MAPPINGS : DEFAULT_REGISTRATION_AUTHORITY_MAPPINGS;
+    const samplePayload = sourceType === 'GLEIF' ? SAMPLE_GLEIF_PAYLOAD : SAMPLE_REGISTRATION_AUTHORITY_PAYLOAD;
     const sampleLabel = sourceType === 'GLEIF' ? "HSBC Holdings plc (Default Preview)" : "PAGOS LTD (Canonical Sample)";
 
     try {

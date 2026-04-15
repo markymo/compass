@@ -1263,24 +1263,29 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
 function SourceBadge({ source, sourceReference }: { source: string; sourceReference?: string }) {
     const colorMap: Record<string, string> = {
         'GLEIF': 'bg-orange-100 text-orange-700 border-orange-200',
-        'COMPANIES_HOUSE': 'bg-blue-100 text-blue-700 border-blue-200',
-        'NATIONAL_REGISTRY': 'bg-blue-100 text-blue-700 border-blue-200',
+        'REGISTRATION_AUTHORITY': 'bg-blue-100 text-blue-700 border-blue-200',
         'USER_INPUT': 'bg-purple-100 text-purple-700 border-purple-200',
         'SYSTEM': 'bg-gray-100 text-gray-700 border-gray-200',
         'SYSTEM_DERIVED': 'bg-gray-100 text-gray-700 border-gray-200',
-        'AI_EXTRACTION': 'bg-emerald-100 text-emerald-700 border-emerald-200'
+        'AI_EXTRACTION': 'bg-emerald-100 text-emerald-700 border-emerald-200',
+        // Legacy values (pre-migration data that may still render)
+        'COMPANIES_HOUSE': 'bg-blue-100 text-blue-700 border-blue-200',
+        'NATIONAL_REGISTRY': 'bg-blue-100 text-blue-700 border-blue-200',
     };
 
     const classes = colorMap[source] || 'bg-gray-100 text-gray-700 border-gray-200';
     
     let displaySource = source === 'SYSTEM_DERIVED' ? 'SYSTEM' : source;
     
-    // User Friendly override for Registry Source
-    if (source === 'NATIONAL_REGISTRY' || source === 'COMPANIES_HOUSE') {
+    // Resolve human-readable label for Registration Authority sources
+    if (source === 'REGISTRATION_AUTHORITY' || source === 'COMPANIES_HOUSE' || source === 'NATIONAL_REGISTRY') {
         if (sourceReference === 'GB_COMPANIES_HOUSE' || sourceReference?.includes('COMPANIES_HOUSE')) {
             displaySource = 'Companies House';
-        } else if (source === 'NATIONAL_REGISTRY') {
-            displaySource = 'National Registry';
+        } else if (sourceReference) {
+            // Generic fallback: strip country prefix and underscores
+            displaySource = sourceReference.replace(/^[A-Z]{2}_/, '').replace(/_/g, ' ');
+        } else {
+            displaySource = 'Registry';
         }
     }
 

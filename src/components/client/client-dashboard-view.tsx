@@ -61,7 +61,7 @@ export function ClientDashboardView({
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-1.5">
                                                     <h3 className={`font-semibold text-base sm:text-lg ${isAccessible ? 'text-slate-900 group-hover:text-indigo-700' : 'text-slate-700'} truncate`}>
-                                                        {le.name}
+                                                        {le.displayName || le.name}
                                                     </h3>
                                                     <Badge variant="outline" className="text-xs font-normal text-slate-600 bg-slate-50 shrink-0">
                                                         {le.jurisdiction || 'Unknown'}

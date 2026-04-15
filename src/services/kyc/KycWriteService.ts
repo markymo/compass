@@ -131,8 +131,7 @@ export class KycWriteService {
                 valueJson: typeof value === 'object' && !(value instanceof Date) ? value : undefined,
                 sourceType: (provenance.source as any) === 'USER_INPUT' ? SourceType.USER_INPUT :
                     (provenance.source as any) === 'GLEIF' ? SourceType.GLEIF :
-                        (provenance.source as any) === 'COMPANIES_HOUSE' ? SourceType.COMPANIES_HOUSE :
-                            (provenance.source as any) === 'NATIONAL_REGISTRY' ? SourceType.NATIONAL_REGISTRY :
+                        (provenance.source as any) === 'REGISTRATION_AUTHORITY' ? SourceType.REGISTRATION_AUTHORITY :
                                 SourceType.SYSTEM_DERIVED,
                 sourceReference: provenance.reason,
                 evidenceId: provenance.evidenceId,
@@ -412,13 +411,13 @@ export class KycWriteService {
             return { allowed: false, reason: 'User manual override is protected from GLEIF updates' };
         }
 
-        if (existingSource === 'USER_INPUT' && incomingSource === 'COMPANIES_HOUSE') {
-            return { allowed: false, reason: 'User manual override is protected from Local Registry updates' };
+        if (existingSource === 'USER_INPUT' && incomingSource === 'REGISTRATION_AUTHORITY') {
+            return { allowed: false, reason: 'User manual override is protected from Registration Authority updates' };
         }
 
         // RULE 2: GLEIF is top tier for automated data
-        if (existingSource === 'COMPANIES_HOUSE' && incomingSource === 'GLEIF') {
-            return { allowed: true, reason: 'GLEIF is authoritative over Local Registry' };
+        if (existingSource === 'REGISTRATION_AUTHORITY' && incomingSource === 'GLEIF') {
+            return { allowed: true, reason: 'GLEIF is authoritative over Registration Authority' };
         }
 
         // RULE 3: User can always override
@@ -432,8 +431,8 @@ export class KycWriteService {
         }
 
         // Default: Deny to be safe? Or Allow?
-        if (existingSource === 'GLEIF' && incomingSource === 'COMPANIES_HOUSE') {
-            return { allowed: false, reason: 'GLEIF is authoritative over Local Registry' };
+        if (existingSource === 'GLEIF' && incomingSource === 'REGISTRATION_AUTHORITY') {
+            return { allowed: false, reason: 'GLEIF is authoritative over Registration Authority' };
         }
 
         return { allowed: true, reason: 'Update allowed' };

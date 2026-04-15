@@ -62,7 +62,7 @@ export async function updateKycField(
     clientLEId: string,
     fieldNo: number,
     value: any,
-    source: 'USER_INPUT' | 'GLEIF' | 'COMPANIES_HOUSE' = 'USER_INPUT'
+    source: 'USER_INPUT' | 'GLEIF' | 'REGISTRATION_AUTHORITY' = 'USER_INPUT'
 ): Promise<KycActionState> {
     try {
         const { userId } = await ensureKycAuthorization(clientLEId);

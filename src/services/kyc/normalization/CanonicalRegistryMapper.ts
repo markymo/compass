@@ -5,30 +5,30 @@ import { applyTransform } from "./transforms";
 import prisma from "@/lib/prisma";
 
 /**
- * Unified Table-Driven Mapper for National Registry Data.
+ * Unified Table-Driven Mapper for Registration Authority Data.
  * 
  * Takes a pre-normalized CanonicalRegistryRecord and applies mappings
- * defined for the 'NATIONAL_REGISTRY' source family.
+ * defined for the 'REGISTRATION_AUTHORITY' source family.
  */
 export class CanonicalRegistryMapper {
     /**
      * Maps a CanonicalRegistryRecord to FieldCandidates based on DB configuration.
      */
     static async mapToCandidates(record: CanonicalRegistryRecord, evidenceId: string): Promise<FieldCandidate[]> {
-        // 1. Load active NATIONAL_REGISTRY mappings from DB
+        // 1. Load active REGISTRATION_AUTHORITY mappings from DB
         let dbMappings: any[] = [];
         try {
             dbMappings = await (prisma as any).sourceFieldMapping.findMany({
-                where: { sourceType: 'NATIONAL_REGISTRY', isActive: true },
+                where: { sourceType: 'REGISTRATION_AUTHORITY', isActive: true },
                 orderBy: [{ priority: 'asc' }, { createdAt: 'asc' }]
             });
         } catch (e) {
-            console.error("Failed to load NATIONAL_REGISTRY source mappings from DB:", e);
+            console.error("Failed to load REGISTRATION_AUTHORITY source mappings from DB:", e);
             return [];
         }
 
         if (dbMappings.length === 0) {
-            console.warn("No NATIONAL_REGISTRY mappings found in DB. Ingestion will produce no candidates.");
+            console.warn("No REGISTRATION_AUTHORITY mappings found in DB. Ingestion will produce no candidates.");
             return [];
         }
 
@@ -67,9 +67,9 @@ export class CanonicalRegistryMapper {
                         fieldNo: targetFieldNo,
                         value: transformed.value,
                         // PROVENANCE: 
-                        // sourceFamily is 'NATIONAL_REGISTRY' (for UI grouping)
+                        // sourceFamily is 'REGISTRATION_AUTHORITY' (for trust ranking / UI grouping)
                         // sourceKey is the specific registry (e.g. 'GB_COMPANIES_HOUSE')
-                        source: 'NATIONAL_REGISTRY' as any,
+                        source: 'REGISTRATION_AUTHORITY' as any,
                         sourceKey: record.registryKey, // preservation of specific source provenance
                         evidenceId,
                         confidence

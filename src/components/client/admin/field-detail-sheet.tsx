@@ -81,7 +81,7 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[] }: F
     });
     const [isMappingSaving, setIsMappingSaving] = useState(false);
 
-    const liveSourceTypes = ["GLEIF", "NATIONAL_REGISTRY", "COMPANIES_HOUSE"];
+    const liveSourceTypes = ["GLEIF", "REGISTRATION_AUTHORITY"];
 
     const handleDeleteMapping = async (mappingId: string) => {
         setDeletingMappingId(mappingId);
@@ -344,8 +344,7 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[] }: F
                                                 </SelectTrigger>
                                                 <SelectContent>
                                                     <SelectItem value="GLEIF">GLEIF</SelectItem>
-                                                    <SelectItem value="NATIONAL_REGISTRY">National Registry</SelectItem>
-                                                    <SelectItem value="COMPANIES_HOUSE">Companies House</SelectItem>
+                                                    <SelectItem value="REGISTRATION_AUTHORITY">Registration Authority</SelectItem>
                                                     <SelectItem value="USER_INPUT">User Input / Other</SelectItem>
                                                 </SelectContent>
                                             </Select>

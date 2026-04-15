@@ -242,7 +242,7 @@ export async function acceptProposal(
         if (evidence.provider === 'GLEIF') {
             candidates = await mapGleifPayloadToFieldCandidates(evidence.payload, evidenceId);
         } else {
-            // Check if it's a registry provider (e.g. COMPANIES_HOUSE)
+            // Check if it's a registration authority provider (e.g. REGISTRATION_AUTHORITY)
             const connector = RegistryConnectorFactory.getConnectorForProvider(evidence.provider);
             if (connector) {
                 const record = connector.normalize(evidence.payload);

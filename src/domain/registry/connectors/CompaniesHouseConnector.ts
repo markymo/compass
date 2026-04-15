@@ -86,7 +86,7 @@ export class CompaniesHouseConnector implements IRegistryConnector {
             throw new Error("Cannot normalize empty registry record");
         }
         return {
-            sourceType: "COMPANIES_HOUSE",
+            sourceType: "REGISTRATION_AUTHORITY",
             registryKey: "GB_COMPANIES_HOUSE",
             registryAuthorityId: "", // To be filled by caller
             sourceRecordId: "", // To be filled by caller

@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { checkIsSystemAdmin } from "@/actions/client";
 import { getIdentity } from "@/lib/auth";
 import type { GuideBreadcrumbItem } from "@/components/layout/GuideHeader";
+import { getLEDisplayName } from "@/lib/le-display-name";
 
 interface LayoutProps {
     children: React.ReactNode;
@@ -60,7 +61,7 @@ export default async function LegalEntityLayout({ children, params }: LayoutProp
     const baseBreadcrumbs: GuideBreadcrumbItem[] = [
         { label: "Home", href: "/app", iconName: "home" },
         { label: ownerName || "Client", href: ownerId ? `/app/clients/${ownerId}` : "/app", iconName: "building-2" },
-        { label: le.name, href: `/app/le/${le.id}`, iconName: "landmark" }
+        { label: getLEDisplayName(le), href: `/app/le/${le.id}`, iconName: "landmark" }
     ];
 
     return (

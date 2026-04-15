@@ -22,8 +22,8 @@ export default async function RegistryPage({ params }: { params: Promise<{ id: s
     const authority = primaryRef?.authority;
 
     // Support both old and new data formats
-    const sourceType = registryData?.sourceType || (registryData?.source === "Companies House" ? "COMPANIES_HOUSE" : null);
-    const displayTitle = authority?.name || (sourceType === "COMPANIES_HOUSE" ? "UK Companies House" : "National Registry Record");
+    const sourceType = registryData?.sourceType || "REGISTRATION_AUTHORITY";
+    const displayTitle = authority?.name || "Registration Authority Record";
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">

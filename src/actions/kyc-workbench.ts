@@ -56,7 +56,7 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
         
         const getSourcePriority = (source: string) => {
             if (source === 'GLEIF') return 1;
-            if (source === 'COMPANIES_HOUSE') return 2;
+            if (source === 'REGISTRATION_AUTHORITY') return 2;
             if (source === 'USER_INPUT') return 3;
             if (source === 'AI_EXTRACTION') return 4;
             return 5;

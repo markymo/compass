@@ -191,7 +191,7 @@ export default function SourceMappingsPage() {
                     </SelectTrigger>
                     <SelectContent>
                         <SelectItem value="GLEIF">GLEIF</SelectItem>
-                        <SelectItem value="NATIONAL_REGISTRY">National Registry (Super Schema)</SelectItem>
+                        <SelectItem value="REGISTRATION_AUTHORITY">Registration Authority (Super Schema)</SelectItem>
                     </SelectContent>
                 </Select>
             </div>
@@ -809,7 +809,7 @@ function RegistryNormalizationInspector() {
                             </div>
                             <div className="flex-1 overflow-auto p-4 bg-white">
                                 <DataInspectorPanel 
-                                    sourceType="COMPANIES_HOUSE"
+                                    sourceType="REGISTRATION_AUTHORITY"
                                     existingMappings={[]}
                                     onSelectPath={() => {}}
                                     readOnly={true}
@@ -828,7 +828,7 @@ function RegistryNormalizationInspector() {
                             </div>
                             <div className="flex-1 overflow-auto p-4 bg-white">
                                 <DataInspectorPanel 
-                                    sourceType="NATIONAL_REGISTRY"
+                                    sourceType="REGISTRATION_AUTHORITY"
                                     existingMappings={[]}
                                     onSelectPath={() => {}}
                                     readOnly={true}
