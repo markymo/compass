@@ -512,7 +512,7 @@ export default function MasterDataManager({ initialData, rawFields, initialNote,
                     ))}
                 </div>
 
-                <div className="overflow-auto pb-8">
+                <div className="overflow-auto pb-8 max-h-[calc(100vh-320px)]">
                     <DragDropContext onDragEnd={handleDragEnd}>
                         <Droppable droppableId="categories" type="CATEGORY">
                             {(provided) => (
