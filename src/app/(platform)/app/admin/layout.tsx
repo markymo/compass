@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { isSystemAdmin } from "@/actions/admin";
 import { AdminSidebar } from "@/components/layout/AdminSidebar";
 import { AdminBreadcrumb } from "@/components/layout/AdminBreadcrumb";
+import { getUserPreferences } from "@/actions/user-preferences";
 
 export default async function AdminLayout({
     children,
@@ -19,9 +20,19 @@ export default async function AdminLayout({
         );
     }
 
+    let sidebarCollapsed = false;
+    try {
+        const prefRes = await getUserPreferences();
+        if (prefRes.success && prefRes.preferences?.adminSidebarCollapsed !== undefined) {
+            sidebarCollapsed = prefRes.preferences.adminSidebarCollapsed;
+        }
+    } catch (e) {
+        // Fallback to expanded
+    }
+
     return (
         <div className="flex -mx-4 md:-mx-8 -mt-4 md:-mt-8 min-h-[calc(100vh-5rem)]">
-            <AdminSidebar />
+            <AdminSidebar initialCollapsed={sidebarCollapsed} />
             <div className="flex-1 p-6 md:p-8 overflow-auto">
                 <AdminBreadcrumb />
                 {children}
@@ -29,3 +40,4 @@ export default async function AdminLayout({
         </div>
     );
 }
+

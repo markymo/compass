@@ -9,7 +9,8 @@ import {
     ListTree, LayoutGrid, Settings2, ArrowUpDown, GitBranch,
     ChevronDown, Zap, ListOrdered, LayoutDashboard
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { updateUserPreferences } from "@/actions/user-preferences";
 
 interface NavItem {
     title: string;
@@ -122,15 +123,15 @@ function NavLink({ item, depth = 0, isCollapsed = false }: { item: NavItem; dept
     );
 }
 
-export function AdminSidebar() {
+export function AdminSidebar({ initialCollapsed = false }: { initialCollapsed?: boolean }) {
     const pathname = usePathname();
-    const [isCollapsed, setIsCollapsed] = useState(false);
+    const [isCollapsed, setIsCollapsed] = useState(initialCollapsed);
 
-    useEffect(() => {
-        if (pathname.includes("/app/admin/master-data/manager")) {
-            setIsCollapsed(true);
-        }
-    }, [pathname]);
+    const handleToggleCollapse = () => {
+        const next = !isCollapsed;
+        setIsCollapsed(next);
+        updateUserPreferences({ adminSidebarCollapsed: next });
+    };
 
     return (
         <aside 
@@ -149,7 +150,7 @@ export function AdminSidebar() {
                         {!isCollapsed && <span className="text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">Admin</span>}
                     </div>
                     <button 
-                        onClick={() => setIsCollapsed(!isCollapsed)}
+                        onClick={handleToggleCollapse}
                         className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-md transition-colors shrink-0"
                         title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
                     >
