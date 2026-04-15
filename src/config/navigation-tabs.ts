@@ -10,7 +10,9 @@ import {
     Users,
     KanbanSquare,
     CreditCard,
-    PackageCheck
+    PackageCheck,
+    Settings2,
+    Settings
 } from "lucide-react";
 import { NavItem } from "@/components/layout/HeaderNavList";
 
@@ -26,9 +28,9 @@ export const getLegalEntityTabs = (leId: string): NavItem[] => {
     const baseUrl = `/app/le/${leId}`;
     return [
         {
-            label: "Overview",
+            label: "Settings",
             href: baseUrl,
-            icon: LayoutDashboard,
+            icon: Settings,
             isActive: (path) => matchesPath(path, baseUrl, true)
         },
         {
