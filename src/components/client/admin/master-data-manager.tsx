@@ -317,8 +317,14 @@ export default function MasterDataManager({ initialData, rawFields, initialNote,
             cell: ({ row }) => <FieldNameCell key={row.original.fieldNo} row={row} router={router} />,
         },
         {
-            accessorKey: "notes",
+            accessorKey: "description",
             header: "Description",
+            size: 200,
+            cell: ({ row }) => <EditableTextCell key={row.original.fieldNo + "_desc"} row={row} fieldKey="description" fallback="-" router={router} />,
+        },
+        {
+            accessorKey: "notes",
+            header: "Notes",
             size: 200,
             cell: ({ row }) => <DescriptionCell key={row.original.fieldNo} row={row} router={router} />,
         },
@@ -772,7 +778,7 @@ function DescriptionCell({ row, router }: { row: any, router: any }) {
                     {field.notes}
                 </span>
             ) : (
-                <span className="text-[10px] text-slate-400 italic">Add description...</span>
+                <span className="text-[10px] text-slate-400 italic">Add notes...</span>
             )}
         </div>
     );
