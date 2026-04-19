@@ -13,7 +13,7 @@ export type FieldDefinition = {
     fieldName: string;
     model: string; // Legacy: Prisma model name
     field: string | null; // Legacy: Prisma field name
-    appDataType: 'TEXT' | 'NUMBER' | 'DATE' | 'DATETIME' | 'PERSON_REF' | 'ORG_REF' | 'DOCUMENT_REF' | 'JSONB';
+    appDataType: 'TEXT' | 'NUMBER' | 'DATE' | 'DATETIME' | 'PERSON_REF' | 'PARTY_REF' | 'ORG_REF' | 'ADDRESS_REF' | 'DOCUMENT_REF' | 'JSONB';
     dataType: 'string' | 'integer' | 'boolean' | 'date' | 'datetime' | 'jsonb' | 'document'; // Legacy
     isMultiValue: boolean; // New multiplicity flag
     isRepeating: boolean; // Legacy multiplicity flag

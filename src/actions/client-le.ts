@@ -278,6 +278,17 @@ export async function updateStandingDataProperty(clientLEId: string, propertyKey
             case 'PERSON_REF': claimInput.valuePersonId = payload.value; break;
             case 'ORG_REF': claimInput.valueLeId = payload.value; break;
             case 'DOCUMENT_REF': claimInput.valueDocId = payload.value; break;
+            case 'ADDRESS_REF': claimInput.valueAddressId = payload.value; break;
+            case 'PARTY_REF':
+                // payload.value is expected to be an object for polymorphic types: { type: 'PERSON' | 'LEGAL_ENTITY', id: '123' }
+                if (typeof payload.value === 'object' && payload.value !== null) {
+                    if (payload.value.type === 'PERSON') {
+                        claimInput.valuePersonId = payload.value.id;
+                    } else if (payload.value.type === 'LEGAL_ENTITY') {
+                        claimInput.valueLeId = payload.value.id;
+                    }
+                }
+                break;
             case 'JSONB': claimInput.valueJson = payload.value; break;
         }
 

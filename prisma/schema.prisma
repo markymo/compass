@@ -592,6 +592,22 @@ model FeedbackNote {
   @@map("feedback_notes")
 }
 
+model Address {
+  id                 String       @id @default(uuid())
+  line1              String?
+  line2              String?
+  city               String?
+  region             String?
+  postalCode         String?
+  country            String?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  claims             FieldClaim[] @relation("AddressSubject")
+  referencedInClaims FieldClaim[] @relation("AddressValue")
+
+  @@map("addresses")
+}
+
 model Person {
   id                 String       @id @default(uuid())
   firstName          String?
@@ -615,6 +631,7 @@ model FieldClaim {
   subjectLeId      String?
   subjectPersonId  String?
   subjectOrgId     String?
+  subjectAddressId String?
   collectionId     String?
   instanceId       String?
   valueText        String?
@@ -624,6 +641,7 @@ model FieldClaim {
   valuePersonId    String?
   valueLeId        String?
   valueOrgId       String?
+  valueAddressId   String?
   valueDocId       String?
   status           ClaimStatus       @default(ASSERTED)
   ownerScopeId     String?
@@ -642,17 +660,20 @@ model FieldClaim {
   subjectLe        LegalEntity?      @relation("LegalEntitySubject", fields: [subjectLeId], references: [id])
   subjectOrg       Organization?     @relation("OrganizationSubject", fields: [subjectOrgId], references: [id])
   subjectPerson    Person?           @relation("PersonSubject", fields: [subjectPersonId], references: [id])
+  subjectAddress   Address?          @relation("AddressSubject", fields: [subjectAddressId], references: [id])
   supersedes       FieldClaim?       @relation("Lineage", fields: [supersedesId], references: [id])
   supersededBy     FieldClaim[]      @relation("Lineage")
   valueDoc         DocumentRegistry? @relation(fields: [valueDocId], references: [id])
   valueLe          LegalEntity?      @relation("LegalEntityValue", fields: [valueLeId], references: [id])
   valueOrg         Organization?     @relation("OrganizationValue", fields: [valueOrgId], references: [id])
   valuePerson      Person?           @relation("PersonValue", fields: [valuePersonId], references: [id])
+  valueAddress     Address?          @relation("AddressValue", fields: [valueAddressId], references: [id])
   verifiedBy       User?             @relation(fields: [verifiedByUserId], references: [id])
 
   @@index([subjectLeId, fieldNo])
   @@index([subjectPersonId, fieldNo])
   @@index([subjectOrgId, fieldNo])
+  @@index([subjectAddressId, fieldNo])
   @@index([ownerScopeId])
   @@index([fieldNo])
   @@index([supersedesId])
@@ -904,7 +925,7 @@ enum ClaimStatus {
 enum SourceType {
   USER_INPUT
   GLEIF
-  COMPANIES_HOUSE   // DEPRECATED: use REGISTRATION_AUTHORITY + sourceReference
+  COMPANIES_HOUSE // DEPRECATED: use REGISTRATION_AUTHORITY + sourceReference
   NATIONAL_REGISTRY // DEPRECATED: use REGISTRATION_AUTHORITY + sourceReference
   REGISTRATION_AUTHORITY
   AI_EXTRACTION
