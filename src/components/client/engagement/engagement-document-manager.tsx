@@ -146,8 +146,8 @@ export function EngagementDocumentManager({ engagementId, documents, evidenceDoc
                                                 </Badge>
                                             </div>
                                             {question.answer && (
-                                                <p className="text-xs text-slate-500 mt-1.5 line-clamp-2 italic border-l-2 border-indigo-200 pl-2">
-                                                    {question.answer}
+                                                <p className="text-xs text-slate-500 mt-1.5 line-clamp-2 italic border-l-2 border-indigo-200 pl-2" title={typeof question.answer === 'object' ? JSON.stringify(question.answer) : String(question.answer)}>
+                                                    {typeof question.answer === 'object' ? JSON.stringify(question.answer) : String(question.answer)}
                                                 </p>
                                             )}
                                         </div>

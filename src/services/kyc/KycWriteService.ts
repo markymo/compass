@@ -511,12 +511,13 @@ export class KycWriteService {
             ];
 
             for (const q of allQuestions) {
-                if (q.answer === newValue) continue; // No change needed
+                const incomingJsonStr = JSON.stringify(newValue);
+                if (q.answer && JSON.stringify(q.answer) === incomingJsonStr) continue; // No change needed
 
                 await prisma.question.update({
                     where: { id: q.id },
                     data: {
-                        answer: String(newValue), // Naive string conversion for now
+                        answer: newValue === null ? Prisma.DbNull : JSON.parse(incomingJsonStr), // Store materialized JSON snapshot
                         status: 'DRAFT', // Auto-move to valid status
                     }
                 });
@@ -562,7 +563,7 @@ export class KycWriteService {
                 answerPayload[fNo] = val.value;
             }
         }
-        const answerString = JSON.stringify(answerPayload, null, 2);
+        const answerPayloadStr = JSON.stringify(answerPayload);
 
         // 3. Find Questions mapped to this Group
         const engagements = await prisma.fIEngagement.findMany({
@@ -588,11 +589,12 @@ export class KycWriteService {
             ];
 
             for (const q of allQuestions) {
-                if (q.answer === answerString) continue;
+                if (q.answer && JSON.stringify(q.answer) === answerPayloadStr) continue;
 
                 await prisma.question.update({
                     where: { id: q.id },
                     data: {
+                        answer: JSON.parse(answerPayloadStr),
                         status: 'DRAFT'
                     }
                 });

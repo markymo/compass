@@ -324,7 +324,7 @@ model Question {
   questionnaireId             String
   text                        String
   compactText                 String?
-  answer                      String?
+  answer                      Json?
   status                      QuestionStatus         @default(DRAFT)
   isLocked                    Boolean                @default(false)
   order                       Int                    @default(0)
