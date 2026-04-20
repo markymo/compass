@@ -167,7 +167,7 @@ export class KycWriteService {
                         source: provenance.source || 'UNKNOWN',
                         lastModifiedById: provenance.verifiedBy || undefined
                     }
-                }).catch(e => console.error("[Smart Upsert] Failed to forge graph edge:", e));
+                }).catch((e: any) => console.error("[Smart Upsert] Failed to forge graph edge:", e));
             }
         };
 

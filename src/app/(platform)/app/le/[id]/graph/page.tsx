@@ -52,7 +52,6 @@ export default async function KnowledgeGraphPage({ params }: GraphPageProps) {
                 items={[
                     { label: "Knowledge Graph", href: `/app/le/${id}/graph` }
                 ]}
-                pageTitle={`Graph: ${le.name}`}
             />
             
             <KnowledgeGraphView 
