@@ -33,7 +33,7 @@ export default async function KnowledgeGraphPage({ params }: GraphPageProps) {
         where: { 
             OR: [
                 { subjectLeId: le.legalEntityId },
-                { subjectPersonId: { in: le.graphNodes.map(n => n.personId).filter(Boolean) as string[] } }
+                { subjectPersonId: { in: le.graphNodes.map((n: any) => n.personId).filter(Boolean) as string[] } }
             ]
         },
         select: {
