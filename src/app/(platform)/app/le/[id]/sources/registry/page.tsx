@@ -6,7 +6,9 @@ import { Badge } from "@/components/ui/badge";
 import { Users, Building2, Fingerprint, ShieldCheck } from "lucide-react";
 import { RegistryRefreshButton } from "@/components/client/registry-refresh-button";
 import { RawPayloadViewer } from "@/components/client/raw-payload-viewer";
+import { ExtractedCandidatesViewer } from "@/components/client/extracted-candidates-viewer";
 import { SetPageBreadcrumbs } from "@/context/breadcrumb-context";
+import { CanonicalRegistryMapper } from "@/services/kyc/normalization/CanonicalRegistryMapper";
 
 export default async function RegistryPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
@@ -24,6 +26,11 @@ export default async function RegistryPage({ params }: { params: Promise<{ id: s
     // Support both old and new data formats
     const sourceType = registryData?.sourceType || "REGISTRATION_AUTHORITY";
     const displayTitle = authority?.name || "Registration Authority Record";
+
+    let extractedCandidates: any[] = [];
+    if (registryData) {
+        extractedCandidates = await CanonicalRegistryMapper.mapToCandidates(registryData, "preview_id");
+    }
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -60,9 +67,14 @@ export default async function RegistryPage({ params }: { params: Promise<{ id: s
                     </div>
                 </div>
 
-                <div className="flex flex-col items-end gap-1.5">
+                <div className="flex flex-col items-end gap-2">
                     <RegistryRefreshButton leId={le.id} lastRefreshed={le.registryFetchedAt} />
-                    <RawPayloadViewer data={registryData || primaryRef || (le as any).gleifData} />
+                    <div className="flex gap-2">
+                        {extractedCandidates.length > 0 && (
+                            <ExtractedCandidatesViewer candidates={extractedCandidates} />
+                        )}
+                        <RawPayloadViewer data={registryData || primaryRef || (le as any).gleifData} />
+                    </div>
                 </div>
             </div>
 

@@ -120,7 +120,96 @@ export class KycWriteService {
             return true; 
         }
 
-        // 4. Emit FieldClaim for Provenance Tracking
+        // 4. Materialize Graph Relations (Smart Upsert)
+        let valueAddressId: string | undefined;
+        let valuePersonId: string | undefined;
+        let valueLeId: string | undefined;
+        let finalJsonValue = (typeof value === 'object' && !(value instanceof Date)) ? value : undefined;
+
+        if (typeof value === 'object' && value !== null && !(value instanceof Date)) {
+            // 4.1 Sub-function to materialize graph node for nested addresses
+            const materializeNestedAddress = async (addrVal: any, subProps: { subjectLeId?: string, subjectPersonId?: string }) => {
+                const aQuery = {
+                    line1: addrVal.line1 || null,
+                    city: addrVal.city || null,
+                    postalCode: addrVal.postalCode || null,
+                    country: addrVal.country || null
+                };
+                let addr = await prisma.address.findFirst({ where: aQuery });
+                if (!addr) {
+                    addr = await prisma.address.create({ data: {
+                        ...aQuery,
+                        line2: addrVal.line2 || null,
+                        region: addrVal.region || null
+                    }});
+                }
+                
+                // Formally establish graph edge via FieldClaim 122
+                await FieldClaimService.assertClaim({
+                    fieldNo: 122, // Primary Address (Structured)
+                    ...subProps,
+                    valueAddressId: addr.id,
+                    sourceType: (provenance.source as any) === 'USER_INPUT' ? SourceType.USER_INPUT :
+                        (provenance.source as any) === 'GLEIF' ? SourceType.GLEIF :
+                            (provenance.source as any) === 'REGISTRATION_AUTHORITY' ? SourceType.REGISTRATION_AUTHORITY :
+                                    SourceType.SYSTEM_DERIVED,
+                    sourceReference: provenance.reason,
+                    evidenceId: provenance.evidenceId,
+                    confidenceScore: provenance.confidence,
+                    status: (provenance as any).verifiedBy ? ClaimStatus.VERIFIED : ((provenance.source as any) === 'USER_INPUT' ? ClaimStatus.VERIFIED : ClaimStatus.ASSERTED),
+                    verifiedByUserId: (provenance as any).verifiedBy || (provenance as any).verified_by || undefined,
+                    assertedAt: new Date()
+                }).catch(e => console.error("[Smart Upsert] Failed to link nested address:", e));
+                
+                return addr.id;
+            };
+
+            if (def.appDataType === 'ADDRESS_REF') {
+                // Standalone Address
+                valueAddressId = await materializeNestedAddress(value, { subjectLeId: resolvedEntityId });
+                finalJsonValue = undefined; // Drop json copy since we mapped relationally
+            } else if (def.appDataType === 'PARTY_REF') {
+                if (value.metadata_type === 'LEGAL_ENTITY') {
+                    const query = {
+                        name: value.name || null,
+                        localRegistrationNumber: value.registrationNumber || null,
+                    };
+                    let le = await prisma.legalEntity.findFirst({ where: query });
+                    if (!le) {
+                        le = await prisma.legalEntity.create({ data: {
+                            reference: `AUTO-${Date.now()}`,
+                            ...query
+                        }});
+                    }
+                    if (value.address) {
+                        await materializeNestedAddress(value.address, { subjectLeId: le.id });
+                    }
+                    valueLeId = le.id;
+                    finalJsonValue = undefined;
+                } else {
+                    // Fallback or explicit PERSON
+                    const query = {
+                        firstName: value.firstName || null,
+                        lastName: value.lastName || null,
+                    };
+                    let person = await prisma.person.findFirst({ where: query });
+                    if (!person) {
+                        person = await prisma.person.create({ data: {
+                            ...query,
+                            primaryNationality: value.primaryNationality || null,
+                            dateOfBirth: value.dateOfBirth ? new Date(value.dateOfBirth) : null
+                        }});
+                    }
+                    if (value.address) {
+                        await materializeNestedAddress(value.address, { subjectPersonId: person.id });
+                    }
+                    valuePersonId = person.id;
+                    finalJsonValue = undefined;
+                }
+            }
+        }
+
+        // 5. Emit FieldClaim for Provenance Tracking
         try {
             await FieldClaimService.assertClaim({
                 fieldNo,
@@ -128,7 +217,10 @@ export class KycWriteService {
                 valueText: typeof value === 'string' ? value : undefined,
                 valueNumber: typeof value === 'number' ? value : undefined,
                 valueDate: value instanceof Date ? value : undefined,
-                valueJson: typeof value === 'object' && !(value instanceof Date) ? value : undefined,
+                valueJson: finalJsonValue,
+                valueAddressId,
+                valuePersonId,
+                valueLeId,
                 sourceType: (provenance.source as any) === 'USER_INPUT' ? SourceType.USER_INPUT :
                     (provenance.source as any) === 'GLEIF' ? SourceType.GLEIF :
                         (provenance.source as any) === 'REGISTRATION_AUTHORITY' ? SourceType.REGISTRATION_AUTHORITY :

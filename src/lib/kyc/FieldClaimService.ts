@@ -18,6 +18,7 @@ export type AssertClaimInput = {
     valuePersonId?: string;
     valueLeId?: string;
     valueOrgId?: string;
+    valueAddressId?: string;
     valueDocId?: string;
     // Why
     sourceType: SourceType;
@@ -71,6 +72,7 @@ export class FieldClaimService {
                 valuePersonId: input.valuePersonId,
                 valueLeId: input.valueLeId,
                 valueOrgId: input.valueOrgId,
+                valueAddressId: input.valueAddressId,
                 valueDocId: input.valueDocId,
 
                 sourceType: input.sourceType,
@@ -158,6 +160,8 @@ export class FieldClaimService {
             'DATETIME': ['valueDate'],
             'PERSON_REF': ['valuePersonId'],
             'ORG_REF': ['valueLeId', 'valueOrgId'],
+            'PARTY_REF': ['valuePersonId', 'valueLeId', 'valueOrgId'],
+            'ADDRESS_REF': ['valueAddressId'],
             'DOCUMENT_REF': ['valueDocId'],
             'JSONB': ['valueJson']
         };

@@ -482,20 +482,7 @@ function MasterFieldDisplay({ label, fieldNo, value, source, sourceReference, on
     let displayValue = value;
 
     if (hasValue) {
-        if (value instanceof Date) {
-            displayValue = value.toLocaleDateString();
-        } else if (typeof value === 'boolean') {
-            displayValue = value ? 'Yes' : 'No';
-        } else if (typeof value === 'object') {
-            // Handle JSON/Arrays
-            displayValue = JSON.stringify(value);
-        } else if (typeof value === 'string' && value.match(/^\d{4}-\d{2}-\d{2}T/)) {
-            // Handle ISO Strings
-            const d = new Date(value);
-            if (!isNaN(d.getTime())) {
-                displayValue = d.toLocaleDateString();
-            }
-        }
+        displayValue = formatGraphValue(value);
     }
 
     return (
@@ -528,7 +515,7 @@ function MasterFieldDisplay({ label, fieldNo, value, source, sourceReference, on
                 "flex items-center justify-between p-3 bg-slate-50 rounded-md border border-slate-100 transition-all",
                 onClick && "group-hover:border-blue-200 group-hover:bg-white group-hover:shadow-sm"
             )}>
-                <div className="font-mono text-sm truncate max-w-[200px]" title={String(value)}>
+                <div className="font-mono text-sm truncate max-w-[300px]" title={typeof value === 'object' && value ? JSON.stringify(value, null, 2) : String(value)}>
                     {hasValue ? displayValue : <span className="text-slate-400 italic">Empty</span>}
                 </div>
                 {hasValue && (
@@ -579,23 +566,39 @@ function SourceBadge({ source, sourceReference, timestamp }: { source: string, s
     );
 }
 
+export function formatGraphValue(val: any): string {
+    if (val === null || val === undefined || val === '') return '';
+    if (val instanceof Date) return val.toLocaleDateString();
+    if (typeof val === 'boolean') return val ? 'Yes' : 'No';
+    if (Array.isArray(val)) {
+        return val.map(v => formatGraphValue(v)).join(' | ');
+    }
+    if (typeof val === 'object') {
+        if (val.line1 || val.city || val.country) {
+            const parts = [val.line1, val.line2, val.city, val.region, val.postalCode, val.country].filter(Boolean);
+            return parts.join(', ');
+        }
+        if (val.firstName || val.lastName) {
+            const parts = [val.firstName, val.middleName, val.lastName].filter(Boolean);
+            const name = parts.join(' ');
+            return val.primaryNationality ? `${name} (${val.primaryNationality})` : name;
+        }
+        return JSON.stringify(val);
+    }
+    if (typeof val === 'string' && val.match(/^\d{4}-\d{2}-\d{2}T/)) {
+        const d = new Date(val);
+        if (!isNaN(d.getTime())) return d.toLocaleDateString();
+    }
+    return String(val);
+}
+
 function ProposalCard({ proposal, onAccept }: { proposal: FieldProposal, onAccept: () => void }) {
     const isBlocked = proposal.action === 'BLOCKED';
     const isNoChange = proposal.action === 'NO_CHANGE';
 
     if (isNoChange) return null;
 
-    const formatValue = (val: any) => {
-        if (val === null || val === undefined) return '-';
-        if (val instanceof Date) return val.toLocaleDateString();
-        if (typeof val === 'boolean') return val ? 'Yes' : 'No';
-        if (typeof val === 'object') return JSON.stringify(val);
-        if (typeof val === 'string' && val.match(/^\d{4}-\d{2}-\d{2}T/)) {
-            const d = new Date(val);
-            if (!isNaN(d.getTime())) return d.toLocaleDateString();
-        }
-        return String(val);
-    };
+    const formatValue = (val: any) => val ? formatGraphValue(val) : '-';
 
     return (
         <Card className={cn(

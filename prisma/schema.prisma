@@ -947,6 +947,9 @@ enum MappingTransformType {
   ENUM_MAP
   FIRST_ARRAY_ITEM
   JOIN_ARRAY
+  TO_ADDRESS_OBJECT
+  TO_PARTY_OBJECT
+  TO_PARTY_LIST
 }
 
 enum SyncStatus {

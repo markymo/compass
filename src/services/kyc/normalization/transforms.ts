@@ -62,7 +62,10 @@ type TransformType =
     | 'COUNTRY_TO_ISO2'
     | 'ENUM_MAP'
     | 'FIRST_ARRAY_ITEM'
-    | 'JOIN_ARRAY';
+    | 'JOIN_ARRAY'
+    | 'TO_ADDRESS_OBJECT'
+    | 'TO_PARTY_OBJECT'
+    | 'TO_PARTY_LIST';
 
 /**
  * Apply a transform to a resolved value.
@@ -156,6 +159,99 @@ export function applyTransform(
             }
             const separator = transformConfig?.separator ?? ', ';
             return { value: value.join(separator), confidencePenalty: 0 };
+        }
+
+        case 'TO_ADDRESS_OBJECT': {
+            if (typeof value !== 'object' || value === null) {
+                return { value: null, confidencePenalty: 1 };
+            }
+            // Maps common fields from GLEIF/RA structures
+            const addressDto = {
+                line1: value.address_line_1 || value.addressLines?.[0] || value.premises || '',
+                line2: value.address_line_2 || value.addressLines?.[1] || '',
+                city: value.locality || value.city || '',
+                region: value.region || '',
+                postalCode: value.postal_code || value.postalCode || '',
+                country: value.country || ''
+            };
+            // Clean up empty lines if any
+            if (!addressDto.line1 && value.premises && value.address_line_1) {
+                addressDto.line1 = `${value.premises} ${value.address_line_1}`.trim();
+            }
+            return { value: addressDto, confidencePenalty: 0 };
+        }
+
+        case 'TO_PARTY_OBJECT': {
+            if (typeof value !== 'object' || value === null) {
+                return { value: null, confidencePenalty: 1 };
+            }
+
+            const isCorporate = 
+                value.kind?.includes('corporate') || 
+                value.officer_role?.includes('corporate') ||
+                value.identification?.identification_type?.includes('company') ||
+                value.identification?.legal_form?.includes('Company');
+
+            let extractedAddress = null;
+            if (value.address) {
+                extractedAddress = applyTransform(value.address, 'TO_ADDRESS_OBJECT').value;
+            }
+
+            if (isCorporate) {
+                const leDto = {
+                    metadata_type: 'LEGAL_ENTITY',
+                    name: value.name || '',
+                    registrationNumber: value.identification?.registration_number || value.company_number || '',
+                    legalForm: value.identification?.legal_form || '',
+                    address: extractedAddress
+                };
+                return { value: leDto, confidencePenalty: 0 };
+            } else {
+                // Human Person
+                let firstName = '';
+                let lastName = value.name || '';
+                
+                // Very basic split for "LASTNAME, Firstname" commonly used in Companies House
+                if (lastName.includes(',')) {
+                    const parts = lastName.split(',');
+                    lastName = parts[0].trim();
+                     // Capitalize properly
+                    lastName = lastName.charAt(0).toUpperCase() + lastName.slice(1).toLowerCase();
+                    firstName = parts.slice(1).join(',').trim();
+                } else if (lastName.includes(' ')) {
+                     const parts = lastName.split(' ');
+                     lastName = parts.pop() || '';
+                     firstName = parts.join(' ');
+                }
+
+                let dob = undefined;
+                if (value.date_of_birth?.year && value.date_of_birth?.month) {
+                    dob = new Date(value.date_of_birth.year, value.date_of_birth.month - 1, 1).toISOString();
+                }
+
+                const personDto = {
+                    metadata_type: 'PERSON',
+                    firstName,
+                    lastName,
+                    primaryNationality: value.nationality || '',
+                    dateOfBirth: dob,
+                    address: extractedAddress
+                };
+                return { value: personDto, confidencePenalty: 0 };
+            }
+        }
+
+        case 'TO_PARTY_LIST': {
+            if (!Array.isArray(value)) {
+                return { value: null, confidencePenalty: 1 };
+            }
+            
+            const list = value.map(item => {
+                const res = applyTransform(item, 'TO_PARTY_OBJECT');
+                return res.value;
+            }).filter(Boolean);
+
+            return { value: list, confidencePenalty: 0 };
         }
 
         default:

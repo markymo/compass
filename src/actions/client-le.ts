@@ -543,20 +543,36 @@ export async function getFullMasterData(clientLEId: string) {
     if (subjectLeId) {
         const allFields = await listAllMasterFields();
         for (const def of allFields) {
-            if (def.isMultiValue) continue; // Skip repeating fields for now
+            if (def.isMultiValue) {
+                // Fetch the entire collection
+                const collection = await KycStateService.getAuthoritativeCollection(
+                    { subjectLeId },
+                    def.fieldNo,
+                    ownerScopeId || undefined
+                );
 
-            const derived = await KycStateService.getAuthoritativeValue(
-                { subjectLeId },
-                def.fieldNo,
-                ownerScopeId || undefined
-            );
+                if (collection && collection.length > 0) {
+                    // We map the collection into an array of values
+                    flattened[def.fieldNo] = {
+                        value: collection.map(c => c.value),
+                        source: collection[0].isScoped ? 'USER_INPUT' : (collection[0].evidenceProvider || collection[0].sourceType || 'MASTER_RECORD'),
+                        sourceReference: collection[0].sourceReference ?? undefined
+                    };
+                }
+            } else {
+                const derived = await KycStateService.getAuthoritativeValue(
+                    { subjectLeId },
+                    def.fieldNo,
+                    ownerScopeId || undefined
+                );
 
-            if (derived) {
-                flattened[def.fieldNo] = {
-                    value: derived.value,
-                    source: derived.isScoped ? 'USER_INPUT' : (derived.evidenceProvider || derived.sourceType || 'MASTER_RECORD'),
-                    sourceReference: derived.sourceReference ?? undefined
-                };
+                if (derived) {
+                    flattened[def.fieldNo] = {
+                        value: derived.value,
+                        source: derived.isScoped ? 'USER_INPUT' : (derived.evidenceProvider || derived.sourceType || 'MASTER_RECORD'),
+                        sourceReference: derived.sourceReference ?? undefined
+                    };
+                }
             }
         }
     }

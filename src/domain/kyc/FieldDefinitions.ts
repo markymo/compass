@@ -1546,6 +1546,18 @@ export const FIELD_DEFINITIONS: Record<number, FieldDefinition> = {
         dbColumn: 'id',
         notes: 'Supersedes fields 11-15',
     },
+    122: {
+        fieldNo: 122,
+        fieldName: 'Primary Address (Structured)',
+        model: 'IdentityProfile',
+        field: 'primaryAddress',
+        appDataType: 'ADDRESS_REF',
+        dataType: 'string',
+        isMultiValue: false,
+        isRepeating: false,
+        dbTable: 'addresses',
+        dbColumn: 'id',
+    },
 };
 
 /**
