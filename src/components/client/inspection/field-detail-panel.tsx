@@ -64,8 +64,23 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
     const [isAddingSaving, setIsAddingSaving] = useState(false);
     const newEntryInputRef = useRef<HTMLInputElement>(null);
 
-    // Date field helpers
+    // Date & value formatting helpers
     const isDateType = data?.dataType === 'DATE' || data?.dataType === 'DATETIME';
+    const isPartyRef = data?.dataType === 'PARTY_REF';
+    const isAddressRef = data?.dataType === 'ADDRESS_REF';
+    const isObjectRef = isPartyRef || isAddressRef;
+    
+    const renderRowValue = (val: any) => {
+        if (!val) return <span className="text-slate-400 italic">Empty</span>;
+        if (typeof val === 'object') {
+            if (val.firstName || val.lastName) return `${val.firstName || ''} ${val.lastName || ''}`.trim() + (val.metadata_type === 'LEGAL_ENTITY' ? ' (Company)' : '');
+            if (val.name) return val.name;
+            if (val.line1) return `${val.line1}${val.city ? ', ' + val.city : ''}`;
+            return JSON.stringify(val);
+        }
+        return String(val);
+    };
+
     const formatDateForInput = (val: string) => {
         if (!val) return '';
         try {
@@ -667,7 +682,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
 
                                             {/* Value rows */}
                                             {data.rows && data.rows.length > 0 ? (
-                                                <div className="space-y-1.5">
+                                                <div className="space-y-1.5 max-h-[400px] overflow-y-auto pr-2">
                                                     {data.rows.map((row: any, i: any) => (
                                                         <div key={row.id}>
                                                             {/* Delete confirmation mode */}
@@ -699,27 +714,35 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                             ) : editingRowId === row.id ? (
                                                                 /* Inline edit mode */
                                                                 <div className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-indigo-50 border border-indigo-200 animate-in fade-in duration-150">
-                                                                    <Input
-                                                                        type={isDateType ? 'date' : 'text'}
-                                                                        value={isDateType ? formatDateForInput(editingRowValue) : editingRowValue}
-                                                                        onChange={(e) => setEditingRowValue(isDateType ? parseDateFromInput(e.target.value) : e.target.value)}
-                                                                        onKeyDown={(e) => {
-                                                                            if (e.key === 'Enter' && editingRowValue.trim()) handleInlineEditSave(row);
-                                                                            if (e.key === 'Escape') { setEditingRowId(null); setEditingRowValue(""); }
-                                                                        }}
-                                                                        className="h-8 text-sm flex-1 bg-white border-indigo-200 focus:border-indigo-400"
-                                                                        autoFocus
-                                                                        disabled={isSaving}
-                                                                    />
-                                                                    <Button
-                                                                        variant="ghost"
-                                                                        size="icon"
-                                                                        className="h-7 w-7 text-green-600 hover:bg-green-50"
-                                                                        onClick={() => handleInlineEditSave(row)}
-                                                                        disabled={isSaving || !editingRowValue.trim()}
-                                                                    >
-                                                                        {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
-                                                                    </Button>
+                                                                    {isObjectRef ? (
+                                                                        <div className="h-8 text-sm flex-1 flex items-center px-3 bg-slate-100 text-slate-500 rounded border border-slate-200 italic">
+                                                                            Please use robust Node Selector to edit {isPartyRef ? 'Party' : 'Address'} objects.
+                                                                        </div>
+                                                                    ) : (
+                                                                        <Input
+                                                                            type={isDateType ? 'date' : 'text'}
+                                                                            value={isDateType ? formatDateForInput(editingRowValue) : editingRowValue}
+                                                                            onChange={(e) => setEditingRowValue(isDateType ? parseDateFromInput(e.target.value) : e.target.value)}
+                                                                            onKeyDown={(e) => {
+                                                                                if (e.key === 'Enter' && editingRowValue.trim()) handleInlineEditSave(row);
+                                                                                if (e.key === 'Escape') { setEditingRowId(null); setEditingRowValue(""); }
+                                                                            }}
+                                                                            className="h-8 text-sm flex-1 bg-white border-indigo-200 focus:border-indigo-400"
+                                                                            autoFocus
+                                                                            disabled={isSaving}
+                                                                        />
+                                                                    )}
+                                                                    {!isObjectRef && (
+                                                                        <Button
+                                                                            variant="ghost"
+                                                                            size="icon"
+                                                                            className="h-7 w-7 text-green-600 hover:bg-green-50"
+                                                                            onClick={() => handleInlineEditSave(row)}
+                                                                            disabled={isSaving || !editingRowValue.trim()}
+                                                                        >
+                                                                            {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                                                                        </Button>
+                                                                    )}
                                                                     <Button
                                                                         variant="ghost"
                                                                         size="icon"
@@ -734,7 +757,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                 <div className="group flex items-center gap-2 px-3 py-2.5 rounded-lg border border-slate-150 bg-white hover:border-slate-300 hover:shadow-sm transition-all">
                                                                     <div className="flex-1 min-w-0">
                                                                         <div className="text-sm font-medium text-slate-900 truncate">
-                                                                            {String(row.value) || <span className="text-slate-400 italic">Empty</span>}
+                                                                            {renderRowValue(row.value)}
                                                                         </div>
                                                                         <div className="flex items-center gap-2 mt-0.5">
                                                                             <SourceBadge source={row.source as any} sourceReference={row.sourceReference} />
@@ -781,28 +804,36 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                 <div className="flex items-center gap-1.5 pt-2 mt-1 border-t border-slate-100">
                                                     <div className="relative flex-1">
                                                         <Plus className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-                                                        <Input
-                                                            ref={newEntryInputRef}
-                                                            type={isDateType ? 'date' : 'text'}
-                                                            value={isDateType ? formatDateForInput(newEntryValue) : newEntryValue}
-                                                            onChange={(e) => setNewEntryValue(isDateType ? parseDateFromInput(e.target.value) : e.target.value)}
-                                                            onKeyDown={(e) => {
-                                                                if (e.key === 'Enter' && newEntryValue.trim()) handleAddNewEntry();
-                                                            }}
-                                                            placeholder={isDateType ? '' : 'Add new value...'}
-                                                            className="h-8 text-sm pl-8 bg-slate-50/50 border-slate-200 focus:bg-white focus:border-indigo-300"
-                                                            disabled={isAddingSaving}
-                                                        />
+                                                        {isObjectRef ? (
+                                                            <div className="h-8 text-sm pl-8 flex items-center bg-slate-100 text-slate-500 rounded border border-slate-200 italic cursor-not-allowed">
+                                                                [ Structural Entity Assignment Node required here ]
+                                                            </div>
+                                                        ) : (
+                                                            <Input
+                                                                ref={newEntryInputRef}
+                                                                type={isDateType ? 'date' : 'text'}
+                                                                value={isDateType ? formatDateForInput(newEntryValue) : newEntryValue}
+                                                                onChange={(e) => setNewEntryValue(isDateType ? parseDateFromInput(e.target.value) : e.target.value)}
+                                                                onKeyDown={(e) => {
+                                                                    if (e.key === 'Enter' && newEntryValue.trim()) handleAddNewEntry();
+                                                                }}
+                                                                placeholder={isDateType ? '' : 'Add new value...'}
+                                                                className="h-8 text-sm pl-8 bg-slate-50/50 border-slate-200 focus:bg-white focus:border-indigo-300"
+                                                                disabled={isAddingSaving}
+                                                            />
+                                                        )}
                                                     </div>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        className="h-8 px-3 text-xs text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 shrink-0"
-                                                        onClick={handleAddNewEntry}
-                                                        disabled={isAddingSaving || !newEntryValue.trim()}
-                                                    >
-                                                        {isAddingSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Add'}
-                                                    </Button>
+                                                    {!isObjectRef && (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="h-8 px-3 text-xs text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 shrink-0"
+                                                            onClick={handleAddNewEntry}
+                                                            disabled={isAddingSaving || !newEntryValue.trim()}
+                                                        >
+                                                            {isAddingSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Add'}
+                                                        </Button>
+                                                    )}
                                                 </div>
                                             )}
                                         </div>
@@ -856,35 +887,43 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                             <div className="flex-1 space-y-2">
                                                                 {!isLocked ? (
                                                                     <>
-                                                                        <Input
-                                                                            type={isDateType ? 'date' : 'text'}
-                                                                            value={isDateType ? formatDateForInput(manualValue) : manualValue}
-                                                                            onChange={(e) => setManualValue(isDateType ? parseDateFromInput(e.target.value) : e.target.value)}
-                                                                            onKeyDown={(e) => {
-                                                                                if (e.key === 'Enter' && manualValue) {
-                                                                                    setIsEditing(true);
-                                                                                    handleManualSave();
-                                                                                }
-                                                                            }}
-                                                                            placeholder={isDateType ? '' : 'Type a value and press Enter...'}
-                                                                            className="bg-white border-slate-200 focus:border-indigo-300 focus:ring-indigo-200"
-                                                                        />
-                                                                        {manualValue && (
-                                                                            <div className="flex items-center gap-2">
-                                                                                <Button
-                                                                                    size="sm"
-                                                                                    className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700"
-                                                                                    onClick={() => {
-                                                                                        setIsEditing(true);
-                                                                                        handleManualSave();
-                                                                                    }}
-                                                                                    disabled={isSaving}
-                                                                                >
-                                                                                    {isSaving ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Check className="h-3 w-3 mr-1" />}
-                                                                                    Save
-                                                                                </Button>
-                                                                                <span className="text-[10px] text-slate-400">or press Enter</span>
+                                                                        {isObjectRef ? (
+                                                                            <div className="bg-slate-100 text-slate-500 rounded border border-slate-200 italic p-2 text-sm">
+                                                                                Please use robust Node Selector to provide a {isPartyRef ? 'Party' : 'Address'}.
                                                                             </div>
+                                                                        ) : (
+                                                                            <>
+                                                                                <Input
+                                                                                    type={isDateType ? 'date' : 'text'}
+                                                                                    value={isDateType ? formatDateForInput(manualValue) : manualValue}
+                                                                                    onChange={(e) => setManualValue(isDateType ? parseDateFromInput(e.target.value) : e.target.value)}
+                                                                                    onKeyDown={(e) => {
+                                                                                        if (e.key === 'Enter' && manualValue) {
+                                                                                            setIsEditing(true);
+                                                                                            handleManualSave();
+                                                                                        }
+                                                                                    }}
+                                                                                    placeholder={isDateType ? '' : 'Type a value and press Enter...'}
+                                                                                    className="bg-white border-slate-200 focus:border-indigo-300 focus:ring-indigo-200"
+                                                                                />
+                                                                                {manualValue && (
+                                                                                    <div className="flex items-center gap-2">
+                                                                                        <Button
+                                                                                            size="sm"
+                                                                                            className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700"
+                                                                                            onClick={() => {
+                                                                                                setIsEditing(true);
+                                                                                                handleManualSave();
+                                                                                            }}
+                                                                                            disabled={isSaving}
+                                                                                        >
+                                                                                            {isSaving ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Check className="h-3 w-3 mr-1" />}
+                                                                                            Save
+                                                                                        </Button>
+                                                                                        <span className="text-[10px] text-slate-400">or press Enter</span>
+                                                                                    </div>
+                                                                                )}
+                                                                            </>
                                                                         )}
                                                                     </>
                                                                 ) : (

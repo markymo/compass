@@ -79,6 +79,7 @@ model User {
   masterFieldAssignmentsCreated MasterFieldAssignment[] @relation("MasterFieldAssignmentsCreated")
   assignedMasterFields          MasterFieldAssignment[] @relation("AssignedMasterFields")
   masterFieldNotes              MasterFieldNote[]
+  graphNodesModified            ClientLEGraphNode[]     @relation("GraphNodeModifiedBy")
 }
 
 model Organization {
@@ -194,6 +195,7 @@ model ClientLE {
   masterFieldAssignments MasterFieldAssignment[]
   masterFieldNotes       MasterFieldNote[]
   registryReferences     RegistryReference[]
+  graphNodes             ClientLEGraphNode[]
 
   @@index([legalEntityId])
 }
@@ -526,14 +528,17 @@ model LEActivity {
 }
 
 model LegalEntity {
-  id                 String             @id @default(uuid())
-  reference          String             @unique
-  createdAt          DateTime           @default(now())
-  updatedAt          DateTime           @updatedAt
+    id                      String             @id @default(uuid())
+    reference               String             @unique
+    name                    String?
+    localRegistrationNumber String?
+    createdAt               DateTime           @default(now())
+    updatedAt               DateTime           @updatedAt
   clientLEs          ClientLE[]
   documents          DocumentRegistry[]
   claims             FieldClaim[]       @relation("LegalEntitySubject")
   referencedInClaims FieldClaim[]       @relation("LegalEntityValue")
+  graphNodes         ClientLEGraphNode[]
 
   @@map("legal_entities")
 }
@@ -604,6 +609,7 @@ model Address {
   updatedAt          DateTime     @updatedAt
   claims             FieldClaim[] @relation("AddressSubject")
   referencedInClaims FieldClaim[] @relation("AddressValue")
+  graphNodes         ClientLEGraphNode[]
 
   @@map("addresses")
 }
@@ -621,6 +627,7 @@ model Person {
   updatedAt          DateTime     @updatedAt
   claims             FieldClaim[] @relation("PersonSubject")
   referencedInClaims FieldClaim[] @relation("PersonValue")
+  graphNodes         ClientLEGraphNode[]
 
   @@map("persons")
 }
@@ -950,6 +957,33 @@ enum MappingTransformType {
   TO_ADDRESS_OBJECT
   TO_PARTY_OBJECT
   TO_PARTY_LIST
+}
+
+model ClientLEGraphNode {
+   id               String       @id @default(uuid())
+   clientLEId       String
+   
+   nodeType         String       // "PERSON", "LEGAL_ENTITY", "ADDRESS"
+   personId         String?
+   legalEntityId    String?
+   addressId        String?
+
+   source           String       @default("UNKNOWN") // "COMPANIES_HOUSE", "USER", etc.
+   lastModifiedById String?      // User ID who last verified/edited this relationship
+   
+   clientLE         ClientLE     @relation(fields: [clientLEId], references: [id], onDelete: Cascade)
+   person           Person?      @relation(fields: [personId], references: [id])
+   legalEntity      LegalEntity? @relation(fields: [legalEntityId], references: [id])
+   address          Address?     @relation(fields: [addressId], references: [id])
+   lastModifiedBy   User?        @relation("GraphNodeModifiedBy", fields: [lastModifiedById], references: [id])
+   
+   createdAt        DateTime     @default(now())
+   updatedAt        DateTime     @updatedAt
+   
+   @@unique([clientLEId, personId])
+   @@unique([clientLEId, legalEntityId])
+   @@unique([clientLEId, addressId])
+   @@map("client_le_graph_nodes")
 }
 
 enum SyncStatus {

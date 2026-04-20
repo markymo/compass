@@ -228,13 +228,17 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                             <div className="flex items-center gap-4 lg:border-l lg:pl-6 border-slate-200">
                                 <div className="flex items-center gap-3">
                                     <div className="h-9 w-9 rounded-full bg-emerald-50 flex items-center justify-center shrink-0 border border-emerald-100 dark:border-emerald-900/50">
-                                        <Building2 className="h-4 w-4 text-emerald-600" />
+                                        {nationalRegistryData.authorityName.includes("Companies House") ? (
+                                            <img src="/images/Companies_House.png" alt="Companies House" className="h-4 w-auto scale-110" />
+                                        ) : (
+                                            <Building2 className="h-4 w-4 text-emerald-600" />
+                                        )}
                                     </div>
                                     <div>
                                         <div className="font-medium text-sm">{nationalRegistryData.authorityName} - {nationalRegistryData.localRegistrationNumber}</div>
                                         <div className="text-xs text-slate-500">
                                             {nationalRegistryData.lastSyncSucceededAt
-                                                ? <>Last synced: <span className="font-medium text-slate-700">{new Date(nationalRegistryData.lastSyncSucceededAt).toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" })}</span></>
+                                                ? <>Last synced: <span className="font-medium text-slate-700">{new Date(nationalRegistryData.lastSyncSucceededAt).toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" })}</span> at <span className="font-medium text-slate-700">{new Date(nationalRegistryData.lastSyncSucceededAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}</span></>
                                                 : "Never synced"}
                                             {nationalRegistryData.lastSyncStatus === "FAILED" && <span className="ml-2 text-red-500 font-medium">Sync Failed</span>}
                                         </div>

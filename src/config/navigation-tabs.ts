@@ -12,7 +12,8 @@ import {
     CreditCard,
     PackageCheck,
     Settings2,
-    Settings
+    Settings,
+    Network
 } from "lucide-react";
 import { NavItem } from "@/components/layout/HeaderNavList";
 
@@ -38,6 +39,12 @@ export const getLegalEntityTabs = (leId: string): NavItem[] => {
             href: `${baseUrl}/sources`,
             icon: Library,
             isActive: (path) => matchesPath(path, `${baseUrl}/sources`)
+        },
+        {
+            label: "Knowledge Graph",
+            href: `${baseUrl}/graph`,
+            icon: Network,
+            isActive: (path) => matchesPath(path, `${baseUrl}/graph`)
         },
         {
             label: "Master Record",

@@ -30,6 +30,32 @@ export class KycWriteService {
         userId?: string,
         entityType: 'LEGAL_ENTITY' | 'CLIENT_LE' = 'LEGAL_ENTITY'
     ): Promise<boolean> {
+        // Handle Iteration for Array lists mapped to repeating fields
+        if (Array.isArray(candidate.value)) {
+            let overallSuccess = true;
+            for (let i = 0; i < candidate.value.length; i++) {
+                const item = candidate.value[i];
+                // For list candidates, we generate an ephemeral rowId mapping
+                const rowId = `auto_${Date.now()}_${i}`;
+                const success = await this.updateField(
+                    entityId,
+                    candidate.fieldNo,
+                    item,
+                    {
+                        source: candidate.source,
+                        evidenceId: candidate.evidenceId || undefined,
+                        verifiedBy: userId,
+                        confidence: candidate.confidence,
+                        reason: candidate.sourceKey
+                    },
+                    rowId,
+                    entityType
+                );
+                if (!success) overallSuccess = false;
+            }
+            return overallSuccess;
+        }
+
         return this.updateField(
             entityId,
             candidate.fieldNo,
@@ -39,7 +65,7 @@ export class KycWriteService {
                 evidenceId: candidate.evidenceId || undefined,
                 verifiedBy: userId,
                 confidence: candidate.confidence,
-                reason: candidate.sourceKey // Map sourceKey to reason/sourceReference
+                reason: candidate.sourceKey 
             },
             undefined, // rowId
             entityType
@@ -126,6 +152,25 @@ export class KycWriteService {
         let valueLeId: string | undefined;
         let finalJsonValue = (typeof value === 'object' && !(value instanceof Date)) ? value : undefined;
 
+        // Ecosystem Edge helper
+        const ensureGraphNode = async (nodeType: string, ids: { personId?: string, legalEntityId?: string, addressId?: string }) => {
+            const whereClause = { clientLEId: resolvedEntityId, ...ids };
+            const existing = await prisma.clientLEGraphNode.findFirst({ where: whereClause as any });
+            if (!existing) {
+                await prisma.clientLEGraphNode.create({
+                    data: {
+                        clientLEId: resolvedEntityId,
+                        nodeType,
+                        personId: ids.personId,
+                        legalEntityId: ids.legalEntityId,
+                        addressId: ids.addressId,
+                        source: provenance.source || 'UNKNOWN',
+                        lastModifiedById: provenance.verifiedBy || undefined
+                    }
+                }).catch(e => console.error("[Smart Upsert] Failed to forge graph edge:", e));
+            }
+        };
+
         if (typeof value === 'object' && value !== null && !(value instanceof Date)) {
             // 4.1 Sub-function to materialize graph node for nested addresses
             const materializeNestedAddress = async (addrVal: any, subProps: { subjectLeId?: string, subjectPersonId?: string }) => {
@@ -167,6 +212,7 @@ export class KycWriteService {
             if (def.appDataType === 'ADDRESS_REF') {
                 // Standalone Address
                 valueAddressId = await materializeNestedAddress(value, { subjectLeId: resolvedEntityId });
+                await ensureGraphNode('ADDRESS', { addressId: valueAddressId });
                 finalJsonValue = undefined; // Drop json copy since we mapped relationally
             } else if (def.appDataType === 'PARTY_REF') {
                 if (value.metadata_type === 'LEGAL_ENTITY') {
@@ -185,6 +231,7 @@ export class KycWriteService {
                         await materializeNestedAddress(value.address, { subjectLeId: le.id });
                     }
                     valueLeId = le.id;
+                    await ensureGraphNode('LEGAL_ENTITY', { legalEntityId: le.id });
                     finalJsonValue = undefined;
                 } else {
                     // Fallback or explicit PERSON
@@ -204,6 +251,7 @@ export class KycWriteService {
                         await materializeNestedAddress(value.address, { subjectPersonId: person.id });
                     }
                     valuePersonId = person.id;
+                    await ensureGraphNode('PERSON', { personId: person.id });
                     finalJsonValue = undefined;
                 }
             }

@@ -246,10 +246,13 @@ export function applyTransform(
                 return { value: null, confidencePenalty: 1 };
             }
             
-            const list = value.map(item => {
+            // Filter to Active Parties only (drop resigned/ceased)
+            const activeList = value.filter(item => !item.ceased && !item.resigned_on);
+
+            const list = activeList.map(item => {
                 const res = applyTransform(item, 'TO_PARTY_OBJECT');
                 return res.value;
-            }).filter(Boolean);
+            }).filter(v => v !== null);
 
             return { value: list, confidencePenalty: 0 };
         }
