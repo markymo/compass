@@ -80,6 +80,7 @@ model User {
   assignedMasterFields          MasterFieldAssignment[] @relation("AssignedMasterFields")
   masterFieldNotes              MasterFieldNote[]
   graphNodesModified            ClientLEGraphNode[]     @relation("GraphNodeModifiedBy")
+  graphEdgesModified            ClientLEGraphEdge[]     @relation("GraphEdgeModifiedBy")
 }
 
 model Organization {
@@ -196,6 +197,7 @@ model ClientLE {
   masterFieldNotes       MasterFieldNote[]
   registryReferences     RegistryReference[]
   graphNodes             ClientLEGraphNode[]
+  graphEdges             ClientLEGraphEdge[]
 
   @@index([legalEntityId])
 }
@@ -984,6 +986,42 @@ model ClientLEGraphNode {
    @@unique([clientLEId, legalEntityId])
    @@unique([clientLEId, addressId])
    @@map("client_le_graph_nodes")
+   edgesFrom  ClientLEGraphEdge[] @relation("EdgeFrom")
+   edgesTo    ClientLEGraphEdge[] @relation("EdgeTo")
+}
+
+/// Typed relationship edges between graph nodes (PSC control, directorships, etc.)
+model ClientLEGraphEdge {
+   id               String            @id @default(uuid())
+   clientLEId       String
+
+   fromNodeId       String            // The PSC / officer entity node
+   toNodeId         String?           // Target node; NULL = the root LE itself
+
+   edgeType         String            // 'PSC_CONTROL' | 'DIRECTOR' | 'SECRETARY' | 'ADDRESS_OF'
+
+   // PSC-specific control detail
+   naturesOfControl String[]          @default([])
+   notifiedOn       DateTime?
+   ceasedOn         DateTime?
+   isActive         Boolean           @default(true)
+
+   // Provenance
+   source           String            @default("UNKNOWN")
+   lastModifiedById String?
+
+   clientLE         ClientLE          @relation(fields: [clientLEId], references: [id], onDelete: Cascade)
+   fromNode         ClientLEGraphNode @relation("EdgeFrom", fields: [fromNodeId], references: [id])
+   toNode           ClientLEGraphNode? @relation("EdgeTo", fields: [toNodeId], references: [id])
+   lastModifiedBy   User?             @relation("GraphEdgeModifiedBy", fields: [lastModifiedById], references: [id])
+
+   createdAt        DateTime          @default(now())
+   updatedAt        DateTime          @updatedAt
+
+   @@unique([fromNodeId, edgeType])   // One PSC_CONTROL edge per node
+   @@index([clientLEId])
+   @@index([fromNodeId])
+   @@map("client_le_graph_edges")
 }
 
 enum SyncStatus {

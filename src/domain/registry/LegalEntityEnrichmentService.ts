@@ -165,6 +165,14 @@ export class LegalEntityEnrichmentService {
                 await kycWriteService.applyFieldCandidate(reference.clientLEId, candidate, undefined, 'CLIENT_LE');
             }
             console.log(`[LegalEntityEnrichmentService.refreshRegistryClaims] Claims applied.`);
+
+            // Process PSC (Persons with Significant Control) records
+            const pscs = (result.record as any).pscs || [];
+            if (pscs.length > 0) {
+                console.log(`[LegalEntityEnrichmentService.refreshRegistryClaims] Processing ${pscs.length} PSC records...`);
+                await kycWriteService.processPSCsForLE(reference.clientLEId, pscs, 'REGISTRATION_AUTHORITY');
+                console.log(`[LegalEntityEnrichmentService.refreshRegistryClaims] PSC processing complete.`);
+            }
         }
 
         return result;

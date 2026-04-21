@@ -757,4 +757,117 @@ export class KycWriteService {
             }
         }
     }
+
+    /**
+     * Processes PSC (Persons with Significant Control) records from a Companies House response,
+     * materialising each PSC as a graph node and recording the control relationship as a
+     * ClientLEGraphEdge with full metadata (natures_of_control, notifiedOn, ceasedOn).
+     */
+    async processPSCsForLE(
+        clientLEId: string,
+        pscs: any[],
+        source: string = 'REGISTRATION_AUTHORITY'
+    ): Promise<void> {
+        if (!pscs || pscs.length === 0) return;
+
+        for (const psc of pscs) {
+            try {
+                const isCorporate = (psc.kind || '').includes('corporate');
+                const isActive = !psc.ceased && !psc.ceased_on;
+
+                let graphNodeId: string | null = null;
+
+                if (isCorporate) {
+                    // --- Corporate PSC ---
+                    const regNum = psc.identification?.registration_number;
+                    const query = regNum
+                        ? { localRegistrationNumber: regNum }
+                        : { name: psc.name };
+
+                    let le = await prisma.legalEntity.findFirst({ where: query });
+                    if (!le) {
+                        le = await prisma.legalEntity.create({
+                            data: {
+                                reference: `PSC-${Date.now()}`,
+                                name: psc.name || null,
+                                localRegistrationNumber: regNum || null,
+                            }
+                        });
+                    }
+
+                    // Ensure graph node for this corporate PSC
+                    const existingNode = await prisma.clientLEGraphNode.findFirst({
+                        where: { clientLEId, legalEntityId: le.id }
+                    });
+                    if (existingNode) {
+                        graphNodeId = existingNode.id;
+                    } else {
+                        const node = await prisma.clientLEGraphNode.create({
+                            data: { clientLEId, nodeType: 'LEGAL_ENTITY', legalEntityId: le.id, source }
+                        });
+                        graphNodeId = node.id;
+                    }
+                } else {
+                    // --- Individual PSC ---
+                    // CH only gives month+year for DOB (privacy); we store it as partial
+                    const nameParts = (psc.name || '').split(', ');
+                    // CH format is usually "LASTNAME, Firstname Middlename"
+                    const lastName = nameParts[0] || null;
+                    const firstNames = nameParts[1] || null;
+                    const firstName = firstNames ? firstNames.split(' ')[0] : null;
+
+                    let person = await prisma.person.findFirst({
+                        where: { firstName, lastName }
+                    });
+                    if (!person) {
+                        person = await prisma.person.create({
+                            data: {
+                                firstName,
+                                lastName,
+                                primaryNationality: psc.nationality || null,
+                            }
+                        });
+                    }
+
+                    const existingNode = await prisma.clientLEGraphNode.findFirst({
+                        where: { clientLEId, personId: person.id }
+                    });
+                    if (existingNode) {
+                        graphNodeId = existingNode.id;
+                    } else {
+                        const node = await prisma.clientLEGraphNode.create({
+                            data: { clientLEId, nodeType: 'PERSON', personId: person.id, source }
+                        });
+                        graphNodeId = node.id;
+                    }
+                }
+
+                if (!graphNodeId) continue;
+
+                // --- Upsert the PSC_CONTROL edge ---
+                await prisma.clientLEGraphEdge.upsert({
+                    where: { fromNodeId_edgeType: { fromNodeId: graphNodeId, edgeType: 'PSC_CONTROL' } },
+                    create: {
+                        clientLEId,
+                        fromNodeId: graphNodeId,
+                        edgeType: 'PSC_CONTROL',
+                        naturesOfControl: psc.natures_of_control || [],
+                        notifiedOn: psc.notified_on ? new Date(psc.notified_on) : null,
+                        ceasedOn: psc.ceased_on ? new Date(psc.ceased_on) : null,
+                        isActive,
+                        source,
+                    },
+                    update: {
+                        naturesOfControl: psc.natures_of_control || [],
+                        ceasedOn: psc.ceased_on ? new Date(psc.ceased_on) : null,
+                        isActive,
+                    }
+                });
+
+                console.log(`[PSC] ${isActive ? 'Active' : 'Ceased'} PSC processed: ${psc.name} → clientLE ${clientLEId}`);
+            } catch (e: any) {
+                console.error(`[PSC] Failed to process PSC "${psc.name}":`, e.message);
+            }
+        }
+    }
 }

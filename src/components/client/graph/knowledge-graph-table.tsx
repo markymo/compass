@@ -2,12 +2,14 @@
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Star } from "lucide-react";
+import { Star, ShieldCheck } from "lucide-react";
 
 interface KnowledgeGraphTableProps {
     nodes: any[];
-    activeFilter?: string;
     activeDirectorPersonIds?: string[];
+    activePSCNodeIds?: string[];
+    showTypes?: string[];
+    activeOnly?: boolean;
 }
 
 const NODE_STYLE: Record<string, { icon: string; badge: string; label: string }> = {
@@ -24,7 +26,7 @@ const SOURCE_LABEL: Record<string, { label: string; color: string }> = {
     UNKNOWN:                { label: 'Unknown',      color: 'text-slate-400 bg-slate-50 border-slate-100' },
 };
 
-export function KnowledgeGraphTable({ nodes, activeFilter, activeDirectorPersonIds = [] }: KnowledgeGraphTableProps) {
+export function KnowledgeGraphTable({ nodes, activeDirectorPersonIds = [], activePSCNodeIds = [], showTypes, activeOnly }: KnowledgeGraphTableProps) {
     if (nodes.length === 0) {
         return (
             <div className="rounded-md border border-dashed border-slate-200 p-16 text-center">
@@ -51,6 +53,8 @@ export function KnowledgeGraphTable({ nodes, activeFilter, activeDirectorPersonI
                         const sourceInfo = SOURCE_LABEL[node.source] || SOURCE_LABEL.UNKNOWN;
                         const isActiveDirector = node.nodeType === 'PERSON' &&
                             node.personId && activeDirectorPersonIds.includes(node.personId);
+                        const isActivePSC = node.nodeType === 'PERSON' && activePSCNodeIds.includes(node.id);
+                        const specialPerson = isActiveDirector || isActivePSC;
 
                         let label = 'Unknown';
                         if (node.nodeType === 'PERSON') {
@@ -74,7 +78,14 @@ export function KnowledgeGraphTable({ nodes, activeFilter, activeDirectorPersonI
                                             {style.icon} {style.label}
                                         </Badge>
                                         {isActiveDirector && (
-                                            <Star className="h-3 w-3 text-amber-500 fill-amber-400" title="Active Director" />
+                                            <span title="Active Director">
+                                                <Star className="h-3 w-3 text-amber-500 fill-amber-400" aria-label="Active Director" />
+                                            </span>
+                                        )}
+                                        {isActivePSC && !isActiveDirector && (
+                                            <span title="Person with Significant Control">
+                                                <ShieldCheck className="h-3 w-3 text-purple-500 fill-purple-100" aria-label="PSC" />
+                                            </span>
                                         )}
                                     </div>
                                 </TableCell>
@@ -98,7 +109,7 @@ export function KnowledgeGraphTable({ nodes, activeFilter, activeDirectorPersonI
             </Table>
             <div className="px-4 py-2.5 bg-slate-50/50 border-t border-slate-100 text-xs text-slate-400">
                 Showing {nodes.length} node{nodes.length !== 1 ? 's' : ''}
-                {activeFilter && activeFilter !== 'all' && <span className="ml-1">— filtered by <span className="font-medium text-slate-500">{activeFilter}</span></span>}
+                {activeOnly && <span className="ml-1">— active people only</span>}
             </div>
         </div>
     );

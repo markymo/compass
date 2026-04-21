@@ -52,6 +52,22 @@ export default async function KnowledgeGraphPage({ params }: GraphPageProps) {
         }
     });
 
+    // Fetch graph edges (PSC control relationships etc.)
+    const graphEdges = await prisma.clientLEGraphEdge.findMany({
+        where: { clientLEId: le.id },
+        select: {
+            id: true,
+            fromNodeId: true,
+            toNodeId: true,
+            edgeType: true,
+            naturesOfControl: true,
+            notifiedOn: true,
+            ceasedOn: true,
+            isActive: true,
+            source: true,
+        }
+    });
+
     // Find persons mapped to Field 63 (Active Directors) for the Active Directors filter
     const activeDirectorClaims = await prisma.fieldClaim.findMany({
         where: {
@@ -79,6 +95,7 @@ export default async function KnowledgeGraphPage({ params }: GraphPageProps) {
                 leName={le.name} 
                 initialNodes={le.graphNodes}
                 claims={claims}
+                graphEdges={graphEdges}
                 rootLegalEntityId={le.legalEntityId}
                 activeDirectorPersonIds={activeDirectorPersonIds}
             />
