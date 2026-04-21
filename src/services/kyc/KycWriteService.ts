@@ -110,6 +110,7 @@ export class KycWriteService {
         }
 
         // 1. Resolve LegalEntity ID (Lazy Creation for ClientLE)
+        const clientLEId = entityType === 'CLIENT_LE' ? entityId : null; // Keep original ClientLE ID for graph node creation
         let resolvedEntityId = entityId;
         let resolvedEntityType = entityType;
 
@@ -152,14 +153,15 @@ export class KycWriteService {
         let valueLeId: string | undefined;
         let finalJsonValue = (typeof value === 'object' && !(value instanceof Date)) ? value : undefined;
 
-        // Ecosystem Edge helper
+        // Ecosystem Edge helper — only runs when we have a ClientLE context
         const ensureGraphNode = async (nodeType: string, ids: { personId?: string, legalEntityId?: string, addressId?: string }) => {
-            const whereClause = { clientLEId: resolvedEntityId, ...ids };
+            if (!clientLEId) return; // Guard: no ClientLE context means nowhere to anchor the node
+            const whereClause = { clientLEId, ...ids };
             const existing = await prisma.clientLEGraphNode.findFirst({ where: whereClause as any });
             if (!existing) {
                 await prisma.clientLEGraphNode.create({
                     data: {
-                        clientLEId: resolvedEntityId,
+                        clientLEId,
                         nodeType,
                         personId: ids.personId,
                         legalEntityId: ids.legalEntityId,
@@ -248,7 +250,9 @@ export class KycWriteService {
                         }});
                     }
                     if (value.address) {
-                        await materializeNestedAddress(value.address, { subjectPersonId: person.id });
+                        const personAddrId = await materializeNestedAddress(value.address, { subjectPersonId: person.id });
+                        // Also register the address itself as a graph node
+                        if (personAddrId) await ensureGraphNode('ADDRESS', { addressId: personAddrId });
                     }
                     valuePersonId = person.id;
                     await ensureGraphNode('PERSON', { personId: person.id });

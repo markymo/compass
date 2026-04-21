@@ -2,79 +2,31 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-async function backfill() {
-    console.log("Starting backfill locally...");
+/**
+ * Deletes all Field 63 claims for the given LE so that the next registry
+ * refresh writes fresh, correctly-filtered (active only) claims.
+ * 
+ * Safe because FieldClaim is immutable-by-design and the registry
+ * will re-assert the ground truth on the next sync.
+ */
+async function resetField63() {
     const clientLEId = '3f3b592b-20e3-46c8-9eb1-9af01958f99f';
-    const clientLE = await prisma.clientLE.findUnique({ where: { id: clientLEId }});
-    const legalEntityId = clientLE?.legalEntityId;
+    const le = await prisma.clientLE.findUnique({ where: { id: clientLEId }});
+    if (!le?.legalEntityId) { console.error('LE not found'); return; }
 
-    if (!legalEntityId) {
-        console.log("No underlying LegalEntity");
-        return;
-    }
-
-    const claims = await prisma.fieldClaim.findMany({
-        where: { subjectLeId: legalEntityId }
+    const existing = await prisma.fieldClaim.findMany({
+        where: { subjectLeId: le.legalEntityId, fieldNo: 63 },
+        select: { id: true, valuePersonId: true, collectionId: true, assertedAt: true }
     });
 
-    console.log(`Found ${claims.length} claims for legal_entity: ${legalEntityId}`);
+    console.log(`Found ${existing.length} Field 63 claims to delete (${new Set(existing.map((c: any) => c.valuePersonId)).size} unique persons)`);
+    console.log('Collection IDs:', [...new Set(existing.map((c: any) => c.collectionId))]);
 
-    let createdNodes = 0;
+    const { count } = await prisma.fieldClaim.deleteMany({
+        where: { subjectLeId: le.legalEntityId, fieldNo: 63 }
+    });
 
-    for (const claim of claims) {
-        if (claim.valuePersonId) {
-            const exists = await prisma.clientLEGraphNode.findFirst({
-                where: { clientLEId, personId: claim.valuePersonId }
-            });
-            if (!exists) {
-                await prisma.clientLEGraphNode.create({
-                    data: {
-                        clientLEId,
-                        nodeType: 'PERSON',
-                        personId: claim.valuePersonId,
-                        source: claim.sourceType || 'UNKNOWN'
-                    }
-                });
-                createdNodes++;
-            }
-        }
-
-        if (claim.valueLeId) {
-            const exists = await prisma.clientLEGraphNode.findFirst({
-                where: { clientLEId, legalEntityId: claim.valueLeId }
-            });
-            if (!exists) {
-                await prisma.clientLEGraphNode.create({
-                    data: {
-                        clientLEId,
-                        nodeType: 'LEGAL_ENTITY',
-                        legalEntityId: claim.valueLeId,
-                        source: claim.sourceType || 'UNKNOWN'
-                    }
-                });
-                createdNodes++;
-            }
-        }
-
-        if (claim.valueAddressId) {
-            const exists = await prisma.clientLEGraphNode.findFirst({
-                where: { clientLEId, addressId: claim.valueAddressId }
-            });
-            if (!exists) {
-                await prisma.clientLEGraphNode.create({
-                    data: {
-                        clientLEId,
-                        nodeType: 'ADDRESS',
-                        addressId: claim.valueAddressId,
-                        source: claim.sourceType || 'UNKNOWN'
-                    }
-                });
-                createdNodes++;
-            }
-        }
-    }
-
-    console.log(`Backfill complete! Forged ${createdNodes} Ecosystem Edges in the Knowledge Graph for ${clientLEId}`);
+    console.log(`\n✅ Deleted ${count} claims. Run a Companies House refresh to re-assert with active-only data.`);
 }
 
-backfill().then(() => process.exit(0)).catch(e => { console.error(e); process.exit(1); });
+resetField63().then(() => process.exit(0)).catch((e: any) => { console.error(e); process.exit(1); });

@@ -28,12 +28,18 @@ export default async function KnowledgeGraphPage({ params }: GraphPageProps) {
         return notFound();
     }
 
-    // Fetch relational edges
+    const personIds = le.graphNodes.map((n: any) => n.personId).filter(Boolean) as string[];
+    const relatedLeIds = le.graphNodes
+        .filter((n: any) => n.nodeType === 'LEGAL_ENTITY' && n.legalEntityId)
+        .map((n: any) => n.legalEntityId as string);
+
+    const allSubjectLeIds = [le.legalEntityId, ...relatedLeIds].filter(Boolean) as string[];
     const claims = await prisma.fieldClaim.findMany({
-        where: { 
+        where: {
+            valueAddressId: { not: null },
             OR: [
-                { subjectLeId: le.legalEntityId },
-                { subjectPersonId: { in: le.graphNodes.map((n: any) => n.personId).filter(Boolean) as string[] } }
+                { subjectLeId: { in: allSubjectLeIds } },
+                ...(personIds.length > 0 ? [{ subjectPersonId: { in: personIds } }] : [])
             ]
         },
         select: {
@@ -45,6 +51,20 @@ export default async function KnowledgeGraphPage({ params }: GraphPageProps) {
             fieldNo: true
         }
     });
+
+    // Find persons mapped to Field 63 (Active Directors) for the Active Directors filter
+    const activeDirectorClaims = await prisma.fieldClaim.findMany({
+        where: {
+            subjectLeId: le.legalEntityId,
+            fieldNo: 63,
+            valuePersonId: { not: null }
+        },
+        select: { valuePersonId: true },
+        distinct: ['valuePersonId']
+    });
+    const activeDirectorPersonIds = activeDirectorClaims
+        .map((c: any) => c.valuePersonId)
+        .filter(Boolean) as string[];
 
     return (
         <div className="space-y-6">
@@ -59,6 +79,8 @@ export default async function KnowledgeGraphPage({ params }: GraphPageProps) {
                 leName={le.name} 
                 initialNodes={le.graphNodes}
                 claims={claims}
+                rootLegalEntityId={le.legalEntityId}
+                activeDirectorPersonIds={activeDirectorPersonIds}
             />
         </div>
     );
