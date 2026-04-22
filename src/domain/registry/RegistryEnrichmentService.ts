@@ -13,7 +13,7 @@ export class RegistryEnrichmentService {
     /**
      * Entry point for enriching a Legal Entity from a RegistryReference.
      */
-    static async enrich(referenceId: string, options: { forceRefresh?: boolean, autoApply?: boolean, initiatedBy?: string } = {}): Promise<{ success: boolean; record?: CanonicalRegistryRecord; evidenceId?: string; error?: string }> {
+    static async enrich(referenceId: string, options: { forceRefresh?: boolean, autoApply?: boolean, initiatedBy?: string } = {}): Promise<{ success: boolean; record?: CanonicalRegistryRecord; evidenceId?: string; error?: string; candidates?: any[] }> {
         const { forceRefresh = false, autoApply = false, initiatedBy = "SYSTEM" } = options;
         console.log("[RegistryEnrichmentService.enrich] START for refId:", referenceId, "options:", options);
         
