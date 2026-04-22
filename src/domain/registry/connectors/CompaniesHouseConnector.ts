@@ -85,26 +85,36 @@ export class CompaniesHouseConnector implements IRegistryConnector {
         if (!raw) {
             throw new Error("Cannot normalize empty registry record");
         }
+        
+        // Extract the profile part (the main raw object without the injected arrays)
+        const { officers, pscs, ...profile } = raw;
+
         return {
             sourceType: "REGISTRATION_AUTHORITY",
             registryKey: "GB_COMPANIES_HOUSE",
             registryAuthorityId: "", // To be filled by caller
             sourceRecordId: "", // To be filled by caller
             fetchedAt: new Date(),
-            entityName: raw.company_name || "-",
-            entityStatus: raw.company_status,
-            incorporationDate: raw.date_of_creation,
+            entityName: profile.company_name || "-",
+            entityStatus: profile.company_status,
+            incorporationDate: profile.date_of_creation,
             registeredAddress: {
-                city: raw.registered_office_address?.locality,
-                lines: [raw.registered_office_address?.address_line_1].filter(Boolean) as string[],
-                country: raw.registered_office_address?.country,
-                postalCode: raw.registered_office_address?.postal_code
+                city: profile.registered_office_address?.locality,
+                lines: [profile.registered_office_address?.address_line_1].filter(Boolean) as string[],
+                country: profile.registered_office_address?.country,
+                postalCode: profile.registered_office_address?.postal_code
             },
-            officers: raw.officers || [],
-            pscs: raw.pscs || [],
-            sicCodes: raw.sic_codes ? SicCodeMapper.mapCodes(raw.sic_codes) : [],
-            identifiers: [], // To be filled by caller or derived from raw
-            rawSourcePayload: raw
+            officers: officers || [],
+            pscs: pscs || [],
+            sicCodes: profile.sic_codes ? SicCodeMapper.mapCodes(profile.sic_codes) : [],
+            identifiers: [],
+            // Structured for the EnrichmentService to split into separate DB rows
+            rawSourcePayload: {
+                COMPANY_PROFILE: profile,
+                OFFICERS: officers || [],
+                PSC: pscs || []
+            }
         };
     }
+
 }

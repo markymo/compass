@@ -159,10 +159,36 @@ export class LegalEntityEnrichmentService {
 
         if (result?.success && result.record && result.evidenceId && autoApply) {
             console.log(`[LegalEntityEnrichmentService.refreshRegistryClaims] Auto-applying claims...`);
-            const candidates = await CanonicalRegistryMapper.mapToCandidates(result.record, result.evidenceId);
             
-            for (const candidate of candidates) {
-                await kycWriteService.applyFieldCandidate(reference.clientLEId, candidate, undefined, 'CLIENT_LE');
+            // 1. Generate Legacy Candidates
+            const legacyCandidates = await CanonicalRegistryMapper.mapToCandidates(result.record, result.evidenceId);
+            
+            // 2. Extract New Baseline/RA Mapped Candidates
+            const newCandidates = result.candidates || [];
+            
+            // 3. Merge candidates (New Engine candidates take precedence over Legacy ones if there's a collision)
+            const allCandidates = [...legacyCandidates];
+            for (const newCand of newCandidates) {
+                const existingIdx = allCandidates.findIndex(c => c.fieldNo === newCand.fieldNo);
+                if (existingIdx !== -1) {
+                    allCandidates[existingIdx] = newCand;
+                } else {
+                    allCandidates.push(newCand);
+                }
+            }
+
+            console.log(`[LegalEntityEnrichmentService.refreshRegistryClaims] Applying ${allCandidates.length} total candidates...`);
+            for (const candidate of allCandidates) {
+                try {
+                    if (candidate.fieldNo === 63) {
+                        console.log(`[DEBUG] Field 63 Candidate Value:`, JSON.stringify(candidate.value, null, 2));
+                    }
+                    // Strip evidenceId to prevent foreign key constraint violations against the Evidence table
+                    const cleanCandidate = { ...candidate, evidenceId: undefined };
+                    await kycWriteService.applyFieldCandidate(reference.clientLEId, cleanCandidate, undefined, 'CLIENT_LE');
+                } catch (e: any) {
+                    console.error(`[LegalEntityEnrichmentService] Failed applying candidate for field ${candidate.fieldNo}:`, e.message);
+                }
             }
             console.log(`[LegalEntityEnrichmentService.refreshRegistryClaims] Claims applied.`);
 

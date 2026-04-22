@@ -109,8 +109,8 @@ export class FieldClaimService {
             }
         });
 
-        // 5. Graph write-back (USER_INPUT only)
-        if (input.clientLEId && input.sourceType === SourceType.USER_INPUT) {
+        // 5. Graph write-back (For all sources, enabling automated graph assertion)
+        if (input.clientLEId) {
             // Fire-and-forget with error isolation — a write-back failure must never
             // roll back the claim itself.
             this.writeBackGraphEdge(claim, input).catch(err => {

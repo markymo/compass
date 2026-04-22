@@ -9,6 +9,9 @@ import { RawPayloadViewer } from "@/components/client/raw-payload-viewer";
 import { ExtractedCandidatesViewer } from "@/components/client/extracted-candidates-viewer";
 import { SetPageBreadcrumbs } from "@/context/breadcrumb-context";
 import { CanonicalRegistryMapper } from "@/services/kyc/normalization/CanonicalRegistryMapper";
+import { RegistryMappingEngine } from "@/services/kyc/normalization/RegistryMappingEngine";
+import prisma from "@/lib/prisma";
+
 
 export default async function RegistryPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
@@ -17,20 +20,65 @@ export default async function RegistryPage({ params }: { params: Promise<{ id: s
     if (!data) return notFound();
 
     const le = data.le;
-    const registryData = (le as any).nationalRegistryData;
+    const legalEntityId = le.legalEntityId;
+
+    // 1. Fetch Latest Enrichment Run and Data Layers (Defensive check for model existence)
+    const latestRun = (legalEntityId && (prisma as any).enrichmentRun) ? await (prisma as any).enrichmentRun.findFirst({
+        where: { legalEntityId },
+        include: {
+            baselineExtracts: { orderBy: { extractedAt: 'desc' }, take: 1 },
+            sourcePayloads: true
+        },
+        orderBy: { createdAt: 'desc' }
+    }) : null;
+
+
+    const baseline = latestRun?.baselineExtracts[0];
     
-    // Primary Registry Reference (usually just one)
+    // Re-construct the view model for the UI safely
+    let registryData = (le as any).nationalRegistryData;
+
+    if (baseline) {
+        try {
+            const legacy = (le as any).nationalRegistryData || {};
+            registryData = {
+                entityName: baseline.legalName || legacy.entityName || legacy.company_name,
+                entityStatus: baseline.entityStatus || legacy.entityStatus || legacy.company_status,
+                incorporationDate: (baseline.incorporationDate || legacy.incorporationDate || legacy.date_of_creation) 
+                    ? new Date(baseline.incorporationDate || legacy.incorporationDate || legacy.date_of_creation).toISOString().split('T')[0] 
+                    : null,
+                registeredAddress: baseline.registeredAddress || legacy.registeredAddress || legacy.registered_office_address,
+                // Pull Officers and PSC from the specific raw payloads
+                officers: (latestRun?.sourcePayloads.find((p: any) => p.payloadSubtype === 'OFFICERS')?.payload as any) || legacy.officers || [],
+                pscs: (latestRun?.sourcePayloads.find((p: any) => p.payloadSubtype === 'PSC')?.payload as any) || legacy.pscs || [],
+                sicCodes: (latestRun?.sourcePayloads.find((p: any) => p.payloadSubtype === 'COMPANY_PROFILE')?.payload as any)?.sic_codes 
+                    || legacy.sicCodes || legacy.sic_codes || []
+            };
+        } catch (e) {
+            console.error("Failed to reconstruct registryData from baseline:", e);
+        }
+    }
+
+    
+    // Primary Registry Reference
     const primaryRef = (le as any).registryReferences?.[0];
     const authority = primaryRef?.authority;
-
-    // Support both old and new data formats
-    const sourceType = registryData?.sourceType || "REGISTRATION_AUTHORITY";
     const displayTitle = authority?.name || "Registration Authority Record";
 
     let extractedCandidates: any[] = [];
-    if (registryData) {
-        extractedCandidates = await CanonicalRegistryMapper.mapToCandidates(registryData, "preview_id");
+    try {
+        if (latestRun) {
+            extractedCandidates = await RegistryMappingEngine.mapEnrichmentRun(latestRun.id);
+        } else if (registryData) {
+            extractedCandidates = await CanonicalRegistryMapper.mapToCandidates(registryData, "preview_id");
+        }
+    } catch (e) {
+        console.error("Failed to resolve extracted candidates:", e);
     }
+
+
+
+    const rawProfile = latestRun?.sourcePayloads.find((p: any) => p.payloadSubtype === 'COMPANY_PROFILE')?.payload;
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -73,10 +121,11 @@ export default async function RegistryPage({ params }: { params: Promise<{ id: s
                         {extractedCandidates.length > 0 && (
                             <ExtractedCandidatesViewer candidates={extractedCandidates} />
                         )}
-                        <RawPayloadViewer data={registryData || primaryRef || (le as any).gleifData} />
+                        <RawPayloadViewer data={rawProfile || (le as any).nationalRegistryData || (le as any).gleifData} />
                     </div>
                 </div>
             </div>
+
 
             {/* Empty State / Initial Fetch Prompt */}
             {!registryData && (
@@ -126,14 +175,15 @@ export default async function RegistryPage({ params }: { params: Promise<{ id: s
             )}
 
             {/* SIC Codes (Sector) */}
-            {registryData?.sicCodes && registryData.sicCodes.length > 0 && (
+            {(registryData?.sicCodes || registryData?.sic_codes) && (registryData?.sicCodes || registryData?.sic_codes).length > 0 && (
                 <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4 flex flex-col gap-3">
                     <div className="flex items-center gap-2">
                         <ShieldCheck className="h-4 w-4 text-slate-400" />
                         <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Industry Classification (SIC)</span>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                        {registryData.sicCodes.map((item: any, idx: number) => (
+                        {(registryData.sicCodes || registryData.sic_codes).map((item: any, idx: number) => (
+
                             <div key={idx} className="flex items-center gap-2 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 px-3 py-1.5 rounded-md">
                                 <span className="font-mono text-xs font-bold text-slate-700 dark:text-slate-300">{typeof item === 'string' ? item : item.code}</span>
                                 <span className="text-xs text-slate-500 dark:text-slate-400 border-l border-slate-200 dark:border-slate-800 pl-2">
@@ -224,7 +274,7 @@ export default async function RegistryPage({ params }: { params: Promise<{ id: s
             )}
 
             {/* PSC Table (Persons with Significant Control) */}
-            {registryData?.pscs && registryData.pscs.length > 0 && (
+            {(registryData?.pscs || registryData?.persons_with_significant_control) && (registryData.pscs || registryData.persons_with_significant_control).length > 0 && (
                 <Card>
                     <CardHeader className="pb-3 border-b border-slate-100 dark:border-slate-800 bg-emerald-50/20 dark:bg-emerald-900/10">
                         <div className="flex items-center justify-between">
@@ -233,7 +283,7 @@ export default async function RegistryPage({ params }: { params: Promise<{ id: s
                                 Persons with Significant Control (PSC)
                             </CardTitle>
                             <Badge variant="outline" className="bg-white dark:bg-slate-800 text-emerald-600 border-emerald-100 font-normal">
-                                {registryData.pscs.length} Identified
+                                {(registryData.pscs || registryData.persons_with_significant_control).length} Identified
                             </Badge>
                         </div>
                         <CardDescription className="text-xs mt-1">
@@ -253,7 +303,8 @@ export default async function RegistryPage({ params }: { params: Promise<{ id: s
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                    {registryData.pscs.map((psc: any, idx: number) => (
+                                    {(registryData.pscs || registryData.persons_with_significant_control).map((psc: any, idx: number) => (
+
                                         <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/20 transition-colors">
                                             <td className="px-6 py-4">
                                                 <div className="font-medium text-slate-900 dark:text-slate-100">{psc.name}</div>

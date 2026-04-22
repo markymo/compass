@@ -10,4 +10,4 @@ const nextConfig: NextConfig = {
 
 export default nextConfig;
 
-// Force restart for Prisma Schema update - 2026-02-05T22:56:00Z
+// Force restart for Prisma Schema update - FINAL SYNC 2026-04-22T13:51:00Z

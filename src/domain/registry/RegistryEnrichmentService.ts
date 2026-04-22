@@ -1,10 +1,11 @@
 import prisma from "@/lib/prisma";
-import { RegistryReference, RegistryFetch } from "@prisma/client";
+import { RegistryReference, RegistryFetch, SourceType, PayloadSubtype } from "@prisma/client";
 import { RegistryAuthorityService } from "./RegistryAuthorityService";
 import { RegistryConnectorFactory } from "./RegistryConnectorFactory";
 import { CanonicalRegistryRecord } from "./types/CanonicalRegistryRecord";
 import { EvidenceService } from "@/services/kyc/EvidenceService";
 import { initializeRegistryDomain as initDomain } from "./index";
+import { RegistryMappingEngine } from "@/services/kyc/normalization/RegistryMappingEngine";
 
 const evidenceService = new EvidenceService();
 
@@ -12,19 +13,29 @@ export class RegistryEnrichmentService {
     /**
      * Entry point for enriching a Legal Entity from a RegistryReference.
      */
-    static async enrich(referenceId: string, options: { forceRefresh?: boolean, autoApply?: boolean } = {}): Promise<{ success: boolean; record?: CanonicalRegistryRecord; evidenceId?: string; error?: string }> {
-        const { forceRefresh = false, autoApply = false } = options;
+    static async enrich(referenceId: string, options: { forceRefresh?: boolean, autoApply?: boolean, initiatedBy?: string } = {}): Promise<{ success: boolean; record?: CanonicalRegistryRecord; evidenceId?: string; error?: string }> {
+        const { forceRefresh = false, autoApply = false, initiatedBy = "SYSTEM" } = options;
         console.log("[RegistryEnrichmentService.enrich] START for refId:", referenceId, "options:", options);
-        // 1. Fetch the reference
+        
+        // 1. Fetch the reference and its ClientLE -> LegalEntity bridge
         const reference = await prisma.registryReference.findUnique({
             where: { id: referenceId },
-            include: { authority: true }
+            include: { 
+                authority: true,
+                clientLE: { select: { id: true, legalEntityId: true } }
+            }
         });
 
         if (!reference) {
             console.log("[RegistryEnrichmentService.enrich] Reference NOT FOUND");
             return { success: false, error: "Reference not found" };
         }
+
+        const legalEntityId = reference.clientLEId;
+        if (!legalEntityId) {
+            return { success: false, error: "Reference has no linked ClientLE. Enrichment aborted." };
+        }
+
         console.log("[RegistryEnrichmentService.enrich] Found ref for authority:", reference.registryAuthorityId);
 
         if (reference.status === "ENRICHED" && !forceRefresh) {
@@ -38,26 +49,36 @@ export class RegistryEnrichmentService {
         }
 
         // 2. Find the connector
-        console.log("[RegistryEnrichmentService.enrich] Searching for connector for:", reference.registryAuthorityId);
         let connector = RegistryConnectorFactory.getConnectorForAuthority(reference.registryAuthorityId);
-        
         if (!connector) {
-            // Lazy initialization check
             initDomain();
             connector = RegistryConnectorFactory.getConnectorForAuthority(reference.registryAuthorityId);
         }
 
         if (!connector) {
-            console.log("[RegistryEnrichmentService.enrich] NO CONNECTOR FOUND");
             await prisma.registryReference.update({
                 where: { id: referenceId },
                 data: { status: "UNSUPPORTED", lastSyncStatus: "FAILED", lastSyncAttemptAt: new Date() }
             });
             return { success: false, error: `No connector for authority ${reference.registryAuthorityId}` };
         }
-        console.log("[RegistryEnrichmentService.enrich] Found connector:", connector.connectorKey);
 
-        // 3. Create a fetch log (PENDING)
+        // 3. Create EnrichmentRun tracking (Defensive check for model existence)
+        let run: any = null;
+        if ((prisma as any).enrichmentRun) {
+            run = await (prisma as any).enrichmentRun.create({
+                data: {
+                    legalEntityId,
+                    initiatedBy,
+                    triggerType: forceRefresh ? "MANUAL_REFRESH" : "LEI_SET",
+                    registrationAuthorityId: reference.registryAuthorityId,
+                    status: "PENDING"
+                }
+            });
+        }
+
+
+        // 4. Create legacy fetch log for backward compatibility
         const fetchLog = await prisma.registryFetch.create({
             data: {
                 registryReferenceId: referenceId,
@@ -67,60 +88,139 @@ export class RegistryEnrichmentService {
         });
 
         try {
-            // 4. Update reference to PENDING
-            console.log("[RegistryEnrichmentService.enrich] Fetching from connector...");
+            // 5. Update reference to PENDING
             await prisma.registryReference.update({
                 where: { id: referenceId },
                 data: { status: "PENDING", lastSyncAttemptAt: new Date(), lastSyncStatus: "PENDING" }
             });
 
-            // 5. Execute fetch
+            // 6. Execute fetch
             const record = await connector.fetch(reference);
-            console.log("[RegistryEnrichmentService.enrich] Fetch result record exists:", !!record);
+            console.log("[RegistryEnrichmentService.enrich] Fetch successful");
 
-            // 6. Store as Evidence
-            console.log("[RegistryEnrichmentService.enrich] Storing evidence...");
+            // 7. Store IMMUTABLE Raw Payloads (Layer A)
+            // If the connector returned structured payloads, we store them as separate rows
+            const rawPayloads = record.rawSourcePayload;
+            if (run && (prisma as any).registrySourcePayload && rawPayloads && typeof rawPayloads === 'object' && !Array.isArray(rawPayloads)) {
+                // De-duplicate payloads: mark old ones for this LE as not latest
+                await (prisma as any).registrySourcePayload.updateMany({
+                    where: { legalEntityId, sourceType: SourceType.REGISTRATION_AUTHORITY, isLatest: true },
+                    data: { isLatest: false }
+                });
+
+                for (const [subtype, payload] of Object.entries(rawPayloads)) {
+                    await (prisma as any).registrySourcePayload.create({
+                        data: {
+                            legalEntityId,
+                            enrichmentRunId: run.id,
+                            sourceType: SourceType.REGISTRATION_AUTHORITY,
+                            payloadSubtype: subtype as any,
+                            sourceReference: reference.registryAuthorityId,
+                            externalId: reference.localRegistrationNumber,
+                            payload: payload as any,
+                            isLatest: true
+                        }
+                    });
+                }
+            }
+
+
+            // 8. Generate Thin Baseline Extract (Layer B)
+            if (run && (prisma as any).registryBaselineExtract) {
+                await (prisma as any).registryBaselineExtract.create({
+                    data: {
+                        legalEntityId,
+                        enrichmentRunId: run.id,
+                        legalName: record.entityName,
+                        registrationNumber: reference.localRegistrationNumber,
+                        countryCode: record.registeredAddress?.country || reference.authority.countryCode,
+                        registrationAuthorityId: reference.registryAuthorityId,
+                        entityStatus: record.entityStatus,
+                        registeredAddress: record.registeredAddress as any,
+                        incorporationDate: record.incorporationDate ? new Date(record.incorporationDate) : null,
+                    }
+                });
+            }
+
+
+            // 9. Store as Evidence (Legacy Service)
             const evidenceId = await evidenceService.normalizeEvidence(
                 record.rawSourcePayload,
                 record.sourceType as any,
-                '1.0',
-                'REGISTRY_FOLLOWUP'
+                '2.0', // New version indicator
+                initiatedBy
             );
-            console.log("[RegistryEnrichmentService.enrich] Evidence stored:", evidenceId);
 
-            // 7. Record Success
+            // 10. Record Success on Run and Fetch logs
+            if (run && (prisma as any).enrichmentRun) {
+                await (prisma as any).enrichmentRun.update({
+                    where: { id: run.id },
+                    data: { status: "SUCCESS", completedAt: new Date() }
+                });
+            }
+
+
             await prisma.registryFetch.update({
                 where: { id: fetchLog.id },
                 data: {
                     status: "SUCCESS",
                     completedAt: new Date(),
                     rawPayloadJson: record.rawSourcePayload,
-                    normalizedJson: JSON.parse(JSON.stringify(record)), // ensure serializable
+                    normalizedJson: JSON.parse(JSON.stringify(record)),
                     httpStatus: 200,
                     evidenceId
                 }
             });
 
-            // 8. Update reference to ENRICHED
+            // 11. Update states
             await prisma.registryReference.update({
                 where: { id: referenceId },
                 data: { status: "ENRICHED", lastSyncSucceededAt: new Date(), lastSyncStatus: "SUCCESS" }
             });
 
-            // 9. Sync to ClientLE for backward compatibility with existing UI
+
+            // Sync to ClientLE for backward compatibility with existing UI
+            // We re-merge the normalized record with raw payloads so the UI sees everything
+            const mergedLegacyPayload = {
+                ...JSON.parse(JSON.stringify(record)), // Include normalized fields (entityName, etc.)
+                ...(rawPayloads?.COMPANY_PROFILE || {}), // Include raw CH fields (company_name, etc.)
+                officers: rawPayloads?.OFFICERS || record.officers || [],
+                pscs: rawPayloads?.PSC || record.pscs || []
+            };
+
             await prisma.clientLE.update({
                 where: { id: reference.clientLEId },
                 data: {
-                    nationalRegistryData: JSON.parse(JSON.stringify(record)),
+                    nationalRegistryData: JSON.parse(JSON.stringify(mergedLegacyPayload)),
                     registryFetchedAt: new Date()
                 }
             });
 
-            return { success: true, record, evidenceId };
-        } catch (error: any) {
-            console.error(`[RegistryEnrichmentService] Fetch failed for ${referenceId}:`, error);
 
-            // 8. Record Failure
+            // 12. RUN MAPPING ENGINE (New Pipeline)
+            let candidates: any[] = [];
+            if (run) {
+                console.log("[RegistryEnrichmentService.enrich] Running Mapping Engine...");
+                try {
+                    candidates = await RegistryMappingEngine.mapEnrichmentRun(run.id);
+                    console.log(`[RegistryEnrichmentService.enrich] Generated ${candidates.length} candidates.`);
+                } catch (e) {
+                    console.error("[RegistryEnrichmentService.enrich] Mapping Engine failed:", e);
+                }
+            }
+
+            return { success: true, record, evidenceId, candidates };
+        } catch (error: any) {
+
+            console.error(`[RegistryEnrichmentService] Fetch failed:`, error);
+
+            if (run && (prisma as any).enrichmentRun) {
+                await (prisma as any).enrichmentRun.update({
+                    where: { id: run.id },
+                    data: { status: "FAILURE", completedAt: new Date(), summary: { error: error.message } }
+                });
+            }
+
             await prisma.registryFetch.update({
                 where: { id: fetchLog.id },
                 data: {
@@ -140,3 +240,4 @@ export class RegistryEnrichmentService {
         }
     }
 }
+

@@ -74,13 +74,13 @@ model User {
   supplierNotesUpdated          Question[]              @relation("SupplierNoteUpdatedBy")
   activities                    QuestionActivity[]
   sessions                      Session[]
-  graphEdgesModified            ClientLEGraphEdge[]     @relation("GraphEdgeModifiedBy")
-  graphNodesModified            ClientLEGraphNode[]     @relation("GraphNodeModifiedBy")
   assignedFeedback              FeedbackNote[]          @relation("FeedbackAssignedTo")
   verifiedClaims                FieldClaim[]
   masterFieldAssignmentsCreated MasterFieldAssignment[] @relation("MasterFieldAssignmentsCreated")
   assignedMasterFields          MasterFieldAssignment[] @relation("AssignedMasterFields")
   masterFieldNotes              MasterFieldNote[]
+  graphNodesModified            ClientLEGraphNode[]     @relation("GraphNodeModifiedBy")
+  graphEdgesModified            ClientLEGraphEdge[]     @relation("GraphEdgeModifiedBy")
 }
 
 model Organization {
@@ -193,14 +193,11 @@ model ClientLE {
   leActivities           LEActivity[]
   memberships            Membership[]
   standingDataSections   StandingDataSection[]
-  graphEdges             ClientLEGraphEdge[]
-  graphNodes             ClientLEGraphNode[]
   masterFieldAssignments MasterFieldAssignment[]
   masterFieldNotes       MasterFieldNote[]
   registryReferences     RegistryReference[]
-  enrichmentRuns         EnrichmentRun[]
-  registrySourcePayloads RegistrySourcePayload[]
-  registryBaselineExtracts RegistryBaselineExtract[]
+  graphNodes             ClientLEGraphNode[]
+  graphEdges             ClientLEGraphEdge[]
 
   @@index([legalEntityId])
 }
@@ -535,18 +532,27 @@ model LEActivity {
 model LegalEntity {
   id                      String              @id @default(uuid())
   reference               String              @unique
+  name                    String?
+  legalName               String?
+  lei                     String?             @unique
+  registrationAuthorityId String?
+  jurisdictionCode        String?
+  localRegistrationNumber String?
+  enrichmentStatus        String?             @default("PENDING_LEI")
   createdAt               DateTime            @default(now())
   updatedAt               DateTime            @updatedAt
-  localRegistrationNumber String?
-  name                    String?
   clientLEs               ClientLE[]
-  graphNodes              ClientLEGraphNode[]
   documents               DocumentRegistry[]
   claims                  FieldClaim[]        @relation("LegalEntitySubject")
   referencedInClaims      FieldClaim[]        @relation("LegalEntityValue")
+  graphNodes              ClientLEGraphNode[]
+  enrichmentRuns          EnrichmentRun[]
+  baselineExtracts        RegistryBaselineExtract[]
+  sourcePayloads          RegistrySourcePayload[]
 
   @@map("legal_entities")
 }
+
 
 model EvidenceStore {
   id            String           @id @default(uuid())
@@ -603,36 +609,36 @@ model FeedbackNote {
 }
 
 model Address {
-  id                 String              @id @default(uuid())
+  id                 String       @id @default(uuid())
   line1              String?
   line2              String?
   city               String?
   region             String?
   postalCode         String?
   country            String?
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  claims             FieldClaim[] @relation("AddressSubject")
+  referencedInClaims FieldClaim[] @relation("AddressValue")
   graphNodes         ClientLEGraphNode[]
-  claims             FieldClaim[]        @relation("AddressSubject")
-  referencedInClaims FieldClaim[]        @relation("AddressValue")
 
   @@map("addresses")
 }
 
 model Person {
-  id                 String              @id @default(uuid())
+  id                 String       @id @default(uuid())
   firstName          String?
   lastName           String?
   middleName         String?
   dateOfBirth        DateTime?
   placeOfBirth       String?
   primaryNationality String?
-  isPublicFigure     Boolean             @default(false)
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
+  isPublicFigure     Boolean      @default(false)
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  claims             FieldClaim[] @relation("PersonSubject")
+  referencedInClaims FieldClaim[] @relation("PersonValue")
   graphNodes         ClientLEGraphNode[]
-  claims             FieldClaim[]        @relation("PersonSubject")
-  referencedInClaims FieldClaim[]        @relation("PersonValue")
 
   @@map("persons")
 }
@@ -643,6 +649,7 @@ model FieldClaim {
   subjectLeId      String?
   subjectPersonId  String?
   subjectOrgId     String?
+  subjectAddressId String?
   collectionId     String?
   instanceId       String?
   valueText        String?
@@ -652,6 +659,7 @@ model FieldClaim {
   valuePersonId    String?
   valueLeId        String?
   valueOrgId       String?
+  valueAddressId   String?
   valueDocId       String?
   status           ClaimStatus       @default(ASSERTED)
   ownerScopeId     String?
@@ -665,21 +673,19 @@ model FieldClaim {
   confidenceScore  Float?
   verifiedByUserId String?
   verifiedAt       DateTime?
-  subjectAddressId String?
-  valueAddressId   String?
   evidence         EvidenceStore?    @relation(fields: [evidenceId], references: [id])
   ownerScope       Organization?     @relation("OrganizationOwnerScope", fields: [ownerScopeId], references: [id])
-  subjectAddress   Address?          @relation("AddressSubject", fields: [subjectAddressId], references: [id])
   subjectLe        LegalEntity?      @relation("LegalEntitySubject", fields: [subjectLeId], references: [id])
   subjectOrg       Organization?     @relation("OrganizationSubject", fields: [subjectOrgId], references: [id])
   subjectPerson    Person?           @relation("PersonSubject", fields: [subjectPersonId], references: [id])
+  subjectAddress   Address?          @relation("AddressSubject", fields: [subjectAddressId], references: [id])
   supersedes       FieldClaim?       @relation("Lineage", fields: [supersedesId], references: [id])
   supersededBy     FieldClaim[]      @relation("Lineage")
-  valueAddress     Address?          @relation("AddressValue", fields: [valueAddressId], references: [id])
   valueDoc         DocumentRegistry? @relation(fields: [valueDocId], references: [id])
   valueLe          LegalEntity?      @relation("LegalEntityValue", fields: [valueLeId], references: [id])
   valueOrg         Organization?     @relation("OrganizationValue", fields: [valueOrgId], references: [id])
   valuePerson      Person?           @relation("PersonValue", fields: [valuePersonId], references: [id])
+  valueAddress     Address?          @relation("AddressValue", fields: [valueAddressId], references: [id])
   verifiedBy       User?             @relation(fields: [verifiedByUserId], references: [id])
 
   @@index([subjectLeId, fieldNo])
@@ -695,27 +701,27 @@ model FieldClaim {
 }
 
 model MasterFieldDefinition {
-  fieldNo            Int                       @id @default(autoincrement())
+  fieldNo            Int                    @id @default(autoincrement())
   fieldName          String
   appDataType        String
-  isMultiValue       Boolean                   @default(false)
-  options            String[]                  @default([])
+  isMultiValue       Boolean                @default(false)
+  options            String[]               @default([])
   notes              String?
   categoryId         String?
-  isActive           Boolean                   @default(true)
-  order              Float                     @default(0)
-  createdAt          DateTime                  @default(now())
-  updatedAt          DateTime                  @updatedAt
+  isActive           Boolean                @default(true)
+  order              Float                  @default(0)
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
   modelField         String?
   description        String?
-  domain             String[]                  @default(["Onboarding"])
-  fmsbRef            String?                   @db.VarChar(15)
-  optionSetId        String?
-  masterDataCategory MasterDataCategory?       @relation(fields: [categoryId], references: [id])
-  optionSet          MasterDataOptionSet?      @relation(fields: [optionSetId], references: [id])
-  graphBindings      MasterFieldGraphBinding[]
+  fmsbRef            String?                @db.VarChar(15)
+  domain             String[]               @default(["Onboarding"])
+  masterDataCategory MasterDataCategory?    @relation(fields: [categoryId], references: [id])
   groupItems         MasterFieldGroupItem[]
   sourceMappings     SourceFieldMapping[]
+  graphBindings      MasterFieldGraphBinding[]
+  optionSetId        String?
+  optionSet          MasterDataOptionSet?   @relation(fields: [optionSetId], references: [id])
 
   @@index([isActive, order])
   @@map("master_field_definitions")
@@ -728,25 +734,34 @@ model MasterFieldDefinition {
 model MasterFieldGraphBinding {
   id                String                @id @default(uuid())
   fieldNo           Int
+
   /// What kind of graph node answers this field
-  graphNodeType     String
+  graphNodeType     String                // "PERSON" | "LEGAL_ENTITY" | "ADDRESS"
+
   /// If set, picker promotes nodes with this edge type to the top of the list.
   /// Does NOT exclude other node types — use filterActiveOnly to hide ceased nodes.
-  filterEdgeType    String?
+  filterEdgeType    String?               // e.g. "DIRECTOR", "PSC_CONTROL", "SECRETARY"
+
   /// Hide nodes with isActive = false in the edge (i.e. ceased officers)
   filterActiveOnly  Boolean               @default(true)
+
   /// If set, selecting/creating a node also upserts a ClientLEGraphEdge with this type.
   /// Only triggers for USER_INPUT source claims — never for automated ingestion.
-  writeBackEdgeType String?
+  writeBackEdgeType String?               // e.g. "DIRECTOR"
+
   /// Whether the written-back edge should be marked isActive = true
   writeBackIsActive Boolean               @default(true)
+
   /// UI hint: overrides the generic picker label shown to the user
-  pickerLabel       String?
+  pickerLabel       String?               // e.g. "Select a Director"
+
   /// Whether the user can create a new graph node inline from the picker
   allowCreate       Boolean               @default(true)
+
   isActive          Boolean               @default(true)
   createdAt         DateTime              @default(now())
   updatedAt         DateTime              @updatedAt
+
   field             MasterFieldDefinition @relation(fields: [fieldNo], references: [fieldNo], onDelete: Cascade)
 
   @@index([fieldNo, isActive])
@@ -755,15 +770,16 @@ model MasterFieldGraphBinding {
 }
 
 model MasterDataOptionSet {
-  id          String                  @id @default(uuid())
-  name        String                  @unique
+  id          String   @id @default(uuid())
+  name        String   @unique
   description String?
-  valueType   String                  @default("STRING")
+  valueType   String   @default("STRING")
   options     Json
-  isActive    Boolean                 @default(true)
-  createdAt   DateTime                @default(now())
-  updatedAt   DateTime                @updatedAt
-  fields      MasterFieldDefinition[]
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  fields MasterFieldDefinition[]
 
   @@map("master_data_option_sets")
 }
@@ -834,7 +850,7 @@ model SourceFieldMapping {
   updatedByUserId   String?
   targetField       MasterFieldDefinition @relation(fields: [targetFieldNo], references: [fieldNo])
 
-  @@unique([sourceType, sourceReference, mappingScope, payloadSubtype, sourcePath, targetFieldNo], name: "sourceType_sourceReference_mappingScope_payloadSubtype_sourcePath_targetFieldNo")
+  @@unique([sourceType, sourceReference, mappingScope, payloadSubtype, sourcePath, targetFieldNo])
   @@index([sourceType, sourceReference, isActive])
   @@index([sourceType, priority])
   @@map("source_field_mappings")
@@ -911,119 +927,70 @@ model RegistryFetch {
   evidenceId          String?
   reference           RegistryReference @relation(fields: [registryReferenceId], references: [id], onDelete: Cascade)
 
-  @@index([registryReferenceId, status])
-  @@index([requestedAt])
+  @@index([registryReferenceId])
   @@map("registry_fetches")
 }
 
-model EnrichmentRun {
-  id                      String                    @id @default(uuid())
-  legalEntityId           String
-  registrationAuthorityId String?
-  triggerType             String                    @default("MANUAL_REFRESH") // LEI_SET, MANUAL_REFRESH, SCHEDULED
-  status                  String                    @default("PENDING") // PENDING, SUCCESS, FAILURE
-  summary                 Json?
-  initiatedBy             String?
-  createdAt               DateTime                  @default(now())
-  completedAt             DateTime?
-  clientLE                ClientLE                  @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
-  sourcePayloads          RegistrySourcePayload[]
-  baselineExtracts        RegistryBaselineExtract[]
-
-  @@index([legalEntityId, createdAt])
-  @@map("enrichment_runs")
-}
-
 model RegistrySourcePayload {
-  id               String          @id @default(uuid())
+  id               String        @id @default(uuid())
   legalEntityId    String
-  enrichmentRunId  String
   sourceType       SourceType
-  sourceReference  String // e.g. RA000585
-  externalId       String? // The company number / identifier at the source
-  payloadSubtype   PayloadSubtype
+  payloadSubtype   PayloadSubtype @default(GENERAL)
+  sourceReference  String? // e.g. RA000585
+  externalId       String? // Company number / LEI / Filing ID
   payload          Json
-  isLatest         Boolean         @default(true)
-  createdAt        DateTime        @default(now())
-  clientLE         ClientLE        @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
-  enrichmentRun    EnrichmentRun   @relation(fields: [enrichmentRunId], references: [id], onDelete: Cascade)
+  fetchedAt        DateTime      @default(now())
+  connectorVersion String?
+  checksum         String?
+  isLatest         Boolean       @default(true)
+  legalEntity      LegalEntity   @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
+  enrichmentRunId  String?
+  enrichmentRun    EnrichmentRun? @relation(fields: [enrichmentRunId], references: [id])
 
   @@index([legalEntityId, sourceType, isLatest])
-  @@index([sourceReference, externalId])
   @@map("registry_source_payloads")
 }
 
 model RegistryBaselineExtract {
   id                      String        @id @default(uuid())
   legalEntityId           String
-  enrichmentRunId         String
-  legalName               String
-  registrationNumber      String
+  enrichmentRunId         String?
+  legalName               String?
+  registrationNumber      String?
   countryCode             String?
-  registrationAuthorityId String
+  registrationAuthorityId String?
   entityStatus            String?
   registeredAddress       Json?
   incorporationDate       DateTime?
   extractedAt             DateTime      @default(now())
-  clientLE                ClientLE      @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
-  enrichmentRun           EnrichmentRun @relation(fields: [enrichmentRunId], references: [id], onDelete: Cascade)
+  extractorVersion        String?
+  legalEntity             LegalEntity   @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
+  enrichmentRun           EnrichmentRun? @relation(fields: [enrichmentRunId], references: [id])
 
-  @@index([legalEntityId, extractedAt])
+  @@index([legalEntityId])
   @@map("registry_baseline_extracts")
 }
 
+model EnrichmentRun {
+  id                      String                  @id @default(uuid())
+  legalEntityId           String
+  initiatedBy             String? // userId or "SYSTEM"
+  triggerType             String // LEI_SET, MANUAL_REFRESH, etc.
+  registrationAuthorityId String?
+  baselineVersion         String?
+  mappingPackVersion      String?
+  startedAt               DateTime                @default(now())
+  completedAt             DateTime?
+  status                  String // PENDING, SUCCESS, FAILURE
+  summary                 Json?
+  legalEntity             LegalEntity             @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
+  sourcePayloads          RegistrySourcePayload[]
+  baselineExtracts        RegistryBaselineExtract[]
 
-
-model ClientLEGraphNode {
-  id               String              @id @default(uuid())
-  clientLEId       String
-  nodeType         String
-  personId         String?
-  legalEntityId    String?
-  addressId        String?
-  source           String              @default("UNKNOWN")
-  lastModifiedById String?
-  createdAt        DateTime            @default(now())
-  updatedAt        DateTime            @updatedAt
-  edgesFrom        ClientLEGraphEdge[] @relation("EdgeFrom")
-  edgesTo          ClientLEGraphEdge[] @relation("EdgeTo")
-  address          Address?            @relation(fields: [addressId], references: [id])
-  clientLE         ClientLE            @relation(fields: [clientLEId], references: [id], onDelete: Cascade)
-  lastModifiedBy   User?               @relation("GraphNodeModifiedBy", fields: [lastModifiedById], references: [id])
-  legalEntity      LegalEntity?        @relation(fields: [legalEntityId], references: [id])
-  person           Person?             @relation(fields: [personId], references: [id])
-
-  @@unique([clientLEId, personId])
-  @@unique([clientLEId, legalEntityId])
-  @@unique([clientLEId, addressId])
-  @@map("client_le_graph_nodes")
+  @@index([legalEntityId])
+  @@map("enrichment_runs")
 }
 
-/// Typed relationship edges between graph nodes (PSC control, directorships, etc.)
-model ClientLEGraphEdge {
-  id               String             @id @default(uuid())
-  clientLEId       String
-  fromNodeId       String
-  toNodeId         String?
-  edgeType         String
-  naturesOfControl String[]           @default([])
-  notifiedOn       DateTime?
-  ceasedOn         DateTime?
-  isActive         Boolean            @default(true)
-  source           String             @default("UNKNOWN")
-  lastModifiedById String?
-  createdAt        DateTime           @default(now())
-  updatedAt        DateTime           @updatedAt
-  clientLE         ClientLE           @relation(fields: [clientLEId], references: [id], onDelete: Cascade)
-  fromNode         ClientLEGraphNode  @relation("EdgeFrom", fields: [fromNodeId], references: [id])
-  lastModifiedBy   User?              @relation("GraphEdgeModifiedBy", fields: [lastModifiedById], references: [id])
-  toNode           ClientLEGraphNode? @relation("EdgeTo", fields: [toNodeId], references: [id])
-
-  @@unique([fromNodeId, edgeType])
-  @@index([clientLEId])
-  @@index([fromNodeId])
-  @@map("client_le_graph_edges")
-}
 
 enum QuestionStatus {
   DRAFT
@@ -1067,9 +1034,9 @@ enum AdminTodoStatus {
 
 enum EvidenceProvider {
   GLEIF
-  COMPANIES_HOUSE
-  USER_UPLOAD
+  COMPANIES_HOUSE // DEPRECATED: use REGISTRATION_AUTHORITY + registryKey
   REGISTRATION_AUTHORITY
+  USER_UPLOAD
 }
 
 enum DocumentOwnerType {
@@ -1085,11 +1052,11 @@ enum ClaimStatus {
 enum SourceType {
   USER_INPUT
   GLEIF
-  COMPANIES_HOUSE
-  NATIONAL_REGISTRY
+  COMPANIES_HOUSE // DEPRECATED: use REGISTRATION_AUTHORITY + sourceReference
+  NATIONAL_REGISTRY // DEPRECATED: use REGISTRATION_AUTHORITY + sourceReference
+  REGISTRATION_AUTHORITY
   AI_EXTRACTION
   SYSTEM_DERIVED
-  REGISTRATION_AUTHORITY
 }
 
 enum SubjectType {
@@ -1112,32 +1079,84 @@ enum MappingTransformType {
   TO_PARTY_LIST
 }
 
-enum SyncStatus {
-  PENDING
-  SUCCESS
-  FAILED
-}
-
 enum MappingScope {
   BASELINE
   RAW_PAYLOAD
 }
 
 enum PayloadSubtype {
-  GENERAL
   COMPANY_PROFILE
   OFFICERS
   PSC
   FILINGS
-  SHAREHOLDERS
+  GENERAL
 }
 
-enum EnrichmentStatus {
-  PENDING_LEI
-  PENDING_ENRICHMENT
-  ENRICHED
-  PARTIAL
+model ClientLEGraphNode {
+   id               String       @id @default(uuid())
+   clientLEId       String
+   
+   nodeType         String       // "PERSON", "LEGAL_ENTITY", "ADDRESS"
+   personId         String?
+   legalEntityId    String?
+   addressId        String?
+
+   source           String       @default("UNKNOWN") // "COMPANIES_HOUSE", "USER", etc.
+   lastModifiedById String?      // User ID who last verified/edited this relationship
+   
+   clientLE         ClientLE     @relation(fields: [clientLEId], references: [id], onDelete: Cascade)
+   person           Person?      @relation(fields: [personId], references: [id])
+   legalEntity      LegalEntity? @relation(fields: [legalEntityId], references: [id])
+   address          Address?     @relation(fields: [addressId], references: [id])
+   lastModifiedBy   User?        @relation("GraphNodeModifiedBy", fields: [lastModifiedById], references: [id])
+   
+   createdAt        DateTime     @default(now())
+   updatedAt        DateTime     @updatedAt
+   
+   @@unique([clientLEId, personId])
+   @@unique([clientLEId, legalEntityId])
+   @@unique([clientLEId, addressId])
+   @@map("client_le_graph_nodes")
+   edgesFrom  ClientLEGraphEdge[] @relation("EdgeFrom")
+   edgesTo    ClientLEGraphEdge[] @relation("EdgeTo")
+}
+
+/// Typed relationship edges between graph nodes (PSC control, directorships, etc.)
+model ClientLEGraphEdge {
+   id               String            @id @default(uuid())
+   clientLEId       String
+
+   fromNodeId       String            // The PSC / officer entity node
+   toNodeId         String?           // Target node; NULL = the root LE itself
+
+   edgeType         String            // 'PSC_CONTROL' | 'DIRECTOR' | 'SECRETARY' | 'ADDRESS_OF'
+
+   // PSC-specific control detail
+   naturesOfControl String[]          @default([])
+   notifiedOn       DateTime?
+   ceasedOn         DateTime?
+   isActive         Boolean           @default(true)
+
+   // Provenance
+   source           String            @default("UNKNOWN")
+   lastModifiedById String?
+
+   clientLE         ClientLE          @relation(fields: [clientLEId], references: [id], onDelete: Cascade)
+   fromNode         ClientLEGraphNode @relation("EdgeFrom", fields: [fromNodeId], references: [id])
+   toNode           ClientLEGraphNode? @relation("EdgeTo", fields: [toNodeId], references: [id])
+   lastModifiedBy   User?             @relation("GraphEdgeModifiedBy", fields: [lastModifiedById], references: [id])
+
+   createdAt        DateTime          @default(now())
+   updatedAt        DateTime          @updatedAt
+
+   @@unique([fromNodeId, edgeType])   // One PSC_CONTROL edge per node
+   @@index([clientLEId])
+   @@index([fromNodeId])
+   @@map("client_le_graph_edges")
+}
+
+enum SyncStatus {
+  PENDING
+  SUCCESS
   FAILED
-  MANUAL
 }
-

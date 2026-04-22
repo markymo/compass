@@ -526,6 +526,7 @@ export async function getFullMasterData(clientLEId: string) {
     const clientLE = await prisma.clientLE.findUnique({
         where: { id: clientLEId },
         include: {
+            legalEntity: true,
             registryReferences: {
                 include: { authority: true },
                 orderBy: { updatedAt: 'desc' },
@@ -533,6 +534,7 @@ export async function getFullMasterData(clientLEId: string) {
             }
         }
     });
+
 
     if (!clientLE) return { success: false, data: {} };
 
@@ -625,8 +627,10 @@ export async function getFullMasterData(clientLEId: string) {
     // 4. Find most recent GLEIF-sourced event for this legal entity
     const gleifLastSynced: Date | null = clientLE.gleifFetchedAt;
 
-    // 5. Extract National Registry Data if available
+    // 5. Extract National Registry Data and calculate enrichment status
     let nationalRegistryData = null;
+    let computedEnrichmentStatus = 'PENDING_LEI';
+    
     if (clientLE.registryReferences && clientLE.registryReferences.length > 0) {
         const primaryRef = clientLE.registryReferences[0];
         nationalRegistryData = {
@@ -636,6 +640,16 @@ export async function getFullMasterData(clientLEId: string) {
             lastSyncSucceededAt: primaryRef.lastSyncSucceededAt,
             lastSyncStatus: primaryRef.lastSyncStatus
         };
+        
+        if (primaryRef.lastSyncStatus === 'SUCCESS') {
+            computedEnrichmentStatus = 'ENRICHED';
+        } else if (primaryRef.lastSyncStatus === 'FAILED') {
+            computedEnrichmentStatus = 'FAILED';
+        } else {
+            computedEnrichmentStatus = 'PENDING_ENRICHMENT';
+        }
+    } else if (clientLE.legalEntity?.lei) {
+        computedEnrichmentStatus = 'PENDING_ENRICHMENT';
     }
 
     return {
@@ -645,9 +659,13 @@ export async function getFullMasterData(clientLEId: string) {
         customDefinitions,
         gleifLastSynced,
         nationalRegistryData,
+        enrichmentStatus: computedEnrichmentStatus,
+        lei: clientLE.legalEntity?.lei,
+        registrationAuthorityId: clientLE.legalEntity?.registrationAuthorityId,
         masterFields: await listAllMasterFields(), // Already fetched above, but for clarity
         masterGroups: await listAllMasterGroups()
     };
+
 }
 
 import { generateLEDescription } from "./ai-actions";

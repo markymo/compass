@@ -285,7 +285,9 @@ export class KycWriteService {
                 assertedAt: new Date(),
                 // Repeating Field Contract:
                 collectionId: def.isMultiValue ? (def.categoryId || 'GENERAL') : undefined,
-                instanceId: rowId || undefined
+                instanceId: rowId || undefined,
+                // Required for Graph Edge Write-back
+                clientLEId: clientLEId || undefined
             });
         } catch (err) {
             console.error(`[KycWriteService] Failed to emit FieldClaim for field ${fieldNo}:`, err);
