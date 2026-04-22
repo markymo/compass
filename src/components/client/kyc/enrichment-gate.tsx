@@ -84,7 +84,7 @@ export function EnrichmentGate({ leId, status, lei, raId, children }: Enrichment
                             icon={<Search className="w-4 h-4" />} 
                             label="Registry Fetch" 
                             active={currentStatus === "PENDING_ENRICHMENT"} 
-                            complete={currentStatus === "ENRICHED" || currentStatus === "PARTIAL"} 
+                            complete={false} 
                         />
                         <StepItem 
                             icon={<CheckCircle2 className="w-4 h-4" />} 
