@@ -97,7 +97,7 @@ export class RegistryMappingEngine {
                         sourceObject = baseline;
                     } else if (mapping.mappingScope === MappingScope.RAW_PAYLOAD) {
                         // Find the specific payload subtype
-                        const payload = run.sourcePayloads.find((p: any) => p.payloadSubtype === mapping.payloadSubtype);
+                        const payload = run.sourcePayloads.find((p: RegistrySourcePayload) => p.payloadSubtype === mapping.payloadSubtype);
                         sourceObject = payload?.payload;
                     }
 
