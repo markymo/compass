@@ -27,7 +27,8 @@ interface KnowledgeGraphExplorerProps {
     claims: any[];
     graphEdges: any[];
     rootLegalEntityId?: string | null;
-    activeDirectorPersonIds?: string[];
+    /** Map of edgeType -> personId[] derived from active graph edges. */
+    personIdsByEdgeType?: Record<string, string[]>;
     activePSCNodeIds?: string[];
 }
 
@@ -36,7 +37,7 @@ export function KnowledgeGraphExplorer({
     nodes,
     claims,
     graphEdges,
-    activeDirectorPersonIds = [],
+    personIdsByEdgeType = {},
 }: KnowledgeGraphExplorerProps) {
     const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
     const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
@@ -81,6 +82,9 @@ export function KnowledgeGraphExplorer({
             pscEdgeMap.set(e.fromNodeId, e);
         });
 
+        // Derive director IDs from the generic edge-type map
+        const activeDirectorPersonIds = personIdsByEdgeType['DIRECTOR'] ?? [];
+
         nodes.forEach(node => {
             const addrNode = findAddressForNode(node.personId, node.legalEntityId);
             const nodeWithAddr = { ...node, addressNode: addrNode };
@@ -115,7 +119,7 @@ export function KnowledgeGraphExplorer({
         });
 
         return { officers, psc, orphanAddresses, companies, rootAddresses };
-    }, [nodes, claims, graphEdges, activeDirectorPersonIds]);
+    }, [nodes, claims, graphEdges, personIdsByEdgeType]);
 
     const selectedNode = useMemo(() => {
         const allEnrichedNodes = [

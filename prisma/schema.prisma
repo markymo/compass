@@ -710,11 +710,54 @@ model MasterFieldDefinition {
   masterDataCategory MasterDataCategory?    @relation(fields: [categoryId], references: [id])
   groupItems         MasterFieldGroupItem[]
   sourceMappings     SourceFieldMapping[]
+  graphBindings      MasterFieldGraphBinding[]
   optionSetId        String?
   optionSet          MasterDataOptionSet?   @relation(fields: [optionSetId], references: [id])
 
   @@index([isActive, order])
   @@map("master_field_definitions")
+}
+
+/// Declares that a Master Field's answer should be drawn from (and optionally written back to)
+/// the LE Graph Node database. Managed via the Admin Master Data Manager.
+/// Per architecture design: belongs on MasterFieldDefinition (Layer 1), serialised into
+/// MasterSchema snapshots at publish time.
+model MasterFieldGraphBinding {
+  id                String                @id @default(uuid())
+  fieldNo           Int
+
+  /// What kind of graph node answers this field
+  graphNodeType     String                // "PERSON" | "LEGAL_ENTITY" | "ADDRESS"
+
+  /// If set, picker promotes nodes with this edge type to the top of the list.
+  /// Does NOT exclude other node types — use filterActiveOnly to hide ceased nodes.
+  filterEdgeType    String?               // e.g. "DIRECTOR", "PSC_CONTROL", "SECRETARY"
+
+  /// Hide nodes with isActive = false in the edge (i.e. ceased officers)
+  filterActiveOnly  Boolean               @default(true)
+
+  /// If set, selecting/creating a node also upserts a ClientLEGraphEdge with this type.
+  /// Only triggers for USER_INPUT source claims — never for automated ingestion.
+  writeBackEdgeType String?               // e.g. "DIRECTOR"
+
+  /// Whether the written-back edge should be marked isActive = true
+  writeBackIsActive Boolean               @default(true)
+
+  /// UI hint: overrides the generic picker label shown to the user
+  pickerLabel       String?               // e.g. "Select a Director"
+
+  /// Whether the user can create a new graph node inline from the picker
+  allowCreate       Boolean               @default(true)
+
+  isActive          Boolean               @default(true)
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  field             MasterFieldDefinition @relation(fields: [fieldNo], references: [fieldNo], onDelete: Cascade)
+
+  @@index([fieldNo, isActive])
+  @@index([graphNodeType, writeBackEdgeType])
+  @@map("master_field_graph_bindings")
 }
 
 model MasterDataOptionSet {

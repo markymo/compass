@@ -29,8 +29,10 @@ export default async function MasterDataManagerPage() {
         rawFields = await (prisma as any).masterFieldDefinition.findMany({
             include: {
                 sourceMappings: true,
+                graphBindings: true,
                 masterDataCategory: true
             },
+
             orderBy: [
                 { order: 'asc' },
                 { fieldNo: 'asc' }

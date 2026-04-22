@@ -19,11 +19,14 @@ interface KnowledgeGraphViewProps {
     claims: any[];
     graphEdges?: any[];
     rootLegalEntityId?: string | null;
-    activeDirectorPersonIds?: string[];
+    /** Map of edgeType -> personId[] derived from active ClientLEGraphEdge records.
+     *  Replaces the old hardcoded activeDirectorPersonIds prop. */
+    personIdsByEdgeType?: Record<string, string[]>;
 }
 
 export function KnowledgeGraphView({
-    leId, leName, initialNodes, claims, graphEdges = [], rootLegalEntityId, activeDirectorPersonIds = []
+    leId, leName, initialNodes, claims, graphEdges = [], rootLegalEntityId,
+    personIdsByEdgeType = {}
 }: KnowledgeGraphViewProps) {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -48,21 +51,20 @@ export function KnowledgeGraphView({
         [graphEdges]
     );
 
+    // Derive director IDs from the generic edge-type map
+    const activeDirectorPersonIds = personIdsByEdgeType['DIRECTOR'] ?? [];
+
     const filteredNodes = useMemo(() => {
         let base = initialNodes;
 
         if (nodeFilter === 'directors') {
-            // Active directors: persons in activeDirectorPersonIds
-            // (corporate-officer LE nodes will be included once DIRECTOR edges are added)
             base = base.filter(n =>
                 n.nodeType === 'PERSON' && n.personId && activeDirectorPersonIds.includes(n.personId)
             );
         } else if (nodeFilter === 'psc') {
-            // PSC: any node (person or company) with a PSC_CONTROL edge
             base = base.filter(n => pscNodeIds.has(n.id));
         }
 
-        // Address toggle is always independent of the radio selection
         if (!showAddresses) {
             base = base.filter(n => n.nodeType !== 'ADDRESS');
         }
@@ -214,7 +216,7 @@ export function KnowledgeGraphView({
                             claims={claims}
                             graphEdges={graphEdges}
                             rootLegalEntityId={rootLegalEntityId}
-                            activeDirectorPersonIds={activeDirectorPersonIds}
+                            personIdsByEdgeType={personIdsByEdgeType}
                             activePSCNodeIds={[...activePSCNodeIds]}
                         />
                     </div>

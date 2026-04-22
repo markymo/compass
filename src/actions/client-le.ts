@@ -267,7 +267,9 @@ export async function updateStandingDataProperty(clientLEId: string, propertyKey
             ownerScopeId,
             sourceType: SourceType.USER_INPUT,
             sourceReference: "Manual UI Update",
+            clientLEId, // enables graph write-back for fields with a MasterFieldGraphBinding
         };
+
 
         // Assign value to the correct slot
         switch (def.appDataType) {

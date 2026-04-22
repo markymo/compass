@@ -52,7 +52,7 @@ export default async function KnowledgeGraphPage({ params }: GraphPageProps) {
         }
     });
 
-    // Fetch graph edges (PSC control relationships etc.)
+    // Fetch graph edges (director, PSC, secretary relationships etc.)
     const graphEdges = await prisma.clientLEGraphEdge.findMany({
         where: { clientLEId: le.id },
         select: {
@@ -68,19 +68,26 @@ export default async function KnowledgeGraphPage({ params }: GraphPageProps) {
         }
     });
 
-    // Find persons mapped to Field 63 (Active Directors) for the Active Directors filter
-    const activeDirectorClaims = await prisma.fieldClaim.findMany({
-        where: {
-            subjectLeId: le.legalEntityId,
-            fieldNo: 63,
-            valuePersonId: { not: null }
-        },
-        select: { valuePersonId: true },
-        distinct: ['valuePersonId']
-    });
-    const activeDirectorPersonIds = activeDirectorClaims
-        .map((c: any) => c.valuePersonId)
-        .filter(Boolean) as string[];
+    // ── Build personIdsByEdgeType from graph edges ─────────────────────────
+    // Replaces the hardcoded fieldNo:63 / FieldClaim query.
+    // Groups *active* edges by edgeType and resolves the personId for each fromNode.
+    // RA-agnostic: when Phase 4 write-back creates a DIRECTOR edge, it automatically
+    // appears here — zero code changes required.
+    const nodeIdToPersonId = new Map<string, string>();
+    for (const node of le.graphNodes) {
+        if (node.personId) nodeIdToPersonId.set(node.id, node.personId as string);
+    }
+
+    const personIdsByEdgeType: Record<string, string[]> = {};
+    for (const edge of graphEdges) {
+        if (!edge.isActive) continue;
+        const personId = nodeIdToPersonId.get(edge.fromNodeId);
+        if (!personId) continue;
+        if (!personIdsByEdgeType[edge.edgeType]) personIdsByEdgeType[edge.edgeType] = [];
+        if (!personIdsByEdgeType[edge.edgeType].includes(personId)) {
+            personIdsByEdgeType[edge.edgeType].push(personId);
+        }
+    }
 
     return (
         <div className="space-y-6">
@@ -97,7 +104,7 @@ export default async function KnowledgeGraphPage({ params }: GraphPageProps) {
                 claims={claims}
                 graphEdges={graphEdges}
                 rootLegalEntityId={le.legalEntityId}
-                activeDirectorPersonIds={activeDirectorPersonIds}
+                personIdsByEdgeType={personIdsByEdgeType}
             />
         </div>
     );
