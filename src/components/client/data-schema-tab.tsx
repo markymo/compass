@@ -587,6 +587,11 @@ export function formatGraphValue(val: any): string {
             const name = parts.join(' ');
             return val.primaryNationality ? `${name} (${val.primaryNationality})` : name;
         }
+        if (val.name) return val.name;
+        if (val.legalName) return val.legalName;
+        if (val.entityName) return val.entityName;
+        if (val.fullName) return val.fullName;
+        
         return JSON.stringify(val);
     }
     if (typeof val === 'string' && val.match(/^\d{4}-\d{2}-\d{2}T/)) {

@@ -8,6 +8,8 @@ import { Network, Table as TableIcon, Users, Building2, MapPin, ShieldCheck, Sta
 import { KnowledgeGraphTable } from "./knowledge-graph-table";
 import { EcosystemSpiderweb } from "./ecosystem-spiderweb";
 import { KnowledgeGraphExplorer } from "./knowledge-graph-explorer";
+import { GraphNodePanel } from "./graph-node-panel";
+import { useState } from "react";
 
 type ViewMode  = 'grid' | 'spiderweb' | 'explorer';
 type NodeFilter = 'all' | 'directors' | 'psc';
@@ -34,6 +36,8 @@ export function KnowledgeGraphView({
     const viewMode     = (searchParams.get('view')   ?? 'grid') as ViewMode;
     const nodeFilter   = (searchParams.get('filter') ?? 'all')  as NodeFilter;
     const showAddresses = (searchParams.get('addr')  ?? '1') === '1';
+
+    const [selectedNode, setSelectedNode] = useState<any | null>(null);
 
     const setParam = (key: string, value: string) => {
         const params = new URLSearchParams(searchParams.toString());
@@ -191,6 +195,7 @@ export function KnowledgeGraphView({
                             activeDirectorPersonIds={activeDirectorPersonIds}
                             activePSCNodeIds={[...activePSCNodeIds]}
                             activeOnly={nodeFilter === 'directors'}
+                            onNodeClick={setSelectedNode}
                         />
                     </div>
                 )}
@@ -222,6 +227,17 @@ export function KnowledgeGraphView({
                     </div>
                 )}
             </CardContent>
+
+            <GraphNodePanel
+                open={!!selectedNode}
+                onOpenChange={(open) => !open && setSelectedNode(null)}
+                node={selectedNode}
+                clientLEId={leId}
+                onNodeUpdated={() => {
+                    // Triggers a router refresh to fetch new data from the server
+                    router.refresh();
+                }}
+            />
         </Card>
     );
 }

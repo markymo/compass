@@ -10,6 +10,7 @@ interface KnowledgeGraphTableProps {
     activePSCNodeIds?: string[];
     showTypes?: string[];
     activeOnly?: boolean;
+    onNodeClick?: (node: any) => void;
 }
 
 const NODE_STYLE: Record<string, { icon: string; badge: string; label: string }> = {
@@ -26,7 +27,7 @@ const SOURCE_LABEL: Record<string, { label: string; color: string }> = {
     UNKNOWN:                { label: 'Unknown',      color: 'text-slate-400 bg-slate-50 border-slate-100' },
 };
 
-export function KnowledgeGraphTable({ nodes, activeDirectorPersonIds = [], activePSCNodeIds = [], showTypes, activeOnly }: KnowledgeGraphTableProps) {
+export function KnowledgeGraphTable({ nodes, activeDirectorPersonIds = [], activePSCNodeIds = [], showTypes, activeOnly, onNodeClick }: KnowledgeGraphTableProps) {
     if (nodes.length === 0) {
         return (
             <div className="rounded-md border border-dashed border-slate-200 p-16 text-center">
@@ -71,6 +72,7 @@ export function KnowledgeGraphTable({ nodes, activeDirectorPersonIds = [], activ
                             <TableRow
                                 key={node.id}
                                 className="hover:bg-indigo-50/30 cursor-pointer transition-colors group"
+                                onClick={() => onNodeClick && onNodeClick(node)}
                             >
                                 <TableCell>
                                     <div className="flex items-center gap-1.5">

@@ -232,9 +232,9 @@ export function GraphNodePicker({
                     type="button"
                     disabled={disabled}
                     className={cn(
-                        "w-full flex items-center justify-between gap-2 rounded-md border px-3 py-2",
+                        "w-full flex items-center justify-between gap-2 rounded-md border px-3 py-1.5",
                         "bg-white dark:bg-slate-950 text-left text-sm transition-colors",
-                        "border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700",
+                        "border-slate-400 dark:border-slate-700 hover:border-slate-500 dark:hover:border-slate-600",
                         "focus:outline-none focus:ring-2 focus:ring-indigo-500/30",
                         disabled && "opacity-50 cursor-not-allowed",
                         className
@@ -271,11 +271,12 @@ export function GraphNodePicker({
             </PopoverTrigger>
 
             <PopoverContent
-                className="w-[480px] p-0 shadow-lg border border-slate-200 dark:border-slate-800"
+                className="w-[480px] p-0 shadow-xl border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-950 z-[100]"
                 align="start"
                 sideOffset={4}
             >
-                {/* Search header */}
+                <div className="flex flex-col bg-white dark:bg-slate-950 rounded-md overflow-hidden">
+                    {/* Search header */}
                 <div className="flex items-center gap-2 px-3 py-2 border-b border-slate-100 dark:border-slate-800">
                     <Search className="h-4 w-4 text-slate-400 flex-none" />
                     <input
@@ -371,6 +372,7 @@ export function GraphNodePicker({
                             Create new {typeConfig.label.toLowerCase()}
                         </Button>
                     )}
+                </div>
                 </div>
             </PopoverContent>
         </Popover>

@@ -62,6 +62,13 @@ export async function updateFieldManually(
             case 'DATETIME': claimInput.valueDate = new Date(value); break;
             case 'PERSON_REF': claimInput.valuePersonId = value; break;
             case 'ORG_REF': claimInput.valueLeId = value; break;
+            case 'ADDRESS_REF': claimInput.valueAddressId = value; break;
+            case 'PARTY_REF': 
+                // In Phase 2, we assume PARTY_REF values are Person IDs unless otherwise specified.
+                // If it's a UUID, we'll try to find if it's a person or org, but for now 
+                // we default to valuePersonId for standard person-based parties.
+                claimInput.valuePersonId = value; 
+                break;
             case 'DOCUMENT_REF': claimInput.valueText = value; break; // Manual edits store as text; valueDocId requires valid FK
             case 'JSONB': claimInput.valueJson = value; break;
         }
@@ -292,7 +299,45 @@ export async function removeMultiValueEntry(
         const def = await getMasterFieldDefinition(fieldNo);
         if (!def.isMultiValue) return { success: false, message: "Field is not multi-value" };
 
-        // Look up the claim to get collectionId and instanceId
+        // 1. Check for Graph Binding
+        const bindings = await prisma.masterFieldGraphBinding.findMany({
+            where: { fieldNo, isActive: true }
+        });
+        const graphBinding = bindings.find((b: any) => b.writeBackEdgeType);
+
+        // 2. Resolve subject/scope
+        const clientLE = await prisma.clientLE.findUnique({ where: { id: clientLEId } });
+        const subjectLeId = clientLE?.legalEntityId;
+        const ownerScopeId = await KycStateService.resolveScopeId(clientLEId);
+
+        if (!subjectLeId) {
+            return { success: false, message: "Could not resolve subject." };
+        }
+
+        // 3. Handle Graph Edge Deactivation
+        if (graphBinding) {
+            const edge = await prisma.clientLEGraphEdge.findUnique({ where: { id: claimId } });
+            if (edge) {
+                await prisma.clientLEGraphEdge.update({
+                    where: { id: claimId },
+                    data: { isActive: false }
+                });
+
+                // Also emit tombstone for Master Data consistency
+                await FieldClaimService.emitTombstone(
+                    { subjectLeId },
+                    fieldNo,
+                    def.categoryId || 'GENERAL',
+                    claimId, // Use edge ID as instanceId for graph-bound fields
+                    ownerScopeId
+                );
+
+                revalidatePath(`/app/le/${clientLEId}`);
+                return { success: true };
+            }
+        }
+
+        // 4. Standard path: Look up the claim to get collectionId and instanceId
         const claim = await prisma.fieldClaim.findUnique({
             where: { id: claimId }
         });
@@ -305,23 +350,17 @@ export async function removeMultiValueEntry(
             return { success: false, message: "Cannot remove: claim has no instanceId" };
         }
 
-        // Resolve subject
-        const clientLE = await prisma.clientLE.findUnique({ where: { id: clientLEId } });
-        const subjectLeId = clientLE?.legalEntityId;
-        const ownerScopeId = await KycStateService.resolveScopeId(clientLEId);
-
-        if (!subjectLeId) {
-            return { success: false, message: "Could not resolve subject." };
-        }
-
         // Emit tombstone
-        await FieldClaimService.emitTombstone(
+        const tombstone = await FieldClaimService.emitTombstone(
             { subjectLeId },
             fieldNo,
             claim.collectionId || def.categoryId || 'GENERAL',
             claim.instanceId,
             ownerScopeId
         );
+
+        // Auto-verify user deletions for immediate effect
+        await FieldClaimService.verifyClaim(tombstone.id, userId);
 
         revalidatePath(`/app/le/${clientLEId}`);
         return { success: true };

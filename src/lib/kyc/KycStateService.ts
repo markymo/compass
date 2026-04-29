@@ -136,6 +136,11 @@ export class KycStateService {
         const sortAndPick = (list: FieldClaim[]) => {
             if (list.length === 0) return null;
             return list.sort((a: any, b: any) => {
+                // Tombstone priority: a deletion should always win over a value within the same tier
+                const isTombA = this.isTombstone(a);
+                const isTombB = this.isTombstone(b);
+                if (isTombA !== isTombB) return isTombA ? -1 : 1;
+
                 // Source priority (asc because 1 is higher)
                 const pA = getSourcePriority(a.sourceType);
                 const pB = getSourcePriority(b.sourceType);

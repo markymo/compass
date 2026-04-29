@@ -114,7 +114,7 @@ model Membership {
   permissions    Json?
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
-  clientLE       ClientLE?     @relation(fields: [clientLEId], references: [id])
+  clientLE       ClientLE?     @relation(fields: [clientLEId], references: [id], onDelete: Cascade)
   organization   Organization? @relation(fields: [organizationId], references: [id])
   user           User          @relation(fields: [userId], references: [id])
 
@@ -227,7 +227,7 @@ model ClientLERecord {
   data           Json
   status         RecordStatus
   updatedAt      DateTime     @updatedAt
-  clientLE       ClientLE     @relation(fields: [clientLEId], references: [id])
+  clientLE       ClientLE     @relation(fields: [clientLEId], references: [id], onDelete: Cascade)
   masterSchema   MasterSchema @relation(fields: [masterSchemaId], references: [id])
 }
 
@@ -239,7 +239,7 @@ model FIEngagement {
   isDeleted              Boolean              @default(false)
   dueDate                DateTime?
   activities             EngagementActivity[]
-  clientLE               ClientLE             @relation(fields: [clientLEId], references: [id])
+  clientLE               ClientLE             @relation(fields: [clientLEId], references: [id], onDelete: Cascade)
   org                    Organization         @relation(fields: [fiOrgId], references: [id])
   invitations            Invitation[]
   queries                Query[]
@@ -278,7 +278,7 @@ model Document {
   prefilledForQuestionId String?
   questionId             String?
   uploadedById           String?
-  clientLE               ClientLE       @relation(fields: [clientLEId], references: [id])
+  clientLE               ClientLE       @relation(fields: [clientLEId], references: [id], onDelete: Cascade)
   prefilledForQuestion   Question?      @relation("PrefilledQuestionDocuments", fields: [prefilledForQuestionId], references: [id])
   question               Question?      @relation("QuestionDocuments", fields: [questionId], references: [id])
   uploadedBy             User?          @relation("UploadedDocuments", fields: [uploadedById], references: [id])
@@ -319,7 +319,7 @@ model Questionnaire {
   fileUrl          String?
   isTemplate       Boolean                @default(false)
   questions        Question[]
-  fiEngagement     FIEngagement?          @relation("QuestionnaireInstance", fields: [fiEngagementId], references: [id])
+  fiEngagement     FIEngagement?          @relation("QuestionnaireInstance", fields: [fiEngagementId], references: [id], onDelete: Cascade)
   fiOrg            Organization           @relation(fields: [fiOrgId], references: [id])
   ownerOrg         Organization?          @relation("OwnedQuestionnaires", fields: [ownerOrgId], references: [id])
   versions         QuestionnaireVersion[]
@@ -505,18 +505,6 @@ model Invitation {
   @@index([sentToEmail])
 }
 
-model AuditLog {
-  id        String   @id @default(uuid())
-  userId    String
-  action    String
-  entityId  String?
-  details   Json?
-  createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id])
-
-  @@index([userId])
-  @@index([entityId])
-}
 
 model LEActivity {
   id        String   @id @default(uuid())
@@ -1141,3 +1129,28 @@ enum EnrichmentStatus {
   MANUAL
 }
 
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  END
+}
+
+model AuditLog {
+  id            String      @id @default(uuid())
+  entityType    String
+  entityId      String
+  action        AuditAction
+  changedFields String[]
+  oldData       Json?
+  newData       Json?
+  actorUserId   String?
+  user          User?       @relation(fields: [actorUserId], references: [id])
+  sourceType    String      // UI, IMPORT, SYSTEM
+  correlationId String?
+  createdAt     DateTime    @default(now())
+
+  @@index([entityType, entityId, createdAt(sort: Desc)])
+  @@index([correlationId])
+  @@index([createdAt])
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,10 @@ import { getMasterFieldDocuments, setMasterFieldAssignment } from "@/actions/sta
 import { renameCustomField } from "@/actions/master-data-governance";
 import { saveMasterFieldNote } from "@/actions/master-data-notes";
 import { getLETeamMembers } from "@/actions/kanban-actions";
+import { getGraphBindingsForField } from "@/actions/graph-bindings";
+import { GraphNodePicker, GraphNodePickerSelection } from "@/components/client/graph/graph-node-picker";
+import { GraphNodePickerDialog } from "@/components/client/graph/graph-node-picker-dialog";
+import { NodeCreateDialog } from "@/components/client/graph/node-create-dialog";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import {
@@ -62,6 +66,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
     const [deletingRowId, setDeletingRowId] = useState<string | null>(null);
     const [newEntryValue, setNewEntryValue] = useState("");
     const [isAddingSaving, setIsAddingSaving] = useState(false);
+    const [addDialogOpen, setAddDialogOpen] = useState(false);
     const newEntryInputRef = useRef<HTMLInputElement>(null);
 
     // Date & value formatting helpers
@@ -115,13 +120,42 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
     // Promote State
     const [isPromoting, setIsPromoting] = useState<string | null>(null);
 
+    // Graph Binding State
+    const [graphBindings, setGraphBindings] = useState<any[]>([]);
+    const [isLoadingBindings, setIsLoadingBindings] = useState(false);
+    
+    // Node Creation/Editing State
+    const [createDialogOpen, setCreateDialogOpen] = useState(false);
+    const [createDialogType, setCreateDialogType] = useState<"PERSON" | "LEGAL_ENTITY" | "ADDRESS">("PERSON");
+    const [initialNodeData, setInitialNodeData] = useState<any>(null);
+    const [editingEntityId, setEditingEntityId] = useState<string | null>(null);
+
     const fieldKey = String(fieldNo || customFieldId || "");
+
+    const currentSelectionIds = useMemo(() => {
+        if (!data) return [];
+        if (data.isRepeating) {
+            return (data.rows || []).map((r: any) => {
+                const val = r.value;
+                if (typeof val === 'object' && val) return val.id || val.nodeId || val.personId || val.addressId || val.legalEntityId;
+                return val;
+            }).filter(Boolean);
+        } else {
+            const val = data.current?.value;
+            if (typeof val === 'object' && val) {
+                const id = val.id || val.nodeId || val.personId || val.addressId || val.legalEntityId;
+                return id ? [id] : [];
+            }
+            return val ? [val] : [];
+        }
+    }, [data]);
 
     useEffect(() => {
         if (open && (fieldNo || customFieldId)) {
             loadData();
             loadEvidence();
             loadTeam();
+            if (fieldNo) loadGraphBindings();
         }
     }, [open, fieldNo, customFieldId, legalEntityId]);
 
@@ -134,6 +168,8 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
         setRelatedValues({});
         setIsSaving(false);
         setNoteText("");
+        setInitialNodeData(null);
+        setEditingEntityId(null);
     }, [fieldNo, customFieldId]);
 
     const loadTeam = async () => {
@@ -154,6 +190,21 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
             toast.error("Failed to load field details");
         } finally {
             setLoading(false);
+        }
+    };
+
+    const loadGraphBindings = async () => {
+        if (!fieldNo) return;
+        setIsLoadingBindings(true);
+        try {
+            const res = await getGraphBindingsForField(fieldNo);
+            if (res.success) {
+                setGraphBindings(res.bindings || []);
+            }
+        } catch (e) {
+            console.error("Failed to load graph bindings:", e);
+        } finally {
+            setIsLoadingBindings(false);
         }
     };
 
@@ -304,6 +355,87 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
         } finally {
             setIsAddingSaving(false);
         }
+    };
+
+    const handleGraphNodeSelect = async (item: GraphNodePickerSelection, overrideInstanceId?: string) => {
+        const payloadValue =
+            item.nodeType === "PERSON"
+                ? item.personId
+                : item.nodeType === "LEGAL_ENTITY"
+                    ? item.legalEntityId
+                    : item.addressId;
+
+        if (!payloadValue) return;
+
+        setIsAddingSaving(true);
+        try {
+            let res;
+            if (overrideInstanceId) {
+                // Updating a specific row in a multi-value field
+                res = await updateFieldManually(legalEntityId, fieldNo, payloadValue, `Updated graph linkage: ${item.displayLabel}`, overrideInstanceId, 'CLIENT_LE');
+            } else if (data?.isRepeating) {
+                // Adding a new row
+                res = await addMultiValueEntry(legalEntityId, fieldNo, payloadValue, `Linked to graph node: ${item.displayLabel}`);
+            } else {
+                // Updating a single-value field
+                res = await updateFieldManually(legalEntityId, fieldNo, payloadValue, `Linked to graph node: ${item.displayLabel}`, undefined, 'CLIENT_LE');
+            }
+
+            if (res.success) {
+                toast.success(overrideInstanceId ? "Row updated" : (data?.isRepeating ? "Value added" : "Value updated"));
+                const refreshed = await getFieldDetail(legalEntityId, fieldNo, 'CLIENT_LE', customFieldId);
+                setData(refreshed);
+                setEditingRowId(null);
+                if (onUpdate && refreshed?.current) {
+                    onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
+                }
+            } else {
+                toast.error((res as any).message || (res as any).error || "Failed to update field");
+            }
+        } catch (e) {
+            console.error("Graph node selection error:", e);
+            toast.error("An error occurred");
+        } finally {
+            setIsAddingSaving(false);
+        }
+    };
+
+    const handleCreateNewNode = (type: "PERSON" | "LEGAL_ENTITY" | "ADDRESS") => {
+        setInitialNodeData(null);
+        setEditingEntityId(null);
+        setCreateDialogType(type);
+        setCreateDialogOpen(true);
+    };
+
+    const handleEditNode = (row: any) => {
+        const type = graphBindings.find(b => b.isActive)?.graphNodeType || (isPartyRef ? "PERSON" : "ADDRESS");
+        setCreateDialogType(type);
+        setInitialNodeData(row.value);
+        setEditingEntityId(row.value.id);
+        setCreateDialogOpen(true);
+    };
+
+    const handleCreateSuccess = async (nodeId: string, entityId: string, displayLabel: string) => {
+        if (editingEntityId) {
+            // This was an update to an existing entity's data
+            loadData();
+            setEditingEntityId(null);
+            setInitialNodeData(null);
+            return;
+        }
+
+        // Automatically select the newly created node
+        await handleGraphNodeSelect({
+            nodeId,
+            nodeType: createDialogType,
+            personId: createDialogType === "PERSON" ? entityId : null,
+            legalEntityId: createDialogType === "LEGAL_ENTITY" ? entityId : null,
+            addressId: createDialogType === "ADDRESS" ? entityId : null,
+            displayLabel
+        });
+        
+        // Refresh bindings just in case
+        loadGraphBindings();
     };
 
     const handleRemoveEntry = async (claimId: string) => {
@@ -655,7 +787,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                     )}
                 </SheetHeader>
 
-                <div className="flex-1 overflow-hidden flex flex-col pt-3 gap-2">
+                <div className="flex-1 overflow-y-auto pr-6 -mr-6 pt-3 space-y-6">
 
                     {/* ─── Current Value Card ─── */}
                     <div className="rounded-xl border border-slate-200 overflow-hidden shrink-0">
@@ -689,7 +821,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                             {deletingRowId === row.id ? (
                                                                 <div className="flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg bg-red-50 border border-red-200 animate-in fade-in duration-150">
                                                                     <span className="text-xs text-red-700 font-medium truncate flex-1">
-                                                                        Remove "{String(row.value)}"?
+                                                                        Remove "{renderRowValue(row.value)}"?
                                                                     </span>
                                                                     <div className="flex items-center gap-1.5 shrink-0">
                                                                         <Button
@@ -715,8 +847,20 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                 /* Inline edit mode */
                                                                 <div className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-indigo-50 border border-indigo-200 animate-in fade-in duration-150">
                                                                     {isObjectRef ? (
-                                                                        <div className="h-8 text-sm flex-1 flex items-center px-3 bg-slate-100 text-slate-500 rounded border border-slate-200 italic">
-                                                                            Please use robust Node Selector to edit {isPartyRef ? 'Party' : 'Address'} objects.
+                                                                        <div className="flex-1">
+                                                                            <GraphNodePicker
+                                                                                clientLEId={legalEntityId}
+                                                                                graphNodeType={graphBindings.find(b => b.isActive)?.graphNodeType || (isPartyRef ? "PERSON" : "ADDRESS")}
+                                                                                filterEdgeType={graphBindings.find(b => b.isActive)?.filterEdgeType}
+                                                                                allowCreate={graphBindings.find(b => b.isActive)?.allowCreate ?? true}
+                                                                                pickerLabel={graphBindings.find(b => b.isActive)?.pickerLabel || (isPartyRef ? "Select Party" : "Select Address")}
+                                                                                isMultiValue={false}
+                                                                                selectedNodeIds={currentSelectionIds}
+                                                                                disabled={isAddingSaving || isLoadingBindings}
+                                                                                className="border-slate-400 bg-white"
+                                                                                onSelect={(item) => handleGraphNodeSelect(item, row.instanceId)}
+                                                                                onCreateNew={() => handleCreateNewNode(graphBindings.find(b => b.isActive)?.graphNodeType || (isPartyRef ? "PERSON" : "ADDRESS"))}
+                                                                            />
                                                                         </div>
                                                                     ) : (
                                                                         <Input
@@ -767,12 +911,16 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                         </div>
                                                                     </div>
                                                                     {!isLocked && (
-                                                                        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                                                                        <div className="flex items-center gap-0.5 shrink-0">
                                                                             <button
                                                                                 className="p-1.5 rounded text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
                                                                                 onClick={() => {
-                                                                                    setEditingRowId(row.id);
-                                                                                    setEditingRowValue(String(row.value));
+                                                                                    if (isObjectRef) {
+                                                                                        handleEditNode(row);
+                                                                                    } else {
+                                                                                        setEditingRowId(row.id);
+                                                                                        setEditingRowValue(String(row.value));
+                                                                                    }
                                                                                 }}
                                                                                 title="Edit value"
                                                                             >
@@ -801,38 +949,43 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
 
                                             {/* Persistent add input */}
                                             {!isLocked && (
-                                                <div className="flex items-center gap-1.5 pt-2 mt-1 border-t border-slate-100">
-                                                    <div className="relative flex-1">
-                                                        <Plus className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-                                                        {isObjectRef ? (
-                                                            <div className="h-8 text-sm pl-8 flex items-center bg-slate-100 text-slate-500 rounded border border-slate-200 italic cursor-not-allowed">
-                                                                [ Structural Entity Assignment Node required here ]
-                                                            </div>
-                                                        ) : (
-                                                            <Input
-                                                                ref={newEntryInputRef}
-                                                                type={isDateType ? 'date' : 'text'}
-                                                                value={isDateType ? formatDateForInput(newEntryValue) : newEntryValue}
-                                                                onChange={(e) => setNewEntryValue(isDateType ? parseDateFromInput(e.target.value) : e.target.value)}
-                                                                onKeyDown={(e) => {
-                                                                    if (e.key === 'Enter' && newEntryValue.trim()) handleAddNewEntry();
-                                                                }}
-                                                                placeholder={isDateType ? '' : 'Add new value...'}
-                                                                className="h-8 text-sm pl-8 bg-slate-50/50 border-slate-200 focus:bg-white focus:border-indigo-300"
-                                                                disabled={isAddingSaving}
-                                                            />
-                                                        )}
-                                                    </div>
-                                                    {!isObjectRef && (
+                                                <div className="pt-3 mt-2 border-t border-slate-100">
+                                                    {isObjectRef ? (
                                                         <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            className="h-8 px-3 text-xs text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 shrink-0"
-                                                            onClick={handleAddNewEntry}
-                                                            disabled={isAddingSaving || !newEntryValue.trim()}
+                                                            variant="outline"
+                                                            onClick={() => setAddDialogOpen(true)}
+                                                            className="w-full justify-center bg-indigo-50/50 hover:bg-indigo-50 border-indigo-200 text-indigo-700 border-dashed"
                                                         >
-                                                            {isAddingSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Add'}
+                                                            <Plus className="h-4 w-4 mr-2" />
+                                                            Add {graphBindings.find(b => b.isActive)?.pickerLabel?.replace('Select ', '') || (isPartyRef ? "Party" : "Address")}
                                                         </Button>
+                                                    ) : (
+                                                        <div className="flex items-center gap-1.5">
+                                                            <div className="relative flex-1">
+                                                                <Plus className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                                                                <Input
+                                                                    ref={newEntryInputRef}
+                                                                    type={isDateType ? 'date' : 'text'}
+                                                                    value={isDateType ? formatDateForInput(newEntryValue) : newEntryValue}
+                                                                    onChange={(e) => setNewEntryValue(isDateType ? parseDateFromInput(e.target.value) : e.target.value)}
+                                                                    onKeyDown={(e) => {
+                                                                        if (e.key === 'Enter' && newEntryValue.trim()) handleAddNewEntry();
+                                                                    }}
+                                                                    placeholder={isDateType ? '' : 'Add new value...'}
+                                                                    className="h-8 text-sm pl-8 bg-slate-50/50 border-slate-200 focus:bg-white focus:border-indigo-300"
+                                                                    disabled={isAddingSaving}
+                                                                />
+                                                            </div>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="h-8 px-3 text-xs text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 shrink-0"
+                                                                onClick={handleAddNewEntry}
+                                                                disabled={isAddingSaving || !newEntryValue.trim()}
+                                                            >
+                                                                {isAddingSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Add'}
+                                                            </Button>
+                                                        </div>
                                                     )}
                                                 </div>
                                             )}
@@ -888,9 +1041,20 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                 {!isLocked ? (
                                                                     <>
                                                                         {isObjectRef ? (
-                                                                            <div className="bg-slate-100 text-slate-500 rounded border border-slate-200 italic p-2 text-sm">
-                                                                                Please use robust Node Selector to provide a {isPartyRef ? 'Party' : 'Address'}.
-                                                                            </div>
+                                                                            <GraphNodePicker
+                                                                                clientLEId={legalEntityId}
+                                                                                graphNodeType={graphBindings.find(b => b.isActive)?.graphNodeType || (isPartyRef ? "PERSON" : "ADDRESS")}
+                                                                                filterEdgeType={graphBindings.find(b => b.isActive)?.filterEdgeType}
+                                                                                filterActiveOnly={graphBindings.find(b => b.isActive)?.filterActiveOnly ?? true}
+                                                                                allowCreate={graphBindings.find(b => b.isActive)?.allowCreate ?? true}
+                                                                                pickerLabel={graphBindings.find(b => b.isActive)?.pickerLabel || (isPartyRef ? "Select Party" : "Select Address")}
+                                                                                isMultiValue={false}
+                                                                                selectedNodeIds={currentSelectionIds}
+                                                                                disabled={isAddingSaving || isLoadingBindings}
+                                                                                className="border-slate-300 bg-slate-50/50"
+                                                                                onSelect={handleGraphNodeSelect}
+                                                                                onCreateNew={() => handleCreateNewNode(graphBindings.find(b => b.isActive)?.graphNodeType || (isPartyRef ? "PERSON" : "ADDRESS"))}
+                                                                            />
                                                                         ) : (
                                                                             <>
                                                                                 <Input
@@ -1144,14 +1308,14 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                         </div>
                     </div> {/* Closes the rounded-xl "Current Value Card" div */}
 
-                    <Tabs defaultValue="history" className="flex-1 flex flex-col overflow-hidden min-h-0">
+                    <Tabs defaultValue="history" className="w-full">
                         <TabsList className="grid w-full grid-cols-2">
                             <TabsTrigger value="history">History Log</TabsTrigger>
                             <TabsTrigger value="note">Notes</TabsTrigger>
                         </TabsList>
 
                         {/* ─── Notes Tab ─── */}
-                        <TabsContent value="note" className="flex-1 mt-4">
+                        <TabsContent value="note" className="mt-4">
                             <div className="flex flex-col h-full rounded-md border p-4 bg-slate-50/50">
                                 <label className="text-xs font-semibold text-slate-600 mb-2 block uppercase tracking-tight">
                                     Field Note (Internal Only)
@@ -1179,7 +1343,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                         </TabsContent>
 
                         {/* ─── History Tab ─── */}
-                        <TabsContent value="history" className="flex-1 mt-4">
+                        <TabsContent value="history" className="mt-4">
                             <ScrollArea className="h-[300px] w-full rounded-md border p-4">
                                 <div className="relative border-l border-slate-200 ml-3 space-y-6">
                                     {data?.history && data.history.length > 0 ? (
@@ -1193,7 +1357,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                         <span className="font-medium text-slate-700">{item.actorId || "System"}</span>
                                                     </div>
                                                     <div className="text-sm font-medium">
-                                                        Changed value to <span className="font-mono bg-slate-100 px-1 rounded">{String(item.newValue)}</span>
+                                                        Changed value to <span className="font-mono bg-slate-100 px-1 rounded">{renderRowValue(item.newValue)}</span>
                                                     </div>
                                                     <div className="text-xs text-slate-500 flex items-center gap-1">
                                                         via <SourceBadge source={item.source} sourceReference={item.actor} />
@@ -1252,7 +1416,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                         )}
                                                     </div>
                                                     <div className="text-sm font-semibold text-slate-900 break-all mb-1">
-                                                        {String(candidate.value)}
+                                                        {renderRowValue(candidate.value)}
                                                     </div>
                                                     <div className="flex items-center gap-3 text-[10px] text-slate-400">
                                                         <span className="flex items-center gap-1">
@@ -1295,7 +1459,38 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                     </div>
                 </div>
             </SheetContent>
-        </Sheet >
+            <NodeCreateDialog
+                open={createDialogOpen}
+                onOpenChange={setCreateDialogOpen}
+                clientLEId={legalEntityId}
+                nodeType={createDialogType}
+                initialData={initialNodeData}
+                entityId={editingEntityId}
+                onSuccess={handleCreateSuccess}
+            />
+
+            <GraphNodePickerDialog
+                open={addDialogOpen}
+                onOpenChange={setAddDialogOpen}
+                clientLEId={legalEntityId}
+                graphNodeType={graphBindings.find(b => b.isActive)?.graphNodeType || (isPartyRef ? "PERSON" : "ADDRESS")}
+                filterEdgeType={graphBindings.find(b => b.isActive)?.filterEdgeType}
+                filterActiveOnly={graphBindings.find(b => b.isActive)?.filterActiveOnly ?? true}
+                allowCreate={graphBindings.find(b => b.isActive)?.allowCreate ?? true}
+                pickerLabel={graphBindings.find(b => b.isActive)?.pickerLabel || (isPartyRef ? "Select Party" : "Select Address")}
+                isMultiValue={true}
+                selectedNodeIds={currentSelectionIds}
+                disabled={isAddingSaving || isLoadingBindings}
+                onSelect={(item) => {
+                    handleGraphNodeSelect(item);
+                    setAddDialogOpen(false);
+                }}
+                onCreateNew={() => {
+                    setAddDialogOpen(false);
+                    handleCreateNewNode(graphBindings.find(b => b.isActive)?.graphNodeType || (isPartyRef ? "PERSON" : "ADDRESS"));
+                }}
+            />
+        </Sheet>
     );
 }
 

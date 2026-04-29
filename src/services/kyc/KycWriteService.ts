@@ -294,6 +294,57 @@ export class KycWriteService {
             // Don't fail the whole update if claim emission fails, but log it
         }
 
+        // 6. Graph Edge Write-back
+        if (clientLEId) {
+            try {
+                const bindings = await prisma.masterFieldGraphBinding.findMany({
+                    where: { fieldNo, isActive: true }
+                });
+                const writeBinding = bindings.find((b: any) => b.writeBackEdgeType);
+
+                if (writeBinding) {
+                    // Find the node we ensured earlier
+                    const nodeWhere = { 
+                        clientLEId, 
+                        personId: valuePersonId || undefined, 
+                        legalEntityId: valueLeId || undefined, 
+                        addressId: valueAddressId || undefined 
+                    };
+                    
+                    // Only proceed if we actually have a valid node reference
+                    if (valuePersonId || valueLeId || valueAddressId) {
+                        const node = await prisma.clientLEGraphNode.findFirst({ where: nodeWhere as any });
+
+                        if (node) {
+                            await prisma.clientLEGraphEdge.upsert({
+                                where: { 
+                                    fromNodeId_edgeType: { 
+                                        fromNodeId: node.id, 
+                                        edgeType: writeBinding.writeBackEdgeType! 
+                                    } 
+                                },
+                                update: { 
+                                    isActive: true, 
+                                    source: (provenance.source as any) || 'UNKNOWN',
+                                    updatedAt: new Date()
+                                },
+                                create: {
+                                    clientLEId,
+                                    fromNodeId: node.id,
+                                    edgeType: writeBinding.writeBackEdgeType!,
+                                    isActive: true,
+                                    source: (provenance.source as any) || 'UNKNOWN'
+                                }
+                            });
+                            console.log(`[KycWriteService] Graph edge write-back successful for field ${fieldNo} (${writeBinding.writeBackEdgeType})`);
+                        }
+                    }
+                }
+            } catch (graphErr) {
+                console.error(`[KycWriteService] Graph edge write-back failed for field ${fieldNo}:`, graphErr);
+            }
+        }
+
         // 5. Propagate to Questions
         // We await to ensure consistency for the user's immediate view.
         await this.propagateToQuestions(
