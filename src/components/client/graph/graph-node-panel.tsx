@@ -13,10 +13,12 @@ interface GraphNodePanelProps {
     onOpenChange: (open: boolean) => void;
     node: any; // The selected ClientLEGraphNode with populated person/legalEntity/address
     clientLEId: string;
+    graphEdges?: any[];
+    allNodes?: any[];
     onNodeUpdated: () => void;
 }
 
-export function GraphNodePanel({ open, onOpenChange, node, clientLEId, onNodeUpdated }: GraphNodePanelProps) {
+export function GraphNodePanel({ open, onOpenChange, node, clientLEId, graphEdges = [], allNodes = [], onNodeUpdated }: GraphNodePanelProps) {
     const [history, setHistory] = useState<any[]>([]);
     const [isLoadingHistory, setIsLoadingHistory] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
@@ -71,12 +73,13 @@ export function GraphNodePanel({ open, onOpenChange, node, clientLEId, onNodeUpd
                     </SheetHeader>
 
                     <div className="flex-1 overflow-y-auto p-6">
-                        <Tabs defaultValue="history" className="w-full">
-                            <TabsList className="grid w-full grid-cols-2">
+                        <Tabs defaultValue="details" className="w-full">
+                            <TabsList className="grid w-full grid-cols-3">
                                 <TabsTrigger value="details">Details</TabsTrigger>
+                                <TabsTrigger value="connections">Connections</TabsTrigger>
                                 <TabsTrigger value="history" className="gap-2">
                                     <Clock className="w-3.5 h-3.5" />
-                                    Audit History
+                                    History
                                 </TabsTrigger>
                             </TabsList>
                             
@@ -86,6 +89,72 @@ export function GraphNodePanel({ open, onOpenChange, node, clientLEId, onNodeUpd
                                     <pre className="text-[10px] whitespace-pre-wrap overflow-x-auto">
                                         {JSON.stringify(node.person || node.legalEntity || node.address, null, 2)}
                                     </pre>
+                                </div>
+                            </TabsContent>
+
+                            <TabsContent value="connections" className="mt-4 space-y-4">
+                                <div className="space-y-3">
+                                    <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                                        <h3 className="text-sm font-semibold text-slate-800">Connected Nodes</h3>
+                                        <Button variant="outline" size="sm" className="h-7 text-xs bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200">
+                                            + Add Connection
+                                        </Button>
+                                    </div>
+                                    
+                                    {(() => {
+                                        const connectedEdges = graphEdges.filter(e => e.fromNodeId === node.id || e.toNodeId === node.id);
+                                        
+                                        if (connectedEdges.length === 0) {
+                                            return (
+                                                <div className="text-center text-sm text-slate-400 italic py-8 border border-dashed rounded-lg bg-slate-50">
+                                                    No connections found.
+                                                </div>
+                                            );
+                                        }
+
+                                        return (
+                                            <div className="space-y-2">
+                                                {connectedEdges.map(edge => {
+                                                    const isOutbound = edge.fromNodeId === node.id;
+                                                    const otherNodeId = isOutbound ? edge.toNodeId : edge.fromNodeId;
+                                                    const otherNode = allNodes.find(n => n.id === otherNodeId);
+                                                    
+                                                    let otherLabel = "Unknown Node";
+                                                    if (otherNode) {
+                                                        if (otherNode.nodeType === "PERSON") otherLabel = [otherNode.person?.firstName, otherNode.person?.lastName].filter(Boolean).join(" ");
+                                                        else if (otherNode.nodeType === "LEGAL_ENTITY") otherLabel = otherNode.legalEntity?.name || "Company";
+                                                        else if (otherNode.nodeType === "ADDRESS") otherLabel = otherNode.address?.line1 || "Address";
+                                                    }
+
+                                                    return (
+                                                        <div key={edge.id} className="p-3 bg-white border border-slate-200 rounded-lg shadow-sm flex items-center justify-between group">
+                                                            <div>
+                                                                <div className="flex items-center gap-2 mb-1">
+                                                                    <span className="text-[10px] font-semibold tracking-wider text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded uppercase">
+                                                                        {edge.edgeType.replace(/_/g, " ")}
+                                                                    </span>
+                                                                    {!edge.isActive && (
+                                                                        <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded uppercase">
+                                                                            Inactive
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                                <p className="text-sm font-medium text-slate-800">
+                                                                    <span className="text-slate-400 font-normal mr-1">{isOutbound ? "To:" : "From:"}</span>
+                                                                    {otherLabel}
+                                                                </p>
+                                                            </div>
+                                                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-indigo-600">
+                                                                    <Pencil className="h-3 w-3" />
+                                                                </Button>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        );
+                                    })()}
                                 </div>
                             </TabsContent>
 

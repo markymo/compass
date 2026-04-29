@@ -49,7 +49,21 @@ export function KnowledgeGraphTable({ nodes, activeDirectorPersonIds = [], activ
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {nodes.map((node) => {
+                    {[...nodes].sort((a, b) => {
+                        const typeOrder: Record<string, number> = { PERSON: 0, LEGAL_ENTITY: 1, ADDRESS: 2 };
+                        const orderA = typeOrder[a.nodeType] ?? 99;
+                        const orderB = typeOrder[b.nodeType] ?? 99;
+                        if (orderA !== orderB) return orderA - orderB;
+                        
+                        // Fallback sort by name if type is the same
+                        const getLabel = (n: any) => {
+                            if (n.nodeType === 'PERSON') return [n.person?.firstName, n.person?.lastName].filter(Boolean).join(' ');
+                            if (n.nodeType === 'LEGAL_ENTITY') return n.legalEntity?.name || '';
+                            if (n.nodeType === 'ADDRESS') return n.address?.line1 || '';
+                            return '';
+                        };
+                        return getLabel(a).localeCompare(getLabel(b));
+                    }).map((node) => {
                         const style = NODE_STYLE[node.nodeType] || { icon: '⚪', badge: '', label: node.nodeType };
                         const sourceInfo = SOURCE_LABEL[node.source] || SOURCE_LABEL.UNKNOWN;
                         const isActiveDirector = node.nodeType === 'PERSON' &&

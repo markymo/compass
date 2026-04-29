@@ -1007,7 +1007,7 @@ model ClientLEGraphEdge {
   lastModifiedBy   User?              @relation("GraphEdgeModifiedBy", fields: [lastModifiedById], references: [id])
   toNode           ClientLEGraphNode? @relation("EdgeTo", fields: [toNodeId], references: [id])
 
-  @@unique([fromNodeId, edgeType])
+  @@unique([fromNodeId, toNodeId, edgeType])
   @@index([clientLEId])
   @@index([fromNodeId])
   @@map("client_le_graph_edges")

@@ -316,27 +316,51 @@ export class KycWriteService {
                         const node = await prisma.clientLEGraphNode.findFirst({ where: nodeWhere as any });
 
                         if (node) {
-                            await prisma.clientLEGraphEdge.upsert({
-                                where: { 
-                                    fromNodeId_edgeType: { 
-                                        fromNodeId: node.id, 
-                                        edgeType: writeBinding.writeBackEdgeType! 
-                                    } 
-                                },
-                                update: { 
-                                    isActive: true, 
-                                    source: (provenance.source as any) || 'UNKNOWN',
-                                    updatedAt: new Date()
-                                },
-                                create: {
-                                    clientLEId,
-                                    fromNodeId: node.id,
-                                    edgeType: writeBinding.writeBackEdgeType!,
-                                    isActive: true,
-                                    source: (provenance.source as any) || 'UNKNOWN'
+                            // Find root node ID
+                            const clientLE = await prisma.clientLE.findUnique({ where: { id: clientLEId }});
+                            let rootNodeId: string | null = null;
+                            if (clientLE && clientLE.legalEntityId) {
+                                let rootNode = await prisma.clientLEGraphNode.findFirst({
+                                    where: { clientLEId, legalEntityId: clientLE.legalEntityId }
+                                });
+                                if (!rootNode) {
+                                    rootNode = await prisma.clientLEGraphNode.create({
+                                        data: {
+                                            clientLEId,
+                                            nodeType: 'LEGAL_ENTITY',
+                                            legalEntityId: clientLE.legalEntityId,
+                                            source: 'SYSTEM'
+                                        }
+                                    });
                                 }
-                            });
-                            console.log(`[KycWriteService] Graph edge write-back successful for field ${fieldNo} (${writeBinding.writeBackEdgeType})`);
+                                rootNodeId = rootNode.id;
+                            }
+
+                            if (rootNodeId) {
+                                await prisma.clientLEGraphEdge.upsert({
+                                    where: { 
+                                        fromNodeId_toNodeId_edgeType: { 
+                                            fromNodeId: node.id, 
+                                            toNodeId: rootNodeId,
+                                            edgeType: writeBinding.writeBackEdgeType! 
+                                        } 
+                                    },
+                                    update: { 
+                                        isActive: true, 
+                                        source: (provenance.source as any) || 'UNKNOWN',
+                                        updatedAt: new Date()
+                                    },
+                                    create: {
+                                        clientLEId,
+                                        fromNodeId: node.id,
+                                        toNodeId: rootNodeId,
+                                        edgeType: writeBinding.writeBackEdgeType!,
+                                        isActive: true,
+                                        source: (provenance.source as any) || 'UNKNOWN'
+                                    }
+                                });
+                                console.log(`[KycWriteService] Graph edge write-back successful for field ${fieldNo} (${writeBinding.writeBackEdgeType})`);
+                            }
                         }
                     }
                 }
@@ -465,7 +489,7 @@ export class KycWriteService {
         // 1. Check if ClientLE already has a direct link
         const clientLE = await prisma.clientLE.findUnique({
             where: { id: clientLEId },
-            select: { legalEntityId: true }
+            select: { legalEntityId: true, name: true }
         });
 
         if (clientLE?.legalEntityId) {
@@ -477,6 +501,7 @@ export class KycWriteService {
             const newLegalEntity = await tx.legalEntity.create({
                 data: {
                     reference: `REF-${clientLEId.substring(0, 8).toUpperCase()}`,
+                    name: clientLE?.name || null
                 }
             });
 
@@ -823,6 +848,31 @@ export class KycWriteService {
     ): Promise<void> {
         if (!pscs || pscs.length === 0) return;
 
+        // Ensure root node exists
+        const clientLE = await prisma.clientLE.findUnique({ where: { id: clientLEId } });
+        let rootNodeId: string | null = null;
+        if (clientLE && clientLE.legalEntityId) {
+            let rootNode = await prisma.clientLEGraphNode.findFirst({
+                where: { clientLEId, legalEntityId: clientLE.legalEntityId }
+            });
+            if (!rootNode) {
+                rootNode = await prisma.clientLEGraphNode.create({
+                    data: {
+                        clientLEId,
+                        nodeType: 'LEGAL_ENTITY',
+                        legalEntityId: clientLE.legalEntityId,
+                        source: 'SYSTEM'
+                    }
+                });
+            }
+            rootNodeId = rootNode.id;
+        }
+
+        if (!rootNodeId) {
+            console.error(`[PSC] Cannot process PSCs: No root LegalEntity found for ClientLE ${clientLEId}`);
+            return;
+        }
+
         for (const psc of pscs) {
             try {
                 const isCorporate = (psc.kind || '').includes('corporate');
@@ -899,10 +949,11 @@ export class KycWriteService {
 
                 // --- Upsert the PSC_CONTROL edge ---
                 await prisma.clientLEGraphEdge.upsert({
-                    where: { fromNodeId_edgeType: { fromNodeId: graphNodeId, edgeType: 'PSC_CONTROL' } },
+                    where: { fromNodeId_toNodeId_edgeType: { fromNodeId: graphNodeId, toNodeId: rootNodeId, edgeType: 'PSC_CONTROL' } },
                     create: {
                         clientLEId,
                         fromNodeId: graphNodeId,
+                        toNodeId: rootNodeId,
                         edgeType: 'PSC_CONTROL',
                         naturesOfControl: psc.natures_of_control || [],
                         notifiedOn: psc.notified_on ? new Date(psc.notified_on) : null,

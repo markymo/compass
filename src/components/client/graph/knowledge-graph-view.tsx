@@ -10,6 +10,9 @@ import { EcosystemSpiderweb } from "./ecosystem-spiderweb";
 import { KnowledgeGraphExplorer } from "./knowledge-graph-explorer";
 import { GraphNodePanel } from "./graph-node-panel";
 import { useState } from "react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { NodeCreateDialog } from "./node-create-dialog";
+import { Plus } from "lucide-react";
 
 type ViewMode  = 'grid' | 'spiderweb' | 'explorer';
 type NodeFilter = 'all' | 'directors' | 'psc';
@@ -38,6 +41,7 @@ export function KnowledgeGraphView({
     const showAddresses = (searchParams.get('addr')  ?? '1') === '1';
 
     const [selectedNode, setSelectedNode] = useState<any | null>(null);
+    const [createNodeType, setCreateNodeType] = useState<"PERSON" | "LEGAL_ENTITY" | "ADDRESS" | null>(null);
 
     const setParam = (key: string, value: string) => {
         const params = new URLSearchParams(searchParams.toString());
@@ -169,21 +173,46 @@ export function KnowledgeGraphView({
                         })}
                     </div>
 
-                    {/* Address toggle — always independent */}
-                    <button
-                        onClick={() => setParam('addr', showAddresses ? '0' : '1')}
-                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
-                            showAddresses
-                                ? 'bg-orange-50 text-orange-700 border-orange-300 shadow-sm hover:bg-orange-100'
-                                : 'bg-white text-slate-400 border-slate-200 hover:border-slate-300 hover:text-slate-600'
-                        }`}
-                    >
-                        <MapPin className="h-3 w-3" />
-                        {showAddresses ? 'Addresses shown' : 'Addresses hidden'}
-                        <span className={`px-1.5 rounded-full text-[10px] leading-4 font-semibold ${showAddresses ? 'bg-orange-200/60 text-orange-800' : 'bg-slate-100 text-slate-400'}`}>
-                            {counts.addresses}
-                        </span>
-                    </button>
+                    {/* Address toggle + Add Node — always independent */}
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => setParam('addr', showAddresses ? '0' : '1')}
+                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                                showAddresses
+                                    ? 'bg-orange-50 text-orange-700 border-orange-300 shadow-sm hover:bg-orange-100'
+                                    : 'bg-white text-slate-400 border-slate-200 hover:border-slate-300 hover:text-slate-600'
+                            }`}
+                        >
+                            <MapPin className="h-3 w-3" />
+                            {showAddresses ? 'Addresses shown' : 'Addresses hidden'}
+                            <span className={`px-1.5 rounded-full text-[10px] leading-4 font-semibold ${showAddresses ? 'bg-orange-200/60 text-orange-800' : 'bg-slate-100 text-slate-400'}`}>
+                                {counts.addresses}
+                            </span>
+                        </button>
+                        
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button size="sm" className="h-8 text-xs bg-indigo-600 hover:bg-indigo-700">
+                                    <Plus className="h-3.5 w-3.5 mr-1" />
+                                    Add Node
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-48">
+                                <DropdownMenuItem onClick={() => setCreateNodeType("PERSON")}>
+                                    <Users className="h-4 w-4 mr-2 text-cyan-600" />
+                                    Add Person
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setCreateNodeType("LEGAL_ENTITY")}>
+                                    <Building2 className="h-4 w-4 mr-2 text-fuchsia-600" />
+                                    Add Company
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setCreateNodeType("ADDRESS")}>
+                                    <MapPin className="h-4 w-4 mr-2 text-orange-600" />
+                                    Add Address
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </div>
                 </div>
             </CardHeader>
 
@@ -233,11 +262,26 @@ export function KnowledgeGraphView({
                 onOpenChange={(open) => !open && setSelectedNode(null)}
                 node={selectedNode}
                 clientLEId={leId}
+                graphEdges={graphEdges}
+                allNodes={initialNodes}
                 onNodeUpdated={() => {
                     // Triggers a router refresh to fetch new data from the server
                     router.refresh();
                 }}
             />
+
+            {createNodeType && (
+                <NodeCreateDialog
+                    open={!!createNodeType}
+                    onOpenChange={(open) => !open && setCreateNodeType(null)}
+                    clientLEId={leId}
+                    nodeType={createNodeType}
+                    onSuccess={() => {
+                        setCreateNodeType(null);
+                        router.refresh();
+                    }}
+                />
+            )}
         </Card>
     );
 }
