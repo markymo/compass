@@ -21,6 +21,7 @@ interface NavItem {
 
 const adminNavItems: NavItem[] = [
     { title: "Pulse", href: "/app/admin/pulse", icon: Activity },
+    { title: "Momentum", href: "/app/admin/momentum", icon: Zap },
     { title: "Organizations", href: "/app/admin/organizations", icon: Building2 },
     { title: "Users", href: "/app/admin/users", icon: Users },
     { title: "Questionnaires", href: "/app/admin/questionnaires", icon: FileText },
