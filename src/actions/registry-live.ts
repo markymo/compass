@@ -42,6 +42,6 @@ export async function fetchLiveRegistryRecord(registrationNumber: string, regist
         
     } catch (error) {
         console.error("Registry Live Fetch Error:", error);
-        return { success: false, error: error.message || "Failed to fetch from registry API." };
+        return { success: false, error: error instanceof Error ? error.message : "Failed to fetch from registry API." };
     }
 }
