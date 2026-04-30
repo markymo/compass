@@ -184,14 +184,14 @@ export async function getMomentumReadiness(): Promise<MomentumReadiness> {
 
         if (targetField) {
             nextBestAction = {
-                type: fieldWithMissingDesc ? "DESCRIPTION" : "MAPPING",
-                fieldNo: targetField.fieldNo,
-                fieldName: targetField.fieldName,
-                categoryName: chosenCategory.displayName,
-                categoryKey: chosenCategory.key,
-                actionsToComplete: chosenCategory.actionsToComplete,
-                fullyCompleteCount: chosenCategory.fullyCompleteCount,
-                totalFields: chosenCategory.totalFields
+                type: (fieldWithMissingDesc ? "DESCRIPTION" : "MAPPING") as "DESCRIPTION" | "MAPPING",
+                fieldNo: targetField.fieldNo as number,
+                fieldName: targetField.fieldName as string,
+                categoryName: chosenCategory.displayName as string,
+                categoryKey: chosenCategory.key as string,
+                actionsToComplete: chosenCategory.actionsToComplete as number,
+                fullyCompleteCount: chosenCategory.fullyCompleteCount as number,
+                totalFields: chosenCategory.totalFields as number
             };
         }
     }
