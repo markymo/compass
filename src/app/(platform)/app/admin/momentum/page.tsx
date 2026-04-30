@@ -1,4 +1,3 @@
-import React from "react";
 import { 
     Zap, 
     Target, 
@@ -6,9 +5,13 @@ import {
     ListTodo, 
     BarChart3,
     ArrowUpRight,
-    Search
+    Search,
+    CheckCircle2,
+    AlertCircle
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
 import { getMomentumReadiness } from "@/actions/momentum";
 
 /**
@@ -98,50 +101,197 @@ export default async function MomentumPage() {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Next Best Action Placeholder */}
-                <Card className="lg:col-span-2 border-indigo-100 bg-indigo-50/20 border-dashed">
+                {/* Next Best Action */}
+                <Card className="lg:col-span-2 border-indigo-100 bg-indigo-50/20 relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
+                        <Zap className="h-32 w-32 text-indigo-600" />
+                    </div>
                     <CardHeader>
                         <div className="flex items-center gap-2 text-indigo-600 mb-1">
                             <Target className="h-4 w-4" />
                             <span className="text-xs font-bold uppercase tracking-wider">Next Best Action</span>
                         </div>
-                        <CardTitle>Identifying Priority Task...</CardTitle>
-                        <CardDescription>
-                            The engine is scanning for high-impact gaps in your master schema.
-                        </CardDescription>
+                        {data.nextBestAction ? (
+                            <>
+                                <CardTitle className="text-2xl font-serif">
+                                    {data.nextBestAction.type === 'DESCRIPTION' ? 'Add description for' : 'Map UK source for'}{" "}
+                                    <span className="text-indigo-600">
+                                        {data.nextBestAction.fieldName}
+                                    </span>
+                                </CardTitle>
+                                <CardDescription className="text-slate-600 font-medium max-w-lg">
+                                    Continue the <span className="text-slate-900">{data.nextBestAction.categoryName}</span> category — {data.nextBestAction.actionsToComplete} {data.nextBestAction.actionsToComplete === 1 ? 'action' : 'actions'} to complete.
+                                </CardDescription>
+                            </>
+                        ) : (
+                            <>
+                                <CardTitle>Schema Fully Ready</CardTitle>
+                                <CardDescription>
+                                    All active fields have valid descriptions and UK Companies House mappings.
+                                </CardDescription>
+                            </>
+                        )}
                     </CardHeader>
-                    <CardContent className="h-24 flex items-center justify-center text-slate-400 italic text-sm">
-                        NBA Logic Pending implementation in Slice 6
-                    </CardContent>
+                    {data.nextBestAction && (
+                        <CardContent className="space-y-4">
+                            <div className="flex items-center gap-6">
+                                <div className="flex flex-col">
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Field No.</span>
+                                    <span className="text-sm font-mono font-bold text-slate-700">#{data.nextBestAction.fieldNo}</span>
+                                </div>
+                                <div className="flex flex-col">
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Category Progress</span>
+                                    <span className="text-sm font-bold text-slate-700">
+                                        {data.nextBestAction.fullyCompleteCount} / {data.nextBestAction.totalFields} fields ready
+                                    </span>
+                                </div>
+                                <div className="flex flex-col">
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Type</span>
+                                    <Badge variant="secondary" className="text-[10px] bg-white border-indigo-100 text-indigo-700 h-5">
+                                        {data.nextBestAction.type}
+                                    </Badge>
+                                </div>
+                            </div>
+                            
+                            <div className="pt-2 flex items-center gap-3">
+                                <button disabled className="px-4 py-2 bg-indigo-600 text-white rounded-md text-sm font-bold shadow-md opacity-50 cursor-not-allowed">
+                                    Execute Action
+                                </button>
+                                <span className="text-[11px] text-slate-400 italic">
+                                    Integration with FieldDetailSheet coming in later slices.
+                                </span>
+                            </div>
+                        </CardContent>
+                    )}
                 </Card>
 
-                {/* Nearly Complete Categories Placeholder */}
-                <Card className="border-dashed">
-                    <CardHeader>
+                {/* Nearly Complete Categories */}
+                <Card className="shadow-sm border-emerald-100 bg-emerald-50/5 relative overflow-hidden">
+                    <CardHeader className="pb-3">
                         <div className="flex items-center gap-2 text-emerald-600 mb-1">
                             <ArrowUpRight className="h-4 w-4" />
                             <span className="text-xs font-bold uppercase tracking-wider">Nearly Complete</span>
                         </div>
-                        <CardTitle>Quick Wins</CardTitle>
+                        <CardTitle className="text-lg">Quick Wins</CardTitle>
                     </CardHeader>
-                    <CardContent className="h-24 flex items-center justify-center text-slate-400 italic text-sm text-center">
-                        Categories near 100% completion will appear here.
+                    <CardContent className="space-y-3">
+                        {data.categories
+                            .filter(c => c.actionsToComplete > 0 && c.actionsToComplete <= 5)
+                            .sort((a, b) => {
+                                if (a.actionsToComplete !== b.actionsToComplete) return a.actionsToComplete - b.actionsToComplete;
+                                const aPct = a.totalFields > 0 ? a.fullyCompleteCount / a.totalFields : 0;
+                                const bPct = b.totalFields > 0 ? b.fullyCompleteCount / b.totalFields : 0;
+                                return bPct - aPct;
+                            })
+                            .slice(0, 3)
+                            .map((cat) => (
+                                <div key={cat.id} className="p-2.5 rounded-lg border border-emerald-100 bg-white shadow-sm flex flex-col gap-1.5">
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-sm font-bold text-slate-800">{cat.displayName}</span>
+                                        <Badge variant="outline" className="text-[10px] font-bold text-emerald-700 border-emerald-200 bg-emerald-50">
+                                            {cat.actionsToComplete} {cat.actionsToComplete === 1 ? 'action' : 'actions'} left
+                                        </Badge>
+                                    </div>
+                                    <div className="flex items-center gap-3 text-[10px] text-slate-400 font-medium uppercase tracking-tight">
+                                        <div className="flex items-center gap-1">
+                                            <span className="text-slate-600">{cat.fullyCompleteCount}/{cat.totalFields}</span> Complete
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                            <span className="text-slate-600">{Math.round((cat.descriptionCount / cat.totalFields) * 100)}%</span> Desc
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                            <span className="text-slate-600">{Math.round((cat.ukMappingCount / cat.totalFields) * 100)}%</span> Map
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        {data.categories.filter(c => c.actionsToComplete > 0 && c.actionsToComplete <= 5).length === 0 && (
+                            <div className="h-32 flex flex-col items-center justify-center text-slate-400 text-sm italic text-center px-4">
+                                <CheckCircle2 className="h-8 w-8 text-emerald-200 mb-2" />
+                                No categories are within 5 actions of completion yet.
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
             </div>
 
-            {/* Category Readiness Board Placeholder */}
+            {/* Category Readiness Board */}
             <div className="space-y-4">
                 <div className="flex items-center gap-2">
                     <LayoutDashboard className="h-5 w-5 text-slate-400" />
                     <h2 className="text-lg font-semibold text-slate-800">Category Readiness</h2>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {[1, 2, 3].map((i) => (
-                        <Card key={i} className="border-dashed h-40 flex items-center justify-center text-slate-400 italic text-sm">
-                            Category Card {i} Placeholder
-                        </Card>
-                    ))}
+                    {data.categories.map((cat) => {
+                        const readinessPct = cat.totalFields > 0 ? (cat.fullyCompleteCount / cat.totalFields) * 100 : 0;
+                        const descPct = cat.totalFields > 0 ? (cat.descriptionCount / cat.totalFields) * 100 : 0;
+                        const mappingPct = cat.totalFields > 0 ? (cat.ukMappingCount / cat.totalFields) * 100 : 0;
+                        const isUsable = mappingPct >= 100;
+
+                        return (
+                            <Card key={cat.id} className="shadow-sm border-slate-200 flex flex-col">
+                                <CardHeader className="pb-3">
+                                    <div className="flex justify-between items-start">
+                                        <div>
+                                            <CardTitle className="text-base font-bold text-slate-900">{cat.displayName}</CardTitle>
+                                            <CardDescription>{cat.totalFields} fields in category</CardDescription>
+                                        </div>
+                                        {readinessPct === 100 ? (
+                                            <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+                                        ) : !isUsable && (
+                                            <AlertCircle className="h-5 w-5 text-amber-500" title="Not yet fully usable for ingestion" />
+                                        )}
+                                    </div>
+                                </CardHeader>
+                                <CardContent className="space-y-4 flex-1">
+                                    {/* Main Readiness Bar */}
+                                    <div className="space-y-1.5">
+                                        <div className="flex justify-between text-xs font-semibold">
+                                            <span className="text-slate-600 uppercase tracking-tight">Fully Complete</span>
+                                            <span className="text-slate-900">{Math.round(readinessPct)}%</span>
+                                        </div>
+                                        <Progress value={readinessPct} className="h-2 bg-slate-100" />
+                                    </div>
+
+                                    {/* Supporting Metrics */}
+                                    <div className="grid grid-cols-2 gap-4 pt-2">
+                                        <div className="space-y-1">
+                                            <span className="text-[10px] font-bold text-slate-400 uppercase">Descriptions</span>
+                                            <div className="flex items-center gap-1.5">
+                                                <span className="text-sm font-semibold text-slate-700">{Math.round(descPct)}%</span>
+                                                <div className="h-1 flex-1 bg-slate-100 rounded-full overflow-hidden">
+                                                    <div className="h-full bg-blue-500" style={{ width: `${descPct}%` }} />
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <span className="text-[10px] font-bold text-slate-400 uppercase">UK Mapping</span>
+                                            <div className="flex items-center gap-1.5">
+                                                <span className="text-sm font-semibold text-slate-700">{Math.round(mappingPct)}%</span>
+                                                <div className="h-1 flex-1 bg-slate-100 rounded-full overflow-hidden">
+                                                    <div className="h-full bg-amber-500" style={{ width: `${mappingPct}%` }} />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Footer Info */}
+                                    <div className="pt-2 border-t border-slate-50 flex items-center justify-between mt-auto">
+                                        <div className="text-[10px] text-slate-400 flex items-center gap-1">
+                                            {isUsable ? (
+                                                <span className="text-emerald-600 font-bold">READY FOR INGESTION</span>
+                                            ) : (
+                                                <span>{cat.actionsToComplete} ACTIONS TO COMPLETE</span>
+                                            )}
+                                        </div>
+                                        <div className="text-[10px] font-mono text-slate-300">
+                                            {cat.key}
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        );
+                    })}
                 </div>
             </div>
 

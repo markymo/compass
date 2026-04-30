@@ -20,6 +20,16 @@ export interface MomentumReadiness {
     ukMappedFields: number;
     fullyCompleteFields: number;
     categories: CategoryReadiness[];
+    nextBestAction: {
+        type: "DESCRIPTION" | "MAPPING";
+        fieldNo: number;
+        fieldName: string;
+        categoryName: string;
+        categoryKey: string;
+        actionsToComplete: number;
+        fullyCompleteCount: number;
+        totalFields: number;
+    } | null;
 }
 
 /**
@@ -124,11 +134,63 @@ export async function getMomentumReadiness(): Promise<MomentumReadiness> {
         });
     }
 
+    // --- NEXT BEST ACTION (NBA) SELECTION LOGIC ---
+    let nextBestAction = null;
+
+    // 1. Identify nearly complete categories (1-5 actions remaining)
+    const nearlyComplete = categoryReadiness
+        .filter(c => c.actionsToComplete > 0 && c.actionsToComplete <= 5)
+        .sort((a, b) => a.actionsToComplete - b.actionsToComplete);
+
+    let chosenCategory = nearlyComplete[0];
+
+    // 2. Fallback to highest completion percentage for any incomplete category
+    if (!chosenCategory) {
+        const incomplete = categoryReadiness
+            .filter(c => c.actionsToComplete > 0)
+            .sort((a, b) => {
+                const aPct = a.totalFields > 0 ? a.fullyCompleteCount / a.totalFields : 0;
+                const bPct = b.totalFields > 0 ? b.fullyCompleteCount / b.totalFields : 0;
+                return bPct - aPct;
+            });
+        chosenCategory = incomplete[0];
+    }
+
+    if (chosenCategory) {
+        // Find all fields belonging to this category
+        const catFields = fields.filter(f => 
+            (f.categoryId === chosenCategory.id) || 
+            (chosenCategory.id === 'uncategorized' && !f.categoryId)
+        );
+
+        // Find the specific field/gap to recommend
+        // Logic: Prefer missing description first, then missing mapping
+        const fieldWithMissingDesc = catFields.find(f => !isDescriptionValid(f.description));
+        const fieldWithMissingMap = catFields.find(f => !hasUKCHMapping(f.sourceMappings));
+
+        const targetField = fieldWithMissingDesc || fieldWithMissingMap;
+
+        if (targetField) {
+            nextBestAction = {
+                type: fieldWithMissingDesc ? "DESCRIPTION" : "MAPPING",
+                fieldNo: targetField.fieldNo,
+                fieldName: targetField.fieldName,
+                categoryName: chosenCategory.displayName,
+                categoryKey: chosenCategory.key,
+                actionsToComplete: chosenCategory.actionsToComplete,
+                fullyCompleteCount: chosenCategory.fullyCompleteCount,
+                totalFields: chosenCategory.totalFields
+            };
+        }
+    }
+
     return {
         totalFields,
         describedFields,
         ukMappedFields,
         fullyCompleteFields,
-        categories: categoryReadiness
+        categories: categoryReadiness,
+        nextBestAction
     };
 }
+
