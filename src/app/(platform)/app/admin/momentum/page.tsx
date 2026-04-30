@@ -9,12 +9,50 @@ import {
     Search
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { getMomentumReadiness } from "@/actions/momentum";
 
 /**
  * Momentum Page Shell (Slice 1 - Read Only Shell)
  * Maintain progress across field completion, source mapping, and system readiness.
  */
-export default function MomentumPage() {
+export default async function MomentumPage() {
+    const data = await getMomentumReadiness();
+
+    const stats = [
+        {
+            title: "Active Fields",
+            value: data.totalFields,
+            description: "Total master fields",
+            icon: ListTodo,
+            color: "text-slate-600",
+            percentage: null
+        },
+        {
+            title: "Valid Descriptions",
+            value: data.describedFields,
+            description: "Semantic clarity",
+            icon: BarChart3,
+            color: "text-blue-600",
+            percentage: data.totalFields > 0 ? (data.describedFields / data.totalFields) * 100 : 0
+        },
+        {
+            title: "UK CH Mappings",
+            value: data.ukMappedFields,
+            description: "Structural connectivity",
+            icon: ArrowUpRight,
+            color: "text-amber-600",
+            percentage: data.totalFields > 0 ? (data.ukMappedFields / data.totalFields) * 100 : 0
+        },
+        {
+            title: "Fully Complete",
+            value: data.fullyCompleteFields,
+            description: "Ready for ingestion",
+            icon: Zap,
+            color: "text-emerald-600",
+            percentage: data.totalFields > 0 ? (data.fullyCompleteFields / data.totalFields) * 100 : 0
+        }
+    ];
+
     return (
         <div className="space-y-8 w-full pb-20">
             {/* Header */}
@@ -30,14 +68,31 @@ export default function MomentumPage() {
                 </div>
             </div>
 
-            {/* Summary Section Placeholder */}
+            {/* Summary Section */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                {[1, 2, 3, 4].map((i) => (
-                    <Card key={i} className="bg-slate-50/50 border-dashed">
-                        <CardHeader className="pb-2">
-                            <CardDescription>Summary Metric {i}</CardDescription>
-                            <CardTitle className="text-2xl">--</CardTitle>
+                {stats.map((stat) => (
+                    <Card key={stat.title} className="shadow-sm border-slate-200">
+                        <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
+                            <CardTitle className="text-sm font-medium text-slate-500">
+                                {stat.title}
+                            </CardTitle>
+                            <stat.icon className={`h-4 w-4 ${stat.color}`} />
                         </CardHeader>
+                        <CardContent>
+                            <div className="flex items-baseline gap-2">
+                                <span className="text-2xl font-bold text-slate-900">
+                                    {stat.value}
+                                </span>
+                                {stat.percentage !== null && (
+                                    <span className={`text-xs font-semibold ${stat.percentage >= 80 ? 'text-emerald-600' : 'text-slate-500'}`}>
+                                        {Math.round(stat.percentage)}%
+                                    </span>
+                                )}
+                            </div>
+                            <p className="text-xs text-slate-400 mt-1 uppercase tracking-tight font-medium">
+                                {stat.description}
+                            </p>
+                        </CardContent>
                     </Card>
                 ))}
             </div>
