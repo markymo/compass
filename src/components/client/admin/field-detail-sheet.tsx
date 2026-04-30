@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Loader2, Save, FileText, Database, Link as LinkIcon, BookOpen, ScanSearch, Trash2, GitBranch, Plus } from "lucide-react";
+import { Loader2, Save, FileText, Database, Link as LinkIcon, BookOpen, ScanSearch, Trash2, GitBranch, Plus, Edit } from "lucide-react";
 import { updateMasterField } from "@/actions/master-data-governance";
 import { useRouter } from "next/navigation";
 import { Switch } from "@/components/ui/switch";
@@ -76,6 +76,9 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[] }: F
     const [isAddMappingOpen, setIsAddMappingOpen] = useState(false);
     const [isBrowserOpen, setIsBrowserOpen] = useState(false);
     const [deletingMappingId, setDeletingMappingId] = useState<string | null>(null);
+    const [editingPriorityId, setEditingPriorityId] = useState<string | null>(null);
+    const [priorityValue, setPriorityValue] = useState<number>(0);
+    const [isPrioritySaving, setIsPrioritySaving] = useState(false);
     const [mappingForm, setMappingForm] = useState({
         sourceType: "GLEIF",
         sourcePath: "",
@@ -483,7 +486,7 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[] }: F
                         
                         {field.sourceMappings && field.sourceMappings.length > 0 ? (
                             <div className="space-y-2">
-                                {field.sourceMappings.map((mapping: any) => (
+                                {field.sourceMappings.sort((a: any, b: any) => (a.priority || 0) - (b.priority || 0)).map((mapping: any) => (
                                     <div key={mapping.id} className="bg-white border rounded-md p-3 text-sm flex items-center justify-between group">
                                         <div className="flex items-center gap-3 min-w-0">
                                             <Badge variant="outline" className="bg-slate-50 shrink-0">{mapping.sourceType}</Badge>
@@ -493,21 +496,58 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[] }: F
                                         </div>
                                         <div className="flex items-center gap-3 shrink-0 ml-3">
                                             <span className="text-xs text-slate-400">{mapping.transformType}</span>
-                                            <Badge variant={mapping.isActive ? "default" : "secondary"} className={mapping.isActive ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-100" : ""}>
-                                                {mapping.priority}
-                                            </Badge>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="h-6 w-6 text-slate-300 hover:text-red-500 hover:bg-red-50"
-                                                disabled={deletingMappingId === mapping.id}
-                                                onClick={() => handleDeleteMapping(mapping.id)}
-                                                title="Remove mapping"
-                                            >
-                                                {deletingMappingId === mapping.id
-                                                    ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                                    : <Trash2 className="h-3.5 w-3.5" />}
-                                            </Button>
+
+{editingPriorityId === mapping.id ? (
+  <div className="flex items-center gap-2">
+    <Input
+      type="number"
+      min={1}
+      value={priorityValue}
+      onChange={(e) => setPriorityValue(parseInt(e.target.value, 10) || 0)}
+      className="w-16"
+    />
+    <Button variant="outline" size="sm" onClick={() => setEditingPriorityId(null)} disabled={isPrioritySaving}>Cancel</Button>
+    <Button size="sm" onClick={async () => {
+      setIsPrioritySaving(true);
+      const res = await upsertSourceMapping({
+        id: mapping.id,
+        sourceType: mapping.sourceType,
+        sourcePath: mapping.sourcePath,
+        targetFieldNo: field.fieldNo,
+        priority: priorityValue,
+      });
+      setIsPrioritySaving(false);
+      if (res.success) {
+        toast.success('Priority updated');
+        router.refresh();
+        setEditingPriorityId(null);
+      } else {
+        toast.error(res.error ?? 'Failed to update priority');
+      }
+    }} disabled={isPrioritySaving}>Save</Button>
+  </div>
+) : (
+  <>
+    <Badge variant={mapping.isActive ? "default" : "secondary"} className={mapping.isActive ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-100" : ""}>
+      {mapping.priority}
+    </Badge>
+    <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-primary" onClick={() => { setEditingPriorityId(mapping.id); setPriorityValue(mapping.priority); }}>
+      <Edit className="h-3 w-3" />
+    </Button>
+  </>
+)}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 text-slate-300 hover:text-red-500 hover:bg-red-50"
+                      disabled={deletingMappingId === mapping.id}
+                      onClick={() => handleDeleteMapping(mapping.id)}
+                      title="Remove mapping"
+                    >
+                      {deletingMappingId === mapping.id
+                        ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        : <Trash2 className="h-3.5 w-3.5" />}
+                    </Button>
                                         </div>
                                     </div>
                                 ))}
