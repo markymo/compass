@@ -74,3 +74,60 @@ export async function onboardClient(data: { name: string, adminEmail: string }) 
         return { success: false, error: "Failed to onboard client" };
     }
 }
+
+// 3. Purge Client LE (Hard Delete)
+export async function purgeClientLE(clientLEId: string) {
+    const isAdmin = await isSystemAdmin();
+    if (!isAdmin) return { success: false, error: "Unauthorized" };
+
+    try {
+        // 1. Fetch ClientLE and its primary owner to resolve the scoping Organization
+        const le = await prisma.clientLE.findUnique({
+            where: { id: clientLEId },
+            include: {
+                owners: { where: { endAt: null }, take: 1 }
+            }
+        });
+
+        if (!le) return { success: false, error: "Legal Entity Workspace not found" };
+
+        const subjectLeId = le.legalEntityId;
+        const ownerScopeId = le.owners[0]?.partyId;
+
+        // 2. Atomic Cleanup in Transaction
+        await prisma.$transaction([
+            // A. Delete FieldClaims (Master Data) asserted specifically by this client for this LE
+            ...(subjectLeId && ownerScopeId ? [
+                prisma.fieldClaim.deleteMany({
+                    where: {
+                        subjectLeId: subjectLeId,
+                        ownerScopeId: ownerScopeId
+                    }
+                })
+            ] : []),
+
+            // B. Delete the ClientLE itself. 
+            // Cascading deletes in schema.prisma will handle:
+            // - FIEngagement -> Questionnaire Instances -> Questions -> Comments/Activity
+            // - Document
+            // - Membership
+            // - ClientLERecord
+            // - ClientLEGraphNode / Edge
+            // - RegistryReference -> RegistryFetch
+            // - EnrichmentRun -> Payload/Baseline
+            // - ClientLEOwner
+            prisma.clientLE.delete({
+                where: { id: clientLEId }
+            })
+        ]);
+
+        console.log(`[SuperAdmin] Successfully purged ClientLE: ${le.name} (${clientLEId})`);
+        revalidatePath("/app/admin/users"); // If called from users dashboard
+        revalidatePath("/app/admin/super");
+        return { success: true };
+
+    } catch (e) {
+        console.error("[SuperAdmin] Purge Failed:", e);
+        return { success: false, error: "Failed to purge Legal Entity data. Check server logs." };
+    }
+}

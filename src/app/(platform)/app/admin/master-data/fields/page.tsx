@@ -9,7 +9,8 @@ export default async function FieldGlossaryPage() {
     try {
         fields = await (prisma as any).masterFieldDefinition.findMany({
             include: {
-                sourceMappings: true
+                sourceMappings: true,
+                graphBindings: true
             },
             orderBy: [
                 { categoryId: 'asc' },

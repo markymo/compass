@@ -21,7 +21,6 @@ async function main() {
                 isMultiValue: def.isMultiValue,
                 options: (def as any).options || [],
                 notes: def.notes,
-                category: def.model,
                 modelField: def.field,
                 isActive: true,
             },
@@ -32,7 +31,6 @@ async function main() {
                 isMultiValue: def.isMultiValue,
                 options: (def as any).options || [],
                 notes: def.notes,
-                category: def.model,
                 modelField: def.field,
                 isActive: true,
                 order: fieldNo * 10,
@@ -124,7 +122,7 @@ async function main() {
         if (catId) {
             await prisma.masterFieldDefinition.update({
                 where: { fieldNo },
-                data: { categoryId: catId, categoryLabel: def.model }
+                data: { categoryId: catId }
             });
         }
     }

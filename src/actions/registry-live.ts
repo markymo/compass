@@ -17,7 +17,10 @@ export async function fetchLiveRegistryRecord(registrationNumber: string, regist
     }
 
     try {
-        const connector = RegistryConnectorFactory.getConnectorByKey("CompaniesHouseConnector");
+        // Resolve appropriate connector based on registryKey; fallback to CompaniesHouseConnector
+        const connectorKey = `${registryKey.replace(/_/g, "")}Connector`;
+        const connector = RegistryConnectorFactory.getConnectorByKey(connectorKey) ||
+            RegistryConnectorFactory.getConnectorByKey("CompaniesHouseConnector");
         if (!connector) {
             return { success: false, error: "Registry connector not found." };
         }
@@ -37,8 +40,8 @@ export async function fetchLiveRegistryRecord(registrationNumber: string, regist
         // Return the normalized canonical record
         return { success: true, payload: record };
         
-    } catch (error: any) {
+    } catch (error) {
         console.error("Registry Live Fetch Error:", error);
-        return { success: false, error: error.message || "Failed to fetch from registry API." };
+        return { success: false, error: error instanceof Error ? error.message : "Failed to fetch from registry API." };
     }
 }

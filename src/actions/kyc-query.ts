@@ -333,24 +333,71 @@ export async function getFieldDetail(
     const derived = await KycStateService.getAuthoritativeValue({ subjectLeId }, fieldNo, ownerScopeId);
 
     // 2. Load Rows if repeating
-    let rows: { id: string; value: any; source: string; timestamp: Date; instanceId?: string; collectionId?: string; data?: any }[] | undefined = undefined;
+    let rows: { id: string; value: any; source: string; timestamp: Date; instanceId?: string; collectionId?: string; data?: any; label?: string; sourceReference?: string }[] | undefined = undefined;
+
+    // Check for Graph Binding
+    const bindings = await prisma.masterFieldGraphBinding.findMany({
+        where: { fieldNo, isActive: true }
+    });
+    const graphBinding = bindings.find((b: any) => b.filterEdgeType);
 
     if (def?.isMultiValue) {
-        const collection = await KycStateService.getAuthoritativeCollection({ subjectLeId }, fieldNo, ownerScopeId);
+        if (graphBinding && entityType === 'CLIENT_LE') {
+            // Source rows from Graph Edges to avoid duplication and show real graph state
+            const edges = await prisma.clientLEGraphEdge.findMany({
+                where: {
+                    clientLEId: entityId,
+                    edgeType: graphBinding.filterEdgeType!,
+                    isActive: graphBinding.filterActiveOnly ?? true
+                },
+                include: {
+                    fromNode: {
+                        include: {
+                            person: true,
+                            legalEntity: true,
+                            address: true
+                        }
+                    }
+                }
+            });
 
-        rows = collection.map((c: any) => {
-            return {
-                id: c.claimId,
-                value: c.value,
-                source: c.isScoped ? 'USER_INPUT' : (c.evidenceProvider || 'SYSTEM'),
-                sourceReference: c.sourceReference || undefined,
-                timestamp: c.assertedAt,
-                instanceId: c.instanceId,
-                collectionId: c.collectionId,
-                data: undefined,
-                label: typeof c.value === 'string' ? c.value : undefined
-            };
-        });
+            rows = edges.map((edge: any) => {
+                const node = edge.fromNode;
+                const value = node.person || node.legalEntity || node.address;
+                
+                let label = "Unknown";
+                if (node.person) label = `${node.person.firstName} ${node.person.lastName}`.trim();
+                else if (node.legalEntity) label = node.legalEntity.name || "Unknown Entity";
+                else if (node.address) label = node.address.line1 || "Unknown Address";
+
+                return {
+                    id: edge.id, // We use the edge ID as the primary ID here
+                    value: value,
+                    source: edge.source as any,
+                    timestamp: edge.createdAt,
+                    instanceId: edge.id, // Use edge ID as instance ID for graph-bound fields
+                    label,
+                    sourceReference: edge.edgeType
+                };
+            });
+        } else {
+            // Standard path: fetch from FieldClaims
+            const collection = await KycStateService.getAuthoritativeCollection({ subjectLeId }, fieldNo, ownerScopeId);
+
+            rows = collection.map((c: any) => {
+                return {
+                    id: c.claimId,
+                    value: c.value,
+                    source: c.isScoped ? 'USER_INPUT' : (c.evidenceProvider || 'SYSTEM'),
+                    sourceReference: c.sourceReference || undefined,
+                    timestamp: c.assertedAt,
+                    instanceId: c.instanceId,
+                    collectionId: c.collectionId,
+                    data: undefined,
+                    label: typeof c.value === 'string' ? c.value : undefined
+                };
+            });
+        }
     }
 
     // 2. Get History (Lineage) - Force re-bundle for new Prisma client

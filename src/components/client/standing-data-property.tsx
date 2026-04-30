@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, CheckCircle2, AlertCircle, HelpCircle, Save } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { GraphNodePicker, GraphNodePickerSelection } from "@/components/client/graph/graph-node-picker";
+
 
 interface StandingDataPropertyProps {
     clientLEId: string;
@@ -17,6 +19,19 @@ interface StandingDataPropertyProps {
         updatedAt: string;
     } | null;
     requiredBy?: string[];
+    /**
+     * If provided, renders a GraphNodePicker instead of a text Input.
+     * Sourced from the field's MasterFieldGraphBinding.
+     */
+    graphBinding?: {
+        graphNodeType: "PERSON" | "LEGAL_ENTITY" | "ADDRESS";
+        filterEdgeType?: string | null;
+        filterActiveOnly?: boolean;
+        writeBackEdgeType?: string | null;
+        allowCreate?: boolean;
+        pickerLabel?: string | null;
+        isMultiValue?: boolean;
+    } | null;
 }
 
 export function StandingDataProperty({
@@ -24,7 +39,8 @@ export function StandingDataProperty({
     propertyKey,
     label,
     initialData,
-    requiredBy = []
+    requiredBy = [],
+    graphBinding = null,
 }: StandingDataPropertyProps) {
     const [value, setValue] = useState(initialData?.value || "");
     const [status, setStatus] = useState(initialData?.status || "MISSING");
@@ -101,23 +117,82 @@ export function StandingDataProperty({
             </div>
 
             <div className="relative">
-                <Input
-                    value={value}
-                    onChange={(e) => setValue(e.target.value)}
-                    onBlur={handleBlur}
-                    placeholder={`Enter ${label.toLowerCase()}...`}
-                    className={cn(
-                        "h-9 pr-8 bg-slate-50/50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 focus:bg-white dark:focus:bg-slate-950",
-                        isSaving && "opacity-70"
-                    )}
-                />
-                <div className="absolute right-2.5 top-2.5">
-                    {isSaving ? (
-                        <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
-                    ) : value !== initialData?.value ? (
-                        <Save className="h-4 w-4 text-slate-300" />
-                    ) : null}
-                </div>
+                {graphBinding ? (
+                    // ── Graph Node Picker mode ────────────────────────────
+                    <GraphNodePicker
+                        clientLEId={clientLEId}
+                        graphNodeType={graphBinding.graphNodeType}
+                        filterEdgeType={graphBinding.filterEdgeType}
+                        filterActiveOnly={graphBinding.filterActiveOnly ?? true}
+                        allowCreate={graphBinding.allowCreate ?? true}
+                        pickerLabel={graphBinding.pickerLabel}
+                        isMultiValue={graphBinding.isMultiValue ?? false}
+                        disabled={isPending}
+                        selectedNodeIds={
+                            Array.isArray(value)
+                                ? value
+                                : value ? [value] : []
+                        }
+                        onSelect={async (item: GraphNodePickerSelection) => {
+                            // Build the value payload appropriate for the binding type
+                            const payloadValue =
+                                graphBinding.graphNodeType === "PERSON"
+                                    ? item.personId
+                                    : graphBinding.graphNodeType === "LEGAL_ENTITY"
+                                        ? item.legalEntityId
+                                        : item.addressId;
+
+                            if (!payloadValue) return;
+
+                            // For multi-value, append; for single, replace
+                            const nextValue = graphBinding.isMultiValue
+                                ? [...(Array.isArray(value) ? value : value ? [value] : []), item.nodeId]
+                                : item.nodeId;
+
+                            setValue(nextValue);
+                            setIsSaving(true);
+                            startTransition(async () => {
+                                const res = await updateStandingDataProperty(
+                                    clientLEId,
+                                    propertyKey,
+                                    { value: payloadValue, status: "ASSERTED" }
+                                );
+                                if (res.success && res.propertyData) {
+                                    setStatus(res.propertyData.status);
+                                    setUpdatedAt(res.propertyData.updatedAt);
+                                }
+                                setIsSaving(false);
+                            });
+                        }}
+                        onDeselect={async (nodeId: string) => {
+                            const nextValue = Array.isArray(value)
+                                ? value.filter((id: string) => id !== nodeId)
+                                : [];
+                            setValue(nextValue);
+                        }}
+                    />
+                ) : (
+                    // ── Standard text input mode ──────────────────────────
+                    <>
+                        <Input
+                            value={value}
+                            onChange={(e) => setValue(e.target.value)}
+                            onBlur={handleBlur}
+                            placeholder={`Enter ${label.toLowerCase()}...`}
+                            className={cn(
+                                "h-9 pr-8 bg-slate-50/50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 focus:bg-white dark:focus:bg-slate-950",
+                                isSaving && "opacity-70"
+                            )}
+                        />
+                        <div className="absolute right-2.5 top-2.5">
+                            {isSaving ? (
+                                <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+                            ) : value !== initialData?.value ? (
+                                <Save className="h-4 w-4 text-slate-300" />
+                            ) : null}
+                        </div>
+                    </>
+                )}
             </div>
         </div>
     );

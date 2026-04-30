@@ -11,7 +11,7 @@ import Link from 'next/link';
 export interface QuestionDetail {
     id: string;
     text: string;
-    answer: string | null;
+    answer: any | null;
     status: string;
     order: number;
     // Context fields (optional, for standalone context)
@@ -36,7 +36,17 @@ interface QuestionDetailViewProps {
 }
 
 export function QuestionDetailView({ question, totalQuestions, currentIndex, onSave, embedded = false }: QuestionDetailViewProps) {
-    const [answer, setAnswer] = React.useState(question.answer || "");
+    const formatAnswer = (val: any) => {
+        if (!val) return "";
+        if (typeof val === 'string') return val;
+        try {
+            return JSON.stringify(val, null, 2);
+        } catch {
+            return String(val);
+        }
+    };
+    
+    const [answer, setAnswer] = React.useState(formatAnswer(question.answer));
 
     // Link to full context
     const engagementId = question.questionnaire?.fiEngagement?.id;
@@ -89,7 +99,7 @@ export function QuestionDetailView({ question, totalQuestions, currentIndex, onS
                         </div>
                     </div>
                     <div className="p-4 bg-slate-50/30">
-                        <div className="prose prose-sm max-w-none text-slate-700 leading-relaxed min-h-[100px]">
+                        <div className="prose prose-sm max-w-none text-slate-700 leading-relaxed min-h-[100px] whitespace-pre-wrap font-mono text-xs">
                             {answer || <span className="text-slate-400 italic">No answer provided.</span>}
                         </div>
                         {/* Hidden textarea if we ever need form submission, but UI is read-only div for better reading experience */}

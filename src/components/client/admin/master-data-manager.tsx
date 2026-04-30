@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Search, Settings, HelpCircle, Check, X, Loader2, MoreVertical, SlidersHorizontal, Plus, ChevronRight, ChevronDown, ChevronUp, GripVertical, Save, RefreshCw } from "lucide-react";
+import { Search, Settings, HelpCircle, Check, X, Loader2, MoreVertical, SlidersHorizontal, Plus, ChevronRight, ChevronDown, ChevronUp, GripVertical, Save, RefreshCw, Edit } from "lucide-react";
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -311,10 +311,29 @@ export default function MasterDataManager({ initialData, rawFields, initialNote,
             cell: ({ row }) => <div className="font-medium text-slate-400 font-mono text-xs">{row.original.fieldNo}</div>,
         },
         {
+            id: "edit",
+            header: "",
+            size: 30,
+            cell: ({ row }) => (
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 text-muted-foreground hover:text-primary transition-colors"
+                    onClick={() => openFieldDetail(row.original)}
+                    title="Edit"
+                >
+                    <Edit className="h-3 w-3" />
+                </Button>
+            ),
+            meta: { align: "center" },
+        },
+        {
             accessorKey: "fieldName",
             header: "Field Name",
             size: 180,
-            cell: ({ row }) => <FieldNameCell key={row.original.fieldNo} row={row} router={router} />,
+            cell: ({ row }) => (
+                <FieldNameCell key={row.original.fieldNo} row={row} router={router} />
+            ),
         },
         {
             accessorKey: "description",

@@ -204,7 +204,7 @@ function FIQuestionCard({ question }: { question: any }) {
                                 <span className={cn("font-black text-xs mt-1 shrink-0 italic", question.answer ? "text-teal-400" : "text-red-400")}>A</span>
                                 <div className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
                                     {question.answer ? (
-                                        question.answer
+                                        typeof question.answer === 'object' ? JSON.stringify(question.answer) : String(question.answer)
                                     ) : (
                                         <span className="text-red-400 italic font-medium">No answer provided yet.</span>
                                     )}

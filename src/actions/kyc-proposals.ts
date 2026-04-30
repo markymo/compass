@@ -103,16 +103,18 @@ export async function refreshGleifProposals(legalEntityId: string): Promise<{ su
                 }
             });
 
-            // Trigger enrichment (Synchronous for now as per Phase 1 but designed for async)
+            // Trigger enrichment
             const enrichment = await RegistryEnrichmentService.enrich(reference.id);
             
-            if (enrichment.success && enrichment.record && enrichment.evidenceId) {
-                // Map registry record to field candidates (using new table-driven Super Schema mapper)
+            if (enrichment.success && (enrichment as any).candidates) {
+                // Use the new RA-scoped candidates from the Mapping Engine
+                candidates = [...candidates, ...(enrichment as any).candidates];
+            } else if (enrichment.success && enrichment.record && enrichment.evidenceId) {
+                // Fallback for non-scoped connectors (legacy)
                 const registryCandidates = await CanonicalRegistryMapper.mapToCandidates(enrichment.record, enrichment.evidenceId);
-                
-                // Add to the pool of candidates to evaluate
                 candidates = [...candidates, ...registryCandidates];
             }
+
         }
 
         // 6. Evaluate Proposals

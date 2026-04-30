@@ -40,7 +40,7 @@ export class KycStateService {
     ): Promise<DerivedValue | null> {
         // Comparison Set: (subject, fieldNo, ownerScopeId)
         const claims = await prisma.fieldClaim.findMany({
-            include: { evidence: true },
+            include: { evidence: true, valueAddress: true, valuePerson: true, valueLe: true, valueOrg: true },
             where: {
                 fieldNo,
                 ...subject,
@@ -76,7 +76,7 @@ export class KycStateService {
     ): Promise<DerivedValue[]> {
         // Multi-value Comparison Set: (subject, fieldNo, ownerScopeId, collectionId, instanceId)
         const claims = await prisma.fieldClaim.findMany({
-            include: { evidence: true },
+            include: { evidence: true, valueAddress: true, valuePerson: true, valueLe: true, valueOrg: true },
             where: {
                 fieldNo,
                 ...subject,
@@ -136,6 +136,11 @@ export class KycStateService {
         const sortAndPick = (list: FieldClaim[]) => {
             if (list.length === 0) return null;
             return list.sort((a: any, b: any) => {
+                // Tombstone priority: a deletion should always win over a value within the same tier
+                const isTombA = this.isTombstone(a);
+                const isTombB = this.isTombstone(b);
+                if (isTombA !== isTombB) return isTombA ? -1 : 1;
+
                 // Source priority (asc because 1 is higher)
                 const pA = getSourcePriority(a.sourceType);
                 const pB = getSourcePriority(b.sourceType);
@@ -191,9 +196,10 @@ export class KycStateService {
             claim.valueNumber ??
             claim.valueDate ??
             claim.valueJson ??
-            claim.valuePersonId ??
-            claim.valueLeId ??
-            claim.valueOrgId ??
+            (claim as any).valueAddress ??
+            (claim as any).valuePerson ??
+            (claim as any).valueLe ??
+            (claim as any).valueOrg ??
             claim.valueDocId;
 
         return {

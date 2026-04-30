@@ -228,13 +228,17 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                             <div className="flex items-center gap-4 lg:border-l lg:pl-6 border-slate-200">
                                 <div className="flex items-center gap-3">
                                     <div className="h-9 w-9 rounded-full bg-emerald-50 flex items-center justify-center shrink-0 border border-emerald-100 dark:border-emerald-900/50">
-                                        <Building2 className="h-4 w-4 text-emerald-600" />
+                                        {nationalRegistryData.authorityName.includes("Companies House") ? (
+                                            <img src="/images/Companies_House.png" alt="Companies House" className="h-4 w-auto scale-110" />
+                                        ) : (
+                                            <Building2 className="h-4 w-4 text-emerald-600" />
+                                        )}
                                     </div>
                                     <div>
                                         <div className="font-medium text-sm">{nationalRegistryData.authorityName} - {nationalRegistryData.localRegistrationNumber}</div>
                                         <div className="text-xs text-slate-500">
                                             {nationalRegistryData.lastSyncSucceededAt
-                                                ? <>Last synced: <span className="font-medium text-slate-700">{new Date(nationalRegistryData.lastSyncSucceededAt).toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" })}</span></>
+                                                ? <>Last synced: <span className="font-medium text-slate-700">{new Date(nationalRegistryData.lastSyncSucceededAt).toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" })}</span> at <span className="font-medium text-slate-700">{new Date(nationalRegistryData.lastSyncSucceededAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}</span></>
                                                 : "Never synced"}
                                             {nationalRegistryData.lastSyncStatus === "FAILED" && <span className="ml-2 text-red-500 font-medium">Sync Failed</span>}
                                         </div>
@@ -482,20 +486,7 @@ function MasterFieldDisplay({ label, fieldNo, value, source, sourceReference, on
     let displayValue = value;
 
     if (hasValue) {
-        if (value instanceof Date) {
-            displayValue = value.toLocaleDateString();
-        } else if (typeof value === 'boolean') {
-            displayValue = value ? 'Yes' : 'No';
-        } else if (typeof value === 'object') {
-            // Handle JSON/Arrays
-            displayValue = JSON.stringify(value);
-        } else if (typeof value === 'string' && value.match(/^\d{4}-\d{2}-\d{2}T/)) {
-            // Handle ISO Strings
-            const d = new Date(value);
-            if (!isNaN(d.getTime())) {
-                displayValue = d.toLocaleDateString();
-            }
-        }
+        displayValue = formatGraphValue(value);
     }
 
     return (
@@ -528,7 +519,7 @@ function MasterFieldDisplay({ label, fieldNo, value, source, sourceReference, on
                 "flex items-center justify-between p-3 bg-slate-50 rounded-md border border-slate-100 transition-all",
                 onClick && "group-hover:border-blue-200 group-hover:bg-white group-hover:shadow-sm"
             )}>
-                <div className="font-mono text-sm truncate max-w-[200px]" title={String(value)}>
+                <div className="font-mono text-sm truncate max-w-[300px]" title={typeof value === 'object' && value ? JSON.stringify(value, null, 2) : String(value)}>
                     {hasValue ? displayValue : <span className="text-slate-400 italic">Empty</span>}
                 </div>
                 {hasValue && (
@@ -579,23 +570,44 @@ function SourceBadge({ source, sourceReference, timestamp }: { source: string, s
     );
 }
 
+export function formatGraphValue(val: any): string {
+    if (val === null || val === undefined || val === '') return '';
+    if (val instanceof Date) return val.toLocaleDateString();
+    if (typeof val === 'boolean') return val ? 'Yes' : 'No';
+    if (Array.isArray(val)) {
+        return val.map(v => formatGraphValue(v)).join(' | ');
+    }
+    if (typeof val === 'object') {
+        if (val.line1 || val.city || val.country) {
+            const parts = [val.line1, val.line2, val.city, val.region, val.postalCode, val.country].filter(Boolean);
+            return parts.join(', ');
+        }
+        if (val.firstName || val.lastName) {
+            const parts = [val.firstName, val.middleName, val.lastName].filter(Boolean);
+            const name = parts.join(' ');
+            return val.primaryNationality ? `${name} (${val.primaryNationality})` : name;
+        }
+        if (val.name) return val.name;
+        if (val.legalName) return val.legalName;
+        if (val.entityName) return val.entityName;
+        if (val.fullName) return val.fullName;
+        
+        return JSON.stringify(val);
+    }
+    if (typeof val === 'string' && val.match(/^\d{4}-\d{2}-\d{2}T/)) {
+        const d = new Date(val);
+        if (!isNaN(d.getTime())) return d.toLocaleDateString();
+    }
+    return String(val);
+}
+
 function ProposalCard({ proposal, onAccept }: { proposal: FieldProposal, onAccept: () => void }) {
     const isBlocked = proposal.action === 'BLOCKED';
     const isNoChange = proposal.action === 'NO_CHANGE';
 
     if (isNoChange) return null;
 
-    const formatValue = (val: any) => {
-        if (val === null || val === undefined) return '-';
-        if (val instanceof Date) return val.toLocaleDateString();
-        if (typeof val === 'boolean') return val ? 'Yes' : 'No';
-        if (typeof val === 'object') return JSON.stringify(val);
-        if (typeof val === 'string' && val.match(/^\d{4}-\d{2}-\d{2}T/)) {
-            const d = new Date(val);
-            if (!isNaN(d.getTime())) return d.toLocaleDateString();
-        }
-        return String(val);
-    };
+    const formatValue = (val: any) => val ? formatGraphValue(val) : '-';
 
     return (
         <Card className={cn(

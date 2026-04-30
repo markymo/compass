@@ -13,7 +13,7 @@ export type FieldDefinition = {
     fieldName: string;
     model: string; // Legacy: Prisma model name
     field: string | null; // Legacy: Prisma field name
-    appDataType: 'TEXT' | 'NUMBER' | 'DATE' | 'DATETIME' | 'PERSON_REF' | 'ORG_REF' | 'DOCUMENT_REF' | 'JSONB';
+    appDataType: 'TEXT' | 'NUMBER' | 'DATE' | 'DATETIME' | 'PERSON_REF' | 'PARTY_REF' | 'ORG_REF' | 'ADDRESS_REF' | 'DOCUMENT_REF' | 'JSONB';
     dataType: 'string' | 'integer' | 'boolean' | 'date' | 'datetime' | 'jsonb' | 'document'; // Legacy
     isMultiValue: boolean; // New multiplicity flag
     isRepeating: boolean; // Legacy multiplicity flag
@@ -795,7 +795,7 @@ export const FIELD_DEFINITIONS: Record<number, FieldDefinition> = {
         fieldName: 'List of ultimate beneficial owners',
         model: 'Stakeholder',
         field: 'role',
-        appDataType: 'PERSON_REF',
+        appDataType: 'PARTY_REF',
         dataType: 'string',
         isMultiValue: true,
         isRepeating: true,
@@ -809,7 +809,7 @@ export const FIELD_DEFINITIONS: Record<number, FieldDefinition> = {
         fieldName: 'List of company directors',
         model: 'Stakeholder',
         field: 'role',
-        appDataType: 'PERSON_REF',
+        appDataType: 'PARTY_REF',
         dataType: 'string',
         isMultiValue: true,
         isRepeating: true,
@@ -823,7 +823,7 @@ export const FIELD_DEFINITIONS: Record<number, FieldDefinition> = {
         fieldName: 'List of persons controlling',
         model: 'Stakeholder',
         field: 'role',
-        appDataType: 'PERSON_REF',
+        appDataType: 'PARTY_REF',
         dataType: 'string',
         isMultiValue: true,
         isRepeating: true,
@@ -1515,6 +1515,48 @@ export const FIELD_DEFINITIONS: Record<number, FieldDefinition> = {
         isRepeating: true,
         dbTable: 'settlement_instructions',
         dbColumn: 'ibanSwift',
+    },
+
+    // --- NEW COMPLEX DATA STRUCTURES ---
+    
+    // Address Objects
+    120: {
+        fieldNo: 120,
+        fieldName: 'Registered Address (Structured)',
+        model: 'IdentityProfile',
+        field: 'regAddressLine1', // Keep legacy binding for now
+        appDataType: 'ADDRESS_REF',
+        dataType: 'string',
+        isMultiValue: false,
+        isRepeating: false,
+        dbTable: 'addresses',
+        dbColumn: 'id',
+        notes: 'Supersedes fields 6-10',
+    },
+    121: {
+        fieldNo: 121,
+        fieldName: 'Headquarters Address (Structured)',
+        model: 'IdentityProfile',
+        field: 'hqAddressLine1', // Keep legacy binding for now
+        appDataType: 'ADDRESS_REF',
+        dataType: 'string',
+        isMultiValue: false,
+        isRepeating: false,
+        dbTable: 'addresses',
+        dbColumn: 'id',
+        notes: 'Supersedes fields 11-15',
+    },
+    122: {
+        fieldNo: 122,
+        fieldName: 'Primary Address (Structured)',
+        model: 'IdentityProfile',
+        field: 'primaryAddress',
+        appDataType: 'ADDRESS_REF',
+        dataType: 'string',
+        isMultiValue: false,
+        isRepeating: false,
+        dbTable: 'addresses',
+        dbColumn: 'id',
     },
 };
 

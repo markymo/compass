@@ -267,7 +267,9 @@ export async function updateStandingDataProperty(clientLEId: string, propertyKey
             ownerScopeId,
             sourceType: SourceType.USER_INPUT,
             sourceReference: "Manual UI Update",
+            clientLEId, // enables graph write-back for fields with a MasterFieldGraphBinding
         };
+
 
         // Assign value to the correct slot
         switch (def.appDataType) {
@@ -278,6 +280,17 @@ export async function updateStandingDataProperty(clientLEId: string, propertyKey
             case 'PERSON_REF': claimInput.valuePersonId = payload.value; break;
             case 'ORG_REF': claimInput.valueLeId = payload.value; break;
             case 'DOCUMENT_REF': claimInput.valueDocId = payload.value; break;
+            case 'ADDRESS_REF': claimInput.valueAddressId = payload.value; break;
+            case 'PARTY_REF':
+                // payload.value is expected to be an object for polymorphic types: { type: 'PERSON' | 'LEGAL_ENTITY', id: '123' }
+                if (typeof payload.value === 'object' && payload.value !== null) {
+                    if (payload.value.type === 'PERSON') {
+                        claimInput.valuePersonId = payload.value.id;
+                    } else if (payload.value.type === 'LEGAL_ENTITY') {
+                        claimInput.valueLeId = payload.value.id;
+                    }
+                }
+                break;
             case 'JSONB': claimInput.valueJson = payload.value; break;
         }
 
@@ -513,6 +526,7 @@ export async function getFullMasterData(clientLEId: string) {
     const clientLE = await prisma.clientLE.findUnique({
         where: { id: clientLEId },
         include: {
+            legalEntity: true,
             registryReferences: {
                 include: { authority: true },
                 orderBy: { updatedAt: 'desc' },
@@ -520,6 +534,7 @@ export async function getFullMasterData(clientLEId: string) {
             }
         }
     });
+
 
     if (!clientLE) return { success: false, data: {} };
 
@@ -532,20 +547,36 @@ export async function getFullMasterData(clientLEId: string) {
     if (subjectLeId) {
         const allFields = await listAllMasterFields();
         for (const def of allFields) {
-            if (def.isMultiValue) continue; // Skip repeating fields for now
+            if (def.isMultiValue) {
+                // Fetch the entire collection
+                const collection = await KycStateService.getAuthoritativeCollection(
+                    { subjectLeId },
+                    def.fieldNo,
+                    ownerScopeId || undefined
+                );
 
-            const derived = await KycStateService.getAuthoritativeValue(
-                { subjectLeId },
-                def.fieldNo,
-                ownerScopeId || undefined
-            );
+                if (collection && collection.length > 0) {
+                    // We map the collection into an array of values
+                    flattened[def.fieldNo] = {
+                        value: collection.map(c => c.value),
+                        source: collection[0].isScoped ? 'USER_INPUT' : (collection[0].evidenceProvider || collection[0].sourceType || 'MASTER_RECORD'),
+                        sourceReference: collection[0].sourceReference ?? undefined
+                    };
+                }
+            } else {
+                const derived = await KycStateService.getAuthoritativeValue(
+                    { subjectLeId },
+                    def.fieldNo,
+                    ownerScopeId || undefined
+                );
 
-            if (derived) {
-                flattened[def.fieldNo] = {
-                    value: derived.value,
-                    source: derived.isScoped ? 'USER_INPUT' : (derived.evidenceProvider || derived.sourceType || 'MASTER_RECORD'),
-                    sourceReference: derived.sourceReference ?? undefined
-                };
+                if (derived) {
+                    flattened[def.fieldNo] = {
+                        value: derived.value,
+                        source: derived.isScoped ? 'USER_INPUT' : (derived.evidenceProvider || derived.sourceType || 'MASTER_RECORD'),
+                        sourceReference: derived.sourceReference ?? undefined
+                    };
+                }
             }
         }
     }
@@ -596,8 +627,10 @@ export async function getFullMasterData(clientLEId: string) {
     // 4. Find most recent GLEIF-sourced event for this legal entity
     const gleifLastSynced: Date | null = clientLE.gleifFetchedAt;
 
-    // 5. Extract National Registry Data if available
+    // 5. Extract National Registry Data and calculate enrichment status
     let nationalRegistryData = null;
+    let computedEnrichmentStatus = 'PENDING_LEI';
+    
     if (clientLE.registryReferences && clientLE.registryReferences.length > 0) {
         const primaryRef = clientLE.registryReferences[0];
         nationalRegistryData = {
@@ -607,6 +640,16 @@ export async function getFullMasterData(clientLEId: string) {
             lastSyncSucceededAt: primaryRef.lastSyncSucceededAt,
             lastSyncStatus: primaryRef.lastSyncStatus
         };
+        
+        if (primaryRef.lastSyncStatus === 'SUCCESS') {
+            computedEnrichmentStatus = 'ENRICHED';
+        } else if (primaryRef.lastSyncStatus === 'FAILED') {
+            computedEnrichmentStatus = 'FAILED';
+        } else {
+            computedEnrichmentStatus = 'PENDING_ENRICHMENT';
+        }
+    } else if (clientLE.legalEntity?.lei) {
+        computedEnrichmentStatus = 'PENDING_ENRICHMENT';
     }
 
     return {
@@ -616,9 +659,13 @@ export async function getFullMasterData(clientLEId: string) {
         customDefinitions,
         gleifLastSynced,
         nationalRegistryData,
+        enrichmentStatus: computedEnrichmentStatus,
+        lei: clientLE.legalEntity?.lei,
+        registrationAuthorityId: clientLE.legalEntity?.registrationAuthorityId,
         masterFields: await listAllMasterFields(), // Already fetched above, but for clarity
         masterGroups: await listAllMasterGroups()
     };
+
 }
 
 import { generateLEDescription } from "./ai-actions";

@@ -30,6 +30,32 @@ export class KycWriteService {
         userId?: string,
         entityType: 'LEGAL_ENTITY' | 'CLIENT_LE' = 'LEGAL_ENTITY'
     ): Promise<boolean> {
+        // Handle Iteration for Array lists mapped to repeating fields
+        if (Array.isArray(candidate.value)) {
+            let overallSuccess = true;
+            for (let i = 0; i < candidate.value.length; i++) {
+                const item = candidate.value[i];
+                // For list candidates, we generate an ephemeral rowId mapping
+                const rowId = `auto_${Date.now()}_${i}`;
+                const success = await this.updateField(
+                    entityId,
+                    candidate.fieldNo,
+                    item,
+                    {
+                        source: candidate.source,
+                        evidenceId: candidate.evidenceId || undefined,
+                        verifiedBy: userId,
+                        confidence: candidate.confidence,
+                        reason: candidate.sourceKey
+                    },
+                    rowId,
+                    entityType
+                );
+                if (!success) overallSuccess = false;
+            }
+            return overallSuccess;
+        }
+
         return this.updateField(
             entityId,
             candidate.fieldNo,
@@ -39,7 +65,7 @@ export class KycWriteService {
                 evidenceId: candidate.evidenceId || undefined,
                 verifiedBy: userId,
                 confidence: candidate.confidence,
-                reason: candidate.sourceKey // Map sourceKey to reason/sourceReference
+                reason: candidate.sourceKey 
             },
             undefined, // rowId
             entityType
@@ -84,6 +110,7 @@ export class KycWriteService {
         }
 
         // 1. Resolve LegalEntity ID (Lazy Creation for ClientLE)
+        const clientLEId = entityType === 'CLIENT_LE' ? entityId : null; // Keep original ClientLE ID for graph node creation
         let resolvedEntityId = entityId;
         let resolvedEntityType = entityType;
 
@@ -120,7 +147,121 @@ export class KycWriteService {
             return true; 
         }
 
-        // 4. Emit FieldClaim for Provenance Tracking
+        // 4. Materialize Graph Relations (Smart Upsert)
+        let valueAddressId: string | undefined;
+        let valuePersonId: string | undefined;
+        let valueLeId: string | undefined;
+        let finalJsonValue = (typeof value === 'object' && !(value instanceof Date)) ? value : undefined;
+
+        // Ecosystem Edge helper — only runs when we have a ClientLE context
+        const ensureGraphNode = async (nodeType: string, ids: { personId?: string, legalEntityId?: string, addressId?: string }) => {
+            if (!clientLEId) return; // Guard: no ClientLE context means nowhere to anchor the node
+            const whereClause = { clientLEId, ...ids };
+            const existing = await prisma.clientLEGraphNode.findFirst({ where: whereClause as any });
+            if (!existing) {
+                await prisma.clientLEGraphNode.create({
+                    data: {
+                        clientLEId,
+                        nodeType,
+                        personId: ids.personId,
+                        legalEntityId: ids.legalEntityId,
+                        addressId: ids.addressId,
+                        source: provenance.source || 'UNKNOWN',
+                        lastModifiedById: provenance.verifiedBy || undefined
+                    }
+                }).catch((e: any) => console.error("[Smart Upsert] Failed to forge graph edge:", e));
+            }
+        };
+
+        if (typeof value === 'object' && value !== null && !(value instanceof Date)) {
+            // 4.1 Sub-function to materialize graph node for nested addresses
+            const materializeNestedAddress = async (addrVal: any, subProps: { subjectLeId?: string, subjectPersonId?: string }) => {
+                const aQuery = {
+                    line1: addrVal.line1 || null,
+                    city: addrVal.city || null,
+                    postalCode: addrVal.postalCode || null,
+                    country: addrVal.country || null
+                };
+                let addr = await prisma.address.findFirst({ where: aQuery });
+                if (!addr) {
+                    addr = await prisma.address.create({ data: {
+                        ...aQuery,
+                        line2: addrVal.line2 || null,
+                        region: addrVal.region || null
+                    }});
+                }
+                
+                // Formally establish graph edge via FieldClaim 122
+                await FieldClaimService.assertClaim({
+                    fieldNo: 122, // Primary Address (Structured)
+                    ...subProps,
+                    valueAddressId: addr.id,
+                    sourceType: (provenance.source as any) === 'USER_INPUT' ? SourceType.USER_INPUT :
+                        (provenance.source as any) === 'GLEIF' ? SourceType.GLEIF :
+                            (provenance.source as any) === 'REGISTRATION_AUTHORITY' ? SourceType.REGISTRATION_AUTHORITY :
+                                    SourceType.SYSTEM_DERIVED,
+                    sourceReference: provenance.reason,
+                    evidenceId: provenance.evidenceId,
+                    confidenceScore: provenance.confidence,
+                    status: (provenance as any).verifiedBy ? ClaimStatus.VERIFIED : ((provenance.source as any) === 'USER_INPUT' ? ClaimStatus.VERIFIED : ClaimStatus.ASSERTED),
+                    verifiedByUserId: (provenance as any).verifiedBy || (provenance as any).verified_by || undefined,
+                    assertedAt: new Date()
+                }).catch(e => console.error("[Smart Upsert] Failed to link nested address:", e));
+                
+                return addr.id;
+            };
+
+            if (def.appDataType === 'ADDRESS_REF') {
+                // Standalone Address
+                valueAddressId = await materializeNestedAddress(value, { subjectLeId: resolvedEntityId });
+                await ensureGraphNode('ADDRESS', { addressId: valueAddressId });
+                finalJsonValue = undefined; // Drop json copy since we mapped relationally
+            } else if (def.appDataType === 'PARTY_REF') {
+                if (value.metadata_type === 'LEGAL_ENTITY') {
+                    const query = {
+                        name: value.name || null,
+                        localRegistrationNumber: value.registrationNumber || null,
+                    };
+                    let le = await prisma.legalEntity.findFirst({ where: query });
+                    if (!le) {
+                        le = await prisma.legalEntity.create({ data: {
+                            reference: `AUTO-${Date.now()}`,
+                            ...query
+                        }});
+                    }
+                    if (value.address) {
+                        await materializeNestedAddress(value.address, { subjectLeId: le.id });
+                    }
+                    valueLeId = le.id;
+                    await ensureGraphNode('LEGAL_ENTITY', { legalEntityId: le.id });
+                    finalJsonValue = undefined;
+                } else {
+                    // Fallback or explicit PERSON
+                    const query = {
+                        firstName: value.firstName || null,
+                        lastName: value.lastName || null,
+                    };
+                    let person = await prisma.person.findFirst({ where: query });
+                    if (!person) {
+                        person = await prisma.person.create({ data: {
+                            ...query,
+                            primaryNationality: value.primaryNationality || null,
+                            dateOfBirth: value.dateOfBirth ? new Date(value.dateOfBirth) : null
+                        }});
+                    }
+                    if (value.address) {
+                        const personAddrId = await materializeNestedAddress(value.address, { subjectPersonId: person.id });
+                        // Also register the address itself as a graph node
+                        if (personAddrId) await ensureGraphNode('ADDRESS', { addressId: personAddrId });
+                    }
+                    valuePersonId = person.id;
+                    await ensureGraphNode('PERSON', { personId: person.id });
+                    finalJsonValue = undefined;
+                }
+            }
+        }
+
+        // 5. Emit FieldClaim for Provenance Tracking
         try {
             await FieldClaimService.assertClaim({
                 fieldNo,
@@ -128,7 +269,10 @@ export class KycWriteService {
                 valueText: typeof value === 'string' ? value : undefined,
                 valueNumber: typeof value === 'number' ? value : undefined,
                 valueDate: value instanceof Date ? value : undefined,
-                valueJson: typeof value === 'object' && !(value instanceof Date) ? value : undefined,
+                valueJson: finalJsonValue,
+                valueAddressId,
+                valuePersonId,
+                valueLeId,
                 sourceType: (provenance.source as any) === 'USER_INPUT' ? SourceType.USER_INPUT :
                     (provenance.source as any) === 'GLEIF' ? SourceType.GLEIF :
                         (provenance.source as any) === 'REGISTRATION_AUTHORITY' ? SourceType.REGISTRATION_AUTHORITY :
@@ -141,11 +285,88 @@ export class KycWriteService {
                 assertedAt: new Date(),
                 // Repeating Field Contract:
                 collectionId: def.isMultiValue ? (def.categoryId || 'GENERAL') : undefined,
-                instanceId: rowId || undefined
+                instanceId: rowId || undefined,
+                // Required for Graph Edge Write-back
+                clientLEId: clientLEId || undefined
             });
         } catch (err) {
             console.error(`[KycWriteService] Failed to emit FieldClaim for field ${fieldNo}:`, err);
             // Don't fail the whole update if claim emission fails, but log it
+        }
+
+        // 6. Graph Edge Write-back
+        if (clientLEId) {
+            try {
+                const bindings = await prisma.masterFieldGraphBinding.findMany({
+                    where: { fieldNo, isActive: true }
+                });
+                const writeBinding = bindings.find((b: any) => b.writeBackEdgeType);
+
+                if (writeBinding) {
+                    // Find the node we ensured earlier
+                    const nodeWhere = { 
+                        clientLEId, 
+                        personId: valuePersonId || undefined, 
+                        legalEntityId: valueLeId || undefined, 
+                        addressId: valueAddressId || undefined 
+                    };
+                    
+                    // Only proceed if we actually have a valid node reference
+                    if (valuePersonId || valueLeId || valueAddressId) {
+                        const node = await prisma.clientLEGraphNode.findFirst({ where: nodeWhere as any });
+
+                        if (node) {
+                            // Find root node ID
+                            const clientLE = await prisma.clientLE.findUnique({ where: { id: clientLEId }});
+                            let rootNodeId: string | null = null;
+                            if (clientLE && clientLE.legalEntityId) {
+                                let rootNode = await prisma.clientLEGraphNode.findFirst({
+                                    where: { clientLEId, legalEntityId: clientLE.legalEntityId }
+                                });
+                                if (!rootNode) {
+                                    rootNode = await prisma.clientLEGraphNode.create({
+                                        data: {
+                                            clientLEId,
+                                            nodeType: 'LEGAL_ENTITY',
+                                            legalEntityId: clientLE.legalEntityId,
+                                            source: 'SYSTEM'
+                                        }
+                                    });
+                                }
+                                rootNodeId = rootNode.id;
+                            }
+
+                            if (rootNodeId) {
+                                await prisma.clientLEGraphEdge.upsert({
+                                    where: { 
+                                        fromNodeId_toNodeId_edgeType: { 
+                                            fromNodeId: node.id, 
+                                            toNodeId: rootNodeId,
+                                            edgeType: writeBinding.writeBackEdgeType! 
+                                        } 
+                                    },
+                                    update: { 
+                                        isActive: true, 
+                                        source: (provenance.source as any) || 'UNKNOWN',
+                                        updatedAt: new Date()
+                                    },
+                                    create: {
+                                        clientLEId,
+                                        fromNodeId: node.id,
+                                        toNodeId: rootNodeId,
+                                        edgeType: writeBinding.writeBackEdgeType!,
+                                        isActive: true,
+                                        source: (provenance.source as any) || 'UNKNOWN'
+                                    }
+                                });
+                                console.log(`[KycWriteService] Graph edge write-back successful for field ${fieldNo} (${writeBinding.writeBackEdgeType})`);
+                            }
+                        }
+                    }
+                }
+            } catch (graphErr) {
+                console.error(`[KycWriteService] Graph edge write-back failed for field ${fieldNo}:`, graphErr);
+            }
         }
 
         // 5. Propagate to Questions
@@ -268,7 +489,7 @@ export class KycWriteService {
         // 1. Check if ClientLE already has a direct link
         const clientLE = await prisma.clientLE.findUnique({
             where: { id: clientLEId },
-            select: { legalEntityId: true }
+            select: { legalEntityId: true, name: true }
         });
 
         if (clientLE?.legalEntityId) {
@@ -280,6 +501,7 @@ export class KycWriteService {
             const newLegalEntity = await tx.legalEntity.create({
                 data: {
                     reference: `REF-${clientLEId.substring(0, 8).toUpperCase()}`,
+                    name: clientLE?.name || null
                 }
             });
 
@@ -511,12 +733,13 @@ export class KycWriteService {
             ];
 
             for (const q of allQuestions) {
-                if (q.answer === newValue) continue; // No change needed
+                const incomingJsonStr = JSON.stringify(newValue);
+                if (q.answer && JSON.stringify(q.answer) === incomingJsonStr) continue; // No change needed
 
                 await prisma.question.update({
                     where: { id: q.id },
                     data: {
-                        answer: String(newValue), // Naive string conversion for now
+                        answer: newValue === null ? Prisma.DbNull : JSON.parse(incomingJsonStr), // Store materialized JSON snapshot
                         status: 'DRAFT', // Auto-move to valid status
                     }
                 });
@@ -562,7 +785,7 @@ export class KycWriteService {
                 answerPayload[fNo] = val.value;
             }
         }
-        const answerString = JSON.stringify(answerPayload, null, 2);
+        const answerPayloadStr = JSON.stringify(answerPayload);
 
         // 3. Find Questions mapped to this Group
         const engagements = await prisma.fIEngagement.findMany({
@@ -588,11 +811,12 @@ export class KycWriteService {
             ];
 
             for (const q of allQuestions) {
-                if (q.answer === answerString) continue;
+                if (q.answer && JSON.stringify(q.answer) === answerPayloadStr) continue;
 
                 await prisma.question.update({
                     where: { id: q.id },
                     data: {
+                        answer: JSON.parse(answerPayloadStr),
                         status: 'DRAFT'
                     }
                 });
@@ -608,6 +832,145 @@ export class KycWriteService {
                         }
                     }
                 });
+            }
+        }
+    }
+
+    /**
+     * Processes PSC (Persons with Significant Control) records from a Companies House response,
+     * materialising each PSC as a graph node and recording the control relationship as a
+     * ClientLEGraphEdge with full metadata (natures_of_control, notifiedOn, ceasedOn).
+     */
+    async processPSCsForLE(
+        clientLEId: string,
+        pscs: any[],
+        source: string = 'REGISTRATION_AUTHORITY'
+    ): Promise<void> {
+        if (!pscs || pscs.length === 0) return;
+
+        // Ensure root node exists
+        const clientLE = await prisma.clientLE.findUnique({ where: { id: clientLEId } });
+        let rootNodeId: string | null = null;
+        if (clientLE && clientLE.legalEntityId) {
+            let rootNode = await prisma.clientLEGraphNode.findFirst({
+                where: { clientLEId, legalEntityId: clientLE.legalEntityId }
+            });
+            if (!rootNode) {
+                rootNode = await prisma.clientLEGraphNode.create({
+                    data: {
+                        clientLEId,
+                        nodeType: 'LEGAL_ENTITY',
+                        legalEntityId: clientLE.legalEntityId,
+                        source: 'SYSTEM'
+                    }
+                });
+            }
+            rootNodeId = rootNode.id;
+        }
+
+        if (!rootNodeId) {
+            console.error(`[PSC] Cannot process PSCs: No root LegalEntity found for ClientLE ${clientLEId}`);
+            return;
+        }
+
+        for (const psc of pscs) {
+            try {
+                const isCorporate = (psc.kind || '').includes('corporate');
+                const isActive = !psc.ceased && !psc.ceased_on;
+
+                let graphNodeId: string | null = null;
+
+                if (isCorporate) {
+                    // --- Corporate PSC ---
+                    const regNum = psc.identification?.registration_number;
+                    const query = regNum
+                        ? { localRegistrationNumber: regNum }
+                        : { name: psc.name };
+
+                    let le = await prisma.legalEntity.findFirst({ where: query });
+                    if (!le) {
+                        le = await prisma.legalEntity.create({
+                            data: {
+                                reference: `PSC-${Date.now()}`,
+                                name: psc.name || null,
+                                localRegistrationNumber: regNum || null,
+                            }
+                        });
+                    }
+
+                    // Ensure graph node for this corporate PSC
+                    const existingNode = await prisma.clientLEGraphNode.findFirst({
+                        where: { clientLEId, legalEntityId: le.id }
+                    });
+                    if (existingNode) {
+                        graphNodeId = existingNode.id;
+                    } else {
+                        const node = await prisma.clientLEGraphNode.create({
+                            data: { clientLEId, nodeType: 'LEGAL_ENTITY', legalEntityId: le.id, source }
+                        });
+                        graphNodeId = node.id;
+                    }
+                } else {
+                    // --- Individual PSC ---
+                    // CH only gives month+year for DOB (privacy); we store it as partial
+                    const nameParts = (psc.name || '').split(', ');
+                    // CH format is usually "LASTNAME, Firstname Middlename"
+                    const lastName = nameParts[0] || null;
+                    const firstNames = nameParts[1] || null;
+                    const firstName = firstNames ? firstNames.split(' ')[0] : null;
+
+                    let person = await prisma.person.findFirst({
+                        where: { firstName, lastName }
+                    });
+                    if (!person) {
+                        person = await prisma.person.create({
+                            data: {
+                                firstName,
+                                lastName,
+                                primaryNationality: psc.nationality || null,
+                            }
+                        });
+                    }
+
+                    const existingNode = await prisma.clientLEGraphNode.findFirst({
+                        where: { clientLEId, personId: person.id }
+                    });
+                    if (existingNode) {
+                        graphNodeId = existingNode.id;
+                    } else {
+                        const node = await prisma.clientLEGraphNode.create({
+                            data: { clientLEId, nodeType: 'PERSON', personId: person.id, source }
+                        });
+                        graphNodeId = node.id;
+                    }
+                }
+
+                if (!graphNodeId) continue;
+
+                // --- Upsert the PSC_CONTROL edge ---
+                await prisma.clientLEGraphEdge.upsert({
+                    where: { fromNodeId_toNodeId_edgeType: { fromNodeId: graphNodeId, toNodeId: rootNodeId, edgeType: 'PSC_CONTROL' } },
+                    create: {
+                        clientLEId,
+                        fromNodeId: graphNodeId,
+                        toNodeId: rootNodeId,
+                        edgeType: 'PSC_CONTROL',
+                        naturesOfControl: psc.natures_of_control || [],
+                        notifiedOn: psc.notified_on ? new Date(psc.notified_on) : null,
+                        ceasedOn: psc.ceased_on ? new Date(psc.ceased_on) : null,
+                        isActive,
+                        source,
+                    },
+                    update: {
+                        naturesOfControl: psc.natures_of_control || [],
+                        ceasedOn: psc.ceased_on ? new Date(psc.ceased_on) : null,
+                        isActive,
+                    }
+                });
+
+                console.log(`[PSC] ${isActive ? 'Active' : 'Ceased'} PSC processed: ${psc.name} → clientLE ${clientLEId}`);
+            } catch (e: any) {
+                console.error(`[PSC] Failed to process PSC "${psc.name}":`, e.message);
             }
         }
     }

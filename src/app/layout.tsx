@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Outfit, Inter } from "next/font/google";
 import "./globals.css";
+
+// Force Server Context Reload - Architecture Sync 2026-04-22
 import { cn } from "@/lib/utils";
 import { UsageTracker } from "@/components/usage-tracker";
 import { AuthSessionProvider } from "@/components/providers/session-provider";

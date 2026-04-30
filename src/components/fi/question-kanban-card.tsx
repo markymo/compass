@@ -63,8 +63,8 @@ export function QuestionKanbanCard({ question }: QuestionKanbanCardProps) {
                                 </p>
 
                                 {question.answer && (
-                                    <div className="bg-emerald-50/50 p-2 rounded text-xs text-slate-700 border border-emerald-100 italic">
-                                        "{question.answer}"
+                                    <div className="bg-emerald-50/50 p-2 rounded text-xs text-slate-700 border border-emerald-100 italic truncate max-w-full">
+                                        "{typeof question.answer === 'object' ? JSON.stringify(question.answer) : String(question.answer)}"
                                     </div>
                                 )}
 

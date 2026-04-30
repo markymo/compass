@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Edit, ShieldAlert, UserCog } from "lucide-react";
 import { UserPermissionsSheet } from "./UserPermissionsSheet";
 import { AddUserDialog } from "./AddUserDialog";
+import { EntityManagementTable } from "./EntityManagementTable";
 import { Loader2 } from "lucide-react";
 
 export function UserManagementWizard() {
@@ -63,78 +64,87 @@ export function UserManagementWizard() {
             </div>
 
             {selectedClientId && (
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between">
-                        <div>
-                            <CardTitle>Users Matrix: {clientContext?.name}</CardTitle>
-                            <CardDescription>
-                                {users.length} users associated with this client.
-                            </CardDescription>
-                        </div>
-                        <AddUserDialog
-                            clientId={selectedClientId}
-                            onSuccess={() => loadData(selectedClientId)}
-                        />
-                    </CardHeader>
-                    <CardContent>
-                        {loading ? (
-                            <div className="flex justify-center p-8"><Loader2 className="animate-spin" /></div>
-                        ) : users.length === 0 ? (
-                            <div className="text-center py-12 text-muted-foreground border-2 border-dashed rounded-lg">
-                                No users found. Add one to get started.
+                <div className="space-y-8">
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between">
+                            <div>
+                                <CardTitle>Users Matrix: {clientContext?.name}</CardTitle>
+                                <CardDescription>
+                                    {users.length} users associated with this client.
+                                </CardDescription>
                             </div>
-                        ) : (
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>User</TableHead>
-                                        <TableHead>Client Role (Building)</TableHead>
-                                        <TableHead>LE Access (Rooms)</TableHead>
-                                        <TableHead className="text-right">Actions</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {users.map((u: any) => {
-                                        const leCount = Object.keys(u.leRoles).length;
-                                        return (
-                                            <TableRow key={u.user.id}>
-                                                <TableCell>
-                                                    <div className="font-medium">{u.user.email}</div>
-                                                    {u.user.name && <div className="text-xs text-muted-foreground">{u.user.name}</div>}
-                                                </TableCell>
-                                                <TableCell>
-                                                    {u.clientRole ? (
-                                                        <Badge variant={u.clientRole === 'ORG_ADMIN' ? 'default' : 'secondary'}>
-                                                            {u.clientRole}
-                                                        </Badge>
-                                                    ) : (
-                                                        <span className="text-muted-foreground text-xs italic">No Role</span>
-                                                    )}
-                                                </TableCell>
-                                                <TableCell>
-                                                    <div className="flex items-center gap-2">
-                                                        <Badge variant="outline">{leCount} Entities</Badge>
-                                                        {leCount > 0 && (
-                                                            <span className="text-xs text-muted-foreground">
-                                                                {Object.values(u.leRoles).includes("LE_ADMIN") ? "Has Edit Rights" : "View Only"}
-                                                            </span>
+                            <AddUserDialog
+                                clientId={selectedClientId}
+                                onSuccess={() => loadData(selectedClientId)}
+                            />
+                        </CardHeader>
+                        <CardContent>
+                            {loading ? (
+                                <div className="flex justify-center p-8"><Loader2 className="animate-spin" /></div>
+                            ) : users.length === 0 ? (
+                                <div className="text-center py-12 text-muted-foreground border-2 border-dashed rounded-lg">
+                                    No users found. Add one to get started.
+                                </div>
+                            ) : (
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>User</TableHead>
+                                            <TableHead>Client Role (Building)</TableHead>
+                                            <TableHead>LE Access (Rooms)</TableHead>
+                                            <TableHead className="text-right">Actions</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {users.map((u: any) => {
+                                            const leCount = Object.keys(u.leRoles).length;
+                                            return (
+                                                <TableRow key={u.user.id}>
+                                                    <TableCell>
+                                                        <div className="font-medium">{u.user.email}</div>
+                                                        {u.user.name && <div className="text-xs text-muted-foreground">{u.user.name}</div>}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {u.clientRole ? (
+                                                            <Badge variant={u.clientRole === 'ORG_ADMIN' ? 'default' : 'secondary'}>
+                                                                {u.clientRole}
+                                                            </Badge>
+                                                        ) : (
+                                                            <span className="text-muted-foreground text-xs italic">No Role</span>
                                                         )}
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell className="text-right">
-                                                    <Button variant="ghost" size="sm" onClick={() => handleEdit(u)}>
-                                                        <UserCog className="h-4 w-4 text-slate-500" />
-                                                        <span className="sr-only">Edit</span>
-                                                    </Button>
-                                                </TableCell>
-                                            </TableRow>
-                                        );
-                                    })}
-                                </TableBody>
-                            </Table>
-                        )}
-                    </CardContent>
-                </Card>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <div className="flex items-center gap-2">
+                                                            <Badge variant="outline">{leCount} Entities</Badge>
+                                                            {leCount > 0 && (
+                                                                <span className="text-xs text-muted-foreground">
+                                                                    {Object.values(u.leRoles).includes("LE_ADMIN") ? "Has Edit Rights" : "View Only"}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </TableCell>
+                                                    <TableCell className="text-right">
+                                                        <Button variant="ghost" size="sm" onClick={() => handleEdit(u)}>
+                                                            <UserCog className="h-4 w-4 text-slate-500" />
+                                                            <span className="sr-only">Edit</span>
+                                                        </Button>
+                                                    </TableCell>
+                                                </TableRow>
+                                            );
+                                        })}
+                                    </TableBody>
+                                </Table>
+                            )}
+                        </CardContent>
+                    </Card>
+
+                    {/* ENTITY MANAGEMENT SECTION */}
+                    <EntityManagementTable
+                        clientName={clientContext?.name || "Client"}
+                        clientLEs={clientContext?.clientLEs || []}
+                        onUpdate={() => loadData(selectedClientId)}
+                    />
+                </div>
             )}
 
             {/* Edit Sheet */}

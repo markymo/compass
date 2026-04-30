@@ -8,16 +8,18 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Loader2, Save, FileText, Database, Link as LinkIcon, BookOpen, ScanSearch, Trash2 } from "lucide-react";
+import { Loader2, Save, FileText, Database, Link as LinkIcon, BookOpen, ScanSearch, Trash2, GitBranch, Plus, Edit } from "lucide-react";
 import { updateMasterField } from "@/actions/master-data-governance";
 import { useRouter } from "next/navigation";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getOptionSets } from "@/actions/master-data-option-sets";
 import { upsertSourceMapping, deleteSourceMapping } from "@/actions/source-mappings";
+import { upsertGraphBinding, deleteGraphBinding } from "@/actions/graph-bindings";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { CategoryCombobox } from "./category-combobox";
 import { DataInspectorPanel } from "@/components/client/admin/source-mappings/data-inspector-panel";
+
 
 interface FieldDetailSheetProps {
     field: any;
@@ -74,12 +76,29 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[] }: F
     const [isAddMappingOpen, setIsAddMappingOpen] = useState(false);
     const [isBrowserOpen, setIsBrowserOpen] = useState(false);
     const [deletingMappingId, setDeletingMappingId] = useState<string | null>(null);
+    const [editingPriorityId, setEditingPriorityId] = useState<string | null>(null);
+    const [priorityValue, setPriorityValue] = useState<number>(0);
+    const [isPrioritySaving, setIsPrioritySaving] = useState(false);
     const [mappingForm, setMappingForm] = useState({
         sourceType: "GLEIF",
         sourcePath: "",
         transformType: "DIRECT"
     });
     const [isMappingSaving, setIsMappingSaving] = useState(false);
+
+    // ── Graph Binding state ────────────────────────────────────────────────
+    const [isAddBindingOpen, setIsAddBindingOpen] = useState(false);
+    const [deletingBindingId, setDeletingBindingId] = useState<string | null>(null);
+    const [isBindingSaving, setIsBindingSaving] = useState(false);
+    const [bindingForm, setBindingForm] = useState({
+        graphNodeType: "PERSON" as "PERSON" | "LEGAL_ENTITY" | "ADDRESS",
+        filterEdgeType: "",
+        filterActiveOnly: true,
+        writeBackEdgeType: "",
+        writeBackIsActive: true,
+        pickerLabel: "",
+        allowCreate: true,
+    });
 
     const liveSourceTypes = ["GLEIF", "REGISTRATION_AUTHORITY"];
 
@@ -122,6 +141,46 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[] }: F
             toast.error("An error occurred adding the mapping");
         } finally {
             setIsMappingSaving(false);
+        }
+    };
+
+    const handleSaveBinding = async () => {
+        setIsBindingSaving(true);
+        try {
+            const res = await upsertGraphBinding({
+                fieldNo: field.fieldNo,
+                graphNodeType: bindingForm.graphNodeType,
+                filterEdgeType: bindingForm.filterEdgeType.trim() || null,
+                filterActiveOnly: bindingForm.filterActiveOnly,
+                writeBackEdgeType: bindingForm.writeBackEdgeType.trim() || null,
+                writeBackIsActive: bindingForm.writeBackIsActive,
+                pickerLabel: bindingForm.pickerLabel.trim() || null,
+                allowCreate: bindingForm.allowCreate,
+            });
+            if (res.success) {
+                toast.success("Graph binding added");
+                setIsAddBindingOpen(false);
+                setBindingForm({ graphNodeType: "PERSON", filterEdgeType: "", filterActiveOnly: true, writeBackEdgeType: "", writeBackIsActive: true, pickerLabel: "", allowCreate: true });
+                router.refresh();
+            } else {
+                toast.error(res.error || "Failed to add binding");
+            }
+        } catch (e) {
+            toast.error("An error occurred");
+        } finally {
+            setIsBindingSaving(false);
+        }
+    };
+
+    const handleDeleteBinding = async (id: string) => {
+        setDeletingBindingId(id);
+        const res = await deleteGraphBinding(id);
+        setDeletingBindingId(null);
+        if (res.success) {
+            toast.success("Binding removed");
+            router.refresh();
+        } else {
+            toast.error(res.error || "Failed to remove binding");
         }
     };
 
@@ -427,7 +486,7 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[] }: F
                         
                         {field.sourceMappings && field.sourceMappings.length > 0 ? (
                             <div className="space-y-2">
-                                {field.sourceMappings.map((mapping: any) => (
+                                {field.sourceMappings.sort((a: any, b: any) => (a.priority || 0) - (b.priority || 0)).map((mapping: any) => (
                                     <div key={mapping.id} className="bg-white border rounded-md p-3 text-sm flex items-center justify-between group">
                                         <div className="flex items-center gap-3 min-w-0">
                                             <Badge variant="outline" className="bg-slate-50 shrink-0">{mapping.sourceType}</Badge>
@@ -437,21 +496,58 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[] }: F
                                         </div>
                                         <div className="flex items-center gap-3 shrink-0 ml-3">
                                             <span className="text-xs text-slate-400">{mapping.transformType}</span>
-                                            <Badge variant={mapping.isActive ? "default" : "secondary"} className={mapping.isActive ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-100" : ""}>
-                                                {mapping.priority}
-                                            </Badge>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="h-6 w-6 text-slate-300 hover:text-red-500 hover:bg-red-50"
-                                                disabled={deletingMappingId === mapping.id}
-                                                onClick={() => handleDeleteMapping(mapping.id)}
-                                                title="Remove mapping"
-                                            >
-                                                {deletingMappingId === mapping.id
-                                                    ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                                    : <Trash2 className="h-3.5 w-3.5" />}
-                                            </Button>
+
+{editingPriorityId === mapping.id ? (
+  <div className="flex items-center gap-2">
+    <Input
+      type="number"
+      min={1}
+      value={priorityValue}
+      onChange={(e) => setPriorityValue(parseInt(e.target.value, 10) || 0)}
+      className="w-16"
+    />
+    <Button variant="outline" size="sm" onClick={() => setEditingPriorityId(null)} disabled={isPrioritySaving}>Cancel</Button>
+    <Button size="sm" onClick={async () => {
+      setIsPrioritySaving(true);
+      const res = await upsertSourceMapping({
+        id: mapping.id,
+        sourceType: mapping.sourceType,
+        sourcePath: mapping.sourcePath,
+        targetFieldNo: field.fieldNo,
+        priority: priorityValue,
+      });
+      setIsPrioritySaving(false);
+      if (res.success) {
+        toast.success('Priority updated');
+        router.refresh();
+        setEditingPriorityId(null);
+      } else {
+        toast.error(res.error ?? 'Failed to update priority');
+      }
+    }} disabled={isPrioritySaving}>Save</Button>
+  </div>
+) : (
+  <>
+    <Badge variant={mapping.isActive ? "default" : "secondary"} className={mapping.isActive ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-100" : ""}>
+      {mapping.priority}
+    </Badge>
+    <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-primary" onClick={() => { setEditingPriorityId(mapping.id); setPriorityValue(mapping.priority); }}>
+      <Edit className="h-3 w-3" />
+    </Button>
+  </>
+)}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 text-slate-300 hover:text-red-500 hover:bg-red-50"
+                      disabled={deletingMappingId === mapping.id}
+                      onClick={() => handleDeleteMapping(mapping.id)}
+                      title="Remove mapping"
+                    >
+                      {deletingMappingId === mapping.id
+                        ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        : <Trash2 className="h-3.5 w-3.5" />}
+                    </Button>
                                         </div>
                                     </div>
                                 ))}
@@ -461,6 +557,150 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[] }: F
                                 <FileText className="w-8 h-8 text-slate-200 mx-auto mb-2" />
                                 <p className="text-sm text-slate-500 font-medium">No source mappings</p>
                                 <p className="text-xs text-slate-400 max-w-[250px] mx-auto mt-1">This field is entirely manually populated with no automated sourcing.</p>
+                            </div>
+                        )}
+                    </section>
+
+                    {/* Graph Binding Section */}
+                    <section className="space-y-4">
+                        <div className="flex items-center justify-between border-b pb-2">
+                            <div>
+                                <h3 className="text-sm font-semibold flex items-center gap-2 text-slate-800">
+                                    <GitBranch className="w-4 h-4 text-slate-400" /> Graph Node Binding
+                                </h3>
+                                <p className="text-[10px] text-slate-400 mt-0.5">
+                                    Declares that this field&apos;s answer is drawn from — and optionally written back to — the LE Graph.
+                                </p>
+                            </div>
+                            <Dialog open={isAddBindingOpen} onOpenChange={setIsAddBindingOpen}>
+                                <DialogTrigger asChild>
+                                    <Button variant="outline" size="sm" className="h-7 text-xs shrink-0">
+                                        <Plus className="h-3 w-3 mr-1" /> Add Binding
+                                    </Button>
+                                </DialogTrigger>
+                                <DialogContent className="sm:max-w-[480px]">
+                                    <DialogHeader>
+                                        <DialogTitle>Add Graph Node Binding</DialogTitle>
+                                        <DialogDescription>
+                                            Connect this field to the LE Graph so answers are drawn from graph nodes and optionally write back edges.
+                                        </DialogDescription>
+                                    </DialogHeader>
+                                    <div className="grid gap-4 py-4">
+                                        <div className="grid gap-2">
+                                            <Label>Graph Node Type</Label>
+                                            <Select
+                                                value={bindingForm.graphNodeType}
+                                                onValueChange={(v) => setBindingForm({ ...bindingForm, graphNodeType: v as any })}
+                                            >
+                                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="PERSON">Person</SelectItem>
+                                                    <SelectItem value="LEGAL_ENTITY">Legal Entity</SelectItem>
+                                                    <SelectItem value="ADDRESS">Address</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div className="grid gap-2">
+                                                <Label className="text-xs">Filter Edge Type <span className="text-slate-400">(optional)</span></Label>
+                                                <Input
+                                                    value={bindingForm.filterEdgeType}
+                                                    onChange={(e) => setBindingForm({ ...bindingForm, filterEdgeType: e.target.value })}
+                                                    placeholder="e.g. DIRECTOR"
+                                                    className="font-mono text-sm"
+                                                />
+                                                <p className="text-[10px] text-slate-400">Promotes matching nodes to top of picker list.</p>
+                                            </div>
+                                            <div className="grid gap-2">
+                                                <Label className="text-xs">Write-back Edge Type <span className="text-slate-400">(optional)</span></Label>
+                                                <Input
+                                                    value={bindingForm.writeBackEdgeType}
+                                                    onChange={(e) => setBindingForm({ ...bindingForm, writeBackEdgeType: e.target.value })}
+                                                    placeholder="e.g. DIRECTOR"
+                                                    className="font-mono text-sm"
+                                                />
+                                                <p className="text-[10px] text-slate-400">Graph edge type to assert on selection.</p>
+                                            </div>
+                                        </div>
+                                        <div className="grid gap-2">
+                                            <Label className="text-xs">Picker Label <span className="text-slate-400">(optional)</span></Label>
+                                            <Input
+                                                value={bindingForm.pickerLabel}
+                                                onChange={(e) => setBindingForm({ ...bindingForm, pickerLabel: e.target.value })}
+                                                placeholder="e.g. Select a Director"
+                                            />
+                                        </div>
+                                        <div className="flex gap-6">
+                                            <div className="flex items-center gap-2">
+                                                <Switch
+                                                    checked={bindingForm.filterActiveOnly}
+                                                    onCheckedChange={(v) => setBindingForm({ ...bindingForm, filterActiveOnly: v })}
+                                                />
+                                                <Label className="text-xs cursor-pointer">Active nodes only</Label>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <Switch
+                                                    checked={bindingForm.allowCreate}
+                                                    onCheckedChange={(v) => setBindingForm({ ...bindingForm, allowCreate: v })}
+                                                />
+                                                <Label className="text-xs cursor-pointer">Allow inline creation</Label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <DialogFooter>
+                                        <Button onClick={handleSaveBinding} disabled={isBindingSaving}>
+                                            {isBindingSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                            Save Binding
+                                        </Button>
+                                    </DialogFooter>
+                                </DialogContent>
+                            </Dialog>
+                        </div>
+
+                        {field.graphBindings && field.graphBindings.length > 0 ? (
+                            <div className="space-y-2">
+                                {field.graphBindings.map((b: any) => (
+                                    <div key={b.id} className="bg-white border rounded-md p-3 text-sm flex items-center justify-between group">
+                                        <div className="flex items-center gap-3 flex-wrap min-w-0">
+                                            <Badge variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-200 shrink-0">
+                                                {b.graphNodeType}
+                                            </Badge>
+                                            {b.filterEdgeType && (
+                                                <span className="text-xs text-slate-500 font-mono">filter: <span className="text-slate-700">{b.filterEdgeType}</span></span>
+                                            )}
+                                            {b.writeBackEdgeType && (
+                                                <span className="text-xs text-slate-500 font-mono">write-back: <span className="text-emerald-700">{b.writeBackEdgeType}</span></span>
+                                            )}
+                                            {b.pickerLabel && (
+                                                <span className="text-xs text-slate-400 italic">&ldquo;{b.pickerLabel}&rdquo;</span>
+                                            )}
+                                            <div className="flex gap-2">
+                                                {b.filterActiveOnly && <Badge variant="secondary" className="text-[10px] py-0">Active only</Badge>}
+                                                {b.allowCreate && <Badge variant="secondary" className="text-[10px] py-0">Allow create</Badge>}
+                                            </div>
+                                        </div>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-6 w-6 text-slate-300 hover:text-red-500 hover:bg-red-50 shrink-0 ml-3"
+                                            disabled={deletingBindingId === b.id}
+                                            onClick={() => handleDeleteBinding(b.id)}
+                                            title="Remove binding"
+                                        >
+                                            {deletingBindingId === b.id
+                                                ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                                : <Trash2 className="h-3.5 w-3.5" />}
+                                        </Button>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="text-center py-6 border border-dashed rounded-lg bg-white">
+                                <GitBranch className="w-7 h-7 text-slate-200 mx-auto mb-2" />
+                                <p className="text-sm text-slate-500 font-medium">No graph bindings</p>
+                                <p className="text-xs text-slate-400 max-w-[260px] mx-auto mt-1">
+                                    This field is answered via free-form input. Add a binding to connect it to the LE Knowledge Graph.
+                                </p>
                             </div>
                         )}
                     </section>

@@ -6,11 +6,12 @@ const prismaClientSingleton = () => {
 }
 
 declare const globalThis: {
-    prismaGlobal2: ReturnType<typeof prismaClientSingleton>
+    prismaGlobal3: ReturnType<typeof prismaClientSingleton>
 } & typeof global
 
-const prisma = (globalThis as any).prismaGlobal2 || prismaClientSingleton()
+const prisma = (globalThis as any).prismaGlobal3 || prismaClientSingleton()
 
 export default prisma
 
-if (process.env.NODE_ENV !== 'production') (globalThis as any).prismaGlobal2 = prisma
+if (process.env.NODE_ENV !== 'production') (globalThis as any).prismaGlobal3 = prisma
+
