@@ -23,6 +23,7 @@ export interface FieldReadinessRow {
     ukMappingStatus: boolean;
     isFullyComplete: boolean;
     actionsToComplete: number;
+    rawField: any; // The full field object for the editor
 }
 
 export interface MomentumReadiness {
@@ -31,6 +32,7 @@ export interface MomentumReadiness {
     ukMappedFields: number;
     fullyCompleteFields: number;
     categories: CategoryReadiness[];
+    rawCategories: any[]; // Raw category objects for the editor
     fields: FieldReadinessRow[];
     nextBestAction: {
         type: "DESCRIPTION" | "MAPPING";
@@ -41,6 +43,7 @@ export interface MomentumReadiness {
         actionsToComplete: number;
         fullyCompleteCount: number;
         totalFields: number;
+        rawField: any;
     } | null;
 }
 
@@ -59,6 +62,7 @@ export async function getMomentumReadiness(): Promise<MomentumReadiness> {
             sourceMappings: {
                 where: { isActive: true }
             },
+            graphBindings: true,
             masterDataCategory: true
         }
     });
@@ -191,7 +195,8 @@ export async function getMomentumReadiness(): Promise<MomentumReadiness> {
                 categoryKey: chosenCategory.key as string,
                 actionsToComplete: chosenCategory.actionsToComplete as number,
                 fullyCompleteCount: chosenCategory.fullyCompleteCount as number,
-                totalFields: chosenCategory.totalFields as number
+                totalFields: chosenCategory.totalFields as number,
+                rawField: targetField
             };
         }
     }
@@ -212,7 +217,8 @@ export async function getMomentumReadiness(): Promise<MomentumReadiness> {
             descriptionStatus: descValid,
             ukMappingStatus: mapValid,
             isFullyComplete: descValid && mapValid,
-            actionsToComplete: actions
+            actionsToComplete: actions,
+            rawField: f
         };
     });
 
@@ -240,9 +246,8 @@ export async function getMomentumReadiness(): Promise<MomentumReadiness> {
         ukMappedFields,
         fullyCompleteFields,
         categories: categoryReadiness,
+        rawCategories: categories,
         fields: fieldReadinessRows,
         nextBestAction
     };
 }
-
-

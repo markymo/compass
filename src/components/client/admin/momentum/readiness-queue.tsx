@@ -28,9 +28,10 @@ import { FieldReadinessRow } from "@/actions/momentum";
 
 interface ReadinessQueueProps {
     fields: FieldReadinessRow[];
+    onEdit?: (field: any) => void;
 }
 
-export function ReadinessQueue({ fields }: ReadinessQueueProps) {
+export function ReadinessQueue({ fields, onEdit }: ReadinessQueueProps) {
     const [search, setSearch] = useState("");
     const [filterCategory, setFilterCategory] = useState("all");
     const [filterStatus, setFilterStatus] = useState("all");
@@ -113,7 +114,11 @@ export function ReadinessQueue({ fields }: ReadinessQueueProps) {
                     </TableHeader>
                     <TableBody>
                         {filteredFields.map((field) => (
-                            <TableRow key={field.fieldNo} className="hover:bg-slate-50/50 transition-colors">
+                            <TableRow 
+                                key={field.fieldNo} 
+                                className="hover:bg-slate-50 transition-colors cursor-pointer"
+                                onClick={() => onEdit?.(field.rawField)}
+                            >
                                 <TableCell className="font-mono text-xs text-slate-400">{field.fieldNo}</TableCell>
                                 <TableCell className="font-semibold text-slate-900">{field.fieldName}</TableCell>
                                 <TableCell>
