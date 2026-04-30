@@ -14,12 +14,24 @@ export interface CategoryReadiness {
     actionsToComplete: number;
 }
 
+export interface FieldReadinessRow {
+    fieldNo: number;
+    fieldName: string;
+    categoryName: string;
+    categoryOrder: number;
+    descriptionStatus: boolean;
+    ukMappingStatus: boolean;
+    isFullyComplete: boolean;
+    actionsToComplete: number;
+}
+
 export interface MomentumReadiness {
     totalFields: number;
     describedFields: number;
     ukMappedFields: number;
     fullyCompleteFields: number;
     categories: CategoryReadiness[];
+    fields: FieldReadinessRow[];
     nextBestAction: {
         type: "DESCRIPTION" | "MAPPING";
         fieldNo: number;
@@ -75,26 +87,26 @@ export async function getMomentumReadiness(): Promise<MomentumReadiness> {
 
     // Calculate global metrics
     const totalFields = fields.length;
-    const describedFields = fields.filter(f => isDescriptionValid(f.description)).length;
-    const ukMappedFields = fields.filter(f => hasUKCHMapping(f.sourceMappings)).length;
-    const fullyCompleteFields = fields.filter(f => 
+    const describedFields = fields.filter((f: any) => isDescriptionValid(f.description)).length;
+    const ukMappedFields = fields.filter((f: any) => hasUKCHMapping(f.sourceMappings)).length;
+    const fullyCompleteFields = fields.filter((f: any) => 
         isDescriptionValid(f.description) && hasUKCHMapping(f.sourceMappings)
     ).length;
 
     // Calculate category-level rollups
-    const categoryReadiness: CategoryReadiness[] = categories.map(cat => {
-        const catFields = fields.filter(f => f.categoryId === cat.id);
+    const categoryReadiness: CategoryReadiness[] = categories.map((cat: any) => {
+        const catFields = fields.filter((f: any) => f.categoryId === cat.id);
         
-        const catDescCount = catFields.filter(f => isDescriptionValid(f.description)).length;
-        const catMappingCount = catFields.filter(f => hasUKCHMapping(f.sourceMappings)).length;
-        const catCompleteCount = catFields.filter(f => 
+        const catDescCount = catFields.filter((f: any) => isDescriptionValid(f.description)).length;
+        const catMappingCount = catFields.filter((f: any) => hasUKCHMapping(f.sourceMappings)).length;
+        const catCompleteCount = catFields.filter((f: any) => 
             isDescriptionValid(f.description) && hasUKCHMapping(f.sourceMappings)
         ).length;
 
         // "Actions to complete" is the sum of missing dimensions across all fields in category
         // Each field can have up to 2 actions: add description and add UK mapping
         let actions = 0;
-        catFields.forEach(f => {
+        catFields.forEach((f: any) => {
             if (!isDescriptionValid(f.description)) actions++;
             if (!hasUKCHMapping(f.sourceMappings)) actions++;
         });
@@ -112,10 +124,10 @@ export async function getMomentumReadiness(): Promise<MomentumReadiness> {
     });
 
     // Handle Uncategorized fields if any
-    const uncatFields = fields.filter(f => !f.categoryId);
+    const uncatFields = fields.filter((f: any) => !f.categoryId);
     if (uncatFields.length > 0) {
         let uncatActions = 0;
-        uncatFields.forEach(f => {
+        uncatFields.forEach((f: any) => {
             if (!isDescriptionValid(f.description)) uncatActions++;
             if (!hasUKCHMapping(f.sourceMappings)) uncatActions++;
         });
@@ -125,9 +137,9 @@ export async function getMomentumReadiness(): Promise<MomentumReadiness> {
             key: 'UNCAT',
             displayName: 'Uncategorized',
             totalFields: uncatFields.length,
-            descriptionCount: uncatFields.filter(f => isDescriptionValid(f.description)).length,
-            ukMappingCount: uncatFields.filter(f => hasUKCHMapping(f.sourceMappings)).length,
-            fullyCompleteCount: uncatFields.filter(f => 
+            descriptionCount: uncatFields.filter((f: any) => isDescriptionValid(f.description)).length,
+            ukMappingCount: uncatFields.filter((f: any) => hasUKCHMapping(f.sourceMappings)).length,
+            fullyCompleteCount: uncatFields.filter((f: any) => 
                 isDescriptionValid(f.description) && hasUKCHMapping(f.sourceMappings)
             ).length,
             actionsToComplete: uncatActions
@@ -158,15 +170,15 @@ export async function getMomentumReadiness(): Promise<MomentumReadiness> {
 
     if (chosenCategory) {
         // Find all fields belonging to this category
-        const catFields = fields.filter(f => 
+        const catFields = fields.filter((f: any) => 
             (f.categoryId === chosenCategory.id) || 
             (chosenCategory.id === 'uncategorized' && !f.categoryId)
         );
 
         // Find the specific field/gap to recommend
         // Logic: Prefer missing description first, then missing mapping
-        const fieldWithMissingDesc = catFields.find(f => !isDescriptionValid(f.description));
-        const fieldWithMissingMap = catFields.find(f => !hasUKCHMapping(f.sourceMappings));
+        const fieldWithMissingDesc = catFields.find((f: any) => !isDescriptionValid(f.description));
+        const fieldWithMissingMap = catFields.find((f: any) => !hasUKCHMapping(f.sourceMappings));
 
         const targetField = fieldWithMissingDesc || fieldWithMissingMap;
 
@@ -184,13 +196,53 @@ export async function getMomentumReadiness(): Promise<MomentumReadiness> {
         }
     }
 
+    // Map field-level readiness rows
+    const fieldReadinessRows: FieldReadinessRow[] = fields.map((f: any) => {
+        const descValid = isDescriptionValid(f.description);
+        const mapValid = hasUKCHMapping(f.sourceMappings);
+        let actions = 0;
+        if (!descValid) actions++;
+        if (!mapValid) actions++;
+
+        return {
+            fieldNo: f.fieldNo,
+            fieldName: f.fieldName,
+            categoryName: f.masterDataCategory?.displayName || "Uncategorized",
+            categoryOrder: f.masterDataCategory?.order ?? 9999,
+            descriptionStatus: descValid,
+            ukMappingStatus: mapValid,
+            isFullyComplete: descValid && mapValid,
+            actionsToComplete: actions
+        };
+    });
+
+    // Default Sort: Incomplete first, Fewest actions first, Category order, Field number
+    fieldReadinessRows.sort((a, b) => {
+        // 1. Incomplete first (isFullyComplete: false comes first)
+        if (a.isFullyComplete !== b.isFullyComplete) {
+            return a.isFullyComplete ? 1 : -1;
+        }
+        // 2. Fewest actions to complete first (among incomplete)
+        if (a.actionsToComplete !== b.actionsToComplete) {
+            return a.actionsToComplete - b.actionsToComplete;
+        }
+        // 3. Category order
+        if (a.categoryOrder !== b.categoryOrder) {
+            return a.categoryOrder - b.categoryOrder;
+        }
+        // 4. Field number
+        return a.fieldNo - b.fieldNo;
+    });
+
     return {
         totalFields,
         describedFields,
         ukMappedFields,
         fullyCompleteFields,
         categories: categoryReadiness,
+        fields: fieldReadinessRows,
         nextBestAction
     };
 }
+
 

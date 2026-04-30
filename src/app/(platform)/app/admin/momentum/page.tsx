@@ -13,6 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { getMomentumReadiness } from "@/actions/momentum";
+import { ReadinessQueue } from "@/components/client/admin/momentum/readiness-queue";
 
 /**
  * Momentum Page Shell (Slice 1 - Read Only Shell)
@@ -295,25 +296,14 @@ export default async function MomentumPage() {
                 </div>
             </div>
 
-            {/* Field Completion Queue Placeholder */}
+            {/* Field Completion Queue */}
             <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                        <ListTodo className="h-5 w-5 text-slate-400" />
-                        <h2 className="text-lg font-semibold text-slate-800">Field Completion Queue</h2>
-                    </div>
-                    <div className="relative">
-                        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
-                        <input 
-                            disabled 
-                            className="pl-9 h-9 w-64 rounded-md border border-slate-200 bg-slate-50 text-sm italic"
-                            placeholder="Search queue (disabled)..."
-                        />
-                    </div>
+                <div className="flex items-center gap-2">
+                    <ListTodo className="h-5 w-5 text-slate-400" />
+                    <h2 className="text-lg font-semibold text-slate-800">Field Completion Queue</h2>
                 </div>
-                <div className="border rounded-lg border-dashed h-64 flex items-center justify-center text-slate-400 italic text-sm bg-slate-50/30">
-                    Completion Queue Table Placeholder
-                </div>
+                
+                <ReadinessQueue fields={data.fields} />
             </div>
         </div>
     );
