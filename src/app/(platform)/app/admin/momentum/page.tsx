@@ -240,7 +240,9 @@ export default async function MomentumPage() {
                                         {readinessPct === 100 ? (
                                             <CheckCircle2 className="h-5 w-5 text-emerald-500" />
                                         ) : !isUsable && (
-                                            <AlertCircle className="h-5 w-5 text-amber-500" title="Not yet fully usable for ingestion" />
+                                            <div title="Not yet fully usable for ingestion">
+                                                <AlertCircle className="h-5 w-5 text-amber-500" />
+                                            </div>
                                         )}
                                     </div>
                                 </CardHeader>
