@@ -140,6 +140,7 @@ export function MomentumDashboard({ data }: MomentumDashboardProps) {
                         <button
                             onClick={handleCapture}
                             disabled={isCapturing}
+                            title="Saves the current readiness state as a baseline for momentum tracking"
                             className={cn(
                                 "flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-bold transition-all shadow-sm",
                                 isCapturing 
@@ -202,6 +203,46 @@ export function MomentumDashboard({ data }: MomentumDashboardProps) {
                                     </span>
                                 )}
                             </div>
+
+                            {/* Momentum Deltas (Global mode only) */}
+                            {!focusedCategoryId && (
+                                <div className="mt-1 flex flex-col gap-0.5 min-h-[24px]">
+                                    {(() => {
+                                        const deltaKey = 
+                                            stat.title === "Valid Descriptions" ? "described" : 
+                                            stat.title === "UK CH Mappings" ? "mapped" : 
+                                            stat.title === "Fully Complete" ? "complete" : null;
+                                        
+                                        if (!deltaKey) return null;
+
+                                        const lastVal = data.deltas.sinceLast?.[deltaKey];
+                                        const weekVal = data.deltas.sinceWeek?.[deltaKey];
+
+                                        if (lastVal === undefined && weekVal === undefined) {
+                                            return <span className="text-[10px] text-slate-300">No baseline yet</span>;
+                                        }
+
+                                        return (
+                                            <>
+                                                {lastVal !== null && lastVal !== undefined && (
+                                                    <span className={cn(
+                                                        "text-[10px] font-bold",
+                                                        lastVal > 0 ? "text-emerald-600" : lastVal < 0 ? "text-rose-600" : "text-slate-400"
+                                                    )}>
+                                                        {lastVal > 0 ? "+" : ""}{lastVal} since last capture
+                                                    </span>
+                                                )}
+                                                {weekVal !== null && weekVal !== undefined && weekVal !== lastVal && (
+                                                    <span className="text-[9px] text-slate-400 font-medium">
+                                                        {weekVal > 0 ? "+" : ""}{weekVal} this week
+                                                    </span>
+                                                )}
+                                            </>
+                                        );
+                                    })()}
+                                </div>
+                            )}
+
                             <p className="text-xs text-slate-400 mt-1 uppercase tracking-tight font-medium">
                                 {stat.description}
                             </p>

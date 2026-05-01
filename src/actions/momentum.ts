@@ -14,6 +14,12 @@ export interface CategoryReadiness {
     actionsToComplete: number;
 }
 
+export interface MomentumDeltaSet {
+    described: number;
+    mapped: number;
+    complete: number;
+}
+
 export interface FieldReadinessRow {
     fieldNo: number;
     fieldName: string;
@@ -45,6 +51,11 @@ export interface MomentumReadiness {
         totalFields: number;
         rawField: any;
     } | null;
+    deltas: {
+        sinceLast: MomentumDeltaSet | null;
+        sinceToday: MomentumDeltaSet | null;
+        sinceWeek: MomentumDeltaSet | null;
+    };
 }
 
 /**
@@ -240,6 +251,40 @@ export async function getMomentumReadiness(): Promise<MomentumReadiness> {
         return a.fieldNo - b.fieldNo;
     });
 
+    // --- DELTA CALCULATION ---
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - (now.getDay() === 0 ? 6 : now.getDay() - 1)); // Monday
+    startOfWeek.setHours(0, 0, 0, 0);
+
+    const [lastObs, todayObs, weekObs] = await Promise.all([
+        // Latest
+        prisma.adminMomentumObservation.findFirst({
+            where: { scopeType: "GLOBAL", scopeKey: "GLOBAL" },
+            orderBy: { createdAt: 'desc' }
+        }),
+        // First of today
+        prisma.adminMomentumObservation.findFirst({
+            where: { scopeType: "GLOBAL", scopeKey: "GLOBAL", createdAt: { gte: startOfToday } },
+            orderBy: { createdAt: 'asc' }
+        }),
+        // First of week
+        prisma.adminMomentumObservation.findFirst({
+            where: { scopeType: "GLOBAL", scopeKey: "GLOBAL", createdAt: { gte: startOfWeek } },
+            orderBy: { createdAt: 'asc' }
+        })
+    ]);
+
+    const calculateDelta = (obs: any): MomentumDeltaSet | null => {
+        if (!obs) return null;
+        return {
+            described: describedFields - obs.described,
+            mapped: ukMappedFields - obs.mappedUkCh,
+            complete: fullyCompleteFields - obs.complete
+        };
+    };
+
     return {
         totalFields,
         describedFields,
@@ -248,7 +293,12 @@ export async function getMomentumReadiness(): Promise<MomentumReadiness> {
         categories: categoryReadiness,
         rawCategories: categories,
         fields: fieldReadinessRows,
-        nextBestAction
+        nextBestAction,
+        deltas: {
+            sinceLast: calculateDelta(lastObs),
+            sinceToday: calculateDelta(todayObs),
+            sinceWeek: calculateDelta(weekObs)
+        }
     };
 }
 
