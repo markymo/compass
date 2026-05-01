@@ -17,10 +17,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { MomentumReadiness } from "@/actions/momentum";
+import { MomentumReadiness, captureMomentumObservation } from "@/actions/momentum";
 import { ReadinessQueue } from "./readiness-queue";
 import { FieldDetailSheet } from "../field-detail-sheet";
 import { calculateMomentumStats, selectNextBestAction, suggestNextCategory } from "@/lib/momentum-utils";
+import { Save } from "lucide-react";
 
 interface MomentumDashboardProps {
     data: MomentumReadiness;
@@ -30,6 +31,8 @@ export function MomentumDashboard({ data }: MomentumDashboardProps) {
     const [selectedField, setSelectedField] = useState<any>(null);
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [focusedCategoryId, setFocusedCategoryId] = useState<string | null>(null);
+    const [isCapturing, setIsCapturing] = useState(false);
+    const [captureStatus, setCaptureStatus] = useState<string | null>(null);
 
     // Keep selectedField fresh after router.refresh()
     React.useEffect(() => {
@@ -42,6 +45,25 @@ export function MomentumDashboard({ data }: MomentumDashboardProps) {
     const handleEdit = (field: any) => {
         setSelectedField(field);
         setIsEditDialogOpen(true);
+    };
+
+    const handleCapture = async () => {
+        setIsCapturing(true);
+        try {
+            const result = await captureMomentumObservation();
+            if (result.skipped) {
+                setCaptureStatus("Already up to date");
+            } else {
+                setCaptureStatus("Observation recorded");
+            }
+            setTimeout(() => setCaptureStatus(null), 3000);
+        } catch (error) {
+            console.error("Capture failed", error);
+            setCaptureStatus("Error capturing");
+            setTimeout(() => setCaptureStatus(null), 3000);
+        } finally {
+            setIsCapturing(false);
+        }
     };
 
     // Use extracted helpers for clean logic
@@ -108,6 +130,26 @@ export function MomentumDashboard({ data }: MomentumDashboardProps) {
                         <p className="text-sm text-slate-500 dark:text-slate-400">
                             Maintain progress across field completion, source mapping, and system readiness.
                         </p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        {captureStatus && (
+                            <span className="text-xs font-bold text-emerald-600 animate-in fade-in duration-300">
+                                {captureStatus}
+                            </span>
+                        )}
+                        <button
+                            onClick={handleCapture}
+                            disabled={isCapturing}
+                            className={cn(
+                                "flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-bold transition-all shadow-sm",
+                                isCapturing 
+                                    ? "bg-slate-100 text-slate-400 cursor-not-allowed" 
+                                    : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300 active:scale-95"
+                            )}
+                        >
+                            <Save className={cn("h-3.5 w-3.5", isCapturing && "animate-pulse")} />
+                            {isCapturing ? "Capturing..." : "Capture Observation"}
+                        </button>
                     </div>
                 </div>
 

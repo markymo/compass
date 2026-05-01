@@ -251,3 +251,73 @@ export async function getMomentumReadiness(): Promise<MomentumReadiness> {
         nextBestAction
     };
 }
+
+/**
+ * Momentum Observation Service (Step 3 - Capture)
+ * Records a point-in-time snapshot of the schema readiness.
+ */
+export async function captureMomentumObservation() {
+    const isAdmin = await isSystemAdmin();
+    if (!isAdmin) throw new Error("Unauthorized");
+
+    const readiness = await getMomentumReadiness();
+    
+    // Calculate total actions left across all categories
+    const currentGlobalActions = readiness.categories.reduce((acc, cat) => acc + cat.actionsToComplete, 0);
+
+    // Deduplication check: get latest GLOBAL observation
+    const latestGlobal = await prisma.adminMomentumObservation.findFirst({
+        where: { scopeType: "GLOBAL", scopeKey: "GLOBAL" },
+        orderBy: { createdAt: "desc" }
+    });
+
+    if (latestGlobal) {
+        const isIdentical = 
+            latestGlobal.totalFields === readiness.totalFields &&
+            latestGlobal.described === readiness.describedFields &&
+            latestGlobal.mappedUkCh === readiness.ukMappedFields &&
+            latestGlobal.complete === readiness.fullyCompleteFields &&
+            latestGlobal.actionsLeft === currentGlobalActions;
+
+        if (isIdentical) {
+            console.log("Momentum: Global state unchanged. Skipping observation capture.");
+            return { success: true, skipped: true };
+        }
+    }
+
+    // Record GLOBAL observation
+    await prisma.adminMomentumObservation.create({
+        data: {
+            scopeType: "GLOBAL",
+            scopeKey: "GLOBAL",
+            scopeName: "Global Readiness",
+            totalFields: readiness.totalFields,
+            described: readiness.describedFields,
+            mappedUkCh: readiness.ukMappedFields,
+            complete: readiness.fullyCompleteFields,
+            actionsLeft: currentGlobalActions,
+            source: "MANUAL"
+        }
+    });
+
+    // Record per-category observations
+    // We do this even if global is identical to ensure category-level granularity for future trends
+    for (const cat of readiness.categories) {
+        await prisma.adminMomentumObservation.create({
+            data: {
+                scopeType: "CATEGORY",
+                scopeKey: cat.key,
+                scopeName: cat.displayName,
+                totalFields: cat.totalFields,
+                described: cat.descriptionCount,
+                mappedUkCh: cat.ukMappingCount,
+                complete: cat.fullyCompleteCount,
+                actionsLeft: cat.actionsToComplete,
+                source: "MANUAL"
+            }
+        });
+    }
+
+    console.log(`Momentum: Captured ${readiness.categories.length + 1} observations (Global + Categories).`);
+    return { success: true, captured: readiness.categories.length + 1 };
+}
