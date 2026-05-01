@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { parsePath, resolveDotPath, discoverPaths, resolvePathString, PathParseError } from "@/services/kyc/normalization/pathResolver";
 import { applyTransform } from "@/services/kyc/normalization/transforms";
 import { SourceType, MappingTransformType, MasterFieldDefinition, SourceFieldMapping } from "@prisma/client";
+import { captureMomentumObservation } from "./momentum";
 
 // ── Types ──────────────────────────────────────────────────────────────
 
@@ -241,7 +242,14 @@ export async function upsertSourceMapping(input: UpsertMappingInput) {
 
         // ── Revalidate ──
         revalidatePath("/app/admin/master-data/manager");
-        revalidatePath("/app/admin/master-data/fields");
+        revalidatePath("/app/admin/master-data/mappings");
+
+        // Step 10: Automated Observation Capture (Awaited for reliability in serverless)
+        try {
+            await captureMomentumObservation();
+        } catch (err) {
+            console.error("[upsertSourceMapping] Momentum capture failed:", err);
+        }
 
         return { success: true, mapping, warnings };
     } catch (error: any) {
@@ -323,7 +331,14 @@ export async function deleteSourceMapping(id: string) {
 
         // ── Revalidate ──
         revalidatePath("/app/admin/master-data/manager");
-        revalidatePath("/app/admin/master-data/fields");
+        revalidatePath("/app/admin/master-data/mappings");
+
+        // Step 10: Automated Observation Capture (Awaited for reliability in serverless)
+        try {
+            await captureMomentumObservation();
+        } catch (err) {
+            console.error("[deleteSourceMapping] Momentum capture failed:", err);
+        }
 
         return { success: true };
     } catch (error: any) {

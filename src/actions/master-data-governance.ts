@@ -3,6 +3,7 @@
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { invalidateDefinitionCache } from "@/services/masterData/definitionService";
+import { captureMomentumObservation } from "./momentum";
 
 /**
  * toggleFieldActive: Toggles the active state of a master field definition.
@@ -110,6 +111,14 @@ export async function updateMasterField(
         invalidateDefinitionCache();
         revalidatePath("/app/admin/master-data");
         revalidatePath("/app/admin/master-data/fields");
+
+        // Step 10: Automated Observation Capture (Awaited for reliability in serverless)
+        try {
+            await captureMomentumObservation();
+        } catch (err) {
+            console.error("[updateMasterField] Momentum capture failed:", err);
+        }
+
         return { success: true };
     } catch (e) {
         console.error("[updateMasterField] Error:", e);

@@ -1,0 +1,373 @@
+"use server";
+
+import prisma from "@/lib/prisma";
+import { isSystemAdmin } from "./security";
+
+export interface CategoryReadiness {
+    id: string;
+    key: string;
+    displayName: string;
+    totalFields: number;
+    descriptionCount: number;
+    ukMappingCount: number;
+    fullyCompleteCount: number;
+    actionsToComplete: number;
+}
+
+export interface MomentumDeltaSet {
+    described: number;
+    mapped: number;
+    complete: number;
+}
+
+export interface FieldReadinessRow {
+    fieldNo: number;
+    fieldName: string;
+    categoryName: string;
+    categoryOrder: number;
+    descriptionStatus: boolean;
+    ukMappingStatus: boolean;
+    isFullyComplete: boolean;
+    actionsToComplete: number;
+    rawField: any; // The full field object for the editor
+}
+
+export interface MomentumReadiness {
+    totalFields: number;
+    describedFields: number;
+    ukMappedFields: number;
+    fullyCompleteFields: number;
+    categories: CategoryReadiness[];
+    rawCategories: any[]; // Raw category objects for the editor
+    fields: FieldReadinessRow[];
+    nextBestAction: {
+        type: "DESCRIPTION" | "MAPPING";
+        fieldNo: number;
+        fieldName: string;
+        categoryName: string;
+        categoryKey: string;
+        actionsToComplete: number;
+        fullyCompleteCount: number;
+        totalFields: number;
+        rawField: any;
+    } | null;
+    deltas: {
+        sinceLast: MomentumDeltaSet | null;
+        sinceToday: MomentumDeltaSet | null;
+        sinceWeek: MomentumDeltaSet | null;
+    };
+}
+
+/**
+ * Momentum Readiness Service (Slice 2 - Core Computation)
+ * Calculates schema completion metrics based on active MasterFieldDefinitions.
+ */
+export async function getMomentumReadiness(): Promise<MomentumReadiness> {
+    const isAdmin = await isSystemAdmin();
+    if (!isAdmin) throw new Error("Unauthorized");
+
+    // Fetch all active fields with their mappings and category
+    const fields = await prisma.masterFieldDefinition.findMany({
+        where: { isActive: true },
+        include: {
+            sourceMappings: {
+                where: { isActive: true }
+            },
+            graphBindings: true,
+            masterDataCategory: true
+        }
+    });
+
+    const categories = await prisma.masterDataCategory.findMany({
+        orderBy: { order: 'asc' }
+    });
+
+    // Constants
+    const UK_CH_RA_ID = 'RA000585';
+    const MIN_DESC_LENGTH = 20;
+    const PLACEHOLDER_REGEX = /^(tbc|todo|placeholder|test|asdf|none|n\/a|details here)/i;
+
+    const isDescriptionValid = (desc: string | null) => {
+        if (!desc) return false;
+        const trimmed = desc.trim();
+        return trimmed.length >= MIN_DESC_LENGTH && !PLACEHOLDER_REGEX.test(trimmed);
+    };
+
+    const hasUKCHMapping = (mappings: any[]) => {
+        return mappings.some(m => 
+            m.sourceType === 'COMPANIES_HOUSE' || 
+            (m.sourceType === 'REGISTRATION_AUTHORITY' && m.sourceReference === UK_CH_RA_ID)
+        );
+    };
+
+    // Calculate global metrics
+    const totalFields = fields.length;
+    const describedFields = fields.filter((f: any) => isDescriptionValid(f.description)).length;
+    const ukMappedFields = fields.filter((f: any) => hasUKCHMapping(f.sourceMappings)).length;
+    const fullyCompleteFields = fields.filter((f: any) => 
+        isDescriptionValid(f.description) && hasUKCHMapping(f.sourceMappings)
+    ).length;
+
+    // Calculate category-level rollups
+    const categoryReadiness: CategoryReadiness[] = categories.map((cat: any) => {
+        const catFields = fields.filter((f: any) => f.categoryId === cat.id);
+        
+        const catDescCount = catFields.filter((f: any) => isDescriptionValid(f.description)).length;
+        const catMappingCount = catFields.filter((f: any) => hasUKCHMapping(f.sourceMappings)).length;
+        const catCompleteCount = catFields.filter((f: any) => 
+            isDescriptionValid(f.description) && hasUKCHMapping(f.sourceMappings)
+        ).length;
+
+        // "Actions to complete" is the sum of missing dimensions across all fields in category
+        // Each field can have up to 2 actions: add description and add UK mapping
+        let actions = 0;
+        catFields.forEach((f: any) => {
+            if (!isDescriptionValid(f.description)) actions++;
+            if (!hasUKCHMapping(f.sourceMappings)) actions++;
+        });
+
+        return {
+            id: cat.id,
+            key: cat.key,
+            displayName: cat.displayName,
+            totalFields: catFields.length,
+            descriptionCount: catDescCount,
+            ukMappingCount: catMappingCount,
+            fullyCompleteCount: catCompleteCount,
+            actionsToComplete: actions
+        };
+    });
+
+    // Handle Uncategorized fields if any
+    const uncatFields = fields.filter((f: any) => !f.categoryId);
+    if (uncatFields.length > 0) {
+        let uncatActions = 0;
+        uncatFields.forEach((f: any) => {
+            if (!isDescriptionValid(f.description)) uncatActions++;
+            if (!hasUKCHMapping(f.sourceMappings)) uncatActions++;
+        });
+
+        categoryReadiness.push({
+            id: 'uncategorized',
+            key: 'UNCAT',
+            displayName: 'Uncategorized',
+            totalFields: uncatFields.length,
+            descriptionCount: uncatFields.filter((f: any) => isDescriptionValid(f.description)).length,
+            ukMappingCount: uncatFields.filter((f: any) => hasUKCHMapping(f.sourceMappings)).length,
+            fullyCompleteCount: uncatFields.filter((f: any) => 
+                isDescriptionValid(f.description) && hasUKCHMapping(f.sourceMappings)
+            ).length,
+            actionsToComplete: uncatActions
+        });
+    }
+
+    // --- NEXT BEST ACTION (NBA) SELECTION LOGIC ---
+    let nextBestAction = null;
+
+    // 1. Identify nearly complete categories (1-5 actions remaining)
+    const nearlyComplete = categoryReadiness
+        .filter(c => c.actionsToComplete > 0 && c.actionsToComplete <= 5)
+        .sort((a, b) => a.actionsToComplete - b.actionsToComplete);
+
+    let chosenCategory = nearlyComplete[0];
+
+    // 2. Fallback to highest completion percentage for any incomplete category
+    if (!chosenCategory) {
+        const incomplete = categoryReadiness
+            .filter(c => c.actionsToComplete > 0)
+            .sort((a, b) => {
+                const aPct = a.totalFields > 0 ? a.fullyCompleteCount / a.totalFields : 0;
+                const bPct = b.totalFields > 0 ? b.fullyCompleteCount / b.totalFields : 0;
+                return bPct - aPct;
+            });
+        chosenCategory = incomplete[0];
+    }
+
+    if (chosenCategory) {
+        // Find all fields belonging to this category
+        const catFields = fields.filter((f: any) => 
+            (f.categoryId === chosenCategory.id) || 
+            (chosenCategory.id === 'uncategorized' && !f.categoryId)
+        );
+
+        // Find the specific field/gap to recommend
+        // Logic: Prefer missing description first, then missing mapping
+        const fieldWithMissingDesc = catFields.find((f: any) => !isDescriptionValid(f.description));
+        const fieldWithMissingMap = catFields.find((f: any) => !hasUKCHMapping(f.sourceMappings));
+
+        const targetField = fieldWithMissingDesc || fieldWithMissingMap;
+
+        if (targetField) {
+            nextBestAction = {
+                type: (fieldWithMissingDesc ? "DESCRIPTION" : "MAPPING") as "DESCRIPTION" | "MAPPING",
+                fieldNo: targetField.fieldNo as number,
+                fieldName: targetField.fieldName as string,
+                categoryName: chosenCategory.displayName as string,
+                categoryKey: chosenCategory.key as string,
+                actionsToComplete: chosenCategory.actionsToComplete as number,
+                fullyCompleteCount: chosenCategory.fullyCompleteCount as number,
+                totalFields: chosenCategory.totalFields as number,
+                rawField: targetField
+            };
+        }
+    }
+
+    // Map field-level readiness rows
+    const fieldReadinessRows: FieldReadinessRow[] = fields.map((f: any) => {
+        const descValid = isDescriptionValid(f.description);
+        const mapValid = hasUKCHMapping(f.sourceMappings);
+        let actions = 0;
+        if (!descValid) actions++;
+        if (!mapValid) actions++;
+
+        return {
+            fieldNo: f.fieldNo,
+            fieldName: f.fieldName,
+            categoryName: f.masterDataCategory?.displayName || "Uncategorized",
+            categoryOrder: f.masterDataCategory?.order ?? 9999,
+            descriptionStatus: descValid,
+            ukMappingStatus: mapValid,
+            isFullyComplete: descValid && mapValid,
+            actionsToComplete: actions,
+            rawField: f
+        };
+    });
+
+    // Default Sort: Incomplete first, Fewest actions first, Category order, Field number
+    fieldReadinessRows.sort((a, b) => {
+        // 1. Incomplete first (isFullyComplete: false comes first)
+        if (a.isFullyComplete !== b.isFullyComplete) {
+            return a.isFullyComplete ? 1 : -1;
+        }
+        // 2. Fewest actions to complete first (among incomplete)
+        if (a.actionsToComplete !== b.actionsToComplete) {
+            return a.actionsToComplete - b.actionsToComplete;
+        }
+        // 3. Category order
+        if (a.categoryOrder !== b.categoryOrder) {
+            return a.categoryOrder - b.categoryOrder;
+        }
+        // 4. Field number
+        return a.fieldNo - b.fieldNo;
+    });
+
+    // --- DELTA CALCULATION ---
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - (now.getDay() === 0 ? 6 : now.getDay() - 1)); // Monday
+    startOfWeek.setHours(0, 0, 0, 0);
+
+    const [lastObs, todayObs, weekObs] = await Promise.all([
+        // Latest
+        prisma.adminMomentumObservation.findFirst({
+            where: { scopeType: "GLOBAL", scopeKey: "GLOBAL" },
+            orderBy: { createdAt: 'desc' }
+        }),
+        // First of today
+        prisma.adminMomentumObservation.findFirst({
+            where: { scopeType: "GLOBAL", scopeKey: "GLOBAL", createdAt: { gte: startOfToday } },
+            orderBy: { createdAt: 'asc' }
+        }),
+        // First of week
+        prisma.adminMomentumObservation.findFirst({
+            where: { scopeType: "GLOBAL", scopeKey: "GLOBAL", createdAt: { gte: startOfWeek } },
+            orderBy: { createdAt: 'asc' }
+        })
+    ]);
+
+    const calculateDelta = (obs: any): MomentumDeltaSet | null => {
+        if (!obs) return null;
+        return {
+            described: describedFields - obs.described,
+            mapped: ukMappedFields - obs.mappedUkCh,
+            complete: fullyCompleteFields - obs.complete
+        };
+    };
+
+    return {
+        totalFields,
+        describedFields,
+        ukMappedFields,
+        fullyCompleteFields,
+        categories: categoryReadiness,
+        rawCategories: categories,
+        fields: fieldReadinessRows,
+        nextBestAction,
+        deltas: {
+            sinceLast: calculateDelta(lastObs),
+            sinceToday: calculateDelta(todayObs),
+            sinceWeek: calculateDelta(weekObs)
+        }
+    };
+}
+
+/**
+ * Momentum Observation Service (Step 3 - Capture)
+ * Records a point-in-time snapshot of the schema readiness.
+ */
+export async function captureMomentumObservation() {
+    const isAdmin = await isSystemAdmin();
+    if (!isAdmin) throw new Error("Unauthorized");
+
+    const readiness = await getMomentumReadiness();
+    
+    // Calculate total actions left across all categories
+    const currentGlobalActions = readiness.categories.reduce((acc, cat) => acc + cat.actionsToComplete, 0);
+
+    // Deduplication check: get latest GLOBAL observation
+    const latestGlobal = await prisma.adminMomentumObservation.findFirst({
+        where: { scopeType: "GLOBAL", scopeKey: "GLOBAL" },
+        orderBy: { createdAt: "desc" }
+    });
+
+    if (latestGlobal) {
+        const isIdentical = 
+            latestGlobal.totalFields === readiness.totalFields &&
+            latestGlobal.described === readiness.describedFields &&
+            latestGlobal.mappedUkCh === readiness.ukMappedFields &&
+            latestGlobal.complete === readiness.fullyCompleteFields &&
+            latestGlobal.actionsLeft === currentGlobalActions;
+
+        if (isIdentical) {
+            console.log("Momentum: Global state unchanged. Skipping observation capture.");
+            return { success: true, skipped: true };
+        }
+    }
+
+    // Record GLOBAL observation
+    await prisma.adminMomentumObservation.create({
+        data: {
+            scopeType: "GLOBAL",
+            scopeKey: "GLOBAL",
+            scopeName: "Global Readiness",
+            totalFields: readiness.totalFields,
+            described: readiness.describedFields,
+            mappedUkCh: readiness.ukMappedFields,
+            complete: readiness.fullyCompleteFields,
+            actionsLeft: currentGlobalActions,
+            source: "MANUAL"
+        }
+    });
+
+    // Record per-category observations
+    // We do this even if global is identical to ensure category-level granularity for future trends
+    for (const cat of readiness.categories) {
+        await prisma.adminMomentumObservation.create({
+            data: {
+                scopeType: "CATEGORY",
+                scopeKey: cat.key,
+                scopeName: cat.displayName,
+                totalFields: cat.totalFields,
+                described: cat.descriptionCount,
+                mappedUkCh: cat.ukMappingCount,
+                complete: cat.fullyCompleteCount,
+                actionsLeft: cat.actionsToComplete,
+                source: "MANUAL"
+            }
+        });
+    }
+
+    console.log(`Momentum: Captured ${readiness.categories.length + 1} observations (Global + Categories).`);
+    return { success: true, captured: readiness.categories.length + 1 };
+}
