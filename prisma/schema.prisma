@@ -1154,3 +1154,23 @@ model AuditLog {
   @@index([correlationId])
   @@index([createdAt])
 }
+model AdminMomentumObservation {
+  id          String   @id @default(uuid())
+  createdAt   DateTime @default(now())
+
+  scopeType   String   // "GLOBAL" or "CATEGORY"
+  scopeKey    String   // "GLOBAL" or category id/key
+  scopeName   String?
+
+  totalFields Int
+  described   Int
+  mappedUkCh  Int
+  complete    Int
+  actionsLeft Int
+
+  source      String   // "MANUAL"
+
+  @@index([scopeType, scopeKey, createdAt])
+  @@index([createdAt])
+  @@map("admin_momentum_observations")
+}

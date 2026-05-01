@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { 
     Zap, 
     Target, 
@@ -8,16 +8,19 @@ import {
     ListTodo, 
     BarChart3,
     ArrowUpRight,
-    Search,
     CheckCircle2,
-    AlertCircle
+    AlertCircle,
+    X,
+    ChevronRight
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 import { MomentumReadiness } from "@/actions/momentum";
 import { ReadinessQueue } from "./readiness-queue";
 import { FieldDetailSheet } from "../field-detail-sheet";
+import { calculateMomentumStats, selectNextBestAction, suggestNextCategory } from "@/lib/momentum-utils";
 
 interface MomentumDashboardProps {
     data: MomentumReadiness;
@@ -26,9 +29,9 @@ interface MomentumDashboardProps {
 export function MomentumDashboard({ data }: MomentumDashboardProps) {
     const [selectedField, setSelectedField] = useState<any>(null);
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+    const [focusedCategoryId, setFocusedCategoryId] = useState<string | null>(null);
 
-    // Keep selectedField fresh after router.refresh() re-supplies data from the server.
-    // This ensures that after saving in the sheet, the local state is updated with fresh mappings/descriptions.
+    // Keep selectedField fresh after router.refresh()
     React.useEffect(() => {
         if (selectedField) {
             const updated = data.fields.find((f) => f.fieldNo === selectedField.fieldNo);
@@ -41,60 +44,105 @@ export function MomentumDashboard({ data }: MomentumDashboardProps) {
         setIsEditDialogOpen(true);
     };
 
+    // Use extracted helpers for clean logic
+    const { total, described, mapped, complete, percentages, focusedCategory } = useMemo(
+        () => calculateMomentumStats(data, focusedCategoryId),
+        [data, focusedCategoryId]
+    );
+
+    const focusedNBA = useMemo(
+        () => selectNextBestAction(data, focusedCategoryId),
+        [data, focusedCategoryId]
+    );
+
+    const nextSuggestion = useMemo(
+        () => suggestNextCategory(data, focusedCategoryId),
+        [data, focusedCategoryId]
+    );
+
     const stats = [
         {
-            title: "Active Fields",
-            value: data.totalFields,
-            description: "Total master fields",
+            title: focusedCategoryId ? "Category Fields" : "Active Fields",
+            value: total,
+            description: focusedCategoryId ? "Fields in focus" : "Total master fields",
             icon: ListTodo,
             color: "text-slate-600",
             percentage: null
         },
         {
             title: "Valid Descriptions",
-            value: data.describedFields,
+            value: described,
             description: "Semantic clarity",
             icon: BarChart3,
             color: "text-blue-600",
-            percentage: data.totalFields > 0 ? (data.describedFields / data.totalFields) * 100 : 0
+            percentage: percentages.described
         },
         {
             title: "UK CH Mappings",
-            value: data.ukMappedFields,
+            value: mapped,
             description: "Structural connectivity",
             icon: ArrowUpRight,
             color: "text-amber-600",
-            percentage: data.totalFields > 0 ? (data.ukMappedFields / data.totalFields) * 100 : 0
+            percentage: percentages.mapped
         },
         {
             title: "Fully Complete",
-            value: data.fullyCompleteFields,
+            value: complete,
             description: "Ready for ingestion",
             icon: Zap,
             color: "text-emerald-600",
-            percentage: data.totalFields > 0 ? (data.fullyCompleteFields / data.totalFields) * 100 : 0
+            percentage: percentages.complete
         }
     ];
 
     return (
         <div className="space-y-8 w-full pb-20">
-            {/* Header */}
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold font-serif text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                        <Zap className="h-6 w-6 text-indigo-600 fill-indigo-600/10" />
-                        Momentum
-                    </h1>
-                    <p className="text-sm text-slate-500 dark:text-slate-400">
-                        Maintain progress across field completion, source mapping, and system readiness.
-                    </p>
+            {/* Header Area */}
+            <div className="flex flex-col gap-4">
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h1 className="text-2xl font-bold font-serif text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                            <Zap className="h-6 w-6 text-indigo-600 fill-indigo-600/10" />
+                            Momentum
+                        </h1>
+                        <p className="text-sm text-slate-500 dark:text-slate-400">
+                            Maintain progress across field completion, source mapping, and system readiness.
+                        </p>
+                    </div>
                 </div>
+
+                {/* Focus Banner - High Visibility */}
+                {focusedCategoryId && (
+                    <div className="bg-indigo-600 text-white px-4 py-2.5 rounded-lg flex items-center justify-between shadow-lg shadow-indigo-200 animate-in fade-in slide-in-from-top-2 duration-300">
+                        <div className="flex items-center gap-3">
+                            <div className="bg-white/20 p-1 rounded">
+                                <Target className="h-4 w-4" />
+                            </div>
+                            <div className="flex items-center gap-2 text-sm font-bold">
+                                <span>Focused on Category:</span>
+                                <span className="bg-white/20 px-2 py-0.5 rounded text-indigo-50 font-serif tracking-wide">
+                                    {focusedCategory?.displayName || "Uncategorized"}
+                                </span>
+                            </div>
+                        </div>
+                        <button 
+                            onClick={() => setFocusedCategoryId(null)}
+                            className="flex items-center gap-1.5 text-xs font-bold hover:bg-white/10 px-2 py-1 rounded transition-colors"
+                        >
+                            <X className="h-3.5 w-3.5" />
+                            CLEAR FOCUS
+                        </button>
+                    </div>
+                )}
             </div>
 
-            {/* Summary Section */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {/* Summary Section - Highlighted when focused */}
+            <div className={cn(
+                "grid grid-cols-1 md:grid-cols-4 gap-4 p-1 rounded-xl transition-all duration-500",
+                focusedCategoryId ? "bg-indigo-50/50 ring-1 ring-indigo-100" : ""
+            )}>
                 {stats.map((stat) => (
-                    <Card key={stat.title} className="shadow-sm border-slate-200">
+                    <Card key={stat.title} className="shadow-sm border-slate-200 bg-white">
                         <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
                             <CardTitle className="text-sm font-medium text-slate-500">
                                 {stat.title}
@@ -121,121 +169,176 @@ export function MomentumDashboard({ data }: MomentumDashboardProps) {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Next Best Action */}
-                <Card className="lg:col-span-2 border-indigo-100 bg-indigo-50/20 relative overflow-hidden group">
+                {/* Next Best Action Card */}
+                <Card className={cn(
+                    "lg:col-span-2 relative overflow-hidden group transition-all duration-300",
+                    focusedCategoryId 
+                        ? "border-indigo-200 bg-white shadow-md ring-1 ring-indigo-50" 
+                        : "border-indigo-100 bg-indigo-50/20"
+                )}>
                     <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
                         <Zap className="h-32 w-32 text-indigo-600" />
                     </div>
                     <CardHeader>
                         <div className="flex items-center gap-2 text-indigo-600 mb-1">
                             <Target className="h-4 w-4" />
-                            <span className="text-xs font-bold uppercase tracking-wider">Next Best Action</span>
+                            <span className="text-xs font-bold uppercase tracking-wider">
+                                {focusedCategoryId ? "Targeted Next Best Action" : "Next Best Action"}
+                            </span>
                         </div>
-                        {data.nextBestAction ? (
+                        {focusedNBA ? (
                             <>
                                 <CardTitle className="text-2xl font-serif">
-                                    {data.nextBestAction.type === 'DESCRIPTION' ? 'Add description for' : 'Map UK source for'}{" "}
+                                    {focusedNBA.type === 'DESCRIPTION' ? 'Add description for' : 'Map UK source for'}{" "}
                                     <span className="text-indigo-600">
-                                        {data.nextBestAction.fieldName}
+                                        {focusedNBA.fieldName}
                                     </span>
                                 </CardTitle>
                                 <CardDescription className="text-slate-600 font-medium max-w-lg">
-                                    Continue the <span className="text-slate-900">{data.nextBestAction.categoryName}</span> category — {data.nextBestAction.actionsToComplete} {data.nextBestAction.actionsToComplete === 1 ? 'action' : 'actions'} to complete.
+                                    Progressing the <span className="text-slate-900">{focusedNBA.categoryName}</span> category — {focusedNBA.actionsToComplete} {focusedNBA.actionsToComplete === 1 ? 'action' : 'actions'} to complete.
                                 </CardDescription>
                             </>
                         ) : (
                             <>
-                                <CardTitle>Schema Fully Ready</CardTitle>
-                                <CardDescription>
-                                    All active fields have valid descriptions and UK Companies House mappings.
+                                <CardTitle className="flex items-center gap-2 text-emerald-600">
+                                    {focusedCategoryId ? `${focusedCategory?.displayName || 'Uncategorized'} complete` : "Schema Fully Ready"}
+                                    {focusedCategoryId && <CheckCircle2 className="h-6 w-6" />}
+                                </CardTitle>
+                                <CardDescription className="font-medium text-slate-600">
+                                    {focusedCategoryId 
+                                        ? "All readiness actions for this category are complete. This unlocks registry ingestion and source reliability scoring for these fields."
+                                        : "All active fields have valid descriptions and UK Companies House mappings."}
                                 </CardDescription>
                             </>
                         )}
                     </CardHeader>
-                    {data.nextBestAction && (
+                    {focusedNBA && (
                         <CardContent className="space-y-4">
                             <div className="flex items-center gap-6">
                                 <div className="flex flex-col">
                                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Field No.</span>
-                                    <span className="text-sm font-mono font-bold text-slate-700">#{data.nextBestAction.fieldNo}</span>
+                                    <span className="text-sm font-mono font-bold text-slate-700">#{focusedNBA.fieldNo}</span>
                                 </div>
                                 <div className="flex flex-col">
-                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Category Progress</span>
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Readiness Progress</span>
                                     <span className="text-sm font-bold text-slate-700">
-                                        {data.nextBestAction.fullyCompleteCount} / {data.nextBestAction.totalFields} fields ready
+                                        {focusedNBA.fullyCompleteCount} / {focusedNBA.totalFields} fields ready
                                     </span>
                                 </div>
                                 <div className="flex flex-col">
-                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Type</span>
-                                    <Badge variant="secondary" className="text-[10px] bg-white border-indigo-100 text-indigo-700 h-5">
-                                        {data.nextBestAction.type}
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Action Type</span>
+                                    <Badge variant="secondary" className="text-[10px] bg-indigo-50 border-indigo-100 text-indigo-700 h-5 px-2">
+                                        {focusedNBA.type}
                                     </Badge>
                                 </div>
                             </div>
                             
                             <div className="pt-2 flex items-center gap-3">
                                 <button 
-                                    onClick={() => handleEdit(data.nextBestAction?.rawField)}
-                                    className="px-4 py-2 bg-indigo-600 text-white rounded-md text-sm font-bold shadow-md hover:bg-indigo-700 transition-colors"
+                                    onClick={() => handleEdit(focusedNBA.rawField)}
+                                    className="px-4 py-2 bg-indigo-600 text-white rounded-md text-sm font-bold shadow-md hover:bg-indigo-700 transition-colors flex items-center gap-2"
                                 >
                                     Execute Action
+                                    <ChevronRight className="h-4 w-4" />
                                 </button>
                                 <span className="text-[11px] text-slate-400 italic">
-                                    Clicking opens the Field Detail Sheet.
+                                    Updates readiness immediately on save.
                                 </span>
                             </div>
                         </CardContent>
                     )}
-                </Card>
-
-                {/* Nearly Complete Categories */}
-                <Card className="shadow-sm border-emerald-100 bg-emerald-50/5 relative overflow-hidden">
-                    <CardHeader className="pb-3">
-                        <div className="flex items-center gap-2 text-emerald-600 mb-1">
-                            <ArrowUpRight className="h-4 w-4" />
-                            <span className="text-xs font-bold uppercase tracking-wider">Nearly Complete</span>
-                        </div>
-                        <CardTitle className="text-lg">Quick Wins</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                        {data.categories
-                            .filter(c => c.actionsToComplete > 0 && c.actionsToComplete <= 5)
-                            .sort((a, b) => {
-                                if (a.actionsToComplete !== b.actionsToComplete) return a.actionsToComplete - b.actionsToComplete;
-                                const aPct = a.totalFields > 0 ? a.fullyCompleteCount / a.totalFields : 0;
-                                const bPct = b.totalFields > 0 ? b.fullyCompleteCount / b.totalFields : 0;
-                                return bPct - aPct;
-                            })
-                            .slice(0, 3)
-                            .map((cat) => (
-                                <div key={cat.id} className="p-2.5 rounded-lg border border-emerald-100 bg-white shadow-sm flex flex-col gap-1.5">
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-sm font-bold text-slate-800">{cat.displayName}</span>
-                                        <Badge variant="outline" className="text-[10px] font-bold text-emerald-700 border-emerald-200 bg-emerald-50">
-                                            {cat.actionsToComplete} {cat.actionsToComplete === 1 ? 'action' : 'actions'} left
-                                        </Badge>
+                    {!focusedNBA && (
+                        <CardContent className="space-y-6">
+                            {nextSuggestion ? (
+                                <div className="p-4 rounded-lg bg-slate-50 border border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                    <div>
+                                        <span className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Next Recommendation</span>
+                                        <h4 className="font-bold text-slate-900">{nextSuggestion.displayName}</h4>
+                                        <p className="text-xs text-slate-500">{nextSuggestion.actionsToComplete} actions left to 100% readiness</p>
                                     </div>
-                                    <div className="flex items-center gap-3 text-[10px] text-slate-400 font-medium uppercase tracking-tight">
-                                        <div className="flex items-center gap-1">
-                                            <span className="text-slate-600">{cat.fullyCompleteCount}/{cat.totalFields}</span> Complete
-                                        </div>
-                                        <div className="flex items-center gap-1">
-                                            <span className="text-slate-600">{Math.round((cat.descriptionCount / cat.totalFields) * 100)}%</span> Desc
-                                        </div>
-                                        <div className="flex items-center gap-1">
-                                            <span className="text-slate-600">{Math.round((cat.ukMappingCount / cat.totalFields) * 100)}%</span> Map
-                                        </div>
+                                    <div className="flex items-center gap-2">
+                                         <button 
+                                            onClick={() => setFocusedCategoryId(null)}
+                                            className="px-4 py-1.5 text-slate-600 hover:text-slate-900 text-sm font-bold transition-colors"
+                                        >
+                                            Clear Focus
+                                        </button>
+                                        <button 
+                                            onClick={() => setFocusedCategoryId(nextSuggestion.id)}
+                                            className="px-4 py-1.5 bg-indigo-600 text-white rounded-md text-sm font-bold shadow-sm hover:bg-indigo-700 transition-colors"
+                                        >
+                                            Focus Next Category
+                                        </button>
                                     </div>
                                 </div>
-                            ))}
-                        {data.categories.filter(c => c.actionsToComplete > 0 && c.actionsToComplete <= 5).length === 0 && (
-                            <div className="h-32 flex flex-col items-center justify-center text-slate-400 text-sm italic text-center px-4">
-                                <CheckCircle2 className="h-8 w-8 text-emerald-200 mb-2" />
-                                No categories are within 5 actions of completion yet.
-                            </div>
-                        )}
-                    </CardContent>
+                            ) : focusedCategoryId && (
+                                <button 
+                                    onClick={() => setFocusedCategoryId(null)}
+                                    className="px-5 py-2 bg-slate-900 text-white rounded-md text-sm font-bold shadow-md hover:bg-slate-800 transition-colors"
+                                >
+                                    Clear Focus to see other Work
+                                </button>
+                            )}
+                        </CardContent>
+                    )}
                 </Card>
+
+                {/* Nearly Complete Section */}
+                {!focusedCategoryId && (
+                    <Card className="shadow-sm border-emerald-100 bg-emerald-50/5 relative overflow-hidden">
+                        <CardHeader className="pb-3">
+                            <div className="flex items-center gap-2 text-emerald-600 mb-1">
+                                <ArrowUpRight className="h-4 w-4" />
+                                <span className="text-xs font-bold uppercase tracking-wider">Momentum Boosters</span>
+                            </div>
+                            <CardTitle className="text-lg">Quick Wins</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                            {data.categories
+                                .filter(c => c.actionsToComplete > 0 && c.actionsToComplete <= 5)
+                                .sort((a, b) => a.actionsToComplete - b.actionsToComplete)
+                                .slice(0, 3)
+                                .map((cat) => (
+                                    <button 
+                                        key={cat.id} 
+                                        onClick={() => setFocusedCategoryId(cat.id)}
+                                        className="w-full text-left p-2.5 rounded-lg border border-emerald-100 bg-white shadow-sm flex flex-col gap-1.5 hover:border-emerald-300 transition-all group"
+                                    >
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-sm font-bold text-slate-800 group-hover:text-emerald-700 transition-colors">{cat.displayName}</span>
+                                            <Badge variant="outline" className="text-[10px] font-bold text-emerald-700 border-emerald-200 bg-emerald-50">
+                                                {cat.actionsToComplete} left
+                                            </Badge>
+                                        </div>
+                                        <div className="flex items-center gap-3 text-[10px] text-slate-400 font-medium uppercase tracking-tight">
+                                            <div className="flex items-center gap-1">
+                                                <span className="text-slate-600">{cat.fullyCompleteCount}/{cat.totalFields}</span> Ready
+                                            </div>
+                                        </div>
+                                    </button>
+                                ))}
+                            {data.categories.filter(c => c.actionsToComplete > 0 && c.actionsToComplete <= 5).length === 0 && (
+                                <div className="h-32 flex flex-col items-center justify-center text-slate-400 text-sm italic text-center px-4">
+                                    <CheckCircle2 className="h-8 w-8 text-emerald-200 mb-2" />
+                                    No categories are within 5 actions of completion yet.
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                )}
+
+                {/* Focused Context Info if focused */}
+                {focusedCategoryId && (
+                    <Card className="shadow-sm border-indigo-100 bg-white relative overflow-hidden flex flex-col justify-center items-center p-6 text-center">
+                        <div className="bg-indigo-50 p-4 rounded-full mb-4">
+                            <Target className="h-8 w-8 text-indigo-600" />
+                        </div>
+                        <h3 className="font-bold text-slate-800 mb-1">Focusing effort</h3>
+                        <p className="text-xs text-slate-500 max-w-[180px]">
+                            You are currently viewing readiness actions only for <strong>{focusedCategory?.displayName}</strong>.
+                        </p>
+                    </Card>
+                )}
             </div>
 
             {/* Category Readiness Board */}
@@ -250,9 +353,16 @@ export function MomentumDashboard({ data }: MomentumDashboardProps) {
                         const descPct = cat.totalFields > 0 ? (cat.descriptionCount / cat.totalFields) * 100 : 0;
                         const mappingPct = cat.totalFields > 0 ? (cat.ukMappingCount / cat.totalFields) * 100 : 0;
                         const isUsable = mappingPct >= 100;
+                        const isFocused = focusedCategoryId === cat.id;
 
                         return (
-                            <Card key={cat.id} className="shadow-sm border-slate-200 flex flex-col">
+                            <Card 
+                                key={cat.id} 
+                                className={cn(
+                                    "shadow-sm transition-all duration-300 flex flex-col",
+                                    isFocused ? "border-indigo-500 ring-1 ring-indigo-500 shadow-md" : "border-slate-200"
+                                )}
+                            >
                                 <CardHeader className="pb-3">
                                     <div className="flex justify-between items-start">
                                         <div>
@@ -272,7 +382,7 @@ export function MomentumDashboard({ data }: MomentumDashboardProps) {
                                     {/* Main Readiness Bar */}
                                     <div className="space-y-1.5">
                                         <div className="flex justify-between text-xs font-semibold">
-                                            <span className="text-slate-600 uppercase tracking-tight">Fully Complete</span>
+                                            <span className="text-slate-600 uppercase tracking-tight font-bold text-[10px]">Readiness</span>
                                             <span className="text-slate-900">{Math.round(readinessPct)}%</span>
                                         </div>
                                         <Progress value={readinessPct} className="h-2 bg-slate-100" />
@@ -284,18 +394,12 @@ export function MomentumDashboard({ data }: MomentumDashboardProps) {
                                             <span className="text-[10px] font-bold text-slate-400 uppercase">Descriptions</span>
                                             <div className="flex items-center gap-1.5">
                                                 <span className="text-sm font-semibold text-slate-700">{Math.round(descPct)}%</span>
-                                                <div className="h-1 flex-1 bg-slate-100 rounded-full overflow-hidden">
-                                                    <div className="h-full bg-blue-500" style={{ width: `${descPct}%` }} />
-                                                </div>
                                             </div>
                                         </div>
                                         <div className="space-y-1">
                                             <span className="text-[10px] font-bold text-slate-400 uppercase">UK Mapping</span>
                                             <div className="flex items-center gap-1.5">
                                                 <span className="text-sm font-semibold text-slate-700">{Math.round(mappingPct)}%</span>
-                                                <div className="h-1 flex-1 bg-slate-100 rounded-full overflow-hidden">
-                                                    <div className="h-full bg-amber-500" style={{ width: `${mappingPct}%` }} />
-                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -304,13 +408,27 @@ export function MomentumDashboard({ data }: MomentumDashboardProps) {
                                     <div className="pt-2 border-t border-slate-50 flex items-center justify-between mt-auto">
                                         <div className="text-[10px] text-slate-400 flex items-center gap-1">
                                             {isUsable ? (
-                                                <span className="text-emerald-600 font-bold">READY FOR INGESTION</span>
+                                                <span className="text-emerald-600 font-bold tracking-tight">INGESTION READY</span>
                                             ) : (
-                                                <span>{cat.actionsToComplete} ACTIONS TO COMPLETE</span>
+                                                <span className="font-medium">{cat.actionsToComplete} actions left</span>
                                             )}
                                         </div>
-                                        <div className="text-[10px] font-mono text-slate-300">
-                                            {cat.key}
+                                        <div>
+                                            {isFocused ? (
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); setFocusedCategoryId(null); }}
+                                                    className="text-[10px] font-bold text-indigo-600 hover:bg-indigo-50 px-2 py-1 rounded transition-colors"
+                                                >
+                                                    CLEAR FOCUS
+                                                </button>
+                                            ) : (
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); setFocusedCategoryId(cat.id); }}
+                                                    className="text-[10px] font-bold text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 px-2 py-1 rounded transition-colors"
+                                                >
+                                                    FOCUS
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
                                 </CardContent>
@@ -322,12 +440,20 @@ export function MomentumDashboard({ data }: MomentumDashboardProps) {
 
             {/* Field Completion Queue */}
             <div className="space-y-4">
-                <div className="flex items-center gap-2">
-                    <ListTodo className="h-5 w-5 text-slate-400" />
-                    <h2 className="text-lg font-semibold text-slate-800">Field Completion Queue</h2>
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <ListTodo className="h-5 w-5 text-slate-400" />
+                        <h2 className="text-lg font-semibold text-slate-800">Readiness Queue</h2>
+                    </div>
                 </div>
                 
-                <ReadinessQueue fields={data.fields} onEdit={handleEdit} />
+                <ReadinessQueue 
+                    fields={focusedCategoryId ? data.fields.filter(f => 
+                        (f.rawField.categoryId === focusedCategoryId) || 
+                        (focusedCategoryId === 'uncategorized' && !f.rawField.categoryId)
+                    ) : data.fields} 
+                    onEdit={handleEdit} 
+                />
             </div>
 
             {/* Field Detail Sheet (Reused Pattern) */}
