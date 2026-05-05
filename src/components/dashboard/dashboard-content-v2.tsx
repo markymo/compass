@@ -42,7 +42,7 @@ interface OrgNode {
 }
 
 // Increased spacing for the charts.
-const DASHBOARD_GRID_V2 = "grid-cols-[minmax(350px,1fr)_60px_160px_160px_100px]";
+const DASHBOARD_GRID_V2 = "grid-cols-[minmax(350px,1fr)_60px_160px_160px_150px]";
 
 // ─── Reshaping Logic ─────────────────────────────────────────────────
 
