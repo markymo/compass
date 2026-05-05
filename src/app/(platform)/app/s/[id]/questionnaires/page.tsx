@@ -5,14 +5,24 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { FileText, Clock, CheckCircle, ArrowRight } from "lucide-react";
-import { isSystemAdmin, getUserOrgRole } from "@/actions/security";
+import { isSystemAdmin } from "@/actions/security";
 import Link from "next/link";
 import { QuestionnaireActions } from "@/components/fi/questionnaire-actions";
+import { can, Action } from "@/lib/auth/permissions";
+import { getIdentity } from "@/lib/auth";
+import prisma from "@/lib/prisma";
 
 export default async function FIQuestionnairesPage() {
     const questionnaires = await getFIQuestionnaires();
     const org = await getFIOganization();
-    const isAdmin = (await isSystemAdmin()) || (org ? (await getUserOrgRole(org.id)) === "ADMIN" : false);
+    const sysAdmin = await isSystemAdmin();
+    const identity = await getIdentity();
+    
+    let isAdmin = sysAdmin;
+    if (!isAdmin && identity && org) {
+        const user = { id: identity.userId, memberships: await prisma.membership.findMany({ where: { userId: identity.userId } }) };
+        isAdmin = await can(user, Action.QUESTIONNAIRE_UPDATE, { partyId: org.id }, prisma);
+    }
 
     return (
         <div className="space-y-6">

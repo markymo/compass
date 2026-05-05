@@ -2,7 +2,7 @@
 
 import prisma from "@/lib/prisma";
 import { revalidatePath, unstable_noStore } from "next/cache";
-import { canManageQuestionnaire, isSystemAdmin, getUserOrgRole } from "./security";
+import { isSystemAdmin } from "./security";
 import { getIdentity } from "@/lib/auth";
 
 
@@ -981,10 +981,11 @@ export async function cloneQuestionnaire(sourceId: string, newFIOrgId?: string, 
     }
 
     const resolvedTargetFiId = targetFiId as string;
-    const userRole = await getUserOrgRole(resolvedTargetFiId);
+    
+    // Authorize creation in target FI
     const sysAdmin = await isSystemAdmin();
-    if (!sysAdmin && userRole !== "ADMIN" && userRole !== "MEMBER") {
-        return { success: false, error: "Unauthorized for target organization" };
+    if (!sysAdmin) {
+        await ensureAuthorization(Action.QUESTIONNAIRE_CREATE, { partyId: resolvedTargetFiId });
     }
 
     try {
