@@ -444,7 +444,7 @@ export async function getClientLEData(leId: string) {
     // Check Auth - Wrap in try/catch to handle deleted/unauthorized gracefully
     if (!leId) return null;
     try {
-        await ensureAuthorization(Action.LE_VIEW_DATA, { clientLEId: leId });
+        await ensureAuthorization(Action.LE_VIEW_MASTER_DATA, { clientLEId: leId });
     } catch (e) {
         console.warn(`[getClientLEData] Access denied or entity missing for: ${leId}`);
         return null;
@@ -529,7 +529,7 @@ export async function getClientLEData(leId: string) {
 // 4. Save Answers
 export async function saveClientLEData(leId: string, schemaId: string, answers: any) {
     try {
-        await ensureAuthorization(Action.LE_EDIT_DATA, { clientLEId: leId });
+        await ensureAuthorization(Action.LE_EDIT_MASTER_DATA, { clientLEId: leId });
     } catch (e) {
         return { success: false, error: "Unauthorized: Access denied." };
     }
@@ -575,7 +575,7 @@ export async function saveClientLEData(leId: string, schemaId: string, answers: 
 // 5. Update LE Basic Info (e.g. Description)
 export async function updateClientLE(leId: string, data: { name?: string, description?: string, lei?: string, gleifData?: any }) {
     try {
-        await ensureAuthorization(Action.LE_UPDATE, { clientLEId: leId });
+        await ensureAuthorization(Action.LE_EDIT_MASTER_DATA, { clientLEId: leId });
     } catch (e) {
         return { success: false, error: "Unauthorized: Access denied." };
     }
@@ -625,7 +625,7 @@ export async function updateClientLE(leId: string, data: { name?: string, descri
 // 6. Get Dashboard Metrics (Mission Control)
 export async function getDashboardMetrics(leId: string) {
     try {
-        await ensureAuthorization(Action.LE_VIEW_DATA, { clientLEId: leId });
+        await ensureAuthorization(Action.LE_VIEW_MASTER_DATA, { clientLEId: leId });
     } catch (e) {
         return null;
     }
@@ -1240,7 +1240,7 @@ export interface LEUser {
 
 export async function getLEUsers(leId: string): Promise<LEUser[]> {
     try {
-        await ensureAuthorization(Action.LE_VIEW_DATA, { clientLEId: leId });
+        await ensureAuthorization(Action.LE_VIEW_MASTER_DATA, { clientLEId: leId });
     } catch (e) {
         return [];
     }

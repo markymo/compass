@@ -110,18 +110,24 @@ export async function acceptInvitation(rawToken: string) {
             }
 
         } else if (scopeType === "ENG" && invite.fiEngagementId && invite.fiEngagement) {
-            // Engagement-scoped: join the Supplier Org as a member (idempotent)
-            const fiOrgId = invite.fiEngagement.fiOrgId;
+            // Engagement-scoped: join the engagement directly (idempotent)
             const existing = await prisma.membership.findFirst({
-                where: { userId: user.id, organizationId: fiOrgId, clientLEId: null },
+                where: { userId: user.id, fiEngagementId: invite.fiEngagementId, organizationId: null, clientLEId: null },
             });
+            
+            // Map legacy roles if they were sent as ORG_* by mistake
+            let assignedRole = invite.role;
+            if (assignedRole === "ORG_ADMIN" || assignedRole === "SUPPLIER_ADMIN") assignedRole = "RELATIONSHIP_ADMIN";
+            if (assignedRole === "ORG_MEMBER" || assignedRole === "SUPPLIER_CONTACT") assignedRole = "RELATIONSHIP_USER";
+
             if (!existing) {
                 await prisma.membership.create({
                     data: {
                         userId: user.id,
-                        organizationId: fiOrgId,
+                        organizationId: null,
                         clientLEId: null,
-                        role: invite.role,
+                        fiEngagementId: invite.fiEngagementId,
+                        role: assignedRole,
                     },
                 });
             }

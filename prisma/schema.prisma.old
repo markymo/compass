@@ -110,7 +110,6 @@ model Membership {
   userId         String
   organizationId String?
   clientLEId     String?
-  fiEngagementId String?
   role           String
   permissions    Json?
   createdAt      DateTime      @default(now())
@@ -118,7 +117,8 @@ model Membership {
   clientLE       ClientLE?     @relation(fields: [clientLEId], references: [id], onDelete: Cascade)
   organization   Organization? @relation(fields: [organizationId], references: [id])
   user           User          @relation(fields: [userId], references: [id])
-  fiEngagement   FIEngagement? @relation(fields: [fiEngagementId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId, clientLEId])
 }
 
 model MasterSchema {
@@ -167,39 +167,39 @@ model StandingDataSection {
 }
 
 model ClientLE {
-  id                       String                    @id @default(uuid())
-  name                     String
-  description              String?
-  jurisdiction             String?
-  status                   String                    @default("ACTIVE")
-  isDeleted                Boolean                   @default(false)
-  createdAt                DateTime                  @default(now())
-  updatedAt                DateTime                  @updatedAt
-  lei                      String?                   @unique
-  gleifData                Json?
-  gleifFetchedAt           DateTime?
-  nationalRegistryData     Json?
-  registryFetchedAt        DateTime?
-  billingDetails           Json?
-  customData               Json?
-  dueDate                  DateTime?
-  legalEntityId            String?
-  legalEntity              LegalEntity?              @relation(fields: [legalEntityId], references: [id])
-  owners                   ClientLEOwner[]
-  records                  ClientLERecord[]
-  documents                Document[]
-  fiEngagements            FIEngagement[]
-  invitations              Invitation[]
-  leActivities             LEActivity[]
-  memberships              Membership[]
-  standingDataSections     StandingDataSection[]
-  graphEdges               ClientLEGraphEdge[]
-  graphNodes               ClientLEGraphNode[]
-  masterFieldAssignments   MasterFieldAssignment[]
-  masterFieldNotes         MasterFieldNote[]
-  registryReferences       RegistryReference[]
-  enrichmentRuns           EnrichmentRun[]
-  registrySourcePayloads   RegistrySourcePayload[]
+  id                     String                  @id @default(uuid())
+  name                   String
+  description            String?
+  jurisdiction           String?
+  status                 String                  @default("ACTIVE")
+  isDeleted              Boolean                 @default(false)
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  lei                    String?                 @unique
+  gleifData              Json?
+  gleifFetchedAt         DateTime?
+  nationalRegistryData   Json?
+  registryFetchedAt      DateTime?
+  billingDetails         Json?
+  customData             Json?
+  dueDate                DateTime?
+  legalEntityId          String?
+  legalEntity            LegalEntity?            @relation(fields: [legalEntityId], references: [id])
+  owners                 ClientLEOwner[]
+  records                ClientLERecord[]
+  documents              Document[]
+  fiEngagements          FIEngagement[]
+  invitations            Invitation[]
+  leActivities           LEActivity[]
+  memberships            Membership[]
+  standingDataSections   StandingDataSection[]
+  graphEdges             ClientLEGraphEdge[]
+  graphNodes             ClientLEGraphNode[]
+  masterFieldAssignments MasterFieldAssignment[]
+  masterFieldNotes       MasterFieldNote[]
+  registryReferences     RegistryReference[]
+  enrichmentRuns         EnrichmentRun[]
+  registrySourcePayloads RegistrySourcePayload[]
   registryBaselineExtracts RegistryBaselineExtract[]
 
   @@index([legalEntityId])
@@ -242,7 +242,6 @@ model FIEngagement {
   clientLE               ClientLE             @relation(fields: [clientLEId], references: [id], onDelete: Cascade)
   org                    Organization         @relation(fields: [fiOrgId], references: [id])
   invitations            Invitation[]
-  memberships            Membership[]
   queries                Query[]
   questionnaireInstances Questionnaire[]      @relation("QuestionnaireInstance")
   questionnaires         Questionnaire[]      @relation("FIEngagementToQuestionnaire")
@@ -505,6 +504,7 @@ model Invitation {
   @@index([fiEngagementId])
   @@index([sentToEmail])
 }
+
 
 model LEActivity {
   id        String   @id @default(uuid())
@@ -828,6 +828,7 @@ model SourceFieldMapping {
   @@map("source_field_mappings")
 }
 
+
 model SourceSamplePayload {
   id         String     @id @default(uuid())
   sourceType SourceType
@@ -922,18 +923,18 @@ model EnrichmentRun {
 }
 
 model RegistrySourcePayload {
-  id              String         @id @default(uuid())
-  legalEntityId   String
-  enrichmentRunId String
-  sourceType      SourceType
-  sourceReference String // e.g. RA000585
-  externalId      String? // The company number / identifier at the source
-  payloadSubtype  PayloadSubtype
-  payload         Json
-  isLatest        Boolean        @default(true)
-  createdAt       DateTime       @default(now())
-  clientLE        ClientLE       @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
-  enrichmentRun   EnrichmentRun  @relation(fields: [enrichmentRunId], references: [id], onDelete: Cascade)
+  id               String          @id @default(uuid())
+  legalEntityId    String
+  enrichmentRunId  String
+  sourceType       SourceType
+  sourceReference  String // e.g. RA000585
+  externalId       String? // The company number / identifier at the source
+  payloadSubtype   PayloadSubtype
+  payload          Json
+  isLatest         Boolean         @default(true)
+  createdAt        DateTime        @default(now())
+  clientLE         ClientLE        @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
+  enrichmentRun    EnrichmentRun   @relation(fields: [enrichmentRunId], references: [id], onDelete: Cascade)
 
   @@index([legalEntityId, sourceType, isLatest])
   @@index([sourceReference, externalId])
@@ -958,6 +959,8 @@ model RegistryBaselineExtract {
   @@index([legalEntityId, extractedAt])
   @@map("registry_baseline_extracts")
 }
+
+
 
 model ClientLEGraphNode {
   id               String              @id @default(uuid())
@@ -1143,7 +1146,7 @@ model AuditLog {
   newData       Json?
   actorUserId   String?
   user          User?       @relation(fields: [actorUserId], references: [id])
-  sourceType    String // UI, IMPORT, SYSTEM
+  sourceType    String      // UI, IMPORT, SYSTEM
   correlationId String?
   createdAt     DateTime    @default(now())
 
@@ -1151,14 +1154,13 @@ model AuditLog {
   @@index([correlationId])
   @@index([createdAt])
 }
-
 model AdminMomentumObservation {
-  id        String   @id @default(uuid())
-  createdAt DateTime @default(now())
+  id          String   @id @default(uuid())
+  createdAt   DateTime @default(now())
 
-  scopeType String // "GLOBAL" or "CATEGORY"
-  scopeKey  String // "GLOBAL" or category id/key
-  scopeName String?
+  scopeType   String   // "GLOBAL" or "CATEGORY"
+  scopeKey    String   // "GLOBAL" or category id/key
+  scopeName   String?
 
   totalFields Int
   described   Int
@@ -1166,7 +1168,7 @@ model AdminMomentumObservation {
   complete    Int
   actionsLeft Int
 
-  source String // "MANUAL"
+  source      String   // "MANUAL"
 
   @@index([scopeType, scopeKey, createdAt])
   @@index([createdAt])

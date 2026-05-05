@@ -32,16 +32,28 @@ export enum Action {
     ORG_MANAGE_TEAM = "org:manage_team", // Invite to Org
     ORG_SELF_JOIN_LE = "org:self_join_le", // Break Glass
 
-    // LE Operational (Data Level)
-    LE_VIEW_DATA = "le:view_data", // See docs, responses
-    LE_EDIT_DATA = "le:edit_data", // Upload docs, answer questions
-    LE_SIGNOFF = "le:signoff",     // Approve responses
-
     // Engagement / Relationship
     ENG_CREATE = "eng:create",
     ENG_VIEW = "eng:view",
     ENG_UPDATE = "eng:update",
     ENG_DELETE = "eng:delete",
+
+    // --- ADDED IN PHASE 3 ---
+    // Master Data
+    LE_VIEW_MASTER_DATA = "le:view_master_data",
+    LE_EDIT_MASTER_DATA = "le:edit_master_data",
+    LE_SIGNOFF_MASTER_DATA = "le:signoff_master_data",
+
+    // Relationship Data
+    ENG_VIEW_RELEASED_DATA = "eng:view_released_data",
+    ENG_EDIT_DRAFT_RESPONSES = "eng:edit_draft_responses",
+    ENG_SIGNOFF_RESPONSES = "eng:signoff_responses",
+    ENG_MANAGE_USERS = "eng:manage_users",
+
+    // Questionnaire Templates
+    QUESTIONNAIRE_CREATE = "questionnaire:create",
+    QUESTIONNAIRE_UPDATE = "questionnaire:update",
+    QUESTIONNAIRE_DELETE = "questionnaire:delete",
 }
 
 // Role -> Permissions Mapping
@@ -58,50 +70,76 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
 
         // --- ADDED ---
         // Org Admins have management oversight over all LEs in their Org
-        Action.LE_VIEW_DATA,
         Action.LE_MANAGE_USERS,
         Action.ENG_CREATE,
         Action.ENG_UPDATE,
         Action.ENG_DELETE,
-        Action.ENG_VIEW
+        Action.ENG_VIEW,
+
+        Action.LE_VIEW_MASTER_DATA,
+        Action.LE_EDIT_MASTER_DATA,
+        Action.LE_SIGNOFF_MASTER_DATA,
+        Action.ENG_VIEW_RELEASED_DATA,
+        Action.ENG_EDIT_DRAFT_RESPONSES,
+        Action.ENG_SIGNOFF_RESPONSES,
+        Action.ENG_MANAGE_USERS
     ],
     [Role.ORG_MEMBER]: [
-        Action.ENG_VIEW // Members can see relationships
+        Action.ENG_VIEW, // Members can see relationships
+        Action.ENG_VIEW_RELEASED_DATA
     ],
 
     // LE Level
     [Role.LE_ADMIN]: [
-        Action.LE_VIEW_DATA,
         Action.LE_UPDATE, // Added per user request
-        Action.LE_EDIT_DATA,
-
-        Action.LE_SIGNOFF,
         Action.LE_MANAGE_USERS, // Invite others to THIS LE
         Action.ENG_CREATE,
         Action.ENG_UPDATE,
         Action.ENG_DELETE,
-        Action.ENG_VIEW
+        Action.ENG_VIEW,
+
+        Action.LE_VIEW_MASTER_DATA,
+        Action.LE_EDIT_MASTER_DATA,
+        Action.LE_SIGNOFF_MASTER_DATA,
+        Action.ENG_VIEW_RELEASED_DATA,
+        Action.ENG_EDIT_DRAFT_RESPONSES,
+        Action.ENG_SIGNOFF_RESPONSES,
+        Action.ENG_MANAGE_USERS
     ],
     [Role.LE_USER]: [
-        Action.LE_VIEW_DATA,
-        Action.LE_EDIT_DATA,
         Action.ENG_CREATE,
         Action.ENG_UPDATE,
-        Action.ENG_VIEW
+        Action.ENG_VIEW,
+
+        Action.LE_VIEW_MASTER_DATA,
+        Action.LE_EDIT_MASTER_DATA,
+        Action.ENG_VIEW_RELEASED_DATA,
+        Action.ENG_EDIT_DRAFT_RESPONSES
     ],
 
     // Supplier Level
     [Role.SUPPLIER_ADMIN]: [
-        Action.ORG_MANAGE_TEAM
+        Action.ORG_MANAGE_TEAM,
+        Action.QUESTIONNAIRE_CREATE,
+        Action.QUESTIONNAIRE_UPDATE,
+        Action.QUESTIONNAIRE_DELETE
     ],
     [Role.RELATIONSHIP_ADMIN]: [
         Action.ENG_VIEW,
         Action.ENG_UPDATE, // Sign off
-        Action.LE_VIEW_DATA // Often needs to see LE data
+        
+        Action.ENG_VIEW_RELEASED_DATA,
+        Action.ENG_EDIT_DRAFT_RESPONSES,
+        Action.ENG_SIGNOFF_RESPONSES,
+        Action.ENG_MANAGE_USERS,
+        Action.QUESTIONNAIRE_UPDATE
     ],
     [Role.RELATIONSHIP_USER]: [
         Action.ENG_VIEW,
-        Action.ENG_UPDATE
+        Action.ENG_UPDATE,
+        
+        Action.ENG_VIEW_RELEASED_DATA,
+        Action.ENG_EDIT_DRAFT_RESPONSES
     ]
 };
 
@@ -111,6 +149,7 @@ export interface UserWithMemberships {
     memberships: {
         organizationId?: string | null;
         clientLEId?: string | null;
+        fiEngagementId?: string | null;
         role: string;
     }[];
 }
@@ -118,7 +157,7 @@ export interface UserWithMemberships {
 interface ValidationContext {
     partyId?: string; // If checking Party Admin rights
     clientLEId?: string; // If checking LE rights
-    engagementId?: string;
+    engagementId?: string; // If checking FI Engagement rights
 }
 
 // The Core 'can' function
@@ -126,15 +165,44 @@ export async function can(
     user: UserWithMemberships,
     action: Action,
     context: ValidationContext,
-    prisma: { clientLEOwner: { findMany: Function } } & Record<string, any>
+    prisma: { clientLEOwner: { findMany: Function }, fIEngagement?: { findUnique: Function } } & Record<string, any>
 ): Promise<boolean> {
 
     // 1. System Admin Override
     if (hasRole(user, Role.SYSTEM_ADMIN)) return true;
 
-    // 2. Check Direct Context Membership (Strict Scoping)
+    // 2. Engagement Boundary Check
+    // For any action scoped to an engagement (eng: prefix), the context MUST provide engagementId.
+    // This prevents falling back to broader LE/Org scopes accidentally if the caller forgets to pass the ID.
+    if (action.startsWith("eng:") && !context.engagementId) {
+        return false;
+    }
 
-    // A. LE Context (Data Access)
+    // 3. Check Direct Context Membership (Strict Scoping)
+
+    // A. Engagement Context
+    // FI Users (RELATIONSHIP_ADMIN, RELATIONSHIP_USER) are strictly authorized here.
+    if (context.engagementId) {
+        // 1. Direct Engagement assignment
+        const engRole = getRoleForEngagement(user, context.engagementId);
+        if (engRole && checkPermission(engRole, action)) return true;
+
+        // 2. Downward Inheritance for Client-side ONLY
+        // To inherit Client roles (LE_ADMIN, ORG_ADMIN), we must know the ClientLE associated with this engagement.
+        // If clientLEId is not provided in context, fetch it to ensure Client users can manage engagements.
+        if (!context.clientLEId && prisma.fIEngagement) {
+            const eng = await prisma.fIEngagement.findUnique({
+                where: { id: context.engagementId },
+                select: { clientLEId: true }
+            });
+            if (eng) {
+                context.clientLEId = eng.clientLEId;
+            }
+        }
+    }
+
+    // B. LE Context (Data Access)
+    // Client-side Users (LE_ADMIN, LE_USER) are authorized here, cascading down to engagement data.
     if (context.clientLEId) {
         // 1. Direct Workspace membership
         const leRole = getRoleForLE(user, context.clientLEId);
@@ -152,20 +220,14 @@ export async function can(
         }
     }
 
-    // B. Org Context (Management Access)
+    // C. Org Context (Management Access)
+    // Tenant Admins (ORG_ADMIN, SUPPLIER_ADMIN) are authorized here.
+    // FI-side Org roles (SUPPLIER_ADMIN) will naturally fail to inherit engagement access
+    // because they are not granted eng:* actions in ROLE_PERMISSIONS.
     if (context.partyId) {
         const orgRole = getRoleForOrg(user, context.partyId);
         if (orgRole && checkPermission(orgRole, action)) return true;
     }
-
-    // 3. Inheritance (REMOVED/LIMITED)
-    // We removed "All LE access" from Org Admins.
-    // However, for Creating/Updating an LE, we check the Org Context (handled in B above).
-
-    // Note on "Break Glass":
-    // The UI will check `can(user, ORG_SELF_JOIN_LE, { partyId: ... })`.
-    // If true, showing the "Join" button is allowed.
-    // The actual action will create a membership.
 
     return false;
 }
@@ -175,16 +237,21 @@ function hasRole(user: UserWithMemberships, role: string): boolean {
     return user.memberships.some((m: any) => m.role === role);
 }
 
+function getRoleForEngagement(user: UserWithMemberships, engagementId: string): string | undefined {
+    // Strict assignment: membership must explicitly link to the FI Engagement
+    const membership = user.memberships.find((m: any) => m.fiEngagementId === engagementId);
+    return membership?.role;
+}
 
 function getRoleForLE(user: UserWithMemberships, leId: string): string | undefined {
-    // Direct LE membership
-    const membership = user.memberships.find((m: any) => m.clientLEId === leId);
+    // Direct LE membership (fiEngagementId must be falsy to prevent leakage)
+    const membership = user.memberships.find((m: any) => m.clientLEId === leId && !m.fiEngagementId);
     return membership?.role;
 }
 
 function getRoleForOrg(user: UserWithMemberships, orgId: string): string | undefined {
-    // Org membership (clientLEId is null)
-    const membership = user.memberships.find((m: any) => m.organizationId === orgId && !m.clientLEId);
+    // Org membership (clientLEId and fiEngagementId must be falsy)
+    const membership = user.memberships.find((m: any) => m.organizationId === orgId && !m.clientLEId && !m.fiEngagementId);
     return membership?.role;
 }
 
@@ -193,5 +260,3 @@ function checkPermission(role: string, action: Action): boolean {
     if (perms.includes("*")) return true;
     return perms.includes(action);
 }
-
-// function mapLegacyRole(roleName?: string, scope?: "ORG" | "LE"): string | undefined { ... } // REMOVED

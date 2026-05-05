@@ -25,7 +25,7 @@ const validator = new ModuleValidator();
 /**
  * Authorization Helper
  * TODO: Define new Action enums for KYC specific granular permissions if needed.
- * For now, reusing LE_EDIT_DATA as the baseline for all KYC writes.
+ * For now, reusing LE_EDIT_MASTER_DATA as the baseline for all KYC writes.
  */
 async function ensureKycAuthorization(clientLEId: string) {
     const identity = await getIdentity();
@@ -47,8 +47,8 @@ async function ensureKycAuthorization(clientLEId: string) {
         memberships: memberships
     };
 
-    // Reusing LE_EDIT_DATA for now
-    const allowed = await can(user, Action.LE_EDIT_DATA, { clientLEId }, prisma);
+    // Reusing LE_EDIT_MASTER_DATA for now
+    const allowed = await can(user, Action.LE_EDIT_MASTER_DATA, { clientLEId }, prisma);
     if (!allowed) throw new Error(`Unauthorized: Cannot edit KYC data for ${clientLEId}`);
 
     return { userId };
