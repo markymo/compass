@@ -136,11 +136,10 @@ export async function updateLEBilling(leId: string, data: any) {
 
     // We can use permissions system: ORG_ADMIN has LE_UPDATE. 
     // Is editing billing covers by LE_UPDATE? Yes.
-    // Does LE_ADMIN have LE_UPDATE? NO. (Check permissions.ts: LE_ADMIN has LE_VIEW_DATA, LE_EDIT_DATA, users... not LE_UPDATE).
-
-    // permissions.ts:
-    // LE_UPDATE (Rename/Move): ORG_ADMIN only.
-    // LE_EDIT_DATA (Upload docs/answers): LE_ADMIN & LE_USER.
+    // Does LE_ADMIN have LE_UPDATE? NO. (Check permissions.ts: LE_ADMIN has LE_VIEW_MASTER_DATA, LE_EDIT_MASTER_DATA, users... not LE_UPDATE).
+    // ... Actually wait, billing is special. Is it LE_UPDATE?
+    // Let's use LE_EDIT_MASTER_DATA to restrict to LE users and above who can edit data.
+    // LE_EDIT_MASTER_DATA (Upload docs/answers): LE_ADMIN & LE_USER.
 
     // The requirement says: "LE Admin... cannot edit it". 
     // So ensuring LE_UPDATE action is the correct restriction.

@@ -32,11 +32,6 @@ export enum Action {
     ORG_MANAGE_TEAM = "org:manage_team", // Invite to Org
     ORG_SELF_JOIN_LE = "org:self_join_le", // Break Glass
 
-    // LE Operational (Data Level)
-    LE_VIEW_DATA = "le:view_data", // See docs, responses
-    LE_EDIT_DATA = "le:edit_data", // Upload docs, answer questions
-    LE_SIGNOFF = "le:signoff",     // Approve responses
-
     // Engagement / Relationship
     ENG_CREATE = "eng:create",
     ENG_VIEW = "eng:view",
@@ -75,7 +70,6 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
 
         // --- ADDED ---
         // Org Admins have management oversight over all LEs in their Org
-        Action.LE_VIEW_DATA, // DEPRECATED: Do not delete yet
         Action.LE_MANAGE_USERS,
         Action.ENG_CREATE,
         Action.ENG_UPDATE,
@@ -97,11 +91,7 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
 
     // LE Level
     [Role.LE_ADMIN]: [
-        Action.LE_VIEW_DATA, // DEPRECATED
         Action.LE_UPDATE, // Added per user request
-        Action.LE_EDIT_DATA,
-
-        Action.LE_SIGNOFF,
         Action.LE_MANAGE_USERS, // Invite others to THIS LE
         Action.ENG_CREATE,
         Action.ENG_UPDATE,
@@ -117,8 +107,6 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
         Action.ENG_MANAGE_USERS
     ],
     [Role.LE_USER]: [
-        Action.LE_VIEW_DATA, // DEPRECATED
-        Action.LE_EDIT_DATA,
         Action.ENG_CREATE,
         Action.ENG_UPDATE,
         Action.ENG_VIEW,
@@ -139,9 +127,7 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     [Role.RELATIONSHIP_ADMIN]: [
         Action.ENG_VIEW,
         Action.ENG_UPDATE, // Sign off
-        Action.LE_VIEW_DATA, // DEPRECATED: Often needs to see LE data
         
-        // WARNING: LE_VIEW_DATA must be removed after server actions are migrated in Phase 4!
         Action.ENG_VIEW_RELEASED_DATA,
         Action.ENG_EDIT_DRAFT_RESPONSES,
         Action.ENG_SIGNOFF_RESPONSES,

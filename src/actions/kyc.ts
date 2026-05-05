@@ -25,7 +25,7 @@ const validator = new ModuleValidator();
 /**
  * Authorization Helper
  * TODO: Define new Action enums for KYC specific granular permissions if needed.
- * For now, reusing LE_EDIT_DATA as the baseline for all KYC writes.
+ * For now, reusing LE_EDIT_MASTER_DATA as the baseline for all KYC writes.
  */
 async function ensureKycAuthorization(clientLEId: string) {
     const identity = await getIdentity();
