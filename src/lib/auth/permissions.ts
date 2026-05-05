@@ -42,6 +42,23 @@ export enum Action {
     ENG_VIEW = "eng:view",
     ENG_UPDATE = "eng:update",
     ENG_DELETE = "eng:delete",
+
+    // --- ADDED IN PHASE 3 ---
+    // Master Data
+    LE_VIEW_MASTER_DATA = "le:view_master_data",
+    LE_EDIT_MASTER_DATA = "le:edit_master_data",
+    LE_SIGNOFF_MASTER_DATA = "le:signoff_master_data",
+
+    // Relationship Data
+    ENG_VIEW_RELEASED_DATA = "eng:view_released_data",
+    ENG_EDIT_DRAFT_RESPONSES = "eng:edit_draft_responses",
+    ENG_SIGNOFF_RESPONSES = "eng:signoff_responses",
+    ENG_MANAGE_USERS = "eng:manage_users",
+
+    // Questionnaire Templates
+    QUESTIONNAIRE_CREATE = "questionnaire:create",
+    QUESTIONNAIRE_UPDATE = "questionnaire:update",
+    QUESTIONNAIRE_DELETE = "questionnaire:delete",
 }
 
 // Role -> Permissions Mapping
@@ -58,20 +75,29 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
 
         // --- ADDED ---
         // Org Admins have management oversight over all LEs in their Org
-        Action.LE_VIEW_DATA,
+        Action.LE_VIEW_DATA, // DEPRECATED: Do not delete yet
         Action.LE_MANAGE_USERS,
         Action.ENG_CREATE,
         Action.ENG_UPDATE,
         Action.ENG_DELETE,
-        Action.ENG_VIEW
+        Action.ENG_VIEW,
+
+        Action.LE_VIEW_MASTER_DATA,
+        Action.LE_EDIT_MASTER_DATA,
+        Action.LE_SIGNOFF_MASTER_DATA,
+        Action.ENG_VIEW_RELEASED_DATA,
+        Action.ENG_EDIT_DRAFT_RESPONSES,
+        Action.ENG_SIGNOFF_RESPONSES,
+        Action.ENG_MANAGE_USERS
     ],
     [Role.ORG_MEMBER]: [
-        Action.ENG_VIEW // Members can see relationships
+        Action.ENG_VIEW, // Members can see relationships
+        Action.ENG_VIEW_RELEASED_DATA
     ],
 
     // LE Level
     [Role.LE_ADMIN]: [
-        Action.LE_VIEW_DATA,
+        Action.LE_VIEW_DATA, // DEPRECATED
         Action.LE_UPDATE, // Added per user request
         Action.LE_EDIT_DATA,
 
@@ -80,28 +106,54 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
         Action.ENG_CREATE,
         Action.ENG_UPDATE,
         Action.ENG_DELETE,
-        Action.ENG_VIEW
+        Action.ENG_VIEW,
+
+        Action.LE_VIEW_MASTER_DATA,
+        Action.LE_EDIT_MASTER_DATA,
+        Action.LE_SIGNOFF_MASTER_DATA,
+        Action.ENG_VIEW_RELEASED_DATA,
+        Action.ENG_EDIT_DRAFT_RESPONSES,
+        Action.ENG_SIGNOFF_RESPONSES,
+        Action.ENG_MANAGE_USERS
     ],
     [Role.LE_USER]: [
-        Action.LE_VIEW_DATA,
+        Action.LE_VIEW_DATA, // DEPRECATED
         Action.LE_EDIT_DATA,
         Action.ENG_CREATE,
         Action.ENG_UPDATE,
-        Action.ENG_VIEW
+        Action.ENG_VIEW,
+
+        Action.LE_VIEW_MASTER_DATA,
+        Action.LE_EDIT_MASTER_DATA,
+        Action.ENG_VIEW_RELEASED_DATA,
+        Action.ENG_EDIT_DRAFT_RESPONSES
     ],
 
     // Supplier Level
     [Role.SUPPLIER_ADMIN]: [
-        Action.ORG_MANAGE_TEAM
+        Action.ORG_MANAGE_TEAM,
+        Action.QUESTIONNAIRE_CREATE,
+        Action.QUESTIONNAIRE_UPDATE,
+        Action.QUESTIONNAIRE_DELETE
     ],
     [Role.RELATIONSHIP_ADMIN]: [
         Action.ENG_VIEW,
         Action.ENG_UPDATE, // Sign off
-        Action.LE_VIEW_DATA // Often needs to see LE data
+        Action.LE_VIEW_DATA, // DEPRECATED: Often needs to see LE data
+        
+        // WARNING: LE_VIEW_DATA must be removed after server actions are migrated in Phase 4!
+        Action.ENG_VIEW_RELEASED_DATA,
+        Action.ENG_EDIT_DRAFT_RESPONSES,
+        Action.ENG_SIGNOFF_RESPONSES,
+        Action.ENG_MANAGE_USERS,
+        Action.QUESTIONNAIRE_UPDATE
     ],
     [Role.RELATIONSHIP_USER]: [
         Action.ENG_VIEW,
-        Action.ENG_UPDATE
+        Action.ENG_UPDATE,
+        
+        Action.ENG_VIEW_RELEASED_DATA,
+        Action.ENG_EDIT_DRAFT_RESPONSES
     ]
 };
 

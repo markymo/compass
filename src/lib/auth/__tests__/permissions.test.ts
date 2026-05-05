@@ -66,4 +66,42 @@ describe('Permissions Engine - can()', () => {
         const result = await can(user, Action.ENG_UPDATE, { engagementId: 'eng-1' }, mockPrisma);
         expect(result).toBe(true);
     });
+
+    // --- PHASE 3 TESTS ---
+    it('should allow RELATIONSHIP_ADMIN to ENG_VIEW_RELEASED_DATA on assigned engagement', async () => {
+        const user = createUser([{ role: Role.RELATIONSHIP_ADMIN, fiEngagementId: 'eng-1' }]);
+        const result = await can(user, Action.ENG_VIEW_RELEASED_DATA, { engagementId: 'eng-1' }, mockPrisma);
+        expect(result).toBe(true);
+    });
+
+    it('should NOT allow RELATIONSHIP_ADMIN to LE_VIEW_MASTER_DATA', async () => {
+        const user = createUser([{ role: Role.RELATIONSHIP_ADMIN, fiEngagementId: 'eng-1' }]);
+        // They don't have this action mapped, and even if they try via engagementId, checkPermission fails.
+        // If they try via clientLEId, they don't have an LE role so it fails.
+        const result = await can(user, Action.LE_VIEW_MASTER_DATA, { clientLEId: 'le-1' }, mockPrisma);
+        expect(result).toBe(false);
+    });
+
+    it('should allow RELATIONSHIP_USER to ENG_VIEW_RELEASED_DATA but NOT ENG_SIGNOFF_RESPONSES', async () => {
+        const user = createUser([{ role: Role.RELATIONSHIP_USER, fiEngagementId: 'eng-1' }]);
+        const viewResult = await can(user, Action.ENG_VIEW_RELEASED_DATA, { engagementId: 'eng-1' }, mockPrisma);
+        const signoffResult = await can(user, Action.ENG_SIGNOFF_RESPONSES, { engagementId: 'eng-1' }, mockPrisma);
+        
+        expect(viewResult).toBe(true);
+        expect(signoffResult).toBe(false);
+    });
+
+    it('should allow LE_ADMIN to LE_VIEW_MASTER_DATA', async () => {
+        const user = createUser([{ role: Role.LE_ADMIN, clientLEId: 'le-1' }]);
+        const result = await can(user, Action.LE_VIEW_MASTER_DATA, { clientLEId: 'le-1' }, mockPrisma);
+        expect(result).toBe(true);
+    });
+
+    it('should allow LE_ADMIN downward inheritance for new engagement actions', async () => {
+        const user = createUser([{ role: Role.LE_ADMIN, clientLEId: 'le-1' }]);
+        mockPrisma.fIEngagement.findUnique.mockResolvedValueOnce({ clientLEId: 'le-1' });
+        
+        const result = await can(user, Action.ENG_VIEW_RELEASED_DATA, { engagementId: 'eng-1' }, mockPrisma);
+        expect(result).toBe(true);
+    });
 });
