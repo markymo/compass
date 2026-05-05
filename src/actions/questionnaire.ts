@@ -213,6 +213,12 @@ export async function startBackgroundExtraction(id: string) {
 }
 
 export async function getQuestionnaires(orgId: string) {
+    try {
+        await ensureAuthorization(Action.QUESTIONNAIRE_UPDATE, { partyId: orgId });
+    } catch (e) {
+        return [];
+    }
+
     const qs = await prisma.questionnaire.findMany({
         where: {
             fiOrgId: orgId,
@@ -237,8 +243,13 @@ export async function getQuestionnaires(orgId: string) {
 }
 
 export async function getOrgCustomFields(orgId: string) {
-    // Basic auth check
     if (!orgId) return [];
+
+    try {
+        await ensureAuthorization(Action.QUESTIONNAIRE_UPDATE, { partyId: orgId });
+    } catch (e) {
+        return [];
+    }
 
     return await prisma.customFieldDefinition.findMany({
         where: { orgId },
@@ -247,8 +258,13 @@ export async function getOrgCustomFields(orgId: string) {
 }
 
 export async function createCustomFieldDefinition(orgId: string, label: string, dataType: string = "Text") {
-    // Basic auth/security check
     if (!orgId) return { success: false, error: "Organization ID required" };
+
+    try {
+        await ensureAuthorization(Action.QUESTIONNAIRE_UPDATE, { partyId: orgId });
+    } catch (e) {
+        return { success: false, error: "Unauthorized" };
+    }
 
     try {
         console.log(`[createCustomFieldDefinition] Attempting to create field for Org: ${orgId}, Label: ${label}`);
@@ -1152,6 +1168,12 @@ export async function shareQuestionnaireLaterally(sourceQuestionnaireId: string,
 }
 
 export async function getOtherEngagements(clientLEId: string, currentEngagementId: string) {
+    try {
+        await ensureAuthorization(Action.LE_VIEW_MASTER_DATA, { clientLEId });
+    } catch (e) {
+        return { success: false, error: "Unauthorized" };
+    }
+    
     try {
         const engagements = await prisma.fIEngagement.findMany({
             where: {
