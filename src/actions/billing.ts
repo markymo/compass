@@ -146,7 +146,7 @@ export async function updateLEBilling(leId: string, data: any) {
     // So ensuring LE_UPDATE action is the correct restriction.
 
     try {
-        await ensureAuthorization(Action.LE_UPDATE, { clientLEId: leId });
+        await ensureAuthorization(Action.LE_EDIT_MASTER_DATA, { clientLEId: leId });
     } catch (e) {
         return { success: false, error: "Unauthorized: You do not have permission to edit billing details." };
     }

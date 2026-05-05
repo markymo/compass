@@ -47,8 +47,8 @@ async function ensureKycAuthorization(clientLEId: string) {
         memberships: memberships
     };
 
-    // Reusing LE_EDIT_DATA for now
-    const allowed = await can(user, Action.LE_EDIT_DATA, { clientLEId }, prisma);
+    // Reusing LE_EDIT_MASTER_DATA for now
+    const allowed = await can(user, Action.LE_EDIT_MASTER_DATA, { clientLEId }, prisma);
     if (!allowed) throw new Error(`Unauthorized: Cannot edit KYC data for ${clientLEId}`);
 
     return { userId };
