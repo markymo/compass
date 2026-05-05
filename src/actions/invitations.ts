@@ -44,6 +44,9 @@ const DELEGATION_TABLE: Record<string, { requiredAction: Action; allowedRoles: s
 
     // Engagement scope: LE admins can invite Supplier contacts
     ENG_SUPPLIER_CONTACT: { requiredAction: Action.LE_MANAGE_USERS, allowedRoles: ["SUPPLIER_CONTACT"] },
+    // Engagement scope: FI users can invite other FI users
+    ENG_RELATIONSHIP_ADMIN: { requiredAction: Action.ENG_MANAGE_USERS, allowedRoles: ["RELATIONSHIP_ADMIN"] },
+    ENG_RELATIONSHIP_USER: { requiredAction: Action.ENG_MANAGE_USERS, allowedRoles: ["RELATIONSHIP_USER"] },
 };
 
 // Validate scope and determine delegation key
@@ -92,9 +95,10 @@ export async function inviteUser(payload: InvitePayload) {
             {
                 partyId: payload.organizationId,
                 clientLEId: payload.clientLEId ??
-                    (payload.fiEngagementId
+                    (payload.fiEngagementId && rule.requiredAction === Action.LE_MANAGE_USERS
                         ? (await prisma.fIEngagement.findUnique({ where: { id: payload.fiEngagementId }, select: { clientLEId: true } }))?.clientLEId
                         : undefined),
+                engagementId: payload.fiEngagementId,
             },
             prisma
         );
@@ -129,38 +133,39 @@ export async function inviteUser(payload: InvitePayload) {
     // 4. Already a member check & Auto-Add Logic
     let existingUser = null;
     let isMember = false;
-    let targetOrgId = payload.organizationId;
-    let targetLEId = payload.clientLEId;
 
-    if (payload.fiEngagementId) {
-        const eng = await prisma.fIEngagement.findUnique({ where: { id: payload.fiEngagementId } });
-        if (eng) targetOrgId = eng.fiOrgId;
-    }
-
-    if (targetOrgId || targetLEId || payload.fiEngagementId) {
+    if (payload.organizationId || payload.clientLEId || payload.fiEngagementId) {
         existingUser = await prisma.user.findUnique({ where: { email: payload.email } });
         
         if (existingUser) {
             const membershipWhere: any = { userId: existingUser.id };
-            if (targetOrgId) membershipWhere.organizationId = targetOrgId;
-            if (targetLEId) membershipWhere.clientLEId = targetLEId;
+            if (payload.organizationId) membershipWhere.organizationId = payload.organizationId;
+            if (payload.clientLEId) membershipWhere.clientLEId = payload.clientLEId;
+            if (payload.fiEngagementId) membershipWhere.fiEngagementId = payload.fiEngagementId;
 
             isMember = (await prisma.membership.findFirst({ where: membershipWhere })) !== null;
             if (isMember) {
-                return { success: false, error: "User is already a member of this organisation." };
+                return { success: false, error: "User is already a member of this scope." };
             }
         }
     }
 
     // 5. Intelligent Fork: Auto-Add Existing Users
     if (existingUser) {
+        let assignedRole = payload.role;
+        if (payload.fiEngagementId) {
+            if (assignedRole === "ORG_ADMIN" || assignedRole === "SUPPLIER_ADMIN") assignedRole = "RELATIONSHIP_ADMIN";
+            if (assignedRole === "ORG_MEMBER" || assignedRole === "SUPPLIER_CONTACT") assignedRole = "RELATIONSHIP_USER";
+        }
+
         // Create Membership directly
         await prisma.membership.create({
             data: {
                 userId: existingUser.id,
-                organizationId: targetOrgId ?? null,
-                clientLEId: targetLEId ?? null,
-                role: payload.role,
+                organizationId: payload.organizationId ?? null,
+                clientLEId: payload.clientLEId ?? null,
+                fiEngagementId: payload.fiEngagementId ?? null,
+                role: assignedRole,
             }
         });
 
@@ -184,9 +189,12 @@ export async function inviteUser(payload: InvitePayload) {
 
         // Determine Redirect URL for the email
         let dashboardUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/app`;
-        if (targetOrgId) dashboardUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/app/clients/${targetOrgId}`;
-        else if (targetLEId) dashboardUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/app/le/${targetLEId}`;
-        else if (payload.fiEngagementId) dashboardUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/app/s/${targetOrgId}`;
+        if (payload.organizationId) dashboardUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/app/clients/${payload.organizationId}`;
+        else if (payload.clientLEId) dashboardUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/app/le/${payload.clientLEId}`;
+        else if (payload.fiEngagementId) {
+            const eng = await prisma.fIEngagement.findUnique({ where: { id: payload.fiEngagementId }, select: { fiOrgId: true } });
+            dashboardUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/app/s/${eng?.fiOrgId}`;
+        }
 
         try {
             // Resolve scope label
