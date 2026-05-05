@@ -119,8 +119,6 @@ model Membership {
   organization   Organization? @relation(fields: [organizationId], references: [id])
   user           User          @relation(fields: [userId], references: [id])
   fiEngagement   FIEngagement? @relation(fields: [fiEngagementId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, organizationId, clientLEId, fiEngagementId])
 }
 
 model MasterSchema {
