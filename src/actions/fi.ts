@@ -5,6 +5,26 @@ import { getIdentity } from "@/lib/auth";
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 
+import { can, Action, UserWithMemberships } from "@/lib/auth/permissions";
+
+// Helper for Auth
+async function ensureAuthorization(action: Action, context: { partyId?: string, clientLEId?: string, engagementId?: string }) {
+    const identity = await getIdentity();
+    if (!identity?.userId) throw new Error("Unauthorized: No User");
+
+    const memberships = await prisma.membership.findMany({
+        where: { userId: identity.userId },
+        select: { organizationId: true, clientLEId: true, fiEngagementId: true, role: true }
+    });
+
+    const user: UserWithMemberships = { id: identity.userId, memberships };
+    const allowed = await can(user, action, context, prisma);
+    
+    if (!allowed) throw new Error(`Unauthorized: Cannot perform ${action}`);
+    return { userId: identity.userId };
+}
+
+
 import { Prisma } from "@prisma/client"; // Added import
 
 // 1. Get List of FIs
@@ -222,9 +242,16 @@ export async function getFIDashboardStats(fiOrgId?: string) {
 
     if (targetFiOrgIds.length === 0) return null;
 
+    
+    const explicitMemberships = await prisma.membership.findMany({
+        where: { userId, fiEngagementId: { not: null } },
+        select: { fiEngagementId: true }
+    });
+    const explicitEngagementIds = explicitMemberships.map((m: any) => m.fiEngagementId).filter(Boolean) as string[];
+
     const [questionnaires, engagements, queries] = await Promise.all([
         prisma.questionnaire.count({ where: { fiOrgId: { in: targetFiOrgIds }, isDeleted: false } }),
-        prisma.fIEngagement.count({ where: { fiOrgId: { in: targetFiOrgIds }, isDeleted: false, status: { not: "ARCHIVED" } } }),
+        prisma.fIEngagement.count({ where: { id: { in: explicitEngagementIds }, isDeleted: false, status: { not: "ARCHIVED" } } }),
         prisma.query.count({
             where: {
                 engagement: { fiOrgId: { in: targetFiOrgIds } },
@@ -263,31 +290,18 @@ export async function getFIEngagements(fiOrgId?: string): Promise<ApplicationEng
     if (!identity?.userId) return [];
     const { userId } = identity;
 
-    let targetFiOrgIds: string[] = [];
+    const memberships = await prisma.membership.findMany({
+        where: { userId, fiEngagementId: { not: null } },
+        select: { fiEngagementId: true }
+    });
+    const myEngagementIds = memberships.map((m: any) => m.fiEngagementId).filter(Boolean) as string[];
 
-    if (fiOrgId) {
-        const membership = await prisma.membership.findFirst({
-            where: { userId, organizationId: fiOrgId, organization: { types: { has: "FI" } } }
-        });
-        if (!membership) return [];
-        targetFiOrgIds = [fiOrgId];
-    } else {
-        const memberships = await prisma.membership.findMany({
-            where: {
-                userId,
-                organization: { types: { has: "FI" } },
-                organizationId: { not: null }
-            },
-            select: { organizationId: true }
-        });
-        targetFiOrgIds = memberships.map((m: any) => m.organizationId).filter(Boolean) as string[];
-    }
-
-    if (targetFiOrgIds.length === 0) return [];
+    if (myEngagementIds.length === 0) return [];
 
     const engagements = await prisma.fIEngagement.findMany({
         where: {
-            fiOrgId: { in: targetFiOrgIds },
+            id: { in: myEngagementIds },
+            ...(fiOrgId ? { fiOrgId } : {}),
             isDeleted: false,
             status: { not: "ARCHIVED" },
             clientLE: { isDeleted: false }
@@ -431,12 +445,19 @@ export async function getFIDashboardQuestions(filters?: { clientLEId?: string; q
 
     if (targetFiOrgIds.length === 0) return [];
 
+    const explicitMemberships = await prisma.membership.findMany({
+        where: { userId, fiEngagementId: { not: null } },
+        select: { fiEngagementId: true }
+    });
+    const explicitEngagementIds = explicitMemberships.map((m: any) => m.fiEngagementId).filter(Boolean) as string[];
+
     const where: any = {
         questionnaire: {
             fiOrgId: { in: targetFiOrgIds },
-            fiEngagement: filters?.clientLEId ? {
-                clientLEId: filters.clientLEId
-            } : undefined,
+            fiEngagement: {
+                id: { in: explicitEngagementIds },
+                ...(filters?.clientLEId ? { clientLEId: filters.clientLEId } : {})
+            },
             name: filters?.questionnaireName ? {
                 contains: filters.questionnaireName,
                 mode: 'insensitive'
@@ -444,7 +465,6 @@ export async function getFIDashboardQuestions(filters?: { clientLEId?: string; q
         }
     };
 
-    if (!where.questionnaire.fiEngagement) delete where.questionnaire.fiEngagement;
     if (!where.questionnaire.name) delete where.questionnaire.name;
 
     return await prisma.question.findMany({
@@ -475,9 +495,18 @@ export async function getFIQueries() {
     const fiOrgIds = memberships.map((m: any) => m.organizationId).filter(Boolean) as string[];
     if (fiOrgIds.length === 0) return [];
 
+    const explicitMemberships = await prisma.membership.findMany({
+        where: { userId, fiEngagementId: { not: null } },
+        select: { fiEngagementId: true }
+    });
+    const explicitEngagementIds = explicitMemberships.map((m: any) => m.fiEngagementId).filter(Boolean) as string[];
+
     return await prisma.query.findMany({
         where: {
-            engagement: { fiOrgId: { in: fiOrgIds } },
+            engagement: {
+                id: { in: explicitEngagementIds },
+                fiOrgId: { in: fiOrgIds }
+            },
             status: "OPEN"
         },
         include: {
@@ -490,30 +519,13 @@ export async function getFIQueries() {
 }
 // 4. Get Single Engagement by ID
 export async function getFIEngagementById(id: string): Promise<ApplicationEngagement | null> {
-    const identity = await getIdentity();
-    if (!identity?.userId) return null;
-    const { userId } = identity;
-
-    // 1. Get all Org IDs where I am a member
-    const myMemberships = await prisma.membership.findMany({
-        where: {
-            userId,
-            organizationId: { not: null }
-        },
-        include: { organization: true }
-    });
-
-    const isSystemAdmin = myMemberships.some((m: any) => m.organization?.types.includes("SYSTEM"));
-    const myOrgIds = myMemberships.map((m: any) => m.organizationId).filter(Boolean) as string[];
-
-    if (!isSystemAdmin && myOrgIds.length === 0) return null;
-
-    // 2. Find Engagement
-    const whereClause: any = { id };
-    if (!isSystemAdmin) {
-        whereClause.fiOrgId = { in: myOrgIds };
+    try {
+        await ensureAuthorization(Action.ENG_VIEW_RELEASED_DATA, { engagementId: id });
+    } catch (e) {
+        return null;
     }
 
+    const whereClause: any = { id };
     const engagement = await prisma.fIEngagement.findFirst({
         where: whereClause,
         include: {
@@ -542,22 +554,17 @@ export async function getFIEngagementById(id: string): Promise<ApplicationEngage
 // 5. Assign Questionnaire to Engagement (Deep Clone / Snapshot)
 // 5. Assign Questionnaire to Engagement (Deep Clone / Snapshot)
 export async function assignQuestionnaireToEngagement(engagementId: string, templateId: string) {
-    const identity = await getIdentity();
-    if (!identity?.userId) return { success: false, error: "Unauthorized" };
-    const { userId } = identity;
+    try {
+        await ensureAuthorization(Action.ENG_UPDATE, { engagementId });
+    } catch (e) {
+        return { success: false, error: "Unauthorized" };
+    }
 
-    // Derive Org from Engagement
     const engagement = await prisma.fIEngagement.findUnique({
         where: { id: engagementId },
         select: { fiOrgId: true }
     });
     if (!engagement) return { success: false, error: "Engagement not found" };
-
-    // Check permission
-    const membership = await prisma.membership.findFirst({
-        where: { userId, organizationId: engagement.fiOrgId }
-    });
-    if (!membership) return { success: false, error: "Unauthorized" };
 
     // 1. Fetch Template and its Questions (Ensure template belongs to SAME Org)
     const template = await prisma.questionnaire.findUnique({
@@ -614,17 +621,11 @@ export async function assignQuestionnaireToEngagement(engagementId: string, temp
 // 6. Archive / Delete Engagement
 // 6. Delete Engagement
 export async function deleteEngagement(id: string) {
-    const identity = await getIdentity();
-    if (!identity?.userId) return { success: false, error: "Unauthorized" };
-    const { userId } = identity;
-
-    const engagement = await prisma.fIEngagement.findUnique({ where: { id }, select: { fiOrgId: true } });
-    if (!engagement) return { success: false, error: "Not found" };
-
-    const membership = await prisma.membership.findFirst({
-        where: { userId, organizationId: engagement.fiOrgId }
-    });
-    if (!membership) return { success: false, error: "Unauthorized" };
+    try {
+        await ensureAuthorization(Action.ENG_DELETE, { engagementId: id });
+    } catch (e) {
+        return { success: false, error: "Unauthorized" };
+    }
 
     try {
         // Cascade: Delete linked Questionnaire Instances
@@ -645,17 +646,11 @@ export async function deleteEngagement(id: string) {
 }
 
 export async function archiveEngagement(id: string) {
-    const identity = await getIdentity();
-    if (!identity?.userId) return { success: false, error: "Unauthorized" };
-    const { userId } = identity;
-
-    const engagement = await prisma.fIEngagement.findUnique({ where: { id }, select: { fiOrgId: true } });
-    if (!engagement) return { success: false, error: "Not found" };
-
-    const membership = await prisma.membership.findFirst({
-        where: { userId, organizationId: engagement.fiOrgId }
-    });
-    if (!membership) return { success: false, error: "Unauthorized" };
+    try {
+        await ensureAuthorization(Action.ENG_UPDATE, { engagementId: id });
+    } catch (e) {
+        return { success: false, error: "Unauthorized" };
+    }
 
     try {
         await prisma.fIEngagement.update({
