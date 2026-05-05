@@ -1,4 +1,4 @@
-import { Home, LayoutDashboard, ClipboardCheck, User, Settings, Search, Shield } from "lucide-react";
+import { Home, LayoutDashboard, ClipboardCheck, User, Settings, Shield } from "lucide-react";
 import { LucideIcon } from "lucide-react";
 
 export interface BreadcrumbStaticConfig {
@@ -27,11 +27,6 @@ export const STATIC_BREADCRUMBS: Record<string, BreadcrumbStaticConfig> = {
         label: "System Admin",
         href: "/app/admin",
         icon: Shield,
-    },
-    "/app/scout": {
-        label: "Scout",
-        href: "/app/scout",
-        icon: Search,
     },
     "/app/settings": {
         label: "Settings",

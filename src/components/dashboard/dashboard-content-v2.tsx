@@ -42,7 +42,7 @@ interface OrgNode {
 }
 
 // Increased spacing for the charts.
-const DASHBOARD_GRID_V2 = "grid-cols-[minmax(350px,1fr)_60px_160px_160px_100px]";
+const DASHBOARD_GRID_V2 = "grid-cols-[minmax(350px,1fr)_60px_160px_160px_150px]";
 
 // ─── Reshaping Logic ─────────────────────────────────────────────────
 
@@ -386,8 +386,8 @@ function ClientOrgCard({ org }: { org: OrgNode }) {
                     <div className="flex flex-col border-l border-slate-200 pl-4 h-full">
                         <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-[2px]">Sign-Off</span>
                         <div className="flex justify-between pr-2 items-end">
-                            <span className="text-[10px] font-bold text-indigo-600 uppercase">APPR</span>
-                            <span className="text-[10px] font-bold text-emerald-600 uppercase">RLSD</span>
+                            <span className="text-[10px] font-bold text-indigo-600 uppercase">Approved</span>
+                            <span className="text-[10px] font-bold text-emerald-600 uppercase">Released</span>
                         </div>
                     </div>
                 </div>

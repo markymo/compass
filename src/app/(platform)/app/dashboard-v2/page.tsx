@@ -18,12 +18,6 @@ export default async function DashboardPageV2() {
             <div className="max-w-7xl mx-auto px-6 py-8 space-y-6 w-full">
                 <DashboardContentV2 contexts={contexts} />
 
-                {/* Footer link to Scout */}
-                <div className="pt-4 border-t border-slate-100 text-center">
-                    <Link href="/app/scout" className="text-xs text-slate-400 hover:text-slate-600 transition-colors">
-                        Switch to Scout view →
-                    </Link>
-                </div>
             </div>
         </div>
     );
