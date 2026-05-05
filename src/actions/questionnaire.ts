@@ -5,6 +5,49 @@ import { revalidatePath, unstable_noStore } from "next/cache";
 import { canManageQuestionnaire, isSystemAdmin, getUserOrgRole } from "./security";
 import { getIdentity } from "@/lib/auth";
 
+
+import { can, Action, UserWithMemberships } from "@/lib/auth/permissions";
+
+// NEW CORE ENGINE HELPER
+async function ensureAuthorization(action: Action, context: { partyId?: string, clientLEId?: string, engagementId?: string }) {
+    const identity = await getIdentity();
+    if (!identity?.userId) throw new Error("Unauthorized: No User");
+
+    const memberships = await prisma.membership.findMany({
+        where: { userId: identity.userId },
+        select: { organizationId: true, clientLEId: true, fiEngagementId: true, role: true }
+    });
+
+    const user: UserWithMemberships = { id: identity.userId, memberships };
+    const allowed = await can(user, action, context, prisma);
+    
+    if (!allowed) throw new Error(`Unauthorized: Cannot perform ${action}`);
+    return { userId: identity.userId };
+}
+
+async function ensureQuestionnaireAccess(id: string, actionType: 'READ' | 'WRITE' | 'DELETE') {
+    const q = await prisma.questionnaire.findUnique({
+        where: { id },
+        select: { fiEngagementId: true, fiOrgId: true }
+    });
+    if (!q) throw new Error("Questionnaire not found");
+
+    if (q.fiEngagementId) {
+        let action: Action = Action.ENG_VIEW_RELEASED_DATA;
+        if (actionType === 'WRITE') action = Action.ENG_EDIT_DRAFT_RESPONSES;
+        if (actionType === 'DELETE') action = Action.ENG_EDIT_DRAFT_RESPONSES; // We don't have ENG_DELETE_RESPONSES, maybe ENG_UPDATE? 
+        // Actually prompt says: "Use ENG_EDIT_DRAFT_RESPONSES or QUESTIONNAIRE_UPDATE for mutation/extraction/analyse"
+        await ensureAuthorization(action, { engagementId: q.fiEngagementId });
+        return { q };
+    } else {
+        let action: Action = Action.QUESTIONNAIRE_UPDATE;
+        if (actionType === 'READ') action = Action.QUESTIONNAIRE_UPDATE; // Only Supplier Admins view templates
+        if (actionType === 'DELETE') action = Action.QUESTIONNAIRE_DELETE;
+        await ensureAuthorization(action, { partyId: q.fiOrgId });
+        return { q };
+    }
+}
+
 import { logActivity } from "./logging";
 
 import { getUserFIOrg } from "./security";
@@ -43,16 +86,16 @@ export async function createQuestionnaire(identifier: string | null | undefined,
     }
 
     // 2. Security Check
-    // If explict orgId provided, must be System Admin or Admin of that Org
-    if (targetOrgId) {
-        if (!(await canManageQuestionnaire(targetOrgId))) { // Wait, canManageQuestionnaire checks based on Q ID... we need check based on ORG ID
-            // Re-implement basic check here or strictly use isSystemAdmin / getUserOrgRole
-            const userRole = await getUserOrgRole(targetOrgId);
-            const sysAdmin = await isSystemAdmin();
-            if (!sysAdmin && userRole !== "ADMIN" && userRole !== "MEMBER") { // MEMBER can upload? Let's say yes for now
-                return { success: false, error: "Unauthorized" };
-            }
+    try {
+        if (engagementId) {
+            await ensureAuthorization(Action.ENG_EDIT_DRAFT_RESPONSES, { engagementId });
+        } else if (targetOrgId) {
+            await ensureAuthorization(Action.QUESTIONNAIRE_CREATE, { partyId: targetOrgId });
+        } else {
+            return { success: false, error: "Unauthorized: Missing context" };
         }
+    } catch (e) {
+        return { success: false, error: "Unauthorized" };
     }
 
     // 3. Client Engagement Context Check
@@ -131,7 +174,7 @@ export async function createQuestionnaire(identifier: string | null | undefined,
 
 // ASYNC ACTION: Triggered by Client after Upload
 export async function startBackgroundExtraction(id: string) {
-    if (!(await canManageQuestionnaire(id))) return { success: false, error: "Unauthorized" };
+    try { await ensureQuestionnaireAccess(id, "WRITE"); } catch(e) { return { success: false, error: "Unauthorized" }; }
 
     // We don't await this inside the client call if we want true non-blocking, 
     // but typically Server Actions must be awaited. 
@@ -369,7 +412,7 @@ ${fullQuestion}`,
 // ... existing code ...
 
 export async function deleteQuestionnaire(id: string) {
-    if (!(await canManageQuestionnaire(id))) {
+    try { await ensureQuestionnaireAccess(id, "WRITE"); } catch(e) {
         return { success: false, error: "Unauthorized" };
     }
     const q = await prisma.questionnaire.findUnique({ where: { id } });
@@ -397,7 +440,7 @@ export async function deleteQuestionnaire(id: string) {
 }
 
 export async function archiveQuestionnaire(id: string) {
-    if (!(await canManageQuestionnaire(id))) {
+    try { await ensureQuestionnaireAccess(id, "WRITE"); } catch(e) {
         return { success: false, error: "Unauthorized" };
     }
     const q = await prisma.questionnaire.findUnique({ where: { id } });
@@ -425,7 +468,7 @@ export async function archiveQuestionnaire(id: string) {
 export async function getQuestionnaireById(id: string, _t?: number) {
     unstable_noStore();
     console.log(`[SERVER] getQuestionnaireById called for ${id}${_t ? ` (t=${_t})` : ''}`);
-    if (!(await canManageQuestionnaire(id))) {
+    try { await ensureQuestionnaireAccess(id, "WRITE"); } catch(e) {
         return null;
     }
     return await prisma.questionnaire.findUnique({
@@ -445,7 +488,7 @@ export async function getQuestionnaireById(id: string, _t?: number) {
 import { processDocumentBuffer, extractQuestionnaireItems, generateMappingSuggestions, generateQuestionnaireFromPrompt } from "./ai-mapper";
 
 export async function analyzeQuestionnaire(id: string) {
-    if (!(await canManageQuestionnaire(id))) {
+    try { await ensureQuestionnaireAccess(id, "WRITE"); } catch(e) {
         throw new Error("Unauthorized");
     }
     const q = await prisma.questionnaire.findUnique({
@@ -496,7 +539,7 @@ export async function analyzeQuestionnaire(id: string) {
 
 // 1. Step A: Extract Raw Text from Document (or Images)
 export async function extractRawText(id: string, images?: string[]) {
-    if (!(await canManageQuestionnaire(id))) {
+    try { await ensureQuestionnaireAccess(id, "WRITE"); } catch(e) {
         return { success: false, error: "Unauthorized" };
     }
     const q = await prisma.questionnaire.findUnique({ where: { id } });
@@ -572,7 +615,7 @@ export async function extractRawText(id: string, images?: string[]) {
 
 // 2. Step B: Parse Structure from Raw Text
 export async function parseRawText(id: string, textOverride?: string) {
-    if (!(await canManageQuestionnaire(id))) {
+    try { await ensureQuestionnaireAccess(id, "WRITE"); } catch(e) {
         return { success: false, error: "Unauthorized" };
     }
 
@@ -637,7 +680,7 @@ export async function extractDetailedContent(id: string, images?: string[]): Pro
 
     // If images, we use old flow for now as "Text Extraction" from images is expensive/complex to separate
     if (images && images.length > 0) {
-        if (!(await canManageQuestionnaire(id))) return { success: false, error: "Unauthorized" };
+        try { await ensureQuestionnaireAccess(id, "WRITE"); } catch(e) { return { success: false, error: "Unauthorized" }; }
         try {
             await logger("Processing images directly...", "IMAGE_MODE");
             const processed = {
@@ -672,7 +715,7 @@ export async function extractDetailedContent(id: string, images?: string[]): Pro
 
 // Renaming to generic save function or just updating this one
 export async function saveQuestionnaireChanges(id: string, items: any[], mappings?: any) {
-    if (!(await canManageQuestionnaire(id))) {
+    try { await ensureQuestionnaireAccess(id, "WRITE"); } catch(e) {
         return { success: false, error: "Unauthorized" };
     }
     const q = await prisma.questionnaire.findUnique({ where: { id } });
@@ -724,7 +767,7 @@ export async function saveQuestionnaireChanges(id: string, items: any[], mapping
 }
 
 export async function toggleQuestionnaireStatus(id: string, newStatus: "ACTIVE" | "ARCHIVED" | "DRAFT") {
-    if (!(await canManageQuestionnaire(id))) {
+    try { await ensureQuestionnaireAccess(id, "WRITE"); } catch(e) {
         return { success: false, error: "Unauthorized" };
     }
     const q = await prisma.questionnaire.findUnique({ where: { id } });
@@ -741,7 +784,7 @@ export async function toggleQuestionnaireStatus(id: string, newStatus: "ACTIVE" 
 }
 
 export async function toggleQuestionnaireGlobal(id: string, isGlobal: boolean) {
-    if (!(await canManageQuestionnaire(id))) {
+    try { await ensureQuestionnaireAccess(id, "WRITE"); } catch(e) {
         return { success: false, error: "Unauthorized" };
     }
     const q = await prisma.questionnaire.findUnique({ where: { id } });
@@ -758,7 +801,7 @@ export async function toggleQuestionnaireGlobal(id: string, isGlobal: boolean) {
 }
 
 export async function updateQuestionnaireName(id: string, newName: string) {
-    if (!(await canManageQuestionnaire(id))) {
+    try { await ensureQuestionnaireAccess(id, "WRITE"); } catch(e) {
         return { success: false, error: "Unauthorized" };
     }
     const q = await prisma.questionnaire.findUnique({ where: { id } });
@@ -777,7 +820,7 @@ export async function updateQuestionnaireName(id: string, newName: string) {
 }
 
 export async function updateQuestionnaireFile(id: string, formData: FormData) {
-    if (!(await canManageQuestionnaire(id))) {
+    try { await ensureQuestionnaireAccess(id, "WRITE"); } catch(e) {
         return { success: false, error: "Unauthorized" };
     }
 
@@ -876,7 +919,7 @@ async function syncQuestionsToDatabase(id: string, items: any[]) {
 }
 
 export async function getQuestionnaireSnapshots(templateId: string) {
-    if (!(await canManageQuestionnaire(templateId))) {
+    try { await ensureQuestionnaireAccess(templateId, "READ"); } catch(e) {
         return { success: false, error: "Unauthorized" };
     }
     const template = await prisma.questionnaire.findUnique({ where: { id: templateId } });
