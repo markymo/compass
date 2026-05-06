@@ -100,7 +100,7 @@ export function MomentumDashboard({ data }: MomentumDashboardProps) {
             percentage: percentages.described
         },
         {
-            title: "UK CH Mappings",
+            title: "Source Mappings",
             value: mapped,
             description: "Structural connectivity",
             icon: ArrowUpRight,
@@ -210,7 +210,7 @@ export function MomentumDashboard({ data }: MomentumDashboardProps) {
                                     {(() => {
                                         const deltaKey = 
                                             stat.title === "Valid Descriptions" ? "described" : 
-                                            stat.title === "UK CH Mappings" ? "mapped" : 
+                                            stat.title === "Source Mappings" ? "mapped" : 
                                             stat.title === "Fully Complete" ? "complete" : null;
                                         
                                         if (!deltaKey) return null;
@@ -434,7 +434,7 @@ export function MomentumDashboard({ data }: MomentumDashboardProps) {
                     {data.categories.map((cat) => {
                         const readinessPct = cat.totalFields > 0 ? (cat.fullyCompleteCount / cat.totalFields) * 100 : 0;
                         const descPct = cat.totalFields > 0 ? (cat.descriptionCount / cat.totalFields) * 100 : 0;
-                        const mappingPct = cat.totalFields > 0 ? (cat.ukMappingCount / cat.totalFields) * 100 : 0;
+                        const mappingPct = cat.totalFields > 0 ? (cat.mappingCount / cat.totalFields) * 100 : 0;
                         const isUsable = mappingPct >= 100;
                         const isFocused = focusedCategoryId === cat.id;
 
@@ -480,7 +480,7 @@ export function MomentumDashboard({ data }: MomentumDashboardProps) {
                                             </div>
                                         </div>
                                         <div className="space-y-1">
-                                            <span className="text-[10px] font-bold text-slate-400 uppercase">UK Mapping</span>
+                                            <span className="text-[10px] font-bold text-slate-400 uppercase">Mapping</span>
                                             <div className="flex items-center gap-1.5">
                                                 <span className="text-sm font-semibold text-slate-700">{Math.round(mappingPct)}%</span>
                                             </div>

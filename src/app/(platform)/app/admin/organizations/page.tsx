@@ -11,7 +11,8 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
-import { Loader2, Plus, Building2, Users } from "lucide-react";
+import { Loader2, Plus, Building2, Users, Search } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 import { useSearchParams } from "next/navigation";
 
@@ -27,6 +28,10 @@ export default function OrganizationsPage() {
     const [name, setName] = useState("");
     const [types, setTypes] = useState<string[]>(filterType ? [filterType] : ["CLIENT"]);
     const [creating, setCreating] = useState(false);
+
+    // Search and Filter State
+    const [searchQuery, setSearchQuery] = useState("");
+    const [roleFilter, setRoleFilter] = useState<"ALL" | "CLIENT" | "SUPPLIER">("ALL");
 
     useEffect(() => {
         loadData();
@@ -76,6 +81,13 @@ export default function OrganizationsPage() {
     const buttonText = filterType === "CLIENT" ? "New Client" :
         filterType === "FI" ? "New FI" :
             "New Organization";
+
+    const filteredOrgs = orgs.filter((org: any) => {
+        if (searchQuery && !org.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+        if (roleFilter === "CLIENT" && !org.types.includes("CLIENT")) return false;
+        if (roleFilter === "SUPPLIER" && !org.types.some((t: string) => ["FI", "LAW_FIRM", "SUPPLIER"].includes(t))) return false;
+        return true;
+    });
 
     return (
         <div className="space-y-6">
@@ -155,6 +167,28 @@ export default function OrganizationsPage() {
                 </Dialog>
             </div>
 
+            <div className="flex items-center gap-4">
+                <div className="flex-1 max-w-sm relative">
+                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                        placeholder="Search organizations..."
+                        className="pl-8"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                </div>
+                <Select value={roleFilter} onValueChange={(v: any) => setRoleFilter(v)}>
+                    <SelectTrigger className="w-[200px]">
+                        <SelectValue placeholder="Filter by role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="ALL">All Roles</SelectItem>
+                        <SelectItem value="CLIENT">Client</SelectItem>
+                        <SelectItem value="SUPPLIER">Supplier (FI / Law Firm)</SelectItem>
+                    </SelectContent>
+                </Select>
+            </div>
+
             <Card>
                 <CardContent className="p-0">
                     <Table>
@@ -173,7 +207,13 @@ export default function OrganizationsPage() {
                                         <Loader2 className="h-6 w-6 animate-spin inline-block" />
                                     </TableCell>
                                 </TableRow>
-                            ) : orgs.map((org: any) => (
+                            ) : filteredOrgs.length === 0 ? (
+                                <TableRow>
+                                    <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
+                                        No organizations found matching your filters.
+                                    </TableCell>
+                                </TableRow>
+                            ) : filteredOrgs.map((org: any) => (
                                 <TableRow key={org.id}>
                                     <TableCell className="font-medium">
                                         <div className="flex items-center gap-2">

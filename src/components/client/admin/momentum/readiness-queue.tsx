@@ -50,7 +50,7 @@ export function ReadinessQueue({ fields, onEdit }: ReadinessQueueProps) {
             let matchesStatus = true;
             if (filterStatus === "incomplete") matchesStatus = !f.isFullyComplete;
             else if (filterStatus === "desc_missing") matchesStatus = !f.descriptionStatus;
-            else if (filterStatus === "map_missing") matchesStatus = !f.ukMappingStatus;
+            else if (filterStatus === "map_missing") matchesStatus = !f.mappingStatus;
             else if (filterStatus === "complete") matchesStatus = f.isFullyComplete;
 
             return matchesSearch && matchesCategory && matchesStatus;
@@ -107,7 +107,7 @@ export function ReadinessQueue({ fields, onEdit }: ReadinessQueueProps) {
                             <TableHead className="min-w-[200px]">Field Name</TableHead>
                             <TableHead>Category</TableHead>
                             <TableHead className="text-center">Description</TableHead>
-                            <TableHead className="text-center">UK Mapping</TableHead>
+                            <TableHead className="text-center">Source Mapping</TableHead>
                             <TableHead className="text-center">Status</TableHead>
                             <TableHead className="text-right">Actions</TableHead>
                         </TableRow>
@@ -134,7 +134,7 @@ export function ReadinessQueue({ fields, onEdit }: ReadinessQueueProps) {
                                     )}
                                 </TableCell>
                                 <TableCell className="text-center">
-                                    {field.ukMappingStatus ? (
+                                    {field.mappingStatus ? (
                                         <CheckCircle2 className="h-4 w-4 text-emerald-500 mx-auto" />
                                     ) : (
                                         <XCircle className="h-4 w-4 text-slate-200 mx-auto" />

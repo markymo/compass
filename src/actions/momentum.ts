@@ -9,7 +9,7 @@ export interface CategoryReadiness {
     displayName: string;
     totalFields: number;
     descriptionCount: number;
-    ukMappingCount: number;
+    mappingCount: number;
     fullyCompleteCount: number;
     actionsToComplete: number;
 }
@@ -26,7 +26,7 @@ export interface FieldReadinessRow {
     categoryName: string;
     categoryOrder: number;
     descriptionStatus: boolean;
-    ukMappingStatus: boolean;
+    mappingStatus: boolean;
     isFullyComplete: boolean;
     actionsToComplete: number;
     rawField: any; // The full field object for the editor
@@ -35,7 +35,7 @@ export interface FieldReadinessRow {
 export interface MomentumReadiness {
     totalFields: number;
     describedFields: number;
-    ukMappedFields: number;
+    mappedFields: number;
     fullyCompleteFields: number;
     categories: CategoryReadiness[];
     rawCategories: any[]; // Raw category objects for the editor
@@ -83,7 +83,6 @@ export async function getMomentumReadiness(): Promise<MomentumReadiness> {
     });
 
     // Constants
-    const UK_CH_RA_ID = 'RA000585';
     const MIN_DESC_LENGTH = 20;
     const PLACEHOLDER_REGEX = /^(tbc|todo|placeholder|test|asdf|none|n\/a|details here)/i;
 
@@ -93,19 +92,16 @@ export async function getMomentumReadiness(): Promise<MomentumReadiness> {
         return trimmed.length >= MIN_DESC_LENGTH && !PLACEHOLDER_REGEX.test(trimmed);
     };
 
-    const hasUKCHMapping = (mappings: any[]) => {
-        return mappings.some(m => 
-            m.sourceType === 'COMPANIES_HOUSE' || 
-            (m.sourceType === 'REGISTRATION_AUTHORITY' && m.sourceReference === UK_CH_RA_ID)
-        );
+    const hasValidMapping = (mappings: any[], graphBindings: any[]) => {
+        return mappings.length > 0 || (graphBindings && graphBindings.length > 0);
     };
 
     // Calculate global metrics
     const totalFields = fields.length;
     const describedFields = fields.filter((f: any) => isDescriptionValid(f.description)).length;
-    const ukMappedFields = fields.filter((f: any) => hasUKCHMapping(f.sourceMappings)).length;
+    const mappedFields = fields.filter((f: any) => hasValidMapping(f.sourceMappings, f.graphBindings)).length;
     const fullyCompleteFields = fields.filter((f: any) => 
-        isDescriptionValid(f.description) && hasUKCHMapping(f.sourceMappings)
+        isDescriptionValid(f.description) && hasValidMapping(f.sourceMappings, f.graphBindings)
     ).length;
 
     // Calculate category-level rollups
@@ -113,9 +109,9 @@ export async function getMomentumReadiness(): Promise<MomentumReadiness> {
         const catFields = fields.filter((f: any) => f.categoryId === cat.id);
         
         const catDescCount = catFields.filter((f: any) => isDescriptionValid(f.description)).length;
-        const catMappingCount = catFields.filter((f: any) => hasUKCHMapping(f.sourceMappings)).length;
+        const catMappingCount = catFields.filter((f: any) => hasValidMapping(f.sourceMappings, f.graphBindings)).length;
         const catCompleteCount = catFields.filter((f: any) => 
-            isDescriptionValid(f.description) && hasUKCHMapping(f.sourceMappings)
+            isDescriptionValid(f.description) && hasValidMapping(f.sourceMappings, f.graphBindings)
         ).length;
 
         // "Actions to complete" is the sum of missing dimensions across all fields in category
@@ -123,7 +119,7 @@ export async function getMomentumReadiness(): Promise<MomentumReadiness> {
         let actions = 0;
         catFields.forEach((f: any) => {
             if (!isDescriptionValid(f.description)) actions++;
-            if (!hasUKCHMapping(f.sourceMappings)) actions++;
+            if (!hasValidMapping(f.sourceMappings, f.graphBindings)) actions++;
         });
 
         return {
@@ -132,7 +128,7 @@ export async function getMomentumReadiness(): Promise<MomentumReadiness> {
             displayName: cat.displayName,
             totalFields: catFields.length,
             descriptionCount: catDescCount,
-            ukMappingCount: catMappingCount,
+            mappingCount: catMappingCount,
             fullyCompleteCount: catCompleteCount,
             actionsToComplete: actions
         };
@@ -144,7 +140,7 @@ export async function getMomentumReadiness(): Promise<MomentumReadiness> {
         let uncatActions = 0;
         uncatFields.forEach((f: any) => {
             if (!isDescriptionValid(f.description)) uncatActions++;
-            if (!hasUKCHMapping(f.sourceMappings)) uncatActions++;
+            if (!hasValidMapping(f.sourceMappings, f.graphBindings)) uncatActions++;
         });
 
         categoryReadiness.push({
@@ -153,9 +149,9 @@ export async function getMomentumReadiness(): Promise<MomentumReadiness> {
             displayName: 'Uncategorized',
             totalFields: uncatFields.length,
             descriptionCount: uncatFields.filter((f: any) => isDescriptionValid(f.description)).length,
-            ukMappingCount: uncatFields.filter((f: any) => hasUKCHMapping(f.sourceMappings)).length,
+            mappingCount: uncatFields.filter((f: any) => hasValidMapping(f.sourceMappings, f.graphBindings)).length,
             fullyCompleteCount: uncatFields.filter((f: any) => 
-                isDescriptionValid(f.description) && hasUKCHMapping(f.sourceMappings)
+                isDescriptionValid(f.description) && hasValidMapping(f.sourceMappings, f.graphBindings)
             ).length,
             actionsToComplete: uncatActions
         });
@@ -193,7 +189,7 @@ export async function getMomentumReadiness(): Promise<MomentumReadiness> {
         // Find the specific field/gap to recommend
         // Logic: Prefer missing description first, then missing mapping
         const fieldWithMissingDesc = catFields.find((f: any) => !isDescriptionValid(f.description));
-        const fieldWithMissingMap = catFields.find((f: any) => !hasUKCHMapping(f.sourceMappings));
+        const fieldWithMissingMap = catFields.find((f: any) => !hasValidMapping(f.sourceMappings, f.graphBindings));
 
         const targetField = fieldWithMissingDesc || fieldWithMissingMap;
 
@@ -215,7 +211,7 @@ export async function getMomentumReadiness(): Promise<MomentumReadiness> {
     // Map field-level readiness rows
     const fieldReadinessRows: FieldReadinessRow[] = fields.map((f: any) => {
         const descValid = isDescriptionValid(f.description);
-        const mapValid = hasUKCHMapping(f.sourceMappings);
+        const mapValid = hasValidMapping(f.sourceMappings, f.graphBindings);
         let actions = 0;
         if (!descValid) actions++;
         if (!mapValid) actions++;
@@ -226,7 +222,7 @@ export async function getMomentumReadiness(): Promise<MomentumReadiness> {
             categoryName: f.masterDataCategory?.displayName || "Uncategorized",
             categoryOrder: f.masterDataCategory?.order ?? 9999,
             descriptionStatus: descValid,
-            ukMappingStatus: mapValid,
+            mappingStatus: mapValid,
             isFullyComplete: descValid && mapValid,
             actionsToComplete: actions,
             rawField: f
@@ -280,7 +276,7 @@ export async function getMomentumReadiness(): Promise<MomentumReadiness> {
         if (!obs) return null;
         return {
             described: describedFields - obs.described,
-            mapped: ukMappedFields - obs.mappedUkCh,
+            mapped: mappedFields - obs.mappedUkCh,
             complete: fullyCompleteFields - obs.complete
         };
     };
@@ -288,7 +284,7 @@ export async function getMomentumReadiness(): Promise<MomentumReadiness> {
     return {
         totalFields,
         describedFields,
-        ukMappedFields,
+        mappedFields,
         fullyCompleteFields,
         categories: categoryReadiness,
         rawCategories: categories,
@@ -325,7 +321,7 @@ export async function captureMomentumObservation() {
         const isIdentical = 
             latestGlobal.totalFields === readiness.totalFields &&
             latestGlobal.described === readiness.describedFields &&
-            latestGlobal.mappedUkCh === readiness.ukMappedFields &&
+            latestGlobal.mappedUkCh === readiness.mappedFields &&
             latestGlobal.complete === readiness.fullyCompleteFields &&
             latestGlobal.actionsLeft === currentGlobalActions;
 
@@ -343,7 +339,7 @@ export async function captureMomentumObservation() {
             scopeName: "Global Readiness",
             totalFields: readiness.totalFields,
             described: readiness.describedFields,
-            mappedUkCh: readiness.ukMappedFields,
+            mappedUkCh: readiness.mappedFields,
             complete: readiness.fullyCompleteFields,
             actionsLeft: currentGlobalActions,
             source: "MANUAL"
@@ -360,7 +356,7 @@ export async function captureMomentumObservation() {
                 scopeName: cat.displayName,
                 totalFields: cat.totalFields,
                 described: cat.descriptionCount,
-                mappedUkCh: cat.ukMappingCount,
+                mappedUkCh: cat.mappingCount,
                 complete: cat.fullyCompleteCount,
                 actionsLeft: cat.actionsToComplete,
                 source: "MANUAL"
