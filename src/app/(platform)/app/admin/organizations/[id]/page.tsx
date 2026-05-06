@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, ArrowLeft, UserPlus, Mail, FileText, Upload, Plus, Pen, Check, X, Trash2, ArchiveRestore, Clock, Building, CheckCircle2, AlertCircle } from "lucide-react";
+import { Loader2, ArrowLeft, UserPlus, Mail, FileText, Upload, Plus, Pen, Check, X, Trash2, ArchiveRestore, Clock, Building, CheckCircle2, AlertCircle, Shield, Eye } from "lucide-react";
 import Link from "next/link";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -408,9 +408,10 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
                 )}
 
                 {activeTab === "members" && (
-                    <div className="grid gap-6 md:grid-cols-3">
-                        {/* MEMBER LIST */}
-                        <Card className="md:col-span-2">
+                    <div className="space-y-6">
+                        <div className="grid gap-6 md:grid-cols-3">
+                            {/* MEMBER LIST */}
+                            <Card className="md:col-span-2">
                             <CardHeader>
                                 <CardTitle>Members</CardTitle>
                                 <CardDescription>Users with access to this organization.</CardDescription>
@@ -515,8 +516,8 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="ORG_MEMBER">Member (Read Only)</SelectItem>
-                                            <SelectItem value="ORG_ADMIN">Admin</SelectItem>
+                                            <SelectItem value="ORG_MEMBER">Member (Limited access)</SelectItem>
+                                            <SelectItem value="ORG_ADMIN">Admin (Full control)</SelectItem>
                                         </SelectContent>
                                     </Select>
                                 </div>
@@ -531,7 +532,88 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
                             </CardContent>
                         </Card>
                     </div>
-                )}
+                    
+                    {/* ROLES HELP PANEL */}
+                    <Card className="bg-slate-50/50">
+                        <CardHeader>
+                            <CardTitle className="text-base text-slate-800">Roles & Permissions</CardTitle>
+                            <CardDescription>What each role can do in this organization</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-6 text-sm text-muted-foreground">
+                            <div className="pb-4 border-b border-slate-200">
+                                <div className="flex gap-2">
+                                    <span className="font-semibold text-slate-800">Tip:</span>
+                                    <p className="font-medium text-slate-700">
+                                        Most day-to-day work happens at the Legal Entity level (LE roles), not at the organization level.{" "}
+                                        <button onClick={() => setActiveTab("entities")} className="text-primary hover:underline font-semibold">
+                                            Go to Legal Entities tab
+                                        </button>
+                                    </p>
+                                </div>
+                            </div>
+                            
+                            <div className="grid gap-6 md:grid-cols-2">
+                                {/* ORG_ADMIN */}
+                                <div className="space-y-4">
+                                    <div className="flex items-center gap-2 text-slate-800">
+                                        <Shield className="w-4 h-4" />
+                                        <div className="font-semibold">ORG_ADMIN (Admin)</div>
+                                    </div>
+                                    <p className="text-slate-600">
+                                        Full control over this organization. Responsible for managing users, legal entities, and overall platform usage.
+                                    </p>
+                                    
+                                    <div className="space-y-2">
+                                        <div className="font-medium text-slate-700">What this means in practice:</div>
+                                        <ul className="list-disc pl-5 space-y-1 text-slate-600">
+                                            <li><span className="font-medium text-slate-700">For Client organizations:</span> manages Legal Entities, onboarding, and data completion</li>
+                                            <li><span className="font-medium text-slate-700">For Supplier organizations:</span> manages teams, questionnaires, and engagement workflows</li>
+                                        </ul>
+                                    </div>
+                                    
+                                    <div className="space-y-2">
+                                        <div className="font-medium text-slate-700">Capabilities:</div>
+                                        <ul className="list-disc pl-5 space-y-1 text-slate-600">
+                                            <li>Create and manage Legal Entities (where applicable)</li>
+                                            <li>Invite and manage users</li>
+                                            <li>View organization activity and data</li>
+                                            <li>Perform sign-off actions</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                                
+                                {/* ORG_MEMBER */}
+                                <div className="space-y-4">
+                                    <div className="flex items-center gap-2 text-slate-800">
+                                        <Eye className="w-4 h-4" />
+                                        <div className="font-semibold">ORG_MEMBER (Member)</div>
+                                    </div>
+                                    <p className="text-slate-600">
+                                        Limited access role for stakeholders who need visibility but are not responsible for managing data or workflows.
+                                    </p>
+                                    
+                                    <div className="space-y-2">
+                                        <div className="font-medium text-slate-700">What this means in practice:</div>
+                                        <ul className="list-disc pl-5 space-y-1 text-slate-600">
+                                            <li><span className="font-medium text-slate-700">For Client organizations:</span> can see onboarding progress and entity activity</li>
+                                            <li><span className="font-medium text-slate-700">For Supplier organizations:</span> can see engagement activity at a high level</li>
+                                        </ul>
+                                    </div>
+                                    
+                                    <div className="space-y-2">
+                                        <div className="font-medium text-slate-700">Capabilities:</div>
+                                        <ul className="list-disc pl-5 space-y-1 text-slate-600">
+                                            <li>View organization-level activity</li>
+                                            <li>See high-level engagement information</li>
+                                            <li>Cannot manage users or edit data</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+            )}
 
                 {activeTab === "entities" && (
                     <div className="grid gap-6 md:grid-cols-3">
