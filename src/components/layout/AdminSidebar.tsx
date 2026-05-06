@@ -45,6 +45,7 @@ const adminNavItems: NavItem[] = [
 ];
 
 const rddShortcutItems: NavItem[] = [
+    { title: "Momentum", href: "/app/admin/momentum", icon: Zap },
     { title: "Data Manager", href: "/app/admin/master-data/manager", icon: LayoutDashboard },
     { title: "Field Glossary", href: "/app/admin/master-data/fields", icon: ListTree },
     { title: "Source Mappings", href: "/app/admin/master-data/source-mappings", icon: GitBranch },
