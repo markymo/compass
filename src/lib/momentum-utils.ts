@@ -9,7 +9,7 @@ export function calculateMomentumStats(data: MomentumReadiness, focusedCategoryI
 
     const total = focusedCategory ? focusedCategory.totalFields : data.totalFields;
     const described = focusedCategory ? focusedCategory.descriptionCount : data.describedFields;
-    const mapped = focusedCategory ? focusedCategory.ukMappingCount : data.ukMappedFields;
+    const mapped = focusedCategory ? focusedCategory.mappingCount : data.mappedFields;
     const complete = focusedCategory ? focusedCategory.fullyCompleteCount : data.fullyCompleteFields;
 
     const getPercentage = (value: number, totalVal: number) => 
@@ -48,7 +48,7 @@ export function selectNextBestAction(data: MomentumReadiness, focusedCategoryId:
     // Find the first missing dimension
     // Priority: Description first, then UK Mapping
     const missingDesc = catFields.find(f => !f.descriptionStatus);
-    const missingMap = catFields.find(f => !f.ukMappingStatus);
+    const missingMap = catFields.find(f => !f.mappingStatus);
     const target = missingDesc || missingMap;
 
     if (!target) return null; // Category complete
