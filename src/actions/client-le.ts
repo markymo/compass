@@ -14,10 +14,27 @@ import { generateText } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
 import { KycStateService } from "@/lib/kyc/KycStateService";
 import { FieldClaimService } from "@/lib/kyc/FieldClaimService";
+async function ensureAuthorization(action: Action, context: { partyId?: string, clientLEId?: string, engagementId?: string }) {
+    const identity = await getIdentity();
+    if (!identity?.userId) throw new Error("Unauthorized: Not logged in");
+
+    const userWithMemberships = {
+        id: identity.userId,
+        memberships: await prisma.membership.findMany({ where: { userId: identity.userId } })
+    };
+
+    const hasAccess = await can(userWithMemberships, action, context, prisma);
+    if (!hasAccess) throw new Error(`Unauthorized: Missing ${action} for context`);
+}
 
 export async function createLegalEntity(data: { name: string; jurisdiction: string; clientOrgId: string }) {
     if (!data.name || !data.clientOrgId) {
         return { success: false, error: "Name and Client Org ID are required" };
+    }
+    try {
+        await ensureAuthorization(Action.LE_CREATE, { partyId: data.clientOrgId });
+    } catch (e) {
+        return { success: false, error: "Unauthorized" };
     }
 
     try {

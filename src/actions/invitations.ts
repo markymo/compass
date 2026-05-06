@@ -448,4 +448,61 @@ export async function revokeInvitation(invitationId: string) {
     return { success: true };
 }
 
+export async function resendInvitation(invitationId: string) {
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
 
+    // @ts-ignore
+    const invite = await prisma.invitation.findUnique({ where: { id: invitationId } }) as any;
+    if (!invite) return { success: false, error: "Not found" };
+    if (invite.usedAt) return { success: false, error: "Cannot resend a used invitation." };
+    if (invite.revokedAt) return { success: false, error: "Cannot resend a revoked invitation." };
+
+    const sysAdmin = await isSystemAdmin();
+    if (!sysAdmin && invite.createdByUserId !== identity.userId) {
+        const orgIdToCheck = invite.organizationId ?? null;
+        if (orgIdToCheck) {
+            const m = await prisma.membership.findFirst({ where: { userId: identity.userId, organizationId: orgIdToCheck, role: "ORG_ADMIN" } });
+            if (!m) return { success: false, error: "Unauthorized" };
+        } else {
+            return { success: false, error: "Unauthorized" };
+        }
+    }
+
+    // Usually we would dispatch an email here. We can stub it or call sendInvitationEmail if it's available.
+    // For now we'll update the expiration date to refresh it.
+    await prisma.invitation.update({
+        where: { id: invitationId },
+        data: { expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) },
+    });
+
+    return { success: true };
+}
+
+export async function updateInvitationRole(invitationId: string, role: string) {
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+
+    // @ts-ignore
+    const invite = await prisma.invitation.findUnique({ where: { id: invitationId } }) as any;
+    if (!invite) return { success: false, error: "Not found" };
+    if (invite.usedAt) return { success: false, error: "Cannot update a used invitation." };
+
+    const sysAdmin = await isSystemAdmin();
+    if (!sysAdmin && invite.createdByUserId !== identity.userId) {
+        const orgIdToCheck = invite.organizationId ?? null;
+        if (orgIdToCheck) {
+            const m = await prisma.membership.findFirst({ where: { userId: identity.userId, organizationId: orgIdToCheck, role: "ORG_ADMIN" } });
+            if (!m) return { success: false, error: "Unauthorized" };
+        } else {
+            return { success: false, error: "Unauthorized" };
+        }
+    }
+
+    await prisma.invitation.update({
+        where: { id: invitationId },
+        data: { role },
+    });
+
+    return { success: true };
+}

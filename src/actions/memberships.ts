@@ -107,3 +107,56 @@ export async function updateUserPermission(data: UpdatePermissionData) {
         return { success: false, error: "Database error occurred." };
     }
 }
+
+import { isSystemAdmin } from "./security";
+
+export async function updateMembershipRole(membershipId: string, role: string) {
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+
+    const membership = await prisma.membership.findUnique({ where: { id: membershipId } });
+    if (!membership) return { success: false, error: "Not found" };
+
+    const orgIdToCheck = membership.organizationId;
+    if (!orgIdToCheck) return { success: false, error: "Not an organization membership" };
+
+    const sysAdmin = await isSystemAdmin();
+    if (!sysAdmin) {
+        const m = await prisma.membership.findFirst({ where: { userId: identity.userId, organizationId: orgIdToCheck, role: "ORG_ADMIN" } });
+        if (!m) return { success: false, error: "Unauthorized" };
+    }
+
+    await prisma.membership.update({
+        where: { id: membershipId },
+        data: { role },
+    });
+
+    return { success: true };
+}
+
+export async function removeMembership(membershipId: string) {
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+
+    const membership = await prisma.membership.findUnique({ where: { id: membershipId } });
+    if (!membership) return { success: false, error: "Not found" };
+
+    const orgIdToCheck = membership.organizationId;
+    if (!orgIdToCheck) return { success: false, error: "Not an organization membership" };
+
+    const sysAdmin = await isSystemAdmin();
+    if (!sysAdmin) {
+        const m = await prisma.membership.findFirst({ where: { userId: identity.userId, organizationId: orgIdToCheck, role: "ORG_ADMIN" } });
+        if (!m) return { success: false, error: "Unauthorized" };
+    }
+
+    if (membership.userId === identity.userId && membership.role === "ORG_ADMIN") {
+        return { success: false, error: "You cannot remove your own admin access." };
+    }
+
+    await prisma.membership.delete({
+        where: { id: membershipId },
+    });
+
+    return { success: true };
+}
