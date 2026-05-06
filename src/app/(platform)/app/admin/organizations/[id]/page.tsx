@@ -214,6 +214,10 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
     // Filter Questionnaires
     const displayedQuestionnaires = questionnaires.filter((q: any) => showArchived ? true : q.status !== "ARCHIVED");
 
+    // Capability Flags
+    const isClient = org.types.includes("CLIENT");
+    const isSupplier = org.types.some((t: string) => ["FI", "SUPPLIER", "LAW_FIRM"].includes(t));
+
     return (
         <div className="space-y-6">
             <div className="flex items-center gap-4">
@@ -313,12 +317,22 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
                     >
                         Members
                     </button>
-                    <button
-                        onClick={() => setActiveTab("entities")}
-                        className={`text-sm font-medium pb-2 border-b-2 transition-colors ${activeTab === "entities" ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
-                    >
-                        Legal Entities
-                    </button>
+                    {org.types.includes("CLIENT") && (
+                        <button
+                            onClick={() => setActiveTab("entities")}
+                            className={`text-sm font-medium pb-2 border-b-2 transition-colors ${activeTab === "entities" ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+                        >
+                            Client Legal Entities
+                        </button>
+                    )}
+                    {org.types.some((t: string) => ["FI", "SUPPLIER", "LAW_FIRM"].includes(t)) && (
+                        <button
+                            onClick={() => setActiveTab("relationships")}
+                            className={`text-sm font-medium pb-2 border-b-2 transition-colors ${activeTab === "relationships" ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+                        >
+                            Relationships
+                        </button>
+                    )}
                     {org.types.includes("FI") && (
                         <button
                             onClick={() => setActiveTab("questionnaires")}
@@ -339,35 +353,61 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
                                 <CardTitle>Onboarding Health</CardTitle>
                                 <CardDescription>Checklist for organization readiness.</CardDescription>
                             </CardHeader>
-                            <CardContent className="space-y-4">
-                                <div className="flex items-center gap-3">
-                                    <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-                                    <span className="text-sm font-medium">Organization Created</span>
-                                </div>
-                                <div className="flex items-center gap-3">
-                                    {org.ownedLEs?.length > 0 ? (
+                            <CardContent className="space-y-6">
+                                <div className="space-y-4">
+                                    <div className="flex items-center gap-3">
                                         <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-                                    ) : (
-                                        <AlertCircle className="w-5 h-5 text-amber-500" />
-                                    )}
-                                    <span className="text-sm font-medium">At least one Legal Entity exists</span>
+                                        <span className="text-sm font-medium">Organization Created</span>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        {org.memberships?.some((m: any) => m.role === "ORG_ADMIN") ? (
+                                            <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                                        ) : (
+                                            <AlertCircle className="w-5 h-5 text-amber-500" />
+                                        )}
+                                        <span className="text-sm font-medium">At least one ORG_ADMIN</span>
+                                    </div>
                                 </div>
-                                <div className="flex items-center gap-3">
-                                    {org.memberships?.some((m: any) => m.role === "ORG_ADMIN") ? (
-                                        <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-                                    ) : (
-                                        <AlertCircle className="w-5 h-5 text-amber-500" />
-                                    )}
-                                    <span className="text-sm font-medium">At least one ORG_ADMIN active member exists</span>
-                                </div>
-                                <div className="flex items-center gap-3">
-                                    {org.memberships?.some((m: any) => m.role === "ORG_ADMIN") || pendingInvites.some((inv: any) => inv.role === "ORG_ADMIN") ? (
-                                        <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-                                    ) : (
-                                        <AlertCircle className="w-5 h-5 text-amber-500" />
-                                    )}
-                                    <span className="text-sm font-medium">At least one admin invite pending or active admin exists</span>
-                                </div>
+
+                                {isClient && (
+                                    <div className="space-y-4 pt-4 border-t">
+                                        <h4 className="text-sm font-semibold text-slate-900">Client setup</h4>
+                                        <div className="flex items-center gap-3">
+                                            {org.ownedLEs?.length > 0 ? (
+                                                <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                                            ) : (
+                                                <AlertCircle className="w-5 h-5 text-amber-500" />
+                                            )}
+                                            <span className="text-sm font-medium">At least one Client Legal Entity</span>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            {org.memberships?.some((m: any) => m.role === "ORG_ADMIN") || pendingInvites.some((inv: any) => inv.role === "ORG_ADMIN") ? (
+                                                <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                                            ) : (
+                                                <AlertCircle className="w-5 h-5 text-amber-500" />
+                                            )}
+                                            <span className="text-sm font-medium">Admin invited or active</span>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {isSupplier && (
+                                    <div className="space-y-4 pt-4 border-t">
+                                        <h4 className="text-sm font-semibold text-slate-900">Supplier setup</h4>
+                                        <div className="flex items-center gap-3">
+                                            <AlertCircle className="w-5 h-5 text-slate-300" />
+                                            <span className="text-sm font-medium text-slate-600">Questionnaire library configured <span className="font-normal italic text-slate-400">— Not checked yet</span></span>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            {org.engagements?.length > 0 ? (
+                                                <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                                            ) : (
+                                                <AlertCircle className="w-5 h-5 text-amber-500" />
+                                            )}
+                                            <span className="text-sm font-medium">Assigned to at least one relationship</span>
+                                        </div>
+                                    </div>
+                                )}
                             </CardContent>
                         </Card>
                         
@@ -378,7 +418,7 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
                             </CardHeader>
                             <CardContent className="space-y-4">
                                 <div className="flex justify-between items-center border-b pb-2">
-                                    <span className="text-sm text-muted-foreground">Legal Entities</span>
+                                    <span className="text-sm text-muted-foreground">Client Legal Entities</span>
                                     <span className="font-semibold">{org.ownedLEs?.length || 0}</span>
                                 </div>
                                 <div className="flex justify-between items-center border-b pb-2">
@@ -617,12 +657,65 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
                 </div>
             )}
 
-                {activeTab === "entities" && (
+                {activeTab === "relationships" && org.types.some((t: string) => ["FI", "SUPPLIER", "LAW_FIRM"].includes(t)) && (
+                    <div className="grid gap-6">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Relationships</CardTitle>
+                                <CardDescription>Client relationships and engagements where this organization acts as a supplier.</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <div className="text-sm text-slate-500 bg-slate-50 p-4 rounded-md border border-slate-100 mb-4">
+                                    <p className="font-medium text-slate-700 mb-2">Supplier-side relationships (Engagements)</p>
+                                    <p>As a supplier, this organization interacts with Legal Entities via relationships (engagements), but does not own them. Legal Entities will only be shown within the context of a relationship, not as owned entities.</p>
+                                </div>
+                                
+                                {org.engagements && org.engagements.length > 0 ? (
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>Client Legal Entity</TableHead>
+                                                <TableHead>Status</TableHead>
+                                                <TableHead className="text-right">Actions</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {org.engagements.map((eng: any) => (
+                                                <TableRow key={eng.id}>
+                                                    <TableCell>
+                                                        <div className="flex items-center gap-2">
+                                                            <Building className="w-4 h-4 text-muted-foreground" />
+                                                            <span className="font-medium">{eng.clientLE?.name || "Unknown"}</span>
+                                                        </div>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Badge variant="outline">{eng.status}</Badge>
+                                                    </TableCell>
+                                                    <TableCell className="text-right">
+                                                        <Button variant="ghost" size="sm" disabled>
+                                                            View
+                                                        </Button>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                ) : (
+                                    <div className="text-center p-8 text-slate-500">
+                                        No active relationships found.
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </div>
+                )}
+
+                {activeTab === "entities" && org.types.includes("CLIENT") && (
                     <div className="grid gap-6 md:grid-cols-3">
                         <Card className="md:col-span-2">
                             <CardHeader>
-                                <CardTitle>Legal Entities</CardTitle>
-                                <CardDescription>Entities owned by this organization.</CardDescription>
+                                <CardTitle>Client Legal Entities</CardTitle>
+                                <CardDescription>Legal Entities owned by this organization in its client capacity.</CardDescription>
                             </CardHeader>
                             <CardContent>
                                 <Table>

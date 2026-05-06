@@ -67,6 +67,19 @@ export async function getOrganizationDetails(orgId: string) {
                         include: { legalEntity: true }
                     }
                 }
+            },
+            engagements: {
+                select: {
+                    id: true,
+                    status: true,
+                    dueDate: true,
+                    clientLE: {
+                        select: {
+                            id: true,
+                            name: true
+                        }
+                    }
+                }
             }
         }
     });
