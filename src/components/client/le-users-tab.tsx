@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getLEUsers, inviteUserToLE, LEUser } from "@/actions/client";
+import { getLEUsers, inviteUserToLE, LEUser, removeLEMembership, updateLEMembershipRole } from "@/actions/client";
 import { getLEPendingInvitations, revokeInvitation } from "@/actions/invitations";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -9,7 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, UserPlus, Mail, Shield, CheckCircle2, Clock, X } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Loader2, UserPlus, Mail, Shield, CheckCircle2, Clock, ShieldAlert, X } from "lucide-react";
 import { toast } from "sonner";
 
 interface LEUsersTabProps {
@@ -26,7 +27,14 @@ export function LEUsersTab({ leId, canManageUsers = false }: LEUsersTabProps) {
     const [inviteEmail, setInviteEmail] = useState("");
     const [inviteRole, setInviteRole] = useState("LE_USER");
     const [inviting, setInviting] = useState(false);
-    const [revokingId, setRevokingId] = useState<string | null>(null);
+    
+    // Modal State
+    const [selectedUser, setSelectedUser] = useState<any>(null);
+    const [revoking, setRevoking] = useState(false);
+    const [removing, setRemoving] = useState(false);
+    const [confirmRemove, setConfirmRemove] = useState(false);
+    const [updatingRole, setUpdatingRole] = useState(false);
+    const [editedRole, setEditedRole] = useState<string | null>(null);
 
     useEffect(() => {
         loadUsers();
@@ -49,12 +57,14 @@ export function LEUsersTab({ leId, canManageUsers = false }: LEUsersTabProps) {
         }
     }
 
-    async function handleRevoke(inviteId: string) {
-        setRevokingId(inviteId);
+    async function handleRevoke() {
+        if (!selectedUser || selectedUser.kind !== "invitation") return;
+        setRevoking(true);
         try {
-            const res = await revokeInvitation(inviteId);
+            const res = await revokeInvitation(selectedUser.id);
             if (res.success) {
                 toast.success("Invitation revoked successfully.");
+                setSelectedUser(null);
                 loadUsers();
             } else {
                 toast.error(res.error || "Failed to revoke invitation.");
@@ -62,7 +72,47 @@ export function LEUsersTab({ leId, canManageUsers = false }: LEUsersTabProps) {
         } catch (e) {
             toast.error("An error occurred while revoking.");
         } finally {
-            setRevokingId(null);
+            setRevoking(false);
+        }
+    }
+
+    async function handleRemoveAccess() {
+        if (!selectedUser || selectedUser.kind !== "membership") return;
+        setRemoving(true);
+        try {
+            const res = await removeLEMembership(selectedUser.id);
+            if (res.success) {
+                toast.success("User access removed successfully.");
+                setConfirmRemove(false);
+                setSelectedUser(null);
+                loadUsers();
+            } else {
+                toast.error(res.error || "Failed to remove user access.");
+            }
+        } catch (e) {
+            toast.error("An error occurred while removing access.");
+        } finally {
+            setRemoving(false);
+        }
+    }
+
+    async function handleUpdateRole() {
+        if (!selectedUser || selectedUser.kind !== "membership" || !editedRole) return;
+        setUpdatingRole(true);
+        try {
+            const res = await updateLEMembershipRole(selectedUser.id, editedRole);
+            if (res.success) {
+                toast.success("Role updated successfully.");
+                setSelectedUser(null);
+                setEditedRole(null);
+                loadUsers();
+            } else {
+                toast.error(res.error || "Failed to update role.");
+            }
+        } catch (e) {
+            toast.error("An error occurred while updating role.");
+        } finally {
+            setUpdatingRole(false);
         }
     }
 
@@ -93,8 +143,8 @@ export function LEUsersTab({ leId, canManageUsers = false }: LEUsersTabProps) {
             {/* Header / Invite Section */}
             <div className="flex flex-col md:flex-row gap-8 justify-between items-start">
                 <div>
-                    <h2 className="text-2xl font-bold tracking-tight text-slate-900">User Management</h2>
-                    <p className="text-slate-500 mt-1">Manage access and permissions for this Legal Entity.</p>
+                    <h2 className="text-2xl font-bold tracking-tight text-slate-900">Team & Access</h2>
+                    <p className="text-slate-500 mt-1">Who is responsible for this Legal Entity and what they can do.</p>
                 </div>
 
                 {canManageUsers ? (
@@ -106,29 +156,34 @@ export function LEUsersTab({ leId, canManageUsers = false }: LEUsersTabProps) {
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <form onSubmit={handleInvite} className="flex gap-2">
-                                <div className="flex-1 space-y-2">
-                                    <Input
-                                        placeholder="colleague@example.com"
-                                        type="email"
-                                        value={inviteEmail}
-                                        onChange={(e) => setInviteEmail(e.target.value)}
-                                        required
-                                        className="h-9"
-                                    />
+                            <form onSubmit={handleInvite} className="flex flex-col gap-3">
+                                <div className="flex gap-2">
+                                    <div className="flex-1">
+                                        <Input
+                                            placeholder="colleague@example.com"
+                                            type="email"
+                                            value={inviteEmail}
+                                            onChange={(e) => setInviteEmail(e.target.value)}
+                                            required
+                                            className="h-9"
+                                        />
+                                    </div>
+                                    <Select value={inviteRole} onValueChange={setInviteRole}>
+                                        <SelectTrigger className="w-[110px] h-9">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent className="bg-white">
+                                            <SelectItem value="LE_USER">LE User</SelectItem>
+                                            <SelectItem value="LE_ADMIN">LE Admin</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <Button type="submit" size="sm" disabled={inviting} className="h-9">
+                                        {inviting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Invite"}
+                                    </Button>
                                 </div>
-                                <Select value={inviteRole} onValueChange={setInviteRole}>
-                                    <SelectTrigger className="w-[110px] h-9">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent className="bg-white">
-                                        <SelectItem value="LE_USER">LE User</SelectItem>
-                                        <SelectItem value="LE_ADMIN">LE Admin</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                <Button type="submit" size="sm" disabled={inviting} className="h-9">
-                                    {inviting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Invite"}
-                                </Button>
+                                <p className="text-xs text-slate-500">
+                                    LE Admin can manage users and sign off. LE User can edit data and answer questions.
+                                </p>
                             </form>
                         </CardContent>
                     </Card>
@@ -167,22 +222,26 @@ export function LEUsersTab({ leId, canManageUsers = false }: LEUsersTabProps) {
                             </TableRow>
                         ) : (
                             <>
-                                {users.map((user: any) => (
-                                    <TableRow key={user.userId}>
-                                        <TableCell>
-                                            <div className="flex items-center gap-3">
-                                                <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-medium text-xs">
-                                                    {user.name ? user.name.substring(0, 2).toUpperCase() : "??"}
-                                                </div>
-                                                <div>
-                                                    <div className="font-medium text-slate-900">{user.name || "Unknown"}</div>
-                                                    <div className="text-xs text-slate-500 flex items-center gap-1">
-                                                        <Mail className="h-3 w-3" />
-                                                        {user.email}
+                                {users.map((user: any) => {
+                                    const displayName = user.name || user.email.split('@')[0];
+                                    const initials = user.name ? user.name.substring(0, 2).toUpperCase() : displayName.substring(0, 1).toUpperCase();
+                                    
+                                    return (
+                                        <TableRow key={user.userId}>
+                                            <TableCell>
+                                                <div className="flex items-center gap-3">
+                                                    <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-medium text-xs">
+                                                        {initials}
+                                                    </div>
+                                                    <div>
+                                                        <div className="font-medium text-slate-900">{displayName}</div>
+                                                        <div className="text-xs text-slate-500 flex items-center gap-1">
+                                                            <Mail className="h-3 w-3" />
+                                                            {user.email}
+                                                        </div>
                                                     </div>
                                                 </div>
-                                            </div>
-                                        </TableCell>
+                                            </TableCell>
                                         <TableCell>
                                             <Badge
                                                 variant="outline"
@@ -203,10 +262,24 @@ export function LEUsersTab({ leId, canManageUsers = false }: LEUsersTabProps) {
                                             </div>
                                         </TableCell>
                                         <TableCell className="text-right text-xs text-slate-500">
-                                            -
+                                            {canManageUsers ? (
+                                                <Button variant="outline" size="sm" onClick={() => setSelectedUser({
+                                                    kind: "membership",
+                                                    id: user.membershipId,
+                                                    email: user.email,
+                                                    displayName,
+                                                    role: user.role,
+                                                    status: "ACTIVE",
+                                                    scopeType: "LE",
+                                                    scopeId: leId
+                                                })}>
+                                                    Manage
+                                                </Button>
+                                            ) : "-"}
                                         </TableCell>
                                     </TableRow>
-                                ))}
+                                    );
+                                })}
                                 {invites.map((inv: any) => (
                                     <TableRow key={inv.id} className="bg-slate-50/40">
                                         <TableCell>
@@ -241,21 +314,21 @@ export function LEUsersTab({ leId, canManageUsers = false }: LEUsersTabProps) {
                                                 Pending
                                             </div>
                                         </TableCell>
-                                        <TableCell className="text-right">
+                                        <TableCell className="text-right text-xs text-slate-500">
                                             {canManageUsers ? (
-                                                <Button 
-                                                    variant="ghost" 
-                                                    size="sm" 
-                                                    className="h-8 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
-                                                    onClick={() => handleRevoke(inv.id)}
-                                                    disabled={revokingId === inv.id}
-                                                >
-                                                    {revokingId === inv.id ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <X className="h-3 w-3 mr-1" />}
-                                                    Revoke
+                                                <Button variant="outline" size="sm" onClick={() => setSelectedUser({
+                                                    kind: "invitation",
+                                                    id: inv.id,
+                                                    email: inv.sentToEmail,
+                                                    displayName: undefined,
+                                                    role: inv.role,
+                                                    status: "PENDING",
+                                                    scopeType: "LE",
+                                                    scopeId: leId
+                                                })}>
+                                                    Manage
                                                 </Button>
-                                            ) : (
-                                                <span className="text-xs text-slate-400">—</span>
-                                            )}
+                                            ) : "-"}
                                         </TableCell>
                                     </TableRow>
                                 ))}
@@ -264,6 +337,144 @@ export function LEUsersTab({ leId, canManageUsers = false }: LEUsersTabProps) {
                     </TableBody>
                 </Table>
             </div>
+
+            {/* User Access Modal Shell */}
+            <Dialog open={!!selectedUser} onOpenChange={(open) => {
+                if (!open) {
+                    setConfirmRemove(false);
+                    setEditedRole(null);
+                }
+                setSelectedUser(open ? selectedUser : null);
+            }}>
+                <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                        <DialogTitle>
+                            {selectedUser?.kind === "invitation" ? "Manage invitation" : "Manage access"}
+                        </DialogTitle>
+                        <DialogDescription>
+                            Update roles, manage communication, or remove access.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    {selectedUser && (
+                        <div className="py-4 space-y-6">
+                            <div className="flex items-start gap-3 bg-slate-50 p-3 rounded-lg border border-slate-100">
+                                <div className="mt-0.5">
+                                    <Mail className="w-5 h-5 text-slate-400" />
+                                </div>
+                                <div>
+                                    <div className="font-medium text-slate-900">
+                                        {selectedUser.displayName ? `${selectedUser.displayName} (${selectedUser.email})` : selectedUser.email}
+                                    </div>
+                                    <div className="text-sm text-slate-500 mt-1 flex flex-col gap-1">
+                                        <div className="flex items-center gap-2">
+                                            <span className="font-medium">Status:</span>
+                                            <Badge variant="outline" className={selectedUser.status === "ACTIVE" ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-amber-50 text-amber-700 border-amber-200"}>
+                                                {selectedUser.status === "ACTIVE" ? "Active" : "Pending"}
+                                            </Badge>
+                                        </div>
+                                        {selectedUser.kind === "membership" && (
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-medium">Scope:</span>
+                                                <span>Legal Entity</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="space-y-3">
+                                <h4 className="text-sm font-semibold text-slate-900">Access</h4>
+                                <div className="flex items-center gap-3">
+                                    <Select 
+                                        value={editedRole || selectedUser.role} 
+                                        onValueChange={setEditedRole}
+                                        disabled={selectedUser.kind === "invitation" || updatingRole}
+                                    >
+                                        <SelectTrigger className="w-full">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="LE_USER">LE User</SelectItem>
+                                            <SelectItem value="LE_ADMIN">LE Admin</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    {selectedUser.kind === "membership" && editedRole && editedRole !== selectedUser.role && (
+                                        <Button 
+                                            size="sm" 
+                                            onClick={handleUpdateRole} 
+                                            disabled={updatingRole}
+                                            className="shrink-0"
+                                        >
+                                            {updatingRole ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
+                                            Update
+                                        </Button>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="space-y-3">
+                                <h4 className="text-sm font-semibold text-slate-900">Communication</h4>
+                                {selectedUser.kind === "invitation" ? (
+                                    <Button variant="outline" className="w-full justify-start" disabled>
+                                        <Mail className="w-4 h-4 mr-2" />
+                                        Resend invite
+                                    </Button>
+                                ) : (
+                                    <Button variant="outline" className="w-full justify-start" disabled>
+                                        <Mail className="w-4 h-4 mr-2" />
+                                        Send welcome email
+                                    </Button>
+                                )}
+                            </div>
+
+                            <div className="space-y-3 pt-2 border-t border-red-100">
+                                <h4 className="text-sm font-semibold text-red-600 flex items-center gap-2">
+                                    <ShieldAlert className="w-4 h-4" /> Danger Zone
+                                </h4>
+                                
+                                {selectedUser.kind === "invitation" ? (
+                                    <Button 
+                                        variant="outline" 
+                                        className="w-full justify-start border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700" 
+                                        onClick={handleRevoke}
+                                        disabled={revoking}
+                                    >
+                                        {revoking ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <X className="w-4 h-4 mr-2" />}
+                                        Revoke invite
+                                    </Button>
+                                ) : (
+                                    !confirmRemove ? (
+                                        <Button 
+                                            variant="outline" 
+                                            className="w-full justify-start border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+                                            onClick={() => setConfirmRemove(true)}
+                                        >
+                                            <X className="w-4 h-4 mr-2" />
+                                            Remove access
+                                        </Button>
+                                    ) : (
+                                        <div className="bg-red-50 p-3 rounded-md border border-red-100 space-y-3">
+                                            <p className="text-sm text-red-800 font-medium flex items-start gap-2">
+                                                <ShieldAlert className="w-4 h-4 mt-0.5 shrink-0" />
+                                                Are you sure you want to remove this user's access?
+                                            </p>
+                                            <div className="flex gap-2">
+                                                <Button variant="destructive" size="sm" className="w-full" onClick={handleRemoveAccess} disabled={removing}>
+                                                    {removing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : "Yes, confirm"}
+                                                </Button>
+                                                <Button variant="outline" size="sm" className="w-full" onClick={() => setConfirmRemove(false)} disabled={removing}>
+                                                    Cancel
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    )
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

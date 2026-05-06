@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useRef } from "react";
 import { getOrganizationDetails, updateOrganization, archiveOrganization, unarchiveOrganization } from "@/actions/org";
-import { inviteUser, getPendingInvitations, revokeInvitation } from "@/actions/invitations";
+import { inviteUser, getPendingInvitations } from "@/actions/invitations";
 import { createLegalEntity } from "@/actions/client-le";
 import { getQuestionnaires, createQuestionnaire, startBackgroundExtraction } from "@/actions/questionnaire";
+import { UserAccessModal, UserAccessRow } from "./UserAccessModal";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -59,6 +60,9 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
     
     const [pendingInvites, setPendingInvites] = useState<any[]>([]);
     const [revokingId, setRevokingId] = useState<string | null>(null);
+
+    // Modal State
+    const [selectedUser, setSelectedUser] = useState<UserAccessRow | null>(null);
 
     // LE Creation State
     const [leName, setLeName] = useState("");
@@ -142,23 +146,6 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
             toast.error("An unexpected error occurred.");
         } finally {
             setInviting(false);
-        }
-    }
-
-    async function handleRevoke(inviteId: string) {
-        setRevokingId(inviteId);
-        try {
-            const res = await revokeInvitation(inviteId);
-            if (res.success) {
-                toast.success("Invitation revoked successfully.");
-                if (org) loadData(org.id);
-            } else {
-                toast.error(res.error || "Failed to revoke invitation.");
-            }
-        } catch (e) {
-            toast.error("An error occurred while revoking.");
-        } finally {
-            setRevokingId(null);
         }
     }
 
@@ -444,7 +431,20 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
                                                         Active
                                                     </div>
                                                 </TableCell>
-                                                <TableCell className="text-right">-</TableCell>
+                                                <TableCell className="text-right">
+                                                    <Button variant="outline" size="sm" onClick={() => setSelectedUser({
+                                                        kind: "membership",
+                                                        id: m.id,
+                                                        email: m.user.email,
+                                                        role: m.role as any,
+                                                        status: "ACTIVE",
+                                                        scopeType: "ORG",
+                                                        scopeId: org.id,
+                                                        scopeName: org.name
+                                                    })}>
+                                                        Manage
+                                                    </Button>
+                                                </TableCell>
                                             </TableRow>
                                         ))}
                                         {pendingInvites.map((inv: any) => (
@@ -471,15 +471,17 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
                                                     </div>
                                                 </TableCell>
                                                 <TableCell className="text-right">
-                                                    <Button 
-                                                        variant="ghost" 
-                                                        size="sm" 
-                                                        className="h-8 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
-                                                        onClick={() => handleRevoke(inv.id)}
-                                                        disabled={revokingId === inv.id}
-                                                    >
-                                                        {revokingId === inv.id ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <X className="h-3 w-3 mr-1" />}
-                                                        Revoke
+                                                    <Button variant="outline" size="sm" onClick={() => setSelectedUser({
+                                                        kind: "invitation",
+                                                        id: inv.id,
+                                                        email: inv.sentToEmail,
+                                                        role: inv.role as any,
+                                                        status: "PENDING",
+                                                        scopeType: "ORG",
+                                                        scopeId: org.id,
+                                                        scopeName: org.name
+                                                    })}>
+                                                        Manage
                                                     </Button>
                                                 </TableCell>
                                             </TableRow>
@@ -815,6 +817,16 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
                     </div>
                 )}
             </div>
+
+            <UserAccessModal 
+                open={!!selectedUser} 
+                onOpenChange={(open) => !open && setSelectedUser(null)} 
+                user={selectedUser} 
+                onSuccess={() => {
+                    if (org) loadData(org.id);
+                    // Keep modal open, but we could close it if we want.
+                }} 
+            />
         </div>
     );
 }

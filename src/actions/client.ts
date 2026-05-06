@@ -1232,6 +1232,7 @@ export async function getCurrentUserLERole(leId: string): Promise<string | null>
 
 // 12b. Get LE Users
 export interface LEUser {
+    membershipId: string;
     userId: string;
     name: string | null;
     email: string;
@@ -1254,6 +1255,7 @@ export async function getLEUsers(leId: string): Promise<LEUser[]> {
     });
 
     return memberships.map((m: any) => ({
+        membershipId: m.id,
         userId: m.userId,
         name: m.user.name,
         email: m.user.email,
@@ -1267,4 +1269,61 @@ export async function getLEUsers(leId: string): Promise<LEUser[]> {
 export async function inviteUserToLE(leId: string, email: string, role: string) {
     const { inviteUser } = await import("@/actions/invitations");
     return inviteUser({ email, role, clientLEId: leId });
+}
+
+// 14. Remove LE User Access
+export async function removeLEMembership(membershipId: string) {
+    // Look up membership to find its clientLEId
+    const membership = await prisma.membership.findUnique({
+        where: { id: membershipId },
+        select: { clientLEId: true }
+    });
+
+    if (!membership || !membership.clientLEId) {
+        return { success: false, error: "Membership not found or not an LE membership" };
+    }
+
+    // Verify current user can manage users for this ClientLE
+    try {
+        await ensureAuthorization(Action.LE_MANAGE_USERS, { clientLEId: membership.clientLEId });
+    } catch (e) {
+        return { success: false, error: "Unauthorized" };
+    }
+
+    // Delete just this specific membership
+    await prisma.membership.delete({
+        where: { id: membershipId }
+    });
+
+    return { success: true };
+}
+
+// 15. Update LE User Role
+export async function updateLEMembershipRole(membershipId: string, role: string) {
+    if (!["LE_ADMIN", "LE_USER"].includes(role)) {
+        return { success: false, error: "Invalid role specified." };
+    }
+
+    const membership = await prisma.membership.findUnique({
+        where: { id: membershipId },
+        select: { clientLEId: true }
+    });
+
+    if (!membership || !membership.clientLEId) {
+        return { success: false, error: "Membership not found or not an LE membership" };
+    }
+
+    // Verify current user can manage users for this ClientLE
+    try {
+        await ensureAuthorization(Action.LE_MANAGE_USERS, { clientLEId: membership.clientLEId });
+    } catch (e) {
+        return { success: false, error: "Unauthorized" };
+    }
+
+    await prisma.membership.update({
+        where: { id: membershipId },
+        data: { role }
+    });
+
+    return { success: true };
 }
