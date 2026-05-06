@@ -1,16 +1,19 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { getOrganizationDetails, addMemberToOrg, updateOrganization, archiveOrganization, unarchiveOrganization } from "@/actions/org";
+import { getOrganizationDetails, updateOrganization, archiveOrganization, unarchiveOrganization } from "@/actions/org";
+import { inviteUser, getPendingInvitations, revokeInvitation } from "@/actions/invitations";
+import { createLegalEntity } from "@/actions/client-le";
 import { getQuestionnaires, createQuestionnaire, startBackgroundExtraction } from "@/actions/questionnaire";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, ArrowLeft, UserPlus, Mail, FileText, Upload, Plus, Pen, Check, X, Trash2, ArchiveRestore } from "lucide-react";
+import { Loader2, ArrowLeft, UserPlus, Mail, FileText, Upload, Plus, Pen, Check, X, Trash2, ArchiveRestore, Clock, Building, CheckCircle2, AlertCircle } from "lucide-react";
 import Link from "next/link";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 
@@ -51,10 +54,19 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
     const [loading, setLoading] = useState(true);
 
     const [inviteEmail, setInviteEmail] = useState("");
+    const [inviteRole, setInviteRole] = useState("ORG_MEMBER");
     const [inviting, setInviting] = useState(false);
+    
+    const [pendingInvites, setPendingInvites] = useState<any[]>([]);
+    const [revokingId, setRevokingId] = useState<string | null>(null);
 
-    // Tab State: "members" | "questionnaires"
-    const [activeTab, setActiveTab] = useState("members");
+    // LE Creation State
+    const [leName, setLeName] = useState("");
+    const [leJurisdiction, setLeJurisdiction] = useState("");
+    const [creatingLe, setCreatingLe] = useState(false);
+
+    // Tab State: "overview" | "members" | "entities" | "questionnaires"
+    const [activeTab, setActiveTab] = useState("overview");
     const [uploading, setUploading] = useState(false);
     const [showArchived, setShowArchived] = useState(false);
 
@@ -88,12 +100,14 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
     async function loadData(id: string) {
         // Only show full loading spinner on initial load, not polling
         if (!org) setLoading(true);
-        const [orgData, qData] = await Promise.all([
+        const [orgData, qData, invitesData] = await Promise.all([
             getOrganizationDetails(id),
-            getQuestionnaires(id)
+            getQuestionnaires(id),
+            getPendingInvitations(id)
         ]);
         setOrg(orgData);
         setQuestionnaires(qData);
+        setPendingInvites(invitesData);
         setLoading(false);
     }
 
@@ -114,13 +128,58 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
     async function handleAddMember() {
         if (!inviteEmail || !org) return;
         setInviting(true);
-        const res = await addMemberToOrg(org.id, inviteEmail);
-        setInviting(false);
-        if (res.success) {
-            setInviteEmail("");
-            loadData(org.id);
-        } else {
-            alert("Error: " + res.error);
+        try {
+            const res = await inviteUser({ email: inviteEmail, role: inviteRole, organizationId: org.id });
+            if (res.success) {
+                toast.success(`Invited ${inviteEmail} as ${inviteRole}`);
+                setInviteEmail("");
+                setInviteRole("ORG_MEMBER");
+                loadData(org.id);
+            } else {
+                toast.error("Error: " + (res.error || "Failed to invite user"));
+            }
+        } catch (error) {
+            toast.error("An unexpected error occurred.");
+        } finally {
+            setInviting(false);
+        }
+    }
+
+    async function handleRevoke(inviteId: string) {
+        setRevokingId(inviteId);
+        try {
+            const res = await revokeInvitation(inviteId);
+            if (res.success) {
+                toast.success("Invitation revoked successfully.");
+                if (org) loadData(org.id);
+            } else {
+                toast.error(res.error || "Failed to revoke invitation.");
+            }
+        } catch (e) {
+            toast.error("An error occurred while revoking.");
+        } finally {
+            setRevokingId(null);
+        }
+    }
+
+    async function handleCreateLE(e: React.FormEvent) {
+        e.preventDefault();
+        if (!leName || !org) return;
+        setCreatingLe(true);
+        try {
+            const res = await createLegalEntity({ name: leName, jurisdiction: leJurisdiction, clientOrgId: org.id });
+            if (res.success) {
+                toast.success("Legal Entity created successfully");
+                setLeName("");
+                setLeJurisdiction("");
+                loadData(org.id);
+            } else {
+                toast.error("Error: " + (res.error || "Failed to create LE"));
+            }
+        } catch (error) {
+            toast.error("An unexpected error occurred.");
+        } finally {
+            setCreatingLe(false);
         }
     }
 
@@ -256,10 +315,22 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
             <div className="border-b">
                 <nav className="flex items-center gap-4">
                     <button
+                        onClick={() => setActiveTab("overview")}
+                        className={`text-sm font-medium pb-2 border-b-2 transition-colors ${activeTab === "overview" ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+                    >
+                        Setup & Overview
+                    </button>
+                    <button
                         onClick={() => setActiveTab("members")}
                         className={`text-sm font-medium pb-2 border-b-2 transition-colors ${activeTab === "members" ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
                     >
                         Members
+                    </button>
+                    <button
+                        onClick={() => setActiveTab("entities")}
+                        className={`text-sm font-medium pb-2 border-b-2 transition-colors ${activeTab === "entities" ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+                    >
+                        Legal Entities
                     </button>
                     {org.types.includes("FI") && (
                         <button
@@ -274,6 +345,68 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
 
             {/* Tab Content */}
             <div className="mt-4">
+                {activeTab === "overview" && (
+                    <div className="grid gap-6 md:grid-cols-2">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Onboarding Health</CardTitle>
+                                <CardDescription>Checklist for organization readiness.</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <div className="flex items-center gap-3">
+                                    <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                                    <span className="text-sm font-medium">Organization Created</span>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    {org.ownedLEs?.length > 0 ? (
+                                        <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                                    ) : (
+                                        <AlertCircle className="w-5 h-5 text-amber-500" />
+                                    )}
+                                    <span className="text-sm font-medium">At least one Legal Entity exists</span>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    {org.memberships?.some((m: any) => m.role === "ORG_ADMIN") ? (
+                                        <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                                    ) : (
+                                        <AlertCircle className="w-5 h-5 text-amber-500" />
+                                    )}
+                                    <span className="text-sm font-medium">At least one ORG_ADMIN active member exists</span>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    {org.memberships?.some((m: any) => m.role === "ORG_ADMIN") || pendingInvites.some((inv: any) => inv.role === "ORG_ADMIN") ? (
+                                        <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                                    ) : (
+                                        <AlertCircle className="w-5 h-5 text-amber-500" />
+                                    )}
+                                    <span className="text-sm font-medium">At least one admin invite pending or active admin exists</span>
+                                </div>
+                            </CardContent>
+                        </Card>
+                        
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Statistics</CardTitle>
+                                <CardDescription>Current snapshot of the organization.</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <div className="flex justify-between items-center border-b pb-2">
+                                    <span className="text-sm text-muted-foreground">Legal Entities</span>
+                                    <span className="font-semibold">{org.ownedLEs?.length || 0}</span>
+                                </div>
+                                <div className="flex justify-between items-center border-b pb-2">
+                                    <span className="text-sm text-muted-foreground">Active Users</span>
+                                    <span className="font-semibold">{org.memberships?.length || 0}</span>
+                                </div>
+                                <div className="flex justify-between items-center pb-2">
+                                    <span className="text-sm text-muted-foreground">Pending Invites</span>
+                                    <span className="font-semibold">{pendingInvites.length}</span>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
+                )}
+
                 {activeTab === "members" && (
                     <div className="grid gap-6 md:grid-cols-3">
                         {/* MEMBER LIST */}
@@ -288,6 +421,8 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
                                         <TableRow>
                                             <TableHead>User</TableHead>
                                             <TableHead>Role</TableHead>
+                                            <TableHead>Status</TableHead>
+                                            <TableHead className="text-right">Actions</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
@@ -302,8 +437,59 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
                                                 <TableCell>
                                                     <Badge variant="outline">{m.role}</Badge>
                                                 </TableCell>
+                                                <TableCell>
+                                                    <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full w-fit">
+                                                        <Check className="h-3 w-3" />
+                                                        Active
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell className="text-right">-</TableCell>
                                             </TableRow>
                                         ))}
+                                        {pendingInvites.map((inv: any) => (
+                                            <TableRow key={inv.id} className="bg-slate-50/40">
+                                                <TableCell>
+                                                    <div className="flex items-center gap-2">
+                                                        <Mail className="w-4 h-4 text-slate-400" />
+                                                        <div>
+                                                            <div className="font-medium text-slate-700 italic">Pending Invite</div>
+                                                            <div className="text-xs text-slate-500">{inv.sentToEmail}</div>
+                                                        </div>
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Badge variant="outline" className="opacity-70">{inv.role}</Badge>
+                                                    {inv.clientLEId && (
+                                                        <div className="text-[10px] text-slate-500 mt-1">LE: {inv.clientLE?.name || inv.clientLEId}</div>
+                                                    )}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="flex items-center gap-1.5 text-xs font-medium text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full w-fit">
+                                                        <Clock className="h-3 w-3" />
+                                                        Pending
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                    <Button 
+                                                        variant="ghost" 
+                                                        size="sm" 
+                                                        className="h-8 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+                                                        onClick={() => handleRevoke(inv.id)}
+                                                        disabled={revokingId === inv.id}
+                                                    >
+                                                        {revokingId === inv.id ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <X className="h-3 w-3 mr-1" />}
+                                                        Revoke
+                                                    </Button>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                        {org.memberships.length === 0 && pendingInvites.length === 0 && (
+                                            <TableRow>
+                                                <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
+                                                    No members or pending invitations found.
+                                                </TableCell>
+                                            </TableRow>
+                                        )}
                                     </TableBody>
                                 </Table>
                             </CardContent>
@@ -316,12 +502,23 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
                                 <CardDescription>Invite a user by email.</CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-4">
-                                <div className="space-y-2">
+                                <div className="space-y-3">
                                     <Input
                                         placeholder="user@example.com"
+                                        type="email"
                                         value={inviteEmail}
                                         onChange={e => setInviteEmail(e.target.value)}
+                                        required
                                     />
+                                    <Select value={inviteRole} onValueChange={setInviteRole}>
+                                        <SelectTrigger className="w-full">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="ORG_MEMBER">Member (Read Only)</SelectItem>
+                                            <SelectItem value="ORG_ADMIN">Admin</SelectItem>
+                                        </SelectContent>
+                                    </Select>
                                 </div>
                                 <Button className="w-full" onClick={handleAddMember} disabled={inviting}>
                                     {inviting ? <Loader2 className="animate-spin w-4 h-4" /> : (
@@ -331,6 +528,96 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
                                         </>
                                     )}
                                 </Button>
+                            </CardContent>
+                        </Card>
+                    </div>
+                )}
+
+                {activeTab === "entities" && (
+                    <div className="grid gap-6 md:grid-cols-3">
+                        <Card className="md:col-span-2">
+                            <CardHeader>
+                                <CardTitle>Legal Entities</CardTitle>
+                                <CardDescription>Entities owned by this organization.</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Name</TableHead>
+                                            <TableHead>Jurisdiction</TableHead>
+                                            <TableHead>LEI</TableHead>
+                                            <TableHead>Status</TableHead>
+                                            <TableHead className="text-right">Actions</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {org.ownedLEs?.map((ownerRecord: any) => {
+                                            const le = ownerRecord.clientLE;
+                                            return (
+                                                <TableRow key={le.id}>
+                                                    <TableCell>
+                                                        <div className="flex items-center gap-2">
+                                                            <Building className="w-4 h-4 text-muted-foreground" />
+                                                            <span className="font-medium">{le.name}</span>
+                                                        </div>
+                                                    </TableCell>
+                                                    <TableCell className="text-muted-foreground">{le.jurisdiction || "-"}</TableCell>
+                                                    <TableCell className="font-mono text-xs text-muted-foreground">{le.legalEntity?.lei || "-"}</TableCell>
+                                                    <TableCell>
+                                                        <Badge variant={le.status === "ACTIVE" ? "default" : "secondary"}>{le.status}</Badge>
+                                                    </TableCell>
+                                                    <TableCell className="text-right">
+                                                        <Link href={`/app/le/${le.id}`}>
+                                                            <Button variant="outline" size="sm">Manage LE</Button>
+                                                        </Link>
+                                                    </TableCell>
+                                                </TableRow>
+                                            );
+                                        })}
+                                        {(!org.ownedLEs || org.ownedLEs.length === 0) && (
+                                            <TableRow>
+                                                <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                                                    No Legal Entities found. Create one to get started.
+                                                </TableCell>
+                                            </TableRow>
+                                        )}
+                                    </TableBody>
+                                </Table>
+                            </CardContent>
+                        </Card>
+
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Create Legal Entity</CardTitle>
+                                <CardDescription>Add a new legal entity for this client.</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <form onSubmit={handleCreateLE} className="space-y-4">
+                                    <div className="space-y-3">
+                                        <div className="space-y-1">
+                                            <label className="text-sm font-medium">Name</label>
+                                            <Input
+                                                placeholder="e.g. Acme UK Ltd"
+                                                value={leName}
+                                                onChange={e => setLeName(e.target.value)}
+                                                required
+                                            />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-sm font-medium">Jurisdiction</label>
+                                            <Input
+                                                placeholder="e.g. GB"
+                                                value={leJurisdiction}
+                                                onChange={e => setLeJurisdiction(e.target.value)}
+                                            />
+                                        </div>
+                                    </div>
+                                    <Button className="w-full" type="submit" disabled={creatingLe}>
+                                        {creatingLe ? <Loader2 className="animate-spin w-4 h-4 mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
+                                        Create LE
+                                    </Button>
+                                </form>
                             </CardContent>
                         </Card>
                     </div>

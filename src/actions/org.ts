@@ -59,10 +59,14 @@ export async function getOrganizationDetails(orgId: string) {
                     user: true
                 }
             },
-            // Include related entities count if useful
+            // Include related entities
             ownedLEs: {
                 where: { endAt: null },
-                select: { id: true } // just count
+                include: {
+                    clientLE: {
+                        include: { legalEntity: true }
+                    }
+                }
             }
         }
     });
