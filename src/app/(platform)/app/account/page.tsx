@@ -118,7 +118,7 @@ export default function AccountSettingsPage() {
                                 </div>
                                 <CardDescription>Update your personal information used across the platform.</CardDescription>
                             </CardHeader>
-                            <CardContent className="space-y-4">
+                            <CardContent className="space-y-4 pb-6">
                                 <div className="grid gap-2">
                                     <Label htmlFor="email" className="text-muted-foreground">Email Address</Label>
                                     <Input id="email" value={profile.email} disabled className="bg-slate-50 text-slate-500" />
