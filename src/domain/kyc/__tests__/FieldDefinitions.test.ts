@@ -16,12 +16,12 @@ import {
 
 describe('FieldDefinitions', () => {
     describe('Coverage', () => {
-        it('should cover all Field Nos 1-119 excluding 94', () => {
-            const expectedFieldNos = Array.from({ length: 119 }, (_, i) => i + 1).filter((n: any) => n !== 94);
+        it('should cover all Field Nos 1-122 excluding 94', () => {
+            const expectedFieldNos = Array.from({ length: 122 }, (_, i) => i + 1).filter((n: any) => n !== 94);
             const actualFieldNos = Object.keys(FIELD_DEFINITIONS).map(Number).sort((a: any, b: any) => a - b);
 
             expect(actualFieldNos).toEqual(expectedFieldNos);
-            expect(actualFieldNos.length).toBe(118);
+            expect(actualFieldNos.length).toBe(121);
         });
 
         it('should not include Field No 94 (placeholder)', () => {
@@ -110,14 +110,14 @@ describe('FieldDefinitions', () => {
     describe('isValidFieldNo', () => {
         it('should return true for valid Field Nos', () => {
             expect(isValidFieldNo(1)).toBe(true);
-            expect(isValidFieldNo(119)).toBe(true);
+            expect(isValidFieldNo(122)).toBe(true);
             expect(isValidFieldNo(50)).toBe(true);
         });
 
         it('should return false for invalid Field Nos', () => {
             expect(isValidFieldNo(0)).toBe(false);
             expect(isValidFieldNo(94)).toBe(false); // Placeholder
-            expect(isValidFieldNo(120)).toBe(false);
+            expect(isValidFieldNo(130)).toBe(false);
             expect(isValidFieldNo(-1)).toBe(false);
         });
     });
