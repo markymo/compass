@@ -372,6 +372,11 @@ function ClientOrgCard({ org }: { org: OrgNode }) {
     const isCollapsed = preferences.homePage?.collapsedTreeNodes?.[nodeKey] ?? false;
     const [isOpen, setIsOpen] = useState(!isCollapsed);
 
+    // Sync local state when preferences load asynchronously
+    React.useEffect(() => {
+        setIsOpen(!isCollapsed);
+    }, [isCollapsed]);
+
     const handleOpenChange = (open: boolean) => {
         setIsOpen(open);
         const newCollapsed = !open;
@@ -544,6 +549,11 @@ function NestedTreeRow({ item, level, orgType }: { item: OrgChild; level: number
     
     const [isOpen, setIsOpen] = useState(!isCollapsed);
     const hasChildren = item.children && item.children.length > 0;
+
+    // Sync local state when preferences load asynchronously
+    React.useEffect(() => {
+        setIsOpen(!isCollapsed);
+    }, [isCollapsed]);
 
     const handleOpenChange = (open: boolean) => {
         setIsOpen(open);
