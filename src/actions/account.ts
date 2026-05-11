@@ -91,6 +91,8 @@ export async function updateAccountSettings(data: {
         });
 
         revalidatePath("/app/account");
+        revalidatePath("/app");
+        revalidatePath("/");
         return { success: true };
     } catch (e) {
         console.error("[updateAccountSettings] Error:", e);
