@@ -6,6 +6,10 @@ import { toast } from "sonner";
 
 interface UserPreferences {
     whimsyMode?: boolean;
+    adminSidebarCollapsed?: boolean;
+    homePage?: {
+        collapsedTreeNodes?: Record<string, boolean>;
+    };
     [key: string]: any;
 }
 
@@ -33,10 +37,22 @@ export function UserPreferencesProvider({ children }: { children: React.ReactNod
     }, []);
 
     const updatePreference = async (key: keyof UserPreferences, value: any) => {
-        const updated = { ...preferences, [key]: value };
+        // Prepare the value for this specific key
+        let newValue = value;
+        
+        // If it's an object (like homePage), merge with existing to avoid wiping sub-keys
+        if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+            const existingValue = (preferences as any)[key] || {};
+            newValue = { ...existingValue, ...value };
+        }
+
+        const updated = { ...preferences, [key]: newValue };
         setPreferences(updated);
 
-        const res = await updateAccountSettings({ preferences: { [key]: value } });
+        // We send just the changed key to the server, 
+        // updateAccountSettings handles the top-level merge of preferences.
+        const res = await updateAccountSettings({ preferences: { [key]: newValue } });
+        
         if (!res.success) {
             toast.error(res.error || "Failed to save preference");
             // Rollback on failure
