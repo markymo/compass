@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { DashboardContexts } from "@/actions/dashboard";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -373,7 +373,7 @@ function ClientOrgCard({ org }: { org: OrgNode }) {
     const [isOpen, setIsOpen] = useState(!isCollapsed);
 
     // Sync local state when preferences load asynchronously
-    React.useEffect(() => {
+    useEffect(() => {
         setIsOpen(!isCollapsed);
     }, [isCollapsed]);
 
@@ -551,7 +551,7 @@ function NestedTreeRow({ item, level, orgType }: { item: OrgChild; level: number
     const hasChildren = item.children && item.children.length > 0;
 
     // Sync local state when preferences load asynchronously
-    React.useEffect(() => {
+    useEffect(() => {
         setIsOpen(!isCollapsed);
     }, [isCollapsed]);
 
