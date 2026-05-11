@@ -15,6 +15,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { DashboardMetric, emptyMetrics, rollupMetrics } from "@/lib/dashboard-metrics";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
+import { usePreferences } from "@/components/providers/user-preferences-provider";
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -242,11 +243,30 @@ function MicroChart({ value, total, colorClass, emptyClass, numeratorLabel, deno
 // ─── Org Card Component ──────────────────────────────────────────────
 
 function OrgCard({ org }: { org: OrgNode }) {
+    const { preferences, updatePreference } = usePreferences();
+    const nodeKey = `org:${org.id}`;
+    
+    // Default: OrgCard defaults open (collapsed = false)
+    const isCollapsed = preferences.homePage?.collapsedTreeNodes?.[nodeKey] ?? false;
+    const [isOpen, setIsOpen] = useState(!isCollapsed);
+
+    const handleOpenChange = (open: boolean) => {
+        setIsOpen(open);
+        const newCollapsed = !open;
+        const currentCollapsedNodes = preferences.homePage?.collapsedTreeNodes || {};
+        
+        updatePreference("homePage", {
+            collapsedTreeNodes: {
+                ...currentCollapsedNodes,
+                [nodeKey]: newCollapsed
+            }
+        });
+    };
+
     if (org.orgType === "CLIENT" || org.orgType === "SUPPLIER") {
         return <ClientOrgCard org={org} />;
     }
 
-    const [isOpen, setIsOpen] = useState(true);
     const meta = orgMeta[org.orgType];
     const Icon = meta.icon;
 
@@ -264,7 +284,7 @@ function OrgCard({ org }: { org: OrgNode }) {
 
     return (
         <Card className={`${meta.borderColor} shadow-sm transition-all border`}>
-            <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+            <Collapsible open={isOpen} onOpenChange={handleOpenChange}>
                 <CardHeader className="pb-3 bg-white">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
@@ -345,12 +365,31 @@ function OrgCard({ org }: { org: OrgNode }) {
 // ─── Client Org Card (New V2 Style) ───────────────────────────────────
 
 function ClientOrgCard({ org }: { org: OrgNode }) {
-    const [isOpen, setIsOpen] = useState(true);
+    const { preferences, updatePreference } = usePreferences();
+    const nodeKey = `org:${org.id}`;
+    
+    // Default: OrgCard (ClientOrgCard) defaults open (collapsed = false)
+    const isCollapsed = preferences.homePage?.collapsedTreeNodes?.[nodeKey] ?? false;
+    const [isOpen, setIsOpen] = useState(!isCollapsed);
+
+    const handleOpenChange = (open: boolean) => {
+        setIsOpen(open);
+        const newCollapsed = !open;
+        const currentCollapsedNodes = preferences.homePage?.collapsedTreeNodes || {};
+        
+        updatePreference("homePage", {
+            collapsedTreeNodes: {
+                ...currentCollapsedNodes,
+                [nodeKey]: newCollapsed
+            }
+        });
+    };
+
     const meta = orgMeta[org.orgType];
 
     return (
         <Card className={cn("shadow-sm overflow-hidden", meta.borderColor)}>
-            <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+            <Collapsible open={isOpen} onOpenChange={handleOpenChange}>
                 {/* 2-Tier Header Row */}
                 <div className={cn(
                     "hidden md:grid items-end px-4 pt-3 pb-2 bg-slate-50 border-b border-slate-200",
@@ -493,11 +532,34 @@ function ClientOrgCard({ org }: { org: OrgNode }) {
 }
 
 function NestedTreeRow({ item, level, orgType }: { item: OrgChild; level: number; orgType: OrgType }) {
-    const [isOpen, setIsOpen] = useState(level < 2);
+    const { preferences, updatePreference } = usePreferences();
+    
+    // Stable key mapping
+    const prefix = item.type === 'client' ? 'org' : item.type;
+    const nodeKey = `${prefix}:${item.id}`;
+    
+    // Default: NestedTreeRow defaults open if level < 2
+    const defaultIsCollapsed = level >= 2;
+    const isCollapsed = preferences.homePage?.collapsedTreeNodes?.[nodeKey] ?? defaultIsCollapsed;
+    
+    const [isOpen, setIsOpen] = useState(!isCollapsed);
     const hasChildren = item.children && item.children.length > 0;
 
+    const handleOpenChange = (open: boolean) => {
+        setIsOpen(open);
+        const newCollapsed = !open;
+        const currentCollapsedNodes = preferences.homePage?.collapsedTreeNodes || {};
+        
+        updatePreference("homePage", {
+            collapsedTreeNodes: {
+                ...currentCollapsedNodes,
+                [nodeKey]: newCollapsed
+            }
+        });
+    };
+
     return (
-        <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+        <Collapsible open={isOpen} onOpenChange={handleOpenChange}>
             <div className={cn(
                 "group hover:bg-slate-50/50 transition-colors",
                 level === 1 && "bg-white",

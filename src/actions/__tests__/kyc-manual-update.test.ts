@@ -3,14 +3,37 @@ import { applyManualOverride } from '../kyc-manual-update';
 import { KycWriteService } from '@/services/kyc/KycWriteService';
 import prisma from '@/lib/prisma';
 import { isValidFieldNo } from '@/domain/kyc/FieldDefinitions';
+import { getIdentity } from '@/lib/auth';
+import { FieldClaimService } from '@/lib/kyc/FieldClaimService';
 
 // Mock Dependencies
-vi.mock('@/services/kyc/KycWriteService');
+vi.mock('next/cache', () => ({
+    revalidatePath: vi.fn()
+}));
+vi.mock('@/lib/auth', () => ({
+    getIdentity: vi.fn().mockResolvedValue({ userId: 'user-123' })
+}));
+vi.mock('@/lib/kyc/FieldClaimService', () => ({
+    FieldClaimService: {
+        assertClaim: vi.fn().mockResolvedValue({ id: 'claim-1' })
+    }
+}));
+vi.mock('@/lib/kyc/KycStateService', () => ({
+    KycStateService: {
+        resolveScopeId: vi.fn().mockResolvedValue('scope-123')
+    }
+}));
+vi.mock('@/services/masterData/definitionService', () => ({
+    getMasterFieldDefinition: vi.fn().mockResolvedValue({ fieldNo: 1, appDataType: 'TEXT' })
+}));
 vi.mock('@/lib/prisma', () => ({
     default: {
         clientLE: {
             findUnique: vi.fn(),
             update: vi.fn()
+        },
+        fieldClaim: {
+            findUnique: vi.fn()
         }
     }
 }));
@@ -21,12 +44,6 @@ vi.mock('@/domain/kyc/FieldGroups', () => ({
     FIELD_GROUPS: {}
 }));
 
-
-// Access mocked instances
-const mockApplyManualOverride = vi.fn(); // Service method
-// @ts-ignore
-KycWriteService.prototype.applyManualOverride = mockApplyManualOverride;
-
 describe('applyManualOverride Routing Logic', () => {
 
     beforeEach(() => {
@@ -35,7 +52,7 @@ describe('applyManualOverride Routing Logic', () => {
         // @ts-ignore
         isValidFieldNo.mockImplementation((n) => n > 0);
         // @ts-ignore
-        prisma.clientLE.findUnique.mockResolvedValue({ id: 'le-123', customData: {} });
+        prisma.clientLE.findUnique.mockResolvedValue({ id: 'le-123', legalEntityId: 'le-abc', customData: {} });
     });
 
     it('should route "0" to Custom Field (PrismaUpdate) because num=0 is falsy/invalid', async () => {
@@ -43,7 +60,7 @@ describe('applyManualOverride Routing Logic', () => {
         await applyManualOverride('le-123', '0', 'value', 'reason');
 
         // Should NOT call Service
-        expect(mockApplyManualOverride).not.toHaveBeenCalled();
+        expect(FieldClaimService.assertClaim).not.toHaveBeenCalled();
 
         // Should call Prisma Update (Custom Field)
         expect(prisma.clientLE.update).toHaveBeenCalled();
@@ -53,7 +70,11 @@ describe('applyManualOverride Routing Logic', () => {
         // 1 is > 0 and isValidFieldNo(1) is true
         await applyManualOverride('le-123', 1, 'value', 'reason');
 
-        expect(mockApplyManualOverride).toHaveBeenCalledWith('le-123', 1, 'value', 'reason', expect.any(String));
+        expect(FieldClaimService.assertClaim).toHaveBeenCalledWith(expect.objectContaining({
+            fieldNo: 1,
+            valueText: 'value',
+            sourceReference: 'reason'
+        }));
         expect(prisma.clientLE.update).not.toHaveBeenCalled();
     });
 
@@ -61,7 +82,7 @@ describe('applyManualOverride Routing Logic', () => {
         // "custom" -> NaN
         await applyManualOverride('le-123', 'custom_key', 'value', 'reason');
 
-        expect(mockApplyManualOverride).not.toHaveBeenCalled();
+        expect(FieldClaimService.assertClaim).not.toHaveBeenCalled();
         expect(prisma.clientLE.update).toHaveBeenCalled();
     });
 });

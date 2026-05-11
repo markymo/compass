@@ -54,26 +54,25 @@ describe('KycLoader', () => {
         vi.mocked(getFieldDefinition).mockReturnValue(mockDef);
 
         // Setup prisma mock
-        const mockRecord = {
-            testField: 'Test Value',
-            meta: {
-                testField: {
-                    source: 'USER',
-                    confidence: 0.9
-                }
-            },
-            updatedAt: new Date('2023-01-01')
+        const mockClaim = {
+            id: 'claim-1',
+            fieldNo: 1,
+            status: 'VERIFIED',
+            sourceType: 'USER_INPUT',
+            valueText: 'Test Value',
+            assertedAt: new Date('2023-01-01'),
+            ownerScopeId: null
         };
 
-        // KycLoader maps model 'IdentityProfile' to prisma.identityProfile
+        // KycLoader now uses KycStateService which calls prisma.fieldClaim.findMany
         // @ts-ignore
-        prismaMock.identityProfile.findUnique.mockResolvedValue(mockRecord);
+        prismaMock.fieldClaim.findMany.mockResolvedValue([mockClaim]);
 
         const result = await loader.loadField('le-123', 1);
 
         expect(result).not.toBeNull();
         expect(result?.value).toBe('Test Value');
-        expect(result?.source).toBe('USER');
+        expect(result?.source).toBe('USER_INPUT');
     });
 
 

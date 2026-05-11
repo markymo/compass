@@ -15,7 +15,12 @@
     "db:seed:full": "ts-node -O '{\"module\":\"commonjs\"}' scripts/seed-full.ts",
     "db:seed:preview": "ts-node -r tsconfig-paths/register scripts/seed-preview.ts",
     "db:seed:prod": "ts-node -O '{\"module\":\"commonjs\"}' scripts/seed-prod.ts",
-    "vercel:build": "node scripts/vercel-build.mjs"
+    "vercel:build": "node scripts/vercel-build.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "test:permissions": "vitest run src/lib/auth/__tests__/permissions.test.ts",
+    "test:ci": "npm run typecheck && npm run test"
   },
   "dependencies": {
     "@ai-sdk/openai": "^2.0.85",
