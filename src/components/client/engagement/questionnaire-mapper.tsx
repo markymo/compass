@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -102,6 +102,15 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
 
     // Generation State
     const [generatingCompact, setGeneratingCompact] = useState<Record<string, boolean>>({});
+
+    // Editor Scroll Management
+    const editorScrollRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (editorScrollRef.current) {
+            editorScrollRef.current.scrollTop = 0;
+        }
+    }, [selectedQuestionId]);
 
     useEffect(() => {
         loadData();
@@ -408,9 +417,9 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
     // ... existing render logic ...
 
     return (
-        <div className="flex flex-col flex-1 border rounded-xl overflow-hidden bg-white shadow-sm mb-12">
+        <div className="flex flex-col flex-1 border rounded-xl bg-white shadow-sm mb-12">
             {/* HEADER */}
-            <div className="flex items-center justify-between p-4 border-b bg-slate-50/50">
+            <div className="sticky top-[64px] z-30 flex items-center justify-between p-4 border-b bg-slate-50/50 backdrop-blur-md rounded-t-xl shadow-sm">
                 <div className="flex items-center gap-4">
                     <Button variant="ghost" size="sm" onClick={onBack} className="-ml-2 text-slate-500">
                         ← Back
@@ -473,7 +482,7 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
             </div>
 
             {/* CONTENT AREA */}
-            <div className="flex flex-1 overflow-hidden">
+            <div className="flex flex-1">
                 {viewMode === "grid" ? (
                     // GRID VIEW (Inline Speed Mode)
                     <div className="flex-1 flex flex-col bg-slate-50/30">
@@ -624,7 +633,7 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
                                     />
                                 </div>
                             </div>
-                            <ScrollArea className="flex-1">
+                            <div className="flex-1">
                                 <div className="divide-y divide-slate-100">
                                     {filteredQuestions.map((q: any) => {
                                         const isMapped = q.masterFieldNo || q.masterQuestionGroupId || q.customFieldDefinitionId;
@@ -633,11 +642,12 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
                                                 key={q.id}
                                                 onClick={() => setSelectedQuestionId(q.id)}
                                                 className={cn(
-                                                    "w-full text-left p-4 hover:bg-white transition-colors flex gap-3 text-sm relative group cursor-pointer",
-                                                    selectedQuestionId === q.id ? "bg-white shadow-sm z-10" : ""
+                                                    "w-full text-left p-4 transition-colors flex gap-3 text-sm relative group cursor-pointer border-l-[3px]",
+                                                    selectedQuestionId === q.id 
+                                                        ? "bg-indigo-50/40 border-indigo-500 shadow-sm z-10" 
+                                                        : "bg-white hover:bg-slate-50 border-transparent hover:border-slate-200"
                                                 )}
                                             >
-                                                {selectedQuestionId === q.id && <div className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-500" />}
                                                 <span className="font-mono text-slate-400 text-xs mt-0.5 opacity-70 w-6 shrink-0">#{q.order}</span>
                                                 <div className="flex-1 min-w-0 pr-16 relative">
                                                     <p className={cn("line-clamp-2 leading-relaxed transition-all", selectedQuestionId === q.id ? "text-slate-900 font-medium" : "text-slate-600 group-hover:pr-12")}>
@@ -680,7 +690,7 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
                                         );
                                     })}
                                 </div>
-                            </ScrollArea>
+                            </div>
                             <div className="p-3 border-t bg-white">
                                 <Button variant="outline" size="sm" onClick={handleAddQuestion} className="w-full border-dashed border-slate-300 text-slate-500 hover:text-slate-800 hover:border-slate-400 bg-transparent">
                                     <Plus className="h-3.5 w-3.5 mr-2" />
@@ -695,14 +705,23 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
                         </div>
 
                         {/* RIGHT: EDITOR */}
-                        <div className="flex-1 flex flex-col bg-slate-50/30">
-                            {selectedQuestion ? (
-                                <div className="flex-1 overflow-y-auto p-8" >
-                                    <div className="max-w-2xl mx-auto space-y-8">
-                                        <div className="space-y-4">
-                                            <Badge variant="outline" className="bg-white text-slate-500 border-slate-200 shadow-sm">
+                        <div className="flex-1 flex flex-col relative border-l">
+                            <div className="sticky top-[138px] h-[calc(100vh-138px)] flex flex-col bg-slate-50/30 rounded-br-xl overflow-hidden shadow-[-4px_0_12px_rgba(0,0,0,0.02)]">
+                                {selectedQuestion ? (
+                                    <div className="flex-1 overflow-y-auto" ref={editorScrollRef}>
+                                    {/* Sticky Header */}
+                                    <div className="sticky top-0 z-20 bg-white/80 backdrop-blur-md border-b px-8 py-4 flex items-center justify-between shadow-sm">
+                                        <div className="flex items-center gap-3">
+                                            <Badge variant="outline" className="bg-white text-indigo-600 border-indigo-200 shadow-sm font-semibold">
                                                 Question #{selectedQuestion.order}
                                             </Badge>
+                                            <div className="text-sm font-medium text-slate-700 line-clamp-1 max-w-[400px]">
+                                                {selectedQuestion.text || "New Question"}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="max-w-2xl mx-auto space-y-8 p-8 pt-8">
+                                        <div className="space-y-4">
                                             <div className="space-y-3">
                                                 <Label className="text-slate-500 uppercase text-xs font-bold tracking-wider">Question Text</Label>
                                                 <div className="p-6 bg-white rounded-xl border shadow-sm text-lg font-medium text-slate-900 leading-relaxed group relative pr-10">
@@ -828,6 +847,7 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
                                     <p>Select a question to edit mappings</p>
                                 </div>
                             )}
+                            </div>
                         </div>
                     </>
                 )}
