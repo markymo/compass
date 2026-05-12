@@ -57,6 +57,22 @@ export async function getAccountSettings() {
     }
 }
 
+function deepMerge(target: any, source: any) {
+    const isObject = (obj: any) => obj && typeof obj === 'object' && !Array.isArray(obj);
+    const result = { ...target };
+    if (isObject(target) && isObject(source)) {
+        Object.keys(source).forEach(key => {
+            if (isObject(source[key])) {
+                if (!(key in target)) Object.assign(result, { [key]: source[key] });
+                else result[key] = deepMerge(target[key], source[key]);
+            } else {
+                Object.assign(result, { [key]: source[key] });
+            }
+        });
+    }
+    return result;
+}
+
 export async function updateAccountSettings(data: {
     name?: string;
     jobTitle?: string;
@@ -81,11 +97,11 @@ export async function updateAccountSettings(data: {
                 ...(data.phone !== undefined && { phone: data.phone }),
                 // @ts-ignore
                 ...(data.notificationPrefs !== undefined && {
-                    notificationPrefs: { ...(user?.notificationPrefs as any || {}), ...(data.notificationPrefs) }
+                    notificationPrefs: deepMerge((user?.notificationPrefs as any || {}), data.notificationPrefs)
                 }),
                 // @ts-ignore
                 ...(data.preferences !== undefined && {
-                    preferences: { ...(user?.preferences as any || {}), ...(data.preferences) }
+                    preferences: deepMerge((user?.preferences as any || {}), data.preferences)
                 }),
             },
         });
