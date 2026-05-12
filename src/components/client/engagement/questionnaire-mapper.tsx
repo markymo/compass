@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -88,7 +89,7 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
     const [questions, setQuestions] = useState<any[]>([]);
     const [selectedQuestionId, setSelectedQuestionId] = useState<string | null>(null);
     const [filter, setFilter] = useState("");
-    const [viewMode, setViewMode] = useState<"split" | "grid">("grid"); // Default to Grid
+
 
     // UX State
     const [confidenceThreshold, setConfidenceThreshold] = useState(70); // Default 70%
@@ -102,6 +103,15 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
 
     // Generation State
     const [generatingCompact, setGeneratingCompact] = useState<Record<string, boolean>>({});
+
+    // Editor Scroll Management
+    const editorScrollRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (editorScrollRef.current) {
+            editorScrollRef.current.scrollTop = 0;
+        }
+    }, [selectedQuestionId]);
 
     useEffect(() => {
         loadData();
@@ -407,41 +417,151 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
 
     // ... existing render logic ...
 
+    const renderEditorContent = () => {
+        if (!selectedQuestion) return null;
+        return (
+            <div className="flex-1 overflow-y-auto" ref={editorScrollRef}>
+                {/* Sticky Header */}
+                <div className="sticky top-0 z-20 bg-white/80 backdrop-blur-md border-b px-8 py-4 flex items-center justify-between shadow-sm">
+                    <div className="flex items-center gap-3">
+                        <Badge variant="outline" className="bg-white text-indigo-600 border-indigo-200 shadow-sm font-semibold">
+                            Question #{selectedQuestion.order}
+                        </Badge>
+                        <div className="text-sm font-medium text-slate-700 line-clamp-1 max-w-[400px]">
+                            {selectedQuestion.text || "New Question"}
+                        </div>
+                    </div>
+                </div>
+                <div className="max-w-2xl mx-auto space-y-8 p-8 pt-8">
+                    <div className="space-y-4">
+                        <div className="space-y-3">
+                            <Label className="text-slate-500 uppercase text-xs font-bold tracking-wider">Question Text</Label>
+                            <div className="p-6 bg-white rounded-xl border shadow-sm text-lg font-medium text-slate-900 leading-relaxed group relative pr-10">
+                                <InlineTextEditor
+                                    value={selectedQuestion.text || ""}
+                                    onSave={(newText) => updateQuestion(selectedQuestion.id, { text: newText })}
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="space-y-4">
+                        <div className="flex items-center gap-2 mb-2">
+                            <LayoutList className="h-5 w-5 text-indigo-600" />
+                            <h3 className="font-semibold text-slate-900">Map to Data Field</h3>
+                        </div>
+
+                        {/* UNIFIED FIELD SELECTOR */}
+                        <div className="bg-white rounded-xl border shadow-sm p-1">
+                            <FieldSelector
+                                value={
+                                    selectedQuestion.masterFieldNo ? `master:${selectedQuestion.masterFieldNo}` :
+                                        selectedQuestion.masterQuestionGroupId ? `group:${selectedQuestion.masterQuestionGroupId}` :
+                                            selectedQuestion.customFieldDefinitionId ? `custom:${selectedQuestion.customFieldDefinitionId}` :
+                                                null
+                                }
+                                onSelect={(val, type, label) => {
+                                    if (type === 'create') {
+                                        handleCreateCustomField(label!);
+                                    } else if (type === 'master') {
+                                        updateQuestion(selectedQuestion.id, { masterFieldNo: parseInt(val) });
+                                    } else if (type === 'group') {
+                                        updateQuestion(selectedQuestion.id, { masterQuestionGroupId: val });
+                                    } else if (type === 'custom') {
+                                        updateQuestion(selectedQuestion.id, { customFieldDefinitionId: val });
+                                    } else if (type === 'clear') {
+                                        updateQuestion(selectedQuestion.id, { masterFieldNo: null, masterQuestionGroupId: null, customFieldDefinitionId: null });
+                                    }
+                                }}
+                                customFields={customFields}
+                            />
+                        </div>
+
+                        {selectedQuestion.masterFieldNo && (
+                            <div className="bg-green-50 border border-green-100 rounded-lg p-4 flex gap-3 items-start">
+                                <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5" />
+                                <div>
+                                    <h4 className="text-sm font-semibold text-green-900">Mapped to Standard Field</h4>
+                                    <p className="text-sm text-green-700 mt-1">
+                                        Values will be synced with the Master Data profile.
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Configuration Details */}
+                    <div className="space-y-4 pt-4 border-t border-slate-100">
+                        <div className="flex items-center gap-2 mb-2">
+                            <Settings className="h-5 w-5 text-indigo-600" />
+                            <h3 className="font-semibold text-slate-900">Question Settings</h3>
+                        </div>
+
+                        <div className="bg-white rounded-xl border shadow-sm p-5 flex items-center justify-between">
+                            <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                    <Paperclip className="h-4 w-4 text-slate-500" />
+                                    <span className="font-medium text-slate-900">Allow File Attachments</span>
+                                </div>
+                                <p className="text-sm text-slate-500 max-w-sm">
+                                    Enable suppliers to upload supporting documents alongside their text answer.
+                                </p>
+                            </div>
+                            <Switch
+                                checked={selectedQuestion.allowAttachments || false}
+                                onCheckedChange={(checked) => updateQuestion(selectedQuestion.id, { allowAttachments: checked })}
+                            />
+                        </div>
+
+                        <div className="bg-white rounded-xl border shadow-sm p-5 flex flex-col gap-3">
+                            <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                    <span className="font-medium text-slate-900">Compact Label (Kanban Display)</span>
+                                </div>
+                                <p className="text-sm text-slate-500">
+                                    A short description of the question (max ~30 chars) used for the kanban card headers.
+                                </p>
+                            </div>
+                            <div className="flex items-center gap-2 max-w-md">
+                                <Input
+                                    value={selectedQuestion.compactText || ""}
+                                    onChange={(e) => updateQuestion(selectedQuestion.id, { compactText: e.target.value })}
+                                    placeholder="E.g. Code of Conduct Policy"
+                                    className="flex-1"
+                                />
+                                <Button
+                                    variant="outline"
+                                    size="icon"
+                                    className="shrink-0"
+                                    onClick={() => handleGenerateCompactText(selectedQuestion.id, selectedQuestion.text)}
+                                    disabled={generatingCompact[selectedQuestion.id] || !selectedQuestion.text}
+                                    title="Auto-generate with AI"
+                                >
+                                    {generatingCompact[selectedQuestion.id] ? (
+                                        <Loader2 className="h-4 w-4 animate-spin text-indigo-500" />
+                                    ) : (
+                                        <RefreshCw className="h-4 w-4 text-slate-500" />
+                                    )}
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
     return (
-        <div className="flex flex-col flex-1 border rounded-xl overflow-hidden bg-white shadow-sm mb-12">
+        <div className="flex flex-col flex-1 border rounded-xl bg-white shadow-sm mb-12">
             {/* HEADER */}
-            <div className="flex items-center justify-between p-4 border-b bg-slate-50/50">
+            <div className="sticky top-[64px] z-30 flex items-center justify-between p-4 border-b bg-slate-50/50 backdrop-blur-md rounded-t-xl shadow-sm">
                 <div className="flex items-center gap-4">
                     <Button variant="ghost" size="sm" onClick={onBack} className="-ml-2 text-slate-500">
                         ← Back
                     </Button>
                     <div className="h-4 w-px bg-slate-200" />
 
-                    {/* View Switcher */}
-                    <div className="flex bg-slate-100 p-0.5 rounded-lg border">
-                        <button
-                            onClick={() => setViewMode("grid")}
-                            className={cn(
-                                "p-1.5 rounded-md text-xs font-medium transition-all flex items-center gap-1.5",
-                                viewMode === "grid" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
-                            )}
-                        >
-                            <LayoutList className="w-3.5 h-3.5" />
-                            Grid
-                        </button>
-                        <button
-                            onClick={() => setViewMode("split")}
-                            className={cn(
-                                "p-1.5 rounded-md text-xs font-medium transition-all flex items-center gap-1.5",
-                                viewMode === "split" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
-                            )}
-                        >
-                            <LayoutTemplate className="w-3.5 h-3.5" />
-                            Split
-                        </button>
-                    </div>
 
-                    <div className="h-4 w-px bg-slate-200" />
 
                     <div className="flex items-center gap-2">
                         <span className="text-sm font-medium text-slate-700">Auto-Map:</span>
@@ -473,9 +593,8 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
             </div>
 
             {/* CONTENT AREA */}
-            <div className="flex flex-1 overflow-hidden">
-                {viewMode === "grid" ? (
-                    // GRID VIEW (Inline Speed Mode)
+            <div className="flex flex-1">
+                    {/* GRID VIEW (Inline Speed Mode) */}
                     <div className="flex-1 flex flex-col bg-slate-50/30">
                         {/* Filter Bar */}
                         <div className="p-2 border-b bg-white flex items-center gap-2">
@@ -492,8 +611,9 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
                         </div>
 
                         {/* Table Header */}
-                        <div className="grid grid-cols-[60px_1fr_180px_200px_60px_100px_120px] gap-4 px-6 py-3 bg-slate-50 border-b text-xs font-semibold text-slate-500 uppercase tracking-wider items-center">
+                        <div className="grid grid-cols-[60px_32px_1fr_180px_200px_60px_100px_90px] gap-4 px-6 py-3 bg-slate-50 border-b text-xs font-semibold text-slate-500 uppercase tracking-wider items-center">
                             <div>Order</div>
+                            <div></div>
                             <div>Question Text</div>
                             <div>Compact Label</div>
                             <div>Mapping</div>
@@ -518,8 +638,13 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
                                                     null;
 
                                     return (
-                                        <div key={q.id} className="grid grid-cols-[60px_1fr_180px_200px_60px_100px_120px] gap-4 px-6 py-3 items-center hover:bg-white transition-colors group">
+                                        <div key={q.id} className="grid grid-cols-[60px_32px_1fr_180px_200px_60px_100px_90px] gap-4 px-6 py-3 items-center hover:bg-white transition-colors group">
                                             <div className="text-xs text-slate-400 font-mono">#{q.order}</div>
+                                            <div className="flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity -ml-2">
+                                                <Button variant="ghost" size="icon" className="h-7 w-7 text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50" onClick={() => setSelectedQuestionId(q.id)} title="Edit Question">
+                                                    <Pencil className="h-3.5 w-3.5" />
+                                                </Button>
+                                            </div>
                                             <div className="text-sm text-slate-700 font-medium pr-8 relative">
                                                 <InlineTextEditor
                                                     value={q.text || ""}
@@ -607,231 +732,15 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
                             </div>
                         </div>
                     </div>
-                ) : (
-                    // SPLIT VIEW (Original Focus Mode)
-                    <>
-                        {/* LEFT: LIST */}
-                        <div className="w-1/3 border-r bg-slate-50 flex flex-col min-w-[320px]">
-                            {/* ... existing list code ... */}
-                            <div className="p-3 border-b bg-white">
-                                <div className="relative">
-                                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
-                                    <Input
-                                        placeholder="Filter questions..."
-                                        className="pl-9 bg-white border-slate-200"
-                                        value={filter}
-                                        onChange={(e) => setFilter(e.target.value)}
-                                    />
-                                </div>
-                            </div>
-                            <ScrollArea className="flex-1">
-                                <div className="divide-y divide-slate-100">
-                                    {filteredQuestions.map((q: any) => {
-                                        const isMapped = q.masterFieldNo || q.masterQuestionGroupId || q.customFieldDefinitionId;
-                                        return (
-                                            <div
-                                                key={q.id}
-                                                onClick={() => setSelectedQuestionId(q.id)}
-                                                className={cn(
-                                                    "w-full text-left p-4 hover:bg-white transition-colors flex gap-3 text-sm relative group cursor-pointer",
-                                                    selectedQuestionId === q.id ? "bg-white shadow-sm z-10" : ""
-                                                )}
-                                            >
-                                                {selectedQuestionId === q.id && <div className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-500" />}
-                                                <span className="font-mono text-slate-400 text-xs mt-0.5 opacity-70 w-6 shrink-0">#{q.order}</span>
-                                                <div className="flex-1 min-w-0 pr-16 relative">
-                                                    <p className={cn("line-clamp-2 leading-relaxed transition-all", selectedQuestionId === q.id ? "text-slate-900 font-medium" : "text-slate-600 group-hover:pr-12")}>
-                                                        {q.text}
-                                                    </p>
-                                                    {isMapped && (
-                                                        <div className="mt-2 flex items-center gap-2">
-                                                            <Badge variant="secondary" className="h-5 px-1.5 text-[10px] font-normal bg-green-50 text-green-700 border-green-100 gap-1 opacity-90">
-                                                                <CheckCircle2 className="h-3 w-3" />
-                                                                Mapped
-                                                            </Badge>
-                                                            {q.aiConfidence && (
-                                                                <span className={cn(
-                                                                    "text-[10px] font-medium opacity-80",
-                                                                    q.aiConfidence >= 80 ? "text-green-600" : "text-yellow-600"
-                                                                )}>
-                                                                    {Math.round(q.aiConfidence)}% match
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                    )}
-                                                </div>
-
-                                                {/* Hover Actions */}
-                                                <div
-                                                    className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center opacity-0 group-hover:opacity-100 transition-all bg-gradient-to-l from-white via-white to-transparent pl-4"
-                                                    onClick={(e) => e.stopPropagation()} /* Prevent row selection when clicking buttons */
-                                                >
-                                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-slate-600" onClick={() => handleMoveQuestionUp(q.id)} title="Move Up">
-                                                        <ChevronRight className="h-3.5 w-3.5 -rotate-90" />
-                                                    </Button>
-                                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-slate-600" onClick={() => handleMoveQuestionDown(q.id)} title="Move Down">
-                                                        <ChevronRight className="h-3.5 w-3.5 rotate-90" />
-                                                    </Button>
-                                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-red-400 hover:text-red-500 hover:bg-red-50 ml-0.5" onClick={() => handleRemoveQuestion(q.id)} title="Delete Question">
-                                                        <svg width="12" height="12" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-3 w-3"><path d="M5.5 1C5.22386 1 5 1.22386 5 1.5C5 1.77614 5.22386 2 5.5 2H9.5C9.77614 2 10 1.77614 10 1.5C10 1.22386 9.77614 1 9.5 1H5.5ZM3 3.5C3 3.22386 3.22386 3 3.5 3H11.5C11.7761 3 12 3.22386 12 3.5C12 3.77614 11.7761 4 11.5 4H11V12C11 12.5523 10.5523 13 10 13H5C4.44772 13 4 12.5523 4 12V4H3.5C3.22386 4 3 3.77614 3 3.5ZM5 4H10V12H5V4Z" fill="currentColor" fillRule="evenodd" clipRule="evenodd"></path></svg>
-                                                    </Button>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </ScrollArea>
-                            <div className="p-3 border-t bg-white">
-                                <Button variant="outline" size="sm" onClick={handleAddQuestion} className="w-full border-dashed border-slate-300 text-slate-500 hover:text-slate-800 hover:border-slate-400 bg-transparent">
-                                    <Plus className="h-3.5 w-3.5 mr-2" />
-                                    Add Question
-                                </Button>
-                            </div>
-                            {/* Stats Footer */}
-                            <div className="p-3 border-t bg-slate-100/50 flex justify-between items-center text-xs text-slate-500 font-medium">
-                                <span>{filteredQuestions.length} Questions</span>
-                                <span>{questions.filter((q: any) => q.masterFieldNo || q.masterQuestionGroupId || q.customFieldDefinitionId).length} Mapped</span>
-                            </div>
-                        </div>
-
-                        {/* RIGHT: EDITOR */}
-                        <div className="flex-1 flex flex-col bg-slate-50/30">
-                            {selectedQuestion ? (
-                                <div className="flex-1 overflow-y-auto p-8" >
-                                    <div className="max-w-2xl mx-auto space-y-8">
-                                        <div className="space-y-4">
-                                            <Badge variant="outline" className="bg-white text-slate-500 border-slate-200 shadow-sm">
-                                                Question #{selectedQuestion.order}
-                                            </Badge>
-                                            <div className="space-y-3">
-                                                <Label className="text-slate-500 uppercase text-xs font-bold tracking-wider">Question Text</Label>
-                                                <div className="p-6 bg-white rounded-xl border shadow-sm text-lg font-medium text-slate-900 leading-relaxed group relative pr-10">
-                                                    <InlineTextEditor
-                                                        value={selectedQuestion.text || ""}
-                                                        onSave={(newText) => updateQuestion(selectedQuestion.id, { text: newText })}
-                                                    />
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div className="space-y-4">
-                                            <div className="flex items-center gap-2 mb-2">
-                                                <LayoutList className="h-5 w-5 text-indigo-600" />
-                                                <h3 className="font-semibold text-slate-900">Map to Data Field</h3>
-                                            </div>
-
-                                            {/* UNIFIED FIELD SELECTOR */}
-                                            <div className="bg-white rounded-xl border shadow-sm p-1">
-                                                <FieldSelector
-                                                    value={
-                                                        selectedQuestion.masterFieldNo ? `master:${selectedQuestion.masterFieldNo}` :
-                                                            selectedQuestion.masterQuestionGroupId ? `group:${selectedQuestion.masterQuestionGroupId}` :
-                                                                selectedQuestion.customFieldDefinitionId ? `custom:${selectedQuestion.customFieldDefinitionId}` :
-                                                                    null
-                                                    }
-                                                    onSelect={(val, type, label) => {
-                                                        if (type === 'create') {
-                                                            handleCreateCustomField(label!);
-                                                        } else if (type === 'master') {
-                                                            updateQuestion(selectedQuestion.id, { masterFieldNo: parseInt(val) });
-                                                        } else if (type === 'group') {
-                                                            updateQuestion(selectedQuestion.id, { masterQuestionGroupId: val });
-                                                        } else if (type === 'custom') {
-                                                            updateQuestion(selectedQuestion.id, { customFieldDefinitionId: val });
-                                                        } else if (type === 'clear') {
-                                                            updateQuestion(selectedQuestion.id, { masterFieldNo: null, masterQuestionGroupId: null, customFieldDefinitionId: null });
-                                                        }
-                                                    }}
-                                                    customFields={customFields}
-                                                />
-                                            </div>
-
-                                            {/* Mapping Details */}
-                                            {/* ... existing details ... */}
-                                            {selectedQuestion.masterFieldNo && (
-                                                <div className="bg-green-50 border border-green-100 rounded-lg p-4 flex gap-3 items-start">
-                                                    <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5" />
-                                                    <div>
-                                                        <h4 className="text-sm font-semibold text-green-900">Mapped to Standard Field</h4>
-                                                        <p className="text-sm text-green-700 mt-1">
-                                                            Values will be synced with the Master Data profile.
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        {/* Configuration Details */}
-                                        <div className="space-y-4 pt-4 border-t border-slate-100">
-                                            <div className="flex items-center gap-2 mb-2">
-                                                <Settings className="h-5 w-5 text-indigo-600" />
-                                                <h3 className="font-semibold text-slate-900">Question Settings</h3>
-                                            </div>
-
-                                            <div className="bg-white rounded-xl border shadow-sm p-5 flex items-center justify-between">
-                                                <div className="space-y-1">
-                                                    <div className="flex items-center gap-2">
-                                                        <Paperclip className="h-4 w-4 text-slate-500" />
-                                                        <span className="font-medium text-slate-900">Allow File Attachments</span>
-                                                    </div>
-                                                    <p className="text-sm text-slate-500 max-w-sm">
-                                                        Enable suppliers to upload supporting documents alongside their text answer.
-                                                    </p>
-                                                </div>
-                                                <Switch
-                                                    checked={selectedQuestion.allowAttachments || false}
-                                                    onCheckedChange={(checked) => updateQuestion(selectedQuestion.id, { allowAttachments: checked })}
-                                                />
-                                            </div>
-
-                                            <div className="bg-white rounded-xl border shadow-sm p-5 flex flex-col gap-3">
-                                                <div className="space-y-1">
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="font-medium text-slate-900">Compact Label (Kanban Display)</span>
-                                                    </div>
-                                                    <p className="text-sm text-slate-500">
-                                                        A short description of the question (max ~30 chars) used for the kanban card headers.
-                                                    </p>
-                                                </div>
-                                                <div className="flex items-center gap-2 max-w-md">
-                                                    <Input
-                                                        value={selectedQuestion.compactText || ""}
-                                                        onChange={(e) => updateQuestion(selectedQuestion.id, { compactText: e.target.value })}
-                                                        placeholder="E.g. Code of Conduct Policy"
-                                                        className="flex-1"
-                                                    />
-                                                    <Button
-                                                        variant="outline"
-                                                        size="icon"
-                                                        className="shrink-0"
-                                                        onClick={() => handleGenerateCompactText(selectedQuestion.id, selectedQuestion.text)}
-                                                        disabled={generatingCompact[selectedQuestion.id] || !selectedQuestion.text}
-                                                        title="Auto-generate with AI"
-                                                    >
-                                                        {generatingCompact[selectedQuestion.id] ? (
-                                                            <Loader2 className="h-4 w-4 animate-spin text-indigo-500" />
-                                                        ) : (
-                                                            <RefreshCw className="h-4 w-4 text-slate-500" />
-                                                        )}
-                                                    </Button>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="flex-1 flex items-center justify-center text-slate-400 flex-col gap-4">
-                                    <div className="h-16 w-16 rounded-full bg-slate-100 flex items-center justify-center mb-2">
-                                        <Search className="h-8 w-8 opacity-20" />
-                                    </div>
-                                    <p>Select a question to edit mappings</p>
-                                </div>
-                            )}
-                        </div>
-                    </>
-                )}
             </div>
+
+            {/* GRID VIEW MODAL (Sheet) */}
+                <Sheet open={!!selectedQuestionId} onOpenChange={(open) => !open && setSelectedQuestionId(null)}>
+                    <SheetContent className="w-[600px] sm:max-w-[600px] sm:w-[600px] p-0 flex flex-col bg-white border-l-0 shadow-2xl">
+                        <DialogTitle className="sr-only">Edit Question</DialogTitle>
+                        {renderEditorContent()}
+                    </SheetContent>
+                </Sheet>
         </div>
     );
 
