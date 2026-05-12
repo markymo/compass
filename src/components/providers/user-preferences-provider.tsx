@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 import { getAccountSettings, updateAccountSettings } from "@/actions/account";
 import { toast } from "sonner";
 
@@ -24,17 +25,26 @@ const UserPreferencesContext = createContext<UserPreferencesContextType | undefi
 export function UserPreferencesProvider({ children }: { children: React.ReactNode }) {
     const [preferences, setPreferences] = useState<UserPreferences>({});
     const [isLoading, setIsLoading] = useState(true);
+    const { data: session } = useSession();
 
     useEffect(() => {
         const fetchPrefs = async () => {
             const res = await getAccountSettings();
             if (res.success && res.data) {
                 setPreferences((res.data as any).preferences || {});
+            } else {
+                setPreferences({});
             }
             setIsLoading(false);
         };
-        fetchPrefs();
-    }, []);
+        
+        if (session?.user?.id) {
+            fetchPrefs();
+        } else {
+            setPreferences({});
+            setIsLoading(false);
+        }
+    }, [session?.user?.id]);
 
     const updatePreference = async (key: keyof UserPreferences, value: any) => {
         // Prepare the value for this specific key
