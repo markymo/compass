@@ -35,8 +35,7 @@ export default function LoginPage() {
             if (res?.error) {
                 toast.error("Invalid credentials");
             } else {
-                router.push("/app");
-                router.refresh();
+                window.location.href = "/app";
             }
         } catch (error) {
             toast.error("Something went wrong");

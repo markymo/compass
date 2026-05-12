@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import {
     Building2, Landmark, Gavel, ArrowRight,
     ChevronDown, ChevronRight, FileText, Briefcase,
-    Factory
+    Factory, Loader2
 } from "lucide-react";
 import Link from "next/link";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -710,10 +710,20 @@ function ChildRow({ child, orgType }: { child: OrgChild; orgType: OrgType }) {
 }
 
 export function DashboardContentV2({ contexts }: { contexts: DashboardContexts }) {
+    const { isLoading } = usePreferences();
     const orgNodes = useMemo(() => {
         if (!contexts) return [];
         return reshapeContexts(contexts);
     }, [contexts]);
+
+    if (isLoading) {
+        return (
+            <div className="flex items-center justify-center py-20 text-slate-400">
+                <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                <span className="text-sm">Loading dashboard...</span>
+            </div>
+        );
+    }
 
     if (orgNodes.length === 0) {
         return (
