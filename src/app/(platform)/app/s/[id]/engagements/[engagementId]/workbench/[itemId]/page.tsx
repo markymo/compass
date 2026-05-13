@@ -11,10 +11,10 @@ import { QuestionnaireQAMode } from "@/components/fi/questionnaire-qa-mode";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-export default async function WorkbenchPage({ params }: { params: Promise<{ id: string; itemId: string }> }) {
-    const { id, itemId } = await params;
+export default async function WorkbenchPage({ params }: { params: Promise<{ id: string; engagementId: string; itemId: string }> }) {
+    const { id, engagementId, itemId } = await params;
 
-    const engagement = await getFIEngagementById(id);
+    const engagement = await getFIEngagementById(engagementId);
     const questionnaire = await getQuestionnaireById(itemId);
 
     if (!engagement || !questionnaire) return notFound();
@@ -29,7 +29,7 @@ export default async function WorkbenchPage({ params }: { params: Promise<{ id: 
                     <div className="px-4 pt-4">
                         <FIBreadcrumb
                             items={[
-                                { label: `Client: ${engagement.clientLE.name}`, href: `/app/s/engagements/${id}` },
+                                { label: `Client: ${engagement.clientLE.name}`, href: `/app/s/${id}/engagements/${engagementId}` },
                                 { label: `Workbench: ${questionnaire.name}` }
                             ]}
                             className="mb-2"
@@ -40,7 +40,7 @@ export default async function WorkbenchPage({ params }: { params: Promise<{ id: 
                         <div className="flex items-center gap-3">
                             <div>
                                 <WorkbenchQuestionnaireSwitcher
-                                    engagementId={id}
+                                    engagementId={engagementId}
                                     currentQuestionnaireId={itemId}
                                     questionnaires={engagement.questionnaires}
                                 />
@@ -115,7 +115,7 @@ export default async function WorkbenchPage({ params }: { params: Promise<{ id: 
                 <div className="px-4 pt-4">
                     <FIBreadcrumb
                         items={[
-                            { label: `Client: ${engagement.clientLE.name}`, href: `/app/s/engagements/${id}` },
+                            { label: `Client: ${engagement.clientLE.name}`, href: `/app/s/${id}/engagements/${engagementId}` },
                             { label: `Extraction: ${questionnaire.name}` }
                         ]}
                         className="mb-2"
@@ -125,7 +125,7 @@ export default async function WorkbenchPage({ params }: { params: Promise<{ id: 
                     <div className="flex items-center gap-3">
                         <div>
                             <WorkbenchQuestionnaireSwitcher
-                                engagementId={id}
+                                engagementId={engagementId}
                                 currentQuestionnaireId={itemId}
                                 questionnaires={engagement.questionnaires}
                             />
