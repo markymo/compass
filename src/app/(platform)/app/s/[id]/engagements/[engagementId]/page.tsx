@@ -19,7 +19,7 @@ export default async function FIEngagementOverviewPage({ params }: { params: Pro
     if (!engagement) return notFound();
 
     // Mock progress logic for now
-    const progress = 65;
+    const progress = 0;
 
     return (
         <div className="flex flex-col min-h-screen">
@@ -63,20 +63,20 @@ export default async function FIEngagementOverviewPage({ params }: { params: Pro
                                     <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Status</span>
                                     <div className="flex items-center gap-2">
                                         <div className="h-2.5 w-2.5 rounded-full bg-amber-500 ring-4 ring-amber-100" />
-                                        <span className="font-semibold text-slate-900">In Progress</span>
+                                        <span className="font-semibold text-slate-900 capitalize">{engagement.status?.toLowerCase() || 'Pending'}</span>
                                     </div>
                                 </div>
                                 <div className="space-y-1">
                                     <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">SLA Target</span>
-                                    <div className="flex items-center gap-2 text-slate-700 font-medium">
+                                    <div className="flex items-center gap-2 text-slate-500 italic text-sm">
                                         <Clock className="w-4 h-4 text-slate-400" />
-                                        2 Days Left
+                                        SLA tracking pending...
                                     </div>
                                 </div>
                                 <div className="space-y-2">
                                     <div className="flex justify-between text-xs font-medium">
                                         <span className="text-slate-500">Overall Progress</span>
-                                        <span className="text-indigo-600">{progress}%</span>
+                                        <span className="text-indigo-600 italic">Calculation pending...</span>
                                     </div>
                                     <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
                                         <div className="h-full bg-indigo-500 rounded-full transition-all duration-1000" style={{ width: `${progress}%` }} />
@@ -99,23 +99,8 @@ export default async function FIEngagementOverviewPage({ params }: { params: Pro
                                 <Card className="border-slate-200 shadow-sm">
                                     <CardContent className="p-5">
                                         <h3 className="font-bold text-slate-900 mb-4 text-sm uppercase tracking-wide">Latest Activity</h3>
-                                        <div className="space-y-4 relative before:absolute before:left-2 before:top-2 before:h-full before:w-0.5 before:bg-slate-100">
-
-                                            <div className="relative pl-6">
-                                                <div className="absolute left-0 top-1.5 w-4 h-4 rounded-full bg-slate-50 border-2 border-indigo-500 z-10" />
-                                                <p className="text-sm font-medium text-slate-900">Client uploaded 'cert_inc.pdf'</p>
-                                                <p className="text-xs text-slate-500 mt-0.5">Today, 09:30 AM</p>
-                                            </div>
-
-                                            <div className="relative pl-6">
-                                                <div className="absolute left-0 top-1.5 w-4 h-4 rounded-full bg-slate-200 z-10" />
-                                                <p className="text-sm font-medium text-slate-900">Mark (Admin) replied to query</p>
-                                                <p className="text-xs text-slate-500 mt-0.5">Yesterday, 4:00 PM</p>
-                                                <div className="mt-2 bg-slate-50 p-2 rounded text-xs text-slate-600 italic border border-slate-100">
-                                                    "We have updated the beneficiary owners list as requested..."
-                                                </div>
-                                            </div>
-
+                                        <div className="text-sm text-slate-500 italic">
+                                            Activity feed functionality pending...
                                         </div>
                                     </CardContent>
                                 </Card>
@@ -126,16 +111,9 @@ export default async function FIEngagementOverviewPage({ params }: { params: Pro
                                             <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
                                             AI Insights
                                         </h3>
-                                        <ul className="space-y-2 text-sm text-indigo-800">
-                                            <li className="flex gap-2 items-start">
-                                                <CheckCircle2 className="w-4 h-4 mt-0.5 text-indigo-600 shrink-0" />
-                                                <span>Entity "Acme Hedge Fund" matches Knowledge Base record (98% confidence).</span>
-                                            </li>
-                                            <li className="flex gap-2 items-start">
-                                                <CheckCircle2 className="w-4 h-4 mt-0.5 text-indigo-600 shrink-0" />
-                                                <span>No sanctions hits found for 3 directors.</span>
-                                            </li>
-                                        </ul>
+                                        <div className="text-sm text-indigo-800/70 italic mt-4">
+                                            AI analysis functionality pending...
+                                        </div>
                                     </CardContent>
                                 </Card>
                             </div>

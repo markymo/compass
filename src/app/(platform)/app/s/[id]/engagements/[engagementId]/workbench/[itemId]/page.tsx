@@ -48,11 +48,11 @@ export default async function WorkbenchPage({ params }: { params: Promise<{ id: 
                         </div>
                         {/* Progress Bar Placeholder */}
                         <div className="flex items-center gap-4">
-                            <div className="text-xs text-slate-500">
-                                <span className="font-semibold text-slate-900">30%</span> Complete
+                            <div className="text-xs text-slate-500 italic">
+                                Calculation pending...
                             </div>
                             <div className="w-32 h-2 bg-slate-100 rounded-full overflow-hidden">
-                                <div className="bg-indigo-500 h-full w-[30%]"></div>
+                                <div className="bg-indigo-500 h-full w-[0%]"></div>
                             </div>
                         </div>
                     </div>
@@ -67,13 +67,8 @@ export default async function WorkbenchPage({ params }: { params: Promise<{ id: 
 
     // --- Fallback: Extraction Mode (Original View) ---
 
-    // Mock Extracted Items for Demo
-    const extractedItems = (questionnaire.extractedContent as any[]) || [
-        { key: "company_name", label: "Legal Name", value: "Acme Hedge Fund", sourcePage: 1, confidence: 0.98 },
-        { key: "inc_date", label: "Incorporation Date", value: "2023-01-12", sourcePage: 1, confidence: 0.85 },
-        { key: "reg_number", label: "Registration Number", value: "12345678", sourcePage: 1, confidence: 0.99 },
-        { key: "address", label: "Registered Address", value: "123 Wall St, New York, NY", sourcePage: 1, confidence: 0.92 },
-    ];
+    // Extracted Items (Removed mock data)
+    const extractedItems = (questionnaire.extractedContent as any[]) || [];
 
     // Left Panel: Document Viewer (Mock)
     const DocumentViewer = (
@@ -150,7 +145,12 @@ export default async function WorkbenchPage({ params }: { params: Promise<{ id: 
             {/* Grid Content */}
             <div className="flex-1 overflow-y-auto bg-slate-50/30">
                 <div className="divide-y divide-slate-100">
-                    {extractedItems.map((item: any, idx: number) => (
+                    {extractedItems.length === 0 ? (
+                        <div className="p-8 text-center text-slate-400 text-sm italic">
+                            Extraction functionality pending...
+                        </div>
+                    ) : (
+                        extractedItems.map((item: any, idx: number) => (
                         <div key={idx} className="group bg-white p-4 hover:bg-indigo-50/30 transition-colors border-l-4 border-l-transparent hover:border-l-indigo-500">
                             <div className="flex justify-between items-start mb-2">
                                 <label className="text-xs font-semibold text-slate-500 uppercase">{item.label || item.key}</label>
@@ -170,7 +170,8 @@ export default async function WorkbenchPage({ params }: { params: Promise<{ id: 
                                 </span>
                             </div>
                         </div>
-                    ))}
+                    ))
+                    )}
                 </div>
             </div>
 
