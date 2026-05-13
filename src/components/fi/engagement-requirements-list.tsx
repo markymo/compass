@@ -67,26 +67,7 @@ export function EngagementRequirementsList({ engagementId, questionnaires }: Eng
             </div>
 
             <div className="space-y-3">
-                {/* 1. Static Mock Item based on wireframe (always show to demo) 
-                    In real app, these would also be filtered or part of the 'questionnaires' list
-                */}
-                <div className="group bg-white border border-slate-200 rounded-xl p-4 flex items-center justify-between hover:border-indigo-300 hover:shadow-md transition-all cursor-pointer">
-                    <div className="flex items-center gap-4">
-                        <div className="h-10 w-10 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600">
-                            <Shield className="w-5 h-5" />
-                        </div>
-                        <div>
-                            <h4 className="font-semibold text-slate-900">Certificate of Incorporation</h4>
-                            <p className="text-xs text-slate-500">Source: <span className="font-mono bg-slate-100 px-1 rounded">cert_inc.pdf</span> • AI Extracted</p>
-                        </div>
-                    </div>
-                    <div className="flex items-center gap-4">
-                        <Badge variant="secondary" className="bg-amber-50 text-amber-700 border-amber-100">Review</Badge>
-                        <Button size="sm" variant="ghost" className="text-slate-400 group-hover:text-indigo-600">
-                            Review <ArrowRight className="w-4 h-4 ml-1" />
-                        </Button>
-                    </div>
-                </div>
+
 
                 {/* 2. Dynamic Questionnaires */}
                 {filteredQuestionnaires.map((q: any) => (
