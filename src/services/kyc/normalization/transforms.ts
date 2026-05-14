@@ -81,8 +81,32 @@ export function applyTransform(
     }
 
     switch (transformType) {
-        case 'DIRECT':
-            return { value: String(value), confidencePenalty: 0 };
+        case 'DIRECT': {
+            // Smart extraction to intuitively handle objects mapped to flat fields
+            const extractPrimitive = (val: any): any => {
+                if (val == null) return null;
+                // If it's already a primitive, just stringify it
+                if (typeof val !== 'object') return String(val);
+                if (val instanceof Date) return val.toISOString();
+                
+                // If it's an object, look for common keys that usually hold the string value
+                if (val.name !== undefined) return String(val.name);
+                if (val.value !== undefined) return String(val.value);
+                if (val.text !== undefined) return String(val.text);
+                if (val.label !== undefined) return String(val.label);
+                
+                // If we can't find a common key, return the raw object and let the DB layer handle it (e.g. for JSONB fields)
+                return val;
+            };
+
+            if (Array.isArray(value)) {
+                // Preserve the array structure, but clean up the internal items
+                const processed = value.map(extractPrimitive).filter(v => v !== null);
+                return { value: processed, confidencePenalty: 0 };
+            }
+            
+            return { value: extractPrimitive(value), confidencePenalty: 0 };
+        }
 
         case 'DATE_TO_ISO': {
             try {
