@@ -4,6 +4,7 @@ import { UserNav } from "./UserNav";
 import { Button } from "@/components/ui/button";
 import { DemoSwitcher } from "./DemoSwitcher";
 import { AdminCogLink } from "./AdminCogLink";
+import { AdminAppReturnLink } from "./AdminAppReturnLink";
 
 
 interface PlatformNavbarProps {
@@ -18,11 +19,14 @@ export function PlatformNavbar({ isSystemAdmin = false, assignmentCount = 0 }: P
         <header className="sticky top-0 left-0 right-0 z-50 border-b border-slate-200 bg-white/80 backdrop-blur-xl">
             <div className="container mx-auto flex h-20 items-center justify-between px-4 md:px-6">
                 <div className="flex items-center gap-8">
-                    <Link href="/" className="flex items-center gap-1">
-                        <span className="text-xl font-bold tracking-tight text-slate-900 font-sans flex items-baseline gap-1">
-                            {BRAND.name}<span className="inline-block w-2.5 h-2.5 bg-amber-500" />
-                        </span>
-                    </Link>
+                    <div className="flex items-center gap-3">
+                        <Link href="/" className="flex items-center gap-1">
+                            <span className="text-xl font-bold tracking-tight text-slate-900 font-sans flex items-baseline gap-1">
+                                {BRAND.name}<span className="inline-block w-2.5 h-2.5 bg-amber-500" />
+                            </span>
+                        </Link>
+                        <AdminAppReturnLink />
+                    </div>
                 </div>
 
                 <div className="flex items-center gap-2">
