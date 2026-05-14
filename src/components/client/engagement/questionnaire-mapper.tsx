@@ -133,7 +133,7 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
                 // Sort by order
                 const sorted = [...(qData.questions || [])].sort((a: any, b: any) => a.order - b.order);
                 setQuestions(sorted);
-                if (sorted.length > 0) setSelectedQuestionId(sorted[0].id);
+                // Removed auto-selection to prevent the slide-out from opening by default
 
                 // Fetch custom fields
                 if (qData.fiOrgId) {
