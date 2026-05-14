@@ -11,8 +11,8 @@ export class CompaniesHouseConnector implements IRegistryConnector {
     readonly connectorKey = "CompaniesHouseConnector";
 
     supports(authorityId: string): boolean {
-        // RA000585 is the RAID for UK Companies House
-        return authorityId === "RA000585";
+        // Supports England/Wales (RA000585), Scotland (RA000586), and Northern Ireland (RA000587)
+        return ["RA000585", "RA000586", "RA000587"].includes(authorityId);
     }
 
     async fetch(reference: RegistryReference): Promise<CanonicalRegistryRecord> {

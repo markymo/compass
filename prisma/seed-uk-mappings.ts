@@ -3,9 +3,9 @@ import { PrismaClient, SourceType, MappingScope, PayloadSubtype, MappingTransfor
 const prisma = new PrismaClient();
 
 async function seedUKMappings() {
-    const RA_ID = 'RA000585'; // UK Companies House
+    const RA_IDS = ['RA000585', 'RA000586', 'RA000587']; // UK Companies House variants
     
-    console.log(`[Seed] Bootstrapping Mapping Pack for UK Companies House (${RA_ID})...`);
+    console.log(`[Seed] Bootstrapping Mapping Pack for UK Companies House variants...`);
 
     const mappings = [
         // CORE ATTRIBUTES (from COMPANY_PROFILE payload)
@@ -71,40 +71,42 @@ async function seedUKMappings() {
     ];
 
     let count = 0;
-    for (const m of mappings) {
-        await (prisma as any).sourceFieldMapping.upsert({
-            where: {
-                sourceType_sourceReference_mappingScope_payloadSubtype_sourcePath_targetFieldNo: {
+    for (const RA_ID of RA_IDS) {
+        for (const m of mappings) {
+            await (prisma as any).sourceFieldMapping.upsert({
+                where: {
+                    sourceType_sourceReference_mappingScope_payloadSubtype_sourcePath_targetFieldNo: {
+                        sourceType: 'REGISTRATION_AUTHORITY',
+                        sourceReference: RA_ID,
+                        mappingScope: m.mappingScope,
+                        payloadSubtype: m.payloadSubtype,
+                        sourcePath: m.sourcePath,
+                        targetFieldNo: m.targetFieldNo
+                    }
+                },
+                update: {
+                    isActive: true,
+                    transformType: (m as any).transformType || 'DIRECT',
+                    notes: m.notes
+                },
+                create: {
                     sourceType: 'REGISTRATION_AUTHORITY',
                     sourceReference: RA_ID,
                     mappingScope: m.mappingScope,
                     payloadSubtype: m.payloadSubtype,
                     sourcePath: m.sourcePath,
-                    targetFieldNo: m.targetFieldNo
+                    targetFieldNo: m.targetFieldNo,
+                    isActive: true,
+                    transformType: (m as any).transformType || 'DIRECT',
+                    notes: m.notes,
+                    priority: 10
                 }
-            },
-            update: {
-                isActive: true,
-                transformType: (m as any).transformType || 'DIRECT',
-                notes: m.notes
-            },
-            create: {
-                sourceType: 'REGISTRATION_AUTHORITY',
-                sourceReference: RA_ID,
-                mappingScope: m.mappingScope,
-                payloadSubtype: m.payloadSubtype,
-                sourcePath: m.sourcePath,
-                targetFieldNo: m.targetFieldNo,
-                isActive: true,
-                transformType: (m as any).transformType || 'DIRECT',
-                notes: m.notes,
-                priority: 10
-            }
-        });
-        count++;
+            });
+            count++;
+        }
     }
 
-    console.log(`[Seed] Successfully seeded ${count} UK-specific mappings.`);
+    console.log(`[Seed] Successfully seeded ${count} UK-specific mappings across all regions.`);
 }
 
 
