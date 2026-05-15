@@ -19,6 +19,7 @@ import { upsertGraphBinding, deleteGraphBinding } from "@/actions/graph-bindings
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { CategoryCombobox } from "./category-combobox";
 import { DataInspectorPanel } from "@/components/client/admin/source-mappings/data-inspector-panel";
+import { SOURCE_OPTIONS, getSourceDisplayName } from "@/lib/source-display";
 
 
 interface FieldDetailSheetProps {
@@ -100,7 +101,10 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[] }: F
         allowCreate: true,
     });
 
-    const liveSourceTypes = ["GLEIF", "REGISTRATION_AUTHORITY"];
+    // Sources that support the live Browse inspector.
+    const liveSourceTypes = SOURCE_OPTIONS
+        .filter(o => o.supportsLiveBrowser)
+        .map(o => o.value);
 
     const handleDeleteMapping = async (mappingId: string) => {
         setDeletingMappingId(mappingId);
@@ -121,8 +125,15 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[] }: F
         }
         setIsMappingSaving(true);
         try {
+            // Resolve UI selection to backend sourceType + sourceReference.
+            const selectedOption = SOURCE_OPTIONS.find(o => o.value === mappingForm.sourceType);
+            if (!selectedOption) {
+                toast.error("Please select a valid source");
+                return;
+            }
             const res = await upsertSourceMapping({
-                sourceType: mappingForm.sourceType as any,
+                sourceType: selectedOption.sourceType,
+                sourceReference: selectedOption.sourceReference,
                 sourcePath: mappingForm.sourcePath.trim(),
                 targetFieldNo: field.fieldNo,
                 transformType: mappingForm.transformType as any,
@@ -402,9 +413,11 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[] }: F
                                                     <SelectValue placeholder="Select type" />
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                    <SelectItem value="GLEIF">GLEIF</SelectItem>
-                                                    <SelectItem value="REGISTRATION_AUTHORITY">Registration Authority</SelectItem>
-                                                    <SelectItem value="USER_INPUT">User Input / Other</SelectItem>
+                                                    {SOURCE_OPTIONS.map(opt => (
+                                                        <SelectItem key={opt.value} value={opt.value}>
+                                                            {opt.label}
+                                                        </SelectItem>
+                                                    ))}
                                                 </SelectContent>
                                             </Select>
                                         </div>
@@ -463,7 +476,7 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[] }: F
                                     <DialogHeader className="px-6 py-4 border-b border-slate-200 shrink-0">
                                         <DialogTitle className="flex items-center gap-2 text-sm">
                                             <ScanSearch className="h-4 w-4 text-blue-500" />
-                                            Browse {mappingForm.sourceType === "GLEIF" ? "GLEIF" : "Registry"} Schema
+                                            Browse {mappingForm.sourceType === "GLEIF" ? "GLEIF" : "Companies House"} Schema
                                         </DialogTitle>
                                         <DialogDescription className="text-xs">
                                             Fetch a live record, then click <span className="font-semibold text-blue-600">⊕ Add</span> on any field to use it as the source path.
@@ -471,7 +484,11 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[] }: F
                                     </DialogHeader>
                                     <div className="flex-1 overflow-hidden p-4">
                                         <DataInspectorPanel
-                                            sourceType={mappingForm.sourceType}
+                                            sourceType={
+                                                // DataInspectorPanel expects the backend SourceType string
+                                                SOURCE_OPTIONS.find(o => o.value === mappingForm.sourceType)?.sourceType
+                                                || mappingForm.sourceType
+                                            }
                                             existingMappings={field.sourceMappings || []}
                                             readOnly={false}
                                             onSelectPath={(path) => {
@@ -489,7 +506,9 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[] }: F
                                 {field.sourceMappings.sort((a: any, b: any) => (a.priority || 0) - (b.priority || 0)).map((mapping: any) => (
                                     <div key={mapping.id} className="bg-white border rounded-md p-3 text-sm flex items-center justify-between group">
                                         <div className="flex items-center gap-3 min-w-0">
-                                            <Badge variant="outline" className="bg-slate-50 shrink-0">{mapping.sourceType}</Badge>
+                                            <Badge variant="outline" className="bg-slate-50 shrink-0">
+                                                {getSourceDisplayName(mapping.sourceType, mapping.sourceReference)}
+                                            </Badge>
                                             <span className="font-mono text-xs text-slate-600 truncate" title={mapping.sourcePath}>
                                                 {mapping.sourcePath}
                                             </span>

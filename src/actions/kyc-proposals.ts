@@ -17,6 +17,7 @@ import {
     RegistryConnectorFactory
 } from "@/domain/registry";
 import { CanonicalRegistryMapper } from "@/services/kyc/normalization/CanonicalRegistryMapper";
+import { RegistryMappingEngine } from "@/services/kyc/normalization/RegistryMappingEngine";
 
 // Initialize registry domain (registers connectors)
 initializeRegistryDomain();
@@ -227,7 +228,13 @@ export async function getGleifProposalsFromCache(legalEntityId: string): Promise
 
 /**
  * Server Action: Accept a Proposal
- * re-applies the logic securely by fetching evidence and re-deriving to prevent client tampering.
+ * Re-applies the logic securely by fetching evidence and re-deriving to prevent client tampering.
+ *
+ * For REGISTRATION_AUTHORITY evidence: re-runs RegistryMappingEngine against the stored
+ * EnrichmentRun (RA-scoped, respects sourceReference). Falls back safely for legacy evidence
+ * records that pre-date the EnrichmentRun model.
+ *
+ * For GLEIF evidence: calls GleifNormalizer directly (unchanged).
  */
 export async function acceptProposal(
     legalEntityId: string,
@@ -242,16 +249,40 @@ export async function acceptProposal(
         // 2. Normalize based on provider
         let candidates;
         if (evidence.provider === 'GLEIF') {
+            // GLEIF path is unchanged — GleifNormalizer handles it directly.
             candidates = await mapGleifPayloadToFieldCandidates(evidence.payload, evidenceId);
-        } else {
-            // Check if it's a registration authority provider (e.g. REGISTRATION_AUTHORITY)
-            const connector = RegistryConnectorFactory.getConnectorForProvider(evidence.provider);
-            if (connector) {
-                const record = connector.normalize(evidence.payload);
-                candidates = await CanonicalRegistryMapper.mapToCandidates(record, evidenceId);
-            } else {
-                return { success: false, message: `Provider ${evidence.provider} not supported for re-normalization.` };
+        } else if (evidence.provider === 'REGISTRATION_AUTHORITY' || evidence.provider === 'COMPANIES_HOUSE') {
+            // RA path: traverse RegistryFetch → EnrichmentRun → RegistryMappingEngine.
+            // This ensures RA-specific sourceReference scoping is respected.
+            const fetch = await (prisma as any).registryFetch?.findFirst({
+                where: { evidenceId },
+                include: { reference: { select: { clientLEId: true } } },
+                orderBy: { requestedAt: 'desc' },
+            });
+
+            const run = fetch?.reference?.clientLEId
+                ? await (prisma as any).enrichmentRun?.findFirst({
+                    where: { legalEntityId: fetch.reference.clientLEId, status: 'SUCCESS' },
+                    orderBy: { createdAt: 'desc' },
+                })
+                : null;
+
+            if (!run) {
+                // Safety net: legacy evidence records may not have an associated EnrichmentRun.
+                // Return a clear error rather than falling back to the unscoped CanonicalRegistryMapper.
+                console.warn(
+                    `[acceptProposal] No EnrichmentRun found for RA evidence ${evidenceId}. ` +
+                    `Trigger a manual registry refresh to create a new run, then re-try proposal acceptance.`
+                );
+                return {
+                    success: false,
+                    message: 'No enrichment run found for this evidence record. Please refresh registry data and try again.',
+                };
             }
+
+            candidates = await RegistryMappingEngine.mapEnrichmentRun(run.id);
+        } else {
+            return { success: false, message: `Provider ${evidence.provider} not supported for re-normalization.` };
         }
 
         // 3. Find Candidate
@@ -259,12 +290,8 @@ export async function acceptProposal(
         if (!candidate) return { success: false, message: "Field candidate not found in evidence" };
 
         // 4. Apply
-        // We use the authenticated user ID for proper provenance tracking and verification
         const identity = await getIdentity();
-        let userId = undefined;
-        if (identity?.userId) {
-            userId = identity.userId;
-        }
+        const userId = identity?.userId || undefined;
 
         // Pass 'CLIENT_LE' because legalEntityId is ClientLE ID
         const result = await kycWriteService.applyFieldCandidate(legalEntityId, candidate, userId, 'CLIENT_LE');

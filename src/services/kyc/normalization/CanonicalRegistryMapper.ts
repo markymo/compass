@@ -5,16 +5,29 @@ import { applyTransform } from "./transforms";
 import prisma from "@/lib/prisma";
 
 /**
- * Unified Table-Driven Mapper for Registration Authority Data.
- * 
- * Takes a pre-normalized CanonicalRegistryRecord and applies mappings
- * defined for the 'REGISTRATION_AUTHORITY' source family.
+ * @deprecated Use RegistryMappingEngine.mapEnrichmentRun() for all production RA mapping.
+ *
+ * CanonicalRegistryMapper operates on a pre-normalized CanonicalRegistryRecord and does NOT
+ * respect RA-specific sourceReference scoping. It will produce incorrect results for
+ * jurisdiction-specific rules (e.g. RA000586, RA000587).
+ *
+ * This class is preserved only for the read-only registry sources preview fallback in
+ * src/app/(platform)/app/le/[id]/sources/registry/page.tsx. It must not be used in any
+ * write path (enrichment, proposal acceptance). See: docs/architecture/mapping-baselines/
  */
 export class CanonicalRegistryMapper {
     /**
+     * @deprecated Use RegistryMappingEngine.mapEnrichmentRun() instead.
      * Maps a CanonicalRegistryRecord to FieldCandidates based on DB configuration.
+     * Does NOT respect RA-specific sourceReference scoping — all RA rows are queried globally.
      */
     static async mapToCandidates(record: CanonicalRegistryRecord, evidenceId: string): Promise<FieldCandidate[]> {
+        console.warn(
+            '[DEPRECATED] CanonicalRegistryMapper.mapToCandidates called. ' +
+            'This mapper ignores RA-specific sourceReference scoping. ' +
+            'Use RegistryMappingEngine.mapEnrichmentRun() for write paths. ' +
+            'Caller stack trace follows:'
+        );
         // 1. Load active REGISTRATION_AUTHORITY mappings from DB
         let dbMappings: any[] = [];
         try {

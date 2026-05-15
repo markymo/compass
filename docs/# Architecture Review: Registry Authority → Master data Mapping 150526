@@ -1,0 +1,184 @@
+# Architecture Review: Registry Authority → Master Data Mapping
+
+> **Prepared for senior model review. Based on full code investigation of the Compass codebase.**
+
+---
+
+## The Problem Being Solved
+
+Legal entities (companies, funds, etc.) are registered in different national registries depending on their jurisdiction. A UK company is registered with Companies House (RA000585/86/87), a German company with the Handelsregister, a French company with the INPI, and so on. Each of these registries returns data in a completely different JSON structure — different field names, different nesting, different value formats.
+
+The Compass platform needs to enrich Legal Entity profiles with authoritative data from whichever national registry is relevant, and store that data in a single, unified **Master Data Schema** (a numbered field list, e.g. Field 3 = Legal Name, Field 6 = Address Line 1). The challenge is: how do you map `company_name` from Companies House, `name.value` from GLEIF, and some other path from the German registry, all into Field 3 — without writing new code for each registry?
+
+---
+
+## Current Architecture: A Layered, Table-Driven Mapping Engine
+
+### Overview
+
+The system uses a **database-driven rules engine** where mapping logic (source JSON paths → target master fields) is stored as records in a `SourceFieldMapping` table rather than being hardcoded. This allows new registries to be supported by inserting rows into the database.
+
+### The Five Key Components
+
+#### 1. `SourceFieldMapping` Table (The Rules Store)
+The central configuration table. Each row describes one mapping rule:
+
+| Column | Purpose |
+|--------|---------|
+| `sourceType` | Family of source (e.g. `REGISTRATION_AUTHORITY`, `GLEIF`) |
+| `sourceReference` | Specific RA ID (e.g. `RA000585`) — **nullable** for global/fallback rules |
+| `mappingScope` | Whether to look in `BASELINE` (pre-normalized thin extract) or `RAW_PAYLOAD` (raw JSON) |
+| `payloadSubtype` | Which sub-document to look in (e.g. `COMPANY_PROFILE`, `OFFICERS`, `PSC`) |
+| `sourcePath` | Dot-notation JSON path (e.g. `registered_office_address.locality`) |
+| `targetFieldNo` | Which Master Schema field this maps to |
+| `transformType` | How to clean the raw value before storing (`DIRECT`, `DATE_TO_ISO`, `ENUM_MAP`, etc.) |
+| `priority` | Lower number = higher priority. Used for conflict resolution |
+| `confidenceDefault` | Confidence score 0–1 applied to the resulting `FieldClaim` |
+
+**Key design decision:** `sourceReference` is nullable. A null value means the rule applies globally to **all** authorities of that `sourceType`. RA-specific rules with a matching `sourceReference` **shadow** (override) the global rules for that target field.
+
+#### 2. `RegistryMappingEngine` (The Execution Layer)
+_File: `src/services/kyc/normalization/RegistryMappingEngine.ts`_
+
+The primary engine, used by the post-enrichment pipeline. Its `mapEnrichmentRun(runId)` method:
+
+1. Fetches the `EnrichmentRun` (including all stored raw payloads and the baseline extract).
+2. Queries `SourceFieldMapping` for rules that are **either** scoped to the run's RA ID **or** globally applicable (`sourceReference IS NULL`).
+3. Groups results by `targetFieldNo`.
+4. For each target field, sorts the competing rules: **RA-specific rules first**, then by explicit `priority` integer.
+5. Attempts each rule in order — the **first one that resolves a non-null value** wins. All subsequent rules for that field are skipped ("winner-takes-all").
+6. Applies the appropriate `transform` to the raw value.
+7. Returns a `FieldCandidate[]` list.
+
+**This is the "new" production path.** It is invoked automatically after every connector fetch inside `RegistryEnrichmentService.enrich()`.
+
+#### 3. `CanonicalRegistryMapper` (The Legacy Abstraction)
+_File: `src/services/kyc/normalization/CanonicalRegistryMapper.ts`_
+
+An older, simpler mapper that works against a pre-normalized `CanonicalRegistryRecord` object (not the raw payload). It queries `SourceFieldMapping` with `sourceType = 'REGISTRATION_AUTHORITY'` but with **no RA-scoping** (no `sourceReference` filter). 
+
+This is still actively used in three places:
+- `LegalEntityEnrichmentService.refreshRegistryClaims()` — calls both engines and merges results (new engine candidates override legacy ones for the same field).
+- `kyc-proposals.ts` — as a fallback for the proposal generation flow and for the `acceptProposal` action when re-deriving from evidence.
+- The registry sources page — as a fallback preview when no `EnrichmentRun` exists.
+
+**Risk:** `CanonicalRegistryMapper` ignores `sourceReference` entirely, meaning it doesn't respect the RA-specific shadowing mechanism. If both engines run and produce candidates for the same field, the newer engine's result wins (correct). But if only `CanonicalRegistryMapper` runs (e.g. in the `acceptProposal` flow), it may apply a wrong global mapping for a jurisdiction-specific field.
+
+#### 4. `GleifNormalizer` (GLEIF Variant)
+_File: `src/services/kyc/normalization/GleifNormalizer.ts`_
+
+A parallel mapping engine dedicated to GLEIF payloads. It follows the same table-driven pattern (queries `SourceFieldMapping WHERE sourceType = 'GLEIF'`) with the same priority/winner-takes-all logic. **No scoping by RA ID here** — GLEIF is one global standard, not per-authority.
+
+Has a **hardcoded fallback** that fires if the DB has zero GLEIF mappings. This is an intentional migration safeguard that should be removed once table-driven mappings are validated in production.
+
+#### 5. `transforms.ts` (Value Transformation)
+_File: `src/services/kyc/normalization/transforms.ts`_
+
+A pure-function library called by all three normalizers above. Handles:
+- `DIRECT` — Recently upgraded to "smart extraction": if given an array, it maps over items and extracts a `.name`, `.value`, `.text`, or `.label` property from each object. Crucially, this preserves the array structure, allowing `KycWriteService` to handle repeating fields (via `rowId` generation).
+- `DATE_TO_ISO`, `DATETIME_TO_ISO` — Date normalization.
+- `COUNTRY_TO_NAME`, `COUNTRY_TO_ISO2` — ISO 3166-1 country code mapping.
+- `ENUM_MAP` — Configurable value substitution via `transformConfig.map` JSON.
+- `FIRST_ARRAY_ITEM`, `JOIN_ARRAY` — Array flattening utilities.
+- `TO_ADDRESS_OBJECT`, `TO_PARTY_OBJECT`, `TO_PARTY_LIST` — Complex object construction for structured fields.
+
+### The Full Enrichment Pipeline (Happy Path)
+
+```
+[GLEIF API]
+    → LegalEntityEnrichmentService.bootstrapEntity()
+    → Derives RegistryReference (e.g. pointing to RA000585)
+    → RegistryEnrichmentService.enrich(referenceId)
+        → RegistryConnectorFactory finds CompaniesHouseConnector
+        → Connector fetches from CH API (3 calls: profile, officers, PSC)
+        → Stores raw JSON as RegistrySourcePayload rows (Layer A: COMPANY_PROFILE, OFFICERS, PSC)
+        → Stores thin RegistryBaselineExtract (Layer B: name, status, address, date)
+        → RegistryMappingEngine.mapEnrichmentRun(runId)
+            → Loads RA-scoped + global SourceFieldMapping rules
+            → Resolves JSON paths against Layer A/B data
+            → Applies transforms
+            → Returns FieldCandidate[]
+    → LegalEntityEnrichmentService applies candidates via KycWriteService
+    → KycWriteService writes FieldClaim records with provenance metadata
+```
+
+---
+
+## Issues and Recommendations
+
+### Issue 1: Two Parallel Engines (Architectural Debt)
+**Severity: Medium**
+
+`CanonicalRegistryMapper` and `RegistryMappingEngine` solve the same problem but with different scoping logic. `CanonicalRegistryMapper` ignores `sourceReference`, while `RegistryMappingEngine` correctly respects RA-scoping. Both are still active.
+
+The merge logic in `LegalEntityEnrichmentService.refreshRegistryClaims()` attempts to reconcile this by letting the newer engine override the older one field-by-field, but this creates implicit coupling and is hard to reason about.
+
+**Recommendation:** Migrate all callers to `RegistryMappingEngine` and deprecate `CanonicalRegistryMapper`. The `acceptProposal` flow in `kyc-proposals.ts` is the most at-risk call site; it still uses `CanonicalRegistryMapper` for RA evidence re-normalization.
+
+---
+
+### Issue 2: `acceptProposal` Uses Legacy Mapper
+**Severity: Medium**
+
+In `kyc-proposals.ts:acceptProposal()`, when re-deriving candidates from stored evidence to apply a user-accepted proposal, it calls `CanonicalRegistryMapper.mapToCandidates()`. This mapper has no access to the raw sub-payloads (`COMPANY_PROFILE`, etc.) — it works against the `CanonicalRegistryRecord` object, which is a normalized intermediate. This means:
+- RA-specific rules (e.g. rules scoped to `RA000587` for NI companies) are ignored.
+- The `mappingScope: RAW_PAYLOAD` rules added by the seed script are bypassed.
+
+A user accepting a proposal on a Northern Ireland company may get the wrong value re-applied.
+
+**Recommendation:** `acceptProposal` should re-run the full enrichment pipeline (or at minimum, re-run `RegistryMappingEngine` against the stored `EnrichmentRun`) rather than re-normalizing from the `CanonicalRegistryRecord`.
+
+---
+
+### Issue 3: Mapping Seeds Are Code-Only, Not Admin-Manageable
+**Severity: Low (today), Medium (at scale)**
+
+The UK Companies House mappings are defined in `prisma/seed-uk-mappings.ts` and run manually. While the _rules table_ is theoretically admin-editable (there is a `/app/admin/master-data/source-mappings` page referenced in the codebase), there's no UI or automated mechanism to:
+- Add mappings for a new RA without developer intervention.
+- Test a mapping against a sample payload before deploying it.
+- Version or roll back mapping changes.
+
+**Recommendation:** Build an admin UI for the `SourceFieldMapping` table with a payload sandbox (the `SourceSamplePayload` model already exists for this purpose). This would allow KYC analysts to configure new RA mappings without engineering involvement.
+
+---
+
+### Issue 4: `otherNames` / Repeating Field Mapping Not Configured in Seed
+**Severity: High (known active bug)**
+
+Field 5 (`otherNames` / Previous Legal Names) is defined as `isMultiValue: true` in the Master Schema. The seed script does not include a mapping for this field. The `DIRECT` transform was recently fixed to preserve arrays, but without a seed entry pointing `otherNames` at Field 5 for RA-scoped rules, the mapping will never fire from the new engine. The `CanonicalRegistryMapper` path would need an explicit mapping in the DB with `sourceType = 'REGISTRATION_AUTHORITY'` and `sourcePath = 'otherNames'`.
+
+**Recommendation:** Add Field 5 mapping to the seed script with `sourcePath: 'otherNames'`, `targetFieldNo: 5`, `payloadSubtype: 'COMPANY_PROFILE'` for all three UK RA IDs.
+
+---
+
+### Issue 5: `RegistryAuthority` Rows Created with Stub `registryKey`
+**Severity: Low**
+
+In `LegalEntityEnrichmentService.bootstrapEntity()`, when a new `RegistryAuthority` is encountered via GLEIF data, it is created with `registryKey: refData.registryAuthorityId` (i.e. the RAID string like `RA000587`). The `CompaniesHouseConnector.normalize()` hard-codes `registryKey: 'GB_COMPANIES_HOUSE'` in the `CanonicalRegistryRecord` it returns.
+
+This creates a mismatch: the authority row has `registryKey = 'RA000587'` but the connector produces records tagged with `registryKey = 'GB_COMPANIES_HOUSE'`. The `FieldClaim.sourceKey` stored in the DB will reflect the connector's value, which diverges from the authority's `registryKey`. This could cause display issues or reporting inconsistencies.
+
+**Recommendation:** Either update `bootstrapEntity` to set `registryKey` to a canonical value (looking it up from a known registry), or update the connector to use the RAID as the `registryKey` for consistency.
+
+---
+
+### Issue 6: `GLEIF` Hardcoded Fallback Still Active
+**Severity: Low (risk of silent data quality regression)**
+
+`GleifNormalizer` falls back to hardcoded field mappings if the `SourceFieldMapping` table has no GLEIF rows. If the GLEIF mapping rows were ever accidentally deleted or deactivated, the system would silently revert to the hardcoded list with no alerting. The fallback coverage is also incomplete relative to what a full table-driven mapping could achieve.
+
+**Recommendation:** Replace the silent fallback with an explicit error/alert, and document the bootstrapping process for GLEIF mappings as a mandatory deployment step.
+
+---
+
+## Summary Table
+
+| # | Issue | Severity | Affected File(s) |
+|---|-------|----------|-----------------|
+| 1 | Two parallel engines running simultaneously | Medium | `LegalEntityEnrichmentService.ts`, `CanonicalRegistryMapper.ts` |
+| 2 | `acceptProposal` bypasses RA-scoped mappings | Medium | `kyc-proposals.ts` |
+| 3 | No admin UI for managing RA mappings | Medium (at scale) | `seed-uk-mappings.ts` |
+| 4 | Field 5 (Previous Names) not in seed — active bug | High | `seed-uk-mappings.ts` |
+| 5 | `registryKey` mismatch between Authority record and Connector output | Low | `LegalEntityEnrichmentService.ts`, `CompaniesHouseConnector.ts` |
+| 6 | Silent GLEIF hardcoded fallback still active | Low | `GleifNormalizer.ts` |
+

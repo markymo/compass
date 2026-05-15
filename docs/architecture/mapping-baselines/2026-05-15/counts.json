@@ -1,0 +1,40 @@
+{
+  "total": 43,
+  "byTypeAndRef": [
+    {
+      "_count": {
+        "id": 14
+      },
+      "sourceType": "GLEIF",
+      "sourceReference": null
+    },
+    {
+      "_count": {
+        "id": 8
+      },
+      "sourceType": "REGISTRATION_AUTHORITY",
+      "sourceReference": "RA000587"
+    },
+    {
+      "_count": {
+        "id": 8
+      },
+      "sourceType": "REGISTRATION_AUTHORITY",
+      "sourceReference": "RA000586"
+    },
+    {
+      "_count": {
+        "id": 5
+      },
+      "sourceType": "REGISTRATION_AUTHORITY",
+      "sourceReference": null
+    },
+    {
+      "_count": {
+        "id": 8
+      },
+      "sourceType": "REGISTRATION_AUTHORITY",
+      "sourceReference": "RA000585"
+    }
+  ]
+}
