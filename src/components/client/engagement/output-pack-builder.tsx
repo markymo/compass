@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 import {
     FileText,
     Download,
@@ -19,55 +20,81 @@ import {
     Archive,
     Loader2,
     ImageIcon,
+    FileDown,
 } from "lucide-react";
-
-// ------------------------------------------------------------------
-// Mock data — replace with real props/queries when wiring up
-// ------------------------------------------------------------------
-const MOCK_QUESTIONNAIRES = [
-    {
-        id: "q1",
-        name: "Due Diligence 2026",
-        questionCount: 24,
-        answeredCount: 22,
-        files: [
-            { id: "f1", name: "Board Resolution.pdf", questionRef: "Q3", size: "240 KB" },
-            { id: "f2", name: "Certificate of Incorporation.pdf", questionRef: "Q7", size: "1.2 MB" },
-        ],
-    },
-    {
-        id: "q2",
-        name: "AML / CFT Assessment",
-        questionCount: 18,
-        answeredCount: 12,
-        files: [
-            { id: "f3", name: "AML Policy v4.docx", questionRef: "Q2", size: "380 KB" },
-            { id: "f4", name: "Transaction Monitoring Screenshot.png", questionRef: "Q11", size: "890 KB" },
-            { id: "f5", name: "KYC Onboarding Flow.pdf", questionRef: "Q14", size: "1.5 MB" },
-        ],
-    },
-    {
-        id: "q3",
-        name: "ESG Screening Questionnaire",
-        questionCount: 12,
-        answeredCount: 12,
-        files: [],
-    },
-];
-
-const MOCK_SUPPORTING_DOCS = [
-    { id: "d1", name: "Latest Annual Report 2025.pdf", size: "4.2 MB" },
-    { id: "d2", name: "Company Structure Chart.pdf", size: "580 KB" },
-    { id: "d3", name: "Regulatory Licence.pdf", size: "210 KB" },
-];
 
 // ------------------------------------------------------------------
 // Component
 // ------------------------------------------------------------------
-type Format = "pdf" | "excel";
+interface OutputQuestionnaire {
+    id: string;
+    name: string;
+    questionCount: number;
+    answeredCount: number;
+    files: {
+        id: string;
+        name: string;
+        fileUrl: string;
+        fileType: string | null;
+        questionRef: string;
+        size: string;
+    }[];
+}
 
-export function OutputPackBuilder() {
-    const [format, setFormat] = useState<Format>("pdf");
+interface OutputDocument {
+    id: string;
+    name: string;
+    fileUrl: string;
+    size: string;
+}
+
+interface OutputPackBuilderProps {
+    engagementId: string;
+    questionnaires: any[];
+    evidenceDocuments: any[];
+    sharedDocuments: any[];
+}
+
+export function OutputPackBuilder({
+    engagementId,
+    questionnaires,
+    evidenceDocuments,
+    sharedDocuments,
+}: OutputPackBuilderProps) {
+
+    // Build derived data
+    const docsByQuestionnaireId = new Map<string, OutputQuestionnaire["files"]>();
+
+    for (const question of evidenceDocuments) {
+        if (!question.questionnaireId) continue;
+        const qFiles = docsByQuestionnaireId.get(question.questionnaireId) || [];
+        for (const doc of question.documents || []) {
+            qFiles.push({
+                id: doc.id,
+                name: doc.name,
+                fileUrl: doc.fileUrl,
+                fileType: doc.fileType,
+                questionRef: question.compactText || question.text?.substring(0, 15) + "...",
+                size: doc.kbSize ? `${doc.kbSize} KB` : "—",
+            });
+        }
+        docsByQuestionnaireId.set(question.questionnaireId, qFiles);
+    }
+
+    const outputQuestionnaires: OutputQuestionnaire[] = questionnaires.map(q => ({
+        id: q.id,
+        name: q.name,
+        questionCount: q.metrics?.total ?? 0,
+        answeredCount: q.metrics?.answered ?? 0,
+        files: docsByQuestionnaireId.get(q.id) ?? [],
+    }));
+
+    const outputDocs: OutputDocument[] = sharedDocuments.map((d: any) => ({
+        id: d.id,
+        name: d.name,
+        fileUrl: d.fileUrl,
+        size: d.kbSize ? `${d.kbSize} KB` : "—",
+    }));
 
     // Selection state
     const [selectedQuestionnaires, setSelectedQuestionnaires] = useState<Set<string>>(new Set());
@@ -87,7 +114,7 @@ export function OutputPackBuilder() {
             if (next.has(id)) {
                 next.delete(id);
                 // Also deselect its files
-                const q = MOCK_QUESTIONNAIRES.find((q) => q.id === id);
+                const q = outputQuestionnaires.find((q) => q.id === id);
                 q?.files.forEach((f) => setSelectedFiles((p) => { const n = new Set(p); n.delete(f.id); return n; }));
             } else {
                 next.add(id);
@@ -121,18 +148,18 @@ export function OutputPackBuilder() {
     };
 
     const selectAllQuestionnaires = () => {
-        if (selectedQuestionnaires.size === MOCK_QUESTIONNAIRES.length) {
+        if (selectedQuestionnaires.size === outputQuestionnaires.length) {
             setSelectedQuestionnaires(new Set());
         } else {
-            setSelectedQuestionnaires(new Set(MOCK_QUESTIONNAIRES.map((q) => q.id)));
+            setSelectedQuestionnaires(new Set(outputQuestionnaires.map((q) => q.id)));
         }
     };
 
     const selectAllDocs = () => {
-        if (selectedDocs.size === MOCK_SUPPORTING_DOCS.length) {
+        if (selectedDocs.size === outputDocs.length) {
             setSelectedDocs(new Set());
         } else {
-            setSelectedDocs(new Set(MOCK_SUPPORTING_DOCS.map((d) => d.id)));
+            setSelectedDocs(new Set(outputDocs.map((d) => d.id)));
         }
     };
 
@@ -140,11 +167,90 @@ export function OutputPackBuilder() {
     const totalSelectedFiles = selectedFiles.size + selectedDocs.size;
     const hasFiles = totalSelectedFiles > 0;
     const hasAnythingSelected = selectedQuestionnaires.size > 0 || hasFiles;
-    const outputIsZip = hasFiles;
 
-    const handleGenerate = () => {
+    const handleDownloadQuestionnaire = async (id: string, name: string) => {
+        const toastId = toast.loading(`Generating PDF for ${name}...`);
+        try {
+            const response = await fetch(`/api/export/questionnaire/${id}`);
+            if (!response.ok) throw new Error("Failed to generate PDF");
+            
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            
+            const disposition = response.headers.get('Content-Disposition');
+            let filename = `${name.replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;
+            if (disposition && disposition.indexOf('attachment') !== -1) {
+                const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
+                const matches = filenameRegex.exec(disposition);
+                if (matches != null && matches[1]) { 
+                    filename = matches[1].replace(/['"]/g, '');
+                }
+            }
+
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+            
+            toast.success("PDF downloaded successfully", { id: toastId });
+        } catch (error) {
+            console.error(error);
+            toast.error("Failed to download PDF", { id: toastId });
+        }
+    };
+
+    const handleGenerate = async () => {
         setIsGenerating(true);
-        setTimeout(() => setIsGenerating(false), 2500); // Mock delay
+        const toastId = toast.loading("Generating Output Pack...");
+
+        try {
+            const response = await fetch('/api/export/output-pack', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    engagementId,
+                    questionnaireIds: Array.from(selectedQuestionnaires),
+                    documentIds: Array.from(selectedDocs).concat(Array.from(selectedFiles))
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to generate pack');
+            }
+
+            // Trigger download
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            
+            // Extract filename from Content-Disposition header
+            const disposition = response.headers.get('Content-Disposition');
+            let filename = 'output_pack.zip';
+            if (disposition && disposition.indexOf('attachment') !== -1) {
+                const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
+                const matches = filenameRegex.exec(disposition);
+                if (matches != null && matches[1]) { 
+                    filename = matches[1].replace(/['"]/g, '');
+                }
+            }
+
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+
+            toast.success("Output Pack downloaded successfully", { id: toastId });
+        } catch (error) {
+            console.error(error);
+            toast.error("Failed to generate Output Pack", { id: toastId });
+        } finally {
+            setIsGenerating(false);
+        }
     };
 
     const fileIcon = (name: string) => {
@@ -165,35 +271,6 @@ export function OutputPackBuilder() {
                         Select questionnaires and documents to generate a downloadable output pack.
                     </p>
                 </div>
-                <div className="flex items-center gap-2">
-                    <span className="text-xs font-medium text-slate-500 uppercase tracking-wide mr-1">Questionnaire Format</span>
-                    <div className="flex bg-slate-100 rounded-lg p-0.5">
-                        <button
-                            onClick={() => setFormat("pdf")}
-                            className={cn(
-                                "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all",
-                                format === "pdf"
-                                    ? "bg-white text-red-600 shadow-sm"
-                                    : "text-slate-500 hover:text-slate-700"
-                            )}
-                        >
-                            <File className="h-3.5 w-3.5" />
-                            PDF
-                        </button>
-                        <button
-                            onClick={() => setFormat("excel")}
-                            className={cn(
-                                "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all",
-                                format === "excel"
-                                    ? "bg-white text-emerald-600 shadow-sm"
-                                    : "text-slate-500 hover:text-slate-700"
-                            )}
-                        >
-                            <FileSpreadsheet className="h-3.5 w-3.5" />
-                            Excel
-                        </button>
-                    </div>
-                </div>
             </div>
 
             {/* ─── Questionnaires Section ──────────────────── */}
@@ -207,12 +284,12 @@ export function OutputPackBuilder() {
                         onClick={selectAllQuestionnaires}
                         className="text-xs font-medium text-indigo-600 hover:text-indigo-800 transition-colors"
                     >
-                        {selectedQuestionnaires.size === MOCK_QUESTIONNAIRES.length ? "Deselect All" : "Select All"}
+                        {selectedQuestionnaires.size === outputQuestionnaires.length && outputQuestionnaires.length > 0 ? "Deselect All" : "Select All"}
                     </button>
                 </div>
 
                 <div className="space-y-2">
-                    {MOCK_QUESTIONNAIRES.map((q) => {
+                    {outputQuestionnaires.map((q) => {
                         const isSelected = selectedQuestionnaires.has(q.id);
                         const isExpanded = expandedQuestionnaires.has(q.id);
                         const hasAttachments = q.files.length > 0;
@@ -244,6 +321,13 @@ export function OutputPackBuilder() {
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-2">
+                                            <button 
+                                                onClick={() => handleDownloadQuestionnaire(q.id, q.name)}
+                                                className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors"
+                                                title="Download questionnaire PDF"
+                                            >
+                                                <FileDown className="h-4 w-4" />
+                                            </button>
                                             {hasAttachments && (
                                                 <button
                                                     onClick={() => toggleExpand(q.id)}
@@ -332,13 +416,13 @@ export function OutputPackBuilder() {
                         onClick={selectAllDocs}
                         className="text-xs font-medium text-indigo-600 hover:text-indigo-800 transition-colors"
                     >
-                        {selectedDocs.size === MOCK_SUPPORTING_DOCS.length ? "Deselect All" : "Select All"}
+                        {selectedDocs.size === outputDocs.length && outputDocs.length > 0 ? "Deselect All" : "Select All"}
                     </button>
                 </div>
 
                 <Card className="border-slate-200">
                     <CardContent className="p-0 divide-y divide-slate-50">
-                        {MOCK_SUPPORTING_DOCS.map((doc) => (
+                        {outputDocs.map((doc) => (
                             <div
                                 key={doc.id}
                                 className={cn(
@@ -385,21 +469,10 @@ export function OutputPackBuilder() {
                                         </>
                                     )}
                                 </div>
-                                {outputIsZip && (
+                                {hasAnythingSelected && (
                                     <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 gap-1 text-[10px]">
                                         <Archive className="h-3 w-3" />
                                         ZIP Archive
-                                    </Badge>
-                                )}
-                                {!outputIsZip && selectedQuestionnaires.size > 0 && (
-                                    <Badge variant="outline" className={cn(
-                                        "gap-1 text-[10px]",
-                                        format === "pdf"
-                                            ? "bg-red-50 text-red-600 border-red-200"
-                                            : "bg-emerald-50 text-emerald-600 border-emerald-200"
-                                    )}>
-                                        {format === "pdf" ? <File className="h-3 w-3" /> : <FileSpreadsheet className="h-3 w-3" />}
-                                        {format === "pdf" ? "PDF" : "Excel"} Output
                                     </Badge>
                                 )}
                             </div>
@@ -421,7 +494,7 @@ export function OutputPackBuilder() {
                                 ) : (
                                     <>
                                         <Download className="h-4 w-4" />
-                                        Generate Output Pack
+                                        Generate Output Pack (ZIP)
                                     </>
                                 )}
                             </Button>

@@ -1191,6 +1191,7 @@ export async function getEngagementEvidenceDocuments(engagementId: string) {
                 compactText: true,
                 answer: true,
                 status: true,
+                questionnaireId: true,
                 documents: {
                     where: { isDeleted: false },
                     select: {

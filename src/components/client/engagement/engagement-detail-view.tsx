@@ -316,7 +316,12 @@ export function EngagementDetailView({ le, engagement, questionnaires, sharedDoc
                     </TabsContent>
 
                     <TabsContent value="output" className="mt-0">
-                        <OutputPackBuilder />
+                        <OutputPackBuilder 
+                            engagementId={engagement.id}
+                            questionnaires={questionnaires}
+                            evidenceDocuments={evidenceDocuments}
+                            sharedDocuments={sharedDocuments || []}
+                        />
                     </TabsContent>
 
 
