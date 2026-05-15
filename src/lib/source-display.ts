@@ -19,9 +19,9 @@ export const RA_DISPLAY_NAMES: Record<string, string> = {
     RA000586: "Companies House (RA000586)",   // Scotland
     RA000587: "Companies House (RA000587)",   // Northern Ireland
     RA000242: "Handelsregister (RA000242)",   // Germany – Frankfurt
+    RA000192: "RNCS / Infogreffe (RA000192)", // France
     // Add future RAs here:
-    // RA000154: "INPI (RA000154)",            // France
-    // RA000244: "CRO (RA000244)",             // Ireland
+    // RA000244: "CRO (RA000244)",            // Ireland
 };
 
 /**
@@ -82,6 +82,14 @@ export const SOURCE_OPTIONS: SourceOption[] = [
         label: "Companies House (RA000585)",
         sourceType: "REGISTRATION_AUTHORITY",
         sourceReference: "RA000585",
+        supportsLiveBrowser: true,
+    },
+    {
+        value: "FR_RA000192",
+        label: "RNCS / Infogreffe (RA000192)",
+        sourceType: "REGISTRATION_AUTHORITY",
+        sourceReference: "RA000192",
+        // Open API — no key required. Connector dispatched via authorityId.
         supportsLiveBrowser: true,
     },
     // Uncomment when connectors are active:

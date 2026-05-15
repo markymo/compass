@@ -1,6 +1,7 @@
 import { RegistryConnectorFactory } from "./RegistryConnectorFactory";
 import { CompaniesHouseConnector } from "./connectors/CompaniesHouseConnector";
 import { OfficialGermanRegistryConnector } from "./connectors/OfficialGermanRegistryConnector";
+import { FranceRechercheEntreprisesConnector } from "./connectors/FranceRechercheEntreprisesConnector";
 
 /**
  * Initializes the registry domain by registering known connectors.
@@ -9,6 +10,7 @@ import { OfficialGermanRegistryConnector } from "./connectors/OfficialGermanRegi
 export function initializeRegistryDomain() {
     RegistryConnectorFactory.register(new CompaniesHouseConnector());
     RegistryConnectorFactory.register(new OfficialGermanRegistryConnector());
+    RegistryConnectorFactory.register(new FranceRechercheEntreprisesConnector());
 }
 
 export * from "./types/RegistryConnector";

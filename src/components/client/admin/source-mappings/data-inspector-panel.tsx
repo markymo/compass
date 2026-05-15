@@ -11,6 +11,8 @@ import { cn } from "@/lib/utils";
 
 interface DataInspectorPanelProps {
     sourceType: string;
+    /** RA authority code, e.g. "RA000585" or "RA000192". Null/undefined for GLEIF. */
+    sourceReference?: string | null;
     existingMappings: any[];
     onSelectPath: (path: string) => void;
     readOnly?: boolean;
@@ -19,12 +21,22 @@ interface DataInspectorPanelProps {
 
 export function DataInspectorPanel({ 
     sourceType, 
+    sourceReference,
     existingMappings, 
     onSelectPath, 
     readOnly = false,
     title
 }: DataInspectorPanelProps) {
-    const [query, setQuery] = useState(sourceType === "GLEIF" ? "213800SN8QHYGA7QUF79" : "04155137");
+    // Default query hint per source:
+    //   GLEIF        → well-known LEI
+    //   France FR    → TotalEnergies SIREN
+    //   UK CH        → example company number
+    const defaultQuery =
+        sourceType === "GLEIF" ? "213800SN8QHYGA7QUF79"
+        : sourceReference === "RA000192" ? "542051180"
+        : "04155137";
+
+    const [query, setQuery] = useState(defaultQuery);
     const [loading, setLoading] = useState(false);
     const [payload, setPayload] = useState<any>(null);
     const [error, setError] = useState<string | null>(null);
@@ -50,9 +62,9 @@ export function DataInspectorPanel({
                     setPayload(null);
                 }
             } else if (sourceType === "REGISTRATION_AUTHORITY") {
-                const res = await fetchLiveRegistryRecord(query);
+                // Pass the specific authority ID so the factory picks the right connector
+                const res = await fetchLiveRegistryRecord(query, sourceReference || "RA000585");
                 if (res.success) {
-                    // Show the canonical registry record (normalized form)
                     setPayload(res.payload);
                 } else {
                     setError(res.error || "Failed to fetch registry data");
@@ -69,9 +81,12 @@ export function DataInspectorPanel({
         }
     };
 
-    const searchPlaceholder = sourceType === "GLEIF" 
-        ? "Enter LEI or Company Name..." 
-        : "Enter Company Number (e.g. 07640868)...";
+    const searchPlaceholder =
+        sourceType === "GLEIF"
+            ? "Enter LEI or Company Name..."
+            : sourceReference === "RA000192"
+            ? "Enter SIREN (9 digits, e.g. 542051180)..."
+            : "Enter Company Number (e.g. 07640868)...";
 
     return (
         <Card className="flex flex-col h-[calc(100vh-12rem)] sticky top-6">

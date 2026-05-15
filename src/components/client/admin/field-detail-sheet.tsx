@@ -476,7 +476,7 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[] }: F
                                     <DialogHeader className="px-6 py-4 border-b border-slate-200 shrink-0">
                                         <DialogTitle className="flex items-center gap-2 text-sm">
                                             <ScanSearch className="h-4 w-4 text-blue-500" />
-                                            Browse {mappingForm.sourceType === "GLEIF" ? "GLEIF" : "Companies House"} Schema
+                                            Browse {SOURCE_OPTIONS.find(o => o.value === mappingForm.sourceType)?.label || mappingForm.sourceType} Schema
                                         </DialogTitle>
                                         <DialogDescription className="text-xs">
                                             Fetch a live record, then click <span className="font-semibold text-blue-600">⊕ Add</span> on any field to use it as the source path.
@@ -488,6 +488,9 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[] }: F
                                                 // DataInspectorPanel expects the backend SourceType string
                                                 SOURCE_OPTIONS.find(o => o.value === mappingForm.sourceType)?.sourceType
                                                 || mappingForm.sourceType
+                                            }
+                                            sourceReference={
+                                                SOURCE_OPTIONS.find(o => o.value === mappingForm.sourceType)?.sourceReference
                                             }
                                             existingMappings={field.sourceMappings || []}
                                             readOnly={false}
