@@ -54,15 +54,12 @@ interface OutputPackBuilderProps {
     sharedDocuments: any[];
 }
 
-type Format = "pdf" | "excel";
-
 export function OutputPackBuilder({
     engagementId,
     questionnaires,
     evidenceDocuments,
     sharedDocuments,
 }: OutputPackBuilderProps) {
-    const [format, setFormat] = useState<Format>("pdf");
 
     // Build derived data
     const docsByQuestionnaireId = new Map<string, OutputQuestionnaire["files"]>();
@@ -169,7 +166,6 @@ export function OutputPackBuilder({
     const totalSelectedFiles = selectedFiles.size + selectedDocs.size;
     const hasFiles = totalSelectedFiles > 0;
     const hasAnythingSelected = selectedQuestionnaires.size > 0 || hasFiles;
-    const outputIsZip = hasFiles;
 
     const handleGenerate = async () => {
         setIsGenerating(true);
@@ -239,35 +235,6 @@ export function OutputPackBuilder({
                     <p className="text-sm text-slate-500 mt-0.5">
                         Select questionnaires and documents to generate a downloadable output pack.
                     </p>
-                </div>
-                <div className="flex items-center gap-2">
-                    <span className="text-xs font-medium text-slate-500 uppercase tracking-wide mr-1">Questionnaire Format</span>
-                    <div className="flex bg-slate-100 rounded-lg p-0.5">
-                        <button
-                            onClick={() => setFormat("pdf")}
-                            className={cn(
-                                "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all",
-                                format === "pdf"
-                                    ? "bg-white text-red-600 shadow-sm"
-                                    : "text-slate-500 hover:text-slate-700"
-                            )}
-                        >
-                            <File className="h-3.5 w-3.5" />
-                            PDF
-                        </button>
-                        <button
-                            onClick={() => setFormat("excel")}
-                            className={cn(
-                                "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all",
-                                format === "excel"
-                                    ? "bg-white text-emerald-600 shadow-sm"
-                                    : "text-slate-500 hover:text-slate-700"
-                            )}
-                        >
-                            <FileSpreadsheet className="h-3.5 w-3.5" />
-                            Excel
-                        </button>
-                    </div>
                 </div>
             </div>
 
@@ -460,21 +427,10 @@ export function OutputPackBuilder({
                                         </>
                                     )}
                                 </div>
-                                {outputIsZip && (
+                                {hasAnythingSelected && (
                                     <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 gap-1 text-[10px]">
                                         <Archive className="h-3 w-3" />
                                         ZIP Archive
-                                    </Badge>
-                                )}
-                                {!outputIsZip && selectedQuestionnaires.size > 0 && (
-                                    <Badge variant="outline" className={cn(
-                                        "gap-1 text-[10px]",
-                                        format === "pdf"
-                                            ? "bg-red-50 text-red-600 border-red-200"
-                                            : "bg-emerald-50 text-emerald-600 border-emerald-200"
-                                    )}>
-                                        {format === "pdf" ? <File className="h-3 w-3" /> : <FileSpreadsheet className="h-3 w-3" />}
-                                        {format === "pdf" ? "PDF" : "Excel"} Output
                                     </Badge>
                                 )}
                             </div>
@@ -496,7 +452,7 @@ export function OutputPackBuilder({
                                 ) : (
                                     <>
                                         <Download className="h-4 w-4" />
-                                        Generate Output Pack
+                                        Generate Output Pack (ZIP)
                                     </>
                                 )}
                             </Button>
