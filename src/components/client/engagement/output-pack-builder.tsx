@@ -20,6 +20,7 @@ import {
     Archive,
     Loader2,
     ImageIcon,
+    FileDown,
 } from "lucide-react";
 
 // ------------------------------------------------------------------
@@ -167,6 +168,40 @@ export function OutputPackBuilder({
     const hasFiles = totalSelectedFiles > 0;
     const hasAnythingSelected = selectedQuestionnaires.size > 0 || hasFiles;
 
+    const handleDownloadQuestionnaire = async (id: string, name: string) => {
+        const toastId = toast.loading(`Generating PDF for ${name}...`);
+        try {
+            const response = await fetch(`/api/export/questionnaire/${id}`);
+            if (!response.ok) throw new Error("Failed to generate PDF");
+            
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            
+            const disposition = response.headers.get('Content-Disposition');
+            let filename = `${name.replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;
+            if (disposition && disposition.indexOf('attachment') !== -1) {
+                const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
+                const matches = filenameRegex.exec(disposition);
+                if (matches != null && matches[1]) { 
+                    filename = matches[1].replace(/['"]/g, '');
+                }
+            }
+
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+            
+            toast.success("PDF downloaded successfully", { id: toastId });
+        } catch (error) {
+            console.error(error);
+            toast.error("Failed to download PDF", { id: toastId });
+        }
+    };
+
     const handleGenerate = async () => {
         setIsGenerating(true);
         const toastId = toast.loading("Generating Output Pack...");
@@ -286,6 +321,13 @@ export function OutputPackBuilder({
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-2">
+                                            <button 
+                                                onClick={() => handleDownloadQuestionnaire(q.id, q.name)}
+                                                className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors"
+                                                title="Download questionnaire PDF"
+                                            >
+                                                <FileDown className="h-4 w-4" />
+                                            </button>
                                             {hasAttachments && (
                                                 <button
                                                     onClick={() => toggleExpand(q.id)}
