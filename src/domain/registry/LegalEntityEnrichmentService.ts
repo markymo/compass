@@ -8,7 +8,7 @@ import {
     deriveRegistryReferencesFromGleif,
     RegistryEnrichmentService
 } from "@/domain/registry";
-import { CanonicalRegistryMapper } from "@/services/kyc/normalization/CanonicalRegistryMapper";
+// CanonicalRegistryMapper removed — RegistryMappingEngine is the sole RA mapping path.
 
 const evidenceService = new EvidenceService();
 const kycWriteService = new KycWriteService();
@@ -160,21 +160,15 @@ export class LegalEntityEnrichmentService {
         if (result?.success && result.record && result.evidenceId && autoApply) {
             console.log(`[LegalEntityEnrichmentService.refreshRegistryClaims] Auto-applying claims...`);
             
-            // 1. Generate Legacy Candidates
-            const legacyCandidates = await CanonicalRegistryMapper.mapToCandidates(result.record, result.evidenceId);
-            
-            // 2. Extract New Baseline/RA Mapped Candidates
-            const newCandidates = result.candidates || [];
-            
-            // 3. Merge candidates (New Engine candidates take precedence over Legacy ones if there's a collision)
-            const allCandidates = [...legacyCandidates];
-            for (const newCand of newCandidates) {
-                const existingIdx = allCandidates.findIndex(c => c.fieldNo === newCand.fieldNo);
-                if (existingIdx !== -1) {
-                    allCandidates[existingIdx] = newCand;
-                } else {
-                    allCandidates.push(newCand);
-                }
+            // Use RegistryMappingEngine candidates only (RA-scoped, sourceReference-aware).
+            // CanonicalRegistryMapper has been removed from this flow — it ignored sourceReference scoping.
+            const allCandidates = result.candidates || [];
+
+            if (allCandidates.length === 0) {
+                console.warn(
+                    `[LegalEntityEnrichmentService.refreshRegistryClaims] No candidates produced by RegistryMappingEngine ` +
+                    `for reference ${referenceId}. Check SourceFieldMapping rows for this authority.`
+                );
             }
 
             console.log(`[LegalEntityEnrichmentService.refreshRegistryClaims] Applying ${allCandidates.length} total candidates...`);
