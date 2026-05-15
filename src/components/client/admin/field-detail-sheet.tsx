@@ -19,6 +19,7 @@ import { upsertGraphBinding, deleteGraphBinding } from "@/actions/graph-bindings
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { CategoryCombobox } from "./category-combobox";
 import { DataInspectorPanel } from "@/components/client/admin/source-mappings/data-inspector-panel";
+import { SOURCE_OPTIONS, getSourceDisplayName } from "@/lib/source-display";
 
 
 interface FieldDetailSheetProps {
@@ -100,25 +101,10 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[] }: F
         allowCreate: true,
     });
 
-    // Concrete, integrated source options shown in the Add Mapping modal.
-    // UI value → { sourceType, sourceReference } on save.
-    const SOURCE_OPTIONS = [
-        {
-            value: 'GLEIF',
-            label: 'GLEIF',
-            sourceType: 'GLEIF' as const,
-            sourceReference: null,
-        },
-        {
-            value: 'CH_RA000585',
-            label: 'Companies House (RA000585)',
-            sourceType: 'REGISTRATION_AUTHORITY' as const,
-            sourceReference: 'RA000585',
-        },
-    ];
-
     // Sources that support the live Browse inspector.
-    const liveSourceTypes = ['GLEIF', 'CH_RA000585'];
+    const liveSourceTypes = SOURCE_OPTIONS
+        .filter(o => o.supportsLiveBrowser)
+        .map(o => o.value);
 
     const handleDeleteMapping = async (mappingId: string) => {
         setDeletingMappingId(mappingId);
@@ -520,7 +506,9 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[] }: F
                                 {field.sourceMappings.sort((a: any, b: any) => (a.priority || 0) - (b.priority || 0)).map((mapping: any) => (
                                     <div key={mapping.id} className="bg-white border rounded-md p-3 text-sm flex items-center justify-between group">
                                         <div className="flex items-center gap-3 min-w-0">
-                                            <Badge variant="outline" className="bg-slate-50 shrink-0">{mapping.sourceType}</Badge>
+                                            <Badge variant="outline" className="bg-slate-50 shrink-0">
+                                                {getSourceDisplayName(mapping.sourceType, mapping.sourceReference)}
+                                            </Badge>
                                             <span className="font-mono text-xs text-slate-600 truncate" title={mapping.sourcePath}>
                                                 {mapping.sourcePath}
                                             </span>
