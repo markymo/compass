@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 import {
     FileText,
     Download,
@@ -22,52 +23,80 @@ import {
 } from "lucide-react";
 
 // ------------------------------------------------------------------
-// Mock data — replace with real props/queries when wiring up
-// ------------------------------------------------------------------
-const MOCK_QUESTIONNAIRES = [
-    {
-        id: "q1",
-        name: "Due Diligence 2026",
-        questionCount: 24,
-        answeredCount: 22,
-        files: [
-            { id: "f1", name: "Board Resolution.pdf", questionRef: "Q3", size: "240 KB" },
-            { id: "f2", name: "Certificate of Incorporation.pdf", questionRef: "Q7", size: "1.2 MB" },
-        ],
-    },
-    {
-        id: "q2",
-        name: "AML / CFT Assessment",
-        questionCount: 18,
-        answeredCount: 12,
-        files: [
-            { id: "f3", name: "AML Policy v4.docx", questionRef: "Q2", size: "380 KB" },
-            { id: "f4", name: "Transaction Monitoring Screenshot.png", questionRef: "Q11", size: "890 KB" },
-            { id: "f5", name: "KYC Onboarding Flow.pdf", questionRef: "Q14", size: "1.5 MB" },
-        ],
-    },
-    {
-        id: "q3",
-        name: "ESG Screening Questionnaire",
-        questionCount: 12,
-        answeredCount: 12,
-        files: [],
-    },
-];
-
-const MOCK_SUPPORTING_DOCS = [
-    { id: "d1", name: "Latest Annual Report 2025.pdf", size: "4.2 MB" },
-    { id: "d2", name: "Company Structure Chart.pdf", size: "580 KB" },
-    { id: "d3", name: "Regulatory Licence.pdf", size: "210 KB" },
-];
-
-// ------------------------------------------------------------------
 // Component
 // ------------------------------------------------------------------
+interface OutputQuestionnaire {
+    id: string;
+    name: string;
+    questionCount: number;
+    answeredCount: number;
+    files: {
+        id: string;
+        name: string;
+        fileUrl: string;
+        fileType: string | null;
+        questionRef: string;
+        size: string;
+    }[];
+}
+
+interface OutputDocument {
+    id: string;
+    name: string;
+    fileUrl: string;
+    size: string;
+}
+
+interface OutputPackBuilderProps {
+    engagementId: string;
+    questionnaires: any[];
+    evidenceDocuments: any[];
+    sharedDocuments: any[];
+}
+
 type Format = "pdf" | "excel";
 
-export function OutputPackBuilder() {
+export function OutputPackBuilder({
+    engagementId,
+    questionnaires,
+    evidenceDocuments,
+    sharedDocuments,
+}: OutputPackBuilderProps) {
     const [format, setFormat] = useState<Format>("pdf");
+
+    // Build derived data
+    const docsByQuestionnaireId = new Map<string, OutputQuestionnaire["files"]>();
+
+    for (const question of evidenceDocuments) {
+        if (!question.questionnaireId) continue;
+        const qFiles = docsByQuestionnaireId.get(question.questionnaireId) || [];
+        for (const doc of question.documents || []) {
+            qFiles.push({
+                id: doc.id,
+                name: doc.name,
+                fileUrl: doc.fileUrl,
+                fileType: doc.fileType,
+                questionRef: question.compactText || question.text?.substring(0, 15) + "...",
+                size: doc.kbSize ? `${doc.kbSize} KB` : "—",
+            });
+        }
+        docsByQuestionnaireId.set(question.questionnaireId, qFiles);
+    }
+
+    const outputQuestionnaires: OutputQuestionnaire[] = questionnaires.map(q => ({
+        id: q.id,
+        name: q.name,
+        questionCount: q.metrics?.total ?? 0,
+        answeredCount: q.metrics?.answered ?? 0,
+        files: docsByQuestionnaireId.get(q.id) ?? [],
+    }));
+
+    const outputDocs: OutputDocument[] = sharedDocuments.map((d: any) => ({
+        id: d.id,
+        name: d.name,
+        fileUrl: d.fileUrl,
+        size: d.kbSize ? `${d.kbSize} KB` : "—",
+    }));
 
     // Selection state
     const [selectedQuestionnaires, setSelectedQuestionnaires] = useState<Set<string>>(new Set());
@@ -87,7 +116,7 @@ export function OutputPackBuilder() {
             if (next.has(id)) {
                 next.delete(id);
                 // Also deselect its files
-                const q = MOCK_QUESTIONNAIRES.find((q) => q.id === id);
+                const q = outputQuestionnaires.find((q) => q.id === id);
                 q?.files.forEach((f) => setSelectedFiles((p) => { const n = new Set(p); n.delete(f.id); return n; }));
             } else {
                 next.add(id);
@@ -121,18 +150,18 @@ export function OutputPackBuilder() {
     };
 
     const selectAllQuestionnaires = () => {
-        if (selectedQuestionnaires.size === MOCK_QUESTIONNAIRES.length) {
+        if (selectedQuestionnaires.size === outputQuestionnaires.length) {
             setSelectedQuestionnaires(new Set());
         } else {
-            setSelectedQuestionnaires(new Set(MOCK_QUESTIONNAIRES.map((q) => q.id)));
+            setSelectedQuestionnaires(new Set(outputQuestionnaires.map((q) => q.id)));
         }
     };
 
     const selectAllDocs = () => {
-        if (selectedDocs.size === MOCK_SUPPORTING_DOCS.length) {
+        if (selectedDocs.size === outputDocs.length) {
             setSelectedDocs(new Set());
         } else {
-            setSelectedDocs(new Set(MOCK_SUPPORTING_DOCS.map((d) => d.id)));
+            setSelectedDocs(new Set(outputDocs.map((d) => d.id)));
         }
     };
 
@@ -142,9 +171,55 @@ export function OutputPackBuilder() {
     const hasAnythingSelected = selectedQuestionnaires.size > 0 || hasFiles;
     const outputIsZip = hasFiles;
 
-    const handleGenerate = () => {
+    const handleGenerate = async () => {
         setIsGenerating(true);
-        setTimeout(() => setIsGenerating(false), 2500); // Mock delay
+        const toastId = toast.loading("Generating Output Pack...");
+
+        try {
+            const response = await fetch('/api/export/output-pack', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    engagementId,
+                    questionnaireIds: Array.from(selectedQuestionnaires),
+                    documentIds: Array.from(selectedDocs).concat(Array.from(selectedFiles))
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to generate pack');
+            }
+
+            // Trigger download
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            
+            // Extract filename from Content-Disposition header
+            const disposition = response.headers.get('Content-Disposition');
+            let filename = 'output_pack.zip';
+            if (disposition && disposition.indexOf('attachment') !== -1) {
+                const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
+                const matches = filenameRegex.exec(disposition);
+                if (matches != null && matches[1]) { 
+                    filename = matches[1].replace(/['"]/g, '');
+                }
+            }
+
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+
+            toast.success("Output Pack downloaded successfully", { id: toastId });
+        } catch (error) {
+            console.error(error);
+            toast.error("Failed to generate Output Pack", { id: toastId });
+        } finally {
+            setIsGenerating(false);
+        }
     };
 
     const fileIcon = (name: string) => {
@@ -207,12 +282,12 @@ export function OutputPackBuilder() {
                         onClick={selectAllQuestionnaires}
                         className="text-xs font-medium text-indigo-600 hover:text-indigo-800 transition-colors"
                     >
-                        {selectedQuestionnaires.size === MOCK_QUESTIONNAIRES.length ? "Deselect All" : "Select All"}
+                        {selectedQuestionnaires.size === outputQuestionnaires.length && outputQuestionnaires.length > 0 ? "Deselect All" : "Select All"}
                     </button>
                 </div>
 
                 <div className="space-y-2">
-                    {MOCK_QUESTIONNAIRES.map((q) => {
+                    {outputQuestionnaires.map((q) => {
                         const isSelected = selectedQuestionnaires.has(q.id);
                         const isExpanded = expandedQuestionnaires.has(q.id);
                         const hasAttachments = q.files.length > 0;
@@ -332,13 +407,13 @@ export function OutputPackBuilder() {
                         onClick={selectAllDocs}
                         className="text-xs font-medium text-indigo-600 hover:text-indigo-800 transition-colors"
                     >
-                        {selectedDocs.size === MOCK_SUPPORTING_DOCS.length ? "Deselect All" : "Select All"}
+                        {selectedDocs.size === outputDocs.length && outputDocs.length > 0 ? "Deselect All" : "Select All"}
                     </button>
                 </div>
 
                 <Card className="border-slate-200">
                     <CardContent className="p-0 divide-y divide-slate-50">
-                        {MOCK_SUPPORTING_DOCS.map((doc) => (
+                        {outputDocs.map((doc) => (
                             <div
                                 key={doc.id}
                                 className={cn(
