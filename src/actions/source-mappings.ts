@@ -13,6 +13,8 @@ import { captureMomentumObservation } from "./momentum";
 interface UpsertMappingInput {
     id?: string; // present for update
     sourceType: SourceType;
+    /** RA scope identifier, e.g. 'RA000585'. null for GLEIF and global RA mappings. */
+    sourceReference?: string | null;
     sourcePath: string;
     targetFieldNo: number;
     confidenceDefault?: number;
@@ -195,6 +197,7 @@ export async function upsertSourceMapping(input: UpsertMappingInput) {
         // ── Upsert ──
         const data = {
             sourceType: input.sourceType,
+            sourceReference: input.sourceReference ?? null,
             sourcePath: input.sourcePath,
             targetFieldNo: input.targetFieldNo,
             confidenceDefault: confidence,

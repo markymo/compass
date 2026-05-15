@@ -100,7 +100,25 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[] }: F
         allowCreate: true,
     });
 
-    const liveSourceTypes = ["GLEIF", "REGISTRATION_AUTHORITY"];
+    // Concrete, integrated source options shown in the Add Mapping modal.
+    // UI value → { sourceType, sourceReference } on save.
+    const SOURCE_OPTIONS = [
+        {
+            value: 'GLEIF',
+            label: 'GLEIF',
+            sourceType: 'GLEIF' as const,
+            sourceReference: null,
+        },
+        {
+            value: 'CH_RA000585',
+            label: 'Companies House (RA000585)',
+            sourceType: 'REGISTRATION_AUTHORITY' as const,
+            sourceReference: 'RA000585',
+        },
+    ];
+
+    // Sources that support the live Browse inspector.
+    const liveSourceTypes = ['GLEIF', 'CH_RA000585'];
 
     const handleDeleteMapping = async (mappingId: string) => {
         setDeletingMappingId(mappingId);
@@ -121,8 +139,15 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[] }: F
         }
         setIsMappingSaving(true);
         try {
+            // Resolve UI selection to backend sourceType + sourceReference.
+            const selectedOption = SOURCE_OPTIONS.find(o => o.value === mappingForm.sourceType);
+            if (!selectedOption) {
+                toast.error("Please select a valid source");
+                return;
+            }
             const res = await upsertSourceMapping({
-                sourceType: mappingForm.sourceType as any,
+                sourceType: selectedOption.sourceType,
+                sourceReference: selectedOption.sourceReference,
                 sourcePath: mappingForm.sourcePath.trim(),
                 targetFieldNo: field.fieldNo,
                 transformType: mappingForm.transformType as any,
@@ -402,9 +427,11 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[] }: F
                                                     <SelectValue placeholder="Select type" />
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                    <SelectItem value="GLEIF">GLEIF</SelectItem>
-                                                    <SelectItem value="REGISTRATION_AUTHORITY">Registration Authority</SelectItem>
-                                                    <SelectItem value="USER_INPUT">User Input / Other</SelectItem>
+                                                    {SOURCE_OPTIONS.map(opt => (
+                                                        <SelectItem key={opt.value} value={opt.value}>
+                                                            {opt.label}
+                                                        </SelectItem>
+                                                    ))}
                                                 </SelectContent>
                                             </Select>
                                         </div>
@@ -463,7 +490,7 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[] }: F
                                     <DialogHeader className="px-6 py-4 border-b border-slate-200 shrink-0">
                                         <DialogTitle className="flex items-center gap-2 text-sm">
                                             <ScanSearch className="h-4 w-4 text-blue-500" />
-                                            Browse {mappingForm.sourceType === "GLEIF" ? "GLEIF" : "Registry"} Schema
+                                            Browse {mappingForm.sourceType === "GLEIF" ? "GLEIF" : "Companies House"} Schema
                                         </DialogTitle>
                                         <DialogDescription className="text-xs">
                                             Fetch a live record, then click <span className="font-semibold text-blue-600">⊕ Add</span> on any field to use it as the source path.
@@ -471,7 +498,11 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[] }: F
                                     </DialogHeader>
                                     <div className="flex-1 overflow-hidden p-4">
                                         <DataInspectorPanel
-                                            sourceType={mappingForm.sourceType}
+                                            sourceType={
+                                                // DataInspectorPanel expects the backend SourceType string
+                                                SOURCE_OPTIONS.find(o => o.value === mappingForm.sourceType)?.sourceType
+                                                || mappingForm.sourceType
+                                            }
                                             existingMappings={field.sourceMappings || []}
                                             readOnly={false}
                                             onSelectPath={(path) => {
