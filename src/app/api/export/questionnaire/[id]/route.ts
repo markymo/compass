@@ -24,7 +24,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
             include: { fiEngagement: { include: { org: true } } }
         });
 
-        if (!questionnaire) {
+        if (!questionnaire || questionnaire.isDeleted) {
             return NextResponse.json({ error: "Questionnaire not found" }, { status: 404 });
         }
 

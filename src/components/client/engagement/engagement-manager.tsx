@@ -265,7 +265,7 @@ export function EngagementManager({ leId, initialEngagements, leDueDate }: Engag
                                                 <Link 
                                                     href={`/app/le/${leId}/workbench4?rel=${encodeURIComponent(typeof eng.org === 'string' ? eng.org : eng.org?.name)}&q=${encodeURIComponent(q.name)}`}
                                                     className="p-1.5 rounded-md hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 transition-colors"
-                                                    title="Open in Workbench"
+                                                    title="Open"
                                                 >
                                                     <ArrowUpRight className="h-3.5 w-3.5" />
                                                 </Link>

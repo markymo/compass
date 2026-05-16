@@ -276,7 +276,7 @@ export function EngagementDetailView({ le, engagement, questionnaires, sharedDoc
                                                                         <DropdownMenuItem asChild>
                                                                             <Link href={`/app/le/${le.id}/workbench4?rel=${encodeURIComponent(engagement.org.name)}&q=${encodeURIComponent(q.name)}`}>
                                                                                 <Sparkles className="h-4 w-4 mr-2" />
-                                                                                Open in Workbench
+                                                                                Open
                                                                             </Link>
                                                                         </DropdownMenuItem>
                                                                         <DropdownMenuItem asChild>

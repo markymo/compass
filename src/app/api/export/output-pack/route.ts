@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
 
         // --- Prepare Metadata & Data ---
         const dbQuestionnaires = await prisma.questionnaire.findMany({
-            where: { id: { in: questionnaireIds } },
+            where: { id: { in: questionnaireIds }, isDeleted: false },
             select: { id: true, name: true }
         });
 
