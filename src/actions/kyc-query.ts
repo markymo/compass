@@ -533,6 +533,7 @@ export async function getConsoleQuestions(leId: string, includeLocked: boolean =
                 select: { name: true }
             },
             questionnaires: {
+                where: { isDeleted: false },
                 include: {
                     questions: {
                         where: includeLocked ? undefined : { isLocked: false },
@@ -541,6 +542,7 @@ export async function getConsoleQuestions(leId: string, includeLocked: boolean =
                 }
             },
             questionnaireInstances: {
+                where: { isDeleted: false },
                 include: {
                     questions: {
                         where: includeLocked ? undefined : { isLocked: false },
