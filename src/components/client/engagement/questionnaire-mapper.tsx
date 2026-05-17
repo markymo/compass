@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,7 +13,7 @@ import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, Save, Sparkles, AlertCircle, CheckCircle2, ChevronRight, Search, LayoutList, LayoutTemplate, Check, Plus, Settings, Pencil, Paperclip, RefreshCw } from "lucide-react";
+import { Loader2, Save, Sparkles, AlertCircle, CheckCircle2, ChevronRight, Search, LayoutList, LayoutTemplate, Check, Plus, Settings, Pencil, Paperclip, RefreshCw, Cloud, CloudOff } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
@@ -90,6 +90,13 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
     const [selectedQuestionId, setSelectedQuestionId] = useState<string | null>(null);
     const [filter, setFilter] = useState("");
 
+    // Auto-save state
+    type SaveStatus = 'idle' | 'pending' | 'saving' | 'saved' | 'error';
+    const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
+    const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    // Stable ref so the debounced callback always sees the latest questions array
+    const questionsRef = useRef<any[]>([]);
+    const questionnaireRef = useRef<any>(null);
 
     // UX State
     const [confidenceThreshold, setConfidenceThreshold] = useState(70); // Default 70%
@@ -112,6 +119,14 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
             editorScrollRef.current.scrollTop = 0;
         }
     }, [selectedQuestionId]);
+
+    // Keep refs in sync so the debounced save closure always reads current state
+    useEffect(() => {
+        questionsRef.current = questions;
+    }, [questions]);
+    useEffect(() => {
+        questionnaireRef.current = questionnaire;
+    }, [questionnaire]);
 
     useEffect(() => {
         loadData();
@@ -194,37 +209,60 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
         }
     };
 
-    const handleSave = async () => {
+    // Core save logic — used by both manual Save button and auto-save
+    const executeSave = useCallback(async (qs: any[], q: any, silent = false) => {
+        if (!q) return;
         setSaving(true);
+        setSaveStatus('saving');
         try {
-            if (!questionnaire) return;
-
-            // Map back to format expected by backend
-            const itemsToSave = questions.map((q: any) => ({
+            const itemsToSave = qs.map((item: any) => ({
                 type: "question",
-                text: q.text,
-                originalText: q.originalText || q.text,
-                compactText: q.compactText || null, // DO NOT hard-save substring fallback
-                order: q.order,
-                masterFieldNo: q.masterFieldNo,
-                masterQuestionGroupId: q.masterQuestionGroupId,
-                customFieldDefinitionId: q.customFieldDefinitionId,
-                // Persist AI metadata if useful, though backend might not store it on 'Question' model directly unless schema updated
-                // For now, we only save the IDs
+                text: item.text,
+                originalText: item.originalText || item.text,
+                compactText: item.compactText || null,
+                order: item.order,
+                masterFieldNo: item.masterFieldNo,
+                masterQuestionGroupId: item.masterQuestionGroupId,
+                customFieldDefinitionId: item.customFieldDefinitionId,
+                allowAttachments: item.allowAttachments,
             }));
-
-            const result = await saveQuestionnaireChanges(questionnaire.id, itemsToSave);
+            const result = await saveQuestionnaireChanges(q.id, itemsToSave);
             if (result.success) {
-                toast.success("Mappings saved successfully");
+                setSaveStatus('saved');
+                if (!silent) toast.success("Mappings saved");
+                // Clear 'saved' badge after 3s
+                setTimeout(() => setSaveStatus('idle'), 3000);
             } else {
-                toast.error(result.error || "Failed to save");
+                setSaveStatus('error');
+                if (!silent) toast.error(result.error || "Failed to save");
             }
         } catch (error) {
-            toast.error("Error saving changes");
+            setSaveStatus('error');
+            if (!silent) toast.error("Error saving changes");
         } finally {
             setSaving(false);
         }
+    }, []);
+
+    const handleSave = () => {
+        // Cancel any pending auto-save and run immediately
+        if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+        executeSave(questionsRef.current, questionnaireRef.current, false);
     };
+
+    // Schedule a debounced auto-save (1.5s after last mapping change)
+    const scheduleAutoSave = useCallback(() => {
+        if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+        setSaveStatus('pending');
+        autoSaveTimerRef.current = setTimeout(() => {
+            executeSave(questionsRef.current, questionnaireRef.current, true);
+        }, 1500);
+    }, [executeSave]);
+
+    // Cleanup on unmount
+    useEffect(() => () => {
+        if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    }, []);
 
     const handleAutoMap = async () => {
         if (!confirm(`Auto-Map will use AI to suggest mappings with >${confidenceThreshold}% confidence. Continue?`)) return;
@@ -278,7 +316,11 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
         }
     };
 
+    // Mapping fields that should trigger auto-save when changed
+    const MAPPING_FIELDS = new Set(['masterFieldNo', 'masterQuestionGroupId', 'customFieldDefinitionId', 'allowAttachments']);
+
     const updateQuestion = (id: string, updates: any) => {
+        const isMappingChange = Object.keys(updates).some(k => MAPPING_FIELDS.has(k));
         setQuestions(prev => prev.map((q: any) => {
             if (q.id === id) {
                 const updated = { ...q, ...updates };
@@ -299,6 +341,8 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
             }
             return q;
         }));
+        // Only auto-save for mapping changes, not for text/compactText edits
+        if (isMappingChange) scheduleAutoSave();
     };
 
     const handleAddQuestion = () => {
@@ -581,6 +625,31 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
+                    {/* Auto-save status indicator */}
+                    {saveStatus === 'pending' && (
+                        <span className="text-xs text-slate-400 flex items-center gap-1">
+                            <span className="h-1.5 w-1.5 rounded-full bg-slate-300 animate-pulse" />
+                            Unsaved changes
+                        </span>
+                    )}
+                    {saveStatus === 'saving' && (
+                        <span className="text-xs text-indigo-500 flex items-center gap-1">
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                            Saving…
+                        </span>
+                    )}
+                    {saveStatus === 'saved' && (
+                        <span className="text-xs text-emerald-600 flex items-center gap-1">
+                            <Cloud className="h-3 w-3" />
+                            Saved
+                        </span>
+                    )}
+                    {saveStatus === 'error' && (
+                        <span className="text-xs text-red-500 flex items-center gap-1">
+                            <CloudOff className="h-3 w-3" />
+                            Save failed
+                        </span>
+                    )}
                     <Button variant="outline" size="sm" onClick={handleAutoMap} disabled={analyzing} className="border-indigo-200 text-indigo-700 hover:bg-indigo-50">
                         {analyzing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
                         Auto-Map

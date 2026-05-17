@@ -966,6 +966,128 @@ export async function getQuestionnaireSnapshots(templateId: string) {
     }
 }
 
+/**
+ * Idempotent version of "add questionnaire to engagement".
+ *
+ * The core problem this solves: every time an admin opens the "Add from Library"
+ * dialog and clicks a questionnaire template, `createQuestionnaire` was called
+ * unconditionally, producing a new Questionnaire row each time — even if an
+ * identical instance already existed for that engagement.
+ *
+ * This function checks for an existing, non-deleted instance first:
+ *   - If one exists → returns it (no new row created)
+ *   - If none exists → clones the template and creates one
+ *
+ * Call this instead of bare createQuestionnaire when assigning from the library.
+ */
+export async function assignQuestionnaireToEngagement(
+    templateId: string,
+    engagementId: string,
+) {
+    "use server";
+
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+
+    // Load the template
+    const template = await prisma.questionnaire.findUnique({
+        where: { id: templateId },
+        include: { questions: true },
+    });
+    if (!template) return { success: false, error: "Template not found" };
+
+    const engagement = await prisma.fIEngagement.findUnique({
+        where: { id: engagementId },
+    });
+    if (!engagement) return { success: false, error: "Engagement not found" };
+
+    // Auth: user must be able to edit this engagement
+    try {
+        await ensureAuthorization(Action.ENG_EDIT_DRAFT_RESPONSES, { engagementId });
+    } catch {
+        return { success: false, error: "Unauthorized" };
+    }
+
+    // IDEMPOTENCY CHECK — look for an existing non-deleted instance for this
+    // engagement that was cloned from this template (same name, same fiOrgId, same engagement)
+    const existing = await prisma.questionnaire.findFirst({
+        where: {
+            fiEngagementId: engagementId,
+            fiOrgId: engagement.fiOrgId,
+            name: template.name,
+            isDeleted: false,
+        },
+        orderBy: { createdAt: "desc" },
+    });
+
+    if (existing) {
+        console.log(`[assignQuestionnaireToEngagement] Returning existing instance ${existing.id} for engagement ${engagementId}`);
+        return { success: true, id: existing.id, created: false };
+    }
+
+    // No existing instance — create one
+    try {
+        const extractedToCopy = template.extractedContent
+            ? JSON.parse(JSON.stringify(template.extractedContent))
+            : undefined;
+        const mappingsToCopy = template.mappings
+            ? JSON.parse(JSON.stringify(template.mappings))
+            : undefined;
+
+        const instance = await prisma.questionnaire.create({
+            data: {
+                fiOrgId: engagement.fiOrgId,
+                fiEngagementId: engagementId,
+                name: template.name,
+                status: "ACTIVE",
+                extractedContent: extractedToCopy,
+                mappings: mappingsToCopy,
+                isGlobal: false,
+                isTemplate: false,
+                fileUrl: template.fileUrl,
+                fileName: template.fileName,
+                fileType: template.fileType,
+            },
+        });
+
+        // Clone question rows including all mapping fields
+        if (template.questions.length > 0) {
+            await prisma.question.createMany({
+                data: template.questions.map((q: any) => ({
+                    questionnaireId: instance.id,
+                    text: q.text,
+                    compactText: q.compactText,
+                    order: q.order,
+                    masterFieldNo: q.masterFieldNo,
+                    masterQuestionGroupId: q.masterQuestionGroupId,
+                    customFieldDefinitionId: q.customFieldDefinitionId,
+                    sourceSectionId: q.sourceSectionId,
+                    expectedDataType: q.expectedDataType,
+                    allowAttachments: q.allowAttachments,
+                    prefilledValue: q.prefilledValue,
+                    status: "DRAFT" as any,
+                })),
+            });
+        }
+
+        await logActivity("ASSIGN_QUESTIONNAIRE_TO_ENGAGEMENT", `/app/admin/questionnaires/${instance.id}`, {
+            templateId,
+            engagementId,
+            instanceId: instance.id,
+            name: instance.name,
+        });
+
+        revalidatePath(`/app/admin/questionnaires`);
+        revalidatePath(`/app/admin/questionnaires/${instance.id}`);
+        revalidatePath(`/app/le`);
+
+        console.log(`[assignQuestionnaireToEngagement] Created new instance ${instance.id} for engagement ${engagementId}`);
+        return { success: true, id: instance.id, created: true };
+    } catch (e: any) {
+        console.error("[assignQuestionnaireToEngagement] ERROR:", e);
+        return { success: false, error: e.message || "Failed to create instance" };
+    }
+}
 
 export async function cloneQuestionnaire(sourceId: string, newFIOrgId?: string, newName?: string) {
     let targetFiId = newFIOrgId;
