@@ -312,6 +312,7 @@ export async function getFIEngagements(fiOrgId?: string): Promise<ApplicationEng
             },
             org: true,
             questionnaireInstances: { // Fetch Instances instead of Templates
+                where: { isDeleted: false },
                 select: {
                     id: true,
                     name: true,
@@ -534,6 +535,7 @@ export async function getFIEngagementById(id: string): Promise<ApplicationEngage
             },
             org: true,
             questionnaireInstances: {
+                where: { isDeleted: false },
                 include: {
                     questions: {
                         orderBy: { order: 'asc' }
