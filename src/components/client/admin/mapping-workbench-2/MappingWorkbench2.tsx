@@ -1,8 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Wb2PageData, Wb2SourceData } from "@/actions/mapping-workbench-2";
-import { Layers3 } from "lucide-react";
+import { Wb2PageData } from "@/actions/mapping-workbench-2";
+import { Layers3, RotateCcw } from "lucide-react";
 import { SourceColumn } from "./SourceColumn";
 import { MasterDataColumn } from "./MasterDataColumn";
 import { QuestionsColumn } from "./QuestionsColumn";
@@ -103,6 +103,7 @@ function computeHighlights(
 
 export function MappingWorkbench2({ data }: { data: Wb2PageData }) {
     const [selection, setSelection] = useState<Selection>(null);
+    const [resetKey, setResetKey] = useState(0);
     // Multi-source selection — default GLEIF + Companies House ticked
     const [activeSources, setActiveSources] = useState<string[]>(
         () => data.sources
@@ -122,11 +123,17 @@ export function MappingWorkbench2({ data }: { data: Wb2PageData }) {
         setSelection(next);
     }
 
+    function handleReset() {
+        setSelection(null);
+        setResetKey(k => k + 1); // remounts columns, clearing all search/filter state
+    }
+
     function handleSourceToggle(key: string) {
         setActiveSources(prev =>
             prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
         );
     }
+
 
     const activeQnaire = data.questionnaires.find(q => q.id === activeQnaireId) ?? data.questionnaires[0];
 
@@ -143,19 +150,30 @@ export function MappingWorkbench2({ data }: { data: Wb2PageData }) {
                         Source&nbsp;→&nbsp;Master Data&nbsp;→&nbsp;Questions &nbsp;·&nbsp; Click any item to trace relationships
                     </p>
                 </div>
-                {highlights.hasSelection && (
+                <div className="ml-auto flex items-center gap-2">
+                    {highlights.hasSelection && (
+                        <button
+                            onClick={() => setSelection(null)}
+                            className="text-xs text-slate-400 hover:text-slate-600 border border-slate-200 rounded-md px-3 py-1.5 hover:bg-slate-50 transition-colors"
+                        >
+                            Clear selection
+                        </button>
+                    )}
                     <button
-                        onClick={() => setSelection(null)}
-                        className="ml-auto text-xs text-slate-400 hover:text-slate-600 border border-slate-200 rounded-md px-3 py-1.5 hover:bg-slate-50 transition-colors"
+                        onClick={handleReset}
+                        className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 border border-slate-200 rounded-md px-3 py-1.5 hover:bg-slate-50 transition-colors"
+                        title="Reset all filters and selections"
                     >
-                        Clear selection
+                        <RotateCcw className="w-3.5 h-3.5" />
+                        Reset
                     </button>
-                )}
+                </div>
             </div>
 
             {/* Three-column grid */}
             <div className="flex gap-3 flex-1 min-h-0">
                 <SourceColumn
+                    key={`source-${resetKey}`}
                     sources={data.sources}
                     activeSources={activeSources}
                     onSourceToggle={handleSourceToggle}
@@ -164,6 +182,7 @@ export function MappingWorkbench2({ data }: { data: Wb2PageData }) {
                     onSelect={handleSelect}
                 />
                 <MasterDataColumn
+                    key={`master-${resetKey}`}
                     fields={data.masterFields}
                     mappedCount={data.masterFieldsMappedCount}
                     unmappedCount={data.masterFieldsUnmappedCount}
@@ -173,6 +192,7 @@ export function MappingWorkbench2({ data }: { data: Wb2PageData }) {
                     sources={data.sources}
                 />
                 <QuestionsColumn
+                    key={`questions-${resetKey}`}
                     questionnaires={data.questionnaires}
                     activeQnaireId={activeQnaire?.id ?? ""}
                     onQnaireChange={setActiveQnaireId}
