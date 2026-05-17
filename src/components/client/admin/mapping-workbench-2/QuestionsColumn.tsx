@@ -41,12 +41,14 @@ interface Props {
     selection: Selection;
     highlights: RelationshipHighlights;
     onSelect: (s: Selection) => void;
+    /** Live resolved values for the currently selected field, keyed by sourceKey */
+    fieldLiveValues: Record<string, string>;
 }
 
 // ── Main component ──────────────────────────────────────────────────────────
 export function QuestionsColumn({
     questionnaires, activeQnaireId, onQnaireChange,
-    selection, highlights, onSelect,
+    selection, highlights, onSelect, fieldLiveValues,
 }: Props) {
     const router = useRouter();
     const [search, setSearch] = useState("");
@@ -134,6 +136,18 @@ export function QuestionsColumn({
                             ? "No questions linked to this field — click + below to link one"
                             : `${section1Questions.length} question${section1Questions.length !== 1 ? "s" : ""} linked · click + to add more`}
                     </p>
+                    {/* Live example values for this field */}
+                    {Object.keys(fieldLiveValues).length > 0 && (
+                        <div className="mt-1 space-y-0.5">
+                            {Object.entries(fieldLiveValues).map(([src, val]) => (
+                                <div key={src} className="flex items-center gap-1.5">
+                                    <span className="text-[9px] font-bold uppercase tracking-wide text-emerald-600">Live</span>
+                                    <code className="text-[10px] font-mono text-emerald-700 bg-emerald-50 border border-emerald-100 rounded px-1.5 py-0.5 truncate max-w-[180px]">{val}</code>
+                                    <span className="text-[9px] text-violet-400 shrink-0">{src.split("_")[0]}</span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
 
                 <div className="flex-1 overflow-y-auto">

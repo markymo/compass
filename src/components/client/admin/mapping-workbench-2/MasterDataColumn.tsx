@@ -37,6 +37,7 @@ interface SlideOverState {
     sourcePath: string;
     sourceLabel: string;
     pathMeaning: string | null;
+    exampleValue: string | null;
     targetFieldNo: number;
     targetFieldName: string;
     existingMapping: Wb2PathMapping | null;
@@ -49,6 +50,7 @@ const CLOSED_SLIDE_OVER: SlideOverState = {
     sourcePath: "",
     sourceLabel: "",
     pathMeaning: null,
+    exampleValue: null,
     targetFieldNo: 0,
     targetFieldName: "",
     existingMapping: null,
@@ -138,6 +140,7 @@ export function MasterDataColumn({ fields, mappedCount, unmappedCount, selection
             sourcePath: pathSelection!.path,
             sourceLabel: selectedSource.label,
             pathMeaning: selectedPathData.meaning,
+            exampleValue: selectedPathData.exampleValue,
             targetFieldNo,
             targetFieldName,
             existingMapping: null,
@@ -153,6 +156,7 @@ export function MasterDataColumn({ fields, mappedCount, unmappedCount, selection
             sourcePath: pathSelection!.path,
             sourceLabel: selectedSource.label,
             pathMeaning: selectedPathData.meaning,
+            exampleValue: selectedPathData.exampleValue,
             targetFieldNo: mapping.targetFieldNo,
             targetFieldName: mapping.targetFieldName ?? `F${mapping.targetFieldNo}`,
             existingMapping: mapping,

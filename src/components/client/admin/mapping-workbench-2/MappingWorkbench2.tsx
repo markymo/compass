@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { Wb2PageData } from "@/actions/mapping-workbench-2";
-import { Layers3, RotateCcw } from "lucide-react";
+import { Layers3, RotateCcw, Wifi } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { SourceColumn } from "./SourceColumn";
 import { MasterDataColumn } from "./MasterDataColumn";
 import { QuestionsColumn } from "./QuestionsColumn";
@@ -137,6 +138,12 @@ export function MappingWorkbench2({ data }: { data: Wb2PageData }) {
 
     const activeQnaire = data.questionnaires.find(q => q.id === activeQnaireId) ?? data.questionnaires[0];
 
+    // Live example values for the currently selected master field
+    const selectedFieldLiveValues = useMemo(() => {
+        if (selection?.kind !== "field") return {};
+        return data.masterFields.find(f => f.fieldNo === selection.fieldNo)?.liveValues ?? {};
+    }, [selection, data.masterFields]);
+
     return (
         <div className="flex flex-col h-[calc(100vh-8rem)]">
             {/* Header */}
@@ -147,8 +154,22 @@ export function MappingWorkbench2({ data }: { data: Wb2PageData }) {
                 <div>
                     <h1 className="text-2xl font-bold tracking-tight text-slate-900">Mapping Workbench Idea 2</h1>
                     <p className="text-sm text-slate-500">
-                        Source&nbsp;→&nbsp;Master Data&nbsp;→&nbsp;Questions &nbsp;·&nbsp; Click any item to trace relationships
+                        Source → Master Data → Questions  ·  Click any item to trace relationships
                     </p>
+                    {/* Live entity refs */}
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                        <Wifi className="w-3 h-3 text-emerald-500 shrink-0" />
+                        {data.liveEntityRefs.map(ref => (
+                            <span key={ref.sourceKey} className={cn(
+                                "text-[10px] px-2 py-0.5 rounded-full font-medium border",
+                                ref.ok
+                                    ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                                    : "bg-slate-50 border-slate-200 text-slate-400"
+                            )}>
+                                {ref.ok ? ref.entityName ?? ref.entityId : `${ref.entityId} (offline)`}
+                            </span>
+                        ))}
+                    </div>
                 </div>
                 <div className="ml-auto flex items-center gap-2">
                     {highlights.hasSelection && (
@@ -199,6 +220,7 @@ export function MappingWorkbench2({ data }: { data: Wb2PageData }) {
                     selection={selection}
                     highlights={highlights}
                     onSelect={handleSelect}
+                    fieldLiveValues={selectedFieldLiveValues}
                 />
             </div>
         </div>

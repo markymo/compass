@@ -44,11 +44,18 @@ export interface Wb2MasterField {
     isMultiValue: boolean;
     categoryName: string | null;
     description: string | null;
-    /** Which source keys have active mappings to this field */
     mappedBySources: string[];
-    /** How many questionnaire questions reference this field */
     questionCount: number;
     hasError: boolean;
+    /** Live resolved value per sourceKey — only populated when live fetch succeeded */
+    liveValues: Record<string, string>;
+}
+
+export interface Wb2LiveEntityRef {
+    sourceKey: string;
+    entityId: string;
+    entityName: string | null;
+    ok: boolean;
 }
 
 export interface Wb2Question {
@@ -61,7 +68,6 @@ export interface Wb2Question {
     customFieldDefinitionId: string | null;
     status: string;
     isMapped: boolean;
-    /** Which source keys ultimately supply this question (via master field) */
     sourcedFrom: string[];
 }
 
@@ -79,6 +85,7 @@ export interface Wb2PageData {
     masterFieldsMappedCount: number;
     masterFieldsUnmappedCount: number;
     questionnaires: Wb2Questionnaire[];
+    liveEntityRefs: Wb2LiveEntityRef[];
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -116,13 +123,97 @@ function resolveValue(obj: any, path: string): string | null {
     } catch { return null; }
 }
 
+// ── Demo entity IDs for live example data ──────────────────────────────────
+
+const DEMO_ENTITIES = {
+    GLEIF:       { lei: "213800SN8QHYGA7QUF79",  internalKey: "GLEIF" },
+    CH_RA000585: { companyNo: "04155137",          internalKey: "REGISTRATION_AUTHORITY:RA000585" },
+    FR_RA000192: { siren: "542051180",             internalKey: "REGISTRATION_AUTHORITY:RA000192" },
+};
+
+/** Fetch live entity data for the three demo entities. Returns Map<internalKey, payload>. */
+async function fetchLivePayloads(): Promise<{ payloads: Map<string, any>; refs: Wb2LiveEntityRef[] }> {
+    const payloads = new Map<string, any>();
+    const refs: Wb2LiveEntityRef[] = [];
+
+    const [gleif, ch, fr] = await Promise.allSettled([
+        // GLEIF — public API, no key needed
+        fetch(`https://api.gleif.org/api/v1/lei-records?filter[lei]=${DEMO_ENTITIES.GLEIF.lei}`,
+            { headers: { Accept: "application/vnd.api+json" }, next: { revalidate: 3600 } })
+            .then(r => r.json())
+            .then(j => j.data?.[0]?.attributes ?? null),
+
+        // Companies House
+        (async () => {
+            const apiKey = process.env.COMPANIES_HOUSE_API_KEY;
+            if (!apiKey) return null;
+            const auth = `Basic ${Buffer.from(apiKey + ":").toString("base64")}`;
+            const profile = await fetch(
+                `https://api.company-information.service.gov.uk/company/${DEMO_ENTITIES.CH_RA000585.companyNo}`,
+                { headers: { Authorization: auth }, next: { revalidate: 3600 } }
+            ).then(r => r.json());
+            const addr = profile.registered_office_address ?? {};
+            return {
+                entityName: profile.company_name ?? null,
+                entityStatus: profile.company_status ?? null,
+                incorporationDate: profile.date_of_creation ?? null,
+                registeredAddress: {
+                    lines: [addr.address_line_1, addr.address_line_2].filter(Boolean),
+                    city: addr.locality ?? null,
+                    region: addr.region ?? null,
+                    country: addr.country ?? null,
+                    postalCode: addr.postal_code ?? null,
+                },
+            };
+        })(),
+
+        // French Registry — public API
+        fetch(`https://recherche-entreprises.api.gouv.fr/search?q=${DEMO_ENTITIES.FR_RA000192.siren}&page=1&per_page=1`,
+            { headers: { Accept: "application/json", "User-Agent": "CoParity-Admin/1.0" }, next: { revalidate: 3600 } })
+            .then(r => r.json())
+            .then(d => {
+                const c = d.results?.[0];
+                if (!c || c.siren !== DEMO_ENTITIES.FR_RA000192.siren) return null;
+                const siege = c.siege ?? {};
+                return {
+                    entityName: c.nom_raison_sociale || c.nom_complet || null,
+                    entityStatus: c.etat_administratif ?? null,
+                    incorporationDate: c.date_creation ?? null,
+                    registeredAddress: {
+                        lines: [siege.adresse].filter(Boolean),
+                        city: siege.libelle_commune ?? null,
+                        country: "FR",
+                        postalCode: siege.code_postal ?? null,
+                    },
+                };
+            }),
+    ]);
+
+    // GLEIF
+    const gleifPayload = gleif.status === "fulfilled" ? gleif.value : null;
+    payloads.set(DEMO_ENTITIES.GLEIF.internalKey, gleifPayload);
+    refs.push({ sourceKey: "GLEIF", entityId: DEMO_ENTITIES.GLEIF.lei, entityName: (gleifPayload as any)?.entity?.legalName?.name ?? null, ok: !!gleifPayload });
+
+    // CH
+    const chPayload = ch.status === "fulfilled" ? ch.value : null;
+    payloads.set(DEMO_ENTITIES.CH_RA000585.internalKey, chPayload);
+    refs.push({ sourceKey: "CH_RA000585", entityId: DEMO_ENTITIES.CH_RA000585.companyNo, entityName: (chPayload as any)?.entityName ?? null, ok: !!chPayload });
+
+    // FR
+    const frPayload = fr.status === "fulfilled" ? fr.value : null;
+    payloads.set(DEMO_ENTITIES.FR_RA000192.internalKey, frPayload);
+    refs.push({ sourceKey: "FR_RA000192", entityId: DEMO_ENTITIES.FR_RA000192.siren, entityName: (frPayload as any)?.entityName ?? null, ok: !!frPayload });
+
+    return { payloads, refs };
+}
+
 // ── Main action ────────────────────────────────────────────────────────────
 
 export async function getMappingWorkbench2Data(): Promise<Wb2PageData> {
     const isAdmin = await isSystemAdmin();
     if (!isAdmin) throw new Error("Unauthorized");
 
-    const [allMappings, fieldDefs, samplePayloads, questionnaires, groups] = await Promise.all([
+    const [allMappings, fieldDefs, samplePayloads, questionnaires, groups, liveData] = await Promise.all([
         prisma.sourceFieldMapping.findMany({
             orderBy: [{ sourceType: "asc" }, { priority: "asc" }],
         }),
@@ -156,6 +247,7 @@ export async function getMappingWorkbench2Data(): Promise<Wb2PageData> {
             where: { isActive: true },
             select: { key: true, label: true },
         }),
+        fetchLivePayloads(),
     ]);
 
     // ── Index maps ──────────────────────────────────────────────────────
@@ -199,7 +291,9 @@ export async function getMappingWorkbench2Data(): Promise<Wb2PageData> {
             : opt.sourceType;
 
         const sourceMappings = mappingsBySource.get(internalKey) ?? [];
-        const samplePayload = sampleBySourceType.get(opt.sourceType);
+        // Use live payload if available, fall back to stored sample
+        const livePayload = liveData.payloads.get(internalKey) ?? null;
+        const samplePayload = livePayload ?? sampleBySourceType.get(opt.sourceType) ?? null;
 
         // All paths: from sample payload + from existing mappings
         const samplePaths = samplePayload ? flattenPaths(samplePayload) : [];
@@ -267,6 +361,25 @@ export async function getMappingWorkbench2Data(): Promise<Wb2PageData> {
         }
     }
 
+    // fieldNo → live resolved value per sourceKey (first active mapping wins)
+    const fieldLiveValues = new Map<number, Record<string, string>>();
+    for (const m of allMappings) {
+        if (!m.isActive) continue;
+        const internalKey = m.sourceReference ? `${m.sourceType}:${m.sourceReference}` : m.sourceType;
+        const livePayload = liveData.payloads.get(internalKey);
+        if (!livePayload) continue;
+        const val = resolveValue(livePayload, m.sourcePath);
+        if (!val) continue;
+        // Find the sourceKey for this internalKey
+        const srcOpt = SOURCE_OPTIONS.find((o: SourceOption) =>
+            (o.sourceReference ? `${o.sourceType}:${o.sourceReference}` : o.sourceType) === internalKey
+        );
+        const sourceKey = srcOpt?.value ?? internalKey;
+        const existing = fieldLiveValues.get(m.targetFieldNo) ?? {};
+        if (!existing[sourceKey]) { existing[sourceKey] = val; }
+        fieldLiveValues.set(m.targetFieldNo, existing);
+    }
+
     const masterFields: Wb2MasterField[] = fieldDefs.map((f: any) => {
         const sources = fieldSourceMap.get(f.fieldNo);
         const mappedBySources = sources ? [...sources] : [];
@@ -282,6 +395,7 @@ export async function getMappingWorkbench2Data(): Promise<Wb2PageData> {
             mappedBySources,
             questionCount: fieldQuestionCount.get(f.fieldNo) ?? 0,
             hasError,
+            liveValues: fieldLiveValues.get(f.fieldNo) ?? {},
         };
     });
 
@@ -334,5 +448,7 @@ export async function getMappingWorkbench2Data(): Promise<Wb2PageData> {
         masterFieldsMappedCount,
         masterFieldsUnmappedCount,
         questionnaires: wb2Questionnaires,
+        liveEntityRefs: liveData.refs,
+
     };
 }

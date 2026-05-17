@@ -39,6 +39,7 @@ export interface MappingSlideOverProps {
     sourcePath: string;
     sourceLabel: string;
     pathMeaning: string | null;
+    exampleValue: string | null;
 
     // Target side
     targetFieldNo: number;
@@ -50,7 +51,7 @@ export interface MappingSlideOverProps {
 
 export function MappingSlideOver({
     open, onOpenChange, onSuccess,
-    sourceType, sourceReference, sourcePath, sourceLabel, pathMeaning,
+    sourceType, sourceReference, sourcePath, sourceLabel, pathMeaning, exampleValue,
     targetFieldNo, targetFieldName,
     existingMapping,
 }: MappingSlideOverProps) {
@@ -160,6 +161,12 @@ export function MappingSlideOver({
                             <code className="text-xs font-mono text-slate-800 break-all">{sourcePath}</code>
                             {pathMeaning && (
                                 <p className="text-[11px] text-slate-500">{pathMeaning}</p>
+                            )}
+                            {exampleValue && (
+                                <div className="mt-1.5 flex items-center gap-1.5">
+                                    <span className="text-[9px] font-bold uppercase tracking-wide text-emerald-600">Live</span>
+                                    <code className="text-[11px] font-mono text-emerald-700 bg-emerald-50 border border-emerald-100 rounded px-1.5 py-0.5 max-w-full truncate">{exampleValue}</code>
+                                </div>
                             )}
                         </div>
                     </div>
