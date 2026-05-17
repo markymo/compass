@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,6 +34,10 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[] }: F
     const [loading, setLoading] = useState(false);
     const [optionSets, setOptionSets] = useState<any[]>([]);
 
+    // Stable refs to detect genuine field switches vs. prop re-renders caused by router.refresh()
+    const prevFieldNoRef = useRef<number | null>(null);
+    const prevOpenRef   = useRef<boolean>(false);
+
     useEffect(() => {
         if (open) {
             getOptionSets().then(res => {
@@ -56,23 +60,31 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[] }: F
         appDataType: field?.appDataType || "TEXT"
     });
 
-    // Update form state when the selected field changes
+    // Only reset the form when the panel opens fresh OR the user switches to a different
+    // field (different fieldNo). Do NOT reset on every prop re-render caused by router.refresh() —
+    // that was wiping unsaved edits while the DB write was still in-flight.
     useEffect(() => {
-        if (field) {
+        const openingFresh   = open && !prevOpenRef.current;
+        const switchingField = field && field.fieldNo !== prevFieldNoRef.current;
+
+        if (field && (openingFresh || switchingField)) {
             setFormData({
-                fieldName: field.fieldName || "",
-                categoryId: field.categoryId || "",
+                fieldName:       field.fieldName || "",
+                categoryId:      field.categoryId || "",
                 newCategoryName: "",
-                domain: field.domain?.join(", ") || "",
-                fmsbRef: field.fmsbRef || "",
-                description: field.description || "",
-                notes: field.notes || "",
-                isMultiValue: field.isMultiValue || false,
-                optionSetId: field.optionSetId || "none",
-                appDataType: field.appDataType || "TEXT"
+                domain:          field.domain?.join(", ") || "",
+                fmsbRef:         field.fmsbRef || "",
+                description:     field.description || "",
+                notes:           field.notes || "",
+                isMultiValue:    field.isMultiValue || false,
+                optionSetId:     field.optionSetId || "none",
+                appDataType:     field.appDataType || "TEXT",
             });
         }
-    }, [field]);
+
+        prevFieldNoRef.current = field?.fieldNo ?? null;
+        prevOpenRef.current    = open;
+    }, [field, open]);
 
     const [isAddMappingOpen, setIsAddMappingOpen] = useState(false);
     const [isBrowserOpen, setIsBrowserOpen] = useState(false);

@@ -717,6 +717,7 @@ function SourceChip({ sourceType, count, onClick }: { sourceType: string; count:
 function FieldNameCell({ row, router }: { row: any, router: any }) {
     const field = row.original;
     const [isEditing, setIsEditing] = useState(false);
+    const [saving,    setSaving]    = useState(false);
     const [val, setVal] = useState(field.fieldName);
 
     useEffect(() => {
@@ -724,20 +725,48 @@ function FieldNameCell({ row, router }: { row: any, router: any }) {
     }, [field.fieldName, isEditing]);
 
     const handleSaveName = async () => {
-        setIsEditing(false);
-        if (val !== field.fieldName && val.trim()) {
-            const res = await updateMasterField(field.fieldNo, { fieldName: val });
-            if(res.success) toast.success("Field renamed");
-            else { toast.error("Failed to rename"); setVal(field.fieldName); }
-        } else { setVal(field.fieldName); }
+        if (val === field.fieldName || !val.trim()) {
+            setIsEditing(false);
+            setVal(field.fieldName);
+            return;
+        }
+        setSaving(true);
+        const res = await updateMasterField(field.fieldNo, { fieldName: val });
+        setSaving(false);
+        if (res.success) {
+            toast.success("Field renamed");
+            setIsEditing(false); // close AFTER confirmed success
+            router.refresh();
+        } else {
+            toast.error("Failed to rename");
+            setVal(field.fieldName);
+            setIsEditing(false);
+        }
     };
 
     return (
         <div className="flex flex-col">
             {isEditing ? (
-                <Input autoFocus value={val} onChange={(e)=>setVal(e.target.value)} onBlur={handleSaveName} onKeyDown={(e) => { if(e.key === 'Enter') handleSaveName(); if(e.key === 'Escape') { setIsEditing(false); setVal(field.fieldName); } }} className="h-7 text-sm font-semibold"/>
+                <Input
+                    autoFocus
+                    disabled={saving}
+                    value={val}
+                    onChange={(e) => setVal(e.target.value)}
+                    onBlur={handleSaveName}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter')  handleSaveName();
+                        if (e.key === 'Escape') { setIsEditing(false); setVal(field.fieldName); }
+                    }}
+                    className="h-7 text-sm font-semibold"
+                />
             ) : (
-                <span onClick={() => setIsEditing(true)} className="font-semibold text-slate-900 group-hover:text-indigo-700 cursor-pointer truncate" title={val}>{val}</span>
+                <span
+                    onClick={() => setIsEditing(true)}
+                    className="font-semibold text-slate-900 group-hover:text-indigo-700 cursor-pointer truncate"
+                    title={val}
+                >
+                    {val}
+                </span>
             )}
             {field.isMultiValue && <span className="text-[9px] mt-0.5 uppercase tracking-wider text-blue-600 font-bold">Repeating</span>}
         </div>
@@ -755,20 +784,21 @@ function DescriptionCell({ row, router }: { row: any, router: any }) {
     }, [field.notes, isEditing]);
 
     const handleSave = async () => {
-        if (val === field.notes) {
+        if (val === (field.notes || "")) {
             setIsEditing(false);
             return;
         }
         setSaving(true);
         const res = await updateFieldDescription(field.fieldNo, val);
         setSaving(false);
-        setIsEditing(false);
-        if(res.success) {
+        if (res.success) {
             toast.success("Description updated");
+            setIsEditing(false);
             router.refresh();
         } else {
             toast.error("Failed to save description");
             setVal(field.notes || "");
+            setIsEditing(false);
         }
     };
 
@@ -805,6 +835,7 @@ function DescriptionCell({ row, router }: { row: any, router: any }) {
 
 function EditableTextCell({ row, fieldKey, fallback, router, type = "text" }: { row: any, fieldKey: string, fallback?: string, router: any, type?: string }) {
     const [isEditing, setIsEditing] = useState(false);
+    const [saving,    setSaving]    = useState(false);
     const [val, setVal] = useState(row.original[fieldKey]?.toString() || fallback || "");
 
     useEffect(() => {
@@ -812,20 +843,43 @@ function EditableTextCell({ row, fieldKey, fallback, router, type = "text" }: { 
     }, [row.original, fieldKey, isEditing, fallback]);
 
     const handleSave = async () => {
-        setIsEditing(false);
         const processedVal = type === "number" ? parseFloat(val) : val;
-        if (processedVal !== row.original[fieldKey]) {
-            const res = await updateMasterField(row.original.fieldNo, { [fieldKey]: processedVal });
-            if(res.success) toast.success("Updated successfully");
-            else setVal(row.original[fieldKey]?.toString() || fallback || "");
+        if (processedVal === row.original[fieldKey]) {
+            setIsEditing(false);
+            return;
+        }
+        setSaving(true);
+        const res = await updateMasterField(row.original.fieldNo, { [fieldKey]: processedVal });
+        setSaving(false);
+        if (res.success) {
+            toast.success("Updated successfully");
+            setIsEditing(false); // close AFTER confirmed success
             router.refresh();
+        } else {
+            toast.error("Failed to update");
+            setVal(row.original[fieldKey]?.toString() || fallback || "");
+            setIsEditing(false);
         }
     };
 
     if (isEditing) {
-        return <Input autoFocus type={type} value={val} onChange={(e)=>setVal(e.target.value)} onBlur={handleSave} onKeyDown={(e) => { if(e.key === 'Enter') handleSave(); if(e.key==='Escape'){ setIsEditing(false); setVal(row.original[fieldKey]?.toString() || fallback || ""); } }} className="h-7 text-xs"/>;
+        return (
+            <Input
+                autoFocus
+                disabled={saving}
+                type={type}
+                value={val}
+                onChange={(e) => setVal(e.target.value)}
+                onBlur={handleSave}
+                onKeyDown={(e) => {
+                    if (e.key === 'Enter')  handleSave();
+                    if (e.key === 'Escape') { setIsEditing(false); setVal(row.original[fieldKey]?.toString() || fallback || ""); }
+                }}
+                className="h-7 text-xs"
+            />
+        );
     }
-    return <Badge onClick={()=>setIsEditing(true)} variant="secondary" className="bg-slate-100 text-slate-700 font-normal cursor-pointer hover:bg-slate-200">{val}</Badge>;
+    return <Badge onClick={() => setIsEditing(true)} variant="secondary" className="bg-slate-100 text-slate-700 font-normal cursor-pointer hover:bg-slate-200">{val}</Badge>;
 }
 
 function EditableTagsCell({ row, fieldKey, router }: { row: any, fieldKey: string, router: any }) {
@@ -839,14 +893,20 @@ function EditableTagsCell({ row, fieldKey, router }: { row: any, fieldKey: strin
     }, [initialArr, isEditing]);
 
     const handleSave = async () => {
-        setIsEditing(false);
         const newArr = val.split(",").map((s: string) => s.trim()).filter(Boolean);
-        // Only update if array is functionally different (crude check but okay for now)
-        if (newArr.join() !== initialArr.join()) {
-            const res = await updateMasterField(row.original.fieldNo, { [fieldKey]: newArr });
-            if(res.success) toast.success("Tags updated");
-            else setVal(initialArr.join(", "));
+        if (newArr.join() === initialArr.join()) {
+            setIsEditing(false);
+            return;
+        }
+        const res = await updateMasterField(row.original.fieldNo, { [fieldKey]: newArr });
+        if (res.success) {
+            toast.success("Tags updated");
+            setIsEditing(false); // close AFTER confirmed success
             router.refresh();
+        } else {
+            toast.error("Failed to update tags");
+            setVal(initialArr.join(", "));
+            setIsEditing(false);
         }
     };
 
@@ -870,8 +930,13 @@ function EditableSelectCell({ row, fieldKey, options, router }: { row: any, fiel
         setIsEditing(false);
         if (newVal !== originalVal) {
             const res = await updateMasterField(row.original.fieldNo, { [fieldKey]: newVal });
-            if(res.success) toast.success("Type updated");
-            router.refresh();
+            if (res.success) {
+                toast.success("Type updated");
+                router.refresh();
+            } else {
+                toast.error(res.error || "Failed to update type");
+                // No refresh — cell reverts naturally from row.original
+            }
         }
     };
 
