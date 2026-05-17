@@ -7,7 +7,7 @@ import { FileText, Upload, Search, BookOpen, Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { createQuestionnaire, startBackgroundExtraction } from "@/actions/questionnaire";
+import { assignQuestionnaireToEngagement, createQuestionnaire, startBackgroundExtraction } from "@/actions/questionnaire";
 import { searchAvailableQuestionnaires } from "@/actions/questionnaire-library";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -16,6 +16,7 @@ import { useEffect } from "react";
 interface AddQuestionnaireDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
+    /** Called when a NEW instance was created (not when an existing one was returned) */
     onAdd: (type: 'library', data: any) => void;
     engagementId: string;
 }
@@ -190,7 +191,28 @@ export function AddQuestionnaireDialog({ open, onOpenChange, onAdd, engagementId
                             ) : (
                                 searchResults.map((q: any) => (
                                     <div key={q.id} className="p-3 border rounded-lg hover:border-indigo-500 cursor-pointer flex justify-between items-center group"
-                                        onClick={() => onAdd('library', { templateId: q.id, name: q.name })}
+                                        onClick={async () => {
+                                            if (!engagementId) return;
+                                            setLoading(true);
+                                            try {
+                                                const res = await assignQuestionnaireToEngagement(q.id, engagementId);
+                                                if (res.success) {
+                                                    if (res.created) {
+                                                        toast.success(`"${q.name}" added to this engagement`);
+                                                    } else {
+                                                        toast.info(`"${q.name}" is already in this engagement`);
+                                                    }
+                                                    onAdd('library', { templateId: q.id, name: q.name, instanceId: res.id });
+                                                    reset();
+                                                } else {
+                                                    toast.error(res.error || "Failed to add questionnaire");
+                                                }
+                                            } catch (e) {
+                                                toast.error("An unexpected error occurred");
+                                            } finally {
+                                                setLoading(false);
+                                            }
+                                        }}
                                     >
                                         <div>
                                             <h4 className="font-medium text-slate-900 group-hover:text-indigo-700">{q.name}</h4>
