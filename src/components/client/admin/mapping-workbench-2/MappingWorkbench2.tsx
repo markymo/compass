@@ -36,17 +36,18 @@ function buildGraph(data: Wb2PageData) {
 
     for (const source of data.sources) {
         for (const p of source.paths) {
-            if (p.mappedToFieldNo == null || p.isActive === false) continue;
+            if (p.mappedToFieldNos.length === 0) continue;
             const composite = `${source.sourceKey}::${p.path}`;
-            const fno = p.mappedToFieldNo;
 
-            const pf = pathToFields.get(composite) ?? [];
-            pf.push(fno);
-            pathToFields.set(composite, pf);
+            for (const fno of p.mappedToFieldNos) {
+                const pf = pathToFields.get(composite) ?? [];
+                if (!pf.includes(fno)) pf.push(fno);
+                pathToFields.set(composite, pf);
 
-            const fp = fieldToPaths.get(fno) ?? [];
-            fp.push(composite);
-            fieldToPaths.set(fno, fp);
+                const fp = fieldToPaths.get(fno) ?? [];
+                if (!fp.includes(composite)) fp.push(composite);
+                fieldToPaths.set(fno, fp);
+            }
         }
     }
 
@@ -169,6 +170,7 @@ export function MappingWorkbench2({ data }: { data: Wb2PageData }) {
                     selection={selection}
                     highlights={highlights}
                     onSelect={handleSelect}
+                    sources={data.sources}
                 />
                 <QuestionsColumn
                     questionnaires={data.questionnaires}

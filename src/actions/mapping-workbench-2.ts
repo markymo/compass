@@ -7,16 +7,24 @@ import { SOURCE_OPTIONS, SourceOption } from "@/lib/source-display";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
+export interface Wb2PathMapping {
+    mappingId: string;
+    targetFieldNo: number;
+    targetFieldName: string | null;
+    isActive: boolean;
+    transformType: string;
+    priority: number;
+    confidenceDefault: number;
+    notes: string | null;
+}
+
 export interface Wb2SourcePath {
     path: string;
     meaning: string | null;
     exampleValue: string | null;
-    /** null = this path has no mapping for this source */
-    mappedToFieldNo: number | null;
-    mappedToFieldName: string | null;
-    mappingId: string | null;
-    isActive: boolean | null;
-    transformType: string | null;
+    mappings: Wb2PathMapping[];  // all mappings from this path (0, 1 or many)
+    isMapped: boolean;          // any active mapping exists
+    mappedToFieldNos: number[]; // for graph lookups
 }
 
 export interface Wb2SourceData {
@@ -198,27 +206,42 @@ export async function getMappingWorkbench2Data(): Promise<Wb2PageData> {
         const mappingPaths = sourceMappings.map((m: any) => m.sourcePath);
         const allPaths = [...new Set([...mappingPaths, ...samplePaths])].sort();
 
-        // Build path rows
+        // Build path rows — collect ALL mappings per path
         const paths: Wb2SourcePath[] = allPaths.map(path => {
-            const mapping = sourceMappings.find((m: any) => m.sourcePath === path);
-            const meaning = mapping?.notes?.trim()
-                ? mapping.notes.trim()
+            const pathMappings = sourceMappings.filter((m: any) => m.sourcePath === path);
+            // meaning: notes from first mapping, or semantic hint, or null
+            const firstMapping = pathMappings[0] as any;
+            const meaning = firstMapping?.notes?.trim()
+                ? firstMapping.notes.trim()
                 : getPathHint(opt.sourceType, path);
-            const targetField = mapping ? fieldByNo.get(mapping.targetFieldNo) : null;
+
+            const mappings: Wb2PathMapping[] = pathMappings.map((m: any) => {
+                const targetField = fieldByNo.get(m.targetFieldNo) as any;
+                return {
+                    mappingId: m.id,
+                    targetFieldNo: m.targetFieldNo,
+                    targetFieldName: targetField?.fieldName ?? null,
+                    isActive: m.isActive,
+                    transformType: m.transformType,
+                    priority: m.priority,
+                    confidenceDefault: m.confidenceDefault,
+                    notes: m.notes ?? null,
+                };
+            });
+
+            const activeFieldNos = mappings.filter(m => m.isActive).map(m => m.targetFieldNo);
 
             return {
                 path,
                 meaning: meaning || null,
                 exampleValue: samplePayload ? resolveValue(samplePayload, path) : null,
-                mappedToFieldNo: mapping ? mapping.targetFieldNo : null,
-                mappedToFieldName: (targetField as any)?.fieldName ?? null,
-                mappingId: mapping?.id ?? null,
-                isActive: mapping?.isActive ?? null,
-                transformType: mapping?.transformType ?? null,
+                mappings,
+                isMapped: activeFieldNos.length > 0,
+                mappedToFieldNos: activeFieldNos,
             };
         });
 
-        const mappedCount = paths.filter(p => p.mappedToFieldNo !== null && p.isActive !== false).length;
+        const mappedCount = paths.filter(p => p.isMapped).length;
 
         return {
             sourceKey,
@@ -230,6 +253,7 @@ export async function getMappingWorkbench2Data(): Promise<Wb2PageData> {
             availableCount: allPaths.length,
         };
     });
+
 
     // ── Build master field data ─────────────────────────────────────────
 

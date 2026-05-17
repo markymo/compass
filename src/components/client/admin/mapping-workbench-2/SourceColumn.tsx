@@ -50,10 +50,10 @@ export function SourceColumn({ sources, activeSources, onSourceToggle, selection
                 result.push({ ...p, sourceKey: src.sourceKey });
             }
         }
-        // Sort: mapped first, then alphabetical by path
+        // Sort: mapped first, then alphabetical
         result.sort((a, b) => {
-            const aM = a.mappedToFieldNo != null && a.isActive !== false ? 0 : 1;
-            const bM = b.mappedToFieldNo != null && b.isActive !== false ? 0 : 1;
+            const aM = a.isMapped ? 0 : 1;
+            const bM = b.isMapped ? 0 : 1;
             if (aM !== bM) return aM - bM;
             return a.path.localeCompare(b.path);
         });
@@ -71,7 +71,7 @@ export function SourceColumn({ sources, activeSources, onSourceToggle, selection
             );
         }
         if (showUnmappedOnly) {
-            list = list.filter(p => p.mappedToFieldNo == null || p.isActive === false);
+            list = list.filter(p => !p.isMapped);
         }
         return list;
     }, [allPaths, search, showUnmappedOnly]);
@@ -219,10 +219,10 @@ function PathRow({ path, sourceKey, showSourceBadge, selection, highlights, onSe
     onSelect: (s: Selection) => void;
 }) {
     const composite = `${sourceKey}::${path.path}`;
-    const isMapped = path.mappedToFieldNo != null && path.isActive !== false;
     const isSelected = selection?.kind === "path" && selection.sourceKey === sourceKey && selection.path === path.path;
     const isHighlighted = highlights.paths.has(composite);
     const isDimmed = highlights.hasSelection && !isHighlighted;
+    const activeMappings = path.mappings.filter(m => m.isActive);
 
     return (
         <button
@@ -236,7 +236,7 @@ function PathRow({ path, sourceKey, showSourceBadge, selection, highlights, onSe
             )}
         >
             <div className="mt-0.5 shrink-0">
-                {isMapped
+                {path.isMapped
                     ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
                     : <Circle className="w-3.5 h-3.5 text-slate-300" />
                 }
@@ -258,11 +258,16 @@ function PathRow({ path, sourceKey, showSourceBadge, selection, highlights, onSe
                 {path.exampleValue && (
                     <p className="text-[10px] font-mono text-emerald-700 mt-0.5 truncate">{path.exampleValue}</p>
                 )}
-                {isMapped && path.mappedToFieldName && (
-                    <div className="mt-1">
-                        <span className="text-[9px] text-indigo-600 bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 rounded font-medium">
-                            → F{path.mappedToFieldNo} {path.mappedToFieldName}
-                        </span>
+                {activeMappings.length > 0 && (
+                    <div className="mt-1 flex flex-wrap gap-1">
+                        {activeMappings.map(m => (
+                            <span key={m.mappingId} className="text-[9px] text-indigo-600 bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 rounded font-medium">
+                                → F{m.targetFieldNo} {m.targetFieldName}
+                            </span>
+                        ))}
+                        {activeMappings.length > 1 && (
+                            <span className="text-[9px] text-slate-400">({activeMappings.length} mappings)</span>
+                        )}
                     </div>
                 )}
             </div>
