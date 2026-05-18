@@ -317,8 +317,8 @@ export async function getMappingWorkbench2Data(): Promise<Wb2PageData> {
         const sourceMappings = mappingsBySource.get(internalKey) ?? [];
 
         // ── Two separate payloads for two separate purposes ──────────────
-        // 1. Path discovery: always use the STORED sample (stable schema,
-        //    comprehensive coverage of all possible paths for this source type)
+        // 1. Path discovery: stored sample (stable, comprehensive) + live payload
+        //    (covers production envs where source_sample_payloads may not be seeded)
         const storedSample = sampleBySourceType.get(opt.sourceType) ?? null;
 
         // 2. Example values: prefer LIVE entity (fresh real data),
@@ -326,10 +326,13 @@ export async function getMappingWorkbench2Data(): Promise<Wb2PageData> {
         const livePayload   = liveData.payloads.get(internalKey) ?? null;
         const examplePayload = livePayload ?? storedSample;
 
-        // All paths: from STORED sample + from existing mappings (consistent discovery)
-        const samplePaths  = storedSample ? flattenPaths(storedSample) : [];
+        // All paths: DB mappings (always) + stored sample schema + live payload schema
+        // Using all three means we never show 0 paths just because seed data is absent
         const mappingPaths = sourceMappings.map((m: any) => m.sourcePath);
-        const allPaths     = [...new Set([...mappingPaths, ...samplePaths])].sort();
+        const samplePaths  = storedSample ? flattenPaths(storedSample) : [];
+        const livePaths    = livePayload  ? flattenPaths(livePayload)  : [];
+        const allPaths     = [...new Set([...mappingPaths, ...samplePaths, ...livePaths])].sort();
+
 
         // Build path rows — collect ALL mappings per path
         const paths: Wb2SourcePath[] = allPaths.map(path => {
