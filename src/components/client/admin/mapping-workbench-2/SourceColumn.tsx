@@ -219,7 +219,7 @@ export function SourceColumn({ sources, activeSources, onSourceToggle, selection
                                             key={`pinned::${p.sourceKey}::${p.path}::${i}`}
                                             path={p}
                                             sourceKey={p.sourceKey}
-                                            showSourceBadge={activeSources.length > 1}
+                                            showSourceBadge
                                             selection={selection}
                                             highlights={highlights}
                                             onSelect={onSelect}
@@ -248,7 +248,7 @@ export function SourceColumn({ sources, activeSources, onSourceToggle, selection
                                             key={`rest::${p.sourceKey}::${p.path}::${i}`}
                                             path={p}
                                             sourceKey={p.sourceKey}
-                                            showSourceBadge={activeSources.length > 1}
+                                            showSourceBadge
                                             selection={selection}
                                             highlights={highlights}
                                             onSelect={onSelect}
@@ -267,7 +267,7 @@ export function SourceColumn({ sources, activeSources, onSourceToggle, selection
                                 key={`${p.sourceKey}::${p.path}::${i}`}
                                 path={p}
                                 sourceKey={p.sourceKey}
-                                showSourceBadge={activeSources.length > 1}
+                                showSourceBadge
                                 selection={selection}
                                 highlights={highlights}
                                 onSelect={onSelect}
