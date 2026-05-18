@@ -126,8 +126,10 @@ function resolveValue(obj: any, path: string): string | null {
 // ── Demo entity IDs for live example data ──────────────────────────────────
 
 const DEMO_ENTITIES = {
+    // GLEIF LEI for Diamond Transmission Partners Hornsea Two Limited
+    // (same legal entity as CH 14059418 — they align)
     GLEIF:       { lei: "213800SN8QHYGA7QUF79",  internalKey: "GLEIF" },
-    CH_RA000585: { companyNo: "04155137",          internalKey: "REGISTRATION_AUTHORITY:RA000585" },
+    CH_RA000585: { companyNo: "14059418",          internalKey: "REGISTRATION_AUTHORITY:RA000585" },
     FR_RA000192: { siren: "542051180",             internalKey: "REGISTRATION_AUTHORITY:RA000192" },
 };
 
@@ -143,7 +145,9 @@ async function fetchLivePayloads(): Promise<{ payloads: Map<string, any>; refs: 
             .then(r => r.json())
             .then(j => j.data?.[0]?.attributes ?? null),
 
-        // Companies House
+        // Companies House — return RAW API profile so paths like
+        // company_name, company_status, date_of_creation resolve correctly.
+        // (DB source mappings for CH use raw CH API path names, not canonical names)
         (async () => {
             const apiKey = process.env.COMPANIES_HOUSE_API_KEY;
             if (!apiKey) return null;
@@ -152,19 +156,8 @@ async function fetchLivePayloads(): Promise<{ payloads: Map<string, any>; refs: 
                 `https://api.company-information.service.gov.uk/company/${DEMO_ENTITIES.CH_RA000585.companyNo}`,
                 { headers: { Authorization: auth }, next: { revalidate: 3600 } }
             ).then(r => r.json());
-            const addr = profile.registered_office_address ?? {};
-            return {
-                entityName: profile.company_name ?? null,
-                entityStatus: profile.company_status ?? null,
-                incorporationDate: profile.date_of_creation ?? null,
-                registeredAddress: {
-                    lines: [addr.address_line_1, addr.address_line_2].filter(Boolean),
-                    city: addr.locality ?? null,
-                    region: addr.region ?? null,
-                    country: addr.country ?? null,
-                    postalCode: addr.postal_code ?? null,
-                },
-            };
+            // Return the raw profile — CH source mappings reference raw field names
+            return profile ?? null;
         })(),
 
         // French Registry — public API
@@ -194,10 +187,10 @@ async function fetchLivePayloads(): Promise<{ payloads: Map<string, any>; refs: 
     payloads.set(DEMO_ENTITIES.GLEIF.internalKey, gleifPayload);
     refs.push({ sourceKey: "GLEIF", entityId: DEMO_ENTITIES.GLEIF.lei, entityName: (gleifPayload as any)?.entity?.legalName?.name ?? null, ok: !!gleifPayload });
 
-    // CH
+    // CH — raw profile, so company_name is the name field
     const chPayload = ch.status === "fulfilled" ? ch.value : null;
     payloads.set(DEMO_ENTITIES.CH_RA000585.internalKey, chPayload);
-    refs.push({ sourceKey: "CH_RA000585", entityId: DEMO_ENTITIES.CH_RA000585.companyNo, entityName: (chPayload as any)?.entityName ?? null, ok: !!chPayload });
+    refs.push({ sourceKey: "CH_RA000585", entityId: DEMO_ENTITIES.CH_RA000585.companyNo, entityName: (chPayload as any)?.company_name ?? null, ok: !!chPayload });
 
     // FR
     const frPayload = fr.status === "fulfilled" ? fr.value : null;
