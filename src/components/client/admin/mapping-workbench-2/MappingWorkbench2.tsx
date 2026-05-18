@@ -144,6 +144,28 @@ export function MappingWorkbench2({ data }: { data: Wb2PageData }) {
         return data.masterFields.find(f => f.fieldNo === selection.fieldNo)?.liveValues ?? {};
     }, [selection, data.masterFields]);
 
+    // Context label for SourceColumn — explains why paths are pinned
+    const sourceContextLabel = useMemo(() => {
+        if (!selection) return null;
+        if (selection.kind === "field") {
+            const f = data.masterFields.find(f => f.fieldNo === selection.fieldNo);
+            return f ? `Connected to F${f.fieldNo} ${f.fieldName}` : null;
+        }
+        if (selection.kind === "question") {
+            const q = data.questionnaires.flatMap(qn => qn.questions).find(q => q.id === selection.questionId);
+            if (!q?.masterFieldNo) return null;
+            const f = data.masterFields.find(f => f.fieldNo === q.masterFieldNo);
+            return f ? `Connected via F${f.fieldNo} ${f.fieldName}` : "Connected via master field";
+        }
+        return null;
+    }, [selection, data.masterFields, data.questionnaires]);
+
+    // Question text for MasterDataColumn Question Context Mode
+    const selectedQuestionText = useMemo(() => {
+        if (selection?.kind !== "question") return null;
+        return data.questionnaires.flatMap(qn => qn.questions).find(q => q.id === selection.questionId)?.text ?? null;
+    }, [selection, data.questionnaires]);
+
     return (
         <div className="flex flex-col h-[calc(100vh-8rem)]">
             {/* Header */}
@@ -201,6 +223,7 @@ export function MappingWorkbench2({ data }: { data: Wb2PageData }) {
                     selection={selection}
                     highlights={highlights}
                     onSelect={handleSelect}
+                    contextLabel={sourceContextLabel}
                 />
                 <MasterDataColumn
                     key={`master-${resetKey}`}
@@ -211,6 +234,7 @@ export function MappingWorkbench2({ data }: { data: Wb2PageData }) {
                     highlights={highlights}
                     onSelect={handleSelect}
                     sources={data.sources}
+                    selectedQuestionText={selectedQuestionText}
                 />
                 <QuestionsColumn
                     key={`questions-${resetKey}`}

@@ -65,14 +65,14 @@ interface Props {
     selection: Selection;
     highlights: RelationshipHighlights;
     onSelect: (s: Selection) => void;
-
-    // Passed from parent so Path Context Mode can read existing mappings
     sources: import("@/actions/mapping-workbench-2").Wb2SourceData[];
+    /** Text of the selected question, for Question Context Mode banner */
+    selectedQuestionText: string | null;
 }
 
 // ── Main component ──────────────────────────────────────────────────────────
 
-export function MasterDataColumn({ fields, mappedCount, unmappedCount, selection, highlights, onSelect, sources }: Props) {
+export function MasterDataColumn({ fields, mappedCount, unmappedCount, selection, highlights, onSelect, sources, selectedQuestionText }: Props) {
     const router = useRouter();
     const [search, setSearch] = useState("");
     const [showUnmappedOnly, setShowUnmappedOnly] = useState(false);
@@ -130,6 +130,32 @@ export function MasterDataColumn({ fields, mappedCount, unmappedCount, selection
         if (showUnmappedOnly) list = list.filter(f => f.mappedBySources.length === 0);
         return list;
     }, [fields, search, showUnmappedOnly]);
+
+    // ── Question Context Mode data ────────────────────────────────────────
+    // The linked field (from highlights.fields — at most 1 for a question)
+    const questionLinkedField = useMemo(() => {
+        if (selection?.kind !== "question") return null;
+        const fieldNo = [...highlights.fields][0];
+        if (fieldNo == null) return null;
+        return fields.find(f => f.fieldNo === fieldNo) ?? null;
+    }, [selection, highlights.fields, fields]);
+
+    // Section 2 for question context: all fields except the linked one, filtered by search
+    const questionSection2Fields = useMemo(() => {
+        if (selection?.kind !== "question") return [];
+        let list = questionLinkedField
+            ? fields.filter(f => f.fieldNo !== questionLinkedField.fieldNo)
+            : fields;
+        if (search.trim()) {
+            const q = search.toLowerCase();
+            list = list.filter(f =>
+                f.fieldName.toLowerCase().includes(q) ||
+                String(f.fieldNo).includes(q) ||
+                f.categoryName?.toLowerCase().includes(q)
+            );
+        }
+        return list;
+    }, [selection, fields, questionLinkedField, search]);
 
     function openCreate(targetFieldNo: number, targetFieldName: string) {
         if (!selectedSource || !selectedPathData) return;
@@ -266,6 +292,121 @@ export function MasterDataColumn({ fields, mappedCount, unmappedCount, selection
                             </div>
                         )}
                     </div>
+                </div>
+
+                <MappingSlideOver
+                    {...slideOver}
+                    onOpenChange={open => setSlideOver(s => ({ ...s, open }))}
+                    onSuccess={handleSuccess}
+                />
+            </div>
+        );
+    }
+
+    // ── QUESTION CONTEXT MODE render ─────────────────────────────────────
+    if (selection?.kind === "question") {
+        return (
+            <div className="flex flex-col flex-1 min-w-0 rounded-xl border border-indigo-200 bg-white shadow-sm overflow-hidden">
+                {/* Banner */}
+                <div className="border-b border-indigo-100 bg-indigo-50 p-3 shrink-0 space-y-1">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-indigo-400">Question Context</span>
+                    {selectedQuestionText && (
+                        <p className="text-xs font-medium text-indigo-900 line-clamp-2 leading-snug">
+                            {selectedQuestionText}
+                        </p>
+                    )}
+                    <p className="text-[10px] text-indigo-500 pt-0.5">
+                        {questionLinkedField
+                            ? `Linked to F${questionLinkedField.fieldNo} ${questionLinkedField.fieldName} · connected source paths are pinned in Column 1`
+                            : "Not yet linked to a master field — select one below"}
+                    </p>
+                </div>
+
+                <div className="flex-1 overflow-y-auto">
+                    {/* Section 1: linked field (always visible, bypasses search) */}
+                    <div className="border-b border-slate-100">
+                        <div className="px-3 pt-3 pb-1">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Linked Field</span>
+                        </div>
+                        {questionLinkedField ? (
+                            <div className="mx-3 my-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 space-y-1.5">
+                                <div className="flex items-baseline gap-1.5 flex-wrap">
+                                    <span className="text-[10px] font-mono text-slate-400 shrink-0">F{questionLinkedField.fieldNo}</span>
+                                    <span className="text-sm font-semibold text-slate-800">{questionLinkedField.fieldName}</span>
+                                    {questionLinkedField.isMultiValue && <Repeat2 className="w-3 h-3 text-blue-500 shrink-0" />}
+                                </div>
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                    {questionLinkedField.categoryName && (
+                                        <span className="text-[9px] text-slate-400 bg-white border border-slate-100 px-1.5 py-0.5 rounded">
+                                            {questionLinkedField.categoryName}
+                                        </span>
+                                    )}
+                                    {questionLinkedField.mappedBySources.map(src => (
+                                        <span key={src} className={cn("text-[9px] px-1.5 py-0.5 rounded font-medium", sourceBadgeClass(src))}>
+                                            {sourceShortLabel(src)}
+                                        </span>
+                                    ))}
+                                    {questionLinkedField.questionCount > 0 && (
+                                        <span className="text-[9px] text-slate-400">{questionLinkedField.questionCount}Q</span>
+                                    )}
+                                </div>
+                                {Object.keys(questionLinkedField.liveValues ?? {}).length > 0 && (
+                                    <div className="space-y-0.5">
+                                        {Object.entries(questionLinkedField.liveValues ?? {}).map(([src, val]) => (
+                                            <div key={src} className="flex items-center gap-1.5">
+                                                <span className="text-[9px] font-bold uppercase tracking-wide text-emerald-600">Live</span>
+                                                <code className="text-[10px] font-mono text-emerald-700 bg-white border border-emerald-100 rounded px-1.5 py-0.5 truncate max-w-[200px]">{val}</code>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            <div className="mx-3 my-2 rounded-lg border-2 border-dashed border-slate-200 bg-slate-50/50 px-3 py-4 text-center">
+                                <p className="text-xs text-slate-400">No master field linked</p>
+                                <p className="text-[10px] text-slate-400 mt-0.5">Select a field below to link this question</p>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Section 2: other fields with search */}
+                    <div>
+                        <div className="px-3 pt-3 pb-1">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                {questionLinkedField ? "Other Fields" : "All Fields"} ({questionSection2Fields.length})
+                            </span>
+                        </div>
+                        <div className="px-3 pb-2">
+                            <div className="relative">
+                                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                                <Input
+                                    value={search}
+                                    onChange={e => setSearch(e.target.value)}
+                                    placeholder="Search fields…"
+                                    className="pl-8 h-8 text-xs border-slate-200"
+                                />
+                                {search && (
+                                    <button onClick={() => setSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                                        <X className="w-3 h-3" />
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                        {questionSection2Fields.length === 0 ? (
+                            <div className="py-6 text-center text-xs text-slate-400">No fields match</div>
+                        ) : (
+                            <div className="divide-y divide-slate-50">
+                                {questionSection2Fields.map(f => (
+                                    <FieldRow key={f.fieldNo} field={f} selection={selection} highlights={highlights} onSelect={onSelect} />
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                <div className="border-t border-slate-100 px-3 py-1.5 text-[10px] text-slate-400 shrink-0">
+                    {questionLinkedField ? `Linked to F${questionLinkedField.fieldNo}` : "No field linked"}
+                    {" "}·{" "}{questionSection2Fields.length} other fields
                 </div>
 
                 <MappingSlideOver

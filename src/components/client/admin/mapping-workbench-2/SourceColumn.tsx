@@ -15,6 +15,8 @@ interface Props {
     selection: Selection;
     highlights: RelationshipHighlights;
     onSelect: (s: Selection) => void;
+    /** Label explaining why paths are pinned e.g. "Connected to F3 Legal name" */
+    contextLabel: string | null;
 }
 
 const SOURCE_ACCENT: Record<string, { dot: string; check: string; label: string }> = {
@@ -36,12 +38,11 @@ function sourceShortLabel(key: string): string {
     return key;
 }
 
-export function SourceColumn({ sources, activeSources, onSourceToggle, selection, highlights, onSelect }: Props) {
+export function SourceColumn({ sources, activeSources, onSourceToggle, selection, highlights, onSelect, contextLabel }: Props) {
     const [search, setSearch] = useState("");
     const [showUnmappedOnly, setShowUnmappedOnly] = useState(false);
 
-    // Merge paths from all active sources into a single flat list,
-    // annotating each path with its sourceKey.
+    // Merge paths from all active sources into a single flat list
     const allPaths = useMemo(() => {
         const result: Array<Wb2SourcePath & { sourceKey: string }> = [];
         for (const src of sources) {
@@ -50,7 +51,6 @@ export function SourceColumn({ sources, activeSources, onSourceToggle, selection
                 result.push({ ...p, sourceKey: src.sourceKey });
             }
         }
-        // Sort: mapped first, then alphabetical
         result.sort((a, b) => {
             const aM = a.isMapped ? 0 : 1;
             const bM = b.isMapped ? 0 : 1;
@@ -60,6 +60,7 @@ export function SourceColumn({ sources, activeSources, onSourceToggle, selection
         return result;
     }, [sources, activeSources]);
 
+    // Filtered list (search + unmapped toggle) — used in global mode and for the "Other" section
     const filtered = useMemo(() => {
         let list = allPaths;
         if (search.trim()) {
@@ -70,11 +71,26 @@ export function SourceColumn({ sources, activeSources, onSourceToggle, selection
                 p.exampleValue?.toLowerCase().includes(q)
             );
         }
-        if (showUnmappedOnly) {
-            list = list.filter(p => !p.isMapped);
-        }
+        if (showUnmappedOnly) list = list.filter(p => !p.isMapped);
         return list;
     }, [allPaths, search, showUnmappedOnly]);
+
+    // Context Float mode: when something is selected that produces highlighted paths
+    // (but NOT when a path itself is selected — that's Path Context Mode in MasterDataColumn)
+    const isContextFloat = highlights.hasSelection && highlights.paths.size > 0 && selection?.kind !== "path";
+
+    // Pinned paths: always visible, bypass search/filter
+    const pinnedPaths = useMemo(() => {
+        if (!isContextFloat) return [] as Array<Wb2SourcePath & { sourceKey: string }>;
+        return allPaths.filter(p => highlights.paths.has(`${p.sourceKey}::${p.path}`));
+    }, [allPaths, highlights.paths, isContextFloat]);
+
+    // Rest paths: filtered list minus pinned
+    const restPaths = useMemo(() => {
+        if (!isContextFloat) return [] as Array<Wb2SourcePath & { sourceKey: string }>;
+        const pinnedSet = new Set(pinnedPaths.map(p => `${p.sourceKey}::${p.path}`));
+        return filtered.filter(p => !pinnedSet.has(`${p.sourceKey}::${p.path}`));
+    }, [filtered, pinnedPaths, isContextFloat]);
 
     // Coverage totals across active sources
     const totalMapped = sources
@@ -107,7 +123,6 @@ export function SourceColumn({ sources, activeSources, onSourceToggle, selection
                                         : "border-slate-100 hover:bg-slate-50"
                                 )}
                             >
-                                {/* Custom checkbox */}
                                 <div
                                     className={cn(
                                         "w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors",
@@ -141,7 +156,7 @@ export function SourceColumn({ sources, activeSources, onSourceToggle, selection
                     })}
                 </div>
 
-                {/* Coverage summary (across all active) */}
+                {/* Coverage summary */}
                 {activeSources.length > 0 && (
                     <div className="flex gap-3 text-[11px] text-slate-500 bg-slate-50 rounded-lg px-3 py-2">
                         <span className="font-semibold text-slate-700">
@@ -175,53 +190,117 @@ export function SourceColumn({ sources, activeSources, onSourceToggle, selection
                 {/* Unmapped only toggle */}
                 <div className="flex items-center justify-between">
                     <span className="text-xs text-slate-500">Unmapped only</span>
-                    <Switch
-                        checked={showUnmappedOnly}
-                        onCheckedChange={setShowUnmappedOnly}
-                    />
+                    <Switch checked={showUnmappedOnly} onCheckedChange={setShowUnmappedOnly} />
                 </div>
             </div>
 
             {/* Path list */}
-            <div className="flex-1 overflow-y-auto divide-y divide-slate-50">
+            <div className="flex-1 overflow-y-auto">
                 {activeSources.length === 0 ? (
                     <div className="py-10 text-center text-xs text-slate-400">Select at least one source above</div>
+                ) : isContextFloat ? (
+                    <>
+                        {/* ── Connected section: always visible, search bypassed ── */}
+                        {pinnedPaths.length > 0 && (
+                            <div className="border-b border-emerald-100 bg-emerald-50/30">
+                                <div className="px-3 pt-3 pb-1.5 flex items-start gap-2">
+                                    <div className="flex-1 min-w-0">
+                                        <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">
+                                            Connected ({pinnedPaths.length})
+                                        </span>
+                                        {contextLabel && (
+                                            <p className="text-[10px] text-emerald-600 mt-0.5">{contextLabel}</p>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="divide-y divide-emerald-50">
+                                    {pinnedPaths.map((p, i) => (
+                                        <PathRow
+                                            key={`pinned::${p.sourceKey}::${p.path}::${i}`}
+                                            path={p}
+                                            sourceKey={p.sourceKey}
+                                            showSourceBadge={activeSources.length > 1}
+                                            selection={selection}
+                                            highlights={highlights}
+                                            onSelect={onSelect}
+                                            pinned
+                                        />
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* ── Other section: search/filter applies ── */}
+                        <div>
+                            <div className="px-3 pt-3 pb-1">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                    Other ({restPaths.length})
+                                </span>
+                            </div>
+                            {restPaths.length === 0 ? (
+                                <div className="py-6 text-center text-xs text-slate-400">
+                                    {filtered.length === 0 ? "No paths match" : "All paths connected"}
+                                </div>
+                            ) : (
+                                <div className="divide-y divide-slate-50">
+                                    {restPaths.map((p, i) => (
+                                        <PathRow
+                                            key={`rest::${p.sourceKey}::${p.path}::${i}`}
+                                            path={p}
+                                            sourceKey={p.sourceKey}
+                                            showSourceBadge={activeSources.length > 1}
+                                            selection={selection}
+                                            highlights={highlights}
+                                            onSelect={onSelect}
+                                        />
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </>
                 ) : filtered.length === 0 ? (
                     <div className="py-10 text-center text-xs text-slate-400">No paths match</div>
                 ) : (
-                    filtered.map((p, i) => (
-                        <PathRow
-                            key={`${p.sourceKey}::${p.path}::${i}`}
-                            path={p}
-                            sourceKey={p.sourceKey}
-                            showSourceBadge={activeSources.length > 1}
-                            selection={selection}
-                            highlights={highlights}
-                            onSelect={onSelect}
-                        />
-                    ))
+                    <div className="divide-y divide-slate-50">
+                        {filtered.map((p, i) => (
+                            <PathRow
+                                key={`${p.sourceKey}::${p.path}::${i}`}
+                                path={p}
+                                sourceKey={p.sourceKey}
+                                showSourceBadge={activeSources.length > 1}
+                                selection={selection}
+                                highlights={highlights}
+                                onSelect={onSelect}
+                            />
+                        ))}
+                    </div>
                 )}
             </div>
 
             <div className="border-t border-slate-100 px-3 py-1.5 text-[10px] text-slate-400 shrink-0">
-                {filtered.length} of {allPaths.length} paths
+                {isContextFloat
+                    ? `${pinnedPaths.length} connected · ${restPaths.length} other`
+                    : `${filtered.length} of ${allPaths.length} paths`}
             </div>
         </div>
     );
 }
 
-function PathRow({ path, sourceKey, showSourceBadge, selection, highlights, onSelect }: {
+function PathRow({ path, sourceKey, showSourceBadge, selection, highlights, onSelect, pinned = false }: {
     path: Wb2SourcePath & { sourceKey: string };
     sourceKey: string;
     showSourceBadge: boolean;
     selection: Selection;
     highlights: RelationshipHighlights;
     onSelect: (s: Selection) => void;
+    pinned?: boolean;
 }) {
     const composite = `${sourceKey}::${path.path}`;
     const isSelected = selection?.kind === "path" && selection.sourceKey === sourceKey && selection.path === path.path;
     const isHighlighted = highlights.paths.has(composite);
-    const isDimmed = highlights.hasSelection && !isHighlighted;
+    // In context float mode, pinned items never dim; other items never dim either
+    // (the "Other" section heading already communicates that they're secondary)
+    const isDimmed = !pinned && highlights.hasSelection && !isHighlighted && selection?.kind === "path";
     const activeMappings = path.mappings.filter(m => m.isActive);
 
     return (
@@ -229,7 +308,8 @@ function PathRow({ path, sourceKey, showSourceBadge, selection, highlights, onSe
             onClick={() => onSelect({ kind: "path", sourceKey, path: path.path })}
             className={cn(
                 "w-full text-left px-3 py-2.5 flex items-start gap-2 transition-all border-l-2",
-                isSelected   ? "bg-violet-50 border-l-violet-500" :
+                isSelected    ? "bg-violet-50 border-l-violet-500" :
+                pinned        ? "bg-emerald-50/60 border-l-emerald-500" :
                 isHighlighted ? "bg-indigo-50 border-l-indigo-400" :
                 "border-l-transparent hover:bg-slate-50",
                 isDimmed && "opacity-30"
