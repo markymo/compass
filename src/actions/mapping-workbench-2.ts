@@ -141,7 +141,7 @@ async function fetchLivePayloads(): Promise<{ payloads: Map<string, any>; refs: 
     const [gleif, ch, fr] = await Promise.allSettled([
         // GLEIF — public API, no key needed
         fetch(`https://api.gleif.org/api/v1/lei-records?filter[lei]=${DEMO_ENTITIES.GLEIF.lei}`,
-            { headers: { Accept: "application/vnd.api+json" }, next: { revalidate: 3600 } })
+            { headers: { Accept: "application/vnd.api+json" }, next: { revalidate: 3600 }, signal: AbortSignal.timeout(30000) })
             .then(r => r.json())
             .then(j => j.data?.[0]?.attributes ?? null),
 
@@ -154,7 +154,7 @@ async function fetchLivePayloads(): Promise<{ payloads: Map<string, any>; refs: 
             const auth = `Basic ${Buffer.from(apiKey + ":").toString("base64")}`;
             const profile = await fetch(
                 `https://api.company-information.service.gov.uk/company/${DEMO_ENTITIES.CH_RA000585.companyNo}`,
-                { headers: { Authorization: auth }, next: { revalidate: 3600 } }
+                { headers: { Authorization: auth }, next: { revalidate: 3600 }, signal: AbortSignal.timeout(30000) }
             ).then(r => r.json());
             // Return the raw profile — CH source mappings reference raw field names
             return profile ?? null;
@@ -162,7 +162,7 @@ async function fetchLivePayloads(): Promise<{ payloads: Map<string, any>; refs: 
 
         // French Registry — public API
         fetch(`https://recherche-entreprises.api.gouv.fr/search?q=${DEMO_ENTITIES.FR_RA000192.siren}&page=1&per_page=1`,
-            { headers: { Accept: "application/json", "User-Agent": "CoParity-Admin/1.0" }, next: { revalidate: 3600 } })
+            { headers: { Accept: "application/json", "User-Agent": "CoParity-Admin/1.0" }, next: { revalidate: 3600 }, signal: AbortSignal.timeout(30000) })
             .then(r => r.json())
             .then(d => {
                 const c = d.results?.[0];
