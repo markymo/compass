@@ -56,6 +56,8 @@ export interface Wb2LiveEntityRef {
     entityId: string;
     entityName: string | null;
     ok: boolean;
+    /** Error message if the fetch failed — shown in UI and logged server-side */
+    error: string | null;
 }
 
 export interface Wb2Question {
@@ -184,18 +186,46 @@ async function fetchLivePayloads(): Promise<{ payloads: Map<string, any>; refs: 
 
     // GLEIF
     const gleifPayload = gleif.status === "fulfilled" ? gleif.value : null;
+    const gleifError   = gleif.status === "rejected"  ? String(gleif.reason) : null;
+    if (gleifError) console.error("[LivePayloads] GLEIF fetch failed:", gleifError);
     payloads.set(DEMO_ENTITIES.GLEIF.internalKey, gleifPayload);
-    refs.push({ sourceKey: "GLEIF", entityId: DEMO_ENTITIES.GLEIF.lei, entityName: (gleifPayload as any)?.entity?.legalName?.name ?? null, ok: !!gleifPayload });
+    refs.push({
+        sourceKey: "GLEIF",
+        entityId: DEMO_ENTITIES.GLEIF.lei,
+        entityName: (gleifPayload as any)?.entity?.legalName?.name ?? null,
+        ok: !!gleifPayload,
+        error: gleifError,
+    });
 
-    // CH — raw profile, so company_name is the name field
-    const chPayload = ch.status === "fulfilled" ? ch.value : null;
+    // CH — guard against CH returning an error JSON (e.g. 401 {error:"..."})
+    const chRaw    = ch.status === "fulfilled" ? ch.value : null;
+    const chError  = ch.status === "rejected"  ? String(ch.reason) : null;
+    // A valid CH profile always has company_name; an error response does not
+    const chPayload = (chRaw && typeof chRaw === "object" && "company_name" in chRaw) ? chRaw : null;
+    if (chError)              console.error("[LivePayloads] CH fetch failed:", chError);
+    if (chRaw && !chPayload)  console.error("[LivePayloads] CH returned unexpected response:", JSON.stringify(chRaw).slice(0, 200));
     payloads.set(DEMO_ENTITIES.CH_RA000585.internalKey, chPayload);
-    refs.push({ sourceKey: "CH_RA000585", entityId: DEMO_ENTITIES.CH_RA000585.companyNo, entityName: (chPayload as any)?.company_name ?? null, ok: !!chPayload });
+    refs.push({
+        sourceKey: "CH_RA000585",
+        entityId: DEMO_ENTITIES.CH_RA000585.companyNo,
+        entityName: (chPayload as any)?.company_name ?? null,
+        ok: !!chPayload,
+        error: chError ?? (chRaw && !chPayload ? "Unexpected API response (no company_name)" : null),
+    });
 
-    // FR
-    const frPayload = fr.status === "fulfilled" ? fr.value : null;
+    // FR — compare siren as string to guard against type mismatch
+    const frRaw    = fr.status === "fulfilled" ? fr.value : null;
+    const frError  = fr.status === "rejected"  ? String(fr.reason) : null;
+    if (frError) console.error("[LivePayloads] FR fetch failed:", frError);
+    const frPayload = frRaw ?? null; // already validated inside the fetch chain
     payloads.set(DEMO_ENTITIES.FR_RA000192.internalKey, frPayload);
-    refs.push({ sourceKey: "FR_RA000192", entityId: DEMO_ENTITIES.FR_RA000192.siren, entityName: (frPayload as any)?.entityName ?? null, ok: !!frPayload });
+    refs.push({
+        sourceKey: "FR_RA000192",
+        entityId: DEMO_ENTITIES.FR_RA000192.siren,
+        entityName: (frPayload as any)?.entityName ?? null,
+        ok: !!frPayload,
+        error: frError,
+    });
 
     return { payloads, refs };
 }
