@@ -182,13 +182,21 @@ export function MappingWorkbench2({ data }: { data: Wb2PageData }) {
                     <div className="flex items-center gap-2 mt-1 flex-wrap">
                         <Wifi className="w-3 h-3 text-emerald-500 shrink-0" />
                         {data.liveEntityRefs.map(ref => (
-                            <span key={ref.sourceKey} className={cn(
-                                "text-[10px] px-2 py-0.5 rounded-full font-medium border",
-                                ref.ok
-                                    ? "bg-emerald-50 border-emerald-200 text-emerald-700"
-                                    : "bg-slate-50 border-slate-200 text-slate-400"
-                            )}>
-                                {ref.ok ? ref.entityName ?? ref.entityId : `${ref.entityId} (offline)`}
+                            <span
+                                key={ref.sourceKey}
+                                title={ref.error ?? undefined}
+                                className={cn(
+                                    "text-[10px] px-2 py-0.5 rounded-full font-medium border cursor-default",
+                                    ref.ok
+                                        ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                                        : ref.error
+                                            ? "bg-amber-50 border-amber-200 text-amber-700"
+                                            : "bg-slate-50 border-slate-200 text-slate-400"
+                                )}
+                            >
+                                {ref.ok
+                                    ? ref.entityName ?? ref.entityId
+                                    : `${ref.entityId} (${ref.error ? "error — hover for detail" : "offline"})`}
                             </span>
                         ))}
                     </div>
