@@ -220,7 +220,8 @@ export async function getMappingWorkbench2Data(): Promise<Wb2PageData> {
             select: { sourceType: true, payload: true },
         }),
         prisma.questionnaire.findMany({
-            where: { isDeleted: false, isTemplate: true },
+            where: { isDeleted: false, fiEngagementId: null },
+
             include: {
                 questions: {
                     orderBy: { order: "asc" },
