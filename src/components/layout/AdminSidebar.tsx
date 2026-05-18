@@ -7,7 +7,7 @@ import {
     ShieldCheck, Building2, Users, Wand2, FileText,
     UserCheck, MessageSquarePlus, Database, Activity,
     ListTree, LayoutGrid, Settings2, ArrowUpDown, GitBranch,
-    ChevronDown, Zap, ListOrdered, LayoutDashboard
+    ChevronDown, Zap, ListOrdered, LayoutDashboard, GitMerge, Layers3
 } from "lucide-react";
 import { useState } from "react";
 import { updateUserPreferences } from "@/actions/user-preferences";
@@ -39,6 +39,8 @@ const adminNavItems: NavItem[] = [
             { title: "System", href: "/app/admin/master-data/system", icon: Settings2 },
             { title: "Source Mappings", href: "/app/admin/master-data/source-mappings", icon: GitBranch },
             { title: "Option Sets", href: "/app/admin/master-data/option-sets", icon: ListOrdered },
+            { title: "Mapping Workbench Idea 1", href: "/app/admin/mapping-workbench", icon: GitMerge },
+            { title: "Mapping Workbench Idea 2", href: "/app/admin/mapping-workbench-2", icon: Layers3 },
         ]
     },
     { title: "Dashboard (old)", href: "/app/admin", icon: ShieldCheck },
