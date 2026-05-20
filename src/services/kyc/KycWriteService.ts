@@ -185,7 +185,8 @@ export class KycWriteService {
                     subjectLeId: resolvedEntityId,
                     fieldNo,
                     instanceId: rowId,
-                    status: { not: 'DELETED' },
+                    // Exclude tombstones: they use valueJson: { tombstone: true }
+                    // The ClaimStatus enum has no DELETED value; tombstones are identified by valueJson alone.
                     valueJson: { not: Prisma.JsonNull }
                 },
                 select: { id: true }

@@ -12,8 +12,10 @@ import { RegistryMappingEngine } from '../src/services/kyc/normalization/Registr
 import { KycWriteService } from '../src/services/kyc/KycWriteService';
 import prisma from '../src/lib/prisma';
 
-const LE_ID  = '3f3b592b-20e3-46c8-9eb1-9af01958f99f';
-const RUN_ID = '36ab728d-0a45-4f69-b1a5-ef2ef4c11c1a';
+// Dev LE: RWE Renewables / Dogger Bank South Two
+const LE_ID  = '683a79f9-4933-46d3-a6c4-0e2fe934db23'; // ClientLE ID
+const RUN_ID = '8c40d113-d6d6-4754-9311-a83743b3f142'; // Most recent EnrichmentRun
+
 
 async function main() {
     console.log('\n=== Step 1: Run Mapping Engine ===');
