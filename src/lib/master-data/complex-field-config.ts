@@ -110,7 +110,7 @@ export interface StructuredCollectionConfig {
     collectionId: string;
     appDataType: string;
     isMultiValue: true;
-    itemType: 'STRUCTURED_VALUE';
+    itemType: 'STRUCTURED_VALUE' | 'NAME_HISTORY_ENTRY';
     fields: {
         key: string;
         label: string;
@@ -139,6 +139,49 @@ export type ComplexFieldConfig =
  * Simple scalar fields (TEXT, DATETIME, etc.) are not registered.
  */
 export const COMPLEX_FIELD_CONFIG = {
+
+    /**
+     * Field 5: Previous Names
+     * Slice 2 — first STRUCTURED_COLLECTION field.
+     *
+     * Each previous name becomes a separate FieldClaim row:
+     *   fieldNo      = 5
+     *   collectionId = NAME_HISTORY
+     *   instanceId   = stable rowKey (name_{normalised}_{effectiveFrom|unknown})
+     *   valueJson    = { name, effectiveFrom?, effectiveTo?, nameType? }
+     *   effectiveFrom / effectiveTo carried through from the source
+     *
+     * Sources:
+     *   - Companies House: previous_company_names[]
+     *     ceased_on → effectiveTo, effective_from → effectiveFrom
+     *   - GLEIF: entity.otherNames[] (dates typically absent)
+     *
+     * NOT graph-backed. No Person/Address nodes created.
+     * filterByEffectiveDate = false — all historical names are retained and
+     * shown; the UI is responsible for visual distinction of active vs past.
+     */
+    5: {
+        kind: 'STRUCTURED_COLLECTION',
+        label: 'Previous Names',
+        description:
+            'Previous, alternate, trading, or source-specific names used by this legal entity. ' +
+            'Each entry is stored as a separate row so the full history is preserved.',
+        collectionId: 'NAME_HISTORY',
+        appDataType: 'JSONB',
+        isMultiValue: true,
+        itemType: 'NAME_HISTORY_ENTRY',
+        fields: [
+            { key: 'name',          label: 'Name',      dataType: 'TEXT',     required: true  },
+            { key: 'effectiveFrom', label: 'From',      dataType: 'DATETIME', required: false },
+            { key: 'effectiveTo',   label: 'To',        dataType: 'DATETIME', required: false },
+            { key: 'nameType',      label: 'Name type', dataType: 'TEXT',     required: false },
+        ],
+        temporal: {
+            filterByEffectiveDate: false, // show all historical names, not just "current" ones
+            effectiveFromKey: 'effectiveFrom',
+            effectiveToKey:   'effectiveTo',
+        },
+    } satisfies StructuredCollectionConfig,
 
     /**
      * Field 63: List of company directors

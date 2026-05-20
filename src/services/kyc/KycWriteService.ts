@@ -16,6 +16,7 @@ import { FieldClaimService } from '@/lib/kyc/FieldClaimService';
 import { KycStateService } from '@/lib/kyc/KycStateService';
 import { SourceType, ClaimStatus } from '@prisma/client';
 import { APP_DATA_TYPES, isKnownAppDataType } from '@/lib/master-data/field-types';
+import { getComplexFieldConfig } from '@/lib/master-data/complex-field-config';
 
 const loader = new KycLoader();
 
@@ -54,13 +55,14 @@ export class KycWriteService {
                 }
 
                 // Extract temporal metadata from the item DTO if present.
-                // TO_PARTY_LIST sets appointedOn / resignedOn on each item.
-                const effectiveFrom: Date | undefined = item?.appointedOn
-                    ? new Date(item.appointedOn)
-                    : undefined;
-                const effectiveTo: Date | undefined = item?.resignedOn
-                    ? new Date(item.resignedOn)
-                    : undefined;
+                // TO_PARTY_LIST  sets appointedOn / resignedOn on each item.
+                // TO_NAME_HISTORY_LIST sets effectiveFrom / effectiveTo directly.
+                const effectiveFrom: Date | undefined =
+                    (item?.effectiveFrom ? new Date(item.effectiveFrom) : undefined) ??
+                    (item?.appointedOn  ? new Date(item.appointedOn)   : undefined);
+                const effectiveTo: Date | undefined =
+                    (item?.effectiveTo ? new Date(item.effectiveTo) : undefined) ??
+                    (item?.resignedOn  ? new Date(item.resignedOn)  : undefined);
 
                 const success = await this.updateField(
                     entityId,
@@ -175,14 +177,32 @@ export class KycWriteService {
         }
 
         // 3. Check for Idempotency (Material Change Check)
-        const derived = await KycStateService.getAuthoritativeValue(
-            { subjectLeId: resolvedEntityId },
-            fieldNo
-        );
-
-        if (derived && this.valuesAreEqual(derived.value, value)) {
-            console.log(`[KycWriteService] Idempotency check: Value identical for Field ${fieldNo}. Skipping claim assertion.`);
-            return true; 
+        if (def.isMultiValue && rowId) {
+            // For repeating collection fields, idempotency is per-instanceId:
+            // if a non-tombstone claim with this exact instanceId already exists, skip.
+            const existingInstance = await prisma.fieldClaim.findFirst({
+                where: {
+                    subjectLeId: resolvedEntityId,
+                    fieldNo,
+                    instanceId: rowId,
+                    status: { not: 'DELETED' },
+                    valueJson: { not: Prisma.JsonNull }
+                },
+                select: { id: true }
+            });
+            if (existingInstance) {
+                console.log(`[KycWriteService] Idempotency check: instanceId="${rowId}" already exists for Field ${fieldNo}. Skipping.`);
+                return true;
+            }
+        } else {
+            const derived = await KycStateService.getAuthoritativeValue(
+                { subjectLeId: resolvedEntityId },
+                fieldNo
+            );
+            if (derived && this.valuesAreEqual(derived.value, value)) {
+                console.log(`[KycWriteService] Idempotency check: Value identical for Field ${fieldNo}. Skipping claim assertion.`);
+                return true;
+            }
         }
 
         // 4. Materialize Graph Relations (Smart Upsert)
@@ -329,7 +349,16 @@ export class KycWriteService {
                 verifiedByUserId: (provenance as any).verifiedBy || (provenance as any).verified_by || undefined,
                 assertedAt: new Date(),
                 // Repeating Field Contract:
-                collectionId: def.isMultiValue ? (def.categoryId || 'GENERAL') : undefined,
+                // collectionId comes from COMPLEX_FIELD_CONFIG when registered
+                // (single source of truth). Falls back to def.categoryId for
+                // simple collection fields not yet in the registry.
+                collectionId: (() => {
+                    if (def.isMultiValue) {
+                        const complexCfg = getComplexFieldConfig(fieldNo);
+                        return complexCfg?.collectionId ?? def.categoryId ?? 'GENERAL';
+                    }
+                    return undefined;
+                })(),
                 instanceId: rowId || undefined,
                 // Temporal relationship facts (e.g. director appointed/resigned dates)
                 effectiveFrom: provenance.effectiveFrom,

@@ -70,7 +70,9 @@ type TransformType =
     | 'JOIN_ARRAY'
     | 'TO_ADDRESS_OBJECT'
     | 'TO_PARTY_OBJECT'
-    | 'TO_PARTY_LIST';
+    | 'TO_PARTY_LIST'
+    | 'TO_NAME_HISTORY_LIST';
+
 
 /**
  * Builds a deterministic row key for a director/officer relationship.
@@ -95,6 +97,36 @@ export function buildDirectorRowKey(
     const date = appointedOn ? appointedOn.replace(/[^0-9\-]/g, '') : 'unknown';
     return `ch_${date}_${lastName}_${firstInitial}`;
 }
+
+/**
+ * Builds a deterministic row key for a name-history entry.
+ *
+ * Format: name_{normalisedName}_{effectiveFrom|unknown}
+ *
+ * Requirements:
+ *   - Deterministic: same name + date always yields the same key.
+ *   - Safe for re-enrichment: writing the same payload twice produces the
+ *     same instanceId, so the claim is upserted, not duplicated.
+ *   - Handles missing dates: uses 'unknown' as the date segment.
+ *   - Does not use timestamps or random values.
+ *
+ * @internal — exported for testing only
+ */
+export function buildNameHistoryRowKey(
+    name: string,
+    effectiveFrom: string | null | undefined
+): string {
+    const normalisedName = (name || 'unknown')
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '_')  // collapse special chars to underscores
+        .replace(/_+/g, '_')          // collapse consecutive underscores
+        .replace(/^_|_$/g, '');       // trim leading/trailing underscores
+    const dateSegment = effectiveFrom
+        ? String(effectiveFrom).replace(/[^0-9\-]/g, '')
+        : 'unknown';
+    return `name_${normalisedName}_${dateSegment}`;
+}
+
 
 /**
  * Apply a transform to a resolved value.
@@ -342,6 +374,68 @@ export function applyTransform(
 
             // Return both the enriched list and the parallel rowKeys array.
             // KycWriteService.applyFieldCandidate() reads candidate.rowKeys.
+            return { value: list, confidencePenalty: 0, rowKeys };
+        }
+
+        case 'TO_NAME_HISTORY_LIST': {
+            // ── Field 5: Previous Names ───────────────────────────────────────
+            // Handles two source shapes:
+            //
+            // Companies House — previous_company_names[]:
+            //   { name, ceased_on, effective_from }
+            //
+            // GLEIF — entity.otherNames[] or similar:
+            //   { name } or just a string
+            //
+            // Both are normalised to:
+            //   { name, effectiveFrom?, effectiveTo?, nameType?, rowKey }
+            //
+            // Tolerant: missing fields degrade gracefully, never throw.
+            // ─────────────────────────────────────────────────────────────────
+            if (!Array.isArray(value)) {
+                // Single object or string — wrap in array and re-apply
+                const wrapped = typeof value === 'string' ? [{ name: value }] : [value];
+                return applyTransform(wrapped, 'TO_NAME_HISTORY_LIST', transformConfig);
+            }
+
+            const rowKeys: string[] = [];
+            const list = value
+                .map((item: any) => {
+                    // Normalise item to a string name + optional date fields
+                    let name: string;
+                    let effectiveFrom: string | null = null;
+                    let effectiveTo:   string | null = null;
+                    let nameType:      string | null = null;
+
+                    if (typeof item === 'string') {
+                        name = item.trim();
+                    } else if (item && typeof item === 'object') {
+                        // CH shape: { name, effective_from, ceased_on }
+                        // GLEIF shape: { name, type } or { name }
+                        name = String(item.name || item.value || '').trim();
+                        // Companies House
+                        effectiveFrom = item.effective_from ?? item.effectiveFrom ?? null;
+                        effectiveTo   = item.ceased_on     ?? item.effectiveTo    ?? null;
+                        nameType      = item.type          ?? item.nameType       ?? null;
+                    } else {
+                        return null; // skip nulls / unexpected types
+                    }
+
+                    if (!name) return null; // minimum valid row: name required
+
+                    const rowKey = buildNameHistoryRowKey(name, effectiveFrom);
+                    rowKeys.push(rowKey);
+
+                    return {
+                        name,
+                        effectiveFrom: effectiveFrom || undefined,
+                        effectiveTo:   effectiveTo   || undefined,
+                        nameType:      nameType       || undefined,
+                        rowKey,
+                    };
+                })
+                .filter((v: any) => v !== null);
+
             return { value: list, confidencePenalty: 0, rowKeys };
         }
 

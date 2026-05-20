@@ -78,7 +78,7 @@ function buildCollectionFieldConfig(): Record<number, CollectionFieldConfig> {
 
     // Auto-derive entries from COMPLEX_FIELD_CONFIG.
     // Add fieldNo values here as new complex fields are registered.
-    const complexFieldNos: number[] = [63];
+    const complexFieldNos: number[] = [5, 63];
 
     for (const fieldNo of complexFieldNos) {
         const derived = deriveCollectionConfig(fieldNo);

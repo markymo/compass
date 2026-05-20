@@ -23,6 +23,8 @@ import { GraphNodePickerDialog } from "@/components/client/graph/graph-node-pick
 import { NodeCreateDialog } from "@/components/client/graph/node-create-dialog";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import { CollectionRowDisplay } from "@/lib/master-data/structured-collection-renderers";
+
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -900,9 +902,14 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                 /* Normal display row */
                                                                 <div className="group flex items-center gap-2 px-3 py-2.5 rounded-lg border border-slate-150 bg-white hover:border-slate-300 hover:shadow-sm transition-all">
                                                                     <div className="flex-1 min-w-0">
-                                                                        <div className="text-sm font-medium text-slate-900 truncate">
-                                                                            {renderRowValue(row.value)}
-                                                                        </div>
+                                                                        {/* Structured collection row (e.g. Field 5 Previous Names) */}
+                                                                        {row.value && typeof row.value === 'object' && row.value.name ? (
+                                                                            <CollectionRowDisplay fieldNo={fieldNo} row={row.value} />
+                                                                        ) : (
+                                                                            <div className="text-sm font-medium text-slate-900 truncate">
+                                                                                {renderRowValue(row.value)}
+                                                                            </div>
+                                                                        )}
                                                                         <div className="flex items-center gap-2 mt-0.5">
                                                                             <SourceBadge source={row.source as any} sourceReference={row.sourceReference} />
                                                                             <span className="text-[9px] text-slate-400">

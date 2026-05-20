@@ -102,17 +102,28 @@ export class RegistryMappingEngine {
                         sourceObject = payload?.payload;
                     }
 
-                    if (!sourceObject) continue;
+                    if (!sourceObject) {
+                        console.log(`[RegistryMappingEngine] skip field=${fieldNo} mapping=${mapping.id}: no sourceObject for scope=${mapping.mappingScope} subtype=${mapping.payloadSubtype}`);
+                        continue;
+                    }
 
                     // PATH RESOLUTION
                     const segments = parsePath(mapping.sourcePath);
                     const rawValue = resolveDotPath(sourceObject, segments);
 
-                    if (rawValue == null) continue;
+                    if (rawValue == null) {
+                        console.log(`[RegistryMappingEngine] skip field=${fieldNo}: path "${mapping.sourcePath}" resolved to null (scope=${mapping.mappingScope}, subtype=${mapping.payloadSubtype})`);
+                        continue;
+                    }
+                    console.log(`[RegistryMappingEngine] field=${fieldNo} path="${mapping.sourcePath}" resolved → ${Array.isArray(rawValue) ? `array[${rawValue.length}]` : typeof rawValue}`);
 
                     // TRANSFORMATION
                     const transformed = applyTransform(rawValue, mapping.transformType as any, mapping.transformConfig);
-                    if (transformed.value == null) continue;
+                    if (transformed.value == null) {
+                        console.log(`[RegistryMappingEngine] skip field=${fieldNo}: transform "${mapping.transformType}" returned null`);
+                        continue;
+                    }
+                    console.log(`[RegistryMappingEngine] field=${fieldNo} transform="${mapping.transformType}" → ${Array.isArray(transformed.value) ? `array[${transformed.value.length}]` : JSON.stringify(transformed.value).slice(0, 80)}`);
 
                     // CANDIDATE GENERATION
                     // [FieldTypeRegistry] Warn on unknown appDataType before emitting a candidate.

@@ -21,7 +21,8 @@ import { CategoryCombobox } from "./category-combobox";
 import { DataInspectorPanel } from "@/components/client/admin/source-mappings/data-inspector-panel";
 import { SOURCE_OPTIONS, getSourceDisplayName } from "@/lib/source-display";
 import { SCALAR_UI_OPTIONS, REFERENCE_UI_OPTIONS, APP_DATA_TYPES } from "@/lib/master-data/field-types";
-import { getComplexFieldConfig, getFieldTypeLabel, type GraphRelationshipCollectionConfig } from "@/lib/master-data/complex-field-config";
+import { getComplexFieldConfig, getFieldTypeLabel, type GraphRelationshipCollectionConfig, type StructuredCollectionConfig } from "@/lib/master-data/complex-field-config";
+
 
 
 interface FieldDetailSheetProps {
@@ -240,6 +241,10 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[] }: F
 
     if (!field) return null;
 
+    // Computed once — used in both the sheet header badge and the Field Type Summary IIFE below.
+    const complexHeaderCfg = getComplexFieldConfig(field.fieldNo);
+    const isComplexForHeader = !!complexHeaderCfg;
+
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
             <SheetContent className="w-full sm:max-w-[750px] flex flex-col h-full bg-white dark:bg-slate-950">
@@ -261,7 +266,12 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[] }: F
                             {field.domain && field.domain.length > 0 && field.domain.map((d: string) => (
                                 <Badge key={d} variant="secondary" className="bg-purple-50 text-purple-700 font-normal">{d}</Badge>
                             ))}
-                            <span className="text-xs text-slate-500 font-mono self-center ml-2">{field.appDataType}</span>
+                            {/* For complex fields, show a business-facing label instead of the raw storage type */}
+                            {isComplexForHeader
+                                ? <Badge variant="outline" className="text-[11px] font-medium text-indigo-700 border-indigo-200 bg-indigo-50 self-center ml-2">{complexHeaderCfg!.label}</Badge>
+                                : <span className="text-xs text-slate-500 font-mono self-center ml-2">{field.appDataType}</span>
+                            }
+
                         </div>
                     </div>
                 </SheetHeader>
@@ -282,7 +292,7 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[] }: F
                                             <div className="flex items-center gap-2">
                                                 <GitBranch className="w-4 h-4 text-indigo-500 shrink-0" />
                                                 <span className="text-sm font-semibold text-indigo-900">{cfg.label}</span>
-                                                <Badge className="bg-indigo-100 text-indigo-700 border-indigo-200 text-[10px] font-medium">Complex field</Badge>
+                                                <Badge className="bg-indigo-100 text-indigo-700 border-indigo-200 text-[10px] font-medium">Graph relationship collection</Badge>
                                             </div>
                                             <p className="text-xs text-indigo-700 mt-1 leading-relaxed max-w-[480px]">{cfg.description}</p>
                                         </div>
@@ -308,6 +318,42 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[] }: F
                                                 <span className="font-medium">Source</span> {t.source} / {t.transformType}
                                             </span>
                                         ))}
+                                    </div>
+                                </section>
+                            );
+                        }
+
+                        if (complexCfg && complexCfg.kind === 'STRUCTURED_COLLECTION') {
+                            const cfg = complexCfg as StructuredCollectionConfig;
+                            return (
+                                <section className="rounded-lg border border-teal-200 bg-teal-50/60 p-4 space-y-3">
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div>
+                                            <div className="flex items-center gap-2">
+                                                <GitBranch className="w-4 h-4 text-teal-500 shrink-0" />
+                                                <span className="text-sm font-semibold text-teal-900">{cfg.label}</span>
+                                                <Badge className="bg-teal-100 text-teal-700 border-teal-200 text-[10px] font-medium">Structured temporal collection</Badge>
+                                            </div>
+                                            <p className="text-xs text-teal-700 mt-1 leading-relaxed max-w-[480px]">{cfg.description}</p>
+                                        </div>
+                                    </div>
+                                    {/* Field schema strip */}
+                                    <div className="flex flex-wrap gap-2 pt-1 border-t border-teal-200">
+                                        <span className="inline-flex items-center gap-1 text-[10px] text-teal-700 bg-teal-100 rounded px-2 py-0.5">
+                                            <span className="font-medium">Collection</span> {cfg.collectionId}
+                                        </span>
+                                        {cfg.fields.map(f => (
+                                            <span key={f.key} className="inline-flex items-center gap-1 text-[10px] text-teal-600 bg-teal-100 rounded px-2 py-0.5">
+                                                <span className="font-medium">{f.label}</span>
+                                                {f.required && <span className="text-teal-400">*</span>}
+                                                <span className="text-teal-400 font-mono">{f.dataType}</span>
+                                            </span>
+                                        ))}
+                                        {cfg.temporal && !cfg.temporal.filterByEffectiveDate && (
+                                            <span className="inline-flex items-center gap-1 text-[10px] text-teal-600 bg-teal-100 rounded px-2 py-0.5">
+                                                📋 Full history (no date filter)
+                                            </span>
+                                        )}
                                     </div>
                                 </section>
                             );
@@ -361,25 +407,36 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[] }: F
                             </div>
                             <div className="grid gap-2">
                                 <Label className="text-xs text-slate-500">Data Type</Label>
-                                <Select value={formData.appDataType} onValueChange={(val) => setFormData({ ...formData, appDataType: val })}>
-                                    <SelectTrigger className="w-full bg-white">
-                                        <SelectValue placeholder="Select Data Type" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {SCALAR_UI_OPTIONS.map(opt => (
-                                            <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                                        ))}
-                                        <div className="px-2 py-1.5 text-[10px] font-semibold text-slate-400 uppercase tracking-wider border-t mt-1 pt-2">
-                                            Reference Types
-                                        </div>
-                                        {REFERENCE_UI_OPTIONS.map(opt => (
-                                            <SelectItem key={opt.value} value={opt.value}>
-                                                <span>{opt.label}</span>
-                                                {opt.description && <span className="text-slate-400 text-[10px] ml-1">— {opt.description}</span>}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                {isComplexForHeader ? (
+                                    // Complex fields: lock the storage type — changing it would break KycWriteService routing.
+                                    // The true field type is defined in complex-field-config.ts, not this dropdown.
+                                    <div className="flex items-center gap-2 h-9 px-3 rounded-md border border-slate-200 bg-slate-50">
+                                        <span className="text-xs font-mono text-slate-500">{field.appDataType}</span>
+                                        <span className="text-[10px] text-amber-600 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 ml-auto">
+                                            Managed by registry — do not change
+                                        </span>
+                                    </div>
+                                ) : (
+                                    <Select value={formData.appDataType} onValueChange={(val) => setFormData({ ...formData, appDataType: val })}>
+                                        <SelectTrigger className="w-full bg-white">
+                                            <SelectValue placeholder="Select Data Type" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {SCALAR_UI_OPTIONS.map(opt => (
+                                                <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                            ))}
+                                            <div className="px-2 py-1.5 text-[10px] font-semibold text-slate-400 uppercase tracking-wider border-t mt-1 pt-2">
+                                                Reference Types
+                                            </div>
+                                            {REFERENCE_UI_OPTIONS.map(opt => (
+                                                <SelectItem key={opt.value} value={opt.value}>
+                                                    <span>{opt.label}</span>
+                                                    {opt.description && <span className="text-slate-400 text-[10px] ml-1">— {opt.description}</span>}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                )}
                             </div>
                             <div className="grid gap-2">
                                 <Label htmlFor="domain" className="text-xs text-slate-500">Domain Classification</Label>
