@@ -144,11 +144,17 @@ export async function createMasterField(data: {
     optionSetId?: string | null;
 }) {
     try {
-        let finalCategoryId = data.categoryId;
+        // Sanitize: empty strings from form selects must be treated as absent.
+        // An empty string is not a valid UUID and will violate the FK constraint
+        // on master_field_definitions_categoryId_fkey.
+        const sanitizedCategoryId  = data.categoryId?.trim()       || undefined;
+        const sanitizedNewCategory = data.newCategoryName?.trim()   || undefined;
 
-        if (data.newCategoryName) {
+        let finalCategoryId = sanitizedCategoryId;
+
+        if (sanitizedNewCategory) {
             const normalize = (name: string) => name.trim().toLowerCase().replace(/[\s\W]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
-            let baseKey = normalize(data.newCategoryName);
+            let baseKey = normalize(sanitizedNewCategory);
             
             let key = baseKey;
             let suffix = 2;
@@ -163,7 +169,7 @@ export async function createMasterField(data: {
             const newCat = await (prisma as any).masterDataCategory.create({
                 data: {
                     key: key,
-                    displayName: data.newCategoryName.trim(),
+                    displayName: sanitizedNewCategory,
                     order: (maxOrderCat?.order || 0) + 1
                 }
             });

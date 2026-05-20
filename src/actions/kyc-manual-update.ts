@@ -75,6 +75,7 @@ export async function updateFieldManually(
 
         const claim = await FieldClaimService.assertClaim({
             ...claimInput,
+            clientLEId,  // required for graph edge write-back on graph-bound fields (e.g. F63 DIRECTOR)
             verifiedByUserId: userId,
             status: SourceType.USER_INPUT === SourceType.USER_INPUT ? 'VERIFIED' : 'ASSERTED' // manual updates are verified
         });

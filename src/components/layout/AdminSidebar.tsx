@@ -7,7 +7,7 @@ import {
     ShieldCheck, Building2, Users, Wand2, FileText,
     UserCheck, MessageSquarePlus, Database, Activity,
     ListTree, LayoutGrid, Settings2, ArrowUpDown, GitBranch,
-    ChevronDown, Zap, ListOrdered, LayoutDashboard, GitMerge, Layers3
+    ChevronDown, Zap, ListOrdered, LayoutDashboard, GitMerge, Layers3, FolderOpen
 } from "lucide-react";
 import { useState } from "react";
 import { updateUserPreferences } from "@/actions/user-preferences";
@@ -25,6 +25,7 @@ const adminNavItems: NavItem[] = [
     { title: "Organizations", href: "/app/admin/organizations", icon: Building2 },
     { title: "Users", href: "/app/admin/users", icon: Users },
     { title: "Questionnaires", href: "/app/admin/questionnaires", icon: FileText },
+    { title: "Questionnaires V2", href: "/app/admin/questionnaires-v2", icon: FolderOpen },
     { title: "Demo Room", href: "/app/admin/demo", icon: UserCheck },
     { title: "Feedback", href: "/app/admin/feedback", icon: MessageSquarePlus },
     {

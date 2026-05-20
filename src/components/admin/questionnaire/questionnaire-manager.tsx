@@ -424,7 +424,7 @@ export function QuestionnaireManager({ questionnaire: initialQ, masterFields }: 
                                 id="process-logs-container"
                                 className="h-40 overflow-y-auto bg-slate-900 rounded-md p-4 font-mono text-[10px] shadow-inner"
                             >
-                                {(!questionnaire.processingLogs || (questionnaire.processingLogs as any[]).length === 0) ? (
+                                {(!questionnaire.processingLogs || !Array.isArray(questionnaire.processingLogs) || (questionnaire.processingLogs as any[]).length === 0) ? (
                                     <span className="text-slate-500">No logs available yet.</span>
                                 ) : (
                                     (questionnaire.processingLogs as any[]).map((log: any, i: number) => {

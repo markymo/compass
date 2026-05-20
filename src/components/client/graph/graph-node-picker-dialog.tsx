@@ -217,7 +217,7 @@ export function GraphNodePickerDialog({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[600px] p-0 overflow-hidden bg-slate-50/50">
+            <DialogContent className="sm:max-w-[600px] p-0 overflow-hidden bg-white">
                 <DialogHeader className="px-6 pt-6 pb-4 bg-white border-b border-slate-100">
                     <DialogTitle className="text-xl">Add {typeConfig.label}</DialogTitle>
                     <DialogDescription>

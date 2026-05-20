@@ -29,6 +29,9 @@ import { updateMasterField } from "@/actions/master-data-governance";
 import { moveFieldOrder } from "@/actions/master-data-sort";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { ALL_UI_OPTIONS } from "@/lib/master-data/field-types";
+import { getComplexFieldConfig, getFieldTypeLabel } from "@/lib/master-data/complex-field-config";
+
 
 interface FieldGlossaryTableProps {
     initialFields: any[];
@@ -223,8 +226,22 @@ export function FieldGlossaryTable({ initialFields }: FieldGlossaryTableProps) {
             accessorKey: "appDataType",
             header: "Data Type",
             size: 80,
-            cell: ({ row }) => <EditableSelectCell key={row.original.fieldNo} row={row} fieldKey="appDataType" options={["TEXT", "NUMBER", "BOOLEAN", "DATE", "JSON", "SELECT"]} router={router} />,
+            cell: ({ row }) => {
+                // Use a business-facing label for complex fields; raw type for simple fields.
+                const fieldNo: number = row.original.fieldNo;
+                const appDataType: string = row.original.appDataType;
+                const complexCfg = getComplexFieldConfig(fieldNo);
+                if (complexCfg) {
+                    return (
+                        <span className="text-xs font-medium text-teal-700 bg-teal-50 border border-teal-200 rounded px-1.5 py-0.5 cursor-default" title={`Storage type: ${appDataType} (managed by complex-field-config.ts)`}>
+                            {complexCfg.label}
+                        </span>
+                    );
+                }
+                return <EditableSelectCell key={fieldNo} row={row} fieldKey="appDataType" options={ALL_UI_OPTIONS.map(o => o.value)} router={router} />;
+            },
         },
+
         {
             id: "sources",
             header: "Source",
@@ -706,8 +723,15 @@ function NewFieldInlineRow({ draft, isCreating, onCancel, onSave }: { draft: any
                 </div>
             </TableCell>
             <TableCell className="py-2 px-3">
-                <div className="font-mono text-[10px] text-slate-400">{val.appDataType}</div>
+                {(() => {
+                    const complexCfg = getComplexFieldConfig(val.fieldNo);
+                    if (complexCfg) {
+                        return <span className="text-[10px] font-medium text-teal-700" title={`Storage: ${val.appDataType}`}>{complexCfg.label}</span>;
+                    }
+                    return <div className="font-mono text-[10px] text-slate-400">{getFieldTypeLabel(val.fieldNo, val.appDataType)}</div>;
+                })()}
             </TableCell>
+
             <TableCell className="py-2 px-3">
                 <span className="text-[10px] text-slate-400 italic">None</span>
             </TableCell>

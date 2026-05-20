@@ -109,13 +109,17 @@ export class FieldClaimService {
             }
         });
 
-        // 5. Graph write-back (For all sources, enabling automated graph assertion)
+        // 5. Graph write-back — awaited with error isolation so a write-back failure
+        // never rolls back the claim, but the edge IS committed before we return.
+        // This is critical for the UI: callers call getFieldDetail() immediately after
+        // assertClaim() returns, and that query reads from clientLEGraphEdge. If the
+        // edge write is still in-flight (fire-and-forget) the row won't be visible yet.
         if (input.clientLEId) {
-            // Fire-and-forget with error isolation — a write-back failure must never
-            // roll back the claim itself.
-            this.writeBackGraphEdge(claim, input).catch(err => {
+            try {
+                await this.writeBackGraphEdge(claim, input);
+            } catch (err) {
                 console.error("[FieldClaimService] Graph write-back failed (non-fatal):", err);
-            });
+            }
         }
 
         return claim;
@@ -198,14 +202,18 @@ export class FieldClaimService {
             },
         });
 
+        console.log(`[writeBackGraphEdge] field=${fieldNo} clientLE=${clientLEId} binding=${binding?.writeBackEdgeType ?? 'NONE'}`);
+
         if (!binding?.writeBackEdgeType) return;
 
         // 2. Resolve which entity id to look up in the graph
         const refPersonId = (claim as any).valuePersonId;
         const refLeId     = (claim as any).valueLeId;
 
+        console.log(`[writeBackGraphEdge] refPersonId=${refPersonId} refLeId=${refLeId}`);
+
         if (!refPersonId && !refLeId) {
-            // Scalar claim — no node reference to write back
+            console.warn(`[writeBackGraphEdge] No value ref — scalar claim, skipping.`);
             return;
         }
 
@@ -219,6 +227,8 @@ export class FieldClaimService {
             select: { id: true },
         });
 
+        console.log(`[writeBackGraphEdge] graphNode=${graphNode?.id ?? 'NOT FOUND'}`);
+
         if (!graphNode) {
             console.warn(
                 `[FieldClaimService.writeBack] No graph node found for ` +
@@ -228,33 +238,45 @@ export class FieldClaimService {
             return;
         }
 
-        // 4. Upsert the edge — idempotent via unique(fromNodeId, edgeType)
-        // We update isActive=true on conflict, restoring a previously-ceased edge
-        // if the user re-asserts the same relationship.
+        // 4. Find-or-create the edge.
+        // Prisma's upsert() cannot handle null values in nullable compound unique constraints
+        // (the @@unique([fromNodeId, toNodeId, edgeType]) index). Use findFirst + create/update instead.
         try {
-            await (prisma as any).clientLEGraphEdge.upsert({
+            const existingEdge = await (prisma as any).clientLEGraphEdge.findFirst({
                 where: {
-                    fromNodeId_edgeType: {
-                        fromNodeId: graphNode.id,
-                        edgeType:   binding.writeBackEdgeType,
-                    },
-                },
-                update: {
-                    isActive:  binding.writeBackIsActive,
-                    source:    "USER_INPUT",
-                },
-                create: {
-                    clientLEId,
                     fromNodeId: graphNode.id,
-                    toNodeId:   null, // null = root LE
+                    toNodeId:   null,
                     edgeType:   binding.writeBackEdgeType,
-                    isActive:   binding.writeBackIsActive,
-                    source:     "USER_INPUT",
                 },
+                select: { id: true },
             });
+
+            let edge: any;
+            if (existingEdge) {
+                edge = await (prisma as any).clientLEGraphEdge.update({
+                    where: { id: existingEdge.id },
+                    data: {
+                        isActive: binding.writeBackIsActive,
+                        source:   "USER_INPUT",
+                    },
+                });
+            } else {
+                edge = await (prisma as any).clientLEGraphEdge.create({
+                    data: {
+                        clientLEId,
+                        fromNodeId: graphNode.id,
+                        toNodeId:   null,
+                        edgeType:   binding.writeBackEdgeType,
+                        isActive:   binding.writeBackIsActive,
+                        source:     "USER_INPUT",
+                    },
+                });
+            }
+            console.log(`[writeBackGraphEdge] ✅ edge ${existingEdge ? 'updated' : 'created'} id=${edge.id} edgeType=${edge.edgeType} isActive=${edge.isActive}`);
+
         } catch (e: any) {
-            // Log the error but surface it to the caller so fire-and-forget can log it
-            throw new Error(`Edge upsert failed: ${e.message}`);
+            // Surface the error so the awaited caller can log it
+            throw new Error(`Edge write-back failed: ${e.message}`);
         }
     }
 

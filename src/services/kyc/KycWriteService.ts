@@ -15,6 +15,8 @@ import { KycLoader } from './KycLoader';
 import { FieldClaimService } from '@/lib/kyc/FieldClaimService';
 import { KycStateService } from '@/lib/kyc/KycStateService';
 import { SourceType, ClaimStatus } from '@prisma/client';
+import { APP_DATA_TYPES, isKnownAppDataType } from '@/lib/master-data/field-types';
+import { getComplexFieldConfig } from '@/lib/master-data/complex-field-config';
 
 const loader = new KycLoader();
 
@@ -35,8 +37,33 @@ export class KycWriteService {
             let overallSuccess = true;
             for (let i = 0; i < candidate.value.length; i++) {
                 const item = candidate.value[i];
-                // For list candidates, we generate an ephemeral rowId mapping
-                const rowId = `auto_${Date.now()}_${i}`;
+
+                // Prefer a stable rowKey from the candidate (e.g. from TO_PARTY_LIST).
+                // Fall back to the ephemeral key only when no stable key was provided,
+                // and log a warning so these are easy to identify and fix.
+                const stableKey = candidate.rowKeys?.[i] || item?.rowKey;
+                let rowId: string;
+                if (stableKey) {
+                    rowId = stableKey;
+                } else {
+                    rowId = `auto_${Date.now()}_${i}`;
+                    console.warn(
+                        `[KycWriteService] No stable rowKey for fieldNo=${candidate.fieldNo} item[${i}]. ` +
+                        `Using ephemeral instanceId="${rowId}". Re-enrichment will create duplicate rows. ` +
+                        `Provide candidate.rowKeys[${i}] to fix.`
+                    );
+                }
+
+                // Extract temporal metadata from the item DTO if present.
+                // TO_PARTY_LIST  sets appointedOn / resignedOn on each item.
+                // TO_NAME_HISTORY_LIST sets effectiveFrom / effectiveTo directly.
+                const effectiveFrom: Date | undefined =
+                    (item?.effectiveFrom ? new Date(item.effectiveFrom) : undefined) ??
+                    (item?.appointedOn  ? new Date(item.appointedOn)   : undefined);
+                const effectiveTo: Date | undefined =
+                    (item?.effectiveTo ? new Date(item.effectiveTo) : undefined) ??
+                    (item?.resignedOn  ? new Date(item.resignedOn)  : undefined);
+
                 const success = await this.updateField(
                     entityId,
                     candidate.fieldNo,
@@ -46,7 +73,9 @@ export class KycWriteService {
                         evidenceId: candidate.evidenceId || undefined,
                         verifiedBy: userId,
                         confidence: candidate.confidence,
-                        reason: candidate.sourceKey
+                        reason: candidate.sourceKey,
+                        effectiveFrom,
+                        effectiveTo,
                     },
                     rowId,
                     entityType
@@ -84,7 +113,9 @@ export class KycWriteService {
             evidenceId?: string;
             verifiedBy?: string;
             confidence?: number;
-            reason?: string; // Added for Manual Override
+            reason?: string;       // Added for Manual Override
+            effectiveFrom?: Date;  // Relationship start date (e.g. director appointment)
+            effectiveTo?: Date;    // Relationship end date (e.g. director resignation)
         },
         rowId?: string, // Required for repeating fields
         entityType: 'LEGAL_ENTITY' | 'CLIENT_LE' = 'LEGAL_ENTITY'
@@ -97,7 +128,16 @@ export class KycWriteService {
 
         const modelField = (def as any).modelField;
 
-        if (def.appDataType === 'DOCUMENT_REF' && !modelField) {
+        // [FieldTypeRegistry] Warn on unknown appDataType — warning only, no behaviour change.
+        // Run the production inventory query before converting this to a hard error.
+        if (!isKnownAppDataType(def.appDataType)) {
+            console.warn(
+                `[KycWriteService] Unknown appDataType "${def.appDataType}" for fieldNo=${fieldNo}. ` +
+                `This type is not in the FieldTypeRegistry. Check master_field_definitions and update field-types.ts.`
+            );
+        }
+
+        if (def.appDataType === APP_DATA_TYPES.DOCUMENT_REF && !modelField) {
             throw new Error(`Field ${fieldNo} is a document-only field. Use DocumentService.`);
         }
 
@@ -137,14 +177,33 @@ export class KycWriteService {
         }
 
         // 3. Check for Idempotency (Material Change Check)
-        const derived = await KycStateService.getAuthoritativeValue(
-            { subjectLeId: resolvedEntityId },
-            fieldNo
-        );
-
-        if (derived && this.valuesAreEqual(derived.value, value)) {
-            console.log(`[KycWriteService] Idempotency check: Value identical for Field ${fieldNo}. Skipping claim assertion.`);
-            return true; 
+        if (def.isMultiValue && rowId) {
+            // For repeating collection fields, idempotency is per-instanceId:
+            // if a non-tombstone claim with this exact instanceId already exists, skip.
+            const existingInstance = await prisma.fieldClaim.findFirst({
+                where: {
+                    subjectLeId: resolvedEntityId,
+                    fieldNo,
+                    instanceId: rowId,
+                    // Exclude tombstones: they use valueJson: { tombstone: true }
+                    // The ClaimStatus enum has no DELETED value; tombstones are identified by valueJson alone.
+                    valueJson: { not: Prisma.JsonNull }
+                },
+                select: { id: true }
+            });
+            if (existingInstance) {
+                console.log(`[KycWriteService] Idempotency check: instanceId="${rowId}" already exists for Field ${fieldNo}. Skipping.`);
+                return true;
+            }
+        } else {
+            const derived = await KycStateService.getAuthoritativeValue(
+                { subjectLeId: resolvedEntityId },
+                fieldNo
+            );
+            if (derived && this.valuesAreEqual(derived.value, value)) {
+                console.log(`[KycWriteService] Idempotency check: Value identical for Field ${fieldNo}. Skipping claim assertion.`);
+                return true;
+            }
         }
 
         // 4. Materialize Graph Relations (Smart Upsert)
@@ -211,13 +270,21 @@ export class KycWriteService {
                 return addr.id;
             };
 
-            if (def.appDataType === 'ADDRESS_REF') {
+            if (def.appDataType === APP_DATA_TYPES.ADDRESS_REF) {
                 // Standalone Address
                 valueAddressId = await materializeNestedAddress(value, { subjectLeId: resolvedEntityId });
                 await ensureGraphNode('ADDRESS', { addressId: valueAddressId });
                 finalJsonValue = undefined; // Drop json copy since we mapped relationally
-            } else if (def.appDataType === 'PARTY_REF') {
-                if (value.metadata_type === 'LEGAL_ENTITY') {
+            } else if (
+                def.appDataType === APP_DATA_TYPES.PERSON_REF ||
+                def.appDataType === APP_DATA_TYPES.ORG_REF       ||
+                def.appDataType === APP_DATA_TYPES.PARTY_REF
+            ) {
+                // Production types: PERSON_REF (person nodes), ORG_REF (legal entity nodes),
+                // and PARTY_REF (stakeholder fields 62/63/64 — can be person OR corporate entity).
+                // All use the same TO_PARTY_OBJECT/TO_PARTY_LIST transforms;
+                // metadata_type on the value DTO disambiguates person vs. legal entity.
+                if (def.appDataType === APP_DATA_TYPES.ORG_REF || value.metadata_type === 'LEGAL_ENTITY') {
                     const query = {
                         name: value.name || null,
                         localRegistrationNumber: value.registrationNumber || null,
@@ -236,7 +303,7 @@ export class KycWriteService {
                     await ensureGraphNode('LEGAL_ENTITY', { legalEntityId: le.id });
                     finalJsonValue = undefined;
                 } else {
-                    // Fallback or explicit PERSON
+                    // PERSON_REF — or PARTY_OBJECT without explicit metadata_type
                     const query = {
                         firstName: value.firstName || null,
                         lastName: value.lastName || null,
@@ -251,7 +318,6 @@ export class KycWriteService {
                     }
                     if (value.address) {
                         const personAddrId = await materializeNestedAddress(value.address, { subjectPersonId: person.id });
-                        // Also register the address itself as a graph node
                         if (personAddrId) await ensureGraphNode('ADDRESS', { addressId: personAddrId });
                     }
                     valuePersonId = person.id;
@@ -284,8 +350,20 @@ export class KycWriteService {
                 verifiedByUserId: (provenance as any).verifiedBy || (provenance as any).verified_by || undefined,
                 assertedAt: new Date(),
                 // Repeating Field Contract:
-                collectionId: def.isMultiValue ? (def.categoryId || 'GENERAL') : undefined,
+                // collectionId comes from COMPLEX_FIELD_CONFIG when registered
+                // (single source of truth). Falls back to def.categoryId for
+                // simple collection fields not yet in the registry.
+                collectionId: (() => {
+                    if (def.isMultiValue) {
+                        const complexCfg = getComplexFieldConfig(fieldNo);
+                        return complexCfg?.collectionId ?? def.categoryId ?? 'GENERAL';
+                    }
+                    return undefined;
+                })(),
                 instanceId: rowId || undefined,
+                // Temporal relationship facts (e.g. director appointed/resigned dates)
+                effectiveFrom: provenance.effectiveFrom,
+                effectiveTo: provenance.effectiveTo,
                 // Required for Graph Edge Write-back
                 clientLEId: clientLEId || undefined
             });

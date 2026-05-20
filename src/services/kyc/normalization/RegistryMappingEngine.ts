@@ -10,6 +10,7 @@ import {
 import { FieldCandidate } from "./types";
 import { parsePath, resolveDotPath } from "./pathResolver";
 import { applyTransform } from "./transforms";
+import { isKnownAppDataType } from "@/lib/master-data/field-types";
 
 /**
  * RegistryMappingEngine
@@ -101,22 +102,68 @@ export class RegistryMappingEngine {
                         sourceObject = payload?.payload;
                     }
 
-                    if (!sourceObject) continue;
+                    if (!sourceObject) {
+                        console.log(`[RegistryMappingEngine] skip field=${fieldNo} mapping=${mapping.id}: no sourceObject for scope=${mapping.mappingScope} subtype=${mapping.payloadSubtype}`);
+                        continue;
+                    }
 
                     // PATH RESOLUTION
                     const segments = parsePath(mapping.sourcePath);
                     const rawValue = resolveDotPath(sourceObject, segments);
 
-                    if (rawValue == null) continue;
+                    if (rawValue == null) {
+                        console.log(`[RegistryMappingEngine] skip field=${fieldNo}: path "${mapping.sourcePath}" resolved to null (scope=${mapping.mappingScope}, subtype=${mapping.payloadSubtype})`);
+                        continue;
+                    }
+                    console.log(`[RegistryMappingEngine] field=${fieldNo} path="${mapping.sourcePath}" resolved → ${Array.isArray(rawValue) ? `array[${rawValue.length}]` : typeof rawValue}`);
 
                     // TRANSFORMATION
                     const transformed = applyTransform(rawValue, mapping.transformType as any, mapping.transformConfig);
-                    if (transformed.value == null) continue;
+                    if (transformed.value == null) {
+                        console.log(`[RegistryMappingEngine] skip field=${fieldNo}: transform "${mapping.transformType}" returned null`);
+                        continue;
+                    }
+                    console.log(`[RegistryMappingEngine] field=${fieldNo} transform="${mapping.transformType}" → ${Array.isArray(transformed.value) ? `array[${transformed.value.length}]` : JSON.stringify(transformed.value).slice(0, 80)}`);
 
                     // CANDIDATE GENERATION
+                    // [FieldTypeRegistry] Warn on unknown appDataType before emitting a candidate.
+                    const targetFieldDef = await prisma.masterFieldDefinition.findUnique({ where: { fieldNo } });
+                    if (targetFieldDef && !isKnownAppDataType(targetFieldDef.appDataType)) {
+                        console.warn(
+                            `[RegistryMappingEngine] Unknown appDataType "${targetFieldDef.appDataType}" ` +
+                            `for fieldNo=${fieldNo}. Check field-types.ts.`
+                        );
+                    }
+
+                    // [FieldTypeRegistry] Warn when a transform produces an array.
+                    // This documents the TO_PARTY_LIST fan-out gap — the engine currently
+                    // emits one candidate with an array value; applyFieldCandidate() iterates
+                    // it, but each item still calls updateField() as a single PARTY_REF.
+                    // Individual Person/LE nodes ARE created per item. No JSON blob should result.
+                    // Verify with the production inventory query (jsonb_typeof = 'array').
+                    if (Array.isArray(transformed.value)) {
+                        if (targetFieldDef?.isMultiValue) {
+                            console.warn(
+                                `[RegistryMappingEngine] Transform "${mapping.transformType}" returned an array ` +
+                                `for multi-value fieldNo=${fieldNo}. applyFieldCandidate() will iterate items. ` +
+                                `Verify collectionId/instanceId are written correctly (fan-out audit pending).`
+                            );
+                        } else {
+                            console.warn(
+                                `[RegistryMappingEngine] Transform "${mapping.transformType}" returned an array ` +
+                                `for non-multi-value fieldNo=${fieldNo}. This is unexpected. ` +
+                                `Check the mapping configuration and MasterFieldDefinition.isMultiValue.`
+                            );
+                        }
+                    }
+
                     candidates.push({
                         fieldNo,
                         value: transformed.value,
+                        // Propagate stable rowKeys produced by TO_PARTY_LIST so that
+                        // KycWriteService.applyFieldCandidate() uses deterministic instanceIds
+                        // during fan-out rather than ephemeral auto_{timestamp}_{i} keys.
+                        rowKeys: transformed.rowKeys,
                         source: SourceType.REGISTRATION_AUTHORITY,
                         sourceKey: raId || 'GENERIC_RA',
                         evidenceId: run.id, // Linking to the Run ID as evidence context

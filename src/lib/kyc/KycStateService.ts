@@ -1,5 +1,6 @@
 import prisma from "@/lib/prisma";
 import { ClaimStatus, FieldClaim, Prisma } from "@prisma/client";
+import { COLLECTION_FIELD_CONFIG } from "./collection-field-config";
 
 export type DerivedValue = {
     value: any;
@@ -14,6 +15,10 @@ export type DerivedValue = {
     instanceId?: string;
     collectionId?: string;
     assertedAt: Date;
+    /** Start of the relationship period (e.g. director appointment date). */
+    effectiveFrom?: Date;
+    /** End of the relationship period (e.g. director resignation date). Null/absent = still active. */
+    effectiveTo?: Date;
 };
 
 export class KycStateService {
@@ -107,6 +112,25 @@ export class KycStateService {
             if (winner && !this.isTombstone(winner)) {
                 results.push(this.mapToDerivedValue(winner, ownerScopeId));
             }
+        }
+
+        // ── Effective-date post-filter ─────────────────────────────────────────
+        // For collection fields configured with filterByEffectiveDate, exclude
+        // rows where effectiveTo has passed relative to the evaluation date.
+        //
+        // The evaluation date is snapshotDate when provided (historical query)
+        // or now() for a current view. This is separate from snapshotDate's
+        // role in filtering assertedAt — both may be active simultaneously.
+        //
+        // Tombstones are already excluded above; this filter only touches rows
+        // that have a non-null effectiveTo on the winning claim.
+        const config = COLLECTION_FIELD_CONFIG[fieldNo];
+        if (config?.filterByEffectiveDate) {
+            const evaluationDate = snapshotDate ?? new Date();
+            return results.filter(row => {
+                if (!row.effectiveTo) return true;            // null = still active
+                return row.effectiveTo > evaluationDate;      // ended after evaluation date
+            });
         }
 
         return results;
@@ -215,6 +239,8 @@ export class KycStateService {
             instanceId: claim.instanceId ?? undefined,
             collectionId: claim.collectionId ?? undefined,
             assertedAt: claim.assertedAt,
+            effectiveFrom: claim.effectiveFrom ?? undefined,
+            effectiveTo: claim.effectiveTo ?? undefined,
         };
     }
 }

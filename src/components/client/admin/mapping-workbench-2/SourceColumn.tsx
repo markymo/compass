@@ -15,8 +15,10 @@ interface Props {
     selection: Selection;
     highlights: RelationshipHighlights;
     onSelect: (s: Selection) => void;
-    /** Label explaining why paths are pinned e.g. "Connected to F3 Legal name" */
+    /** Label explaining why paths are pinned */
     contextLabel: string | null;
+    /** Client-side live payload override (internalKey → raw payload) */
+    overridePayloads?: Record<string, any> | null;
 }
 
 const SOURCE_ACCENT: Record<string, { dot: string; check: string; label: string }> = {
@@ -38,17 +40,20 @@ function sourceShortLabel(key: string): string {
     return key;
 }
 
-export function SourceColumn({ sources, activeSources, onSourceToggle, selection, highlights, onSelect, contextLabel }: Props) {
+export function SourceColumn({ sources, activeSources, onSourceToggle, selection, highlights, onSelect, contextLabel, overridePayloads }: Props) {
     const [search, setSearch] = useState("");
     const [showUnmappedOnly, setShowUnmappedOnly] = useState(false);
 
     // Merge paths from all active sources into a single flat list
     const allPaths = useMemo(() => {
-        const result: Array<Wb2SourcePath & { sourceKey: string }> = [];
+        const result: Array<Wb2SourcePath & { sourceKey: string; internalKey: string }> = [];
         for (const src of sources) {
             if (!activeSources.includes(src.sourceKey)) continue;
+            const internalKey = src.sourceReference
+                ? `${src.sourceType}:${src.sourceReference}`
+                : src.sourceType;
             for (const p of src.paths) {
-                result.push({ ...p, sourceKey: src.sourceKey });
+                result.push({ ...p, sourceKey: src.sourceKey, internalKey });
             }
         }
         result.sort((a, b) => {
@@ -81,13 +86,13 @@ export function SourceColumn({ sources, activeSources, onSourceToggle, selection
 
     // Pinned paths: always visible, bypass search/filter
     const pinnedPaths = useMemo(() => {
-        if (!isContextFloat) return [] as Array<Wb2SourcePath & { sourceKey: string }>;
+        if (!isContextFloat) return [] as Array<Wb2SourcePath & { sourceKey: string; internalKey: string }>;
         return allPaths.filter(p => highlights.paths.has(`${p.sourceKey}::${p.path}`));
     }, [allPaths, highlights.paths, isContextFloat]);
 
     // Rest paths: filtered list minus pinned
     const restPaths = useMemo(() => {
-        if (!isContextFloat) return [] as Array<Wb2SourcePath & { sourceKey: string }>;
+        if (!isContextFloat) return [] as Array<Wb2SourcePath & { sourceKey: string; internalKey: string }>;
         const pinnedSet = new Set(pinnedPaths.map(p => `${p.sourceKey}::${p.path}`));
         return filtered.filter(p => !pinnedSet.has(`${p.sourceKey}::${p.path}`));
     }, [filtered, pinnedPaths, isContextFloat]);
@@ -219,6 +224,7 @@ export function SourceColumn({ sources, activeSources, onSourceToggle, selection
                                             key={`pinned::${p.sourceKey}::${p.path}::${i}`}
                                             path={p}
                                             sourceKey={p.sourceKey}
+                                            overridePayload={overridePayloads?.[p.internalKey] ?? null}
                                             showSourceBadge
                                             selection={selection}
                                             highlights={highlights}
@@ -248,6 +254,7 @@ export function SourceColumn({ sources, activeSources, onSourceToggle, selection
                                             key={`rest::${p.sourceKey}::${p.path}::${i}`}
                                             path={p}
                                             sourceKey={p.sourceKey}
+                                            overridePayload={overridePayloads?.[p.internalKey] ?? null}
                                             showSourceBadge
                                             selection={selection}
                                             highlights={highlights}
@@ -267,6 +274,7 @@ export function SourceColumn({ sources, activeSources, onSourceToggle, selection
                                 key={`${p.sourceKey}::${p.path}::${i}`}
                                 path={p}
                                 sourceKey={p.sourceKey}
+                                overridePayload={overridePayloads?.[p.internalKey] ?? null}
                                 showSourceBadge
                                 selection={selection}
                                 highlights={highlights}
@@ -286,22 +294,36 @@ export function SourceColumn({ sources, activeSources, onSourceToggle, selection
     );
 }
 
-function PathRow({ path, sourceKey, showSourceBadge, selection, highlights, onSelect, pinned = false }: {
+function resolveClientValue(obj: any, path: string): string | null {
+    try {
+        const parts = path.replace(/\[(\d+)\]/g, ".$1").split(".");
+        let cur: any = obj;
+        for (const p of parts) { if (cur == null) return null; cur = cur[p]; }
+        if (cur == null) return null;
+        if (typeof cur === "object") return JSON.stringify(cur).slice(0, 60);
+        return String(cur).slice(0, 60);
+    } catch { return null; }
+}
+
+function PathRow({ path, sourceKey, overridePayload, showSourceBadge, selection, highlights, onSelect, pinned = false }: {
     path: Wb2SourcePath & { sourceKey: string };
     sourceKey: string;
+    overridePayload?: any;
     showSourceBadge: boolean;
     selection: Selection;
     highlights: RelationshipHighlights;
     onSelect: (s: Selection) => void;
     pinned?: boolean;
 }) {
-    const composite = `${sourceKey}::${path.path}`;
-    const isSelected = selection?.kind === "path" && selection.sourceKey === sourceKey && selection.path === path.path;
+    const composite   = `${sourceKey}::${path.path}`;
+    const isSelected   = selection?.kind === "path" && selection.sourceKey === sourceKey && selection.path === path.path;
     const isHighlighted = highlights.paths.has(composite);
-    // In context float mode, pinned items never dim; other items never dim either
-    // (the "Other" section heading already communicates that they're secondary)
-    const isDimmed = !pinned && highlights.hasSelection && !isHighlighted && selection?.kind === "path";
+    const isDimmed     = !pinned && highlights.hasSelection && !isHighlighted && selection?.kind === "path";
     const activeMappings = path.mappings.filter(m => m.isActive);
+    // Prefer live override value; fall back to server-side pre-resolved value
+    const exampleValue = overridePayload
+        ? resolveClientValue(overridePayload, path.path)
+        : path.exampleValue;
 
     return (
         <button
@@ -335,8 +357,8 @@ function PathRow({ path, sourceKey, showSourceBadge, selection, highlights, onSe
                 {path.meaning && (
                     <p className="text-[10px] text-slate-500 mt-0.5 leading-snug">{path.meaning}</p>
                 )}
-                {path.exampleValue && (
-                    <p className="text-[10px] font-mono text-emerald-700 mt-0.5 truncate">{path.exampleValue}</p>
+                {exampleValue && (
+                    <p className="text-[10px] font-mono text-emerald-700 mt-0.5 truncate">{exampleValue}</p>
                 )}
                 {activeMappings.length > 0 && (
                     <div className="mt-1 flex flex-wrap gap-1">
