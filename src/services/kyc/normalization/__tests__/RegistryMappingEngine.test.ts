@@ -9,6 +9,11 @@ vi.mock('@/lib/prisma', () => {
         sourceFieldMapping: {
             findMany: vi.fn(),
         },
+        masterFieldDefinition: {
+            // Default: most fields are single-value (isMultiValue=false).
+            // Individual tests override this for Field 5.
+            findUnique: vi.fn().mockResolvedValue({ isMultiValue: false }),
+        },
     };
     return { default: mock };
 });
@@ -155,49 +160,57 @@ describe('RegistryMappingEngine', () => {
         expect(candidates[0].value).toBe('Correct Ltd');
     });
 
-    // T6 ─ DIRECT transform on array of objects returns array of extracted strings
-    it('T6: DIRECT transform on array of objects extracts .name from each and returns an array', async () => {
+    // T6 ─ TO_NAME_HISTORY_LIST transform returns structured objects per name row
+    it('T6: TO_NAME_HISTORY_LIST transform produces one structured candidate object per previous name', async () => {
         const previousNames = [
-            { name: 'Old Name Alpha', ceased_on: '2020-01-01' },
-            { name: 'Old Name Beta', ceased_on: '2018-06-01' },
+            { name: 'Old Name Alpha', ceased_on: '2020-01-01', effective_from: '2015-06-01' },
+            { name: 'Old Name Beta',  ceased_on: '2018-06-01', effective_from: '2010-01-01' },
         ];
 
         const run = makeRun({
             registrationAuthorityId: 'RA000585',
-            sourcePayloads: [makePayload('COMPANY_PROFILE', { previous_names: previousNames })],
+            sourcePayloads: [makePayload('COMPANY_PROFILE', { previous_company_names: previousNames })],
         });
 
         prismaMock.enrichmentRun.findUnique.mockResolvedValue(run);
+        // Field 5 is multi-value
+        prismaMock.masterFieldDefinition.findUnique.mockResolvedValue({ isMultiValue: true });
 
         prismaMock.sourceFieldMapping.findMany.mockResolvedValue([
-            makeMapping({ sourcePath: 'previous_names', targetFieldNo: 5, transformType: 'DIRECT' }),
+            makeMapping({ sourcePath: 'previous_company_names', targetFieldNo: 5, transformType: 'TO_NAME_HISTORY_LIST' }),
         ]);
 
         const candidates = await RegistryMappingEngine.mapEnrichmentRun('run-001');
         expect(candidates).toHaveLength(1);
         expect(candidates[0].fieldNo).toBe(5);
-        // Should be an array, not "[object Object]"
+        // Value should be an array of structured objects
         expect(Array.isArray(candidates[0].value)).toBe(true);
-        expect(candidates[0].value).toEqual(['Old Name Alpha', 'Old Name Beta']);
+        const items = candidates[0].value as any[];
+        expect(items).toHaveLength(2);
+        expect(items[0].name).toBe('Old Name Alpha');
+        expect(items[0].effectiveTo).toBe('2020-01-01');
+        expect(items[1].name).toBe('Old Name Beta');
     });
 
     // T7 ─ Field 5 (isMultiValue) mapping produces array candidate with correct provenance
     it('T7: Field 5 mapping produces array candidate with REGISTRATION_AUTHORITY source and correct RA sourceKey', async () => {
-        const previousNames = [{ name: 'Former Name Plc', ceased_on: '2019-01-01' }];
+        const previousNames = [{ name: 'Former Name Plc', ceased_on: '2019-01-01', effective_from: '2010-01-01' }];
 
         const run = makeRun({
             registrationAuthorityId: 'RA000587',  // NI variant
-            sourcePayloads: [makePayload('COMPANY_PROFILE', { previous_names: previousNames })],
+            sourcePayloads: [makePayload('COMPANY_PROFILE', { previous_company_names: previousNames })],
         });
 
         prismaMock.enrichmentRun.findUnique.mockResolvedValue(run);
+        // Field 5 is multi-value
+        prismaMock.masterFieldDefinition.findUnique.mockResolvedValue({ isMultiValue: true });
 
         prismaMock.sourceFieldMapping.findMany.mockResolvedValue([
             makeMapping({
                 sourceReference: 'RA000587',
-                sourcePath: 'previous_names',
+                sourcePath: 'previous_company_names',
                 targetFieldNo: 5,
-                transformType: 'DIRECT',
+                transformType: 'TO_NAME_HISTORY_LIST',
             }),
         ]);
 
