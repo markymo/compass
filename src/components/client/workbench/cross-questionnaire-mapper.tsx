@@ -50,6 +50,61 @@ interface Props {
     initialData: Workbench4Data;
 }
 
+// ── Display helpers ───────────────────────────────────────────────────────────
+//
+// PARTY_REF / PERSON_REF collection items flow as Prisma-included relation
+// objects from KycStateService.mapToDerivedValue():
+//   valuePerson: { firstName, lastName, ... }  (via include: { valuePerson: true })
+//   valueLe:     { name, ... }                  (via include: { valueLe: true })
+// These helpers convert any value shape to a human-readable label.
+
+/**
+ * Returns a readable label for a single party/person DTO or scalar.
+ * Handles:
+ *   - Prisma Person objects  { firstName, lastName }
+ *   - Prisma LegalEntity     { name }
+ *   - CH party DTOs          { name, firstName, lastName, fullName }
+ *   - UUID strings           (raw FK — shown as truncated ID)
+ *   - null/undefined         → empty string
+ */
+export function formatPartyLabel(item: unknown): string {
+    if (item == null) return '';
+    if (typeof item === 'string') {
+        // Raw UUID FK — show truncated, not the full UUID
+        if (/^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(item)) return `ID:${item.slice(0, 8)}…`;
+        return item;
+    }
+    if (typeof item === 'number' || typeof item === 'boolean') return String(item);
+    if (item instanceof Date) return item.toLocaleDateString();
+    if (typeof item === 'object') {
+        const obj = item as Record<string, any>;
+        // Prefer explicit full name fields
+        if (obj.fullName)                                      return String(obj.fullName);
+        if (obj.firstName || obj.lastName)                     return `${obj.firstName ?? ''} ${obj.lastName ?? ''}`.trim();
+        if (obj.name)                                          return String(obj.name);
+        if (obj.displayName)                                   return String(obj.displayName);
+        // Fallback: first non-null string-value property
+        const firstStr = Object.values(obj).find(v => typeof v === 'string' && v.length > 0);
+        if (firstStr)                                          return firstStr as string;
+        return '[unknown party]';
+    }
+    return String(item);
+}
+
+/**
+ * Converts a masterDataValue (any shape) to a display string.
+ * Arrays → comma-joined labels. Objects → key: value pairs.
+ */
+export function formatAnswerValue(value: unknown): string {
+    if (value == null || value === '') return '';
+    if (Array.isArray(value)) return value.map(formatPartyLabel).join(', ');
+    if (typeof value === 'object') return formatPartyLabel(value);
+    return String(value);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+
 export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
     const searchParams = useSearchParams();
     const pathname = usePathname();
@@ -790,7 +845,7 @@ function QuestionCard({
                                                     <div className="flex flex-wrap gap-1">
                                                         {question.masterDataValue.map((val: any, i: any) => (
                                                             <Badge key={i} variant="secondary" className="bg-white border-slate-200 text-slate-700 py-0 px-1.5 text-[11px]">
-                                                                {String(val)}
+                                                                {formatPartyLabel(val)}
                                                             </Badge>
                                                         ))}
                                                     </div>
@@ -800,13 +855,13 @@ function QuestionCard({
                                                             <div key={fNo} className="flex flex-col">
                                                                 <span className="text-slate-400 font-bold uppercase tracking-tighter text-[9px]">Field {fNo}</span>
                                                                 <span className="text-slate-700 font-semibold truncate">
-                                                                    {Array.isArray(val) ? val.join(", ") : String(val || '-')}
+                                                                    {Array.isArray(val) ? val.map(formatPartyLabel).join(', ') : formatPartyLabel(val)}
                                                                 </span>
                                                             </div>
                                                         ))}
                                                     </div>
                                                 ) : (
-                                                    String(question.masterDataValue)
+                                                    formatAnswerValue(question.masterDataValue)
                                                 )
                                             ) : isMapped
                                                 ? <span className="italic text-slate-400">No value yet — click ✏️ to add</span>

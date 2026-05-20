@@ -29,6 +29,7 @@ import { updateMasterField } from "@/actions/master-data-governance";
 import { moveFieldOrder } from "@/actions/master-data-sort";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { ALL_UI_OPTIONS } from "@/lib/master-data/field-types";
 
 interface FieldGlossaryTableProps {
     initialFields: any[];
@@ -223,7 +224,7 @@ export function FieldGlossaryTable({ initialFields }: FieldGlossaryTableProps) {
             accessorKey: "appDataType",
             header: "Data Type",
             size: 80,
-            cell: ({ row }) => <EditableSelectCell key={row.original.fieldNo} row={row} fieldKey="appDataType" options={["TEXT", "NUMBER", "BOOLEAN", "DATE", "JSON", "SELECT"]} router={router} />,
+            cell: ({ row }) => <EditableSelectCell key={row.original.fieldNo} row={row} fieldKey="appDataType" options={ALL_UI_OPTIONS.map(o => o.value)} router={router} />,
         },
         {
             id: "sources",

@@ -628,7 +628,7 @@ export default function MasterDataManager({ initialData, rawFields, initialNote,
                                                     const tableRow = table.getRowModel().rows.find(r => r.original.fieldNo === field.fieldNo);
                                                     if (!tableRow || (hasActiveFilters && !data.some(d => d.fieldNo === field.fieldNo))) return null;
                                                     return (
-                                                        <div key={field.fieldNo} className="border-b border-slate-100 py-1.5 px-3 opacity-60 pointer-events-none min-w-max" style={{ display: "grid", gridTemplateColumns }}>
+                                                        <div key={field.fieldNo} className="border-b border-slate-100 py-1.5 px-3 opacity-60 min-w-max" style={{ display: "grid", gridTemplateColumns }}>
                                                             <div className="mt-1"><GripVertical className="w-4 h-4 text-slate-200" /></div>
                                                             {tableRow.getVisibleCells().map(cell => (
                                                                 <div key={cell.id} className="overflow-hidden pr-2">

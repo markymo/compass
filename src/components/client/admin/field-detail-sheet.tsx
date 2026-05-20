@@ -20,6 +20,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { CategoryCombobox } from "./category-combobox";
 import { DataInspectorPanel } from "@/components/client/admin/source-mappings/data-inspector-panel";
 import { SOURCE_OPTIONS, getSourceDisplayName } from "@/lib/source-display";
+import { SCALAR_UI_OPTIONS, REFERENCE_UI_OPTIONS, APP_DATA_TYPES } from "@/lib/master-data/field-types";
+import { getComplexFieldConfig, getFieldTypeLabel, type GraphRelationshipCollectionConfig } from "@/lib/master-data/complex-field-config";
 
 
 interface FieldDetailSheetProps {
@@ -215,10 +217,10 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[] }: F
                 ...formData, 
                 domain: domainsArray
             };
-            if (payload.optionSetId === "none" || payload.appDataType !== "SELECT") {
+            if (payload.optionSetId === "none" || payload.appDataType !== APP_DATA_TYPES.SELECT) {
                 payload.optionSetId = null;
             }
-            if (payload.appDataType !== "SELECT") {
+            if (payload.appDataType !== APP_DATA_TYPES.SELECT) {
                 payload.isMultiValue = false;
             }
 
@@ -266,6 +268,63 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[] }: F
 
                 <div className="flex-1 overflow-y-auto pt-6 pb-20 space-y-8 px-1">
                     
+                    {/* ── Field Type Summary ──────────────────────────────── */}
+                    {(() => {
+                        const complexCfg = getComplexFieldConfig(field?.fieldNo);
+                        const typeLabel  = getFieldTypeLabel(field?.fieldNo, field?.appDataType);
+
+                        if (complexCfg && complexCfg.kind === 'GRAPH_RELATIONSHIP_COLLECTION') {
+                            const cfg = complexCfg as GraphRelationshipCollectionConfig;
+                            return (
+                                <section className="rounded-lg border border-indigo-200 bg-indigo-50/60 p-4 space-y-3">
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div>
+                                            <div className="flex items-center gap-2">
+                                                <GitBranch className="w-4 h-4 text-indigo-500 shrink-0" />
+                                                <span className="text-sm font-semibold text-indigo-900">{cfg.label}</span>
+                                                <Badge className="bg-indigo-100 text-indigo-700 border-indigo-200 text-[10px] font-medium">Complex field</Badge>
+                                            </div>
+                                            <p className="text-xs text-indigo-700 mt-1 leading-relaxed max-w-[480px]">{cfg.description}</p>
+                                        </div>
+                                    </div>
+                                    {/* Technical detail strip */}
+                                    <div className="flex flex-wrap gap-2 pt-1 border-t border-indigo-200">
+                                        <span className="inline-flex items-center gap-1 text-[10px] text-indigo-600 bg-indigo-100 rounded px-2 py-0.5">
+                                            <span className="font-medium">Stores</span> {cfg.graph.nodeType === 'PERSON' ? 'persons' : 'entities'}
+                                        </span>
+                                        <span className="inline-flex items-center gap-1 text-[10px] text-indigo-600 bg-indigo-100 rounded px-2 py-0.5">
+                                            <span className="font-medium">Edge</span> {cfg.graph.edgeType}
+                                        </span>
+                                        <span className="inline-flex items-center gap-1 text-[10px] text-indigo-600 bg-indigo-100 rounded px-2 py-0.5">
+                                            <span className="font-medium">Collection</span> {cfg.collectionId}
+                                        </span>
+                                        {cfg.temporal.filterByEffectiveDate && (
+                                            <span className="inline-flex items-center gap-1 text-[10px] text-indigo-600 bg-indigo-100 rounded px-2 py-0.5">
+                                                ⏱ Effective-date filtered
+                                            </span>
+                                        )}
+                                        {cfg.sourceTransforms.map(t => (
+                                            <span key={t.source} className="inline-flex items-center gap-1 text-[10px] text-indigo-600 bg-indigo-100 rounded px-2 py-0.5">
+                                                <span className="font-medium">Source</span> {t.source} / {t.transformType}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </section>
+                            );
+                        }
+
+                        // Simple field — just show an inline type badge
+                        return (
+                            <div className="flex items-center gap-2 pb-1">
+                                <span className="text-xs text-slate-500">Field type:</span>
+                                <Badge variant="outline" className="text-[11px] font-mono text-slate-700">{typeLabel}</Badge>
+                                {field?.isMultiValue && (
+                                    <Badge variant="outline" className="text-[10px] text-slate-500">Multi-value</Badge>
+                                )}
+                            </div>
+                        );
+                    })()}
+
                     {/* General Metadata Section */}
                     <section className="space-y-4">
                         <h3 className="text-sm font-semibold flex items-center gap-2 text-slate-800 border-b pb-2">
@@ -307,12 +366,18 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[] }: F
                                         <SelectValue placeholder="Select Data Type" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="TEXT">Text (String)</SelectItem>
-                                        <SelectItem value="NUMBER">Number</SelectItem>
-                                        <SelectItem value="BOOLEAN">Boolean</SelectItem>
-                                        <SelectItem value="DATE">Date</SelectItem>
-                                        <SelectItem value="JSON">JSON</SelectItem>
-                                        <SelectItem value="SELECT">Dropdown Selection</SelectItem>
+                                        {SCALAR_UI_OPTIONS.map(opt => (
+                                            <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                        ))}
+                                        <div className="px-2 py-1.5 text-[10px] font-semibold text-slate-400 uppercase tracking-wider border-t mt-1 pt-2">
+                                            Reference Types
+                                        </div>
+                                        {REFERENCE_UI_OPTIONS.map(opt => (
+                                            <SelectItem key={opt.value} value={opt.value}>
+                                                <span>{opt.label}</span>
+                                                {opt.description && <span className="text-slate-400 text-[10px] ml-1">— {opt.description}</span>}
+                                            </SelectItem>
+                                        ))}
                                     </SelectContent>
                                 </Select>
                             </div>
@@ -327,7 +392,7 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[] }: F
                                 />
                             </div>
 
-                            {formData.appDataType === "SELECT" && (
+                            {formData.appDataType === APP_DATA_TYPES.SELECT && (
                                 <>
                                     <div className="grid gap-2">
                                         <Label className="text-xs text-slate-500">Option Set</Label>

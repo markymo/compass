@@ -15,6 +15,7 @@ import { createMasterField } from "@/actions/master-data-governance";
 import { useRouter } from "next/navigation";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CategoryCombobox } from "./category-combobox";
+import { SCALAR_UI_OPTIONS, REFERENCE_UI_OPTIONS, APP_DATA_TYPES } from "@/lib/master-data/field-types";
 
 interface FieldCreateSheetProps {
     open: boolean;
@@ -66,7 +67,7 @@ export function FieldCreateSheet({ open, onOpenChange, categories=[] }: FieldCre
             if (payload.optionSetId === "none") {
                 payload.optionSetId = undefined;
             }
-            if (payload.appDataType !== "SELECT") {
+            if (payload.appDataType !== APP_DATA_TYPES.SELECT) {
                 payload.optionSetId = undefined;
                 payload.isMultiValue = false;
             }
@@ -133,12 +134,35 @@ export function FieldCreateSheet({ open, onOpenChange, categories=[] }: FieldCre
                                         <SelectValue placeholder="Select Data Type" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="TEXT">Text (String)</SelectItem>
-                                        <SelectItem value="NUMBER">Number</SelectItem>
-                                        <SelectItem value="BOOLEAN">Boolean</SelectItem>
-                                        <SelectItem value="DATE">Date</SelectItem>
-                                        <SelectItem value="JSON">JSON</SelectItem>
-                                        <SelectItem value="SELECT">Dropdown Selection</SelectItem>
+                                        {/* ── Simple scalar types ── */}
+                                        <div className="px-2 py-1 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                                            Simple field types
+                                        </div>
+                                        {SCALAR_UI_OPTIONS.map(opt => (
+                                            <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                        ))}
+
+                                        {/* ── Reference types ── */}
+                                        <div className="px-2 py-1.5 text-[10px] font-semibold text-slate-400 uppercase tracking-wider border-t mt-1 pt-2">
+                                            Reference field types
+                                        </div>
+                                        {REFERENCE_UI_OPTIONS.map(opt => (
+                                            <SelectItem key={opt.value} value={opt.value}>
+                                                <span>{opt.label}</span>
+                                                {opt.description && <span className="text-slate-400 text-[10px] ml-1">— {opt.description}</span>}
+                                            </SelectItem>
+                                        ))}
+
+                                        {/* ── Complex field patterns — informational, not yet creatable ── */}
+                                        <div className="px-2 py-1.5 text-[10px] font-semibold text-slate-400 uppercase tracking-wider border-t mt-1 pt-2">
+                                            Complex field patterns
+                                        </div>
+                                        <div className="px-2 py-1.5 text-xs text-slate-400 italic">
+                                            Current Directors — requires config file entry
+                                        </div>
+                                        <div className="px-2 py-1 text-xs text-slate-400 italic">
+                                            Previous Names — coming soon
+                                        </div>
                                     </SelectContent>
                                 </Select>
                             </div>

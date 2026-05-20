@@ -52,6 +52,11 @@ for (const [code, name] of Object.entries(COUNTRY_CODES)) {
 export type TransformResult = {
     value: any;
     confidencePenalty: number; // 0 = no penalty, 0.5 = halved, etc. Applied as: confidence * (1 - penalty)
+    /**
+     * When `value` is an array (produced by TO_PARTY_LIST), `rowKeys[i]` is the
+     * stable instanceId hint for the i-th item. Absent when value is not an array.
+     */
+    rowKeys?: string[];
 };
 
 type TransformType =
@@ -66,6 +71,30 @@ type TransformType =
     | 'TO_ADDRESS_OBJECT'
     | 'TO_PARTY_OBJECT'
     | 'TO_PARTY_LIST';
+
+/**
+ * Builds a deterministic row key for a director/officer relationship.
+ * Stable within a single Legal Entity context (claims are already scoped to subjectLeId).
+ *
+ * Format: ch_{appointedOn}_{normalisedLastName}_{firstInitial}
+ * Falls back to 'ch_unknown_{normalisedLastName}' when appointedOn is absent.
+ *
+ * @internal — exported for testing only
+ */
+export function buildDirectorRowKey(
+    appointedOn: string | null,
+    partyDto: { lastName?: string; firstName?: string; name?: string }
+): string {
+    const lastName = (partyDto.lastName || partyDto.name || 'unknown')
+        .toLowerCase()
+        .replace(/[^a-z]/g, '');
+    const firstInitial = (partyDto.firstName || '')
+        .toLowerCase()
+        .replace(/[^a-z]/g, '')
+        .charAt(0) || '_';
+    const date = appointedOn ? appointedOn.replace(/[^0-9\-]/g, '') : 'unknown';
+    return `ch_${date}_${lastName}_${firstInitial}`;
+}
 
 /**
  * Apply a transform to a resolved value.
@@ -269,16 +298,51 @@ export function applyTransform(
             if (!Array.isArray(value)) {
                 return { value: null, confidencePenalty: 1 };
             }
-            
-            // Filter to Active Parties only (drop resigned/ceased)
-            const activeList = value.filter(item => !item.ceased && !item.resigned_on);
 
-            const list = activeList.map(item => {
-                const res = applyTransform(item, 'TO_PARTY_OBJECT');
-                return res.value;
-            }).filter(v => v !== null);
+            // ──────────────────────────────────────────────────────────────────
+            // IMPORTANT: Do NOT filter out resigned/former officers here.
+            //
+            // A resignation is a temporal fact (effectiveTo), not a deletion.
+            // The evaluation layer (KycStateService / COLLECTION_FIELD_CONFIG)
+            // decides which relationships are "current" for a given field view.
+            //
+            // Tombstones are reserved for incorrect/invalid assertions only.
+            // ──────────────────────────────────────────────────────────────────
 
-            return { value: list, confidencePenalty: 0 };
+            const rowKeys: string[] = [];
+            const list = value
+                .map((item: any, _idx: number) => {
+                    const res = applyTransform(item, 'TO_PARTY_OBJECT');
+                    if (res.value == null) {
+                        rowKeys.push('');
+                        return null;
+                    }
+
+                    // Temporal metadata from the registry payload
+                    const appointedOn: string | null = item.appointed_on ?? null;
+                    const resignedOn:  string | null = item.resigned_on  ?? null;
+
+                    // Stable row key: deterministic within the LE context.
+                    // Format: ch_{appointedOn}_{normalisedLastName}_{normalisedFirstInitial}
+                    // The claim is already scoped to subjectLeId so company number
+                    // is not required for uniqueness here.
+                    const rowKey = buildDirectorRowKey(appointedOn, res.value);
+                    rowKeys.push(rowKey);
+
+                    return {
+                        ...res.value,
+                        // Preserve temporal facts for the write path
+                        appointedOn,
+                        resignedOn,
+                        // Bubble up the row key so KycWriteService can use it
+                        rowKey,
+                    };
+                })
+                .filter((v: any) => v !== null);
+
+            // Return both the enriched list and the parallel rowKeys array.
+            // KycWriteService.applyFieldCandidate() reads candidate.rowKeys.
+            return { value: list, confidencePenalty: 0, rowKeys };
         }
 
         default:
