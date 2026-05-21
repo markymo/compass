@@ -30,9 +30,11 @@ interface FieldDetailSheetProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     categories: any[];
+    /** All active source mappings across ALL master fields, enriched with fieldNo + fieldName. */
+    allSourceMappings?: Array<{ sourceType: string; sourceReference?: string | null; sourcePath: string; fieldNo: number; fieldName: string; isActive: boolean }>;
 }
 
-export function FieldDetailSheet({ field, open, onOpenChange, categories=[] }: FieldDetailSheetProps) {
+export function FieldDetailSheet({ field, open, onOpenChange, categories=[], allSourceMappings=[] }: FieldDetailSheetProps) {
     const router = useRouter();
     const [loading, setLoading] = useState(false);
     const [optionSets, setOptionSets] = useState<any[]>([]);
@@ -627,6 +629,8 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[] }: F
                                                 SOURCE_OPTIONS.find(o => o.value === mappingForm.sourceType)?.sourceReference
                                             }
                                             existingMappings={field.sourceMappings || []}
+                                            allSourceMappings={allSourceMappings}
+                                            currentFieldNo={field.fieldNo}
                                             readOnly={false}
                                             onSelectPath={(path) => {
                                                 setMappingForm(f => ({ ...f, sourcePath: path }));
