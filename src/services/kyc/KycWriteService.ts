@@ -141,8 +141,13 @@ export class KycWriteService {
             throw new Error(`Field ${fieldNo} is a document-only field. Use DocumentService.`);
         }
 
+        // Claim-only fields (modelField = null, non-DOCUMENT) have no LegalEntity column to sync.
+        // They are valid — their value lives entirely in FieldClaim. Continue without the column sync.
         if (!modelField) {
-            throw new Error(`Field ${fieldNo} has no mapped column definition.`);
+            console.warn(
+                `[KycWriteService] Field ${fieldNo} ("${def.fieldName}") has no modelField — ` +
+                `treating as claim-only. Value will be stored in FieldClaim only (no LegalEntity column sync).`
+            );
         }
 
         if (def.isMultiValue && !rowId) {
