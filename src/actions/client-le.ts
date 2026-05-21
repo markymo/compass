@@ -552,6 +552,8 @@ export async function getFullMasterData(clientLEId: string) {
         }
     });
 
+    // Note: legalEntity is now included above — lei and registrationAuthorityId are available below.
+
 
     if (!clientLE) return { success: false, data: {} };
 
@@ -647,7 +649,7 @@ export async function getFullMasterData(clientLEId: string) {
     // 5. Extract National Registry Data and calculate enrichment status
     let nationalRegistryData = null;
     let computedEnrichmentStatus = 'PENDING_LEI';
-    
+
     if (clientLE.registryReferences && clientLE.registryReferences.length > 0) {
         const primaryRef = clientLE.registryReferences[0];
         nationalRegistryData = {
@@ -657,7 +659,7 @@ export async function getFullMasterData(clientLEId: string) {
             lastSyncSucceededAt: primaryRef.lastSyncSucceededAt,
             lastSyncStatus: primaryRef.lastSyncStatus
         };
-        
+
         if (primaryRef.lastSyncStatus === 'SUCCESS') {
             computedEnrichmentStatus = 'ENRICHED';
         } else if (primaryRef.lastSyncStatus === 'FAILED') {
@@ -665,7 +667,9 @@ export async function getFullMasterData(clientLEId: string) {
         } else {
             computedEnrichmentStatus = 'PENDING_ENRICHMENT';
         }
-    } else if (clientLE.legalEntity?.lei) {
+    } else if (clientLE.gleifFetchedAt || clientLE.legalEntity?.lei) {
+        // GLEIF has established identity — no RegistryReference yet, but the entity is
+        // known and GLEIF claims have been written. Unblock the master record UI.
         computedEnrichmentStatus = 'PENDING_ENRICHMENT';
     }
 
