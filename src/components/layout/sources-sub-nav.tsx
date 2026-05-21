@@ -18,7 +18,7 @@ export function SourcesSubNav({ leId, jurisdiction, registryName }: SourcesSubNa
     // Determine Registry Label
     let registryLabel = registryName || "National Registry";
     if (!registryName) {
-        if (jurisdiction === 'GB') registryLabel = "Companies House";
+        if (jurisdiction === 'GB' || jurisdiction === 'UK') registryLabel = "Companies House";
         if (jurisdiction === 'FR') registryLabel = "Immatriculation (FR)";
     }
 
