@@ -32,6 +32,12 @@ export function parsePath(path: string): PathSegment[] {
         throw new PathParseError('Path cannot be empty', 0);
     }
 
+    // '$' is a self-reference: return the source object itself.
+    // Used when the payload IS the value (e.g. OFFICERS array stored as root).
+    if (path.trim() === '$') {
+        return [{ key: '$' }];
+    }
+
     const segments: PathSegment[] = [];
     const parts = path.split('.');
 
@@ -86,6 +92,11 @@ export function parsePath(path: string): PathSegment[] {
  * Never throws — returns null for missing intermediate nodes.
  */
 export function resolveDotPath(obj: any, segments: PathSegment[]): any {
+    // Self-reference: return the object itself
+    if (segments.length === 1 && segments[0].key === '$') {
+        return obj ?? null;
+    }
+
     let current = obj;
 
     for (const segment of segments) {
