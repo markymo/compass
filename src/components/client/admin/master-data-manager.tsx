@@ -1,7 +1,7 @@
 "use client";
 import { cn } from "@/lib/utils";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
     ColumnDef,
     flexRender,
@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Search, Settings, HelpCircle, Check, X, Loader2, MoreVertical, SlidersHorizontal, Plus, ChevronRight, ChevronDown, ChevronUp, GripVertical, Save, RefreshCw, Edit } from "lucide-react";
+import { Search, Settings, HelpCircle, Check, X, Loader2, MoreVertical, SlidersHorizontal, Plus, ChevronRight, ChevronDown, ChevronUp, GripVertical, Save, RefreshCw, Edit, Pencil } from "lucide-react";
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -31,6 +31,7 @@ import { updateFieldDescription } from "@/actions/master-data-ai";
 import { updateMasterField } from "@/actions/master-data-governance";
 import { updateCategoryOrder, updateFieldOrder, moveFieldOrder } from "@/actions/master-data-sort";
 import { setSystemSetting } from "@/actions/system";
+import { renameMasterDataCategory } from "@/actions/master-data-governance";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
@@ -57,8 +58,14 @@ export default function MasterDataManager({ initialData, rawFields, initialNote,
     // -- Table States --
     const [sorting, setSorting] = useState<SortingState>(initialUserConfig?.sorting || [{ id: "order", desc: false }]);
     const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(initialUserConfig?.columnVisibility || {});
-    const [columnSizing, setColumnSizing] = useState<ColumnSizingState>(initialUserConfig?.columnSizing || {});
-    
+    const [columnSizing, setColumnSizingRaw] = useState<ColumnSizingState>(initialUserConfig?.columnSizing || {});
+    // Wrap setColumnSizing so TanStack's functional-updater form always resolves to a
+    // plain object before storing in state — makes the value serialisable and ensures
+    // the persistence effect dependency fires correctly.
+    const setColumnSizing = (updater: ColumnSizingState | ((old: ColumnSizingState) => ColumnSizingState)) => {
+        setColumnSizingRaw(prev => typeof updater === 'function' ? updater(prev) : updater);
+    };
+
     // Filter State (also saved)
     const [search, setSearch] = useState("");
     const [filterCategory, setFilterCategory] = useState<string>(initialUserConfig?.filterCategory || "all");
@@ -67,7 +74,14 @@ export default function MasterDataManager({ initialData, rawFields, initialNote,
     const [filterStatus, setFilterStatus] = useState<string>(initialUserConfig?.filterStatus || "all");
 
     // -- Persistence Effect --
+    // hasMounted guard: skip the very first render so we never overwrite saved
+    // preferences with initial defaults (e.g. columnSizing: {}) on page load.
+    const hasMounted = useRef(false);
     useEffect(() => {
+        if (!hasMounted.current) {
+            hasMounted.current = true;
+            return;
+        }
         const timeoutId = setTimeout(() => {
             updateUserPreferences({
                 masterDataManager: {
@@ -377,18 +391,31 @@ export default function MasterDataManager({ initialData, rawFields, initialNote,
             size: 115,
             cell: ({ row }) => {
                 const mappings: any[] = row.original.sourceMappings || [];
-                const bySource = mappings.reduce((acc: Record<string, number>, m: any) => {
-                    acc[m.sourceType] = (acc[m.sourceType] || 0) + 1;
+
+                // Group by sourceType, tracking count and minimum priority per type.
+                // Minimum priority = highest importance (priority 1 beats priority 100).
+                const bySource = mappings.reduce((acc: Record<string, { count: number; minPriority: number }>, m: any) => {
+                    const existing = acc[m.sourceType];
+                    const p = m.priority ?? 999;
+                    if (existing) {
+                        existing.count++;
+                        if (p < existing.minPriority) existing.minPriority = p;
+                    } else {
+                        acc[m.sourceType] = { count: 1, minPriority: p };
+                    }
                     return acc;
                 }, {});
-                const sources = Object.keys(bySource);
+
+                // Sort left-to-right: lowest minPriority first (most important leftmost)
+                const sources = Object.entries(bySource).sort((a, b) => a[1].minPriority - b[1].minPriority);
+
                 return (
                     <div className="flex items-center gap-0.5">
-                        {sources.map((source) => (
+                        {sources.map(([sourceType, { count }]) => (
                             <SourceChip
-                                key={source}
-                                sourceType={source}
-                                count={bySource[source]}
+                                key={sourceType}
+                                sourceType={sourceType}
+                                count={count}
                                 onClick={() => openFieldDetail(row.original)}
                             />
                         ))}
@@ -557,11 +584,19 @@ export default function MasterDataManager({ initialData, rawFields, initialNote,
                                                             <div {...provided.dragHandleProps} className="p-1 cursor-grab active:cursor-grabbing text-slate-400 hover:text-slate-600">
                                                                 <GripVertical className="w-4 h-4" />
                                                             </div>
-                                                            <button onClick={() => toggleCollapse(category.id)} className="flex items-center gap-2 font-semibold text-sm text-slate-700 ml-2">
-                                                                {collapsedCategories.has(category.id) ? <ChevronRight className="w-4 h-4 text-slate-500" /> : <ChevronDown className="w-4 h-4 text-slate-500" />}
-                                                                {category.displayName}
-                                                                <Badge variant="outline" className="text-[10px] font-normal text-slate-500 bg-white shadow-sm ml-2">{category.fields.length}</Badge>
-                                                            </button>
+                                                            <CategoryNameHeader
+                                                                category={category}
+                                                                onToggleCollapse={() => toggleCollapse(category.id)}
+                                                                isCollapsed={collapsedCategories.has(category.id)}
+                                                                onRename={(newName) => {
+                                                                    setCategories((prev: any[]) =>
+                                                                        prev.map((c: any) =>
+                                                                            c.id === category.id ? { ...c, displayName: newName } : c
+                                                                        )
+                                                                    );
+                                                                    router.refresh();
+                                                                }}
+                                                            />
                                                         </div>
                                                         
                                                         {!collapsedCategories.has(category.id) && (
@@ -709,6 +744,102 @@ function SourceChip({ sourceType, count, onClick }: { sourceType: string; count:
         >
             {config.content}
         </button>
+    );
+}
+
+// --- Category Name Header ---
+
+function CategoryNameHeader({
+    category,
+    onToggleCollapse,
+    isCollapsed,
+    onRename,
+}: {
+    category: any;
+    onToggleCollapse: () => void;
+    isCollapsed: boolean;
+    onRename: (newName: string) => void;
+}) {
+    const [isEditing, setIsEditing] = useState(false);
+    const [val, setVal] = useState(category.displayName);
+    const [saving, setSaving] = useState(false);
+
+    // Keep local val in sync when parent refreshes the category prop
+    useEffect(() => {
+        if (!isEditing) setVal(category.displayName);
+    }, [category.displayName, isEditing]);
+
+    const handleSave = async () => {
+        const trimmed = val.trim();
+        if (!trimmed || trimmed === category.displayName) {
+            setIsEditing(false);
+            setVal(category.displayName);
+            return;
+        }
+        setSaving(true);
+        const res = await renameMasterDataCategory(category.id, trimmed);
+        setSaving(false);
+        if (res.success) {
+            toast.success("Category renamed");
+            setIsEditing(false);
+            onRename(trimmed);
+        } else {
+            toast.error(res.error || "Failed to rename category");
+            setVal(category.displayName);
+            setIsEditing(false);
+        }
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === "Enter") handleSave();
+        if (e.key === "Escape") {
+            setIsEditing(false);
+            setVal(category.displayName);
+        }
+    };
+
+    if (isEditing) {
+        return (
+            <div className="flex items-center gap-2 flex-1 ml-2">
+                <button onClick={onToggleCollapse} className="shrink-0">
+                    {isCollapsed
+                        ? <ChevronRight className="w-4 h-4 text-slate-500" />
+                        : <ChevronDown className="w-4 h-4 text-slate-500" />}
+                </button>
+                <Input
+                    autoFocus
+                    disabled={saving}
+                    value={val}
+                    onChange={e => setVal(e.target.value)}
+                    onBlur={handleSave}
+                    onKeyDown={handleKeyDown}
+                    maxLength={80}
+                    className="h-7 text-sm font-semibold w-48 max-w-xs"
+                />
+                {saving && <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-400 shrink-0" />}
+            </div>
+        );
+    }
+
+    return (
+        <div className="flex items-center gap-2 flex-1 ml-2 group/catname">
+            <button onClick={onToggleCollapse} className="flex items-center gap-2 font-semibold text-sm text-slate-700">
+                {isCollapsed
+                    ? <ChevronRight className="w-4 h-4 text-slate-500" />
+                    : <ChevronDown className="w-4 h-4 text-slate-500" />}
+                {val}
+                <Badge variant="outline" className="text-[10px] font-normal text-slate-500 bg-white shadow-sm ml-1">
+                    {category.fields.length}
+                </Badge>
+            </button>
+            <button
+                onClick={() => setIsEditing(true)}
+                title="Rename category"
+                className="opacity-0 group-hover/catname:opacity-100 transition-opacity text-slate-400 hover:text-indigo-600 ml-1"
+            >
+                <Pencil className="w-3 h-3" />
+            </button>
+        </div>
     );
 }
 

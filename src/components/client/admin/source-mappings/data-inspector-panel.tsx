@@ -332,8 +332,17 @@ function ObjectRow({
     return (
         <div
             className={cn(
-                "relative rounded transition-colors",
-                isHovered && !isMappedHere && "bg-blue-50/60"
+                "relative rounded transition-all duration-75",
+                // Persistent left border for mapped nodes
+                isMappedHere && "border-l-2 border-green-400 pl-1",
+                otherFieldMapping && !isMappedHere && "border-l-2 border-amber-300 pl-1",
+                // Hover (unmapped): stronger blue border + visible background
+                isHovered && !isMappedHere && !otherFieldMapping && "border-l-2 border-blue-500 pl-1 bg-blue-100/60",
+                // Hover on already-annotated nodes: brighten their bg
+                isHovered && isMappedHere && "bg-green-50/50",
+                isHovered && otherFieldMapping && !isMappedHere && "bg-amber-50/50",
+                // Default: reserve border space so rows don't jump
+                !isMappedHere && !otherFieldMapping && "border-l-2 border-transparent pl-1"
             )}
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
@@ -341,8 +350,16 @@ function ObjectRow({
             {/* Key Row */}
             <div className="flex items-center py-0.5 px-1 -ml-1">
                 <span className={cn(
-                    "font-mono text-[11px] font-semibold",
-                    isMappedHere ? "text-green-600" : otherFieldMapping ? "text-amber-600" : "text-indigo-900"
+                    "font-mono text-[11px] font-semibold transition-all",
+                    isMappedHere
+                        ? "text-green-600"
+                        : otherFieldMapping
+                        ? "text-amber-600"
+                        : isHovered
+                        // Highlighted pill behind the key name — visible anchor for the eye
+                        // even when focus is on the far-right Add button
+                        ? "text-blue-800 bg-blue-200/70 rounded px-1 -mx-1"
+                        : "text-indigo-900"
                 )}>
                     {keyName}:
                 </span>
