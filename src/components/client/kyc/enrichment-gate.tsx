@@ -28,15 +28,17 @@ export function EnrichmentGate({ leId, status, lei, raId, children }: Enrichment
     const isPending = currentStatus === "PENDING_LEI" || currentStatus === "PENDING_ENRICHMENT";
     const isError = currentStatus === "FAILED";
 
-    // In a real app, we might poll for status updates or use Pusher/Ably
+    // Poll for status updates only while genuinely waiting for GLEIF identity resolution.
+    // PENDING_ENRICHMENT does not need aggressive polling — CH enrichment is triggered
+    // manually (via Sources page refresh), not automatically.
     useEffect(() => {
-        if (isPending) {
+        if (currentStatus === "PENDING_LEI") {
             const timer = setInterval(() => {
                 router.refresh();
-            }, 3000);
+            }, 5000);
             return () => clearInterval(timer);
         }
-    }, [isPending, router]);
+    }, [currentStatus, router]);
 
     if (!isPending && !isError) {
         return <>{children}</>;
