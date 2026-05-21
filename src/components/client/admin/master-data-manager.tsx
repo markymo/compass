@@ -377,18 +377,31 @@ export default function MasterDataManager({ initialData, rawFields, initialNote,
             size: 115,
             cell: ({ row }) => {
                 const mappings: any[] = row.original.sourceMappings || [];
-                const bySource = mappings.reduce((acc: Record<string, number>, m: any) => {
-                    acc[m.sourceType] = (acc[m.sourceType] || 0) + 1;
+
+                // Group by sourceType, tracking count and minimum priority per type.
+                // Minimum priority = highest importance (priority 1 beats priority 100).
+                const bySource = mappings.reduce((acc: Record<string, { count: number; minPriority: number }>, m: any) => {
+                    const existing = acc[m.sourceType];
+                    const p = m.priority ?? 999;
+                    if (existing) {
+                        existing.count++;
+                        if (p < existing.minPriority) existing.minPriority = p;
+                    } else {
+                        acc[m.sourceType] = { count: 1, minPriority: p };
+                    }
                     return acc;
                 }, {});
-                const sources = Object.keys(bySource);
+
+                // Sort left-to-right: lowest minPriority first (most important leftmost)
+                const sources = Object.entries(bySource).sort((a, b) => a[1].minPriority - b[1].minPriority);
+
                 return (
                     <div className="flex items-center gap-0.5">
-                        {sources.map((source) => (
+                        {sources.map(([sourceType, { count }]) => (
                             <SourceChip
-                                key={source}
-                                sourceType={source}
-                                count={bySource[source]}
+                                key={sourceType}
+                                sourceType={sourceType}
+                                count={count}
                                 onClick={() => openFieldDetail(row.original)}
                             />
                         ))}
