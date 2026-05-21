@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { invalidateDefinitionCache } from "@/services/masterData/definitionService";
 import { captureMomentumObservation } from "./momentum";
+import { isSystemAdmin } from "./admin";
 
 /**
  * toggleFieldActive: Toggles the active state of a master field definition.
@@ -285,6 +286,52 @@ export async function renameCustomField(
         return { success: true };
     } catch (e) {
         console.error("[renameCustomField] Error:", e);
+        return { success: false, error: String(e) };
+    }
+}
+
+/**
+ * renameMasterDataCategory: Updates the displayName of a MasterDataCategory.
+ * The category key is deliberately left unchanged to avoid breaking any published
+ * schema snapshots, AI category lists, or momentum scope references that use it.
+ *
+ * Guarded: platform admin only.
+ */
+export async function renameMasterDataCategory(
+    id: string,
+    displayName: string
+): Promise<{ success: boolean; error?: string }> {
+    try {
+        const admin = await isSystemAdmin();
+        if (!admin) {
+            return { success: false, error: "Unauthorized: platform admin required" };
+        }
+
+        const trimmed = displayName.trim();
+        if (!trimmed) {
+            return { success: false, error: "Category name cannot be empty" };
+        }
+        if (trimmed.length > 80) {
+            return { success: false, error: "Category name must be 80 characters or fewer" };
+        }
+
+        const existing = await (prisma as any).masterDataCategory.findUnique({ where: { id } });
+        if (!existing) {
+            return { success: false, error: "Category not found" };
+        }
+
+        await (prisma as any).masterDataCategory.update({
+            where: { id },
+            data: { displayName: trimmed }
+        });
+
+        invalidateDefinitionCache();
+        revalidatePath("/app/admin/master-data/manager");
+        revalidatePath("/app/admin/master-data");
+
+        return { success: true };
+    } catch (e) {
+        console.error("[renameMasterDataCategory] Error:", e);
         return { success: false, error: String(e) };
     }
 }
