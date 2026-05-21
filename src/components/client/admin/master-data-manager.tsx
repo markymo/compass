@@ -1,7 +1,7 @@
 "use client";
 import { cn } from "@/lib/utils";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
     ColumnDef,
     flexRender,
@@ -58,8 +58,14 @@ export default function MasterDataManager({ initialData, rawFields, initialNote,
     // -- Table States --
     const [sorting, setSorting] = useState<SortingState>(initialUserConfig?.sorting || [{ id: "order", desc: false }]);
     const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(initialUserConfig?.columnVisibility || {});
-    const [columnSizing, setColumnSizing] = useState<ColumnSizingState>(initialUserConfig?.columnSizing || {});
-    
+    const [columnSizing, setColumnSizingRaw] = useState<ColumnSizingState>(initialUserConfig?.columnSizing || {});
+    // Wrap setColumnSizing so TanStack's functional-updater form always resolves to a
+    // plain object before storing in state — makes the value serialisable and ensures
+    // the persistence effect dependency fires correctly.
+    const setColumnSizing = (updater: ColumnSizingState | ((old: ColumnSizingState) => ColumnSizingState)) => {
+        setColumnSizingRaw(prev => typeof updater === 'function' ? updater(prev) : updater);
+    };
+
     // Filter State (also saved)
     const [search, setSearch] = useState("");
     const [filterCategory, setFilterCategory] = useState<string>(initialUserConfig?.filterCategory || "all");
@@ -68,7 +74,14 @@ export default function MasterDataManager({ initialData, rawFields, initialNote,
     const [filterStatus, setFilterStatus] = useState<string>(initialUserConfig?.filterStatus || "all");
 
     // -- Persistence Effect --
+    // hasMounted guard: skip the very first render so we never overwrite saved
+    // preferences with initial defaults (e.g. columnSizing: {}) on page load.
+    const hasMounted = useRef(false);
     useEffect(() => {
+        if (!hasMounted.current) {
+            hasMounted.current = true;
+            return;
+        }
         const timeoutId = setTimeout(() => {
             updateUserPreferences({
                 masterDataManager: {
