@@ -648,7 +648,7 @@ export default function MasterDataManager({ initialData, rawFields, initialNote,
                 </div>
             </div>
 
-            {selectedField && <FieldDetailSheet field={selectedField} open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen} categories={categories} />}
+            {selectedField && <FieldDetailSheet field={selectedField} open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen} categories={categories} allSourceMappings={rawFields.flatMap((f: any) => (f.sourceMappings || []).map((m: any) => ({ ...m, fieldNo: f.fieldNo, fieldName: f.fieldName })))} />}
             {isCreateDialogOpen && <FieldCreateSheet open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen} categories={categories} />}
         </div>
     );

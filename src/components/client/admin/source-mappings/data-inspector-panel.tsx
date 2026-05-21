@@ -4,25 +4,48 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Loader2, Search, Check, PlusCircle, Globe } from "lucide-react";
+import { Loader2, Search, Check, PlusCircle, Globe, Tag } from "lucide-react";
 import { fetchLiveGleifRecord } from "@/actions/gleif-live";
 import { fetchLiveRegistryRecord } from "@/actions/registry-live";
 import { cn } from "@/lib/utils";
+
+// ── Types ──────────────────────────────────────────────────────────────
+
+interface CrossFieldMapping {
+    sourceType: string;
+    sourceReference?: string | null;
+    sourcePath: string;
+    fieldNo: number;
+    fieldName: string;
+    isActive: boolean;
+}
 
 interface DataInspectorPanelProps {
     sourceType: string;
     /** RA authority code, e.g. "RA000585" or "RA000192". Null/undefined for GLEIF. */
     sourceReference?: string | null;
+    /** Mappings belonging to the field currently being edited. */
     existingMappings: any[];
+    /**
+     * All active source mappings across ALL master fields (enriched with fieldNo + fieldName).
+     * Used to show "mapped to Field N · Name" indicators for nodes claimed by other fields.
+     */
+    allSourceMappings?: CrossFieldMapping[];
+    /** fieldNo of the field being edited — used to exclude its own mappings from the "other field" set. */
+    currentFieldNo?: number;
     onSelectPath: (path: string) => void;
     readOnly?: boolean;
     title?: string;
 }
 
+// ── Component ──────────────────────────────────────────────────────────
+
 export function DataInspectorPanel({ 
     sourceType, 
     sourceReference,
     existingMappings, 
+    allSourceMappings = [],
+    currentFieldNo,
     onSelectPath, 
     readOnly = false,
     title
@@ -40,7 +63,7 @@ export function DataInspectorPanel({
     // Fix 1: Only highlight paths that belong to THIS source (sourceType + sourceReference match).
     // Previously all mappings were included regardless of source, causing inconsistent
     // "Mapped" indicators across GLEIF vs Registry Browse views.
-    const activePaths = new Set(
+    const thisFieldPaths = new Set(
         existingMappings
             .filter(m =>
                 m.isActive &&
@@ -49,6 +72,20 @@ export function DataInspectorPanel({
             )
             .map(m => m.sourcePath)
     );
+
+    // Build a map of path → { fieldNo, fieldName } for all OTHER fields' mappings
+    // for the same source type. This powers the amber "Field N · Name" indicator.
+    const otherFieldPathMap = new Map<string, { fieldNo: number; fieldName: string }>();
+    for (const m of allSourceMappings) {
+        if (!m.isActive) continue;
+        if (m.sourceType !== sourceType) continue;
+        // Skip mappings that belong to the field we're currently editing
+        if (currentFieldNo !== undefined && m.fieldNo === currentFieldNo) continue;
+        // Use the first mapping found for a given path (lowest fieldNo wins for display)
+        if (!otherFieldPathMap.has(m.sourcePath)) {
+            otherFieldPathMap.set(m.sourcePath, { fieldNo: m.fieldNo, fieldName: m.fieldName });
+        }
+    }
 
     const handleSearch = async () => {
         if (!query.trim() || query.length < 3) return;
@@ -95,6 +132,19 @@ export function DataInspectorPanel({
                         ? 'Search real LEI data to explore the schema.' 
                         : 'Search real registry data to explore the schema.'}
                 </CardDescription>
+
+                {/* Legend */}
+                <div className="flex items-center gap-3 mt-2 text-[10px] text-slate-500">
+                    <span className="flex items-center gap-1">
+                        <span className="inline-block w-2 h-2 rounded-full bg-green-500" /> This field
+                    </span>
+                    <span className="flex items-center gap-1">
+                        <span className="inline-block w-2 h-2 rounded-full bg-amber-400" /> Another field
+                    </span>
+                    <span className="flex items-center gap-1">
+                        <span className="inline-block w-2 h-2 rounded-full bg-slate-300" /> Unmapped
+                    </span>
+                </div>
                 
                 <div className="flex gap-2 mt-3 pt-1">
                     <div className="relative flex-1">
@@ -138,7 +188,8 @@ export function DataInspectorPanel({
                     <div className="flex-1 overflow-auto p-4 custom-scrollbar">
                         <JsonTree 
                             data={payload} 
-                            activePaths={activePaths} 
+                            thisFieldPaths={thisFieldPaths}
+                            otherFieldPathMap={otherFieldPathMap}
                             onSelect={onSelectPath} 
                             readOnly={readOnly}
                         />
@@ -149,17 +200,20 @@ export function DataInspectorPanel({
     );
 }
 
-// Recursive JSON Tree Component
+// ── Recursive JSON Tree ────────────────────────────────────────────────
+
 function JsonTree({ 
     data, 
     path = "", 
-    activePaths, 
+    thisFieldPaths,
+    otherFieldPathMap,
     onSelect,
     readOnly = false
 }: { 
-    data: any, 
-    path?: string, 
-    activePaths: Set<string>, 
+    data: any,
+    path?: string,
+    thisFieldPaths: Set<string>,
+    otherFieldPathMap: Map<string, { fieldNo: number; fieldName: string }>,
     onSelect: (path: string) => void,
     readOnly?: boolean
 }) {
@@ -179,16 +233,18 @@ function JsonTree({
                             {typeof item === 'object' && item !== null ? (
                                 <JsonTree 
                                     data={item} 
-                                    path={`${path}[${index}]`} 
-                                    activePaths={activePaths} 
+                                    path={`${path}[${index}]`}
+                                    thisFieldPaths={thisFieldPaths}
+                                    otherFieldPathMap={otherFieldPathMap}
                                     onSelect={onSelect} 
                                     readOnly={readOnly}
                                 />
                             ) : (
                                 <ValueNode 
                                     value={item} 
-                                    itemPath={`${path}[${index}]`} 
-                                    isMapped={activePaths.has(`${path}[${index}]`)} 
+                                    itemPath={`${path}[${index}]`}
+                                    isMappedHere={thisFieldPaths.has(`${path}[${index}]`)}
+                                    otherFieldMapping={otherFieldPathMap.get(`${path}[${index}]`) ?? null}
                                     onSelect={onSelect} 
                                     readOnly={readOnly}
                                 />
@@ -210,7 +266,8 @@ function JsonTree({
                     const value = data[key];
                     const childPath = path ? `${path}.${key}` : key;
                     const isObject = typeof value === 'object' && value !== null;
-                    const isMapped = activePaths.has(childPath);
+                    const isMappedHere = thisFieldPaths.has(childPath);
+                    const otherFieldMapping = otherFieldPathMap.get(childPath) ?? null;
                     
                     return (
                         <ObjectRow
@@ -219,8 +276,10 @@ function JsonTree({
                             value={value}
                             childPath={childPath}
                             isObject={isObject}
-                            isMapped={isMapped}
-                            activePaths={activePaths}
+                            isMappedHere={isMappedHere}
+                            otherFieldMapping={otherFieldMapping}
+                            thisFieldPaths={thisFieldPaths}
+                            otherFieldPathMap={otherFieldPathMap}
                             onSelect={onSelect}
                             readOnly={readOnly}
                         />
@@ -230,19 +289,30 @@ function JsonTree({
         );
     }
 
-    return <ValueNode value={data} itemPath={path} isMapped={activePaths.has(path)} onSelect={onSelect} readOnly={readOnly} />;
+    return (
+        <ValueNode
+            value={data}
+            itemPath={path}
+            isMappedHere={thisFieldPaths.has(path)}
+            otherFieldMapping={otherFieldPathMap.get(path) ?? null}
+            onSelect={onSelect}
+            readOnly={readOnly}
+        />
+    );
 }
 
+// ── ObjectRow ──────────────────────────────────────────────────────────
+
 // Fix 2: Extracted row into its own component with local hover state.
-// The "Add" button is always visible (not opacity-0), and the row gets a
-// blue tint when hovered to indicate the "active" row clearly.
 function ObjectRow({
     keyName,
     value,
     childPath,
     isObject,
-    isMapped,
-    activePaths,
+    isMappedHere,
+    otherFieldMapping,
+    thisFieldPaths,
+    otherFieldPathMap,
     onSelect,
     readOnly,
 }: {
@@ -250,8 +320,10 @@ function ObjectRow({
     value: any;
     childPath: string;
     isObject: boolean;
-    isMapped: boolean;
-    activePaths: Set<string>;
+    isMappedHere: boolean;
+    otherFieldMapping: { fieldNo: number; fieldName: string } | null;
+    thisFieldPaths: Set<string>;
+    otherFieldPathMap: Map<string, { fieldNo: number; fieldName: string }>;
     onSelect: (path: string) => void;
     readOnly: boolean;
 }) {
@@ -261,7 +333,7 @@ function ObjectRow({
         <div
             className={cn(
                 "relative rounded transition-colors",
-                isHovered && !isMapped && "bg-blue-50/60"
+                isHovered && !isMappedHere && "bg-blue-50/60"
             )}
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
@@ -270,7 +342,7 @@ function ObjectRow({
             <div className="flex items-center py-0.5 px-1 -ml-1">
                 <span className={cn(
                     "font-mono text-[11px] font-semibold",
-                    isMapped ? "text-green-600" : "text-indigo-900"
+                    isMappedHere ? "text-green-600" : otherFieldMapping ? "text-amber-600" : "text-indigo-900"
                 )}>
                     {keyName}:
                 </span>
@@ -280,8 +352,9 @@ function ObjectRow({
                     <div className="ml-2 flex-1 flex items-center justify-between min-w-0">
                         <ValueNode 
                             value={value} 
-                            itemPath={childPath} 
-                            isMapped={isMapped} 
+                            itemPath={childPath}
+                            isMappedHere={isMappedHere}
+                            otherFieldMapping={otherFieldMapping}
                             onSelect={onSelect} 
                             readOnly={readOnly}
                             isRowHovered={isHovered}
@@ -289,12 +362,15 @@ function ObjectRow({
                     </div>
                 )}
 
-                {/* Object/array level Add or Mapped badge */}
+                {/* Object/array level badge */}
                 {isObject && !readOnly && (
                     <div className="ml-auto pl-2 shrink-0">
-                        {isMapped ? (
-                            <div className="text-green-500 flex items-center gap-1 text-[10px] font-medium pr-1">
-                                <Check className="h-3 w-3" /> Mapped
+                        {isMappedHere ? (
+                            <ThisFieldBadge />
+                        ) : otherFieldMapping ? (
+                            <div className="flex items-center gap-1">
+                                <OtherFieldBadge fieldNo={otherFieldMapping.fieldNo} fieldName={otherFieldMapping.fieldName} />
+                                <MappingButton onClick={() => onSelect(childPath)} visible={isHovered} />
                             </div>
                         ) : (
                             <MappingButton onClick={() => onSelect(childPath)} visible={isHovered} />
@@ -308,8 +384,9 @@ function ObjectRow({
                 <div className="pl-4 ml-1.5 border-l border-slate-200 mt-0.5">
                     <JsonTree 
                         data={value} 
-                        path={childPath} 
-                        activePaths={activePaths} 
+                        path={childPath}
+                        thisFieldPaths={thisFieldPaths}
+                        otherFieldPathMap={otherFieldPathMap}
                         onSelect={onSelect} 
                         readOnly={readOnly}
                     />
@@ -319,18 +396,21 @@ function ObjectRow({
     );
 }
 
-// Leaf Node display (Primitive value + Mapping Button)
+// ── ValueNode (Leaf) ───────────────────────────────────────────────────
+
 function ValueNode({ 
     value, 
     itemPath, 
-    isMapped, 
+    isMappedHere,
+    otherFieldMapping,
     onSelect,
     readOnly = false,
     isRowHovered = false,
 }: { 
-    value: any, 
-    itemPath: string, 
-    isMapped: boolean, 
+    value: any,
+    itemPath: string,
+    isMappedHere: boolean,
+    otherFieldMapping: { fieldNo: number; fieldName: string } | null,
     onSelect: (path: string) => void,
     readOnly?: boolean,
     isRowHovered?: boolean,
@@ -351,22 +431,52 @@ function ValueNode({
                 {displayStr}
             </span>
             
-            {isMapped ? (
-                <div className="text-green-500 bg-green-50 px-1.5 py-0.5 rounded flex items-center gap-1 text-[9px] font-bold tracking-wider shrink-0">
-                    <Check className="h-2.5 w-2.5" /> MAPPED
-                </div>
-            ) : !readOnly ? (
-                <div className="shrink-0">
-                    <MappingButton onClick={() => onSelect(itemPath)} visible={isRowHovered} />
-                </div>
-            ) : null}
+            <div className="flex items-center gap-1 shrink-0">
+                {isMappedHere ? (
+                    <ThisFieldBadge />
+                ) : (
+                    <>
+                        {otherFieldMapping && (
+                            <OtherFieldBadge
+                                fieldNo={otherFieldMapping.fieldNo}
+                                fieldName={otherFieldMapping.fieldName}
+                            />
+                        )}
+                        {!readOnly && (
+                            <MappingButton onClick={() => onSelect(itemPath)} visible={isRowHovered} />
+                        )}
+                    </>
+                )}
+            </div>
+        </div>
+    );
+}
+
+// ── Badge / Button Sub-components ──────────────────────────────────────
+
+/** Green badge: this node is mapped to the field currently being edited. */
+function ThisFieldBadge() {
+    return (
+        <div className="text-green-600 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded flex items-center gap-1 text-[9px] font-bold tracking-wider">
+            <Check className="h-2.5 w-2.5" /> THIS FIELD
+        </div>
+    );
+}
+
+/** Amber badge: this node is mapped to a different master field. */
+function OtherFieldBadge({ fieldNo, fieldName }: { fieldNo: number; fieldName: string }) {
+    return (
+        <div
+            className="text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded flex items-center gap-1 text-[9px] font-medium max-w-[120px] truncate"
+            title={`Field ${fieldNo} · ${fieldName}`}
+        >
+            <Tag className="h-2.5 w-2.5 shrink-0" />
+            <span className="truncate">F{fieldNo} · {fieldName}</span>
         </div>
     );
 }
 
 // Fix 2: Button is always rendered but visually prominent only when the row is hovered.
-// This ensures it is discoverable (always present) while the row highlight
-// provides the "active row" cue the user requested.
 function MappingButton({ onClick, visible }: { onClick: () => void; visible: boolean }) {
     return (
         <button 
