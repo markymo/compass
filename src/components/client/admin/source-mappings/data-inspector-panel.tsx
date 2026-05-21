@@ -336,12 +336,12 @@ function ObjectRow({
                 // Persistent left border for mapped nodes
                 isMappedHere && "border-l-2 border-green-400 pl-1",
                 otherFieldMapping && !isMappedHere && "border-l-2 border-amber-300 pl-1",
-                // Hover: blue left border + soft background for unmapped nodes
-                isHovered && !isMappedHere && !otherFieldMapping && "border-l-2 border-blue-400 pl-1 bg-blue-50/70",
-                // Hover on already-annotated nodes: just brighten the background
+                // Hover (unmapped): stronger blue border + visible background
+                isHovered && !isMappedHere && !otherFieldMapping && "border-l-2 border-blue-500 pl-1 bg-blue-100/60",
+                // Hover on already-annotated nodes: brighten their bg
                 isHovered && isMappedHere && "bg-green-50/50",
                 isHovered && otherFieldMapping && !isMappedHere && "bg-amber-50/50",
-                // Default: reserve the pl-1 space so rows don't jump on hover
+                // Default: reserve border space so rows don't jump
                 !isMappedHere && !otherFieldMapping && "border-l-2 border-transparent pl-1"
             )}
             onMouseEnter={() => setIsHovered(true)}
@@ -350,11 +350,16 @@ function ObjectRow({
             {/* Key Row */}
             <div className="flex items-center py-0.5 px-1 -ml-1">
                 <span className={cn(
-                    "font-mono text-[11px] font-semibold transition-colors",
-                    isMappedHere ? "text-green-600" 
-                    : otherFieldMapping ? "text-amber-600"
-                    : isHovered ? "text-blue-700 font-bold"
-                    : "text-indigo-900"
+                    "font-mono text-[11px] font-semibold transition-all",
+                    isMappedHere
+                        ? "text-green-600"
+                        : otherFieldMapping
+                        ? "text-amber-600"
+                        : isHovered
+                        // Highlighted pill behind the key name — visible anchor for the eye
+                        // even when focus is on the far-right Add button
+                        ? "text-blue-800 bg-blue-200/70 rounded px-1 -mx-1"
+                        : "text-indigo-900"
                 )}>
                     {keyName}:
                 </span>
