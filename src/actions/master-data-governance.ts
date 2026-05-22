@@ -335,3 +335,187 @@ export async function renameMasterDataCategory(
         return { success: false, error: String(e) };
     }
 }
+
+/**
+ * getCategoryImpactSummary: Returns a read-only count of all downstream references
+ * for a category. Called when the archive modal opens so the user can make an
+ * informed decision before proceeding.
+ */
+export async function getCategoryImpactSummary(categoryId: string): Promise<{
+    success: boolean;
+    error?: string;
+    summary?: {
+        fieldCount: number;
+        activeSourceMappings: number;
+        totalSourceMappings: number;
+        fieldClaimCount: number;
+        questionCount: number;
+        isEmptyCategory: boolean;
+        hasLiveReferences: boolean;
+    };
+}> {
+    try {
+        const category = await (prisma as any).masterDataCategory.findUnique({
+            where: { id: categoryId },
+            include: {
+                fields: {
+                    include: { sourceMappings: true }
+                }
+            }
+        });
+
+        if (!category) {
+            return { success: false, error: "Category not found" };
+        }
+
+        const fieldNos: number[] = category.fields.map((f: any) => f.fieldNo);
+        const fieldCount = fieldNos.length;
+        const activeSourceMappings = category.fields.reduce(
+            (acc: number, f: any) => acc + f.sourceMappings.filter((m: any) => m.isActive).length, 0
+        );
+        const totalSourceMappings = category.fields.reduce(
+            (acc: number, f: any) => acc + f.sourceMappings.length, 0
+        );
+
+        let fieldClaimCount = 0;
+        let questionCount = 0;
+
+        if (fieldNos.length > 0) {
+            const claimRes = await (prisma as any).$queryRaw`
+                SELECT COUNT(*)::int AS cnt FROM field_claims WHERE "fieldNo" = ANY(${fieldNos})
+            `;
+            fieldClaimCount = Number(claimRes[0]?.cnt ?? 0);
+
+            const qRes = await (prisma as any).$queryRaw`
+                SELECT COUNT(*)::int AS cnt FROM "Question" WHERE "masterFieldNo" = ANY(${fieldNos})
+            `;
+            questionCount = Number(qRes[0]?.cnt ?? 0);
+        }
+
+        const hasLiveReferences = fieldClaimCount > 0 || questionCount > 0 || activeSourceMappings > 0;
+        const isEmptyCategory = fieldCount === 0;
+
+        return {
+            success: true,
+            summary: {
+                fieldCount,
+                activeSourceMappings,
+                totalSourceMappings,
+                fieldClaimCount,
+                questionCount,
+                isEmptyCategory,
+                hasLiveReferences,
+            }
+        };
+    } catch (e) {
+        console.error("[getCategoryImpactSummary] Error:", e);
+        return { success: false, error: String(e) };
+    }
+}
+
+/**
+ * retireMasterDataCategory: Archives a category and retires all its fields and active
+ * source mappings in a single transaction. This is the safe alternative to hard delete.
+ *
+ * INVARIANT: FieldClaim rows and Question.masterFieldNo links are intentionally left
+ * intact. They reference fieldNo as bare integers with no FK constraint — orphaning
+ * them would break historical explainability. Retired fields remain permanently
+ * resolvable by fieldNo for any historical query.
+ *
+ * Hard delete policy:
+ *   - Category has zero fields: caller may pass { forceHardDelete: true }
+ *   - Category has fields with live references: retirement only, always
+ *   - Category has fields with zero live references: retirement by default
+ *     (hard delete never offered in this version)
+ *
+ * Guarded: platform admin only.
+ */
+export async function retireMasterDataCategory(
+    categoryId: string,
+    archiveReason: string,
+    options?: { forceHardDelete?: boolean }
+): Promise<{ success: boolean; error?: string; hardDeleted?: boolean }> {
+    try {
+        const admin = await isSystemAdmin();
+        if (!admin) {
+            return { success: false, error: "Unauthorized: platform admin required" };
+        }
+
+        const reason = archiveReason.trim();
+        if (!reason) {
+            return { success: false, error: "Archive reason is required" };
+        }
+        if (reason.length > 500) {
+            return { success: false, error: "Archive reason must be 500 characters or fewer" };
+        }
+
+        // Resolve user identity for audit trail
+        const { getIdentity } = await import("@/lib/auth");
+        const identity = await getIdentity();
+        const actorId = identity?.userId ?? null;
+
+        const category = await (prisma as any).masterDataCategory.findUnique({
+            where: { id: categoryId },
+            include: { fields: { include: { sourceMappings: true } } }
+        });
+
+        if (!category) {
+            return { success: false, error: "Category not found" };
+        }
+        if (!category.isActive) {
+            return { success: false, error: "Category is already archived" };
+        }
+
+        const fieldNos: number[] = category.fields.map((f: any) => f.fieldNo);
+
+        // --- Hard delete path: only allowed when the category has zero fields ---
+        if (options?.forceHardDelete && fieldNos.length === 0) {
+            await (prisma as any).masterDataCategory.delete({ where: { id: categoryId } });
+            invalidateDefinitionCache();
+            revalidatePath("/app/admin/master-data/manager");
+            revalidatePath("/app/admin/master-data");
+            return { success: true, hardDeleted: true };
+        }
+
+        // --- Retirement path (all other cases) ---
+        const now = new Date();
+
+        await (prisma as any).$transaction(async (tx: any) => {
+            // 1. Archive the category
+            await tx.masterDataCategory.update({
+                where: { id: categoryId },
+                data: {
+                    isActive: false,
+                    archivedAt: now,
+                    archivedById: actorId,
+                    archiveReason: reason,
+                }
+            });
+
+            // 2. Retire all fields in the category
+            if (fieldNos.length > 0) {
+                await tx.masterFieldDefinition.updateMany({
+                    where: { categoryId },
+                    data: { isActive: false }
+                });
+
+                // 3. Deactivate all active source mappings targeting those fields
+                await tx.sourceFieldMapping.updateMany({
+                    where: { targetFieldNo: { in: fieldNos }, isActive: true },
+                    data: { isActive: false }
+                });
+            }
+            // FieldClaims and Question.masterFieldNo links are deliberately NOT touched.
+            // They must remain resolvable for historical explainability.
+        });
+
+        invalidateDefinitionCache();
+        revalidatePath("/app/admin/master-data/manager");
+        revalidatePath("/app/admin/master-data");
+
+        return { success: true, hardDeleted: false };
+    } catch (e) {
+        console.error("[retireMasterDataCategory] Error:", e);
+        return { success: false, error: String(e) };
+    }
+}

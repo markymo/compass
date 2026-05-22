@@ -757,12 +757,18 @@ model MasterDataOptionSet {
 }
 
 model MasterDataCategory {
-  id          String                  @id @default(uuid())
-  key         String                  @unique
-  displayName String
-  order       Float                   @default(0)
-  fields      MasterFieldDefinition[]
+  id            String                  @id @default(uuid())
+  key           String                  @unique
+  displayName   String
+  order         Float                   @default(0)
+  /// Retirement columns — set by retireMasterDataCategory(). Key is never changed.
+  isActive      Boolean                 @default(true)
+  archivedAt    DateTime?
+  archivedById  String?
+  archiveReason String?
+  fields        MasterFieldDefinition[]
 
+  @@index([isActive, order])
   @@map("master_data_categories")
 }
 
