@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Search, Settings, HelpCircle, Check, X, Loader2, MoreVertical, SlidersHorizontal, Plus, ChevronRight, ChevronDown, ChevronUp, GripVertical, Save, RefreshCw, Edit, Pencil } from "lucide-react";
+import { Search, Settings, X, Loader2, MoreVertical, SlidersHorizontal, Plus, ChevronRight, ChevronDown, ChevronUp, GripVertical, Save, Edit, Pencil } from "lucide-react";
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -30,7 +30,6 @@ import { updateUserPreferences } from "@/actions/user-preferences";
 import { updateFieldDescription } from "@/actions/master-data-ai";
 import { updateMasterField } from "@/actions/master-data-governance";
 import { updateCategoryOrder, updateFieldOrder, moveFieldOrder } from "@/actions/master-data-sort";
-import { setSystemSetting } from "@/actions/system";
 import { renameMasterDataCategory } from "@/actions/master-data-governance";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -38,16 +37,11 @@ import { toast } from "sonner";
 interface MasterDataManagerProps {
     initialData: any;
     rawFields: any[];
-    initialNote: string;
     initialUserConfig?: any;
 }
 
-export default function MasterDataManager({ initialData, rawFields, initialNote, initialUserConfig }: MasterDataManagerProps) {
+export default function MasterDataManager({ initialData, rawFields, initialUserConfig }: MasterDataManagerProps) {
     const router = useRouter();
-
-    // -- Note State --
-    const [note, setNote] = useState(initialNote || "");
-    const [isSavingNote, setIsSavingNote] = useState(false);
 
     // -- Sort/Category State --
     const [categories, setCategories] = useState<any[]>(initialData.categories || []);
@@ -124,14 +118,6 @@ export default function MasterDataManager({ initialData, rawFields, initialNote,
     const [insertingBelowFieldNo, setInsertingBelowFieldNo] = useState<number | null>(null);
     const [newFieldDraft, setNewFieldDraft] = useState<any>(null);
     const [isCreating, setIsCreating] = useState(false);
-
-    const handleSaveNote = async () => {
-        setIsSavingNote(true);
-        const res = await setSystemSetting("ADMIN_MANAGER_NOTE", note);
-        setIsSavingNote(false);
-        if (res.success) toast.success("Note saved globally");
-        else toast.error("Failed to save note");
-    };
 
     const toggleCollapse = (id: string) => {
         setCollapsedCategories(prev => {
@@ -484,26 +470,6 @@ export default function MasterDataManager({ initialData, rawFields, initialNote,
 
     return (
         <div className="space-y-6">
-            {/* Global Note Section */}
-            <div className="bg-amber-50/50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 rounded-lg p-4 pb-3 relative">
-                <div className="absolute top-4 right-4 flex items-center gap-2">
-                    <Button onClick={handleSaveNote} disabled={isSavingNote} size="sm" variant="outline" className="h-8 bg-white border-amber-300 text-amber-700 hover:bg-amber-50">
-                        {isSavingNote ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <Save className="w-3.5 h-3.5 mr-1.5" />}
-                        Save Note
-                    </Button>
-                </div>
-                <div className="font-semibold text-amber-800 dark:text-amber-500 flex items-center gap-2 mb-2 text-sm">
-                    <HelpCircle className="w-4 h-4" /> Global Notice Board 
-                    <span className="text-[10px] font-normal px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700">God Admin</span>
-                </div>
-                <Textarea 
-                    value={note} 
-                    onChange={e => setNote(e.target.value)}
-                    placeholder="E.g. Bugs, Feature Requests, Comments..." 
-                    className="min-h-[80px] bg-white/60 dark:bg-slate-900/40 text-sm border-amber-200 resize-y"
-                />
-            </div>
-
             {/* Toolbar */}
             <div className="flex flex-col xl:flex-row gap-4 xl:items-center justify-between">
                  <div className="flex flex-wrap gap-2 items-center">
