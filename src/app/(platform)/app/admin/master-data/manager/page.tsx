@@ -4,19 +4,6 @@ import { getCategoriesWithFields } from "@/actions/master-data-sort";
 import { getUserPreferences } from "@/actions/user-preferences";
 
 export default async function MasterDataManagerPage() {
-    // 1. Fetch the temporary note from system settings
-    let temporaryNote = "";
-    try {
-        const setting = await prisma.systemSetting.findUnique({
-            where: { key: "ADMIN_MANAGER_NOTE" }
-        });
-        if (setting && setting.value) {
-            temporaryNote = String(setting.value);
-        }
-    } catch (e) {
-        console.error("Failed to fetch ADMIN_MANAGER_NOTE", e);
-    }
-
     // 2. Fetch all fields for the flat 'glossary' view AND the 'sort' capabilities
     // The sort-builder provides categories and uncategorized fields. We just need the raw categories with their full fields
     const data = await getCategoriesWithFields();
@@ -65,7 +52,6 @@ export default async function MasterDataManagerPage() {
             <MasterDataManager 
                 initialData={data} 
                 rawFields={rawFields} 
-                initialNote={temporaryNote}
                 initialUserConfig={initialUserConfig}
             />
         </div>
