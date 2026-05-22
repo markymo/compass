@@ -7,6 +7,7 @@ import { invalidateDefinitionCache } from "@/services/masterData/definitionServi
 
 export async function getCategoriesWithFields() {
     const categories = await prisma.masterDataCategory.findMany({
+        where: { isActive: true },
         orderBy: [
             { order: 'asc' },
             { displayName: 'asc' }

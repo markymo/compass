@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Search, Settings, X, Loader2, MoreVertical, SlidersHorizontal, Plus, ChevronRight, ChevronDown, ChevronUp, GripVertical, Save, Edit, Pencil } from "lucide-react";
+import { Search, Settings, X, Loader2, MoreVertical, SlidersHorizontal, Plus, ChevronRight, ChevronDown, ChevronUp, GripVertical, Save, Edit, Pencil, ArchiveX } from "lucide-react";
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -31,6 +31,7 @@ import { updateFieldDescription } from "@/actions/master-data-ai";
 import { updateMasterField } from "@/actions/master-data-governance";
 import { updateCategoryOrder, updateFieldOrder, moveFieldOrder } from "@/actions/master-data-sort";
 import { renameMasterDataCategory } from "@/actions/master-data-governance";
+import { CategoryArchiveModal } from "./category-archive-modal";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
@@ -118,6 +119,15 @@ export default function MasterDataManager({ initialData, rawFields, initialUserC
     const [insertingBelowFieldNo, setInsertingBelowFieldNo] = useState<number | null>(null);
     const [newFieldDraft, setNewFieldDraft] = useState<any>(null);
     const [isCreating, setIsCreating] = useState(false);
+
+    // -- Archive/Retire Category State --
+    const [archiveTarget, setArchiveTarget] = useState<any | null>(null);
+    const [archiveModalOpen, setArchiveModalOpen] = useState(false);
+
+    const onCategoryRetired = (retiredId: string) => {
+        setCategories((prev: any[]) => prev.filter((c: any) => c.id !== retiredId));
+        router.refresh();
+    };
 
     const toggleCollapse = (id: string) => {
         setCollapsedCategories(prev => {
@@ -562,6 +572,10 @@ export default function MasterDataManager({ initialData, rawFields, initialUserC
                                                                     );
                                                                     router.refresh();
                                                                 }}
+                                                                onArchive={() => {
+                                                                    setArchiveTarget(category);
+                                                                    setArchiveModalOpen(true);
+                                                                }}
                                                             />
                                                         </div>
                                                         
@@ -651,6 +665,12 @@ export default function MasterDataManager({ initialData, rawFields, initialUserC
 
             {selectedField && <FieldDetailSheet field={selectedField} open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen} categories={categories} allSourceMappings={rawFields.flatMap((f: any) => (f.sourceMappings || []).map((m: any) => ({ ...m, fieldNo: f.fieldNo, fieldName: f.fieldName })))} />}
             {isCreateDialogOpen && <FieldCreateSheet open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen} categories={categories} />}
+            <CategoryArchiveModal
+                category={archiveTarget}
+                open={archiveModalOpen}
+                onOpenChange={(open) => { setArchiveModalOpen(open); if (!open) setArchiveTarget(null); }}
+                onRetired={onCategoryRetired}
+            />
         </div>
     );
 }
@@ -720,11 +740,13 @@ function CategoryNameHeader({
     onToggleCollapse,
     isCollapsed,
     onRename,
+    onArchive,
 }: {
     category: any;
     onToggleCollapse: () => void;
     isCollapsed: boolean;
     onRename: (newName: string) => void;
+    onArchive: () => void;
 }) {
     const [isEditing, setIsEditing] = useState(false);
     const [val, setVal] = useState(category.displayName);
@@ -788,7 +810,7 @@ function CategoryNameHeader({
     }
 
     return (
-        <div className="flex items-center gap-2 flex-1 ml-2 group/catname">
+        <div className="flex items-center gap-1 flex-1 ml-2 group/catname">
             <button onClick={onToggleCollapse} className="flex items-center gap-2 font-semibold text-sm text-slate-700">
                 {isCollapsed
                     ? <ChevronRight className="w-4 h-4 text-slate-500" />
@@ -798,13 +820,28 @@ function CategoryNameHeader({
                     {category.fields.length}
                 </Badge>
             </button>
-            <button
-                onClick={() => setIsEditing(true)}
-                title="Rename category"
-                className="opacity-0 group-hover/catname:opacity-100 transition-opacity text-slate-400 hover:text-indigo-600 ml-1"
-            >
-                <Pencil className="w-3 h-3" />
-            </button>
+            {/* Kebab menu — visible on hover */}
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <button
+                        title="Category actions"
+                        className="opacity-0 group-hover/catname:opacity-100 transition-opacity text-slate-400 hover:text-slate-700 ml-1 p-0.5 rounded"
+                    >
+                        <MoreVertical className="w-3.5 h-3.5" />
+                    </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-44">
+                    <DropdownMenuItem onClick={() => setIsEditing(true)} className="gap-2 text-sm cursor-pointer">
+                        <Pencil className="w-3.5 h-3.5" /> Rename
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                        onClick={onArchive}
+                        className="gap-2 text-sm cursor-pointer text-amber-700 focus:text-amber-700 focus:bg-amber-50"
+                    >
+                        <ArchiveX className="w-3.5 h-3.5" /> Archive Category…
+                    </DropdownMenuItem>
+                </DropdownMenuContent>
+            </DropdownMenu>
         </div>
     );
 }
