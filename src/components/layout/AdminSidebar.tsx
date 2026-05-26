@@ -38,7 +38,8 @@ const adminNavItems: NavItem[] = [
             { title: "Groups", href: "/app/admin/master-data/groups", icon: LayoutGrid },
 
             { title: "System", href: "/app/admin/master-data/system", icon: Settings2 },
-            { title: "Source Mappings", href: "/app/admin/master-data/source-mappings", icon: GitBranch },
+            { title: "Source Field Mappings", href: "/app/admin/master-data/source-mappings-v2", icon: GitBranch },
+            { title: "Source Mappings (Legacy)", href: "/app/admin/master-data/source-mappings", icon: GitBranch },
             { title: "Option Sets", href: "/app/admin/master-data/option-sets", icon: ListOrdered },
             { title: "Mapping Workbench Idea 1", href: "/app/admin/mapping-workbench", icon: GitMerge },
             { title: "Mapping Workbench Idea 2", href: "/app/admin/mapping-workbench-2", icon: Layers3 },
@@ -51,7 +52,7 @@ const rddShortcutItems: NavItem[] = [
     { title: "Momentum", href: "/app/admin/momentum", icon: Zap },
     { title: "Data Manager", href: "/app/admin/master-data/manager", icon: LayoutDashboard },
     { title: "Field Glossary", href: "/app/admin/master-data/fields", icon: ListTree },
-    { title: "Source Mappings", href: "/app/admin/master-data/source-mappings", icon: GitBranch },
+    { title: "Source Field Mappings", href: "/app/admin/master-data/source-mappings-v2", icon: GitBranch },
 
     { title: "Option Sets", href: "/app/admin/master-data/option-sets", icon: ListOrdered },
 ];
