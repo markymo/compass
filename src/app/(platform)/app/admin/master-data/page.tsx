@@ -47,11 +47,18 @@ export default async function MasterDataAdminPage() {
         },
 
         {
-            title: "Source Mappings",
-            description: "Configure how external data (GLEIF, registries) maps to master fields.",
-            href: "/app/admin/master-data/source-mappings",
+            title: "Source Field Mappings",
+            description: "Configure per-source field mappings for GLEIF, Companies House, and other registries.",
+            href: "/app/admin/master-data/source-mappings-v2",
             icon: GitBranch,
             color: "text-green-500"
+        },
+        {
+            title: "Source Mappings (Legacy)",
+            description: "Deprecated — uses the outdated Super Schema model. Use Source Field Mappings instead.",
+            href: "/app/admin/master-data/source-mappings",
+            icon: GitBranch,
+            color: "text-slate-400"
         },
         {
             title: "Option Sets",

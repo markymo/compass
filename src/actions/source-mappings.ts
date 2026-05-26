@@ -56,6 +56,47 @@ export async function getSourceMappings(sourceType: string) {
     }
 }
 
+/**
+ * V2 source mapping fetch — filters by both sourceType AND sourceReference.
+ * This enables per-authority mapping views (e.g. only RA000585, only RA000192).
+ *
+ * Critical: sourceReference must use explicit null (not undefined) so Prisma
+ * generates WHERE source_reference IS NULL rather than omitting the clause.
+ *
+ * @param sourceType      e.g. "GLEIF" or "REGISTRATION_AUTHORITY"
+ * @param sourceReference e.g. "RA000585", "RA000192", or null for GLEIF
+ */
+export async function getSourceMappingsV2(
+    sourceType: string,
+    sourceReference: string | null
+) {
+    try {
+        const mappings = await prisma.sourceFieldMapping.findMany({
+            where: {
+                sourceType: sourceType as SourceType,
+                // Use explicit null — Prisma treats `undefined` as "omit this clause",
+                // which would return all rows regardless of sourceReference.
+                sourceReference: sourceReference === null ? null : sourceReference,
+            },
+            orderBy: [{ priority: 'asc' }, { createdAt: 'asc' }],
+            include: {
+                targetField: {
+                    select: {
+                        fieldNo: true,
+                        fieldName: true,
+                        appDataType: true,
+                        isActive: true,
+                    }
+                }
+            }
+        });
+        return { success: true, mappings };
+    } catch (error: any) {
+        console.error('getSourceMappingsV2 error:', error);
+        return { success: false, error: error.message, mappings: [] };
+    }
+}
+
 export async function getActiveFieldDefinitions() {
     try {
         const fields = await prisma.masterFieldDefinition.findMany({
