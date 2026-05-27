@@ -463,29 +463,13 @@ function MappingFormDialog({ open, onOpenChange, selectedOption, fieldDefs, exis
                         <p className="text-[10px] text-slate-400">Dot-notation path relative to payload root.</p>
                     </div>
                     <TargetFieldPicker fieldDefs={fieldDefs} value={targetFieldNo} onChange={setTargetFieldNo} />
-                    <div className="grid grid-cols-2 gap-3">
-                        <div className="grid gap-1.5">
-                            <Label>Mapping Scope</Label>
-                            <Select value={mappingScope} onValueChange={setMappingScope}>
-                                <SelectTrigger><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="RAW_PAYLOAD">Raw Payload</SelectItem>
-                                    <SelectItem value="BASELINE">Baseline (legacy)</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="grid gap-1.5">
-                            <Label>Payload Subtype</Label>
-                            <Select value={payloadSubtype} onValueChange={setPayloadSubtype} disabled={mappingScope !== "RAW_PAYLOAD"}>
-                                <SelectTrigger><SelectValue placeholder="None" /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="NONE">None</SelectItem>
-                                    {PAYLOAD_SUBTYPES.map(t => (
-                                        <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
+                    {/* Scope / Subtype — implementation detail, shown for debugging only */}
+                    <div className="flex items-center gap-1.5 font-mono text-[10px] text-slate-400 bg-slate-50 border border-slate-100 rounded px-2.5 py-1.5">
+                        <span className="text-slate-300">scope:</span>
+                        <span className="text-slate-500">{mappingScope}</span>
+                        <span className="text-slate-200 mx-0.5">·</span>
+                        <span className="text-slate-300">subtype:</span>
+                        <span className="text-slate-500">{(!payloadSubtype || payloadSubtype === "NONE") ? "—" : payloadSubtype}</span>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                         <div className="grid gap-1.5">
