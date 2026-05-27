@@ -22,6 +22,10 @@ interface UpsertMappingInput {
     transformConfig?: any;
     priority?: number;
     notes?: string;
+    /** RAW_PAYLOAD (resolve against RegistrySourcePayload) or BASELINE (legacy). */
+    mappingScope?: string;
+    /** Which raw payload subtype to resolve against, e.g. COMPANY_PROFILE, OFFICERS. */
+    payloadSubtype?: string | null;
 }
 
 interface MappingTestResult {
@@ -247,6 +251,8 @@ export async function upsertSourceMapping(input: UpsertMappingInput) {
             priority,
             notes: input.notes || null,
             updatedByUserId: userId,
+            ...(input.mappingScope   ? { mappingScope:   input.mappingScope as any }   : {}),
+            ...(input.payloadSubtype !== undefined ? { payloadSubtype: input.payloadSubtype as any } : {}),
             ...(resolvedId ? {} : { createdByUserId: userId }),
         };
 
