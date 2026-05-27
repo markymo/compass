@@ -42,16 +42,29 @@ interface MappingRow {
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-/** Visual styling for mappingScope badges */
+/** Visual styling for mappingScope badges — keyed on the *display* label, not the DB value. */
 const SCOPE_STYLES: Record<string, string> = {
-    RAW_PAYLOAD: "bg-green-50 text-green-700 border-green-200",
-    BASELINE:    "bg-amber-50  text-amber-700  border-amber-200",
+    RAW_PAYLOAD:  "bg-green-50  text-green-700  border-green-200",
+    BASELINE:     "bg-amber-50  text-amber-700  border-amber-200",
+    GLEIF_DIRECT: "bg-indigo-50 text-indigo-700 border-indigo-200",
 };
 
 const SCOPE_LABELS: Record<string, string> = {
     RAW_PAYLOAD: "Raw Payload",
     BASELINE:    "Baseline",
 };
+
+/**
+ * Display-layer translation for mappingScope.
+ * GLEIF rows store "BASELINE" in the DB (correct Prisma enum value) but should
+ * render as "GLEIF_DIRECT" in the UI because GleifNormalizer ignores scope entirely
+ * and operates directly on ClientLE.gleifData — the BASELINE label is misleading.
+ * RA rows use SCOPE_LABELS as before. No DB values are changed by this function.
+ */
+function displayScope(rawScope: string, sourceType: string): string {
+    if (sourceType === "GLEIF") return "GLEIF_DIRECT";
+    return SCOPE_LABELS[rawScope] ?? rawScope;
+}
 
 const TRANSFORM_TYPES = [
     { value: "DIRECT",           label: "Direct (as-is)" },
@@ -312,9 +325,14 @@ function MappingTable({ mappings, onEdit, onDelete, onToggle }: {
                                     </div>
                                 </Td>
                                 <Td center>
-                                    <Badge variant="outline" className={cn("text-[10px]", SCOPE_STYLES[m.mappingScope] ?? "bg-slate-50 text-slate-500 border-slate-200")}>
-                                        {SCOPE_LABELS[m.mappingScope] ?? m.mappingScope}
-                                    </Badge>
+                                    {(() => {
+                                        const label = displayScope(m.mappingScope, m.sourceType);
+                                        return (
+                                            <Badge variant="outline" className={cn("text-[10px]", SCOPE_STYLES[label] ?? "bg-slate-50 text-slate-500 border-slate-200")}>
+                                                {label}
+                                            </Badge>
+                                        );
+                                    })()}
                                 </Td>
                                 <Td center>
                                     {m.payloadSubtype
@@ -466,7 +484,7 @@ function MappingFormDialog({ open, onOpenChange, selectedOption, fieldDefs, exis
                     {/* Scope / Subtype — implementation detail, shown for debugging only */}
                     <div className="flex items-center gap-1.5 font-mono text-[10px] text-slate-400 bg-slate-50 border border-slate-100 rounded px-2.5 py-1.5">
                         <span className="text-slate-300">scope:</span>
-                        <span className="text-slate-500">{mappingScope}</span>
+                        <span className="text-slate-500">{displayScope(mappingScope, selectedOption.sourceType)}</span>
                         <span className="text-slate-200 mx-0.5">·</span>
                         <span className="text-slate-300">subtype:</span>
                         <span className="text-slate-500">{(!payloadSubtype || payloadSubtype === "NONE") ? "—" : payloadSubtype}</span>

@@ -27,14 +27,17 @@ export async function mapGleifPayloadToFieldCandidates(payload: any, evidenceId:
             orderBy: [{ priority: 'asc' }, { createdAt: 'asc' }]
         });
     } catch (e) {
-        console.warn("⚠ Failed to load GLEIF source mappings from DB, using hardcoded fallback", e);
-        return hardcodedFallback(attr, evidenceId);
+        console.error("[GleifNormalizer] DB error loading GLEIF mappings — returning no candidates.", e);
+        return [];
     }
 
-    // 3. Fallback if empty
+    // 3. Guard: no active mappings
     if (dbMappings.length === 0) {
-        console.warn("⚠ No GLEIF mappings in DB — using temporary hardcoded fallback. Bootstrap mappings via /app/admin/master-data/source-mappings");
-        return hardcodedFallback(attr, evidenceId);
+        console.error(
+            "[GleifNormalizer] No active GLEIF mappings found in DB. " +
+            "Run bootstrapDefaultMappings('GLEIF') from the admin UI to seed them."
+        );
+        return [];
     }
 
     // 4. Group by targetFieldNo for priority deduplication
@@ -85,47 +88,6 @@ export async function mapGleifPayloadToFieldCandidates(payload: any, evidenceId:
                 continue; // Try next priority
             }
         }
-    }
-
-    return candidates;
-}
-
-/**
- * Original hardcoded fallback — TEMPORARY.
- * Remove after production validation of table-driven mappings.
- */
-function hardcodedFallback(attr: any, evidenceId: string): FieldCandidate[] {
-    const candidates: FieldCandidate[] = [];
-
-    if (attr.lei) {
-        candidates.push({ fieldNo: 2, value: attr.lei, source: 'GLEIF', evidenceId, confidence: 1.0 });
-    }
-    if (attr.entity?.legalName?.name) {
-        candidates.push({ fieldNo: 3, value: attr.entity.legalName.name, source: 'GLEIF', evidenceId, confidence: 1.0 });
-    }
-    if (attr.entity?.legalAddress?.addressLines?.[0]) {
-        candidates.push({ fieldNo: 6, value: attr.entity.legalAddress.addressLines[0], source: 'GLEIF', evidenceId, confidence: 0.9 });
-    }
-    if (attr.entity?.legalAddress?.city) {
-        candidates.push({ fieldNo: 7, value: attr.entity.legalAddress.city, source: 'GLEIF', evidenceId, confidence: 0.9 });
-    }
-    if (attr.entity?.legalAddress?.region) {
-        candidates.push({ fieldNo: 8, value: attr.entity.legalAddress.region, source: 'GLEIF', evidenceId, confidence: 0.9 });
-    }
-    if (attr.entity?.legalAddress?.country) {
-        candidates.push({ fieldNo: 9, value: attr.entity.legalAddress.country, source: 'GLEIF', evidenceId, confidence: 1.0 });
-    }
-    if (attr.entity?.legalAddress?.postalCode) {
-        candidates.push({ fieldNo: 10, value: attr.entity.legalAddress.postalCode, source: 'GLEIF', evidenceId, confidence: 0.9 });
-    }
-    if (attr.entity?.status) {
-        candidates.push({ fieldNo: 26, value: attr.entity.status, source: 'GLEIF', evidenceId, confidence: 1.0 });
-    }
-    if (attr.entity?.category) {
-        candidates.push({ fieldNo: 19, value: attr.entity.category, source: 'GLEIF', evidenceId, confidence: 1.0 });
-    }
-    if (attr.entity?.creationDate) {
-        candidates.push({ fieldNo: 27, value: attr.entity.creationDate, source: 'GLEIF', evidenceId, confidence: 1.0 });
     }
 
     return candidates;
