@@ -207,8 +207,20 @@ export class KycWriteService {
                 fieldNo
             );
             if (derived && this.valuesAreEqual(derived.value, value)) {
-                console.log(`[KycWriteService] Idempotency check: Value identical for Field ${fieldNo}. Skipping claim assertion.`);
-                return true;
+                // Only skip if the incoming source matches the current winner's source.
+                // If sources differ (e.g. GLEIF claim exists but RA is incoming with same text),
+                // we MUST still write the claim so pickWinner has both sources to rank.
+                // Without this, a higher-priority source with identical text would never
+                // get a FieldClaim and the lower-priority source would win permanently.
+                const incomingSourceType = (provenance.source as any) === 'USER_INPUT' ? 'USER_INPUT'
+                    : (provenance.source as any) === 'GLEIF' ? 'GLEIF'
+                    : (provenance.source as any) === 'REGISTRATION_AUTHORITY' ? 'REGISTRATION_AUTHORITY'
+                    : 'SYSTEM_DERIVED';
+                if (derived.sourceType === incomingSourceType) {
+                    console.log(`[KycWriteService] Idempotency check: Value AND source identical for Field ${fieldNo} (${incomingSourceType}). Skipping.`);
+                    return true;
+                }
+                console.log(`[KycWriteService] Idempotency: same value but different source (existing=${derived.sourceType}, incoming=${incomingSourceType}) — writing claim for Field ${fieldNo} to establish provenance.`);
             }
         }
 
