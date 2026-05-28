@@ -171,6 +171,7 @@ export class KycWriteService {
             resolvedEntityId,
             def,
             provenance.source,
+            provenance.reason, // sourceReference (e.g. raId = 'RA000585') for priority lookup
             rowId,
             undefined,
             resolvedEntityType
@@ -662,6 +663,7 @@ export class KycWriteService {
             evalEntityId,
             def,
             candidate.source,
+            candidate.sourceKey, // sourceReference (e.g. 'RA000585') for priority lookup
             undefined, // rowId
             undefined, // preFetchedRecord (deprecated)
             evalEntityType
@@ -697,6 +699,7 @@ export class KycWriteService {
         entityId: string,
         def: any, // Use any to bypass FieldDefinition dependency
         incomingSource: ProvenanceSource,
+        incomingSourceReference?: string, // e.g. raId 'RA000585' — used for priority lookup
         rowId?: string,
         preFetchedRecord?: any,
         entityType: 'LEGAL_ENTITY' | 'CLIENT_LE' = 'LEGAL_ENTITY'
@@ -711,36 +714,67 @@ export class KycWriteService {
 
         const existingSource = derived.sourceType as ProvenanceSource;
 
-        // RULE 1: User Input is sticky against automated feeds
-        if (existingSource === 'USER_INPUT' && incomingSource === 'GLEIF') {
-            return { allowed: false, reason: 'User manual override is protected from GLEIF updates' };
+        // RULE 1: USER_INPUT is always sticky — no automated feed can overwrite it.
+        if (existingSource === 'USER_INPUT' && incomingSource !== 'USER_INPUT') {
+            return { allowed: false, reason: `User manual override is protected from ${incomingSource} updates` };
         }
 
-        if (existingSource === 'USER_INPUT' && incomingSource === 'REGISTRATION_AUTHORITY') {
-            return { allowed: false, reason: 'User manual override is protected from Registration Authority updates' };
-        }
-
-        // RULE 2: GLEIF is top tier for automated data
-        if (existingSource === 'REGISTRATION_AUTHORITY' && incomingSource === 'GLEIF') {
-            return { allowed: true, reason: 'GLEIF is authoritative over Registration Authority' };
-        }
-
-        // RULE 3: User can always override
+        // RULE 2: User can always override any automated source.
         if (incomingSource === 'USER_INPUT') {
             return { allowed: true, reason: 'User override' };
         }
 
-        // RULE 4: Same source updates
+        // RULE 3: Same source updates are always allowed (re-enrichment / refresh).
         if (existingSource === incomingSource) {
             return { allowed: true, reason: 'Same source update' };
         }
 
-        // Default: Deny to be safe? Or Allow?
-        if (existingSource === 'GLEIF' && incomingSource === 'REGISTRATION_AUTHORITY') {
-            return { allowed: false, reason: 'GLEIF is authoritative over Registration Authority' };
+        // RULE 4: For automated vs. automated conflicts, defer to SourceFieldMapping.priority.
+        // Lower priority number = higher authority (consistent with KycStateService.pickWinner).
+        // We fetch both scoped (exact sourceReference) and generic (null) rows for each source,
+        // preferring the scoped row when available — the same logic as preloadMappingPriorities.
+        const FALLBACK_PRIORITY: Record<string, number> = {
+            GLEIF: 500,
+            REGISTRATION_AUTHORITY: 500,
+            AI_EXTRACTION: 800,
+            SYSTEM_DERIVED: 900,
+        };
+
+        const resolveMappingPriority = async (sourceType: string, sourceReference?: string | null): Promise<number> => {
+            const rows = await (prisma as any).sourceFieldMapping.findMany({
+                where: {
+                    targetFieldNo: def.fieldNo,
+                    sourceType,
+                    isActive: true,
+                    OR: [
+                        ...(sourceReference ? [{ sourceReference }] : []),
+                        { sourceReference: null },
+                    ],
+                },
+                select: { sourceReference: true, priority: true },
+            }) as Array<{ sourceReference: string | null; priority: number }>;
+
+            if (rows.length === 0) return FALLBACK_PRIORITY[sourceType] ?? 1000;
+
+            // Prefer scoped row; if none, use generic.
+            const scoped  = rows.filter(r => r.sourceReference !== null);
+            const generic = rows.filter(r => r.sourceReference === null);
+            const pool    = scoped.length > 0 ? scoped : generic;
+            return Math.min(...pool.map(r => r.priority));
+        };
+
+        const existingPriority  = await resolveMappingPriority(existingSource, derived.sourceReference);
+        const incomingPriority  = await resolveMappingPriority(incomingSource, incomingSourceReference);
+
+        if (incomingPriority < existingPriority) {
+            return { allowed: true, reason: `${incomingSource} (priority ${incomingPriority}) outranks existing ${existingSource} (priority ${existingPriority})` };
+        }
+        if (incomingPriority > existingPriority) {
+            return { allowed: false, reason: `Existing ${existingSource} (priority ${existingPriority}) outranks incoming ${incomingSource} (priority ${incomingPriority})` };
         }
 
-        return { allowed: true, reason: 'Update allowed' };
+        // Equal priority → allow (newest assertedAt wins at read time via KycStateService)
+        return { allowed: true, reason: `Equal priority (${incomingPriority}) — allowing, read-time sort will pick newest` };
     }
 
     private getPrismaClientKey(modelName: string): string {
