@@ -1,6 +1,7 @@
 import prisma from "@/lib/prisma";
 import { ClaimStatus, FieldClaim, Prisma } from "@prisma/client";
 import { COLLECTION_FIELD_CONFIG } from "./collection-field-config";
+import { getFallbackPriority, USER_INPUT_PRIORITY } from "./source-priority-config";
 
 export type DerivedValue = {
     value: any;
@@ -29,18 +30,6 @@ export type DerivedValue = {
  * Value is the lowest active SourceFieldMapping.priority for that source.
  */
 type SourcePriorityMap = Map<string, number>;
-
-/**
- * Fallback priorities used when no active SourceFieldMapping row exists for
- * a given (sourceType, sourceReference, fieldNo) combination.
- * A warning is logged whenever a fallback is used.
- */
-const FALLBACK_SOURCE_PRIORITIES: Record<string, number> = {
-    GLEIF: 500,
-    REGISTRATION_AUTHORITY: 500,
-    AI_EXTRACTION: 800,
-    SYSTEM_DERIVED: 900,
-};
 
 /** Build the map key for a (sourceType, sourceReference) pair. */
 function priorityKey(sourceType: string, sourceReference: string | null): string {
@@ -300,7 +289,7 @@ export class KycStateService {
          *   3. Use FALLBACK_SOURCE_PRIORITIES with a warning
          */
         const resolvePriority = (claim: FieldClaim): number => {
-            if (claim.sourceType === 'USER_INPUT') return 0;
+            if (claim.sourceType === 'USER_INPUT') return USER_INPUT_PRIORITY;
 
             // 1. Exact / scoped match
             const exactKey = priorityKey(claim.sourceType, claim.sourceReference);
@@ -315,8 +304,8 @@ export class KycStateService {
                 if (genericPriority !== undefined) return genericPriority;
             }
 
-            // 3. No mapping found — use safe fallback and warn
-            const fallback = FALLBACK_SOURCE_PRIORITIES[claim.sourceType] ?? 1000;
+            // 3. No mapping found — use central fallback table and warn
+            const fallback = getFallbackPriority(claim.sourceType);
             console.warn(
                 `[KycStateService] No active SourceFieldMapping found for ` +
                 `sourceType=${claim.sourceType}, sourceReference=${claim.sourceReference ?? 'null'}, ` +

@@ -17,6 +17,7 @@ import { KycStateService } from '@/lib/kyc/KycStateService';
 import { SourceType, ClaimStatus } from '@prisma/client';
 import { APP_DATA_TYPES, isKnownAppDataType } from '@/lib/master-data/field-types';
 import { getComplexFieldConfig } from '@/lib/master-data/complex-field-config';
+import { getFallbackPriority, USER_INPUT_PRIORITY } from '@/lib/kyc/source-priority-config';
 
 const loader = new KycLoader();
 
@@ -745,13 +746,6 @@ export class KycWriteService {
         // Lower priority number = higher authority (consistent with KycStateService.pickWinner).
         // We fetch both scoped (exact sourceReference) and generic (null) rows for each source,
         // preferring the scoped row when available — the same logic as preloadMappingPriorities.
-        const FALLBACK_PRIORITY: Record<string, number> = {
-            GLEIF: 500,
-            REGISTRATION_AUTHORITY: 500,
-            AI_EXTRACTION: 800,
-            SYSTEM_DERIVED: 900,
-        };
-
         const resolveMappingPriority = async (sourceType: string, sourceReference?: string | null): Promise<number> => {
             const rows = await (prisma as any).sourceFieldMapping.findMany({
                 where: {
@@ -766,7 +760,7 @@ export class KycWriteService {
                 select: { sourceReference: true, priority: true },
             }) as Array<{ sourceReference: string | null; priority: number }>;
 
-            if (rows.length === 0) return FALLBACK_PRIORITY[sourceType] ?? 1000;
+            if (rows.length === 0) return getFallbackPriority(sourceType);
 
             // Prefer scoped row; if none, use generic.
             const scoped  = rows.filter(r => r.sourceReference !== null);
@@ -774,6 +768,7 @@ export class KycWriteService {
             const pool    = scoped.length > 0 ? scoped : generic;
             return Math.min(...pool.map(r => r.priority));
         };
+
 
         const existingPriority  = await resolveMappingPriority(existingSource, derived.sourceReference);
         const incomingPriority  = await resolveMappingPriority(incomingSource, incomingSourceReference);

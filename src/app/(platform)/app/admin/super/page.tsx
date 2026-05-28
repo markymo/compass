@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { getSystemStats, onboardClient } from "@/actions/super-admin";
+import { getSourcePriorityDefaults } from "@/actions/system";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,10 +12,12 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
 import { UserManagementWizard } from "@/components/super-admin/UserManagementWizard";
+import { SourcePriorityPanel } from "@/components/super-admin/SourcePriorityPanel";
 
 export default function SuperAdminPage() {
     const [stats, setStats] = useState<any>(null);
     const [loading, setLoading] = useState(true);
+    const [sourcePriorities, setSourcePriorities] = useState<import("@/actions/system").SourcePriorityData | null>(null);
     const router = useRouter();
 
     // Form State
@@ -28,9 +31,13 @@ export default function SuperAdminPage() {
 
     async function loadStats() {
         setLoading(true);
-        const data = await getSystemStats();
+        const [data, priorities] = await Promise.all([
+            getSystemStats(),
+            getSourcePriorityDefaults(),
+        ]);
         if (data) {
             setStats(data);
+            setSourcePriorities(priorities);
         } else {
             // Unauthorized or error
             toast.error("Unauthorized");
@@ -126,6 +133,10 @@ export default function SuperAdminPage() {
             {/* USER MANAGEMENT WIZARD */}
             <UserManagementWizard />
 
+            {/* SOURCE PRIORITY CONFIG */}
+            {sourcePriorities && (
+                <SourcePriorityPanel initialData={sourcePriorities} />
+            )}
             <div className="grid gap-8 md:grid-cols-2">
                 {/* ONBOARD WIZARD */}
                 <Card>
