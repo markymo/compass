@@ -180,8 +180,13 @@ export async function upsertSourceMapping(input: UpsertMappingInput) {
             return { success: false, error: "Confidence must be between 0 and 1" };
         }
 
-        // 4. Priority must be positive
-        const priority = input.priority ?? 100;
+        // 4. Priority must be positive — default is source-aware if caller omits it
+        // (GLEIF: 500, RA: 100, others: 100). This ensures new GLEIF mappings don't
+        // accidentally outrank RA mappings which typically sit at 10–50.
+        const SOURCE_PRIORITY_DEFAULTS: Record<string, number> = {
+            GLEIF: 500, REGISTRATION_AUTHORITY: 100, AI_EXTRACTION: 800, SYSTEM_DERIVED: 900,
+        };
+        const priority = input.priority ?? SOURCE_PRIORITY_DEFAULTS[input.sourceType] ?? 100;
         if (priority < 1 || !Number.isInteger(priority)) {
             return { success: false, error: "Priority must be a positive integer" };
         }
