@@ -13,6 +13,30 @@ import { Input } from "@/components/ui/input";
 import { Loader2, Trash2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { CODE_DEFAULTS } from "@/lib/kyc/source-priority-config";
+
+/**
+ * Sensible per-mapping priority defaults when creating a NEW mapping.
+ * These are deliberately higher (lower authority) than the typical per-RA values
+ * so that a fresh mapping doesn't accidentally outrank an existing one.
+ * Users can always edit the value in the form.
+ *
+ * Intended hierarchy reminder:
+ *   RA individual mapping rows  ~10–50   (highest data authority)
+ *   GLEIF individual mapping rows ~100   (lower than RA)
+ *   Fallback (no row)           500     (CODE_DEFAULTS / SystemSetting)
+ */
+const NEW_MAPPING_DEFAULT_PRIORITY: Record<string, number> = {
+    REGISTRATION_AUTHORITY: 100,
+    GLEIF:                  500,
+    AI_EXTRACTION:          800,
+    SYSTEM_DERIVED:         900,
+};
+
+function getDefaultPriority(sourceType: string): number {
+    return NEW_MAPPING_DEFAULT_PRIORITY[sourceType] ?? CODE_DEFAULTS[sourceType] ?? 100;
+}
+
 
 const TRANSFORM_TYPES = [
     { value: "DIRECT",           label: "Direct (as-is)" },
@@ -58,7 +82,7 @@ export function MappingSlideOver({
     const isEdit = !!existingMapping;
 
     const [transformType, setTransformType] = useState("DIRECT");
-    const [priority, setPriority] = useState(50);
+    const [priority, setPriority] = useState(() => getDefaultPriority(sourceType));
     const [confidence, setConfidence] = useState(0.9);
     const [notes, setNotes] = useState("");
     const [isActive, setIsActive] = useState(true);
@@ -70,13 +94,13 @@ export function MappingSlideOver({
     useEffect(() => {
         if (existingMapping) {
             setTransformType(existingMapping.transformType ?? "DIRECT");
-            setPriority(existingMapping.priority ?? 50);
+            setPriority(existingMapping.priority ?? getDefaultPriority(sourceType));
             setConfidence(existingMapping.confidenceDefault ?? 0.9);
             setNotes(existingMapping.notes ?? "");
             setIsActive(existingMapping.isActive ?? true);
         } else {
             setTransformType("DIRECT");
-            setPriority(50);
+            setPriority(getDefaultPriority(sourceType));
             setConfidence(0.9);
             setNotes("");
             setIsActive(true);
@@ -206,7 +230,7 @@ export function MappingSlideOver({
                                 onChange={e => setPriority(Number(e.target.value))}
                                 className="h-9 text-sm"
                             />
-                            <p className="text-[10px] text-slate-400">Lower = higher priority</p>
+                            <p className="text-[10px] text-slate-400">Lower number = higher authority. RA rows typically 10–50, GLEIF 100+</p>
                         </div>
                         <div className="space-y-1.5">
                             <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Confidence</Label>

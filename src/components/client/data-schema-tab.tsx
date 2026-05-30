@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Fingerprint, RefreshCcw, ArrowRight, ShieldCheck, ShieldAlert, Ban, Info, Building2, FileText, Users, Globe, Sparkles } from "lucide-react";
+import { Fingerprint, RefreshCcw, ArrowRight, ShieldCheck, Ban, Info, Building2, FileText, Users, Sparkles, ChevronDown, ChevronUp, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { refreshGleifProposals, acceptProposal } from "@/actions/kyc-proposals";
 import { refreshRegistryReferenceAction } from "@/actions/registry";
@@ -54,6 +54,9 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
     const [selectedField, setSelectedField] = useState<{ fieldNo: number; name: string; customFieldId?: string } | null>(null);
     const [lastRefreshed, setLastRefreshed] = useState<Date | undefined>(gleifLastSynced);
     const [isRefreshingRegistry, setIsRefreshingRegistry] = useState(false);
+    const [proposalsExpanded, setProposalsExpanded] = useState(false);
+    const [autoCollapseProgress, setAutoCollapseProgress] = useState(100); // 100→0 over 6s
+    const collapseTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     const [search, setSearch] = useState("");
     const [catFilter, setCatFilter] = useState("ALL");
@@ -127,6 +130,37 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
     const totalVisible = filteredCustomFields.length + filteredCategories.reduce((acc: any, c: any) => acc + c.fields.length, 0) + filteredUncategorized.length;
 
 
+    // Auto-collapse timer: when proposals are shown, start a 6s countdown then collapse.
+    useEffect(() => {
+        if (!proposals || proposals.filter((p: any) => p.action !== 'NO_CHANGE').length === 0) return;
+
+        // Reset and expand whenever new proposals arrive
+        setProposalsExpanded(true);
+        setAutoCollapseProgress(100);
+
+        // Clear any existing timer
+        if (collapseTimerRef.current) clearInterval(collapseTimerRef.current);
+
+        const DURATION_MS = 6000;
+        const TICK_MS = 50;
+        const step = (TICK_MS / DURATION_MS) * 100;
+        let progress = 100;
+
+        collapseTimerRef.current = setInterval(() => {
+            progress -= step;
+            setAutoCollapseProgress(Math.max(0, progress));
+            if (progress <= 0) {
+                clearInterval(collapseTimerRef.current!);
+                collapseTimerRef.current = null;
+                setProposalsExpanded(false);
+            }
+        }, TICK_MS);
+
+        return () => {
+            if (collapseTimerRef.current) clearInterval(collapseTimerRef.current);
+        };
+    }, [proposals]);
+
     const handleRefreshGleif = async () => {
         setIsRefreshing(true);
         try {
@@ -136,7 +170,7 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                 if (result.proposals.length === 0) {
                     toast.info("GLEIF data matches current records. No updates proposed.");
                 } else {
-                    toast.success(`Generated ${result.proposals.length} proposals from GLEIF.`);
+                    toast.success(`${result.proposals.filter((p: any) => p.action !== 'NO_CHANGE').length} field update${result.proposals.filter((p: any) => p.action !== 'NO_CHANGE').length === 1 ? '' : 's'} available from external sources.`);
                 }
             } else {
                 toast.error(result.message || "Failed to refresh GLEIF data");
@@ -258,37 +292,97 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                     </div>
                 </div>
 
-                {/* Proposals List — shown inline below the bar when triggered */}
-                {proposals && (
-                    <div className="mt-5 pt-5 border-t border-slate-100 space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
-                        <div className="flex items-center justify-between">
-                            <h3 className="text-sm font-medium text-slate-700 uppercase tracking-wider">
-                                Proposals ({proposals.filter((p: any) => p.action !== 'NO_CHANGE').length})
-                            </h3>
-                            {proposals.length > 0 && (
-                                <Badge variant="secondary" className="bg-blue-100 text-blue-700">
-                                    {proposals.filter((p: any) => p.action === 'PROPOSE_UPDATE').length} Actionable
-                                </Badge>
+                {/* Proposals Panel — ephemeral flash notification, auto-collapses after 6s */}
+                {proposals && (() => {
+                    const actionable = proposals.filter((p: any) => p.action !== 'NO_CHANGE');
+                    const updateCount = actionable.filter((p: any) => p.action === 'PROPOSE_UPDATE').length;
+                    const blockedCount = actionable.filter((p: any) => p.action === 'BLOCKED').length;
+
+                    if (actionable.length === 0) return (
+                        <div className="mt-5 pt-5 border-t border-slate-100 animate-in fade-in duration-300">
+                            <p className="text-sm text-slate-500 text-center py-3">
+                                ✓ All fields are in sync — no updates found.
+                            </p>
+                        </div>
+                    );
+
+                    const summaryParts: string[] = [];
+                    if (updateCount > 0) summaryParts.push(`${updateCount} field${updateCount === 1 ? '' : 's'} have updated values`);
+                    if (blockedCount > 0) summaryParts.push(`${blockedCount} blocked by priority rules`);
+
+                    return (
+                        <div className="mt-5 pt-4 border-t border-slate-100 animate-in fade-in slide-in-from-top-1 duration-300">
+                            {/* Summary header row */}
+                            <button
+                                onClick={() => {
+                                    // Manual toggle cancels the auto-collapse timer
+                                    if (collapseTimerRef.current) {
+                                        clearInterval(collapseTimerRef.current);
+                                        collapseTimerRef.current = null;
+                                        setAutoCollapseProgress(0);
+                                    }
+                                    setProposalsExpanded(prev => !prev);
+                                }}
+                                className="w-full flex items-center justify-between gap-3 text-left group"
+                            >
+                                <div className="flex items-center gap-2">
+                                    <Sparkles className="h-4 w-4 text-amber-500 shrink-0" />
+                                    <span className="text-sm font-medium text-slate-700">
+                                        {summaryParts.join(' · ')}
+                                    </span>
+                                    {blockedCount > 0 && (
+                                        <Badge variant="outline" className="text-[10px] text-slate-500 border-slate-200">
+                                            {blockedCount} blocked
+                                        </Badge>
+                                    )}
+                                </div>
+                                <div className="flex items-center gap-2 shrink-0">
+                                    {autoCollapseProgress > 0 && (
+                                        <span className="text-[10px] text-slate-400 flex items-center gap-1">
+                                            <Clock className="h-3 w-3" />
+                                            auto-closing
+                                        </span>
+                                    )}
+                                    {proposalsExpanded
+                                        ? <ChevronUp className="h-4 w-4 text-slate-400 group-hover:text-slate-600" />
+                                        : <ChevronDown className="h-4 w-4 text-slate-400 group-hover:text-slate-600" />
+                                    }
+                                </div>
+                            </button>
+
+                            {/* Draining progress bar */}
+                            {autoCollapseProgress > 0 && (
+                                <div className="mt-2 h-0.5 bg-slate-100 rounded-full overflow-hidden">
+                                    <div
+                                        className="h-full bg-amber-400 rounded-full transition-none"
+                                        style={{ width: `${autoCollapseProgress}%` }}
+                                    />
+                                </div>
+                            )}
+
+                            {/* Row list */}
+                            {proposalsExpanded && (
+                                <div className="mt-3 rounded-lg border border-slate-100 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-200">
+                                    {/* Column header */}
+                                    <div className="grid grid-cols-[2fr_3fr_auto] gap-x-4 px-4 py-2 bg-slate-50 border-b border-slate-100">
+                                        <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Field</span>
+                                        <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Current → Proposed</span>
+                                        <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400"></span>
+                                    </div>
+                                    {actionable.map((proposal: any, idx: number) => (
+                                        <ProposalRow
+                                            key={proposal.fieldNo}
+                                            proposal={proposal}
+                                            isLast={idx === actionable.length - 1}
+                                            onAccept={() => handleAccept(proposal)}
+                                            onDismiss={() => setProposals(prev => prev ? prev.filter((p: any) => p.fieldNo !== proposal.fieldNo) : null)}
+                                        />
+                                    ))}
+                                </div>
                             )}
                         </div>
-
-                        {proposals.filter((p: any) => p.action !== 'NO_CHANGE').length === 0 && (
-                            <div className="text-center py-6 text-slate-500 bg-slate-50 rounded-lg border border-dashed">
-                                No differences found. Master record is in sync with GLEIF.
-                            </div>
-                        )}
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {proposals.filter((p: any) => p.action !== 'NO_CHANGE').map((proposal: any) => (
-                                <ProposalCard
-                                    key={proposal.fieldNo}
-                                    proposal={proposal}
-                                    onAccept={() => handleAccept(proposal)}
-                                />
-                            ))}
-                        </div>
-                    </div>
-                )}
+                    );
+                })()}
             </div>
 
             {/* Master Record — full width */}
@@ -601,66 +695,103 @@ export function formatGraphValue(val: any): string {
     return String(val);
 }
 
-function ProposalCard({ proposal, onAccept }: { proposal: FieldProposal, onAccept: () => void }) {
+function friendlySourceLabel(source?: string): string {
+    if (!source) return 'Empty';
+    const map: Record<string, string> = {
+        GLEIF: 'GLEIF',
+        REGISTRATION_AUTHORITY: 'Reg. Authority',
+        COMPANIES_HOUSE: 'Companies House',
+        NATIONAL_REGISTRY: 'Registry',
+        USER_INPUT: 'User Input',
+        SYSTEM: 'System',
+        MASTER_RECORD: 'Master Record',
+    };
+    return map[source] ?? source.replace(/_/g, ' ');
+}
+
+function ProposalRow({
+    proposal,
+    isLast,
+    onAccept,
+    onDismiss,
+}: {
+    proposal: FieldProposal;
+    isLast: boolean;
+    onAccept: () => void;
+    onDismiss: () => void;
+}) {
     const isBlocked = proposal.action === 'BLOCKED';
-    const isNoChange = proposal.action === 'NO_CHANGE';
-
-    if (isNoChange) return null;
-
-    const formatValue = (val: any) => val ? formatGraphValue(val) : '-';
+    const fmt = (val: any) => (val !== undefined && val !== null ? formatGraphValue(val) : '—');
 
     return (
-        <Card className={cn(
-            "border-l-4",
-            isBlocked ? "border-l-red-400" : "border-l-green-500"
-        )}>
-            <CardContent className="pt-4 pb-4">
-                <div className="flex items-start justify-between mb-3">
-                    <div>
-                        <div className="font-medium text-sm flex items-center gap-2">
-                            {proposal.fieldName}
-                            <Badge variant="outline" className="text-[10px]">Field {proposal.fieldNo}</Badge>
-                        </div>
-                        {isBlocked && (
-                            <div className="text-xs text-red-600 mt-1 flex items-center gap-1">
-                                <Ban className="h-3 w-3" />
-                                {proposal.reason}
-                            </div>
-                        )}
-                        {!isBlocked && (
-                            <div className="text-xs text-green-600 mt-1 flex items-center gap-1">
-                                <ShieldCheck className="h-3 w-3" />
-                                Review Proposed Update
-                            </div>
-                        )}
-                    </div>
-                </div>
+        <div
+            className={cn(
+                "grid grid-cols-[2fr_3fr_auto] gap-x-4 items-center px-4 py-2.5 text-sm hover:bg-slate-50 transition-colors",
+                !isLast && "border-b border-slate-100"
+            )}
+        >
+            {/* Field name + status */}
+            <div className="flex items-center gap-1.5 min-w-0">
+                {isBlocked
+                    ? <Ban className="h-3 w-3 text-red-400 shrink-0" />
+                    : <ShieldCheck className="h-3 w-3 text-emerald-500 shrink-0" />}
+                <span className="truncate text-slate-700 font-medium text-xs" title={proposal.fieldName}>
+                    {proposal.fieldName}
+                </span>
+                <Badge variant="outline" className="text-[9px] shrink-0 px-1 py-0 h-4 text-slate-400 border-slate-200">
+                    {proposal.fieldNo}
+                </Badge>
+            </div>
 
-                <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-center text-sm mb-4">
-                    <div className="bg-slate-50 p-2 rounded border border-slate-100">
-                        <div className="text-[10px] text-slate-400 mb-1">CURRENT ({proposal.current?.source || 'EMPTY'})</div>
-                        <div className="font-mono truncate" title={String(proposal.current?.value)}>{formatValue(proposal.current?.value)}</div>
-                    </div>
-
-                    <ArrowRight className="h-4 w-4 text-slate-300" />
-
-                    <div className="bg-green-50 p-2 rounded border border-green-100">
-                        <div className="text-[10px] text-green-600 mb-1">PROPOSED ({proposal.proposed?.source})</div>
-                        <div className="font-mono font-medium truncate" title={String(proposal.proposed?.value)}>{formatValue(proposal.proposed?.value)}</div>
-                    </div>
-                </div>
-
-                <div className="flex justify-end gap-2">
-                    <Button variant="ghost" size="sm" className="h-7 text-xs text-slate-500">
-                        Dismiss
-                    </Button>
-                    {!isBlocked && (
-                        <Button size="sm" className="h-7 text-xs bg-green-600 hover:bg-green-700" onClick={onAccept}>
-                            Accept Update
-                        </Button>
+            {/* Current → Proposed */}
+            <div className="flex items-center gap-2 min-w-0">
+                <span
+                    className="truncate text-xs text-slate-500 font-mono"
+                    title={fmt(proposal.current?.value)}
+                >
+                    {fmt(proposal.current?.value)}
+                </span>
+                <ArrowRight className="h-3 w-3 text-slate-300 shrink-0" />
+                <span
+                    className={cn(
+                        "truncate text-xs font-mono font-medium",
+                        isBlocked ? "text-red-500 line-through" : "text-emerald-700"
                     )}
-                </div>
-            </CardContent>
-        </Card>
+                    title={fmt(proposal.proposed?.value)}
+                >
+                    {fmt(proposal.proposed?.value)}
+                </span>
+                <span className="text-[9px] text-slate-400 shrink-0">
+                    via {friendlySourceLabel(proposal.proposed?.source)}
+                </span>
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center gap-1 justify-end">
+                {!isBlocked && (
+                    <Button
+                        size="sm"
+                        className="h-6 px-2 text-[11px] bg-emerald-600 hover:bg-emerald-700"
+                        onClick={onAccept}
+                    >
+                        Accept
+                    </Button>
+                )}
+                {isBlocked && (
+                    <span className="text-[10px] text-red-400 italic truncate max-w-[120px]" title={proposal.reason}>
+                        {proposal.reason}
+                    </span>
+                )}
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-1.5 text-[11px] text-slate-400 hover:text-slate-600"
+                    onClick={onDismiss}
+                    title="Remove from this list"
+                >
+                    ✕
+                </Button>
+            </div>
+        </div>
     );
 }
