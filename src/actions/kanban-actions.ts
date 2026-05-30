@@ -486,7 +486,16 @@ export async function updateQuestionMapping(questionId: string, fieldNo: number 
 }
 
 /**
- * Instantiate a questionnaire for an engagement (Clone Template from DB)
+ * Instantiate a questionnaire for an engagement (Clone Template from DB).
+ *
+ * NOTE: Prefer assignQuestionnaireToEngagement() (questionnaire.ts) for library
+ * additions — it has a stronger idempotency check and only writes the FK relation.
+ * This function writes to BOTH the FK relation (fiEngagementId) AND the M2M join
+ * table (engagements.connect), which is the historical cause of duplicate rows when
+ * this was called *after* assignQuestionnaireToEngagement had already run.
+ *
+ * The guard below is a defence-in-depth check to prevent new duplicates if this
+ * function is ever called directly.
  */
 export async function instantiateQuestionnaire(templateId: string, engagementId: string, name: string) {
     const identity = await getIdentity();
@@ -511,9 +520,27 @@ export async function instantiateQuestionnaire(templateId: string, engagementId:
 
         if (!engagement) return { success: false, error: "Engagement not found" };
 
+        // IDEMPOTENCY GUARD — prevent duplicate instances with the same name for this engagement.
+        const resolvedName = name || template.name;
+        const existing = await prisma.questionnaire.findFirst({
+            where: {
+                fiEngagementId: engagementId,
+                fiOrgId: engagement.fiOrgId,
+                name: resolvedName,
+                isDeleted: false,
+            },
+            orderBy: { createdAt: "desc" },
+        });
+
+        if (existing) {
+            console.log(`[instantiateQuestionnaire] Returning existing instance ${existing.id} for engagement ${engagementId}`);
+            revalidatePath(`/app/le/${engagement.clientLEId}/engagement-new/${engagementId}`);
+            return { success: true, id: existing.id, created: false };
+        }
+
         const newQuestionnaire = await prisma.questionnaire.create({
             data: {
-                name: name || template.name,
+                name: resolvedName,
                 fiOrgId: engagement.fiOrgId,
                 status: "ACTIVE",
                 extractedContent: template.extractedContent as any,
@@ -528,7 +555,7 @@ export async function instantiateQuestionnaire(templateId: string, engagementId:
         await populateQuestionsFromExtraction(newQuestionnaire.id);
 
         revalidatePath(`/app/le/${engagement.clientLEId}/engagement-new/${engagementId}`);
-        return { success: true, id: newQuestionnaire.id };
+        return { success: true, id: newQuestionnaire.id, created: true };
     } catch (e) {
         console.error("Instantiation failed", e);
         return { success: false, error: "Failed to instantiate" };

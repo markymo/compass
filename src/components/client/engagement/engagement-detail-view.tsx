@@ -34,7 +34,7 @@ interface EngagementDetailViewProps {
     manageQuestionnaireId?: string;
 }
 
-import { instantiateQuestionnaire, generateEngagementAnswers } from "@/actions/kanban-actions";
+import { generateEngagementAnswers } from "@/actions/kanban-actions";
 import { deleteQuestionnaire } from "@/actions/questionnaire"; // Import Delete action
 import { revokeInvitation } from "@/actions/invitations";
 import { toast } from "sonner";
@@ -90,21 +90,10 @@ export function EngagementDetailView({ le, engagement, questionnaires, sharedDoc
         } as any);
     }
 
-    const handleAdd = async (type: string, data: any) => {
-        if (type === 'library') {
-            toast.info("Instantiating questionnaire...");
-            const result = await instantiateQuestionnaire(data.templateId, engagement.id, data.name);
-            if (result.success) {
-                toast.success("Questionnaire added");
-                setIsAddDialogOpen(false);
-                router.refresh();
-            } else {
-                toast.error("Failed to add questionnaire");
-            }
-        } else {
-            toast.info("Upload not implemented yet");
-            setIsAddDialogOpen(false);
-        }
+    const handleAdd = (_type: string, _data: any) => {
+        // The AddQuestionnaireDialog owns creation via assignQuestionnaireToEngagement
+        // (idempotency-checked). We only need to refresh the list here.
+        router.refresh();
     };
 
     const handleDeleteQuestionnaire = async (id: string, name: string) => {
