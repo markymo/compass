@@ -163,6 +163,18 @@ export async function upsertSourceMapping(input: UpsertMappingInput) {
             return { success: false, error: "Invalid source path" };
         }
 
+        // 1b. REGISTRATION_AUTHORITY: sourceReference (mappingSourceKey) is mandatory.
+        // It must be set to the canonical source identity (e.g. "COMPANIES_HOUSE", "RA000192"),
+        // NOT a raw GLEIF RA code. See RegistryAuthority.mappingSourceKey for resolution logic.
+        if (input.sourceType === 'REGISTRATION_AUTHORITY' && !input.sourceReference) {
+            return {
+                success: false,
+                error: 'sourceReference is required for REGISTRATION_AUTHORITY mappings. ' +
+                    'Provide the mappingSourceKey (e.g. "COMPANIES_HOUSE", "RA000192"). ' +
+                    'See RegistryAuthority.mappingSourceKey — not a GLEIF RA code.'
+            };
+        }
+
         // 2. Target field must exist and be active
         const targetField = await prisma.masterFieldDefinition.findUnique({
             where: { fieldNo: input.targetFieldNo }
@@ -244,6 +256,18 @@ export async function upsertSourceMapping(input: UpsertMappingInput) {
             }
         }
 
+        // ── Scope defaults for COMPANIES_HOUSE mappings ──
+        // If the caller omits mappingScope, default to RAW_PAYLOAD for COMPANIES_HOUSE.
+        // If the caller omits payloadSubtype, default to COMPANY_PROFILE — but never override
+        // an explicit PSC or OFFICERS subtype the caller has provided.
+        const isCH = input.sourceType === 'REGISTRATION_AUTHORITY'
+            && input.sourceReference === 'COMPANIES_HOUSE';
+        const effectiveMappingScope = input.mappingScope
+            ?? (isCH ? 'RAW_PAYLOAD' : undefined);
+        const effectivePayloadSubtype = input.payloadSubtype !== undefined
+            ? input.payloadSubtype
+            : (isCH ? 'COMPANY_PROFILE' : undefined);
+
         // ── Upsert ──
         const data = {
             sourceType: input.sourceType,
@@ -256,8 +280,8 @@ export async function upsertSourceMapping(input: UpsertMappingInput) {
             priority,
             notes: input.notes || null,
             updatedByUserId: userId,
-            ...(input.mappingScope   ? { mappingScope:   input.mappingScope as any }   : {}),
-            ...(input.payloadSubtype !== undefined ? { payloadSubtype: input.payloadSubtype as any } : {}),
+            ...(effectiveMappingScope   ? { mappingScope:   effectiveMappingScope as any }   : {}),
+            ...(effectivePayloadSubtype !== undefined ? { payloadSubtype: effectivePayloadSubtype as any } : {}),
             ...(resolvedId ? {} : { createdByUserId: userId }),
         };
 
