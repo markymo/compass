@@ -14,11 +14,12 @@ import { isKnownAppDataType } from "@/lib/master-data/field-types";
 
 /**
  * RegistryMappingEngine
- * 
- * Implements the "Layered Mapping" strategy:
- * 1. Scoped RA Mappings (Priority)
- * 2. Global Baseline Mappings (Fallback)
- * 3. Supports multiple Raw Payload Subtypes
+ *
+ * Resolves FieldCandidates from a completed EnrichmentRun using the mappingSourceKey architecture:
+ * - run.registrationAuthorityId (GLEIF RA code) → RegistryAuthority.mappingSourceKey → SourceFieldMapping.sourceReference
+ * - mappingSourceKey groups RAs sharing one connector schema (e.g. RA000585/586/587 → "COMPANIES_HOUSE")
+ * - Falls back to the raId itself when mappingSourceKey is null (single-RA authorities)
+ * - BASELINE scope is legacy architecture for RA mappings; all active RA mappings should use RAW_PAYLOAD
  */
 export class RegistryMappingEngine {
     
@@ -26,11 +27,13 @@ export class RegistryMappingEngine {
      * Map a completed EnrichmentRun into FieldCandidates.
      */
     static async mapEnrichmentRun(runId: string): Promise<FieldCandidate[]> {
-        // 1. Fetch Run context with all data layers
+        // 1. Fetch Run context
         const run = await prisma.enrichmentRun.findUnique({
             where: { id: runId },
             include: {
                 sourcePayloads: true,
+                // baselineExtracts retained during BASELINE→RAW_PAYLOAD migration window;
+                // remove once all RA mappings use RAW_PAYLOAD scope.
                 baselineExtracts: { orderBy: { extractedAt: 'desc' }, take: 1 }
             }
         });
@@ -43,15 +46,28 @@ export class RegistryMappingEngine {
         const baseline = run.baselineExtracts[0];
         const raId = run.registrationAuthorityId;
 
-        // 2. Load all active mappings for REGISTRATION_AUTHORITY
-        // We fetch both scoped (RA-specific) and global (null sourceReference)
+        // 2. Resolve mappingSourceKey: RA code → canonical source identity
+        // e.g. "RA000587" → "COMPANIES_HOUSE" (via RegistryAuthority.mappingSourceKey)
+        // Falls back to raId for single-RA authorities (mappingSourceKey = null).
+        let mappingSourceKey: string | null = raId;
+        if (raId) {
+            const authority = await prisma.registryAuthority.findUnique({
+                where: { id: raId },
+                select: { mappingSourceKey: true }
+            });
+            mappingSourceKey = authority?.mappingSourceKey ?? raId;
+        }
+
+        // 3. Load active mappings for this mapping source key
+        // The null-ref fallback is kept during the data migration window;
+        // remove { sourceReference: null } once all RA mappings have an explicit sourceReference.
         const mappings = await prisma.sourceFieldMapping.findMany({
             where: {
                 sourceType: SourceType.REGISTRATION_AUTHORITY,
                 isActive: true,
                 OR: [
-                    { sourceReference: raId },
-                    { sourceReference: null }
+                    { sourceReference: mappingSourceKey },
+                    { sourceReference: null }           // migration window fallback — remove post-migration
                 ]
             },
             orderBy: [
@@ -61,7 +77,7 @@ export class RegistryMappingEngine {
         });
 
         if (mappings.length === 0) {
-            console.log(`[RegistryMappingEngine] No mappings found for RA: ${raId}`);
+            console.log(`[RegistryMappingEngine] No mappings found for RA: ${raId} (mappingSourceKey: ${mappingSourceKey})`);
             return [];
         }
 
@@ -77,17 +93,11 @@ export class RegistryMappingEngine {
 
         // 4. Resolve each field
         for (const [fieldNo, fieldMappings] of byTarget) {
-            
-            // Priority Sort: 
-            // 1. Scoped Mappings (sourceReference matching raId)
-            // 2. Global Baseline Mappings (sourceReference is null)
-            const sortedMappings = [...fieldMappings].sort((a, b) => {
-                // If one is scoped and other is global, scoped wins
-                if (a.sourceReference && !b.sourceReference) return -1;
-                if (!a.sourceReference && b.sourceReference) return 1;
-                // Otherwise, respect the explicit priority field
-                return a.priority - b.priority;
-            });
+
+            // Sort by explicit priority only.
+            // All mappings are now scoped to mappingSourceKey; scoped-vs-global sort is no longer needed.
+            // (null-ref fallback rows will be removed post-migration)
+            const sortedMappings = [...fieldMappings].sort((a, b) => a.priority - b.priority);
 
             for (const mapping of sortedMappings) {
                 try {
@@ -165,7 +175,7 @@ export class RegistryMappingEngine {
                         // during fan-out rather than ephemeral auto_{timestamp}_{i} keys.
                         rowKeys: transformed.rowKeys,
                         source: SourceType.REGISTRATION_AUTHORITY,
-                        sourceKey: raId || 'GENERIC_RA',
+                        sourceKey: mappingSourceKey || raId || 'GENERIC_RA',
                         evidenceId: run.id, // Linking to the Run ID as evidence context
                         confidence: mapping.confidenceDefault * (1 - (transformed.confidencePenalty || 0))
                     });

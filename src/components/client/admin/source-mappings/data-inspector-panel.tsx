@@ -22,7 +22,8 @@ interface CrossFieldMapping {
 
 interface DataInspectorPanelProps {
     sourceType: string;
-    /** RA authority code, e.g. "RA000585" or "RA000192". Null/undefined for GLEIF. */
+    /** mappingSourceKey (e.g. "COMPANIES_HOUSE", "RA000192"), or null for GLEIF.
+     * fetchLiveRegistryRecord resolves this to the correct connector. */
     sourceReference?: string | null;
     /** Mappings belonging to the field currently being edited. */
     existingMappings: any[];
@@ -50,10 +51,16 @@ export function DataInspectorPanel({
     readOnly = false,
     title
 }: DataInspectorPanelProps) {
+    const isCompaniesHouse = sourceType === "REGISTRATION_AUTHORITY"
+        && (sourceReference === "COMPANIES_HOUSE"
+            || sourceReference === "RA000585"
+            || sourceReference === "RA000586"
+            || sourceReference === "RA000587");
+
     const defaultQuery =
         sourceType === "GLEIF" ? "213800SN8QHYGA7QUF79"
         : sourceReference === "RA000192" ? "542051180"
-        : "04155137";
+        : "04155137"; // Default CH example
 
     const [query, setQuery] = useState(defaultQuery);
     const [loading, setLoading] = useState(false);
@@ -97,7 +104,9 @@ export function DataInspectorPanel({
                 if (res.success) setPayload(res.payload);
                 else { setError(res.error || "Failed to fetch data"); setPayload(null); }
             } else if (sourceType === "REGISTRATION_AUTHORITY") {
-                const res = await fetchLiveRegistryRecord(query, sourceReference || "RA000585");
+                // Pass sourceReference (mappingSourceKey or RA code).
+                // fetchLiveRegistryRecord resolves COMPANIES_HOUSE → RA000585 for connector routing.
+                const res = await fetchLiveRegistryRecord(query, sourceReference || "COMPANIES_HOUSE");
                 if (res.success) setPayload(res.payload);
                 else { setError(res.error || "Failed to fetch registry data"); setPayload(null); }
             } else {

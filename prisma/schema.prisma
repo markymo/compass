@@ -810,7 +810,10 @@ model MasterFieldGroupItem {
 model SourceFieldMapping {
   id                String                @id @default(uuid())
   sourceType        SourceType
-  sourceReference   String? // e.g. RA000585
+  /// For REGISTRATION_AUTHORITY: mandatory. Stores RegistryAuthority.mappingSourceKey
+  /// (e.g. "COMPANIES_HOUSE", "RA000192") — NOT the GLEIF RA code directly.
+  /// Engine resolves: run.registrationAuthorityId → authority.mappingSourceKey ?? authorityId → this field.
+  sourceReference   String?
   mappingScope      MappingScope          @default(BASELINE)
   payloadSubtype    PayloadSubtype?       @default(GENERAL)
   sourcePath        String
@@ -847,19 +850,24 @@ model SourceSamplePayload {
 }
 
 model RegistryAuthority {
-  id             String              @id
-  registryKey    String              @unique
-  name           String
-  countryCode    String?
-  jurisdiction   String?
-  lookupStrategy String?
-  apiType        String?
-  baseUrl        String?
-  isActive       Boolean             @default(true)
-  notes          String?
-  createdAt      DateTime            @default(now())
-  updatedAt      DateTime            @updatedAt
-  references     RegistryReference[]
+  id               String              @id
+  registryKey      String              @unique // Connector routing key — do not use in SourceFieldMapping
+  /// Groups RA codes that share one connector and one payload schema under a canonical source identity.
+  /// Used as SourceFieldMapping.sourceReference for REGISTRATION_AUTHORITY mappings.
+  /// e.g. RA000585, RA000586, RA000587 all set mappingSourceKey = "COMPANIES_HOUSE".
+  /// Single-RA authorities leave this null; the engine falls back to id (the GLEIF RA code).
+  mappingSourceKey String?             @map("mapping_source_key") // non-unique: multiple RAs may share the same value
+  name             String
+  countryCode      String?
+  jurisdiction     String?
+  lookupStrategy   String?
+  apiType          String?
+  baseUrl          String?
+  isActive         Boolean             @default(true)
+  notes            String?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  references       RegistryReference[]
 
   @@map("registry_authorities")
 }

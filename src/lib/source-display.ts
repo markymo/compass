@@ -13,15 +13,15 @@
  *   2. The rest of the UI picks it up automatically.
  */
 
-/** Maps RA code → display label. Extend here for new jurisdictions. */
+/** Maps mappingSourceKey → display label.
+ * Keys here are RegistryAuthority.mappingSourceKey values (NOT GLEIF RA codes).
+ * For single-RA authorities where mappingSourceKey is null, the RA code is used as fallback.
+ */
 export const RA_DISPLAY_NAMES: Record<string, string> = {
-    RA000585: "Companies House (RA000585)",   // England & Wales
-    RA000586: "Companies House (RA000586)",   // Scotland
-    RA000587: "Companies House (RA000587)",   // Northern Ireland
-    RA000242: "Handelsregister (RA000242)",   // Germany – Frankfurt
-    RA000192: "RNCS / Infogreffe (RA000192)", // France
-    // Add future RAs here:
-    // RA000244: "CRO (RA000244)",            // Ireland
+    COMPANIES_HOUSE: "Companies House (UK)",       // RA000585/RA000586/RA000587
+    RA000192: "RNCS / Infogreffe (RA000192)",      // France
+    RA000242: "Handelsregister (RA000242)",         // Germany – Frankfurt
+    // Add future mappingSourceKeys here (not GLEIF RA codes):
 };
 
 /**
@@ -40,9 +40,10 @@ export function getSourceDisplayName(
         if (sourceReference && RA_DISPLAY_NAMES[sourceReference]) {
             return RA_DISPLAY_NAMES[sourceReference];
         }
-        // Fallback: show the RA code if we don't have a friendly name yet
-        if (sourceReference) return `Registry Authority (${sourceReference})`;
-        return "Registration Authority";
+        // Fallback for unknown mappingSourceKeys not yet in RA_DISPLAY_NAMES
+        if (sourceReference) return `Registry (${sourceReference})`;
+        // Null sourceReference should not occur after migration
+        return "Registration Authority (unknown source)";
     }
 
     // Pass-through for other source types (USER_INPUT, AI_EXTRACTION, etc.)
@@ -78,10 +79,11 @@ export const SOURCE_OPTIONS: SourceOption[] = [
         supportsLiveBrowser: true,
     },
     {
-        value: "CH_RA000585",
-        label: "Companies House (RA000585)",
+        value: "COMPANIES_HOUSE",
+        label: "Companies House (UK)",
         sourceType: "REGISTRATION_AUTHORITY",
-        sourceReference: "RA000585",
+        // mappingSourceKey — resolves to RA000585/586/587 via RegistryAuthority.mappingSourceKey
+        sourceReference: "COMPANIES_HOUSE",
         supportsLiveBrowser: true,
     },
     {

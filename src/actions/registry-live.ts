@@ -7,29 +7,47 @@ import { initializeRegistryDomain } from "@/domain/registry";
 initializeRegistryDomain();
 
 /**
+ * Maps a mappingSourceKey (SourceFieldMapping.sourceReference) to a concrete GLEIF RA code
+ * that RegistryConnectorFactory.getConnectorForAuthority() can route.
+ *
+ * Required because the UI now uses "COMPANIES_HOUSE" as the sourceReference (mappingSourceKey),
+ * but connectors are registered and dispatched by GLEIF RA code via connector.supports(authorityId).
+ *
+ * Add entries here whenever a new multi-RA connector is introduced.
+ */
+const MAPPING_SOURCE_KEY_TO_RA: Record<string, string> = {
+    COMPANIES_HOUSE: "RA000585", // canonical CH RA for live browse (England & Wales connector)
+};
+
+/**
  * Server Action: Fetch a live record from a specific Registry Authority and
  * return the raw COMPANY_PROFILE payload (from CanonicalRegistryRecord.rawSourcePayload).
  *
  * The Data Inspector uses this to let admins browse real API fields and click-to-map them.
  *
  * @param registrationNumber - The local registration number (company number, SIREN, HRB, etc.)
- * @param authorityId        - GLEIF RA code, e.g. "RA000585" (UK E&W), "RA000192" (France)
- *                             Defaults to RA000585 for backward compatibility.
+ * @param sourceRef          - mappingSourceKey (e.g. "COMPANIES_HOUSE") or a direct GLEIF RA code
+ *                             (e.g. "RA000585", "RA000192"). Resolved to a connector RA code via
+ *                             MAPPING_SOURCE_KEY_TO_RA if needed.
  */
 export async function fetchLiveRegistryRecord(
     registrationNumber: string,
-    authorityId: string = "RA000585"
+    sourceRef: string = "COMPANIES_HOUSE"
 ) {
     if (!registrationNumber || registrationNumber.trim().length < 3) {
         return { success: false, error: "Please enter at least 3 characters." };
     }
+
+    // Resolve mappingSourceKey → concrete GLEIF RA code for connector dispatch
+    const authorityId = MAPPING_SOURCE_KEY_TO_RA[sourceRef] ?? sourceRef;
 
     try {
         const connector = RegistryConnectorFactory.getConnectorForAuthority(authorityId);
         if (!connector) {
             return {
                 success: false,
-                error: `No connector registered for authority ${authorityId}. Check that the connector is registered in initializeRegistryDomain().`,
+                error: `No connector registered for authority ${authorityId} (resolved from "${sourceRef}"). ` +
+                    `Check that the connector is registered in initializeRegistryDomain().`,
             };
         }
 
