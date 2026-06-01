@@ -14,6 +14,7 @@ import { generateText } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
 import { KycStateService } from "@/lib/kyc/KycStateService";
 import { FieldClaimService } from "@/lib/kyc/FieldClaimService";
+import { getComplexFieldConfig } from "@/lib/master-data/complex-field-config";
 async function ensureAuthorization(action: Action, context: { partyId?: string, clientLEId?: string, engagementId?: string }) {
     const identity = await getIdentity();
     if (!identity?.userId) throw new Error("Unauthorized: Not logged in");
@@ -570,7 +571,16 @@ export async function getFullMasterData(clientLEId: string) {
         // resolveAllFields: 1× fieldClaim.findMany (all fields) + 1× sourceFieldMapping.findMany
         const resolved = await KycStateService.resolveAllFields(
             { subjectLeId },
-            allFields.map(d => ({ fieldNo: d.fieldNo, isMultiValue: d.isMultiValue })),
+            allFields.map(d => {
+                const cfg = getComplexFieldConfig(d.fieldNo);
+                return {
+                    fieldNo: d.fieldNo,
+                    isMultiValue: d.isMultiValue,
+                    // Pass collectionId for STRUCTURED_COLLECTION fields so legacy
+                    // plain-text claims (collectionId=NULL) are excluded from resolution.
+                    collectionId: cfg?.kind === 'STRUCTURED_COLLECTION' ? cfg.collectionId : undefined,
+                };
+            }),
             ownerScopeId || undefined
         );
 

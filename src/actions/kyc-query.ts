@@ -398,7 +398,16 @@ export async function getFieldDetail(
             });
         } else {
             // Standard path: fetch from FieldClaims
-            const collection = await KycStateService.getAuthoritativeCollection({ subjectLeId }, fieldNo, ownerScopeId);
+            // For STRUCTURED_COLLECTION fields (e.g. SIC codes), pass the collectionId so
+            // legacy plain-text claims (collectionId=NULL) from before the migration are excluded.
+            const complexCfg = getComplexFieldConfig(fieldNo);
+            const filterCollectionId = complexCfg?.kind === 'STRUCTURED_COLLECTION'
+                ? complexCfg.collectionId
+                : undefined;
+
+            const collection = await KycStateService.getAuthoritativeCollection(
+                { subjectLeId }, fieldNo, ownerScopeId, undefined, filterCollectionId
+            );
 
             rows = collection.map((c: any) => {
                 return {
