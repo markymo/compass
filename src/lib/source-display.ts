@@ -9,13 +9,15 @@
  *   not "which internal enum does the backend use?".
  *
  * To add a new Registration Authority:
- *   1. Add an entry to RA_DISPLAY_NAMES below.
- *   2. The rest of the UI picks it up automatically.
+ *   1. Add an entry to RA_DISPLAY_NAMES with its canonical mappingSourceKey as the key.
+ *   2. If the authority has legacy RA codes or registryKey strings in old FieldClaim rows,
+ *      add them to LEGACY_SOURCE_REF_ALIASES pointing at the canonical key.
+ *   3. The rest of the UI picks it up automatically via getSourceDisplayName.
  */
 
-/** Maps mappingSourceKey → display label.
- * Keys here are RegistryAuthority.mappingSourceKey values (NOT GLEIF RA codes).
- * For single-RA authorities where mappingSourceKey is null, the RA code is used as fallback.
+/** Maps mappingSourceKey → human-readable display label.
+ * Keys MUST be RegistryAuthority.mappingSourceKey values (canonical group identifiers).
+ * Do NOT use raw GLEIF RA codes as keys here — add aliases to LEGACY_SOURCE_REF_ALIASES instead.
  */
 export const RA_DISPLAY_NAMES: Record<string, string> = {
     COMPANIES_HOUSE: "Companies House (UK)",       // RA000585/RA000586/RA000587
@@ -25,10 +27,37 @@ export const RA_DISPLAY_NAMES: Record<string, string> = {
 };
 
 /**
- * Returns a human-readable label for a source mapping row.
+ * Maps legacy / pre-migration sourceReference values → canonical mappingSourceKey.
  *
- * @param sourceType     - e.g. "GLEIF", "REGISTRATION_AUTHORITY"
- * @param sourceReference - e.g. "RA000585", or null/undefined for global mappings
+ * These are values that may appear on old FieldClaim.sourceReference rows written
+ * before the mappingSourceKey migration, or in legacy registryKey strings.
+ * Normalising here keeps RA_DISPLAY_NAMES and all consumers clean.
+ *
+ * To add a new authority with legacy aliases:
+ *   Map each legacy value → the canonical mappingSourceKey in RA_DISPLAY_NAMES.
+ */
+export const LEGACY_SOURCE_REF_ALIASES: Record<string, string> = {
+    // Companies House — GLEIF RA codes and old registryKey stored on FieldClaims
+    RA000585: "COMPANIES_HOUSE",    // England & Wales
+    RA000586: "COMPANIES_HOUSE",    // Scotland (reserved)
+    RA000587: "COMPANIES_HOUSE",    // Northern Ireland
+    GB_COMPANIES_HOUSE: "COMPANIES_HOUSE",  // legacy registryKey value (pre-v2)
+};
+
+/**
+ * Normalises a sourceReference to its canonical mappingSourceKey.
+ * Returns the input unchanged if it is already canonical or unknown.
+ */
+export function normalizeSourceRef(sourceReference: string): string {
+    return LEGACY_SOURCE_REF_ALIASES[sourceReference] ?? sourceReference;
+}
+
+/**
+ * Returns a human-readable label for a (sourceType, sourceReference) pair.
+ * Handles alias normalisation internally — callers do not need to pre-process values.
+ *
+ * @param sourceType      - e.g. "GLEIF", "REGISTRATION_AUTHORITY"
+ * @param sourceReference - canonical mappingSourceKey or any legacy alias
  */
 export function getSourceDisplayName(
     sourceType: string,
@@ -37,11 +66,13 @@ export function getSourceDisplayName(
     if (sourceType === "GLEIF") return "GLEIF";
 
     if (sourceType === "REGISTRATION_AUTHORITY" || sourceType === "COMPANIES_HOUSE") {
-        if (sourceReference && RA_DISPLAY_NAMES[sourceReference]) {
-            return RA_DISPLAY_NAMES[sourceReference];
+        // Normalise legacy aliases (e.g. RA000585 → COMPANIES_HOUSE) before lookup
+        const canonical = sourceReference ? normalizeSourceRef(sourceReference) : null;
+        if (canonical && RA_DISPLAY_NAMES[canonical]) {
+            return RA_DISPLAY_NAMES[canonical];
         }
         // Fallback for unknown mappingSourceKeys not yet in RA_DISPLAY_NAMES
-        if (sourceReference) return `Registry (${sourceReference})`;
+        if (canonical) return `Registry (${canonical})`;
         // Null sourceReference should not occur after migration
         return "Registration Authority (unknown source)";
     }
