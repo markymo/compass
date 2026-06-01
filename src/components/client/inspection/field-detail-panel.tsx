@@ -1501,6 +1501,16 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
     );
 }
 
+/** Set of all sourceReference values that map to Companies House, including
+ *  pre-migration RA codes and legacy registryKey values stored on old FieldClaims. */
+const COMPANIES_HOUSE_REFS = new Set([
+    'COMPANIES_HOUSE',    // canonical (post-migration SourceFieldMapping)
+    'GB_COMPANIES_HOUSE', // legacy registryKey value
+    'RA000585',           // GLEIF RA code — England & Wales
+    'RA000586',           // GLEIF RA code — Scotland (reserved)
+    'RA000587',           // GLEIF RA code — Northern Ireland
+]);
+
 function SourceBadge({ source, sourceReference }: { source: string; sourceReference?: string }) {
     const colorMap: Record<string, string> = {
         'GLEIF': 'bg-orange-100 text-orange-700 border-orange-200',
@@ -1517,16 +1527,19 @@ function SourceBadge({ source, sourceReference }: { source: string; sourceRefere
     const classes = colorMap[source] || 'bg-gray-100 text-gray-700 border-gray-200';
     
     let displaySource = source === 'SYSTEM_DERIVED' ? 'SYSTEM' : source;
-    
+    let showRef = true;
+
     // Resolve human-readable label for Registration Authority sources
     if (source === 'REGISTRATION_AUTHORITY' || source === 'COMPANIES_HOUSE' || source === 'NATIONAL_REGISTRY') {
-        if (sourceReference === 'GB_COMPANIES_HOUSE' || sourceReference?.includes('COMPANIES_HOUSE')) {
+        if (sourceReference && COMPANIES_HOUSE_REFS.has(sourceReference)) {
             displaySource = 'Companies House';
+            showRef = false; // canonical — no need to repeat raw RA code
         } else if (sourceReference) {
             // Generic fallback: strip country prefix and underscores
             displaySource = sourceReference.replace(/^[A-Z]{2}_/, '').replace(/_/g, ' ');
         } else {
             displaySource = 'Registry';
+            showRef = false;
         }
     }
 
@@ -1535,7 +1548,7 @@ function SourceBadge({ source, sourceReference }: { source: string; sourceRefere
             <span className={cn("inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border uppercase tracking-wider", classes)}>
                 {displaySource}
             </span>
-            {sourceReference && (
+            {showRef && sourceReference && (
                 <span className="text-[10px] text-slate-400 font-mono">
                     ({sourceReference})
                 </span>
