@@ -52,6 +52,7 @@ export default async function MasterRecordPage({ params }: { params: Promise<{ i
                     masterGroups={masterGroups || []}
                     categories={dataSort.categories}
                     uncategorizedFields={dataSort.uncategorizedFields}
+                    registrationAuthorityId={registrationAuthorityId ?? undefined}
                 />
             </EnrichmentGate>
         </div>

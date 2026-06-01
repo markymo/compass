@@ -47,9 +47,12 @@ interface DataSchemaTabProps {
         lastSyncSucceededAt: Date | null;
         lastSyncStatus: string | null;
     } | null;
+    /** The GLEIF RA code for this specific entity, e.g. RA000585. Threaded into SourceBadge
+     *  to show the entity-specific authority identifier alongside the canonical source name. */
+    registrationAuthorityId?: string;
 }
 
-export function DataSchemaTab({ leId, masterData, customData = {}, customDefinitions = [], gleifLastSynced, masterFields = [], masterGroups = [], categories = [], uncategorizedFields = [], nationalRegistryData }: DataSchemaTabProps) {
+export function DataSchemaTab({ leId, masterData, customData = {}, customDefinitions = [], gleifLastSynced, masterFields = [], masterGroups = [], categories = [], uncategorizedFields = [], nationalRegistryData, registrationAuthorityId }: DataSchemaTabProps) {
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [proposals, setProposals] = useState<FieldProposal[] | null>(null);
     const [selectedField, setSelectedField] = useState<{ fieldNo: number; name: string; customFieldId?: string } | null>(null);
@@ -498,6 +501,7 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                                                 source={data?.source as any}
                                                 sourceReference={data?.sourceReference}
                                                 description={field.notes}
+                                                registrationAuthorityId={registrationAuthorityId}
                                                 onClick={() => setSelectedField({ fieldNo: field.fieldNo, name: field.fieldName })}
                                             />
                                         );
@@ -527,6 +531,7 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                                             source={data?.source as any}
                                             sourceReference={data?.sourceReference}
                                             description={field.notes}
+                                            registrationAuthorityId={registrationAuthorityId}
                                             onClick={() => setSelectedField({ fieldNo: field.fieldNo, name: field.fieldName })}
                                         />
                                     );
@@ -560,17 +565,20 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                 fieldNo={selectedField?.fieldNo || 0}
                 fieldName={selectedField?.name || ""}
                 customFieldId={selectedField?.customFieldId}
+                registrationAuthorityId={registrationAuthorityId}
             />
         </div>
     );
 }
 
-function MasterFieldDisplay({ label, fieldNo, value, source, sourceReference, onClick, description, isCustom }: {
+function MasterFieldDisplay({ label, fieldNo, value, source, sourceReference, registrationAuthorityId, onClick, description, isCustom }: {
     label: string,
     fieldNo: number,
     value: any,
     source?: ProvenanceSource,
     sourceReference?: string,
+    /** Entity-specific GLEIF RA code — passed to SourceBadge for RA sources only. */
+    registrationAuthorityId?: string,
     onClick?: () => void,
     description?: string,
     isCustom?: boolean
@@ -620,7 +628,7 @@ function MasterFieldDisplay({ label, fieldNo, value, source, sourceReference, on
                 {hasValue && (
                     <div className="flex items-center gap-2">
                         {/* If we had meta timestamp, we'd pass it. For now just source if available. */}
-                        {source && <SourceBadge source={source} sourceReference={sourceReference} />}
+                        {source && <SourceBadge source={source} sourceReference={sourceReference} registrationAuthorityId={registrationAuthorityId} />}
                     </div>
                 )}
                 {!hasValue && !isCustom && (
@@ -647,15 +655,28 @@ const SOURCE_COLOR_MAP: Record<string, string> = {
 
 /**
  * Pure presentation badge — delegates all label resolution to getSourceDisplayName.
+ * Shows the entity-specific GLEIF RA code as a subtle secondary label for RA sources.
  * To change how any source is displayed, update source-display.ts only.
  */
-function SourceBadge({ source, sourceReference, timestamp }: { source: string, sourceReference?: string, timestamp?: string }) {
+function SourceBadge({ source, sourceReference, registrationAuthorityId, timestamp }: {
+    source: string,
+    sourceReference?: string,
+    /** Entity-specific GLEIF RA code, e.g. RA000585. Only shown for REGISTRATION_AUTHORITY sources. */
+    registrationAuthorityId?: string,
+    timestamp?: string
+}) {
     const classes = SOURCE_COLOR_MAP[source] || SOURCE_COLOR_MAP['SYSTEM'];
     const label = getSourceDisplayName(source, sourceReference ?? null);
+    const showRaCode = source === 'REGISTRATION_AUTHORITY' && registrationAuthorityId;
 
     return (
-        <Badge variant="outline" className={cn("text-[10px] h-5", classes)}>
-            {label}
+        <Badge variant="outline" className={cn("text-[10px] h-auto py-0.5", classes)}>
+            <span>{label}</span>
+            {showRaCode && (
+                <span className="ml-1 opacity-60 font-mono normal-case tracking-normal">
+                    · {registrationAuthorityId}
+                </span>
+            )}
             {timestamp && <span className="ml-1 opacity-50">· {new Date(timestamp).toLocaleDateString()}</span>}
         </Badge>
     );

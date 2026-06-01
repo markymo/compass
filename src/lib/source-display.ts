@@ -87,8 +87,21 @@ export function getSourceDisplayName(
         return "Registration Authority (unknown)";
     }
 
-    // Pass-through for other source types (USER_INPUT, AI_EXTRACTION, etc.)
-    return sourceType;
+    // Friendly labels for all other source types.
+    // Keys MUST match SourceType enum values exactly.
+    // Do NOT add GLEIF or REGISTRATION_AUTHORITY here — those are handled above.
+    const MISC_DISPLAY: Record<string, string> = {
+        USER_INPUT:     "User input",
+        AI_EXTRACTION:  "AI extraction",
+        SYSTEM:         "System",
+        SYSTEM_DERIVED: "System",
+        MASTER_RECORD:  "Master record",
+        MULTI_SOURCE:   "Multiple sources",
+        NATIONAL_REGISTRY: "Registry",
+        UNKNOWN:        "Unknown",
+    };
+
+    return MISC_DISPLAY[sourceType] ?? sourceType.replace(/_/g, " ").toLowerCase();
 }
 
 /**

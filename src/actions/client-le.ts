@@ -683,7 +683,9 @@ export async function getFullMasterData(clientLEId: string) {
         nationalRegistryData,
         enrichmentStatus: computedEnrichmentStatus,
         lei: clientLE.legalEntity?.lei,
-        registrationAuthorityId: clientLE.legalEntity?.registrationAuthorityId,
+        // The GLEIF RA code for this entity's primary registry reference (e.g. RA000585).
+        // Sourced from RegistryReference.authority.id — the authoritative GLEIF identifier.
+        registrationAuthorityId: clientLE.registryReferences?.[0]?.authority?.id ?? undefined,
         masterFields: await listAllMasterFields(), // Already fetched above, but for clarity
         masterGroups: await listAllMasterGroups()
     };
