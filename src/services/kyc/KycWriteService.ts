@@ -185,22 +185,41 @@ export class KycWriteService {
 
         // 3. Check for Idempotency (Material Change Check)
         if (def.isMultiValue && rowId) {
-            // For repeating collection fields, idempotency is per-instanceId:
-            // if a non-tombstone claim with this exact instanceId already exists, skip.
+            // For repeating collection fields, idempotency is per-instanceId.
+            // We fetch the most recent claim for this instanceId (tombstone or value)
+            // and branch explicitly rather than relying on the valueJson filter.
             const existingInstance = await prisma.fieldClaim.findFirst({
                 where: {
                     subjectLeId: resolvedEntityId,
                     fieldNo,
                     instanceId: rowId,
-                    // Exclude tombstones: they use valueJson: { tombstone: true }
-                    // The ClaimStatus enum has no DELETED value; tombstones are identified by valueJson alone.
                     valueJson: { not: Prisma.JsonNull }
                 },
-                select: { id: true }
+                select: { id: true, valueJson: true, sourceType: true },
+                orderBy: { assertedAt: 'desc' } // most recent state first
             });
+
             if (existingInstance) {
-                console.log(`[KycWriteService] Idempotency check: instanceId="${rowId}" already exists for Field ${fieldNo}. Skipping.`);
-                return true;
+                const isTombstone =
+                    existingInstance.valueJson !== null &&
+                    typeof existingInstance.valueJson === 'object' &&
+                    (existingInstance.valueJson as Record<string, any>).tombstone === true;
+
+                if (isTombstone && existingInstance.sourceType === SourceType.USER_INPUT) {
+                    // User explicitly removed this item. Do not resurrect via re-enrichment.
+                    console.log(`[KycWriteService] User exclusion: instanceId="${rowId}" was tombstoned by USER_INPUT for Field ${fieldNo}. Skipping re-enrichment.`);
+                    return true;
+                }
+
+                if (!isTombstone) {
+                    // A non-tombstone value claim already exists — standard idempotency skip.
+                    console.log(`[KycWriteService] Idempotency: instanceId="${rowId}" already has a value claim for Field ${fieldNo}. Skipping.`);
+                    return true;
+                }
+
+                // Tombstone exists but it is NOT a USER_INPUT tombstone (e.g. system-emitted).
+                // Allow re-enrichment to write a fresh value claim over a system tombstone.
+                console.log(`[KycWriteService] Non-USER_INPUT tombstone found for instanceId="${rowId}" (sourceType=${existingInstance.sourceType}). Allowing re-enrichment.`);
             }
         } else {
             const derived = await KycStateService.getAuthoritativeValue(

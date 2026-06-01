@@ -123,6 +123,18 @@ export interface StructuredCollectionConfig {
         effectiveFromKey: string;
         effectiveToKey: string;
     };
+    /**
+     * When set, this collection is a controlled vocabulary.
+     * Value is a key in CODE_SYSTEMS (code-systems.ts).
+     *
+     * Drives:
+     *   - CodeListField UX in FieldDetailPanel (replaces free-text input)
+     *   - addCodeListEntry server-side validation
+     *   - getFieldDetail codeSystem passthrough to the client
+     *
+     * When absent, the collection uses the generic structured-value editing UX.
+     */
+    codeSystem?: string;
 }
 
 export type ComplexFieldConfig =
@@ -217,6 +229,8 @@ export const COMPLEX_FIELD_CONFIG = {
             { key: 'code',  label: 'SIC code',    dataType: 'TEXT', required: true  },
             { key: 'label', label: 'Description', dataType: 'TEXT', required: false },
         ],
+        // Controlled vocabulary — drives CodeListField UX and addCodeListEntry validation.
+        codeSystem: 'SIC_2007_UK',
         // No temporal config — codes are not date-ranged.
     } satisfies StructuredCollectionConfig,
 

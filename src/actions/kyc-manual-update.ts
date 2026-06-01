@@ -401,3 +401,84 @@ export async function applyBulkOverride(
         return { success: false, message: error.message };
     }
 }
+
+/**
+ * Adds an entry to a controlled-vocabulary code-list collection (e.g. SIC codes).
+ *
+ * The client sends ONLY: clientLEId, fieldNo, codeSystem, and the code string.
+ * The server:
+ *   1. Validates the fieldNo resolves to a STRUCTURED_COLLECTION with the claimed codeSystem.
+ *   2. Validates the code exists in the code system reference data.
+ *   3. Resolves the label server-side — never trusts a client-supplied label.
+ *   4. Checks that the code is not already active (duplicate check on active rows only;
+ *      tombstoned/deleted codes are selectable again).
+ *   5. Writes a USER_INPUT FieldClaim via updateFieldManually.
+ *
+ * Returns { success: false } with a user-facing message for all validation failures.
+ */
+export async function addCodeListEntry(
+    clientLEId: string,
+    fieldNo: number,
+    codeSystem: string,
+    code: string
+): Promise<{ success: boolean; message?: string; instanceId?: string }> {
+    // ── 1. Validate fieldNo + codeSystem match the config ──────────────────
+    const { getComplexFieldConfig } = await import('@/lib/master-data/complex-field-config');
+    const config = getComplexFieldConfig(fieldNo);
+    if (!config || config.kind !== 'STRUCTURED_COLLECTION') {
+        return { success: false, message: 'Field is not a structured collection.' };
+    }
+    if (config.codeSystem !== codeSystem) {
+        return { success: false, message: `Code system mismatch for field ${fieldNo}.` };
+    }
+
+    // ── 2. Validate code against reference data (server-side) ──────────────
+    const { getCodeSystemConfig } = await import('@/lib/master-data/code-systems');
+    const sysConfig = getCodeSystemConfig(codeSystem);
+    if (!sysConfig) {
+        return { success: false, message: `Unknown code system: ${codeSystem}.` };
+    }
+
+    const { getCodeSystemEntries } = await import('@/actions/code-system');
+    const allEntries = await getCodeSystemEntries(codeSystem);
+    const matched = allEntries.find(e => e.code === code.trim());
+    if (!matched) {
+        return { success: false, message: `Unknown code: ${code}` };
+    }
+
+    // ── 3. Label is resolved from the server — client-supplied label ignored ──
+    const resolvedLabel = matched.label;
+
+    // ── 4. Duplicate check — active rows only ───────────────────────────────
+    // Tombstoned codes are not considered duplicates (user can re-add after removing).
+    const clientLE = await prisma.clientLE.findUnique({ where: { id: clientLEId } });
+    const subjectLeId = clientLE?.legalEntityId;
+    if (!subjectLeId) {
+        return { success: false, message: 'Could not resolve legal entity.' };
+    }
+
+    const activeRows = await KycStateService.getAuthoritativeCollection(
+        { subjectLeId },
+        fieldNo
+    );
+    const instanceId = `${sysConfig.instanceIdPrefix}${code.trim()}`;
+    const alreadyActive = activeRows.some(r => r.instanceId === instanceId);
+    if (alreadyActive) {
+        return { success: false, message: 'This code has already been added.' };
+    }
+
+    // ── 5. Write USER_INPUT claim ───────────────────────────────────────────
+    const result = await updateFieldManually(
+        clientLEId,
+        fieldNo,
+        { code: code.trim(), label: resolvedLabel },
+        'User added code via picker',
+        instanceId,
+        'CLIENT_LE'
+    );
+
+    if (result.success) {
+        return { success: true, instanceId };
+    }
+    return result;
+}

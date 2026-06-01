@@ -4,6 +4,7 @@ import { KycStateService } from "@/lib/kyc/KycStateService";
 import { getMasterFieldDefinition, getMasterFieldGroup } from "@/services/masterData/definitionService";
 import { ProvenanceSource } from "@/domain/kyc/types/ProvenanceTypes";
 import prisma from "@/lib/prisma";
+import { getComplexFieldConfig } from "@/lib/master-data/complex-field-config";
 
 // KycLoader is deprecated in favor of KycStateService
 
@@ -162,6 +163,21 @@ export interface FieldDetailData {
         status: string;
     }[];
     rows?: { id: string; value: any; source: string; timestamp: Date; instanceId?: string; collectionId?: string; data?: any; label?: string; sourceReference?: string }[];
+    /**
+     * For repeating/collection fields only.
+     * True if the user has made any add or remove action on this collection
+     * (i.e. any USER_INPUT claim — value or tombstone — exists for this field).
+     * When true, the UI should show a collection-level "User input" badge rather
+     * than attributing the whole collection to its registry source.
+     */
+    isUserCurated?: boolean;
+    /**
+     * For controlled-vocabulary collection fields only.
+     * Set when the field's COMPLEX_FIELD_CONFIG entry has a codeSystem key.
+     * Drives the CodeListField UX (picker instead of free-text input).
+     * Value is a key in CODE_SYSTEMS — e.g. "SIC_2007_UK".
+     */
+    codeSystem?: string;
 }
 
 export async function getFieldDetail(
@@ -400,7 +416,20 @@ export async function getFieldDetail(
         }
     }
 
+    // 2b. Compute isUserCurated for repeating fields (single lightweight query).
+    // True if the user has ever made any add or remove action on this collection,
+    // meaning any USER_INPUT claim (value or tombstone) exists for (subjectLeId, fieldNo).
+    let isUserCurated: boolean | undefined;
+    if (def?.isMultiValue && subjectLeId) {
+        const userAction = await prisma.fieldClaim.findFirst({
+            where: { subjectLeId, fieldNo, sourceType: 'USER_INPUT' },
+            select: { id: true }
+        });
+        isUserCurated = !!userAction;
+    }
+
     // 2. Get History (Lineage) - Force re-bundle for new Prisma client
+
     const claims = await prisma.fieldClaim.findMany({
         where: {
             fieldNo,
@@ -495,8 +524,15 @@ export async function getFieldDetail(
         userNote: noteText,
         history,
         candidates,
-        rows
+        rows,
+        isUserCurated,
+        codeSystem: (() => {
+            const cfg = getComplexFieldConfig(fieldNo);
+            if (cfg && cfg.kind === 'STRUCTURED_COLLECTION') return cfg.codeSystem;
+            return undefined;
+        })(),
     };
+
 }
 
 // --- Console Question Fetcher ---
