@@ -54,13 +54,6 @@ export default async function MasterDataAdminPage() {
             color: "text-green-500"
         },
         {
-            title: "Source Mappings (Legacy)",
-            description: "Deprecated — uses the outdated Super Schema model. Use Source Field Mappings instead.",
-            href: "/app/admin/master-data/source-mappings",
-            icon: GitBranch,
-            color: "text-slate-400"
-        },
-        {
             title: "Option Sets",
             description: "Manage reusable dropdown data sources for Master Data fields.",
             href: "/app/admin/master-data/option-sets",

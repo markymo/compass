@@ -16,7 +16,6 @@ const configMap: Record<string, { label: string; icon: any }> = {
     groups: { label: "Groups", icon: LayoutGrid },
     sort: { label: "Taxonomy Order", icon: ArrowUpDown },
     system: { label: "System", icon: Settings2 },
-    "source-mappings":    { label: "Source Mappings (Legacy)", icon: GitBranch },
     "source-mappings-v2": { label: "Source Field Mappings",   icon: GitBranch },
     super: { label: "Super Admin", icon: ShieldPlus },
     organizations: { label: "Organizations", icon: Building2 },
