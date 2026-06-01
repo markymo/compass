@@ -188,7 +188,14 @@ export class KycStateService {
         subject: { subjectLeId?: string; subjectPersonId?: string; subjectOrgId?: string },
         fieldNo: number,
         ownerScopeId?: string,
-        snapshotDate?: Date
+        snapshotDate?: Date,
+        /**
+         * When provided, restricts results to claims with this exact collectionId.
+         * Pass the COMPLEX_FIELD_CONFIG `collectionId` (e.g. 'SIC_CODES') to exclude
+         * legacy plain-text claims that pre-date the structured collection architecture
+         * and have collectionId = NULL.
+         */
+        filterCollectionId?: string
     ): Promise<DerivedValue[]> {
         // Multi-value Comparison Set: (subject, fieldNo, ownerScopeId, collectionId, instanceId)
         const claims = await prisma.fieldClaim.findMany({
@@ -196,6 +203,8 @@ export class KycStateService {
             where: {
                 fieldNo,
                 ...subject,
+                // When a named collection is specified, exclude legacy NULL-collectionId claims.
+                collectionId: filterCollectionId ?? undefined,
                 status: { in: [ClaimStatus.VERIFIED, ClaimStatus.ASSERTED] },
                 assertedAt: snapshotDate ? { lte: snapshotDate } : undefined,
                 OR: [
@@ -269,7 +278,12 @@ export class KycStateService {
      */
     static async resolveAllFields(
         subject: { subjectLeId?: string; subjectPersonId?: string; subjectOrgId?: string },
-        fieldDefs: Array<{ fieldNo: number; isMultiValue: boolean }>,
+        fieldDefs: Array<{
+            fieldNo: number;
+            isMultiValue: boolean;
+            /** When set, only claims with this collectionId are used — excludes legacy TEXT claims. */
+            collectionId?: string;
+        }>,
         ownerScopeId?: string
     ): Promise<Map<number, DerivedValue | DerivedValue[] | null>> {
         const result = new Map<number, DerivedValue | DerivedValue[] | null>();
@@ -331,7 +345,13 @@ export class KycStateService {
         // ── Resolve each field in memory ──────────────────────────────────────
         const now = new Date();
         for (const def of fieldDefs) {
-            const claims     = claimsByField.get(def.fieldNo) ?? [];
+            // Filter to the named collection when specified — excludes legacy
+            // plain-text claims (collectionId = NULL) that predate the structured
+            // collection architecture.
+            const rawClaims = claimsByField.get(def.fieldNo) ?? [];
+            const claims = def.collectionId
+                ? rawClaims.filter(c => c.collectionId === def.collectionId)
+                : rawClaims;
             const priorityMap = priorityMapByField.get(def.fieldNo) ?? new Map();
 
             if (def.isMultiValue) {
