@@ -20,10 +20,11 @@
  * Do NOT use raw GLEIF RA codes as keys here — add aliases to LEGACY_SOURCE_REF_ALIASES instead.
  */
 export const RA_DISPLAY_NAMES: Record<string, string> = {
-    COMPANIES_HOUSE: "Companies House (UK)",       // RA000585/RA000586/RA000587
-    RA000192: "RNCS / Infogreffe (RA000192)",      // France
-    RA000242: "Handelsregister (RA000242)",         // Germany – Frankfurt
-    // Add future mappingSourceKeys here (not GLEIF RA codes):
+    // Key = canonical mappingSourceKey.  Value = short human name only (no RA code — appended by getSourceDisplayName).
+    COMPANIES_HOUSE: "Companies House",       // groups RA000585 / RA000586 / RA000587
+    RA000192:        "RNCS / Infogreffe",      // France
+    RA000242:        "Handelsregister",         // Germany – Frankfurt
+    // Add future mappingSourceKeys here:
 };
 
 /**
@@ -68,13 +69,15 @@ export function getSourceDisplayName(
     if (sourceType === "REGISTRATION_AUTHORITY" || sourceType === "COMPANIES_HOUSE") {
         // Normalise legacy aliases (e.g. RA000585 → COMPANIES_HOUSE) before lookup
         const canonical = sourceReference ? normalizeSourceRef(sourceReference) : null;
-        if (canonical && RA_DISPLAY_NAMES[canonical]) {
-            return RA_DISPLAY_NAMES[canonical];
+        const name = canonical ? RA_DISPLAY_NAMES[canonical] : null;
+        if (name && canonical) {
+            // Format: "Companies House · COMPANIES_HOUSE" or "RNCS / Infogreffe · RA000192"
+            return `${name} · ${canonical}`;
         }
         // Fallback for unknown mappingSourceKeys not yet in RA_DISPLAY_NAMES
-        if (canonical) return `Registry (${canonical})`;
+        if (canonical) return `Registry · ${canonical}`;
         // Null sourceReference should not occur after migration
-        return "Registration Authority (unknown source)";
+        return "Registration Authority (unknown)";
     }
 
     // Pass-through for other source types (USER_INPUT, AI_EXTRACTION, etc.)
@@ -111,7 +114,7 @@ export const SOURCE_OPTIONS: SourceOption[] = [
     },
     {
         value: "COMPANIES_HOUSE",
-        label: "Companies House (UK)",
+        label: "Companies House · COMPANIES_HOUSE",
         sourceType: "REGISTRATION_AUTHORITY",
         // mappingSourceKey — resolves to RA000585/586/587 via RegistryAuthority.mappingSourceKey
         sourceReference: "COMPANIES_HOUSE",
@@ -119,7 +122,7 @@ export const SOURCE_OPTIONS: SourceOption[] = [
     },
     {
         value: "FR_RA000192",
-        label: "RNCS / Infogreffe (RA000192)",
+        label: "RNCS / Infogreffe · RA000192",
         sourceType: "REGISTRATION_AUTHORITY",
         sourceReference: "RA000192",
         // Open API — no key required. Connector dispatched via authorityId.
