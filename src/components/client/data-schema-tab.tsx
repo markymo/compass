@@ -703,8 +703,11 @@ export function formatGraphValue(val: any): string {
         if (val.legalName) return val.legalName;
         if (val.entityName) return val.entityName;
         if (val.fullName) return val.fullName;
+        // Code-list items: { code, label } — e.g. SIC codes
+        if (val.code !== undefined) return val.label ? `${val.code} — ${val.label}` : String(val.code);
         
         return JSON.stringify(val);
+
     }
     if (typeof val === 'string' && val.match(/^\d{4}-\d{2}-\d{2}T/)) {
         const d = new Date(val);

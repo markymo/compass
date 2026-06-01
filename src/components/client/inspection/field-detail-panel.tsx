@@ -86,10 +86,13 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
             if (val.firstName || val.lastName) return `${val.firstName || ''} ${val.lastName || ''}`.trim() + (val.metadata_type === 'LEGAL_ENTITY' ? ' (Company)' : '');
             if (val.name) return val.name;
             if (val.line1) return `${val.line1}${val.city ? ', ' + val.city : ''}`;
+            // Code-list items: { code, label } — e.g. SIC codes
+            if (val.code !== undefined) return val.label ? `${val.code} — ${val.label}` : String(val.code);
             return JSON.stringify(val);
         }
         return String(val);
     };
+
 
     const formatDateForInput = (val: string) => {
         if (!val) return '';

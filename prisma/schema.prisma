@@ -1110,6 +1110,7 @@ enum MappingTransformType {
   TO_PARTY_OBJECT
   TO_PARTY_LIST
   TO_NAME_HISTORY_LIST
+  TO_CODE_LIST
 }
 
 enum SyncStatus {

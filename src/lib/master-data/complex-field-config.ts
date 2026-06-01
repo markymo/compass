@@ -184,6 +184,43 @@ export const COMPLEX_FIELD_CONFIG = {
     } satisfies StructuredCollectionConfig,
 
     /**
+     * Field 20: Industry classification (SIC codes)
+     *
+     * One FieldClaim per SIC code assigned to this entity.
+     *   fieldNo      = 20
+     *   collectionId = SIC_CODES
+     *   instanceId   = sic_{code}  (e.g. sic_35110)
+     *   valueJson    = { code: string, label: string | null }
+     *
+     * Source: Companies House sic_codes[] via TO_CODE_LIST transform.
+     * Reference data: sic_codes.json (UK SIC 2007, 732 entries).
+     *
+     * NOT graph-backed. No Person/Address nodes created.
+     * No temporal date-ranging — SIC code assignments have no effectiveTo.
+     * Re-enrichment replaces claims via instanceId idempotency.
+     *
+     * Future: extend TO_CODE_LIST with codeSystem config to support
+     * NAF (France) and WZ (Germany) activity codes on the same field.
+     */
+    20: {
+        kind: 'STRUCTURED_COLLECTION',
+        label: 'Industry classification',
+        description:
+            'Industry classification codes (UK SIC 2007) assigned to this entity. ' +
+            'Each code is stored as a separate row with its human-readable description. ' +
+            'Source: Companies House sic_codes field.',
+        collectionId: 'SIC_CODES',
+        appDataType: 'JSONB',
+        isMultiValue: true,
+        itemType: 'STRUCTURED_VALUE',
+        fields: [
+            { key: 'code',  label: 'SIC code',    dataType: 'TEXT', required: true  },
+            { key: 'label', label: 'Description', dataType: 'TEXT', required: false },
+        ],
+        // No temporal config — codes are not date-ranged.
+    } satisfies StructuredCollectionConfig,
+
+    /**
      * Field 63: List of company directors
      * Slice 1 — first complex field registered.
      *

@@ -6,6 +6,8 @@
  * Failures degrade confidence, never throw.
  */
 
+import { SicCodeMapper } from '@/domain/registry/utils/SicCodeMapper';
+
 // ISO 3166-1 alpha-2 → English name (common subset)
 const COUNTRY_CODES: Record<string, string> = {
     'AF': 'Afghanistan', 'AL': 'Albania', 'DZ': 'Algeria', 'AD': 'Andorra', 'AO': 'Angola',
@@ -71,7 +73,8 @@ type TransformType =
     | 'TO_ADDRESS_OBJECT'
     | 'TO_PARTY_OBJECT'
     | 'TO_PARTY_LIST'
-    | 'TO_NAME_HISTORY_LIST';
+    | 'TO_NAME_HISTORY_LIST'
+    | 'TO_CODE_LIST';
 
 
 /**
@@ -433,6 +436,68 @@ export function applyTransform(
                         nameType:      nameType       || undefined,
                         rowKey,
                     };
+                })
+                .filter((v: any) => v !== null);
+
+            return { value: list, confidencePenalty: 0, rowKeys };
+        }
+
+        case 'TO_CODE_LIST': {
+            // ── Field 20: Industry classification (SIC codes) ─────────────────
+            // Handles two source shapes:
+            //
+            //   Raw CH payload — sic_codes[]:  ["35110", "70100"]
+            //   Pre-enriched canonical —       [{ code, description }]
+            //
+            // Both are normalised to:
+            //   { code: string, label: string | null }
+            //
+            // transformConfig: { codeSystem?: "SIC_2007_UK" | ... }
+            //   Defaults to "SIC_2007_UK".  Future registries (NAF_FR, WZ_DE)
+            //   set a different codeSystem; add a dispatch branch below when needed.
+            //
+            // Failures degrade gracefully:
+            //   - Unknown codes  → label: null  (code always preserved)
+            //   - Non-array input → null with full confidence penalty
+            // ─────────────────────────────────────────────────────────────────
+            if (!Array.isArray(value)) {
+                return { value: null, confidencePenalty: 1 };
+            }
+
+            const codeSystem: string = transformConfig?.codeSystem ?? 'SIC_2007_UK';
+            const rowKeys: string[] = [];
+
+            const list = value
+                .map((item: any) => {
+                    let code: string;
+
+                    if (typeof item === 'string') {
+                        code = item.trim();
+                    } else if (item && typeof item === 'object') {
+                        // Already-enriched shape: { code, description } or { code, label }
+                        code = String(item.code ?? item.value ?? '').trim();
+                    } else {
+                        return null; // skip nulls / unexpected types
+                    }
+
+                    if (!code) return null;
+
+                    // Label lookup — codeSystem-dispatched.
+                    // Only SIC_2007_UK is supported today; extend here when adding
+                    // a second code system (e.g. NAF_FR).
+                    let label: string | null;
+                    if (codeSystem === 'SIC_2007_UK') {
+                        label = SicCodeMapper.getDescription(code) ?? null;
+                    } else {
+                        // Future: dispatch to other mapper(s)
+                        label = null;
+                    }
+
+                    // Stable rowKey: deterministic across re-enrichment runs.
+                    // Format: sic_{code}  (e.g. sic_35110)
+                    rowKeys.push(`sic_${code}`);
+
+                    return { code, label };
                 })
                 .filter((v: any) => v !== null);
 

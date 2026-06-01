@@ -269,13 +269,15 @@ export const FIELD_DEFINITIONS: Record<number, FieldDefinition> = {
         fieldName: 'Industry classification',
         model: 'IndustryClassification',
         field: 'code',
-        appDataType: 'TEXT',
-        dataType: 'string',
+        appDataType: 'JSONB',
+        dataType: 'jsonb',
         isMultiValue: true,
         isRepeating: true,
         dbTable: 'industry_classifications',
         dbColumn: 'code',
+        notes: 'One claim per SIC code. Value shape: { code: string, label: string | null }. collectionId: SIC_CODES.',
     },
+
     21: {
         fieldNo: 21,
         fieldName: 'Entity legal form code',
