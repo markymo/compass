@@ -565,37 +565,35 @@ export async function getFullMasterData(clientLEId: string) {
 
     if (subjectLeId) {
         const allFields = await listAllMasterFields();
-        for (const def of allFields) {
-            if (def.isMultiValue) {
-                // Fetch the entire collection
-                const collection = await KycStateService.getAuthoritativeCollection(
-                    { subjectLeId },
-                    def.fieldNo,
-                    ownerScopeId || undefined
-                );
 
-                if (collection && collection.length > 0) {
-                    // We map the collection into an array of values
+        // Batch-resolve all fields in 2 DB queries instead of 2×N sequential round-trips.
+        // resolveAllFields: 1× fieldClaim.findMany (all fields) + 1× sourceFieldMapping.findMany
+        const resolved = await KycStateService.resolveAllFields(
+            { subjectLeId },
+            allFields.map(d => ({ fieldNo: d.fieldNo, isMultiValue: d.isMultiValue })),
+            ownerScopeId || undefined
+        );
+
+        for (const def of allFields) {
+            const val = resolved.get(def.fieldNo);
+            if (val === null || val === undefined) continue;
+
+            if (Array.isArray(val)) {
+                // Collection field
+                if (val.length > 0) {
                     flattened[def.fieldNo] = {
-                        value: collection.map(c => c.value),
-                        source: collection[0].isScoped ? 'USER_INPUT' : (collection[0].evidenceProvider || collection[0].sourceType || 'MASTER_RECORD'),
-                        sourceReference: collection[0].sourceReference ?? undefined
+                        value: val.map(c => c.value),
+                        source: val[0].isScoped ? 'USER_INPUT' : (val[0].evidenceProvider || val[0].sourceType || 'MASTER_RECORD'),
+                        sourceReference: val[0].sourceReference ?? undefined,
                     };
                 }
             } else {
-                const derived = await KycStateService.getAuthoritativeValue(
-                    { subjectLeId },
-                    def.fieldNo,
-                    ownerScopeId || undefined
-                );
-
-                if (derived) {
-                    flattened[def.fieldNo] = {
-                        value: derived.value,
-                        source: derived.isScoped ? 'USER_INPUT' : (derived.evidenceProvider || derived.sourceType || 'MASTER_RECORD'),
-                        sourceReference: derived.sourceReference ?? undefined
-                    };
-                }
+                // Single-value field
+                flattened[def.fieldNo] = {
+                    value: val.value,
+                    source: val.isScoped ? 'USER_INPUT' : (val.evidenceProvider || val.sourceType || 'MASTER_RECORD'),
+                    sourceReference: val.sourceReference ?? undefined,
+                };
             }
         }
     }

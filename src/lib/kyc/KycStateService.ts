@@ -251,6 +251,127 @@ export class KycStateService {
     }
 
     /**
+     * Batch-resolves authoritative values for ALL fields of a given subject in
+     * exactly 2 DB round-trips (one for all claims, one for all source mappings).
+     *
+     * Designed for the master page initial load where calling getAuthoritativeValue /
+     * getAuthoritativeCollection per-field produces an N+1 waterfall (258 queries
+     * for 129 fields).
+     *
+     * Returns a Map keyed by fieldNo:
+     *   - null              → no data for that field
+     *   - DerivedValue      → winning single-value claim
+     *   - DerivedValue[]    → resolved collection (may be empty [])
+     *
+     * The resolution logic is identical to getAuthoritativeValue /
+     * getAuthoritativeCollection — same tier model, same priority map, same
+     * tombstone rules, same effectiveTo filter.
+     */
+    static async resolveAllFields(
+        subject: { subjectLeId?: string; subjectPersonId?: string; subjectOrgId?: string },
+        fieldDefs: Array<{ fieldNo: number; isMultiValue: boolean }>,
+        ownerScopeId?: string
+    ): Promise<Map<number, DerivedValue | DerivedValue[] | null>> {
+        const result = new Map<number, DerivedValue | DerivedValue[] | null>();
+        if (fieldDefs.length === 0) return result;
+
+        const fieldNos = fieldDefs.map(d => d.fieldNo);
+
+        // ── Round-trip 1: all claims for all fields ────────────────────────────
+        const allClaims = await prisma.fieldClaim.findMany({
+            include: { evidence: true, valueAddress: true, valuePerson: true, valueLe: true, valueOrg: true },
+            where: {
+                fieldNo: { in: fieldNos },
+                ...subject,
+                status: { in: [ClaimStatus.VERIFIED, ClaimStatus.ASSERTED] },
+                OR: [
+                    { ownerScopeId: ownerScopeId || undefined },
+                    { ownerScopeId: null },
+                ],
+            },
+            orderBy: [{ assertedAt: 'desc' }, { id: 'desc' }],
+        });
+
+        // ── Round-trip 2: all active source mappings for all fields ────────────
+        const allMappingRows = await (prisma as any).sourceFieldMapping.findMany({
+            where: { targetFieldNo: { in: fieldNos }, isActive: true },
+            select: { targetFieldNo: true, sourceType: true, sourceReference: true, priority: true },
+        }) as Array<{ targetFieldNo: number; sourceType: string; sourceReference: string | null; priority: number }>;
+
+        // ── Build per-field priority maps (in memory) ─────────────────────────
+        const priorityMapByField = new Map<number, SourcePriorityMap>();
+        for (const fieldNo of fieldNos) {
+            const scoped  = new Map<string, number>();
+            const generic = new Map<string, number>();
+            for (const row of allMappingRows) {
+                if (row.targetFieldNo !== fieldNo) continue;
+                const key = priorityKey(row.sourceType, row.sourceReference);
+                if (row.sourceReference === null) {
+                    const ex = generic.get(key);
+                    if (ex === undefined || row.priority < ex) generic.set(key, row.priority);
+                } else {
+                    const ex = scoped.get(key);
+                    if (ex === undefined || row.priority < ex) scoped.set(key, row.priority);
+                }
+            }
+            const pm: SourcePriorityMap = new Map();
+            for (const [k, v] of generic) pm.set(k, v);
+            for (const [k, v] of scoped)  pm.set(k, v);
+            priorityMapByField.set(fieldNo, pm);
+        }
+
+        // ── Group claims by fieldNo (in memory) ───────────────────────────────
+        const claimsByField = new Map<number, FieldClaim[]>();
+        for (const claim of allClaims) {
+            const list = claimsByField.get(claim.fieldNo) ?? [];
+            list.push(claim);
+            claimsByField.set(claim.fieldNo, list);
+        }
+
+        // ── Resolve each field in memory ──────────────────────────────────────
+        const now = new Date();
+        for (const def of fieldDefs) {
+            const claims     = claimsByField.get(def.fieldNo) ?? [];
+            const priorityMap = priorityMapByField.get(def.fieldNo) ?? new Map();
+
+            if (def.isMultiValue) {
+                // Group by (collectionId, instanceId) — mirrors getAuthoritativeCollection
+                const itemGroups: Record<string, FieldClaim[]> = {};
+                for (const c of claims) {
+                    const key = `${c.collectionId ?? 'default'}:${c.instanceId ?? 'default'}`;
+                    if (!itemGroups[key]) itemGroups[key] = [];
+                    itemGroups[key].push(c);
+                }
+
+                const collection: DerivedValue[] = [];
+                for (const group of Object.values(itemGroups)) {
+                    const winner = this.pickWinner(group, ownerScopeId, priorityMap);
+                    if (winner && !this.isTombstone(winner)) {
+                        collection.push(this.mapToDerivedValue(winner, ownerScopeId));
+                    }
+                }
+
+                // Effective-date post-filter (mirrors getAuthoritativeCollection)
+                const config = COLLECTION_FIELD_CONFIG[def.fieldNo];
+                const filtered = config?.filterByEffectiveDate
+                    ? collection.filter(row => !row.effectiveTo || row.effectiveTo > now)
+                    : collection;
+
+                result.set(def.fieldNo, filtered);
+            } else {
+                const winner = this.pickWinner(claims, ownerScopeId, priorityMap);
+                if (!winner || this.isTombstone(winner)) {
+                    result.set(def.fieldNo, null);
+                } else {
+                    result.set(def.fieldNo, this.mapToDerivedValue(winner, ownerScopeId));
+                }
+            }
+        }
+
+        return result;
+    }
+
+    /**
      * The Selection Hierarchy / Comparison Set Rule:
      *
      * Tier model (unchanged):
