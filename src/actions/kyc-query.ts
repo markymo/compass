@@ -1,10 +1,11 @@
 "use server";
 
-import { KycStateService } from "@/lib/kyc/KycStateService";
+import { KycStateService, SourcePriorityMap, priorityKey } from "@/lib/kyc/KycStateService";
 import { getMasterFieldDefinition, getMasterFieldGroup } from "@/services/masterData/definitionService";
 import { ProvenanceSource } from "@/domain/kyc/types/ProvenanceTypes";
 import prisma from "@/lib/prisma";
 import { getComplexFieldConfig } from "@/lib/master-data/complex-field-config";
+import { FieldClaim } from "@prisma/client";
 
 // KycLoader is deprecated in favor of KycStateService
 
@@ -124,7 +125,200 @@ export async function resolveMasterData(
     return response;
 }
 
-// --- Field Detail Inspector (Restored) ---
+// ── resolveMasterDataBatch ────────────────────────────────────────────────────
+//
+// Batch/in-memory replacement for the N+1 per-question loop in resolveMasterData.
+// The caller pre-loads all required DB data and passes it in; this function
+// issues zero DB queries. It reuses KycStateService's pickWinner / isTombstone /
+// mapToDerivedValue exactly — no logic duplication.
+//
+// resolveMasterData is left unchanged and still used by mapQuestionToField
+// (single-question post-mapping preview) where N+1 has no cost impact.
+
+export type BatchFieldDef = {
+    fieldNo: number;
+    appDataType: string;
+    isMultiValue: boolean;
+};
+
+export type BatchSourceMapping = {
+    targetFieldNo:   number;
+    sourceType:      string;
+    sourceReference: string | null;
+    priority:        number;
+};
+
+export type BatchResolverInput = {
+    subjectLeId:  string;
+    ownerScopeId: string | null;
+    questions:    ResolverRequest[];
+    /** Map<fieldNo, def> — built from listAllMasterFields() result */
+    fieldDefMap:  Map<number, BatchFieldDef>;
+    /** Map<groupKey, fieldNos[]> — built from listAllMasterGroupsWithItems() result */
+    groupFieldMap: Map<string, number[]>;
+    /** All VERIFIED/ASSERTED FieldClaims for this subjectLeId (pre-loaded) */
+    claims:        FieldClaim[];
+    /** All active SourceFieldMapping rows (pre-loaded) */
+    sourceMappings: BatchSourceMapping[];
+};
+
+/**
+ * Build a per-field SourcePriorityMap from the pre-loaded sourceMappings array.
+ * Mirrors the logic inside KycStateService.preloadMappingPriorities but operates
+ * on already-loaded rows (no DB call).
+ */
+function buildPriorityMap(sourceMappings: BatchSourceMapping[], fieldNo: number): SourcePriorityMap {
+    const scoped  = new Map<string, number>();
+    const generic = new Map<string, number>();
+
+    for (const row of sourceMappings) {
+        if (row.targetFieldNo !== fieldNo) continue;
+        const key = priorityKey(row.sourceType, row.sourceReference);
+        if (row.sourceReference === null) {
+            const ex = generic.get(key);
+            if (ex === undefined || row.priority < ex) generic.set(key, row.priority);
+        } else {
+            const ex = scoped.get(key);
+            if (ex === undefined || row.priority < ex) scoped.set(key, row.priority);
+        }
+    }
+
+    const pm: SourcePriorityMap = new Map();
+    for (const [k, v] of generic) pm.set(k, v);
+    for (const [k, v] of scoped)  pm.set(k, v);
+    return pm;
+}
+
+/**
+ * Resolve a single field's winner from pre-loaded claims.
+ * Returns a HydratedValue (isSynced:false when no winner or tombstoned).
+ */
+function resolveField(
+    fieldNo:   number,
+    isMultiValue: boolean,
+    allClaims: FieldClaim[],
+    ownerScopeId: string | null,
+    sourceMappings: BatchSourceMapping[]
+): Record<string, HydratedValue> {
+    const priorityMap = buildPriorityMap(sourceMappings, fieldNo);
+
+    if (isMultiValue) {
+        // Apply collectionId filter for STRUCTURED_COLLECTION fields (e.g. SIC_CODES)
+        const cfg = getComplexFieldConfig(fieldNo);
+        const filterCollectionId = cfg?.kind === 'STRUCTURED_COLLECTION' ? cfg.collectionId : undefined;
+
+        const fieldClaims = allClaims.filter(c =>
+            c.fieldNo === fieldNo &&
+            (!filterCollectionId || c.collectionId === filterCollectionId)
+        );
+
+        // Group by (collectionId, instanceId) — same as getAuthoritativeCollection
+        const itemGroups: Record<string, FieldClaim[]> = {};
+        for (const c of fieldClaims) {
+            const key = `${c.collectionId ?? 'default'}:${c.instanceId ?? 'default'}`;
+            if (!itemGroups[key]) itemGroups[key] = [];
+            itemGroups[key].push(c);
+        }
+
+        const values: any[] = [];
+        let firstDerived: any = null;
+        for (const group of Object.values(itemGroups)) {
+            const winner = KycStateService.pickWinner(group, ownerScopeId ?? undefined, priorityMap);
+            if (winner && !KycStateService.isTombstone(winner)) {
+                const derived = KycStateService.mapToDerivedValue(winner, ownerScopeId ?? undefined);
+                values.push(derived.value);
+                if (!firstDerived) firstDerived = derived;
+            }
+        }
+
+        if (values.length === 0) {
+            return { [fieldNo]: { value: null, source: null, isSynced: false } };
+        }
+
+        return {
+            [fieldNo]: {
+                value: values,
+                source: firstDerived.isScoped ? 'USER_INPUT' : (firstDerived.evidenceProvider || firstDerived.sourceType || 'MASTER_RECORD'),
+                updatedAt: firstDerived.assertedAt,
+                isSynced: true,
+            }
+        };
+    } else {
+        const fieldClaims = allClaims.filter(c => c.fieldNo === fieldNo);
+        const winner = KycStateService.pickWinner(fieldClaims, ownerScopeId ?? undefined, priorityMap);
+
+        if (!winner || KycStateService.isTombstone(winner)) {
+            return { [fieldNo]: { value: null, source: null, isSynced: false } };
+        }
+
+        const derived = KycStateService.mapToDerivedValue(winner, ownerScopeId ?? undefined);
+        return {
+            [fieldNo]: {
+                value: derived.value,
+                source: derived.isScoped ? 'USER_INPUT' : (derived.evidenceProvider || derived.sourceType || 'MASTER_RECORD'),
+                updatedAt: derived.assertedAt,
+                isSynced: true,
+            }
+        };
+    }
+}
+
+/**
+ * Batch/in-memory implementation of resolveMasterData.
+ *
+ * Issues 0 DB queries. The caller must pre-load:
+ *   - All VERIFIED/ASSERTED FieldClaims for the subject
+ *   - All active SourceFieldMapping rows
+ *   - Field definitions (as a Map<fieldNo, def>)
+ *   - Group → fieldNo mappings (as a Map<groupKey, fieldNos[]>)
+ *
+ * Priority resolution and tombstone detection reuse KycStateService methods
+ * exactly — no duplicated logic.
+ */
+export async function resolveMasterDataBatch(input: BatchResolverInput): Promise<ResolverResponse> {
+    const { subjectLeId, ownerScopeId, questions, fieldDefMap, groupFieldMap, claims, sourceMappings } = input;
+
+    const response: ResolverResponse = {};
+
+    // Pre-resolve each unique group key exactly once
+    const resolvedGroups = new Map<string, Record<string, HydratedValue>>();
+    const uniqueGroupKeys = new Set(
+        questions.map(q => q.masterQuestionGroupId).filter(Boolean) as string[]
+    );
+    for (const groupKey of uniqueGroupKeys) {
+        const fieldNos = groupFieldMap.get(groupKey) ?? [];
+        const groupResult: Record<string, HydratedValue> = {};
+        for (const fieldNo of fieldNos) {
+            const def = fieldDefMap.get(fieldNo);
+            if (!def) continue;
+            Object.assign(groupResult, resolveField(fieldNo, def.isMultiValue, claims, ownerScopeId, sourceMappings));
+        }
+        resolvedGroups.set(groupKey, groupResult);
+    }
+
+    // Resolve each question
+    for (const q of questions) {
+        response[q.questionId] = {};
+
+        if (q.masterQuestionGroupId) {
+            // Group — use pre-resolved result (O(1) lookup)
+            response[q.questionId] = resolvedGroups.get(q.masterQuestionGroupId) ?? {};
+
+        } else if (q.masterFieldNo) {
+            const def = fieldDefMap.get(q.masterFieldNo);
+            if (!def) continue;
+            Object.assign(
+                response[q.questionId],
+                resolveField(q.masterFieldNo, def.isMultiValue, claims, ownerScopeId, sourceMappings)
+            );
+        }
+        // else: unmapped — leave as empty object {}
+    }
+
+    return response;
+}
+
+
 
 export interface FieldDetailData {
     fieldNo?: number;
