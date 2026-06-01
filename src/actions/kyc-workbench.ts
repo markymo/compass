@@ -1,9 +1,9 @@
 "use server";
 
 import prisma from "@/lib/prisma";
-import { getConsoleQuestions, ConsoleQuestion, resolveMasterData } from "./kyc-query";
+import { getConsoleQuestions, ConsoleQuestion, resolveMasterData, resolveMasterDataBatch, BatchResolverInput } from "./kyc-query";
 import { KycStateService } from "@/lib/kyc/KycStateService";
-import { listAllMasterFields, listAllMasterGroups, getMasterFieldGroup } from "@/services/masterData/definitionService";
+import { listAllMasterFields, listAllMasterGroups, listAllMasterGroupsWithItems, getMasterFieldGroup } from "@/services/masterData/definitionService";
 import { revalidatePath } from "next/cache";
 import { generateObject } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
@@ -28,32 +28,43 @@ export interface Workbench4Data {
 export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
     const questions = await getConsoleQuestions(leId, true);
 
-    // 1. Get standard Master Fields & Groups
-    const [allFields, allGroups] = await Promise.all([
+    // 1. Get standard Master Fields & Groups (with sub-field items for batch resolver)
+    const [allFields, allGroupsWithItems] = await Promise.all([
         listAllMasterFields(),
-        listAllMasterGroups()
+        listAllMasterGroupsWithItems(),
     ]);
+    const allGroups = allGroupsWithItems; // still compatible for label/category display
 
     const ownerScopeId = await KycStateService.resolveScopeId(leId);
-    
-    // Fast path to get current values
+
+    // Fast path to get current values — also pre-loads claims for batch resolver
     const clientLE = await prisma.clientLE.findUnique({
         where: { id: leId },
         select: { legalEntityId: true, customData: true }
     });
     const subjectLeId = clientLE?.legalEntityId;
-    
+
+    // Load all claims + all source mappings in parallel (2 queries, no waterfall)
+    const [allClaims, allSourceMappings] = subjectLeId
+        ? await Promise.all([
+            prisma.fieldClaim.findMany({
+                where: {
+                    subjectLeId,
+                    status: { in: ['VERIFIED', 'ASSERTED'] },
+                    OR: [{ ownerScopeId: ownerScopeId || null }, { ownerScopeId: null }]
+                },
+                orderBy: [{ assertedAt: 'desc' }, { id: 'desc' }]
+            }),
+            (prisma as any).sourceFieldMapping.findMany({
+                where: { isActive: true },
+                select: { targetFieldNo: true, sourceType: true, sourceReference: true, priority: true }
+            })
+        ])
+        : [[], []] as [any[], any[]];
+        
+    // Build currentValues for the master field grid (fast in-memory pass)
     const currentValues: Record<number, any> = {};
     if (subjectLeId) {
-        const claims = await prisma.fieldClaim.findMany({
-            where: {
-                subjectLeId,
-                status: { in: ['VERIFIED', 'ASSERTED'] },
-                OR: [{ ownerScopeId: ownerScopeId || null }, { ownerScopeId: null }]
-            },
-            orderBy: [{ assertedAt: 'desc' }, { id: 'desc' }]
-        });
-        
         const getSourcePriority = (source: string) => {
             if (source === 'GLEIF') return 1;
             if (source === 'REGISTRATION_AUTHORITY') return 2;
@@ -63,23 +74,21 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
         };
 
         const fieldGroups: Record<number, any[]> = {};
-        for (const c of claims) {
+        for (const c of allClaims) {
             if (!fieldGroups[c.fieldNo]) fieldGroups[c.fieldNo] = [];
             fieldGroups[c.fieldNo].push(c);
         }
-        
+
         for (const fieldNoStr in fieldGroups) {
             const fieldNo = parseInt(fieldNoStr);
             const fieldClaims = fieldGroups[fieldNo];
-            const winner = fieldClaims.sort((a, b) => {
+            const winner = fieldClaims.sort((a: any, b: any) => {
                 const pA = getSourcePriority(a.sourceType);
                 const pB = getSourcePriority(b.sourceType);
                 if (pA !== pB) return pA - pB;
-                
                 const tA = a.assertedAt.getTime();
                 const tB = b.assertedAt.getTime();
                 if (tA !== tB) return tB - tA;
-                
                 return b.id.localeCompare(a.id);
             })[0];
 
@@ -136,39 +145,53 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
     const relationships = Array.from(new Set(questions.map((q: any) => q.engagementOrgName || "Unknown"))).sort();
     const questionnaires = Array.from(new Set(questions.map((q: any) => q.questionnaireName))).sort();
 
-    // 4. Resolve Master Data values for all mapped questions
+    // 4. Resolve Master Data values for mapped questions using the batch resolver
+    // (replaces the N+1 per-question resolveMasterData loop: 76 queries → 0 queries)
     const mappedQuestions = questions.filter((q: any) => q.masterFieldNo || q.masterQuestionGroupId || q.customFieldDefinitionId);
-    if (mappedQuestions.length > 0) {
-        const resolverRequests = mappedQuestions
-            .filter((q: any) => q.masterFieldNo || q.masterQuestionGroupId)
-            .map((q: any) => ({
-                questionId: q.id,
-                masterFieldNo: q.masterFieldNo,
-                masterQuestionGroupId: q.masterQuestionGroupId
-            }));
+    if (mappedQuestions.length > 0 && subjectLeId) {
+        // Build fieldDefMap from already-loaded allFields
+        const fieldDefMap = new Map<number, { fieldNo: number; appDataType: string; isMultiValue: boolean }>(
+            allFields.map((f: any) => [f.fieldNo, { fieldNo: f.fieldNo, appDataType: f.appDataType, isMultiValue: f.isMultiValue }])
+        );
 
-        const resolvedValues = await resolveMasterData(leId, resolverRequests);
+        // Build groupFieldMap from already-loaded allGroupsWithItems
+        const groupFieldMap = new Map<string, number[]>(
+            allGroupsWithItems.map((g: any) => [g.key, g.fieldNos as number[]])
+        );
 
-        // We already have customData above, reuse it
+        const batchInput: BatchResolverInput = {
+            subjectLeId,
+            ownerScopeId,
+            questions: mappedQuestions
+                .filter((q: any) => q.masterFieldNo || q.masterQuestionGroupId)
+                .map((q: any) => ({
+                    questionId: q.id,
+                    masterFieldNo: q.masterFieldNo,
+                    masterQuestionGroupId: q.masterQuestionGroupId,
+                })),
+            fieldDefMap,
+            groupFieldMap,
+            claims: allClaims as any,
+            sourceMappings: allSourceMappings,
+        };
+
+        const resolvedValues = resolveMasterDataBatch(batchInput);
 
         questions.forEach((q: any) => {
             if (q.customFieldDefinitionId) {
                 const val = customData[q.customFieldDefinitionId];
                 q.masterDataValue = (val && typeof val === 'object' && 'value' in val) ? val.value : val;
                 if (val && typeof val === 'object') {
-                    q.masterDataSource = val.source || "USER_INPUT";
+                    q.masterDataSource = val.source || 'USER_INPUT';
                     q.masterDataUpdatedAt = val.timestamp ? new Date(val.timestamp) : null;
                 } else {
-                    q.masterDataSource = "USER_INPUT";
+                    q.masterDataSource = 'USER_INPUT';
                 }
             } else if (resolvedValues[q.id]) {
                 if (q.masterQuestionGroupId) {
-                    // For groups, we want the whole map of fieldNo -> {value, source, ...}
-                    // But for simplicity in the current UI, we'll map it to a simpler map of fieldNo -> value
                     const groupMap: Record<string, any> = {};
                     let latestDate: Date | null = null;
                     let primarySource: string | null = null;
-
                     for (const [fNo, fv] of Object.entries(resolvedValues[q.id])) {
                         groupMap[fNo] = fv.value;
                         if (!latestDate || (fv.updatedAt && fv.updatedAt > latestDate)) {
@@ -176,9 +199,8 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
                             primarySource = fv.source;
                         }
                     }
-
                     q.masterDataValue = groupMap;
-                    q.masterDataSource = primarySource || "MASTER_RECORD";
+                    q.masterDataSource = primarySource || 'MASTER_RECORD';
                     q.masterDataUpdatedAt = latestDate;
                 } else {
                     const fieldValues = Object.values(resolvedValues[q.id]);

@@ -28,11 +28,13 @@ export type DerivedValue = {
  * Map keyed by "sourceType:sourceReference" where null sourceReference is
  * represented as the literal string "__null__".
  * Value is the lowest active SourceFieldMapping.priority for that source.
+ * Exported so resolveMasterDataBatch can build these maps from pre-loaded data.
  */
-type SourcePriorityMap = Map<string, number>;
+export type SourcePriorityMap = Map<string, number>;
 
-/** Build the map key for a (sourceType, sourceReference) pair. */
-function priorityKey(sourceType: string, sourceReference: string | null): string {
+/** Build the map key for a (sourceType, sourceReference) pair.
+ *  Exported so resolveMasterDataBatch can reuse the same key scheme. */
+export function priorityKey(sourceType: string, sourceReference: string | null): string {
     return `${sourceType}:${sourceReference ?? "__null__"}`;
 }
 
@@ -411,8 +413,11 @@ export class KycStateService {
      * @param claims       Claims to consider (already filtered by fieldNo + subject)
      * @param requestedScopeId  The owner scope for tier filtering
      * @param priorityMap  Pre-loaded mapping priorities (see preloadMappingPriorities)
+     *
+     * Visibility: `static` (not private) so resolveMasterDataBatch can call it
+     * with pre-loaded data without duplicating the tier/priority logic.
      */
-    private static pickWinner(
+    static pickWinner(
         claims: FieldClaim[],
         requestedScopeId?: string,
         priorityMap: SourcePriorityMap = new Map()
@@ -517,7 +522,8 @@ export class KycStateService {
         return sortAndPick(assertedBaseline);
     }
 
-    private static isTombstone(claim: FieldClaim): boolean {
+    /** Exported so resolveMasterDataBatch can detect tombstones without duplicating logic. */
+    static isTombstone(claim: FieldClaim): boolean {
         // A tombstone is defined as a claim where valueJson is { "tombstone": true }
         // or all value fields are null (if we want to be more liberal).
         // For Phase 2.5, let's use the explicit JSON flag.
@@ -528,7 +534,8 @@ export class KycStateService {
         return false;
     }
 
-    private static mapToDerivedValue(claim: FieldClaim, requestedScopeId?: string): DerivedValue {
+    /** Exported so resolveMasterDataBatch can map winners to DerivedValue without duplicating logic. */
+    static mapToDerivedValue(claim: FieldClaim, requestedScopeId?: string): DerivedValue {
         const value = claim.valueText ??
             claim.valueNumber ??
             claim.valueDate ??
