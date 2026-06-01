@@ -10,6 +10,7 @@ import { refreshGleifProposals, acceptProposal } from "@/actions/kyc-proposals";
 import { refreshRegistryReferenceAction } from "@/actions/registry";
 import { FieldProposal, ProvenanceSource } from "@/domain/kyc/types/ProposalTypes";
 import { cn } from "@/lib/utils";
+import { getSourceDisplayName } from "@/lib/source-display";
 import { FieldDetailPanel } from "./inspection/field-detail-panel";
 import { Input } from "@/components/ui/input";
 import { Search, Filter, AlertCircle, CheckCircle2, Circle } from "lucide-react";
@@ -632,33 +633,29 @@ function MasterFieldDisplay({ label, fieldNo, value, source, sourceReference, on
     );
 }
 
-function SourceBadge({ source, sourceReference, timestamp }: { source: string, sourceReference?: string, timestamp?: string }) {
-    const colorMap: Record<string, string> = {
-        'GLEIF': 'bg-orange-100 text-orange-700 border-orange-200',
-        'REGISTRATION_AUTHORITY': 'bg-blue-100 text-blue-700 border-blue-200',
-        'COMPANIES_HOUSE': 'bg-blue-100 text-blue-700 border-blue-200',
-        'NATIONAL_REGISTRY': 'bg-blue-100 text-blue-700 border-blue-200',
-        'USER_INPUT': 'bg-purple-100 text-purple-700 border-purple-200',
-        'SYSTEM': 'bg-gray-100 text-gray-700 border-gray-200',
-        'MASTER_RECORD': 'bg-slate-100 text-slate-700 border-slate-200'
-    };
+/** Colour classes keyed by SourceType enum value (or legacy source type strings). */
+const SOURCE_COLOR_MAP: Record<string, string> = {
+    GLEIF:                  'bg-orange-100 text-orange-700 border-orange-200',
+    REGISTRATION_AUTHORITY: 'bg-blue-100   text-blue-700  border-blue-200',
+    COMPANIES_HOUSE:        'bg-blue-100   text-blue-700  border-blue-200',
+    NATIONAL_REGISTRY:      'bg-blue-100   text-blue-700  border-blue-200',
+    USER_INPUT:             'bg-purple-100 text-purple-700 border-purple-200',
+    SYSTEM:                 'bg-gray-100   text-gray-700  border-gray-200',
+    SYSTEM_DERIVED:         'bg-gray-100   text-gray-700  border-gray-200',
+    MASTER_RECORD:          'bg-slate-100  text-slate-700 border-slate-200',
+};
 
-    // Resolve display label for registry authority sources
-    let displaySource: string = source;
-    if (source === 'REGISTRATION_AUTHORITY' || source === 'COMPANIES_HOUSE' || source === 'NATIONAL_REGISTRY') {
-        if (sourceReference === 'GB_COMPANIES_HOUSE' || sourceReference?.includes('COMPANIES_HOUSE')) {
-            displaySource = 'Companies House';
-        } else if (sourceReference) {
-            displaySource = sourceReference.replace(/^[A-Z]{2}_/, '').replace(/_/g, ' ');
-        } else {
-            displaySource = 'Registry';
-        }
-    }
+/**
+ * Pure presentation badge — delegates all label resolution to getSourceDisplayName.
+ * To change how any source is displayed, update source-display.ts only.
+ */
+function SourceBadge({ source, sourceReference, timestamp }: { source: string, sourceReference?: string, timestamp?: string }) {
+    const classes = SOURCE_COLOR_MAP[source] || SOURCE_COLOR_MAP['SYSTEM'];
+    const label = getSourceDisplayName(source, sourceReference ?? null);
 
     return (
-        <Badge variant="outline" className={cn("text-[10px] h-5", colorMap[source] || colorMap['SYSTEM'])}>
-            {displaySource}
-            {sourceReference && <span className="ml-1 opacity-50">· {sourceReference}</span>}
+        <Badge variant="outline" className={cn("text-[10px] h-5", classes)}>
+            {label}
             {timestamp && <span className="ml-1 opacity-50">· {new Date(timestamp).toLocaleDateString()}</span>}
         </Badge>
     );
@@ -695,18 +692,10 @@ export function formatGraphValue(val: any): string {
     return String(val);
 }
 
+/** Delegates to getSourceDisplayName for a short friendly label (no sourceReference available at call site). */
 function friendlySourceLabel(source?: string): string {
     if (!source) return 'Empty';
-    const map: Record<string, string> = {
-        GLEIF: 'GLEIF',
-        REGISTRATION_AUTHORITY: 'Reg. Authority',
-        COMPANIES_HOUSE: 'Companies House',
-        NATIONAL_REGISTRY: 'Registry',
-        USER_INPUT: 'User Input',
-        SYSTEM: 'System',
-        MASTER_RECORD: 'Master Record',
-    };
-    return map[source] ?? source.replace(/_/g, ' ');
+    return getSourceDisplayName(source, null);
 }
 
 function ProposalRow({
