@@ -175,7 +175,7 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
             sourceMappings: allSourceMappings,
         };
 
-        const resolvedValues = resolveMasterDataBatch(batchInput);
+        const resolvedValues = await resolveMasterDataBatch(batchInput);
 
         questions.forEach((q: any) => {
             if (q.customFieldDefinitionId) {

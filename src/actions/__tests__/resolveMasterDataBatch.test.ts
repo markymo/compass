@@ -59,7 +59,7 @@ function makeDef(fieldNo: number, isMultiValue = false): any {
 
 describe('resolveMasterDataBatch', () => {
 
-    it('T1: Single field — single GLEIF claim resolves correctly', () => {
+    it('T1: Single field — single GLEIF claim resolves correctly', async () => {
         const claim = makeClaim({ id: 'c1', fieldNo: 3, sourceType: 'GLEIF', sourceReference: null, valueText: 'Acme Ltd' });
         const input: BatchResolverInput = {
             subjectLeId: SUBJECT_LE_ID,
@@ -71,7 +71,7 @@ describe('resolveMasterDataBatch', () => {
             sourceMappings: [makeMapping(3, 'GLEIF', null, 10)],
         };
 
-        const result = resolveMasterDataBatch(input);
+        const result = await resolveMasterDataBatch(input);
 
         expect(result['q1']).toBeDefined();
         expect(result['q1']['3'].value).toBe('Acme Ltd');
@@ -82,7 +82,7 @@ describe('resolveMasterDataBatch', () => {
 
     // ── T2: Priority — USER_INPUT beats REGISTRATION_AUTHORITY ──────────────
 
-    it('T2: USER_INPUT claim beats REGISTRATION_AUTHORITY within same tier', () => {
+    it('T2: USER_INPUT claim beats REGISTRATION_AUTHORITY within same tier', async () => {
         const raClaim   = makeClaim({ id: 'c-ra', fieldNo: 5, sourceType: 'REGISTRATION_AUTHORITY', sourceReference: 'COMPANIES_HOUSE', valueText: 'RA Value',   assertedAt: new Date('2026-01-02') });
         const userClaim = makeClaim({ id: 'c-ui', fieldNo: 5, sourceType: 'USER_INPUT',             sourceReference: null,              valueText: 'User Value', assertedAt: new Date('2026-01-01'), status: ClaimStatus.VERIFIED });
 
@@ -96,7 +96,7 @@ describe('resolveMasterDataBatch', () => {
             sourceMappings: [makeMapping(5, 'REGISTRATION_AUTHORITY', 'COMPANIES_HOUSE', 20)],
         };
 
-        const result = resolveMasterDataBatch(input);
+        const result = await resolveMasterDataBatch(input);
 
         expect(result['q2']['5'].value).toBe('User Value');
         expect(result['q2']['5'].source).toBe('USER_INPUT');
@@ -104,7 +104,7 @@ describe('resolveMasterDataBatch', () => {
 
     // ── T3: Tombstoned claim returns no value ────────────────────────────────
 
-    it('T3: Active tombstone — field returns isSynced: false', () => {
+    it('T3: Active tombstone — field returns isSynced: false', async () => {
         const tombstone = makeClaim({ id: 'c-tomb', fieldNo: 7, sourceType: 'USER_INPUT', valueJson: { tombstone: true } });
         const input: BatchResolverInput = {
             subjectLeId: SUBJECT_LE_ID,
@@ -116,7 +116,7 @@ describe('resolveMasterDataBatch', () => {
             sourceMappings: [],
         };
 
-        const result = resolveMasterDataBatch(input);
+        const result = await resolveMasterDataBatch(input);
 
         expect(result['q3']['7'].isSynced).toBe(false);
         expect(result['q3']['7'].value).toBeNull();
@@ -124,7 +124,7 @@ describe('resolveMasterDataBatch', () => {
 
     // ── T4: Multi-value collection (SIC_CODES) ───────────────────────────────
 
-    it('T4: Multi-value collection — both JSONB entries returned; legacy TEXT claim excluded by filterCollectionId', () => {
+    it('T4: Multi-value collection — both JSONB entries returned; legacy TEXT claim excluded by filterCollectionId', async () => {
         const sicA = makeClaim({
             id: 'c-sic-a', fieldNo: 20, sourceType: 'REGISTRATION_AUTHORITY',
             sourceReference: 'COMPANIES_HOUSE', collectionId: 'SIC_CODES', instanceId: 'sic_61900',
@@ -153,7 +153,7 @@ describe('resolveMasterDataBatch', () => {
             // Complex field config is resolved internally by resolveMasterDataBatch
         };
 
-        const result = resolveMasterDataBatch(input);
+        const result = await resolveMasterDataBatch(input);
 
         expect(Array.isArray(result['q4']['20'].value)).toBe(true);
         expect(result['q4']['20'].value).toHaveLength(2);
@@ -165,7 +165,7 @@ describe('resolveMasterDataBatch', () => {
 
     // ── T5: Group-mapped question (REGISTERED_ADDRESS, 5 sub-fields) ─────────
 
-    it('T5: Group question — all 5 sub-fields resolved from pre-loaded claims', () => {
+    it('T5: Group question — all 5 sub-fields resolved from pre-loaded claims', async () => {
         // Fields 6-10 = REGISTERED_ADDRESS sub-fields
         const groupFieldNos = [6, 7, 8, 9, 10];
         const claims = groupFieldNos.map((fno, i) =>
@@ -185,7 +185,7 @@ describe('resolveMasterDataBatch', () => {
             sourceMappings: groupFieldNos.map(fno => makeMapping(fno, 'REGISTRATION_AUTHORITY', 'COMPANIES_HOUSE', 20)),
         };
 
-        const result = resolveMasterDataBatch(input);
+        const result = await resolveMasterDataBatch(input);
 
         expect(result['q5']).toBeDefined();
         for (const fno of groupFieldNos) {
@@ -196,7 +196,7 @@ describe('resolveMasterDataBatch', () => {
 
     // ── T6: Two questions mapped to same group — resolved once ───────────────
 
-    it('T6: Two questions mapped to same group return identical values (group resolved once)', () => {
+    it('T6: Two questions mapped to same group return identical values (group resolved once)', async () => {
         const groupFieldNos = [6, 7];
         const claims = groupFieldNos.map(fno =>
             makeClaim({ id: `c-g2-${fno}`, fieldNo: fno, sourceType: 'REGISTRATION_AUTHORITY', sourceReference: 'COMPANIES_HOUSE', valueText: `V${fno}` })
@@ -215,7 +215,7 @@ describe('resolveMasterDataBatch', () => {
             sourceMappings: groupFieldNos.map(fno => makeMapping(fno, 'REGISTRATION_AUTHORITY', 'COMPANIES_HOUSE', 20)),
         };
 
-        const result = resolveMasterDataBatch(input);
+        const result = await resolveMasterDataBatch(input);
 
         // Both questions get the same resolved group
         expect(result['qA']).toEqual(result['qB']);
@@ -225,7 +225,7 @@ describe('resolveMasterDataBatch', () => {
 
     // ── T7: Unmapped question — returns empty object ─────────────────────────
 
-    it('T7: Unmapped question (no masterFieldNo, no group) returns empty record', () => {
+    it('T7: Unmapped question (no masterFieldNo, no group) returns empty record', async () => {
         const input: BatchResolverInput = {
             subjectLeId: SUBJECT_LE_ID,
             ownerScopeId: null,
@@ -236,14 +236,14 @@ describe('resolveMasterDataBatch', () => {
             sourceMappings: [],
         };
 
-        const result = resolveMasterDataBatch(input);
+        const result = await resolveMasterDataBatch(input);
 
         expect(result['q7']).toEqual({});
     });
 
     // ── T8: Field with no claims — returns isSynced: false ──────────────────
 
-    it('T8: Mapped field with no matching claims returns isSynced: false', () => {
+    it('T8: Mapped field with no matching claims returns isSynced: false', async () => {
         const input: BatchResolverInput = {
             subjectLeId: SUBJECT_LE_ID,
             ownerScopeId: null,
@@ -254,7 +254,7 @@ describe('resolveMasterDataBatch', () => {
             sourceMappings: [],
         };
 
-        const result = resolveMasterDataBatch(input);
+        const result = await resolveMasterDataBatch(input);
 
         expect(result['q8']['99'].isSynced).toBe(false);
         expect(result['q8']['99'].value).toBeNull();
@@ -262,7 +262,7 @@ describe('resolveMasterDataBatch', () => {
 
     // ── T9: Mixed batch — fields + groups + unmapped ─────────────────────────
 
-    it('T9: Mixed batch returns correct ResolverResponse for all question types', () => {
+    it('T9: Mixed batch returns correct ResolverResponse for all question types', async () => {
         const fieldClaim = makeClaim({ id: 'c-mix-1', fieldNo: 3, sourceType: 'GLEIF', sourceReference: null, valueText: 'Test Name' });
         const groupClaims = [6, 7].map(fno =>
             makeClaim({ id: `c-mix-${fno}`, fieldNo: fno, sourceType: 'REGISTRATION_AUTHORITY', sourceReference: 'COMPANIES_HOUSE', valueText: `Addr${fno}` })
@@ -290,7 +290,7 @@ describe('resolveMasterDataBatch', () => {
             ],
         };
 
-        const result = resolveMasterDataBatch(input);
+        const result = await resolveMasterDataBatch(input);
 
         // Field question
         expect(result['qField']['3'].value).toBe('Test Name');

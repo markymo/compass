@@ -275,7 +275,7 @@ function resolveField(
  * Priority resolution and tombstone detection reuse KycStateService methods
  * exactly — no duplicated logic.
  */
-export function resolveMasterDataBatch(input: BatchResolverInput): ResolverResponse {
+export async function resolveMasterDataBatch(input: BatchResolverInput): Promise<ResolverResponse> {
     const { subjectLeId, ownerScopeId, questions, fieldDefMap, groupFieldMap, claims, sourceMappings } = input;
 
     const response: ResolverResponse = {};
