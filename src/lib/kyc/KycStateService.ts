@@ -317,10 +317,24 @@ export class KycStateService {
         const sortAndPick = (list: FieldClaim[]): FieldClaim | null => {
             if (list.length === 0) return null;
             return list.sort((a: any, b: any) => {
-                // Tombstone priority: a deletion should always win over a value within the same tier
                 const isTombA = this.isTombstone(a);
                 const isTombB = this.isTombstone(b);
-                if (isTombA !== isTombB) return isTombA ? -1 : 1;
+
+                if (isTombA !== isTombB) {
+                    // Special case: USER_INPUT vs USER_INPUT — most recent action wins.
+                    // This enables re-add after tombstone: a newer USER_INPUT value claim
+                    // should supersede an older USER_INPUT tombstone for the same instanceId.
+                    if (a.sourceType === 'USER_INPUT' && b.sourceType === 'USER_INPUT') {
+                        const tA = a.assertedAt.getTime();
+                        const tB = b.assertedAt.getTime();
+                        if (tA !== tB) return tB - tA; // most recent wins
+                        // Same timestamp: tombstone wins (explicit deletion intent)
+                        return isTombA ? -1 : 1;
+                    }
+                    // Cross-source: tombstone (user exclusion) always beats registry value,
+                    // and registry tombstone loses to USER_INPUT value.
+                    return isTombA ? -1 : 1;
+                }
 
                 // Mapping-driven source priority (lower number = higher authority)
                 const pA = resolvePriority(a);
@@ -336,6 +350,7 @@ export class KycStateService {
                 return b.id.localeCompare(a.id);
             })[0];
         };
+
 
         // Tier 1: VERIFIED Scoped
         if (requestedScopeId) {

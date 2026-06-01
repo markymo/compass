@@ -20,4 +20,12 @@ export class SicCodeMapper {
             description: this.getDescription(code)
         }));
     }
+
+    /**
+     * Returns all SIC codes as a flat array of { code, label } entries.
+     * Used by getCodeSystemEntries to populate the picker client-side.
+     */
+    static getAllEntries(): Array<{ code: string; label: string }> {
+        return Object.entries(this.mapping).map(([code, label]) => ({ code, label }));
+    }
 }

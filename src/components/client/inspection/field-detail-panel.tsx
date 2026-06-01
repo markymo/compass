@@ -25,6 +25,7 @@ import { NodeCreateDialog } from "@/components/client/graph/node-create-dialog";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { CollectionRowDisplay } from "@/lib/master-data/structured-collection-renderers";
+import { CodeListField } from "@/components/client/fields/CodeListField";
 
 import {
     DropdownMenu,
@@ -79,6 +80,8 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
     const isPartyRef = data?.dataType === 'PARTY_REF';
     const isAddressRef = data?.dataType === 'ADDRESS_REF';
     const isObjectRef = isPartyRef || isAddressRef;
+    // Controlled-vocabulary collection: uses CodeListField UX instead of free-text
+    const isCodeList = !!data?.codeSystem;
     
     const renderRowValue = (val: any) => {
         if (!val) return <span className="text-slate-400 italic">Empty</span>;
@@ -86,10 +89,13 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
             if (val.firstName || val.lastName) return `${val.firstName || ''} ${val.lastName || ''}`.trim() + (val.metadata_type === 'LEGAL_ENTITY' ? ' (Company)' : '');
             if (val.name) return val.name;
             if (val.line1) return `${val.line1}${val.city ? ', ' + val.city : ''}`;
+            // Code-list items: { code, label } — e.g. SIC codes
+            if (val.code !== undefined) return val.label ? `${val.code} — ${val.label}` : String(val.code);
             return JSON.stringify(val);
         }
         return String(val);
     };
+
 
     const formatDateForInput = (val: string) => {
         if (!val) return '';
@@ -810,13 +816,36 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                 <div>
                                     {data?.isRepeating ? (
                                         <div className="space-y-1">
-                                            {/* Count header */}
+                                            {/* Count header + collection-level provenance badge */}
                                             {data.rows && data.rows.length > 0 && (
-                                                <div className="text-[10px] text-slate-400 font-medium mb-2">
-                                                    {data.rows.length} value{data.rows.length !== 1 ? 's' : ''}
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <span className="text-[10px] text-slate-400 font-medium">
+                                                        {data.rows.length} value{data.rows.length !== 1 ? 's' : ''}
+                                                    </span>
+                                                    {/* Collection-level provenance:
+                                                        - "User input" if user has ever added or removed any item
+                                                        - Otherwise show the first row's registry source as representative */}
+                                                    {data.isUserCurated ? (
+                                                        <SourceBadge source="USER_INPUT" registrationAuthorityId={undefined} />
+                                                    ) : data.rows[0]?.source ? (
+                                                        <SourceBadge source={data.rows[0].source as any} sourceReference={data.rows[0].sourceReference} registrationAuthorityId={registrationAuthorityId} />
+                                                    ) : null}
                                                 </div>
                                             )}
 
+                                            {/* Code-list fields (controlled vocabulary): delegate entirely to CodeListField */}
+                                            {isCodeList ? (
+                                                <CodeListField
+                                                    clientLEId={legalEntityId}
+                                                    fieldNo={fieldNo}
+                                                    codeSystem={data.codeSystem!}
+                                                    rows={data.rows ?? []}
+                                                    isUserCurated={data.isUserCurated ?? false}
+                                                    isLocked={isLocked}
+                                                    onMutate={loadData}
+                                                />
+                                            ) : (
+                                            <>
                                             {/* Value rows */}
                                             {data.rows && data.rows.length > 0 ? (
                                                 <div className="space-y-1.5 max-h-[400px] overflow-y-auto pr-2">
@@ -998,6 +1027,8 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                         </div>
                                                     )}
                                                 </div>
+                                            )}
+                                            </> /* closes isCodeList ternary else */
                                             )}
                                         </div>
                                     ) : (

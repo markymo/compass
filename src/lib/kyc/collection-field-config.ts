@@ -58,10 +58,13 @@ export interface CollectionFieldConfig {
  * Field 63 is intentionally absent — it is derived from complex-field-config.ts.
  */
 const STATIC_COLLECTION_CONFIG: Record<number, CollectionFieldConfig> = {
-    // Stakeholder collections (FieldDefinitions fields 62 / 64)
+    // Stakeholder collections (fields 62 / 64)
+    // Field 20 (SIC codes) and Field 5 (Previous names) and Field 63 (Directors)
+    // are all derived from COMPLEX_FIELD_CONFIG below — do not duplicate here.
     62: { collectionId: 'UBOS',  filterByEffectiveDate: true  }, // List of ultimate beneficial owners
     64: { collectionId: 'PSCS', filterByEffectiveDate: true  }, // List of persons controlling
 };
+
 
 /**
  * COLLECTION_FIELD_CONFIG
@@ -78,7 +81,7 @@ function buildCollectionFieldConfig(): Record<number, CollectionFieldConfig> {
 
     // Auto-derive entries from COMPLEX_FIELD_CONFIG.
     // Add fieldNo values here as new complex fields are registered.
-    const complexFieldNos: number[] = [5, 63];
+    const complexFieldNos: number[] = [5, 20, 63];
 
     for (const fieldNo of complexFieldNos) {
         const derived = deriveCollectionConfig(fieldNo);
