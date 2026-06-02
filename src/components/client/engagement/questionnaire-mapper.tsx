@@ -316,6 +316,11 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
         }
     };
 
+    // Shared grid template — 5 zones: anchor / identity / mapping / attachment / actions
+    // Use 1fr for both identity and mapping so the layout degrades gracefully
+    // when the detail panel (600px Sheet) is open on narrower screens.
+    const GRID_COLS = "grid-cols-[36px_1fr_1fr_36px_68px]";
+
     // Mapping fields that should trigger auto-save when changed
     const MAPPING_FIELDS = new Set(['masterFieldNo', 'masterQuestionGroupId', 'customFieldDefinitionId', 'allowAttachments']);
 
@@ -448,6 +453,45 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
         (q.text || "").toLowerCase().includes(filter.toLowerCase())
     );
 
+    // Derive a display value from pre-loaded standingData.
+    // NEVER shows raw JSON — collections show a human-readable summary.
+    const resolvedValueFor = (masterFieldNo: number | null): { display: string; isUser: boolean } | null => {
+        if (!masterFieldNo || !standingData) return null;
+        const entry = standingData[masterFieldNo];
+        if (!entry || entry.value === null || entry.value === undefined) return null;
+
+        let display = '';
+        if (Array.isArray(entry.value)) {
+            if (entry.value.length === 0) return null;
+            const count = entry.value.length;
+            const first = entry.value[0];
+            if (typeof first === 'object' && first !== null) {
+                const readable =
+                    (first.firstName ? `${first.firstName} ${first.lastName ?? ''}`.trim() : null)
+                    ?? first.label ?? first.name ?? first.value ?? first.code ?? first.text ?? null;
+                display = readable
+                    ? (count > 1 ? `${readable} +${count - 1} more` : readable)
+                    : `${count} item${count !== 1 ? 's' : ''}`;
+            } else {
+                const shown = (entry.value as any[]).slice(0, 3).map(String);
+                display = shown.join(', ');
+                if (count > 3) display += ` +${count - 3} more`;
+            }
+        } else if (typeof entry.value === 'object' && entry.value !== null) {
+            const obj = entry.value as any;
+            display = obj.label ?? obj.name ?? obj.value ?? obj.code ?? obj.text ?? '';
+            if (!display) return null;
+        } else {
+            display = String(entry.value ?? '').trim();
+        }
+
+        if (!display) return null;
+        if (display.length > 72) display = display.substring(0, 69) + '...';
+        const isUser = (entry.source ?? '').toUpperCase().includes('USER_INPUT');
+        return { display, isUser };
+    };
+
+
     if (loading) {
         return (
             <div className="flex h-[400px] items-center justify-center text-slate-400">
@@ -467,35 +511,31 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
             <div className="flex-1 overflow-y-auto" ref={editorScrollRef}>
                 {/* Sticky Header */}
                 <div className="sticky top-0 z-20 bg-white/80 backdrop-blur-md border-b px-8 py-4 flex items-center justify-between shadow-sm">
-                    <div className="flex items-center gap-3">
-                        <Badge variant="outline" className="bg-white text-indigo-600 border-indigo-200 shadow-sm font-semibold">
-                            Question #{selectedQuestion.order}
-                        </Badge>
-                        <div className="text-sm font-medium text-slate-700 line-clamp-1 max-w-[400px]">
-                            {selectedQuestion.text || "New Question"}
+                    <div className="flex flex-col gap-0.5 min-w-0">
+                        <div className="flex items-center gap-3">
+                            <Badge variant="outline" className="bg-white text-indigo-600 border-indigo-200 shadow-sm font-semibold shrink-0">
+                                Question #{selectedQuestion.order}
+                            </Badge>
+                            <span className="text-sm font-semibold text-slate-800 line-clamp-1">
+                                {selectedQuestion.compactText || selectedQuestion.text || "New Question"}
+                            </span>
                         </div>
+                        {selectedQuestion.compactText && selectedQuestion.text && (
+                            <span className="text-xs text-slate-400 line-clamp-1 ml-0.5">
+                                {selectedQuestion.text}
+                            </span>
+                        )}
                     </div>
                 </div>
                 <div className="max-w-2xl mx-auto space-y-8 p-8 pt-8">
-                    <div className="space-y-4">
-                        <div className="space-y-3">
-                            <Label className="text-slate-500 uppercase text-xs font-bold tracking-wider">Question Text</Label>
-                            <div className="p-6 bg-white rounded-xl border shadow-sm text-lg font-medium text-slate-900 leading-relaxed group relative pr-10">
-                                <InlineTextEditor
-                                    value={selectedQuestion.text || ""}
-                                    onSave={(newText) => updateQuestion(selectedQuestion.id, { text: newText })}
-                                />
-                            </div>
-                        </div>
-                    </div>
 
+                    {/* Section 1: Map to Data Field (primary action — first) */}
                     <div className="space-y-4">
                         <div className="flex items-center gap-2 mb-2">
                             <LayoutList className="h-5 w-5 text-indigo-600" />
                             <h3 className="font-semibold text-slate-900">Map to Data Field</h3>
                         </div>
 
-                        {/* UNIFIED FIELD SELECTOR */}
                         <div className="bg-white rounded-xl border shadow-sm p-1">
                             <FieldSelector
                                 value={
@@ -534,7 +574,7 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
                         )}
                     </div>
 
-                    {/* Configuration Details */}
+                    {/* Section 2: Question Settings */}
                     <div className="space-y-4 pt-4 border-t border-slate-100">
                         <div className="flex items-center gap-2 mb-2">
                             <Settings className="h-5 w-5 text-indigo-600" />
@@ -590,6 +630,21 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
                             </div>
                         </div>
                     </div>
+
+                    {/* Section 3: Original Question (reference context — last) */}
+                    <div className="space-y-4 pt-4 border-t border-slate-100">
+                        <div className="space-y-1">
+                            <Label className="text-slate-500 uppercase text-xs font-bold tracking-wider">Original Question</Label>
+                            <p className="text-xs text-slate-400">Source text from the imported questionnaire. Edit only to correct digitisation errors.</p>
+                        </div>
+                        <div className="p-5 bg-slate-50 rounded-xl border border-slate-100 text-sm text-slate-700 leading-relaxed group relative pr-10">
+                            <InlineTextEditor
+                                value={selectedQuestion.text || ""}
+                                onSave={(newText) => updateQuestion(selectedQuestion.id, { text: newText })}
+                            />
+                        </div>
+                    </div>
+
                 </div>
             </div>
         );
@@ -679,114 +734,148 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
                             </div>
                         </div>
 
-                        {/* Table Header */}
-                        <div className="grid grid-cols-[60px_32px_1fr_180px_200px_60px_100px_90px] gap-4 px-6 py-3 bg-slate-50 border-b text-xs font-semibold text-slate-500 uppercase tracking-wider items-center">
+
+                        {/* Column headers — restore left-to-right reading flow */}
+                        <div className={cn(GRID_COLS, "gap-4 px-4 py-2 bg-slate-50 border-b text-[10px] font-semibold text-slate-400 uppercase tracking-widest items-center select-none")}>
                             <div>Order</div>
-                            <div></div>
-                            <div>Question Text</div>
                             <div>Compact Label</div>
                             <div>Mapping</div>
                             <div className="flex justify-center" title="Allow File Attachments">
-                                <Paperclip className="h-4 w-4" />
+                                <Paperclip className="h-3.5 w-3.5" />
                             </div>
-                            <div>Status</div>
-                            <div className="text-right">Actions</div>
+                            <div />
                         </div>
 
-                        {/* Table Body */}
+                        {/* List Body */}
                         <div className="flex-1 overflow-y-auto">
                             <div className="divide-y divide-slate-100">
                                 {filteredQuestions.map((q: any) => {
                                     const isMapped = q.masterFieldNo || q.masterQuestionGroupId || q.customFieldDefinitionId;
-
-                                    // Determine current value for selector
                                     const mappingValue =
                                         q.masterFieldNo ? `master:${q.masterFieldNo}` :
                                             q.masterQuestionGroupId ? `group:${q.masterQuestionGroupId}` :
                                                 q.customFieldDefinitionId ? `custom:${q.customFieldDefinitionId}` :
                                                     null;
 
+                                    // Resolved standing data value for master-mapped fields
+                                    const resolved = q.masterFieldNo ? resolvedValueFor(q.masterFieldNo) : null;
+
+                                    // Derive field label from allOptions (masterFields / masterGroups / customFields)
+                                    const allOptions = [
+                                        ...masterFields.map((f: any) => ({ value: `master:${f.fieldNo}`, label: f.fieldName })),
+                                        ...masterGroups.map((g: any) => ({ value: `group:${g.key}`, label: g.fieldName || g.key })),
+                                        ...customFields.map((f: any) => ({ value: `custom:${f.id}`, label: f.label })),
+                                    ];
+                                    const selectedOption = allOptions.find((o: any) => o.value === mappingValue);
+
+                                    const isSelected = selectedQuestionId === q.id;
+
                                     return (
-                                        <div key={q.id} className="grid grid-cols-[60px_32px_1fr_180px_200px_60px_100px_90px] gap-4 px-6 py-3 items-center hover:bg-white transition-colors group">
-                                            <div className="text-xs text-slate-400 font-mono">#{q.order}</div>
-                                            <div className="flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity -ml-2">
-                                                <Button variant="ghost" size="icon" className="h-7 w-7 text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50" onClick={() => setSelectedQuestionId(q.id)} title="Edit Question">
-                                                    <Pencil className="h-3.5 w-3.5" />
-                                                </Button>
+                                        <div
+                                            key={q.id}
+                                            className={cn(
+                                                GRID_COLS,
+                                                "gap-4 px-4 py-2.5 items-start transition-colors group cursor-pointer border-l-2",
+                                                isSelected
+                                                    ? "bg-indigo-50/60 border-l-indigo-400"
+                                                    : "hover:bg-slate-50/80 border-l-transparent"
+                                            )}
+                                            onClick={() => setSelectedQuestionId(q.id)}
+                                        >
+                                            {/* Anchor */}
+                                            <div className="text-[11px] text-slate-400 font-mono pt-1 select-none">#{q.order}</div>
+
+                                            {/* Identity zone — Compact Label */}
+                                            <div className="min-w-0 pt-0.5">
+                                                <span className={cn(
+                                                    "text-sm font-semibold leading-tight block truncate",
+                                                    q.compactText ? "text-slate-800" : "text-slate-400 italic font-normal"
+                                                )}>
+                                                    {q.compactText || "Add short name..."}
+                                                </span>
+                                                {!q.compactText && q.text && (
+                                                    <span className="text-xs text-slate-400 truncate block mt-0.5 leading-snug">{q.text}</span>
+                                                )}
                                             </div>
-                                            <div className="text-sm text-slate-700 font-medium pr-8 relative">
-                                                <InlineTextEditor
-                                                    value={q.text || ""}
-                                                    onSave={(newText) => updateQuestion(q.id, { text: newText })}
-                                                    className="line-clamp-2"
-                                                />
-                                            </div>
-                                            <div className="text-sm text-slate-700 font-medium relative pr-8 pl-1">
-                                                <div className="flex items-center gap-1 group/compact w-full relative">
-                                                    <InlineTextEditor
-                                                        value={q.compactText || ""}
-                                                        onSave={(newText) => updateQuestion(q.id, { compactText: newText })}
-                                                        className="line-clamp-1 italic text-slate-500 text-xs flex-1 max-w-[calc(100%-24px)]"
+
+                                            {/* Mapping zone */}
+                                            <div className="min-w-0" onClick={(e) => e.stopPropagation()}>
+                                                {isMapped ? (
+                                                    <>
+                                                        {/* Row 1: Mapped badge → Field name selector */}
+                                                        <div className="flex items-center gap-1.5 min-w-0">
+                                                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-green-50 text-green-700 border border-green-200 shrink-0">
+                                                                <CheckCircle2 className="h-2.5 w-2.5" />
+                                                                Mapped
+                                                            </span>
+                                                            <span className="text-green-700 text-xs font-semibold shrink-0">→</span>
+                                                            <div className="flex-1 min-w-0">
+                                                                <FieldSelector
+                                                                    value={mappingValue}
+                                                                    onSelect={(val, type, label) => {
+                                                                        if (type === 'create') handleCreateCustomField(label!);
+                                                                        else if (type === 'master') updateQuestion(q.id, { masterFieldNo: parseInt(val), masterQuestionGroupId: null, customFieldDefinitionId: null });
+                                                                        else if (type === 'group') updateQuestion(q.id, { masterQuestionGroupId: val, masterFieldNo: null, customFieldDefinitionId: null });
+                                                                        else if (type === 'custom') updateQuestion(q.id, { customFieldDefinitionId: val, masterFieldNo: null, masterQuestionGroupId: null });
+                                                                        else if (type === 'clear') updateQuestion(q.id, { masterFieldNo: null, masterQuestionGroupId: null, customFieldDefinitionId: null });
+                                                                    }}
+                                                                    customFields={customFields}
+                                                                    compact
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                        {/* Row 2: Resolved value chip (master-mapped fields only) */}
+                                                        {q.masterFieldNo && (
+                                                            <div className="mt-1 mx-1">
+                                                                {resolved ? (
+                                                                    <div className="flex items-center gap-1.5 px-2 py-1 bg-slate-50 border border-slate-100 rounded text-xs leading-snug">
+                                                                        <span className="text-slate-600 truncate flex-1">{resolved.display}</span>
+                                                                        {resolved.isUser && <span className="text-slate-400 shrink-0">· User</span>}
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="px-2 py-1">
+                                                                        <span className="text-xs text-slate-300 italic">— No data</span>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </>
+                                                ) : (
+                                                    <FieldSelector
+                                                        value={null}
+                                                        onSelect={(val, type, label) => {
+                                                            if (type === 'create') handleCreateCustomField(label!);
+                                                            else if (type === 'master') updateQuestion(q.id, { masterFieldNo: parseInt(val), masterQuestionGroupId: null, customFieldDefinitionId: null });
+                                                            else if (type === 'group') updateQuestion(q.id, { masterQuestionGroupId: val, masterFieldNo: null, customFieldDefinitionId: null });
+                                                            else if (type === 'custom') updateQuestion(q.id, { customFieldDefinitionId: val, masterFieldNo: null, masterQuestionGroupId: null });
+                                                            else if (type === 'clear') updateQuestion(q.id, { masterFieldNo: null, masterQuestionGroupId: null, customFieldDefinitionId: null });
+                                                        }}
+                                                        customFields={customFields}
+                                                        compact
                                                     />
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className={cn(
-                                                            "h-6 w-6 absolute right-0 transition-opacity",
-                                                            q.compactText ? "opacity-0 group-hover/compact:opacity-100" : "opacity-100"
-                                                        )}
-                                                        onClick={() => handleGenerateCompactText(q.id, q.text)}
-                                                        disabled={generatingCompact[q.id] || !q.text}
-                                                        title="Generate Short Name via AI"
-                                                    >
-                                                        {generatingCompact[q.id] ? (
-                                                            <Loader2 className="h-3 w-3 animate-spin text-indigo-500" />
-                                                        ) : (
-                                                            <RefreshCw className="h-3 w-3 text-slate-400 hover:text-indigo-600" />
-                                                        )}
-                                                    </Button>
-                                                </div>
+                                                )}
                                             </div>
-                                            <div>
-                                                <FieldSelector
-                                                    value={mappingValue}
-                                                    onSelect={(val, type, label) => {
-                                                        if (type === 'create') handleCreateCustomField(label!);
-                                                        else if (type === 'master') updateQuestion(q.id, { masterFieldNo: parseInt(val), masterQuestionGroupId: null, customFieldDefinitionId: null });
-                                                        else if (type === 'group') updateQuestion(q.id, { masterQuestionGroupId: val, masterFieldNo: null, customFieldDefinitionId: null });
-                                                        else if (type === 'custom') updateQuestion(q.id, { customFieldDefinitionId: val, masterFieldNo: null, masterQuestionGroupId: null });
-                                                        else if (type === 'clear') updateQuestion(q.id, { masterFieldNo: null, masterQuestionGroupId: null, customFieldDefinitionId: null });
-                                                    }}
-                                                    customFields={customFields}
-                                                    compact
-                                                />
-                                            </div>
-                                            <div className="flex justify-center">
+
+
+                                            {/* Attachment toggle */}
+                                            <div className="flex justify-center pt-1" onClick={(e) => e.stopPropagation()}>
                                                 <Switch
                                                     checked={q.allowAttachments || false}
                                                     onCheckedChange={(checked) => updateQuestion(q.id, { allowAttachments: checked })}
                                                     className="scale-75"
                                                 />
                                             </div>
-                                            <div className="flex items-center gap-2">
-                                                {isMapped ? (
-                                                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 gap-1 pl-1 pr-2 py-0.5 h-6">
-                                                        <CheckCircle2 className="h-3 w-3" />
-                                                        Mapped
-                                                    </Badge>
-                                                ) : (
-                                                    <span className="text-xs text-slate-400 group-hover:text-slate-500">-</span>
-                                                )}
-                                            </div>
-                                            <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-slate-600" onClick={() => handleMoveQuestionUp(q.id)}>
-                                                    <ChevronRight className="h-4 w-4 -rotate-90" />
+
+                                            {/* Actions — hover-only */}
+                                            <div className="flex items-center justify-end gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity pt-0.5" onClick={(e) => e.stopPropagation()}>
+                                                <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-slate-600" onClick={() => handleMoveQuestionUp(q.id)}>
+                                                    <ChevronRight className="h-3.5 w-3.5 -rotate-90" />
                                                 </Button>
-                                                <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-slate-600" onClick={() => handleMoveQuestionDown(q.id)}>
-                                                    <ChevronRight className="h-4 w-4 rotate-90" />
+                                                <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-slate-600" onClick={() => handleMoveQuestionDown(q.id)}>
+                                                    <ChevronRight className="h-3.5 w-3.5 rotate-90" />
                                                 </Button>
-                                                <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:text-red-500 hover:bg-red-50" onClick={() => handleRemoveQuestion(q.id)}>
-                                                    <svg width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-4 w-4"><path d="M5.5 1C5.22386 1 5 1.22386 5 1.5C5 1.77614 5.22386 2 5.5 2H9.5C9.77614 2 10 1.77614 10 1.5C10 1.22386 9.77614 1 9.5 1H5.5ZM3 3.5C3 3.22386 3.22386 3 3.5 3H11.5C11.7761 3 12 3.22386 12 3.5C12 3.77614 11.7761 4 11.5 4H11V12C11 12.5523 10.5523 13 10 13H5C4.44772 13 4 12.5523 4 12V4H3.5C3.22386 4 3 3.77614 3 3.5ZM5 4H10V12H5V4Z" fill="currentColor" fillRule="evenodd" clipRule="evenodd"></path></svg>
+                                                <Button variant="ghost" size="icon" className="h-6 w-6 text-red-400 hover:text-red-500 hover:bg-red-50" onClick={() => handleRemoveQuestion(q.id)}>
+                                                    <svg width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5"><path d="M5.5 1C5.22386 1 5 1.22386 5 1.5C5 1.77614 5.22386 2 5.5 2H9.5C9.77614 2 10 1.77614 10 1.5C10 1.22386 9.77614 1 9.5 1H5.5ZM3 3.5C3 3.22386 3.22386 3 3.5 3H11.5C11.7761 3 12 3.22386 12 3.5C12 3.77614 11.7761 4 11.5 4H11V12C11 12.5523 10.5523 13 10 13H5C4.44772 13 4 12.5523 4 12V4H3.5C3.22386 4 3 3.77614 3 3.5ZM5 4H10V12H5V4Z" fill="currentColor" fillRule="evenodd" clipRule="evenodd"></path></svg>
                                                 </Button>
                                             </div>
                                         </div>
@@ -803,7 +892,7 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
                     </div>
             </div>
 
-            {/* GRID VIEW MODAL (Sheet) */}
+            {/* DETAIL PANEL (Sheet) */}
                 <Sheet open={!!selectedQuestionId} onOpenChange={(open) => !open && setSelectedQuestionId(null)}>
                     <SheetContent className="w-[600px] sm:max-w-[600px] sm:w-[600px] p-0 flex flex-col bg-white border-l-0 shadow-2xl">
                         <DialogTitle className="sr-only">Edit Question</DialogTitle>

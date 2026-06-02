@@ -74,8 +74,15 @@ vi.mock('@/domain/registry', () => ({
     RegistryConnectorFactory: { getConnectorForProvider: vi.fn() },
 }));
 
-vi.mock('@/domain/kyc/FieldDefinitions', () => ({
-    getFieldDefinition: vi.fn().mockReturnValue({ fieldName: 'Test Field', model: 'LegalEntity', field: 'name' }),
+vi.mock('@/services/masterData/definitionService', () => ({
+    getMasterFieldDefinition: vi.fn().mockResolvedValue({
+        fieldNo: 1,
+        fieldName: 'Test Field',
+        masterDataCategory: { displayName: 'LegalEntity' },
+        modelField: 'name',
+    }),
+    listAllMasterGroupsWithItems: vi.fn().mockResolvedValue([]),
+    refreshDefinitionCache: vi.fn(),
 }));
 
 vi.mock('@/lib/auth', () => ({

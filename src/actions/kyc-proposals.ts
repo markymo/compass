@@ -5,7 +5,7 @@ import { EvidenceService } from "@/services/kyc/EvidenceService";
 import { mapGleifPayloadToFieldCandidates } from "@/services/kyc/normalization/GleifNormalizer";
 import { KycWriteService } from "@/services/kyc/KycWriteService";
 import { FieldProposal, ProvenanceSource } from "@/domain/kyc/types/ProposalTypes";
-import { getFieldDefinition } from "@/domain/kyc/FieldDefinitions";
+import { getMasterFieldDefinition } from "@/services/masterData/definitionService";
 import { revalidatePath } from "next/cache";
 import prisma from "@/lib/prisma";
 import { KycStateService } from "@/lib/kyc/KycStateService";
@@ -122,19 +122,29 @@ export async function refreshGleifProposals(legalEntityId: string): Promise<{ su
         const proposals: FieldProposal[] = [];
 
         for (const candidate of candidates) {
-            const def = getFieldDefinition(candidate.fieldNo);
+            // Use DB-backed lookup so dynamically created fields (fieldNo > 122) work.
+            let def;
+            try {
+                def = await getMasterFieldDefinition(candidate.fieldNo);
+            } catch {
+                console.warn(
+                    `[refreshGleifProposals] Skipping candidate: fieldNo ${candidate.fieldNo} not found in MasterFieldDefinition. ` +
+                    `Ensure the field is active in the admin Master Data manager.`
+                );
+                continue;
+            }
 
-            // Pass 'CLIENT_LE' because legalEntityId here is a ClientClientLE.id
+            // Pass 'CLIENT_LE' because legalEntityId here is a ClientLE.id
             const evaluation = await kycWriteService.evaluateFieldCandidate(legalEntityId, candidate, 'CLIENT_LE');
 
             proposals.push({
                 fieldNo: candidate.fieldNo,
                 fieldName: def.fieldName,
-                table: def.model,
-                column: def.field,
+                table: (def as any).masterDataCategory?.displayName ?? null,
+                column: def.modelField ?? null,
                 current: evaluation.currentValue ? {
                     value: evaluation.currentValue,
-                    source: (evaluation.currentSource as ProvenanceSource) || 'SYSTEM' 
+                    source: (evaluation.currentSource as ProvenanceSource) || 'SYSTEM'
                 } : undefined,
                 proposed: {
                     value: candidate.value,
@@ -195,14 +205,25 @@ export async function getGleifProposalsFromCache(legalEntityId: string): Promise
         const proposals: FieldProposal[] = [];
 
         for (const candidate of candidates) {
-            const def = getFieldDefinition(candidate.fieldNo);
+            // Use DB-backed lookup so dynamically created fields (fieldNo > 122) work.
+            let def;
+            try {
+                def = await getMasterFieldDefinition(candidate.fieldNo);
+            } catch {
+                console.warn(
+                    `[getGleifProposalsFromCache] Skipping candidate: fieldNo ${candidate.fieldNo} not found in MasterFieldDefinition. ` +
+                    `Ensure the field is active in the admin Master Data manager.`
+                );
+                continue;
+            }
+
             const evaluation = await kycWriteService.evaluateFieldCandidate(legalEntityId, candidate, 'CLIENT_LE');
 
             proposals.push({
                 fieldNo: candidate.fieldNo,
                 fieldName: def.fieldName,
-                table: def.model,
-                column: def.field,
+                table: (def as any).masterDataCategory?.displayName ?? null,
+                column: def.modelField ?? null,
                 current: evaluation.currentValue ? {
                     value: evaluation.currentValue,
                     source: (evaluation.currentSource as ProvenanceSource) || 'SYSTEM'
