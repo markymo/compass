@@ -103,7 +103,7 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                 const hasValue = data?.value !== null && data?.value !== undefined && data?.value !== "";
 
                 const matchesSearch = f.fieldName.toLowerCase().includes(search.toLowerCase()) ||
-                    (f.notes && f.notes.toLowerCase().includes(search.toLowerCase()));
+                    (f.description && f.description.toLowerCase().includes(search.toLowerCase()));
                 const matchesPop = popFilter === "ALL" || (popFilter === "POPULATED" ? hasValue : !hasValue);
 
                 return matchesSearch && matchesPop;
@@ -124,7 +124,7 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
             const hasValue = data?.value !== null && data?.value !== undefined && data?.value !== "";
 
             const matchesSearch = f.fieldName.toLowerCase().includes(search.toLowerCase()) ||
-                (f.notes && f.notes.toLowerCase().includes(search.toLowerCase()));
+                (f.description && f.description.toLowerCase().includes(search.toLowerCase()));
             const matchesPop = popFilter === "ALL" || (popFilter === "POPULATED" ? hasValue : !hasValue);
 
             return matchesSearch && matchesPop;
@@ -500,7 +500,7 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                                                 value={data?.value}
                                                 source={data?.source as any}
                                                 sourceReference={data?.sourceReference}
-                                                description={field.notes}
+                                                description={field.description}
                                                 registrationAuthorityId={registrationAuthorityId}
                                                 onClick={() => setSelectedField({ fieldNo: field.fieldNo, name: field.fieldName })}
                                             />
@@ -530,7 +530,7 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                                             value={data?.value}
                                             source={data?.source as any}
                                             sourceReference={data?.sourceReference}
-                                            description={field.notes}
+                                            description={field.description}
                                             registrationAuthorityId={registrationAuthorityId}
                                             onClick={() => setSelectedField({ fieldNo: field.fieldNo, name: field.fieldName })}
                                         />
