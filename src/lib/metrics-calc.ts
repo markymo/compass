@@ -160,7 +160,7 @@ async function getActiveClaimsContext(legalEntityId?: string | null, customData?
 
     if (legalEntityId) {
         const claims = await prisma.fieldClaim.findMany({
-            where: { subjectLeId: legalEntityId, status: "VERIFIED" },
+            where: { subjectLeId: legalEntityId, status: { in: ["VERIFIED", "ASSERTED"] } },
             select: { fieldNo: true }
         });
         claims.forEach((c: any) => activeClaims.add(c.fieldNo));

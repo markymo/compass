@@ -171,9 +171,9 @@ export function EngagementDetailView({ le, engagement, questionnaires, sharedDoc
                         Invite User
                     </Button>
                 </div>
-                {metrics && (
+                {(activeQuestionnaire?.metrics ?? metrics) && (
                     <div className="flex-1 w-full md:w-auto">
-                        <ProgressTracker metrics={metrics} variant={"v2" as any} className="w-full" />
+                        <ProgressTracker metrics={activeQuestionnaire?.metrics ?? metrics} variant={"v2" as any} className="w-full" />
                     </div>
                 )}
             </div>
