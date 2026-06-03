@@ -61,6 +61,7 @@ export async function getQuestionnairesV2(): Promise<{
             name: true,
             status: true,
             isGlobal: true,
+            sourceId: true, // lineage column
             updatedAt: true,
             createdAt: true,
             fileName: true,
@@ -87,8 +88,8 @@ export async function getQuestionnairesV2(): Promise<{
             createdAt: r.createdAt,
             hasFile: !!(r.fileName || r.fileUrl),
             basedOn: refMeta?.sourceName ?? null,
-            sourceId: refMeta?.sourceId ?? null,
-            // Working copies created from references carry _ref too — they are still "working-copy" kind
+            // Read sourceId from the real DB column; fall back to processingLogs._ref for pre-migration records
+            sourceId: r.sourceId ?? refMeta?.sourceId ?? null,
             sharingState: isRef
                 ? (refMeta?.sharingState as SharingState | undefined) ?? "PRIVATE"
                 : null,
@@ -127,6 +128,7 @@ export async function addToReferenceLibrary(
                 status: "ACTIVE",
                 isTemplate: true,
                 isGlobal: true,
+                sourceId: workingCopyId, // lineage: derived from this working copy
                 fileUrl: source.fileUrl ?? undefined,
                 fileName: source.fileName ?? undefined,
                 fileType: source.fileType ?? undefined,
@@ -134,7 +136,7 @@ export async function addToReferenceLibrary(
                 mappings: deepCopyJson(source.mappings),
                 processingLogs: {
                     _ref: {
-                        sourceId: source.id,
+                        sourceId: source.id, // kept for backwards compatibility
                         sourceName: source.name,
                         sharingState: "PRIVATE" as SharingState,
                         addedAt: new Date().toISOString(),
@@ -182,6 +184,7 @@ export async function createWorkingCopy(
                 status: "DRAFT",
                 isTemplate: true,
                 isGlobal: false,
+                sourceId: referenceId, // lineage: derived from this reference library entry
                 fileUrl: source.fileUrl ?? undefined,
                 fileName: source.fileName ?? undefined,
                 fileType: source.fileType ?? undefined,
@@ -189,7 +192,7 @@ export async function createWorkingCopy(
                 mappings: deepCopyJson(source.mappings),
                 processingLogs: {
                     _ref: {
-                        sourceId: referenceId,
+                        sourceId: referenceId, // kept for backwards compatibility
                         sourceName: source.name,
                         derivedAt: new Date().toISOString(),
                     },

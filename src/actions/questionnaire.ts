@@ -1047,6 +1047,7 @@ export async function assignQuestionnaireToEngagement(
                 fileUrl: template.fileUrl,
                 fileName: template.fileName,
                 fileType: template.fileType,
+                sourceId: templateId, // lineage: derived from this template
             },
         });
 
@@ -1131,7 +1132,8 @@ export async function cloneQuestionnaire(sourceId: string, newFIOrgId?: string, 
                 extractedContent: extractedToCopy,
                 mappings: mappingsToCopy,
                 isGlobal: false,
-                isTemplate: true
+                isTemplate: true,
+                sourceId: sourceId, // lineage: derived from this source
             }
         });
 
@@ -1225,7 +1227,8 @@ export async function shareQuestionnaireLaterally(sourceQuestionnaireId: string,
                     ownerOrgId: source.ownerOrgId,
                     fileUrl: source.fileUrl,
                     fileName: source.fileName,
-                    fileType: source.fileType
+                    fileType: source.fileType,
+                    sourceId: sourceQuestionnaireId, // lineage: derived from this engagement questionnaire
                 }
             });
 
