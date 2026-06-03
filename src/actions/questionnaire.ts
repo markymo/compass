@@ -934,7 +934,63 @@ async function syncQuestionsToDatabase(id: string, items: any[]) {
     }
 }
 
+/**
+ * Returns the direct parent (if sourceId is set) and all direct children
+ * (questionnaires whose sourceId = id) for the given questionnaire.
+ * Uses the real sourceId FK — not name matching.
+ */
+export async function getQuestionnaireLineage(id: string): Promise<{
+    parent: any | null;
+    children: any[];
+}> {
+    try { await ensureQuestionnaireAccess(id, "READ"); } catch(e) {
+        return { parent: null, children: [] };
+    }
+
+    const questionnaire = await prisma.questionnaire.findUnique({
+        where: { id },
+        select: { sourceId: true },
+    });
+    if (!questionnaire) return { parent: null, children: [] };
+
+    const [parent, children] = await Promise.all([
+        // Parent — resolve sourceId if present
+        questionnaire.sourceId
+            ? prisma.questionnaire.findUnique({
+                where: { id: questionnaire.sourceId },
+                select: {
+                    id: true, name: true, status: true,
+                    isTemplate: true, isGlobal: true, isDeleted: true,
+                    createdAt: true, updatedAt: true,
+                },
+            })
+            : null,
+
+        // Children — all questionnaires derived from this one
+        prisma.questionnaire.findMany({
+            where: { sourceId: id, isDeleted: false },
+            orderBy: { createdAt: "asc" },
+            select: {
+                id: true, name: true, status: true,
+                isTemplate: true, isGlobal: true,
+                createdAt: true,
+                fiEngagementId: true,
+                fiEngagement: {
+                    select: {
+                        id: true,
+                        clientLE: { select: { id: true, name: true } },
+                        org: { select: { id: true, name: true } },
+                    },
+                },
+            },
+        }),
+    ]);
+
+    return { parent: parent ?? null, children };
+}
+
 export async function getQuestionnaireSnapshots(templateId: string) {
+
     try { await ensureQuestionnaireAccess(templateId, "READ"); } catch(e) {
         return { success: false, error: "Unauthorized" };
     }

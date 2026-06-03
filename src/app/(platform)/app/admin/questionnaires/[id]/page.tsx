@@ -1,4 +1,4 @@
-import { getQuestionnaireById } from "@/actions/questionnaire";
+import { getQuestionnaireById, getQuestionnaireLineage } from "@/actions/questionnaire";
 import { getMasterSchemaFields } from "@/actions/schema-utils";
 import { QuestionnaireManager } from "@/components/admin/questionnaire/questionnaire-manager";
 
@@ -11,9 +11,10 @@ interface PageProps {
 export default async function ManageQuestionnairePage({ params }: PageProps) {
     const { id } = await params;
 
-    const [questionnaire, masterFields] = await Promise.all([
+    const [questionnaire, masterFields, lineage] = await Promise.all([
         getQuestionnaireById(id),
-        getMasterSchemaFields()
+        getMasterSchemaFields(),
+        getQuestionnaireLineage(id),
     ]);
 
     if (!questionnaire) {
@@ -28,6 +29,7 @@ export default async function ManageQuestionnairePage({ params }: PageProps) {
         <QuestionnaireManager
             questionnaire={questionnaire}
             masterFields={masterFields}
+            lineage={lineage}
         />
     );
 }
