@@ -3,7 +3,8 @@
 import { useState, useEffect, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { QV2Row, SharingState, addToReferenceLibrary, createWorkingCopy, updateSharingState } from "@/actions/questionnaires-v2";
-import { BookMarked, BookOpen, PenLine, Loader2, Globe, Lock, Plus, Upload, Info, Share2 } from "lucide-react";
+import { createManualQuestionnaire } from "@/actions/questionnaire";
+import { BookMarked, BookOpen, PenLine, Loader2, Globe, Lock, Plus, Upload, Info, Share2, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { ExplorerTable, DetailDrawer, EmptyState } from "./ExplorerComponents";
@@ -24,6 +25,7 @@ export function QuestionnairesV2Explorer({ data, initialTab }: Props) {
     const [confirmShare, setConfirmShare] = useState<QV2Row | null>(null);
     const [pendingSelectId, setPendingSelectId] = useState<string | null>(null);
     const [pendingSelectTab, setPendingSelectTab] = useState<TabKey | null>(null);
+    const [showNewWCDialog, setShowNewWCDialog] = useState(false);
 
     useEffect(() => {
         if (!pendingSelectId || !pendingSelectTab) return;
@@ -67,7 +69,7 @@ export function QuestionnairesV2Explorer({ data, initialTab }: Props) {
                             <h1 className="text-xl font-semibold text-slate-900 tracking-tight">Questionnaires</h1>
                             <p className="text-xs text-slate-400 mt-0.5">Working copies &amp; reference library</p>
                         </div>
-                        <TopAction tab={tab} />
+                        <TopAction tab={tab} onNewWorkingCopy={() => setShowNewWCDialog(true)} />
                     </div>
 
                     <div className="flex items-center border-b border-slate-200">
@@ -101,6 +103,12 @@ export function QuestionnairesV2Explorer({ data, initialTab }: Props) {
             {confirmShare && (
                 <ShareDialog row={confirmShare} onCancel={() => setConfirmShare(null)}
                     onSuccess={() => { setConfirmShare(null); setPendingSelectId(confirmShare.id); setPendingSelectTab("reference"); setSelected(null); router.refresh(); }} />
+            )}
+            {showNewWCDialog && (
+                <NewWorkingCopyDialog
+                    onCancel={() => setShowNewWCDialog(false)}
+                    onSuccess={(id) => { setShowNewWCDialog(false); router.push(`/app/admin/questionnaires/${id}`); }}
+                />
             )}
         </>
     );
@@ -248,9 +256,9 @@ function DialogFooter({ onCancel, onConfirm, isPending, confirmLabel }: { onCanc
 
 // ── Tab / header primitives ──────────────────────────────────────────────────
 
-function TopAction({ tab }: { tab: TabKey }) {
+function TopAction({ tab, onNewWorkingCopy }: { tab: TabKey; onNewWorkingCopy: () => void }) {
     return tab === "working-copy"
-        ? <button disabled className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md bg-slate-900 text-white opacity-50 cursor-not-allowed"><Plus className="w-3.5 h-3.5" />New Working Copy</button>
+        ? <button onClick={onNewWorkingCopy} className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md bg-slate-900 text-white hover:bg-slate-700 transition-colors"><Plus className="w-3.5 h-3.5" />New Working Copy</button>
         : <button disabled className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md border border-slate-200 text-slate-600 opacity-50 cursor-not-allowed"><Upload className="w-3.5 h-3.5" />Add Working Copy</button>;
 }
 
@@ -274,5 +282,64 @@ function ReferenceLibraryInfo() {
                 </p>
             </div>
         </div>
+    );
+}
+
+// ── New Working Copy creation dialog ────────────────────────────────────────
+
+import React from "react";
+
+function NewWorkingCopyDialog({ onCancel, onSuccess }: { onCancel: () => void; onSuccess: (id: string) => void }) {
+    const [name, setName] = React.useState("");
+    const [isPending, startTransition] = React.useTransition();
+    const [error, setError] = React.useState<string | null>(null);
+
+    function handle() {
+        if (!name.trim()) { setError("A name is required."); return; }
+        setError(null);
+        startTransition(async () => {
+            const r = await createManualQuestionnaire({
+                name: name.trim(),
+                // Provide a minimal first question so the action's non-empty guard passes;
+                // the admin will edit content in the mapper immediately after creation.
+                questions: "Enter your first question here",
+                isGlobal: false,
+            });
+            if (r.success && r.id) {
+                toast.success("Working Copy created", { description: `"${name.trim()}" is ready to edit.` });
+                onSuccess(r.id);
+            } else {
+                setError(r.error || "Failed to create working copy.");
+            }
+        });
+    }
+
+    return (
+        <DialogShell onBackdropClick={!isPending ? onCancel : undefined}>
+            <div className="flex items-start gap-3 px-5 pt-5 pb-4 border-b border-slate-100">
+                <div className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center shrink-0 mt-0.5">
+                    <FileText className="w-4 h-4 text-slate-600" />
+                </div>
+                <div>
+                    <h2 className="text-sm font-semibold text-slate-900">New Working Copy</h2>
+                    <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">Creates an editable working copy. Publish it to the Reference Library when it's ready for assignment.</p>
+                </div>
+            </div>
+            <div className="px-5 pt-4 pb-4">
+                <label className="text-xs font-semibold text-slate-700 block mb-1.5">Name</label>
+                <input
+                    autoFocus
+                    value={name}
+                    onChange={e => { setName(e.target.value); setError(null); }}
+                    onKeyDown={e => e.key === "Enter" && handle()}
+                    placeholder="e.g. ESG Supplier Questionnaire v3"
+                    className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100 transition-colors"
+                    disabled={isPending}
+                />
+                {error && <p className="text-xs text-red-600 mt-1.5">{error}</p>}
+                <p className="text-[11px] text-slate-400 mt-2">You will be taken to the editor to add questions and mappings.</p>
+            </div>
+            <DialogFooter onCancel={onCancel} onConfirm={handle} isPending={isPending} confirmLabel="Create Working Copy" />
+        </DialogShell>
     );
 }

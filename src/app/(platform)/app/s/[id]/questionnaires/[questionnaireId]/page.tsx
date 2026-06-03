@@ -1,4 +1,4 @@
-import { getQuestionnaireById } from "@/actions/questionnaire";
+import { getQuestionnaireById, getQuestionnaireLineage } from "@/actions/questionnaire";
 import { getMasterSchemaFields } from "@/actions/schema-utils";
 import { QuestionnaireManager } from "@/components/admin/questionnaire/questionnaire-manager";
 import { notFound, redirect } from "next/navigation";
@@ -15,10 +15,11 @@ export default async function FIQuestionnaireManagePage({ params }: PageProps) {
     const { id, questionnaireId } = await params;
 
     // Verify Access: User must belong to the FI that owns this questionnaire
-    const [questionnaire, masterFields, userOrg] = await Promise.all([
+    const [questionnaire, masterFields, userOrg, lineage] = await Promise.all([
         getQuestionnaireById(questionnaireId),
         getMasterSchemaFields(),
-        getFIOganization(id)
+        getFIOganization(id),
+        getQuestionnaireLineage(questionnaireId),
     ]);
 
     if (!questionnaire) {
@@ -35,6 +36,7 @@ export default async function FIQuestionnaireManagePage({ params }: PageProps) {
         <QuestionnaireManager
             questionnaire={questionnaire}
             masterFields={masterFields}
+            lineage={lineage}
         />
     );
 }
