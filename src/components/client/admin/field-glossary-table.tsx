@@ -180,7 +180,7 @@ export function FieldGlossaryTable({ initialFields }: FieldGlossaryTableProps) {
             cell: ({ row }) => <FieldNameCell key={row.original.fieldNo} row={row} router={router} />,
         },
         {
-            accessorKey: "notes",
+            accessorKey: "description",
             header: "Description",
             size: 200,
             cell: ({ row }) => <DescriptionCell key={row.original.fieldNo} row={row} router={router} />,
@@ -510,15 +510,15 @@ function FieldNameCell({ row, router }: { row: any, router: any }) {
 function DescriptionCell({ row, router }: { row: any, router: any }) {
     const field = row.original;
     const [isEditing, setIsEditing] = useState(false);
-    const [val, setVal] = useState(field.notes || "");
+    const [val, setVal] = useState(field.description || "");
     const [saving, setSaving] = useState(false);
 
     useEffect(() => {
-        if (!isEditing) setVal(field.notes || "");
-    }, [field.notes, isEditing]);
+        if (!isEditing) setVal(field.description || "");
+    }, [field.description, isEditing]);
 
     const handleSave = async () => {
-        if (val === field.notes) {
+        if (val === field.description) {
             setIsEditing(false);
             return;
         }
@@ -531,7 +531,7 @@ function DescriptionCell({ row, router }: { row: any, router: any }) {
             router.refresh();
         } else {
             toast.error("Failed to save description");
-            setVal(field.notes || "");
+            setVal(field.description || "");
         }
     };
 
@@ -546,7 +546,7 @@ function DescriptionCell({ row, router }: { row: any, router: any }) {
                     className="min-h-[60px] text-xs resize-none" 
                     onKeyDown={(e)=>{
                         if(e.key==='Enter' && !e.shiftKey){e.preventDefault(); handleSave();} 
-                        if(e.key==='Escape'){setIsEditing(false); setVal(field.notes||"");}
+                        if(e.key==='Escape'){setIsEditing(false); setVal(field.description||"");}
                     }}
                 />
             </div>
@@ -555,9 +555,9 @@ function DescriptionCell({ row, router }: { row: any, router: any }) {
 
     return (
         <div className="cursor-pointer group" onClick={() => setIsEditing(true)}>
-            {field.notes ? (
+            {field.description ? (
                 <span className="text-[11px] text-slate-500 line-clamp-1 italic group-hover:text-indigo-600 leading-tight block">
-                    {field.notes}
+                    {field.description}
                 </span>
             ) : (
                 <span className="text-[10px] text-slate-400 italic">Add description...</span>

@@ -316,10 +316,9 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
         }
     };
 
-    // Shared grid template — 5 zones: anchor / identity / mapping / attachment / actions
-    // Use 1fr for both identity and mapping so the layout degrades gracefully
-    // when the detail panel (600px Sheet) is open on narrower screens.
-    const GRID_COLS = "grid-cols-[36px_1fr_1fr_36px_68px]";
+    // Shared grid template — 4 columns: # / Compact Label / Mapping / Actions
+    // `grid` must be explicit; minmax prevents label column from collapsing.
+    const GRID_COLS = "grid grid-cols-[40px_minmax(160px,_1fr)_minmax(240px,_2fr)_80px]";
 
     // Mapping fields that should trigger auto-save when changed
     const MAPPING_FIELDS = new Set(['masterFieldNo', 'masterQuestionGroupId', 'customFieldDefinitionId', 'allowAttachments']);
@@ -735,15 +734,12 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
                         </div>
 
 
-                        {/* Column headers — restore left-to-right reading flow */}
-                        <div className={cn(GRID_COLS, "gap-4 px-4 py-2 bg-slate-50 border-b text-[10px] font-semibold text-slate-400 uppercase tracking-widest items-center select-none")}>
-                            <div>Order</div>
-                            <div>Compact Label</div>
-                            <div>Mapping</div>
-                            <div className="flex justify-center" title="Allow File Attachments">
-                                <Paperclip className="h-3.5 w-3.5" />
-                            </div>
-                            <div />
+                        {/* Table header */}
+                        <div className={cn(GRID_COLS, "h-9 bg-slate-100 border-b-2 border-slate-200 select-none")}>
+                            <div className="px-3 flex items-center h-full text-[10px] font-semibold text-slate-500 uppercase tracking-widest border-r border-slate-200">#</div>
+                            <div className="px-3 flex items-center h-full text-[10px] font-semibold text-slate-500 uppercase tracking-widest border-r border-slate-200">Compact Label</div>
+                            <div className="px-3 flex items-center h-full text-[10px] font-semibold text-slate-500 uppercase tracking-widest border-r border-slate-200">Mapping</div>
+                            <div className="px-3 flex items-center h-full" />
                         </div>
 
                         {/* List Body */}
@@ -775,99 +771,58 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
                                             key={q.id}
                                             className={cn(
                                                 GRID_COLS,
-                                                "gap-4 px-4 py-2.5 items-start transition-colors group cursor-pointer border-l-2",
+                                                "h-12 border-b border-slate-100 transition-colors group cursor-pointer border-l-2",
                                                 isSelected
-                                                    ? "bg-indigo-50/60 border-l-indigo-400"
-                                                    : "hover:bg-slate-50/80 border-l-transparent"
+                                                    ? "bg-indigo-50/40 border-l-indigo-500"
+                                                    : "hover:bg-slate-50/60 border-l-transparent"
                                             )}
                                             onClick={() => setSelectedQuestionId(q.id)}
                                         >
-                                            {/* Anchor */}
-                                            <div className="text-[11px] text-slate-400 font-mono pt-1 select-none">#{q.order}</div>
+                                            {/* Col 1: # */}
+                                            <div className="px-3 flex items-center h-full border-r border-slate-100 shrink-0">
+                                                <span className="text-[11px] text-slate-400 font-mono tabular-nums select-none">{q.order}</span>
+                                            </div>
 
-                                            {/* Identity zone — Compact Label */}
-                                            <div className="min-w-0 pt-0.5">
+                                            {/* Col 2: Compact Label */}
+                                            <div className="px-3 flex items-center h-full border-r border-slate-100 min-w-0 gap-1.5">
                                                 <span className={cn(
-                                                    "text-sm font-semibold leading-tight block truncate",
-                                                    q.compactText ? "text-slate-800" : "text-slate-400 italic font-normal"
+                                                    "text-sm leading-none truncate",
+                                                    q.compactText ? "font-medium text-slate-800" : "italic font-normal text-slate-400"
                                                 )}>
-                                                    {q.compactText || "Add short name..."}
+                                                    {q.compactText || "Add label..."}
                                                 </span>
-                                                {!q.compactText && q.text && (
-                                                    <span className="text-xs text-slate-400 truncate block mt-0.5 leading-snug">{q.text}</span>
+                                                {q.allowAttachments && (
+                                                    <span title="Attachments enabled" className="shrink-0">
+                                                        <Paperclip className="h-3 w-3 text-slate-300" />
+                                                    </span>
                                                 )}
                                             </div>
 
-                                            {/* Mapping zone */}
-                                            <div className="min-w-0" onClick={(e) => e.stopPropagation()}>
-                                                {isMapped ? (
-                                                    <>
-                                                        {/* Row 1: Mapped badge → Field name selector */}
-                                                        <div className="flex items-center gap-1.5 min-w-0">
-                                                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-green-50 text-green-700 border border-green-200 shrink-0">
-                                                                <CheckCircle2 className="h-2.5 w-2.5" />
-                                                                Mapped
-                                                            </span>
-                                                            <span className="text-green-700 text-xs font-semibold shrink-0">→</span>
-                                                            <div className="flex-1 min-w-0">
-                                                                <FieldSelector
-                                                                    value={mappingValue}
-                                                                    onSelect={(val, type, label) => {
-                                                                        if (type === 'create') handleCreateCustomField(label!);
-                                                                        else if (type === 'master') updateQuestion(q.id, { masterFieldNo: parseInt(val), masterQuestionGroupId: null, customFieldDefinitionId: null });
-                                                                        else if (type === 'group') updateQuestion(q.id, { masterQuestionGroupId: val, masterFieldNo: null, customFieldDefinitionId: null });
-                                                                        else if (type === 'custom') updateQuestion(q.id, { customFieldDefinitionId: val, masterFieldNo: null, masterQuestionGroupId: null });
-                                                                        else if (type === 'clear') updateQuestion(q.id, { masterFieldNo: null, masterQuestionGroupId: null, customFieldDefinitionId: null });
-                                                                    }}
-                                                                    customFields={customFields}
-                                                                    compact
-                                                                />
-                                                            </div>
-                                                        </div>
-                                                        {/* Row 2: Resolved value chip (master-mapped fields only) */}
-                                                        {q.masterFieldNo && (
-                                                            <div className="mt-1 mx-1">
-                                                                {resolved ? (
-                                                                    <div className="flex items-center gap-1.5 px-2 py-1 bg-slate-50 border border-slate-100 rounded text-xs leading-snug">
-                                                                        <span className="text-slate-600 truncate flex-1">{resolved.display}</span>
-                                                                        {resolved.isUser && <span className="text-slate-400 shrink-0">· User</span>}
-                                                                    </div>
-                                                                ) : (
-                                                                    <div className="px-2 py-1">
-                                                                        <span className="text-xs text-slate-300 italic">— No data</span>
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        )}
-                                                    </>
-                                                ) : (
-                                                    <FieldSelector
-                                                        value={null}
-                                                        onSelect={(val, type, label) => {
-                                                            if (type === 'create') handleCreateCustomField(label!);
-                                                            else if (type === 'master') updateQuestion(q.id, { masterFieldNo: parseInt(val), masterQuestionGroupId: null, customFieldDefinitionId: null });
-                                                            else if (type === 'group') updateQuestion(q.id, { masterQuestionGroupId: val, masterFieldNo: null, customFieldDefinitionId: null });
-                                                            else if (type === 'custom') updateQuestion(q.id, { customFieldDefinitionId: val, masterFieldNo: null, masterQuestionGroupId: null });
-                                                            else if (type === 'clear') updateQuestion(q.id, { masterFieldNo: null, masterQuestionGroupId: null, customFieldDefinitionId: null });
-                                                        }}
-                                                        customFields={customFields}
-                                                        compact
-                                                    />
-                                                )}
-                                            </div>
-
-
-                                            {/* Attachment toggle */}
-                                            <div className="flex justify-center pt-1" onClick={(e) => e.stopPropagation()}>
-                                                <Switch
-                                                    checked={q.allowAttachments || false}
-                                                    onCheckedChange={(checked) => updateQuestion(q.id, { allowAttachments: checked })}
-                                                    className="scale-75"
+                                            {/* Col 3: Mapping — plain table-cell text, no ghost button */}
+                                            <div
+                                                className="px-3 flex items-center h-full border-r border-slate-100 min-w-0"
+                                                onClick={(e) => e.stopPropagation()}
+                                            >
+                                                <FieldSelector
+                                                    value={mappingValue}
+                                                    onSelect={(val, type, label) => {
+                                                        if (type === 'create') handleCreateCustomField(label!);
+                                                        else if (type === 'master') updateQuestion(q.id, { masterFieldNo: parseInt(val), masterQuestionGroupId: null, customFieldDefinitionId: null });
+                                                        else if (type === 'group') updateQuestion(q.id, { masterQuestionGroupId: val, masterFieldNo: null, customFieldDefinitionId: null });
+                                                        else if (type === 'custom') updateQuestion(q.id, { customFieldDefinitionId: val, masterFieldNo: null, masterQuestionGroupId: null });
+                                                        else if (type === 'clear') updateQuestion(q.id, { masterFieldNo: null, masterQuestionGroupId: null, customFieldDefinitionId: null });
+                                                    }}
+                                                    customFields={customFields}
+                                                    tableMode
+                                                    resolvedDisplay={resolved?.display ?? null}
                                                 />
                                             </div>
 
-                                            {/* Actions — hover-only */}
-                                            <div className="flex items-center justify-end gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity pt-0.5" onClick={(e) => e.stopPropagation()}>
+                                            {/* Col 4: Actions — hover-only */}
+                                            <div
+                                                className="px-2 flex items-center justify-end h-full gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                onClick={(e) => e.stopPropagation()}
+                                            >
                                                 <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-slate-600" onClick={() => handleMoveQuestionUp(q.id)}>
                                                     <ChevronRight className="h-3.5 w-3.5 -rotate-90" />
                                                 </Button>
@@ -903,11 +858,13 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
     );
 
     // SUB-COMPONENT: UNIFIED FIELD SELECTOR
-    function FieldSelector({ value, onSelect, customFields, compact = false }: {
+    function FieldSelector({ value, onSelect, customFields, compact = false, tableMode = false, resolvedDisplay = null }: {
         value: string | null;
         onSelect: (val: string, type: 'master' | 'group' | 'custom' | 'create' | 'clear', label?: string) => void;
         customFields: any[];
         compact?: boolean;
+        tableMode?: boolean;        // renders trigger as plain text (spreadsheet cell) instead of ghost Button
+        resolvedDisplay?: string | null;  // example value shown muted after field name in tableMode
     }) {
         const [open, setOpen] = useState(false);
         const [search, setSearch] = useState("");
@@ -943,25 +900,56 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
         return (
             <Popover open={open} onOpenChange={setOpen}>
                 <PopoverTrigger asChild>
-                    <Button
-                        variant="ghost"
-                        role="combobox"
-                        aria-expanded={open}
-                        className={cn(
-                            "w-full justify-between font-normal text-left hover:bg-slate-50",
-                            compact ? "h-8 px-2 py-0" : "h-auto py-3 px-4"
-                        )}
-                    >
-                        {selectedOption ? (
-                            <div className={cn("flex items-start gap-0.5 min-w-0 flex-1", compact ? "flex-row items-center gap-2" : "flex-col")}>
-                                <span className={cn("font-medium text-slate-900 truncate", compact ? "text-xs" : "")}>{selectedOption.label}</span>
-                                {!compact && <span className="text-xs text-slate-400">{selectedOption.meta}</span>}
-                            </div>
-                        ) : (
-                            <span className="text-slate-400 truncate">Select field...</span>
-                        )}
-                        <ChevronRight className="ml-2 h-4 w-4 shrink-0 opacity-50 rotate-90" />
-                    </Button>
+                    {tableMode ? (
+                        // TABLE MODE: plain inline text trigger — looks like spreadsheet cell data
+                        <div
+                            role="button"
+                            aria-expanded={open}
+                            className="flex items-center gap-1.5 w-full min-w-0 h-full cursor-pointer group/cell"
+                        >
+                            {selectedOption ? (
+                                <>
+                                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-green-50 text-green-700 border border-green-200 shrink-0">
+                                        <CheckCircle2 className="h-2.5 w-2.5" />
+                                        Mapped
+                                    </span>
+                                    <span className="text-green-600 text-xs font-bold shrink-0">→</span>
+                                    <span className="text-sm font-medium text-slate-800 truncate flex-1 min-w-0">{selectedOption.label}</span>
+                                    {resolvedDisplay && (
+                                        <span className="text-xs text-slate-400 truncate shrink-0 max-w-[120px]" title={resolvedDisplay}>
+                                            · {resolvedDisplay}
+                                        </span>
+                                    )}
+                                    <ChevronRight className="h-3 w-3 text-slate-300 shrink-0 opacity-0 group-hover/cell:opacity-100 transition-opacity rotate-90" />
+                                </>
+                            ) : (
+                                <>
+                                    <Search className="h-3.5 w-3.5 text-slate-300 shrink-0" />
+                                    <span className="text-sm italic text-slate-400">Select field...</span>
+                                </>
+                            )}
+                        </div>
+                    ) : (
+                        <Button
+                            variant="ghost"
+                            role="combobox"
+                            aria-expanded={open}
+                            className={cn(
+                                "w-full justify-between font-normal text-left hover:bg-slate-50",
+                                compact ? "h-8 px-2 py-0" : "h-auto py-3 px-4"
+                            )}
+                        >
+                            {selectedOption ? (
+                                <div className={cn("flex items-start gap-0.5 min-w-0 flex-1", compact ? "flex-row items-center gap-2" : "flex-col")}>
+                                    <span className={cn("font-medium text-slate-900 truncate", compact ? "text-xs" : "")}>{selectedOption.label}</span>
+                                    {!compact && <span className="text-xs text-slate-400">{selectedOption.meta}</span>}
+                                </div>
+                            ) : (
+                                <span className="text-slate-400 truncate">Select field...</span>
+                            )}
+                            <ChevronRight className="ml-2 h-4 w-4 shrink-0 opacity-50 rotate-90" />
+                        </Button>
+                    )}
                 </PopoverTrigger>
                 <PopoverContent className="w-[400px] p-0 bg-white shadow-xl z-50 max-h-[400px]" align="start">
                     <Command shouldFilter={false} className="max-h-[400px]">

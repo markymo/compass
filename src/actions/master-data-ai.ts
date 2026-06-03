@@ -58,9 +58,9 @@ export async function generateFieldDescription(
 }
 
 /**
- * Updates a master data field's notes/description.
+ * Updates a master data field's description.
  */
-export async function updateFieldDescription(fieldNo: number, notes: string): Promise<{ success: boolean; error?: string }> {
+export async function updateFieldDescription(fieldNo: number, description: string): Promise<{ success: boolean; error?: string }> {
     try {
         if (!(await isSystemAdmin())) {
             return { success: false, error: "Unauthorized. Must be system admin." };
@@ -68,7 +68,7 @@ export async function updateFieldDescription(fieldNo: number, notes: string): Pr
 
         await (prisma as any).masterFieldDefinition.update({
             where: { fieldNo },
-            data: { notes }
+            data: { description }
         });
 
         return { success: true };
