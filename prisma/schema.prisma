@@ -319,10 +319,16 @@ model Questionnaire {
   dueDate          DateTime?
   fileUrl          String?
   isTemplate       Boolean                @default(false)
+  /// Lineage: the questionnaire this record was directly derived from (clone, assign, promote, lateral share).
+  /// Null for original / uploaded / manually-created questionnaires.
+  /// ancestry only — no inheritance, sync, or merge semantics.
+  sourceId         String?
   questions        Question[]
   fiEngagement     FIEngagement?          @relation("QuestionnaireInstance", fields: [fiEngagementId], references: [id], onDelete: Cascade)
   fiOrg            Organization           @relation(fields: [fiOrgId], references: [id])
   ownerOrg         Organization?          @relation("OwnedQuestionnaires", fields: [ownerOrgId], references: [id])
+  source           Questionnaire?         @relation("QuestionnaireLineage", fields: [sourceId], references: [id], onDelete: SetNull)
+  derivedVersions  Questionnaire[]        @relation("QuestionnaireLineage")
   versions         QuestionnaireVersion[]
   engagements      FIEngagement[]         @relation("FIEngagementToQuestionnaire")
 }
