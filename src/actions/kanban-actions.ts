@@ -8,12 +8,14 @@ import { KycStateService } from "@/lib/kyc/KycStateService";
 import { generateAIAnswers, learnFromAnswer } from "./ai-autofill";
 import { recordActivity, LEActivityType } from "@/lib/le-activity";
 import { logActivity } from "./logging";
+import { ensureNotReferenceSnapshot, ensureQuestionNotReferenceSnapshot } from "./questionnaire";
 
 /**
  * Parses the 'extractedContent' JSON of a Questionnaire and creates individual Question records.
  * This effectively "Instantiates" the questionnaire for the Kanban board.
  */
 export async function populateQuestionsFromExtraction(questionnaireId: string) {
+    try { await ensureNotReferenceSnapshot(questionnaireId); } catch(e: any) { return { success: false, error: e.message }; }
     const identity = await getIdentity();
     if (!identity?.userId) return { success: false, error: "Unauthorized" };
     const { userId } = identity;
@@ -273,6 +275,7 @@ export async function getBoardQuestions(engagementId: string) {
  * Update a question's status (Drag and Drop persistence)
  */
 export async function updateQuestionStatus(questionId: string, newStatus: QuestionStatus) {
+    try { await ensureQuestionNotReferenceSnapshot(questionId); } catch(e: any) { return { success: false, error: e.message }; }
     const identity = await getIdentity();
     if (!identity?.userId) return { success: false };
     const { userId } = identity;
@@ -301,6 +304,7 @@ export async function updateQuestionStatus(questionId: string, newStatus: Questi
  * Approve Question Mapping
  */
 export async function approveQuestionMapping(questionId: string) {
+    try { await ensureQuestionNotReferenceSnapshot(questionId); } catch(e: any) { return { success: false, error: e.message }; }
     const identity = await getIdentity();
     if (!identity?.userId) return { success: false, error: "Unauthorized" };
     const { userId } = identity;
@@ -354,6 +358,7 @@ export async function approveQuestionMapping(questionId: string) {
  * Share Question (Toggle)
  */
 export async function shareQuestion(questionId: string, isShared: boolean) {
+    try { await ensureQuestionNotReferenceSnapshot(questionId); } catch(e: any) { return { success: false, error: e.message }; }
     const identity = await getIdentity();
     if (!identity?.userId) return { success: false, error: "Unauthorized" };
     const { userId } = identity;
@@ -403,6 +408,7 @@ export async function shareQuestion(questionId: string, isShared: boolean) {
  * Release Question (Lockdown)
  */
 export async function releaseQuestion(questionId: string) {
+    try { await ensureQuestionNotReferenceSnapshot(questionId); } catch(e: any) { return { success: false, error: e.message }; }
     const identity = await getIdentity();
     if (!identity?.userId) return { success: false, error: "Unauthorized" };
     const { userId } = identity;
@@ -440,6 +446,7 @@ export async function releaseQuestion(questionId: string) {
  * Update Question Mapping with Safety Reset
  */
 export async function updateQuestionMapping(questionId: string, fieldNo: number | null) {
+    try { await ensureQuestionNotReferenceSnapshot(questionId); } catch(e: any) { return { success: false, error: e.message }; }
     const identity = await getIdentity();
     if (!identity?.userId) return { success: false, error: "Unauthorized" };
     const { userId } = identity;
@@ -567,6 +574,7 @@ export async function instantiateQuestionnaire(templateId: string, engagementId:
  * Update a question's answer
  */
 export async function updateAnswer(questionId: string, answer: string) {
+    try { await ensureQuestionNotReferenceSnapshot(questionId); } catch(e: any) { return { success: false, error: e.message }; }
     const identity = await getIdentity();
     if (!identity?.userId) return { success: false, error: "Unauthorized" };
     const { userId } = identity;
@@ -663,6 +671,7 @@ export async function updateAnswer(questionId: string, answer: string) {
  * the client after a successful blob upload (more reliable in local dev).
  */
 export async function attachDocumentToQuestion(questionId: string, fileUrl: string, fileName: string, fileSize?: number) {
+    try { await ensureQuestionNotReferenceSnapshot(questionId); } catch(e: any) { return { success: false, error: e.message }; }
     const identity = await getIdentity();
     if (!identity?.userId) return { success: false, error: "Unauthorized" };
     const { userId } = identity;
@@ -735,6 +744,7 @@ export async function attachDocumentToQuestion(questionId: string, fileUrl: stri
  * Toggle lock status
  */
 export async function toggleQuestionLock(questionId: string, isLocked: boolean) {
+    try { await ensureQuestionNotReferenceSnapshot(questionId); } catch(e: any) { return { success: false, error: e.message }; }
     const identity = await getIdentity();
     if (!identity?.userId) return { success: false, error: "Unauthorized" };
     const { userId } = identity;
@@ -781,6 +791,7 @@ export async function toggleQuestionLock(questionId: string, isLocked: boolean) 
  * Generate a single question answer (Mock AI)
  */
 export async function generateSingleQuestionAnswer(questionId: string) {
+    try { await ensureQuestionNotReferenceSnapshot(questionId); } catch(e: any) { return { success: false, error: e.message }; }
     const identity = await getIdentity();
     if (!identity?.userId) return { success: false, error: "Unauthorized" };
     const { userId } = identity;
@@ -924,6 +935,7 @@ Next Renewal: ${reg.nextRenewalDate}
  * Add a comment to a question
  */
 export async function addComment(questionId: string, text: string) {
+    try { await ensureQuestionNotReferenceSnapshot(questionId); } catch(e: any) { return { success: false, error: e.message }; }
     const identity = await getIdentity();
     // Fetch name for UI
     if (!identity?.userId) return { success: false, error: "Unauthorized" };
@@ -1139,6 +1151,7 @@ export async function getLETeamMembers(clientLEId: string) {
  * Assign a question to a user or invitee
  */
 export async function assignQuestion(questionId: string, assignee: { userId?: string, email?: string } | null) {
+    try { await ensureQuestionNotReferenceSnapshot(questionId); } catch(e: any) { return { success: false, error: e.message }; }
     const identity = await getIdentity();
     if (!identity?.userId) return { success: false, error: "Unauthorized" };
     const { userId: actorId } = identity;
@@ -1245,6 +1258,7 @@ export async function getEngagementEvidenceDocuments(engagementId: string) {
  * Update the Note for Supplier for a question
  */
 export async function updateSupplierNote(questionId: string, note: string) {
+    try { await ensureQuestionNotReferenceSnapshot(questionId); } catch(e: any) { return { success: false, error: e.message }; }
     const identity = await getIdentity();
     if (!identity?.userId) return { success: false, error: "Unauthorized" };
     const { userId } = identity;

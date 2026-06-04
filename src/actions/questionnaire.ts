@@ -25,12 +25,38 @@ async function ensureAuthorization(action: Action, context: { partyId?: string, 
     return { userId: identity.userId };
 }
 
+export async function ensureNotReferenceSnapshot(questionnaireId: string) {
+    const q = await prisma.questionnaire.findUnique({
+        where: { id: questionnaireId },
+        select: { kind: true, isGlobal: true, isTemplate: true, fiEngagementId: true }
+    });
+    if (!q) return;
+    const isReferenceSnapshot = q.kind === "REFERENCE_SNAPSHOT" || (q.isGlobal && q.isTemplate && !q.fiEngagementId);
+    if (isReferenceSnapshot) {
+        throw new Error("REFERENCE_SNAPSHOT_LOCKED");
+    }
+}
+
+export async function ensureQuestionNotReferenceSnapshot(questionId: string) {
+    const q = await prisma.question.findUnique({
+        where: { id: questionId },
+        select: { questionnaireId: true }
+    });
+    if (q) {
+        await ensureNotReferenceSnapshot(q.questionnaireId);
+    }
+}
+
 async function ensureQuestionnaireAccess(id: string, actionType: 'READ' | 'WRITE' | 'DELETE') {
     const q = await prisma.questionnaire.findUnique({
         where: { id },
-        select: { fiEngagementId: true, fiOrgId: true }
+        select: { fiEngagementId: true, fiOrgId: true, kind: true, isGlobal: true, isTemplate: true }
     });
     if (!q) throw new Error("Questionnaire not found");
+
+    if (actionType === 'WRITE' || actionType === 'DELETE') {
+        await ensureNotReferenceSnapshot(id);
+    }
 
     if (q.fiEngagementId) {
         let action: Action = Action.ENG_VIEW_RELEASED_DATA;

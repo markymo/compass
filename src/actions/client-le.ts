@@ -15,6 +15,7 @@ import { createOpenAI } from '@ai-sdk/openai';
 import { KycStateService } from "@/lib/kyc/KycStateService";
 import { FieldClaimService } from "@/lib/kyc/FieldClaimService";
 import { getComplexFieldConfig } from "@/lib/master-data/complex-field-config";
+import { ensureNotReferenceSnapshot } from "./questionnaire";
 async function ensureAuthorization(action: Action, context: { partyId?: string, clientLEId?: string, engagementId?: string }) {
     const identity = await getIdentity();
     if (!identity?.userId) throw new Error("Unauthorized: Not logged in");
@@ -734,6 +735,7 @@ export async function updateEngagementDueDate(engagementId: string, dueDate: Dat
 }
 
 export async function updateQuestionnaireDueDate(questionnaireId: string, dueDate: Date | null) {
+    try { await ensureNotReferenceSnapshot(questionnaireId); } catch(e: any) { return { success: false, error: e.message }; }
     try {
         const questionnaire = await prisma.questionnaire.update({
             where: { id: questionnaireId },

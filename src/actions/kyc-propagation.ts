@@ -3,6 +3,7 @@
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { QuestionStatus } from "@prisma/client";
+import { ensureQuestionNotReferenceSnapshot } from "./questionnaire";
 
 export async function applyMasterToQuestion(
     questionId: string,
@@ -12,6 +13,7 @@ export async function applyMasterToQuestion(
 ) {
     try {
         if (!questionId) throw new Error("Question ID is required");
+        await ensureQuestionNotReferenceSnapshot(questionId);
 
         // 1. Format the value for the answer
         // If it's a complex object (like a group), stringify it?
