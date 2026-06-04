@@ -37,7 +37,11 @@ export async function getMasterFieldDefinition(fieldNo: number): Promise<MasterF
 export async function refreshDefinitionCache() {
     const all = await prisma.masterFieldDefinition.findMany({
         where: { isActive: true },
-        include: { masterDataCategory: true }
+        include: { masterDataCategory: true },
+        orderBy: [
+            { order: 'asc' },
+            { fieldNo: 'asc' },
+        ]
     });
     definitionCache = {};
     all.forEach((d: any) => {
@@ -79,7 +83,13 @@ export async function listAllMasterFields(): Promise<MasterFieldDefinition[]> {
     if (!definitionCache || (now - lastCacheUpdate > CACHE_TTL)) {
         await refreshDefinitionCache();
     }
-    return Object.values(definitionCache!);
+    // Sort by order then fieldNo — matches the master data manager display order.
+    // Object.values() on a numeric-keyed dict returns insertion order (not sort order),
+    // so an explicit sort is required regardless of the orderBy in refreshDefinitionCache.
+    return Object.values(definitionCache!).sort((a, b) => {
+        const orderDiff = (a.order ?? 0) - (b.order ?? 0);
+        return orderDiff !== 0 ? orderDiff : a.fieldNo - b.fieldNo;
+    });
 }
 
 /**

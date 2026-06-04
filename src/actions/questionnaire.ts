@@ -54,10 +54,22 @@ import { getUserFIOrg } from "./security";
 import { listAllMasterFields, listAllMasterGroups } from "@/services/masterData/definitionService";
 
 export async function getMasterSchemaContext() {
-    return {
-        masterFields: await listAllMasterFields(),
-        masterGroups: await listAllMasterGroups()
-    };
+    const [masterFields, masterGroups, masterCategories] = await Promise.all([
+        listAllMasterFields(),
+        listAllMasterGroups(),
+        prisma.masterDataCategory.findMany({
+            where: { isActive: true },
+            orderBy: [{ order: 'asc' }, { displayName: 'asc' }],
+            include: {
+                fields: {
+                    where: { isActive: true },
+                    orderBy: [{ order: 'asc' }, { fieldNo: 'asc' }],
+                    select: { fieldNo: true, fieldName: true, order: true, description: true },
+                }
+            }
+        })
+    ]);
+    return { masterFields, masterGroups, masterCategories };
 }
 
 export async function createQuestionnaire(identifier: string | null | undefined, formData: FormData) {

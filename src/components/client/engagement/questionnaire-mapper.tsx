@@ -107,6 +107,7 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
     // Master Schema Context
     const [masterFields, setMasterFields] = useState<any[]>([]);
     const [masterGroups, setMasterGroups] = useState<any[]>([]);
+    const [masterCategories, setMasterCategories] = useState<any[]>([]);
 
     // Generation State
     const [generatingCompact, setGeneratingCompact] = useState<Record<string, boolean>>({});
@@ -159,6 +160,7 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
             if (schemaContext) {
                 setMasterFields(schemaContext.masterFields);
                 setMasterGroups(schemaContext.masterGroups);
+                setMasterCategories((schemaContext as any).masterCategories ?? []);
             }
         } catch (e) {
             toast.error("Failed to load questionnaire data");
@@ -557,6 +559,7 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
                                     }
                                 }}
                                 customFields={customFields}
+                                masterCategories={masterCategories}
                             />
                         </div>
 
@@ -858,25 +861,35 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
     );
 
     // SUB-COMPONENT: UNIFIED FIELD SELECTOR
-    function FieldSelector({ value, onSelect, customFields, compact = false, tableMode = false, resolvedDisplay = null }: {
+    function FieldSelector({ value, onSelect, customFields, masterCategories: cats = [], compact = false, tableMode = false, resolvedDisplay = null }: {
         value: string | null;
         onSelect: (val: string, type: 'master' | 'group' | 'custom' | 'create' | 'clear', label?: string) => void;
         customFields: any[];
+        masterCategories?: any[];
         compact?: boolean;
-        tableMode?: boolean;        // renders trigger as plain text (spreadsheet cell) instead of ghost Button
-        resolvedDisplay?: string | null;  // example value shown muted after field name in tableMode
+        tableMode?: boolean;
+        resolvedDisplay?: string | null;
     }) {
         const [open, setOpen] = useState(false);
         const [search, setSearch] = useState("");
 
-        // Flatten Options
+        // Build a fieldNo→categoryName lookup from the categories data
+        const fieldCategoryMap = useMemo(() => {
+            const map: Record<number, string> = {};
+            cats.forEach((cat: any) => {
+                (cat.fields ?? []).forEach((f: any) => { map[f.fieldNo] = cat.displayName; });
+            });
+            return map;
+        }, [cats]);
+
         const masterOptions = useMemo(() => masterFields.map((f: any) => ({
             value: `master:${f.fieldNo.toString()}`,
             label: f.fieldName,
             type: 'master',
-            meta: `Standard Field ${f.fieldNo}`,
-            description: f.notes
-        })), [masterFields]);
+            meta: `Field ${f.fieldNo}`,
+            description: f.notes,
+            category: fieldCategoryMap[f.fieldNo] ?? null,
+        })), [masterFields, fieldCategoryMap]);
 
         const groupOptions = useMemo(() => masterGroups.map((g: any) => ({
             value: `group:${g.key}`,
@@ -896,6 +909,20 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
 
         const allOptions = [...groupOptions, ...masterOptions, ...customOptions];
         const selectedOption = allOptions.find((o: any) => o.value === value);
+
+        // Build ordered category sections from cats (preserves admin-defined order)
+        // Each section: { heading: string, options: masterOption[] }
+        const categorySections = useMemo(() => {
+            const sections: { heading: string; options: any[] }[] = [];
+            cats.forEach((cat: any) => {
+                const opts = masterOptions.filter((o: any) => o.category === cat.displayName);
+                if (opts.length > 0) sections.push({ heading: cat.displayName, options: opts });
+            });
+            // Uncategorised fields at the bottom
+            const uncategorised = masterOptions.filter((o: any) => o.category === null);
+            if (uncategorised.length > 0) sections.push({ heading: 'Other', options: uncategorised });
+            return sections;
+        }, [cats, masterOptions]);
 
         return (
             <Popover open={open} onOpenChange={setOpen}>
@@ -1014,24 +1041,35 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
                                             ))}
                                         </CommandGroup>
                                         <CommandSeparator />
-                                        <CommandGroup heading="Standard Fields">
-                                            {filtered.filter((o: any) => o.type === 'master').map((option: any) => (
-                                                <CommandItem
-                                                    key={option.value}
-                                                    value={option.label} // Use label for cmdk internal keying
-                                                    onSelect={() => {
-                                                        onSelect(option.value.split(':')[1], 'master');
-                                                        setOpen(false);
-                                                    }}
-                                                >
-                                                    <Check className={cn("mr-2 h-4 w-4", value === option.value ? "opacity-100" : "opacity-0")} />
-                                                    <div className="flex flex-col">
-                                                        <span>{option.label}</span>
-                                                        <span className="text-xs text-slate-400">{option.meta}</span>
-                                                    </div>
-                                                </CommandItem>
-                                            ))}
-                                        </CommandGroup>
+                                        {/* Standard Fields — grouped by category in admin-defined order */}
+                                        {categorySections.map(section => {
+                                            const sectionFiltered = section.options.filter((o: any) =>
+                                                o.label.toLowerCase().includes(search.toLowerCase()) ||
+                                                o.meta.toLowerCase().includes(search.toLowerCase()) ||
+                                                (o.description && o.description.toLowerCase().includes(search.toLowerCase()))
+                                            );
+                                            if (sectionFiltered.length === 0) return null;
+                                            return (
+                                                <CommandGroup key={section.heading} heading={section.heading}>
+                                                    {sectionFiltered.map((option: any) => (
+                                                        <CommandItem
+                                                            key={option.value}
+                                                            value={option.label}
+                                                            onSelect={() => {
+                                                                onSelect(option.value.split(':')[1], 'master');
+                                                                setOpen(false);
+                                                            }}
+                                                        >
+                                                            <Check className={cn("mr-2 h-4 w-4", value === option.value ? "opacity-100" : "opacity-0")} />
+                                                            <div className="flex flex-col">
+                                                                <span>{option.label}</span>
+                                                                <span className="text-xs text-slate-400">{option.meta}</span>
+                                                            </div>
+                                                        </CommandItem>
+                                                    ))}
+                                                </CommandGroup>
+                                            );
+                                        })}
                                         <CommandSeparator />
                                         <CommandGroup heading="Custom Fields">
                                             {filtered.filter((o: any) => o.type === 'custom').map((option: any) => (

@@ -140,7 +140,6 @@ export async function getAllQuestionnaires() {
             isDeleted: false,
             status: { not: "ARCHIVED" }
         },
-        distinct: ['name'],
         orderBy: { updatedAt: 'desc' },
         select: {
             id: true,
