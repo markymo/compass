@@ -128,6 +128,7 @@ export async function addToReferenceLibrary(
                 status: "ACTIVE",
                 isTemplate: true,
                 isGlobal: true,
+                kind: "REFERENCE_SNAPSHOT",
                 sourceId: workingCopyId, // lineage: derived from this working copy
                 fileUrl: source.fileUrl ?? undefined,
                 fileName: source.fileName ?? undefined,
@@ -184,6 +185,7 @@ export async function createWorkingCopy(
                 status: "DRAFT",
                 isTemplate: true,
                 isGlobal: false,
+                kind: "WORKING_COPY",
                 sourceId: referenceId, // lineage: derived from this reference library entry
                 fileUrl: source.fileUrl ?? undefined,
                 fileName: source.fileName ?? undefined,

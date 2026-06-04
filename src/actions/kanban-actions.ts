@@ -545,6 +545,7 @@ export async function instantiateQuestionnaire(templateId: string, engagementId:
                 status: "ACTIVE",
                 extractedContent: template.extractedContent as any,
                 fiEngagementId: engagementId, // Set for direct relation
+                kind: "ENGAGEMENT_QUESTIONNAIRE",
                 engagements: {
                     connect: { id: engagementId }
                 }

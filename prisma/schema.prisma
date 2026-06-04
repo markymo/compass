@@ -319,6 +319,8 @@ model Questionnaire {
   ownerOrgId       String?
   isGlobal         Boolean                @default(false)
   dueDate          DateTime?
+  lockedAt         DateTime?
+  kind             QuestionnaireKind?
   fileUrl          String?
   isTemplate       Boolean                @default(false)
   /// Lineage: the questionnaire this record was directly derived from (clone, assign, promote, lateral share).
@@ -1037,6 +1039,12 @@ enum QuestionStatus {
   APPROVED
   SHARED
   RELEASED
+}
+
+enum QuestionnaireKind {
+  WORKING_COPY
+  REFERENCE_SNAPSHOT
+  ENGAGEMENT_QUESTIONNAIRE
 }
 
 enum OrgType {

@@ -159,6 +159,7 @@ export async function createQuestionnaire(identifier: string | null | undefined,
                 status: "DIGITIZING", // Async Step 1: Start as "Digitizing"
                 fiEngagementId: engagementId || null, // Link if provided
                 isTemplate: engagementId ? false : true, // If linked to an engagement, it's an instance. Otherwise, a master template.
+                kind: engagementId ? "ENGAGEMENT_QUESTIONNAIRE" : "WORKING_COPY",
                 ...fileData
             },
         });
@@ -358,7 +359,8 @@ export async function createManualQuestionnaire(data: { name: string, fiOrgId?: 
                 name,
                 status: "ACTIVE",
                 extractedContent: extractedContent as any,
-                isGlobal
+                isGlobal,
+                kind: isGlobal ? "REFERENCE_SNAPSHOT" : "WORKING_COPY",
             } as any
         });
 
@@ -1112,6 +1114,7 @@ export async function assignQuestionnaireToEngagement(
                 mappings: mappingsToCopy,
                 isGlobal: false,
                 isTemplate: false,
+                kind: "ENGAGEMENT_QUESTIONNAIRE",
                 fileUrl: template.fileUrl,
                 fileName: template.fileName,
                 fileType: template.fileType,
@@ -1201,6 +1204,7 @@ export async function cloneQuestionnaire(sourceId: string, newFIOrgId?: string, 
                 mappings: mappingsToCopy,
                 isGlobal: false,
                 isTemplate: true,
+                kind: "WORKING_COPY",
                 sourceId: sourceId, // lineage: derived from this source
             }
         });
@@ -1292,6 +1296,7 @@ export async function shareQuestionnaireLaterally(sourceQuestionnaireId: string,
                     mappings: source.mappings ? JSON.parse(JSON.stringify(source.mappings)) : undefined,
                     isGlobal: false,
                     isTemplate: false,
+                    kind: "ENGAGEMENT_QUESTIONNAIRE",
                     ownerOrgId: source.ownerOrgId,
                     fileUrl: source.fileUrl,
                     fileName: source.fileName,
