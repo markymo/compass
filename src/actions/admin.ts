@@ -157,7 +157,7 @@ export async function getAllQuestionnaires() {
             },
             fiEngagement: {
                 select: {
-                    org: { select: { name: true } },
+                    org: { select: { name: true, shortCode: true } },
                     clientLE: { select: { id: true, name: true } }
                 }
             }

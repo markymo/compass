@@ -23,7 +23,7 @@ export interface QuestionnaireIndexItem {
     fiEngagementId: string | null;
     fiOrg: { name: string } | null;
     fiEngagement: {
-        org: { name: string };
+        org: { name: string; shortCode: string | null };
         clientLE: { id: string; name: string };
     } | null;
 }
@@ -153,13 +153,20 @@ export function QuestionnaireIndexList({ items }: { items: QuestionnaireIndexIte
 
                                     <TableCell>
                                         {type === "engagement" && q.fiEngagement ? (
-                                            <div className="space-y-0.5">
-                                                <div className="text-xs font-medium text-slate-700 truncate max-w-[180px]" title={q.fiEngagement.org.name}>
-                                                    {q.fiEngagement.org.name}
-                                                </div>
-                                                <div className="text-[11px] text-slate-400 truncate max-w-[180px]" title={q.fiEngagement.clientLE.name}>
-                                                    → {q.fiEngagement.clientLE.name}
-                                                </div>
+                                            <div className="flex items-center gap-1.5">
+                                                <span
+                                                    className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-mono font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 tracking-wide"
+                                                    title={q.fiEngagement.org.name}
+                                                >
+                                                    {q.fiEngagement.org.shortCode ?? q.fiEngagement.org.name.slice(0, 6).toUpperCase()}
+                                                </span>
+                                                <span className="text-slate-300 text-xs">→</span>
+                                                <span
+                                                    className="text-xs text-slate-600 truncate max-w-[140px]"
+                                                    title={q.fiEngagement.clientLE.name}
+                                                >
+                                                    {q.fiEngagement.clientLE.name}
+                                                </span>
                                             </div>
                                         ) : (
                                             <span className="text-slate-300 text-sm">—</span>
