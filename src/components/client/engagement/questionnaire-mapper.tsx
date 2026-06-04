@@ -555,7 +555,7 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData, rea
                             <h3 className="font-semibold text-slate-900">Map to Data Field</h3>
                         </div>
 
-                        <div className={cn("bg-white rounded-xl border shadow-sm p-1", readOnly && "pointer-events-none opacity-75")}>
+                        <div className="bg-white rounded-xl border shadow-sm p-1">
                             <FieldSelector
                                 value={
                                     selectedQuestion.masterFieldNo ? `master:${selectedQuestion.masterFieldNo}` :
@@ -946,6 +946,40 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData, rea
 
         const allOptions = [...groupOptions, ...masterOptions, ...customOptions];
         const selectedOption = allOptions.find((o: any) => o.value === value);
+
+        // READ-ONLY: return static display — no Popover mounted, no interaction possible
+        if (readOnly) {
+            if (tableMode) {
+                return selectedOption ? (
+                    <div className="flex items-center gap-1.5 w-full min-w-0 h-full">
+                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-green-50 text-green-700 border border-green-200 shrink-0">
+                            <CheckCircle2 className="h-2.5 w-2.5" />
+                            Mapped
+                        </span>
+                        <span className="text-green-600 text-xs font-bold shrink-0">→</span>
+                        <span className="text-sm font-medium text-slate-800 truncate flex-1 min-w-0">{selectedOption.label}</span>
+                        {resolvedDisplay && (
+                            <span className="text-xs text-slate-400 truncate shrink-0 max-w-[120px]" title={resolvedDisplay}>
+                                · {resolvedDisplay}
+                            </span>
+                        )}
+                    </div>
+                ) : (
+                    <span className="text-sm italic text-slate-400">Unmapped</span>
+                );
+            }
+            // Panel mode (non-tableMode)
+            return selectedOption ? (
+                <div className="w-full py-3 px-4">
+                    <div className="flex items-start gap-0.5 flex-col">
+                        <span className="font-medium text-slate-900">{selectedOption.label}</span>
+                        <span className="text-xs text-slate-400">{selectedOption.meta}</span>
+                    </div>
+                </div>
+            ) : (
+                <div className="w-full py-3 px-4 text-slate-400 italic text-sm">No mapping</div>
+            );
+        }
 
         // Build ordered category sections from cats (preserves admin-defined order)
         // Each section: { heading: string, options: masterOption[] }
