@@ -154,6 +154,12 @@ export async function getAllQuestionnaires() {
             fiEngagementId: true,
             fiOrg: {
                 select: { name: true }
+            },
+            fiEngagement: {
+                select: {
+                    org: { select: { name: true } },
+                    clientLE: { select: { id: true, name: true } }
+                }
             }
         }
     });

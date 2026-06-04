@@ -22,6 +22,10 @@ export interface QuestionnaireIndexItem {
     ownerOrgId: string | null;
     fiEngagementId: string | null;
     fiOrg: { name: string } | null;
+    fiEngagement: {
+        org: { name: string };
+        clientLE: { id: string; name: string };
+    } | null;
 }
 
 type FilterKey = "all" | "system" | "engagement";
@@ -96,8 +100,9 @@ export function QuestionnaireIndexList({ items }: { items: QuestionnaireIndexIte
             <Table>
                 <TableHeader className="bg-slate-50/80">
                     <TableRow>
-                        <TableHead className="w-[45%]">Name / Source</TableHead>
+                        <TableHead className="w-[35%]">Name / Source</TableHead>
                         <TableHead>Type</TableHead>
+                        <TableHead>Engagement</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead>Mapping</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
@@ -106,7 +111,7 @@ export function QuestionnaireIndexList({ items }: { items: QuestionnaireIndexIte
                 <TableBody>
                     {filtered.length === 0 ? (
                         <TableRow>
-                            <TableCell colSpan={5} className="text-center h-48 text-slate-500">
+                            <TableCell colSpan={6} className="text-center h-48 text-slate-500">
                                 <div className="flex flex-col items-center justify-center">
                                     <FileText className="h-8 w-8 text-slate-300 mb-2" />
                                     <p className="font-medium text-slate-600">No records match this filter.</p>
@@ -144,6 +149,21 @@ export function QuestionnaireIndexList({ items }: { items: QuestionnaireIndexIte
 
                                     <TableCell>
                                         <TypeBadge type={type} />
+                                    </TableCell>
+
+                                    <TableCell>
+                                        {type === "engagement" && q.fiEngagement ? (
+                                            <div className="space-y-0.5">
+                                                <div className="text-xs font-medium text-slate-700 truncate max-w-[180px]" title={q.fiEngagement.org.name}>
+                                                    {q.fiEngagement.org.name}
+                                                </div>
+                                                <div className="text-[11px] text-slate-400 truncate max-w-[180px]" title={q.fiEngagement.clientLE.name}>
+                                                    → {q.fiEngagement.clientLE.name}
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <span className="text-slate-300 text-sm">—</span>
+                                        )}
                                     </TableCell>
 
                                     <TableCell>
