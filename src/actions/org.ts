@@ -148,7 +148,7 @@ export async function addMemberToOrg(orgId: string, email: string, role: "ORG_AD
 }
 
 // 5. Update Organization (Admin Only)
-export async function updateOrganization(orgId: string, data: { name?: string, status?: string }) {
+export async function updateOrganization(orgId: string, data: { name?: string, status?: string, shortCode?: string | null }) {
     const isAdmin = await isSystemAdmin();
     if (!isAdmin) return { success: false, error: "Unauthorized" };
 
@@ -157,15 +157,54 @@ export async function updateOrganization(orgId: string, data: { name?: string, s
             where: { id: orgId },
             data: {
                 name: data.name,
-                status: data.status
+                status: data.status,
+                ...(data.shortCode !== undefined && { shortCode: data.shortCode })
             }
         });
         revalidatePath(`/app/admin/organizations/${orgId}`);
         revalidatePath("/app/admin/organizations");
+        revalidatePath("/app/admin/questionnaires");
         return { success: true, data: org };
     } catch (e) {
         console.error(e);
         return { success: false, error: "Failed to update organization" };
+    }
+}
+
+// 5b. Update Short Code Only (Admin Only) - with validation
+export async function updateOrgShortCode(orgId: string, shortCode: string | null) {
+    const isAdmin = await isSystemAdmin();
+    if (!isAdmin) return { success: false, error: "Unauthorized" };
+
+    if (shortCode !== null) {
+        const clean = shortCode.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+        if (clean.length === 0) return { success: false, error: "Short code cannot be empty" };
+        if (clean.length > 6) return { success: false, error: "Short code must be 6 characters or fewer" };
+        try {
+            const org = await prisma.organization.update({
+                where: { id: orgId },
+                data: { shortCode: clean }
+            });
+            revalidatePath(`/app/admin/organizations/${orgId}`);
+            revalidatePath("/app/admin/questionnaires");
+            return { success: true, data: org };
+        } catch (e) {
+            console.error(e);
+            return { success: false, error: "Failed to update short code" };
+        }
+    } else {
+        try {
+            const org = await prisma.organization.update({
+                where: { id: orgId },
+                data: { shortCode: null }
+            });
+            revalidatePath(`/app/admin/organizations/${orgId}`);
+            revalidatePath("/app/admin/questionnaires");
+            return { success: true, data: org };
+        } catch (e) {
+            console.error(e);
+            return { success: false, error: "Failed to clear short code" };
+        }
     }
 }
 // 6. Archive Organization (Admin Only)

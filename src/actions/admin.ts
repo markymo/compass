@@ -151,8 +151,15 @@ export async function getAllQuestionnaires() {
             fileName: true,
             fileUrl: true,
             ownerOrgId: true,
+            fiEngagementId: true,
             fiOrg: {
                 select: { name: true }
+            },
+            fiEngagement: {
+                select: {
+                    org: { select: { name: true, shortCode: true } },
+                    clientLE: { select: { id: true, name: true } }
+                }
             }
         }
     });

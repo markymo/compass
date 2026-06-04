@@ -86,6 +86,7 @@ model User {
 model Organization {
   id                     String                  @id @default(uuid())
   name                   String
+  shortCode              String?                 @db.VarChar(6)
   types                  OrgType[]
   domain                 String?
   logoUrl                String?
