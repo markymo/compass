@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import prisma from '@/lib/prisma';
 import { addToReferenceLibrary, createWorkingCopy } from '../questionnaires-v2';
 import { assignQuestionnaireToEngagement } from '../questionnaire';
@@ -34,21 +34,31 @@ describe('Reference Codes Integration', () => {
     let sysOrgId: string;
     let templateId: string;
     let engagementId: string;
+    let currentLeShort: string;
+    let currentOrgShort: string;
+
+    const testQuestionnaires: string[] = [];
+    const testEngagements: string[] = [];
+    const testOrgs: string[] = [];
+    const testLEs: string[] = [];
 
     beforeEach(async () => {
         const sysOrg = await bootstrapSystemOrg();
         sysOrgId = sysOrg.id;
 
-        // Clean up previous test runs if needed, or just create unique data
-        const uniqueSuffix = Date.now().toString();
+        const suffix = Math.random().toString(36).slice(2, 6).toUpperCase();
+        currentLeShort = `L${suffix}`;
+        currentOrgShort = `S${suffix}`;
 
         const le = await prisma.clientLE.create({
-            data: { name: `LE-${uniqueSuffix}`, shortCode: `LE${uniqueSuffix}` }
+            data: { name: `Test LE ${suffix}`, shortCode: currentLeShort }
         });
+        testLEs.push(le.id);
 
         const org = await prisma.organization.create({
-            data: { name: `Supplier-${uniqueSuffix}`, shortCode: `SUP${uniqueSuffix}` }
+            data: { name: `Test SUP ${suffix}`, shortCode: currentOrgShort }
         });
+        testOrgs.push(org.id);
 
         const eng = await prisma.fIEngagement.create({
             data: {
@@ -58,6 +68,7 @@ describe('Reference Codes Integration', () => {
             }
         });
         engagementId = eng.id;
+        testEngagements.push(eng.id);
 
         await prisma.user.upsert({
             where: { id: 'test-user-id' },
@@ -72,6 +83,25 @@ describe('Reference Codes Integration', () => {
                 role: 'ADMIN',
             }
         });
+    });
+
+    afterEach(async () => {
+        // Cleanup memberships first to avoid FK errors
+        await prisma.membership.deleteMany({
+            where: { fiEngagementId: { in: testEngagements } }
+        });
+
+        // Cleanup questionnaires
+        const qv = await prisma.questionnaire.findMany({
+            where: { OR: [ { fiEngagementId: { in: testEngagements } }, { name: { startsWith: 'Test Working Copy' } }, { name: 'Source Snapshot' } ] }
+        });
+        await prisma.question.deleteMany({ where: { questionnaireId: { in: qv.map((q: any) => q.id) } } });
+        await prisma.questionnaire.deleteMany({ where: { id: { in: qv.map((q: any) => q.id) } } });
+
+        // Cleanup engagements, orgs, les
+        await prisma.fIEngagement.deleteMany({ where: { id: { in: testEngagements } } });
+        await prisma.organization.deleteMany({ where: { id: { in: testOrgs } } });
+        await prisma.clientLE.deleteMany({ where: { id: { in: testLEs } } });
     });
 
     it('addToReferenceLibrary stamps generated referenceCode on REFERENCE_SNAPSHOT', async () => {
@@ -171,6 +201,6 @@ describe('Reference Codes Integration', () => {
         expect(instance?.referenceCode).toMatch(/^FMSB_\d{6}_COPARITY_XXXXX_SSSSS_v\d+$/);
         
         // The default title should reflect the LE and Supplier short codes
-        expect(instance?.name).toMatch(/^FMSB_LE\d+_SUP\d+$/);
+        expect(instance?.name).toBe(`FMSB_${currentLeShort}_${currentOrgShort}`);
     });
 });
