@@ -7,6 +7,7 @@ import { getIdentity } from "@/lib/auth";
 
 
 import { can, Action, UserWithMemberships } from "@/lib/auth/permissions";
+import { generateWorkingCopyTitle } from "@/lib/questionnaires/reference-codes";
 
 // NEW CORE ENGINE HELPER
 async function ensureAuthorization(action: Action, context: { partyId?: string, clientLEId?: string, engagementId?: string }) {
@@ -1094,6 +1095,7 @@ export async function assignQuestionnaireToEngagement(
 
     const engagement = await prisma.fIEngagement.findUnique({
         where: { id: engagementId },
+        include: { clientLE: true, org: true },
     });
     if (!engagement) return { success: false, error: "Engagement not found" };
 
@@ -1130,11 +1132,19 @@ export async function assignQuestionnaireToEngagement(
             ? JSON.parse(JSON.stringify(template.mappings))
             : undefined;
 
+        const defaultName = template.functionalCode ? generateWorkingCopyTitle({
+            functionalCode: template.functionalCode,
+            clientLeShortCode: engagement.clientLE?.shortCode,
+            supplierShortCode: engagement.org?.shortCode,
+        }) : template.name;
+
         const instance = await prisma.questionnaire.create({
             data: {
                 fiOrgId: engagement.fiOrgId,
                 fiEngagementId: engagementId,
-                name: template.name,
+                name: defaultName,
+                functionalCode: template.functionalCode,
+                referenceCode: template.referenceCode,
                 status: "ACTIVE",
                 extractedContent: extractedToCopy,
                 mappings: mappingsToCopy,
@@ -1312,11 +1322,19 @@ export async function shareQuestionnaireLaterally(sourceQuestionnaireId: string,
 
         // Clone for each target
         for (const target of targets) {
+            const defaultName = source.functionalCode ? generateWorkingCopyTitle({
+                functionalCode: source.functionalCode,
+                clientLeShortCode: source.fiEngagement?.clientLE?.shortCode, // Same client LE
+                supplierShortCode: target.org?.shortCode, // Target FI is the new supplier
+            }) : source.name;
+
             const clone = await prisma.questionnaire.create({
                 data: {
                     fiOrgId: target.fiOrgId,
                     fiEngagementId: target.id,
-                    name: source.name,
+                    name: defaultName,
+                    functionalCode: source.functionalCode,
+                    referenceCode: source.referenceCode,
                     status: "DRAFT", // Resets for the target FI
                     extractedContent: source.extractedContent ? JSON.parse(JSON.stringify(source.extractedContent)) : undefined,
                     mappings: source.mappings ? JSON.parse(JSON.stringify(source.mappings)) : undefined,

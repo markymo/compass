@@ -1,6 +1,13 @@
 "use server";
 
 import prisma from "@/lib/prisma";
+
+import { 
+    normalizeCode, 
+    generateReferenceCodePrefix, 
+    computeNextVersion 
+} from "@/lib/questionnaires/reference-codes";
+import { bootstrapSystemOrg } from "./admin";
 import { isSystemAdmin } from "@/actions/security";
 import { revalidatePath } from "next/cache";
 
@@ -120,11 +127,38 @@ export async function addToReferenceLibrary(
     if (source.isGlobal) return { success: false, error: "Already in Reference Library" };
 
     try {
+        const sysOrg = await bootstrapSystemOrg();
+        const isSystemQuestionnaire = source.ownerOrgId === sysOrg.id;
+        
+        // Ensure functionalCode falls back safely if missing
+        const functionalCode = source.functionalCode || normalizeCode(source.name).slice(0, 10) || "GENERIC";
+
+        const prefix = generateReferenceCodePrefix({
+            functionalCode,
+            clientLeShortCode: null, // Snapshots are global
+            supplierShortCode: null, // Snapshots are global
+            isSystemQuestionnaire,
+        });
+
+        const existing = await prisma.questionnaire.findMany({
+            where: { 
+                kind: "REFERENCE_SNAPSHOT", 
+                referenceCode: { startsWith: `${prefix}_v` } 
+            },
+            select: { referenceCode: true },
+        });
+
+        const existingCodes = existing.map((q: any) => q.referenceCode).filter(Boolean) as string[];
+        const nextVersion = computeNextVersion(prefix, existingCodes);
+        const newReferenceCode = `${prefix}_v${nextVersion}`;
+
         const reference = await prisma.questionnaire.create({
             data: {
                 fiOrgId: source.fiOrgId,
                 ownerOrgId: source.ownerOrgId ?? undefined,
                 name: source.name,
+                functionalCode,
+                referenceCode: newReferenceCode,
                 status: "ACTIVE",
                 isTemplate: true,
                 isGlobal: true,
@@ -181,7 +215,9 @@ export async function createWorkingCopy(
             data: {
                 fiOrgId: source.fiOrgId,
                 ownerOrgId: source.ownerOrgId ?? undefined,
-                name: source.name,
+                name: source.name, // Keep existing name
+                functionalCode: source.functionalCode,
+                referenceCode: source.referenceCode, // Copy for provenance
                 status: "DRAFT",
                 isTemplate: true,
                 isGlobal: false,

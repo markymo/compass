@@ -321,6 +321,8 @@ model Questionnaire {
   dueDate          DateTime?
   lockedAt         DateTime?
   kind             QuestionnaireKind?
+  functionalCode   String?
+  referenceCode    String?
   fileUrl          String?
   isTemplate       Boolean                @default(false)
   /// Lineage: the questionnaire this record was directly derived from (clone, assign, promote, lateral share).
@@ -335,6 +337,8 @@ model Questionnaire {
   derivedVersions  Questionnaire[]        @relation("QuestionnaireLineage")
   versions         QuestionnaireVersion[]
   engagements      FIEngagement[]         @relation("FIEngagementToQuestionnaire")
+
+  @@index([referenceCode])
 }
 
 model Question {
