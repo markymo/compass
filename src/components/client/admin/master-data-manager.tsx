@@ -47,6 +47,13 @@ export default function MasterDataManager({ initialData, rawFields, initialUserC
     // -- Sort/Category State --
     const [categories, setCategories] = useState<any[]>(initialData.categories || []);
     const [uncategorizedFields, setUncategorizedFields] = useState<any[]>(initialData.uncategorizedFields || []);
+
+    // Sync state with fresh data from server after router.refresh()
+    useEffect(() => {
+        setCategories(initialData.categories || []);
+        setUncategorizedFields(initialData.uncategorizedFields || []);
+    }, [initialData]);
+
     const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
     const [isSavingOrder, setIsSavingOrder] = useState(false);
 

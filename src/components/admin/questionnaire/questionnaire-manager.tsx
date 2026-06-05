@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { updateQuestionnaireFile, toggleQuestionnaireStatus, updateQuestionnaireName, toggleQuestionnaireGlobal } from "@/actions/questionnaire";
-import { addToReferenceLibrary } from "@/actions/questionnaires-v2";
+import { addToReferenceLibrary, createWorkingCopy } from "@/actions/questionnaires-v2";
 import { toast } from "sonner";
 import {
     ArrowLeft, Loader2, Play, AlertCircle, CheckCircle2,
@@ -105,8 +105,15 @@ export function QuestionnaireManager({ questionnaire: initialQ, masterFields, li
     const [showPublishConfirm, setShowPublishConfirm] = useState(false);
     const [publishPending, setPublishPending] = useState(false);
 
-    // Derived type classification (no schema change needed)
-    const isReferenceSnapshot = !!questionnaire.isGlobal && !!questionnaire.isTemplate && !questionnaire.fiEngagementId;
+    // Create Working Copy (from a Reference Snapshot)
+    const [showCreateWC, setShowCreateWC] = useState(false);
+    const [createWCPending, setCreateWCPending] = useState(false);
+
+    // kind is the source of truth; fall back to legacy boolean flags for records
+    // created before QuestionnaireKind was introduced (Slice 1).
+    const isReferenceSnapshot =
+        questionnaire.kind === "REFERENCE_SNAPSHOT" ||
+        (!!questionnaire.isGlobal && !!questionnaire.isTemplate && !questionnaire.fiEngagementId);
     const isAdminWorkingCopy  = !!questionnaire.isTemplate && !questionnaire.isGlobal && !questionnaire.fiEngagementId;
 
     // Refs for polling stability
@@ -339,6 +346,27 @@ export function QuestionnaireManager({ questionnaire: initialQ, masterFields, li
         }
     };
 
+    const handleCreateWorkingCopy = async () => {
+        setCreateWCPending(true);
+        try {
+            const res = await createWorkingCopy(questionnaire.id);
+            if (res.success && res.workingCopyId) {
+                setShowCreateWC(false);
+                toast.success("Working Copy created", {
+                    description: "You can now edit this copy and publish a new snapshot when ready.",
+                    duration: 5000,
+                });
+                router.push(`/app/admin/questionnaires/${res.workingCopyId}`);
+            } else {
+                toast.error("Failed to create working copy", { description: res.error });
+            }
+        } catch (e: any) {
+            toast.error("Failed", { description: e.message });
+        } finally {
+            setCreateWCPending(false);
+        }
+    };
+
     const handleSaveItems = async () => {
         setSaving(true);
         try {
@@ -390,17 +418,23 @@ export function QuestionnaireManager({ questionnaire: initialQ, masterFields, li
                         <div className="flex items-center gap-4 border border-transparent hover:border-slate-200 rounded-lg p-1 transition-colors">
                             <Input
                                 value={questionnaire.name}
-                                onChange={(e) => setQuestionnaire({ ...questionnaire, name: e.target.value })}
-                                onBlur={handleNameSave}
-                                onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
-                                className="h-9 w-72 font-semibold text-lg border-transparent hover:border-slate-200 focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100 px-2 shadow-none bg-transparent transition-all"
+                                onChange={(e) => !isReferenceSnapshot && setQuestionnaire({ ...questionnaire, name: e.target.value })}
+                                onBlur={!isReferenceSnapshot ? handleNameSave : undefined}
+                                onKeyDown={(e) => !isReferenceSnapshot && e.key === 'Enter' && e.currentTarget.blur()}
+                                readOnly={isReferenceSnapshot}
+                                className={cn(
+                                    "h-9 w-72 font-semibold text-lg border-transparent px-2 shadow-none bg-transparent transition-all",
+                                    isReferenceSnapshot
+                                        ? "cursor-default select-text text-slate-600"
+                                        : "hover:border-slate-200 focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+                                )}
                                 placeholder="Questionnaire Name"
-                                title="Edit Name"
+                                title={isReferenceSnapshot ? "Reference Snapshots cannot be renamed" : "Edit Name"}
                             />
 
                             <div className="h-6 w-px bg-slate-200" />
 
-                            <Select value={questionnaire.status} onValueChange={handleStatusChange}>
+                            <Select value={questionnaire.status} onValueChange={handleStatusChange} disabled={isReferenceSnapshot}>
                                 <SelectTrigger className={`h-7 text-xs w-auto border-none shadow-none px-3 rounded-full font-bold uppercase tracking-wider ${questionnaire.status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' :
                                     questionnaire.status === 'ARCHIVED' ? 'bg-amber-100 text-amber-700 hover:bg-amber-200' :
                                         'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -443,7 +477,7 @@ export function QuestionnaireManager({ questionnaire: initialQ, masterFields, li
                 <div className="flex items-center gap-2">
 
 
-                    {items.length === 0 && (
+                    {items.length === 0 && !isReferenceSnapshot && (
                         <Button
                             variant={saving ? "secondary" : "default"}
                             onClick={handleSaveItems}
@@ -468,7 +502,7 @@ export function QuestionnaireManager({ questionnaire: initialQ, masterFields, li
                             To make changes safely,{" "}
                         </span>
                         <button
-                            onClick={() => setShowPublishConfirm(true)}
+                            onClick={() => setShowCreateWC(true)}
                             className="text-sm font-semibold text-amber-800 underline underline-offset-2 hover:text-amber-900"
                         >
                             create a Working Copy
@@ -764,6 +798,25 @@ export function QuestionnaireManager({ questionnaire: initialQ, masterFields, li
                         </div>
                     </div>
                 ) : items.length === 0 ? (
+                    isReferenceSnapshot ? (
+                        // Reference Snapshot with no digitised content — read-only message
+                        <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-4">
+                            <div className="bg-amber-50 border border-amber-200 p-6 rounded-full">
+                                <Lock className="w-10 h-10 text-amber-500" />
+                            </div>
+                            <div className="max-w-md">
+                                <h2 className="text-lg font-semibold text-slate-800">Reference Snapshot</h2>
+                                <p className="text-slate-500 mt-2">No questions have been digitised for this snapshot. Reference Snapshots are read-only.</p>
+                                <p className="text-slate-500 mt-1 text-sm">To add content, create a Working Copy, edit it, then publish a new snapshot.</p>
+                            </div>
+                            <button
+                                onClick={() => setShowCreateWC(true)}
+                                className="mt-2 text-sm font-semibold text-blue-700 hover:text-blue-900 underline underline-offset-2"
+                            >
+                                Create Working Copy
+                            </button>
+                        </div>
+                    ) : (
                     <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-6">
                         <div className="bg-slate-100 p-6 rounded-full relative">
                             <FileText className="w-12 h-12 text-slate-400" />
@@ -802,6 +855,7 @@ export function QuestionnaireManager({ questionnaire: initialQ, masterFields, li
                             </Button>
                         </div>
                     </div>
+                    ) /* end isReferenceSnapshot else-branch */
                 ) : (
                     // The Mapping Workbench fills the area smoothly
                     <div className="flex-1 pb-12 relative">
@@ -818,6 +872,7 @@ export function QuestionnaireManager({ questionnaire: initialQ, masterFields, li
                             questionnaireId={questionnaire.id}
                             onBack={() => router.push('/app/admin/questionnaires')}
                             standingData={undefined}
+                            readOnly={isReferenceSnapshot}
                         />
                     </div>
                 )}
@@ -876,7 +931,44 @@ export function QuestionnaireManager({ questionnaire: initialQ, masterFields, li
                 </DialogContent>
             </Dialog>
 
+            {/* Create Working Copy dialog — opened from Reference Snapshot banner/empty state */}
+            <Dialog open={showCreateWC} onOpenChange={o => { if (!createWCPending) setShowCreateWC(o); }}>
+                <DialogContent className="max-w-md">
+                    <DialogHeader>
+                        <div className="flex items-center gap-3 mb-1">
+                            <div className="w-9 h-9 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0">
+                                <GitFork className="w-4 h-4 text-blue-600" />
+                            </div>
+                            <DialogTitle className="text-base">Create Working Copy</DialogTitle>
+                        </div>
+                        <DialogDescription className="text-sm text-slate-600 leading-relaxed">
+                            Creates a new editable working copy from{" "}
+                            <strong>&ldquo;{questionnaire.name}&rdquo;</strong>.
+                            The original Reference Snapshot is not affected.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="mt-1 rounded-lg bg-slate-50 border border-slate-100 px-4 py-3 space-y-1.5">
+                        <p className="text-xs text-slate-600">✓ This Reference Snapshot remains stable and read-only.</p>
+                        <p className="text-xs text-slate-600">✓ Questions and mappings are copied to the new working copy.</p>
+                        <p className="text-xs text-slate-600">✓ Publish a new snapshot from the working copy when ready.</p>
+                    </div>
+                    <div className="flex items-center justify-end gap-2 mt-4">
+                        <Button variant="ghost" size="sm" onClick={() => setShowCreateWC(false)} disabled={createWCPending}>
+                            Cancel
+                        </Button>
+                        <Button
+                            size="sm"
+                            onClick={handleCreateWorkingCopy}
+                            disabled={createWCPending}
+                            className="bg-blue-600 hover:bg-blue-700 text-white gap-1.5"
+                        >
+                            {createWCPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <GitFork className="w-3.5 h-3.5" />}
+                            {createWCPending ? "Creating…" : "Create Working Copy"}
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
         </div>
     );
 }
-

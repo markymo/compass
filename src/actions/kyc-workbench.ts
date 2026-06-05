@@ -8,6 +8,7 @@ import { revalidatePath } from "next/cache";
 import { generateObject } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
 import { z } from 'zod';
+import { ensureQuestionNotReferenceSnapshot } from "./questionnaire";
 
 export interface Workbench4Data {
     questions: ConsoleQuestion[];
@@ -241,6 +242,7 @@ export async function mapQuestionToField(
     questionId: string,
     mapping: { fieldNo?: number | null; customFieldId?: string | null; groupId?: string | null }
 ) {
+    try { await ensureQuestionNotReferenceSnapshot(questionId); } catch(e: any) { return { success: false, error: e.message }; }
     try {
         const targetStatus = 'DRAFT';
 

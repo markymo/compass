@@ -2,128 +2,193 @@
 /**
  * scripts/backfill-short-codes.ts
  *
- * Generates and saves short codes for all organisations that don't already have one.
+ * Generates and saves 5-char vowel-elision short codes for all
+ * Organisation and ClientLE rows that don't already have one.
  *
  * Usage:
- *   npx tsx scripts/backfill-short-codes.ts            # set codes for orgs with no code
- *   npx tsx scripts/backfill-short-codes.ts --dry-run  # preview without saving
- *   npx tsx scripts/backfill-short-codes.ts --overwrite # regenerate all codes
+ *   npx tsx scripts/backfill-short-codes.ts              # fill missing codes
+ *   npx tsx scripts/backfill-short-codes.ts --dry-run    # preview only
+ *   npx tsx scripts/backfill-short-codes.ts --overwrite  # regenerate all
+ *
+ * DATABASE_URL env var controls which DB is used. Override inline:
+ *   DATABASE_URL='postgres://...' npx tsx scripts/backfill-short-codes.ts
  */
 
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
-const OVERWRITE = process.argv.includes("--overwrite");
-const DRY_RUN   = process.argv.includes("--dry-run");
+const OVERWRITE = process.argv.includes('--overwrite');
+const DRY_RUN   = process.argv.includes('--dry-run');
+const TARGET    = 5;
 
-// ── Short-code generator ──────────────────────────────────────────────────────
+// ── Generator (mirrors src/lib/org-short-code.ts) ────────────────────────────
 
-function generateOrgShortCode(name: string): string {
-    if (name.toLowerCase().includes("coparity")) return "COPARI";
+const VOWELS = new Set(['A','E','I','O','U']);
 
-    // Bracketed ALL-CAPS codes like "(MUFG)", "(RBC)"
-    const allCapsBracket = name.trim().match(/^\(([A-Z0-9]{2,6})\)$/);
-    if (allCapsBracket) return allCapsBracket[1];
+const NOISE = new Set([
+    'LIMITED','LTD','PLC','INC','LLC','CORP','CORPORATION',
+    'GROUP','HOLDINGS','HOLDING','SERVICES','GLOBAL','INTERNATIONAL',
+    'BANK','FINANCE','FINANCIAL','CAPITAL','PARTNERS','VENTURES',
+    'FUND','TRUST','MANAGEMENT','ASSET','ASSETS','INVESTMENTS',
+    'OF','THE','AND','FOR','DE','DEL','DU','LA','LE',
+    'SYSTEM','SYSTEMS',
+]);
 
-    let upper = name
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .toUpperCase()
-        .replace(/[-_.]/g, " ")
-        .replace(/[^A-Z0-9\s]/g, "")
-        .trim();
+const PROFANITY = new Set([
+    'BITCH','CUNTS','DICKS','FUCKS','PRICK','PUSSY','SHITS',
+    'WANKS','PENIS','ARSED','COCKS','TWATS',
+]);
 
-    const NOISE = new Set([
-        "LIMITED", "LTD", "PLC", "INC", "LLC", "CORP", "CORPORATION",
-        "GROUP", "HOLDINGS", "HOLDING", "SERVICES", "GLOBAL", "INTERNATIONAL",
-        "BANK", "FINANCE", "FINANCIAL", "CAPITAL", "PARTNERS", "VENTURES",
-        "OF", "THE", "AND", "FOR", "DE", "DEL", "DU", "LA", "LE",
-        "SYSTEM", "TEST",
-    ]);
+const PROFANITY_SUB = ['FUCK','SHIT','CUNT','COCK','DICK','ARSE','WANK'];
 
-    const words = upper.split(/\s+/).filter(Boolean);
-    const meaningful = words.filter(w => !NOISE.has(w));
-    const base = meaningful.length > 0 ? meaningful : words;
-
-    if (base.length === 1) {
-        const w = base[0];
-        if (w.length <= 6 && w.length >= 2) return w;
-        if (w.length === 1) return upper.slice(0, 4);
-        return w.slice(0, 4);
-    }
-
-    const acronym = base.map(w => w[0]).join("");
-    if (acronym.length >= 4 && acronym.length <= 6) return acronym;
-    if (acronym.length > 6) return acronym.slice(0, 4);
-
-    // Pad short acronym with extra chars from first word
-    const restLetters = base.slice(1).map(w => w[0]).join("");
-    const charsNeeded = 4 - restLetters.length;
-    const fromFirst   = base[0].slice(0, charsNeeded);
-    return (fromFirst + restLetters).slice(0, 4);
+function normalize(name: string): string {
+    return name.normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+        .toUpperCase().replace(/[^A-Z0-9]/g,' ').replace(/\s+/g,' ').trim();
 }
 
-// ── Collision resolution ──────────────────────────────────────────────────────
+function isProfane(code: string): boolean {
+    if (PROFANITY.has(code)) return true;
+    return PROFANITY_SUB.some(w => code.includes(w));
+}
+
+function sanitize(code: string): string {
+    return isProfane(code) ? code.slice(0,4) + '9' : code;
+}
+
+function generateShortCode(name: string): string {
+    if (name.toLowerCase().includes('coparity')) return 'COPAR';
+
+    const bracketMatch = name.trim().match(/^\(([A-Z0-9]+)\)$/);
+    if (bracketMatch) {
+        return sanitize(bracketMatch[1].padEnd(TARGET,'0').slice(0,TARGET));
+    }
+
+    const upper = normalize(name);
+    const allWords = upper.split(/\s+/).filter(Boolean);
+    const meaningful = allWords.filter(w => !NOISE.has(w));
+    const base = meaningful.length > 0 ? meaningful : allWords;
+    const effectiveBase = (base.length === 1 && base[0].length === 1) ? allWords : base;
+    const joined = effectiveBase.join('');
+
+    if (joined.length <= TARGET - 1) {
+        return sanitize(joined.padEnd(TARGET,'0'));
+    }
+
+    // Elide interior vowels in-place
+    const elided = joined[0] + joined.slice(1).replace(/[AEIOU]/g,'');
+
+    if (elided.length >= TARGET) {
+        return sanitize(elided.slice(0, TARGET));
+    }
+
+    // Short after elision — append trailing vowels from original
+    const originalVowels = [...joined.slice(1)].filter(c => VOWELS.has(c));
+    const needed = TARGET - elided.length;
+    const filler = originalVowels.slice(-needed).join('');
+    const result = (elided + filler).padEnd(TARGET,'0').slice(0, TARGET);
+    return sanitize(result);
+}
 
 function makeUnique(desired: string, used: Set<string>): string {
     if (!used.has(desired)) return desired;
-    for (let i = 2; i <= 9; i++) {
-        const c = desired.slice(0, 5) + i;
+    for (let i = 1; i <= 9; i++) {
+        const c = desired.slice(0,4) + i;
         if (!used.has(c)) return c;
     }
     for (let i = 10; i <= 99; i++) {
-        const c = desired.slice(0, 4) + i;
+        const c = desired.slice(0,3) + i;
         if (!used.has(c)) return c;
     }
-    throw new Error(`Cannot find unique code for "${desired}"`);
+    throw new Error(`Cannot find unique code for base "${desired}"`);
+}
+
+// ── Shared backfill logic ─────────────────────────────────────────────────────
+
+type Row = { id: string; name: string; shortCode: string | null };
+
+function processRows(
+    label: string,
+    rows: Row[],
+    usedCodes: Set<string>
+): { id: string; name: string; newCode: string }[] {
+
+    console.log(`\n── ${label} (${rows.length} rows) ──`);
+    const updates: { id: string; name: string; newCode: string }[] = [];
+
+    for (const row of rows) {
+        if (row.shortCode && !OVERWRITE) {
+            console.log(`  KEEP  ${row.shortCode.padEnd(6)}← ${row.name}`);
+            continue;
+        }
+        const raw  = generateShortCode(row.name);
+        const code = makeUnique(raw, usedCodes);
+        usedCodes.add(code);
+        updates.push({ id: row.id, name: row.name, newCode: code });
+        const tag = OVERWRITE && row.shortCode ? 'REGEN' : 'SET  ';
+        console.log(`  ${tag} ${code.padEnd(6)}← ${row.name}`);
+    }
+    return updates;
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main() {
+    console.log(`\nOVERWRITE=${OVERWRITE}  DRY_RUN=${DRY_RUN}\n`);
+
+    // Single shared uniqueness pool across both models
+    const usedCodes = new Set<string>();
+
+    // --- Organizations ---
     const orgs = await prisma.organization.findMany({
         select: { id: true, name: true, shortCode: true },
-        orderBy: { name: "asc" },
+        orderBy: { name: 'asc' },
     });
 
-    console.log(`\nFound ${orgs.length} organisations. OVERWRITE=${OVERWRITE}  DRY_RUN=${DRY_RUN}\n`);
-
-    const usedCodes = new Set<string>(
-        orgs.filter(o => o.shortCode && !OVERWRITE).map(o => o.shortCode as string)
-    );
-
-    const updates: { id: string; name: string; newCode: string }[] = [];
-
-    for (const org of orgs) {
-        if (org.shortCode && !OVERWRITE) {
-            console.log(`  KEEP  ${org.shortCode.padEnd(8)}← ${org.name}`);
-            continue;
-        }
-        const raw  = generateOrgShortCode(org.name);
-        const code = makeUnique(raw, usedCodes);
-        usedCodes.add(code);
-        updates.push({ id: org.id, name: org.name, newCode: code });
-        const tag = OVERWRITE && org.shortCode ? "REGEN" : "SET  ";
-        console.log(`  ${tag} ${code.padEnd(8)}← ${org.name}`);
+    // Seed with already-persisted codes we're keeping
+    if (!OVERWRITE) {
+        orgs.filter(o => o.shortCode).forEach(o => usedCodes.add(o.shortCode!));
     }
 
-    if (updates.length === 0) {
-        console.log("\nNothing to update.\n");
+    const orgUpdates = processRows('ORGANISATIONS', orgs, usedCodes);
+
+    // --- ClientLEs ---
+    const les = await prisma.clientLE.findMany({
+        where: { isDeleted: false },
+        select: { id: true, name: true, shortCode: true },
+        orderBy: { name: 'asc' },
+    });
+
+    if (!OVERWRITE) {
+        les.filter(l => l.shortCode).forEach(l => usedCodes.add(l.shortCode!));
+    }
+
+    const leUpdates = processRows('CLIENT LEs', les, usedCodes);
+
+    const totalUpdates = orgUpdates.length + leUpdates.length;
+    console.log(`\nTotal to update: ${totalUpdates} rows`);
+
+    if (totalUpdates === 0) {
+        console.log('Nothing to do.\n');
         return;
     }
 
     if (DRY_RUN) {
-        console.log(`\nDRY-RUN: would update ${updates.length} organisations (no changes saved).\n`);
+        console.log('DRY-RUN: no changes saved.\n');
         return;
     }
 
-    console.log(`\nSaving ${updates.length} short codes…`);
-    await Promise.all(
-        updates.map(u =>
-            prisma.organization.update({ where: { id: u.id }, data: { shortCode: u.newCode } })
-        )
-    );
-    console.log("Done ✓\n");
+    console.log('\nSaving…');
+
+    await Promise.all([
+        ...orgUpdates.map(u => prisma.organization.update({
+            where: { id: u.id }, data: { shortCode: u.newCode }
+        })),
+        ...leUpdates.map(u => prisma.clientLE.update({
+            where: { id: u.id }, data: { shortCode: u.newCode }
+        })),
+    ]);
+
+    console.log('Done ✓\n');
 }
 
 main()

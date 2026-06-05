@@ -25,12 +25,38 @@ async function ensureAuthorization(action: Action, context: { partyId?: string, 
     return { userId: identity.userId };
 }
 
+export async function ensureNotReferenceSnapshot(questionnaireId: string) {
+    const q = await prisma.questionnaire.findUnique({
+        where: { id: questionnaireId },
+        select: { kind: true, isGlobal: true, isTemplate: true, fiEngagementId: true }
+    });
+    if (!q) return;
+    const isReferenceSnapshot = q.kind === "REFERENCE_SNAPSHOT" || (q.isGlobal && q.isTemplate && !q.fiEngagementId);
+    if (isReferenceSnapshot) {
+        throw new Error("REFERENCE_SNAPSHOT_LOCKED");
+    }
+}
+
+export async function ensureQuestionNotReferenceSnapshot(questionId: string) {
+    const q = await prisma.question.findUnique({
+        where: { id: questionId },
+        select: { questionnaireId: true }
+    });
+    if (q) {
+        await ensureNotReferenceSnapshot(q.questionnaireId);
+    }
+}
+
 async function ensureQuestionnaireAccess(id: string, actionType: 'READ' | 'WRITE' | 'DELETE') {
     const q = await prisma.questionnaire.findUnique({
         where: { id },
-        select: { fiEngagementId: true, fiOrgId: true }
+        select: { fiEngagementId: true, fiOrgId: true, kind: true, isGlobal: true, isTemplate: true }
     });
     if (!q) throw new Error("Questionnaire not found");
+
+    if (actionType === 'WRITE' || actionType === 'DELETE') {
+        await ensureNotReferenceSnapshot(id);
+    }
 
     if (q.fiEngagementId) {
         let action: Action = Action.ENG_VIEW_RELEASED_DATA;
@@ -159,6 +185,7 @@ export async function createQuestionnaire(identifier: string | null | undefined,
                 status: "DIGITIZING", // Async Step 1: Start as "Digitizing"
                 fiEngagementId: engagementId || null, // Link if provided
                 isTemplate: engagementId ? false : true, // If linked to an engagement, it's an instance. Otherwise, a master template.
+                kind: engagementId ? "ENGAGEMENT_QUESTIONNAIRE" : "WORKING_COPY",
                 ...fileData
             },
         });
@@ -358,7 +385,8 @@ export async function createManualQuestionnaire(data: { name: string, fiOrgId?: 
                 name,
                 status: "ACTIVE",
                 extractedContent: extractedContent as any,
-                isGlobal
+                isGlobal,
+                kind: isGlobal ? "REFERENCE_SNAPSHOT" : "WORKING_COPY",
             } as any
         });
 
@@ -1112,6 +1140,7 @@ export async function assignQuestionnaireToEngagement(
                 mappings: mappingsToCopy,
                 isGlobal: false,
                 isTemplate: false,
+                kind: "ENGAGEMENT_QUESTIONNAIRE",
                 fileUrl: template.fileUrl,
                 fileName: template.fileName,
                 fileType: template.fileType,
@@ -1201,6 +1230,7 @@ export async function cloneQuestionnaire(sourceId: string, newFIOrgId?: string, 
                 mappings: mappingsToCopy,
                 isGlobal: false,
                 isTemplate: true,
+                kind: "WORKING_COPY",
                 sourceId: sourceId, // lineage: derived from this source
             }
         });
@@ -1292,6 +1322,7 @@ export async function shareQuestionnaireLaterally(sourceQuestionnaireId: string,
                     mappings: source.mappings ? JSON.parse(JSON.stringify(source.mappings)) : undefined,
                     isGlobal: false,
                     isTemplate: false,
+                    kind: "ENGAGEMENT_QUESTIONNAIRE",
                     ownerOrgId: source.ownerOrgId,
                     fileUrl: source.fileUrl,
                     fileName: source.fileName,

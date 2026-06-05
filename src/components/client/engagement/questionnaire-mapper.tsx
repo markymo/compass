@@ -18,7 +18,7 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
 // --- Inline Text Editor Component ---
-function InlineTextEditor({ value, onSave, className }: { value: string, onSave: (val: string) => void, className?: string }) {
+function InlineTextEditor({ value, onSave, className, readOnly }: { value: string, onSave: (val: string) => void, className?: string, readOnly?: boolean }) {
     const [isEditing, setIsEditing] = useState(false);
     const [editValue, setEditValue] = useState(value);
 
@@ -43,6 +43,15 @@ function InlineTextEditor({ value, onSave, className }: { value: string, onSave:
             setEditValue(value);
         }
     };
+
+    // Read-only: render static text, no click-to-edit
+    if (readOnly) {
+        return (
+            <div className={cn("px-1 min-h-[20px] min-w-[50px] inline-block text-slate-700", className)}>
+                {value || <span className="text-slate-400 italic text-xs">—</span>}
+            </div>
+        );
+    }
 
     if (isEditing) {
         return (
@@ -77,9 +86,10 @@ interface QuestionnaireMapperProps {
     questionnaireId: string;
     onBack: () => void;
     standingData?: any;
+    readOnly?: boolean;
 }
 
-export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: QuestionnaireMapperProps) {
+export function QuestionnaireMapper({ questionnaireId, onBack, standingData, readOnly = false }: QuestionnaireMapperProps) {
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
     const [analyzing, setAnalyzing] = useState(false);
@@ -178,8 +188,9 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
         }
     };
 
-    // Auto-generate missing compact texts after load
+    // Auto-generate missing compact texts after load — suppressed for read-only snapshots
     useEffect(() => {
+        if (readOnly) return;
         if (!loading && questions.length > 0) {
             const missing = questions.filter((q: any) => !q.compactText && q.text);
             if (missing.length > 0) {
@@ -529,6 +540,13 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
                     </div>
                 </div>
                 <div className="max-w-2xl mx-auto space-y-8 p-8 pt-8">
+                    {/* Read-only notice for Reference Snapshots */}
+                    {readOnly && (
+                        <div className="flex items-center gap-2 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-lg">
+                            <svg className="w-4 h-4 text-amber-600 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                            <span className="text-sm text-amber-800">Reference Snapshot — viewing only. No changes can be saved.</span>
+                        </div>
+                    )}
 
                     {/* Section 1: Map to Data Field (primary action — first) */}
                     <div className="space-y-4">
@@ -596,6 +614,7 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
                             <Switch
                                 checked={selectedQuestion.allowAttachments || false}
                                 onCheckedChange={(checked) => updateQuestion(selectedQuestion.id, { allowAttachments: checked })}
+                                disabled={readOnly}
                             />
                         </div>
 
@@ -614,13 +633,14 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
                                     onChange={(e) => updateQuestion(selectedQuestion.id, { compactText: e.target.value })}
                                     placeholder="E.g. Code of Conduct Policy"
                                     className="flex-1"
+                                    disabled={readOnly}
                                 />
                                 <Button
                                     variant="outline"
                                     size="icon"
                                     className="shrink-0"
                                     onClick={() => handleGenerateCompactText(selectedQuestion.id, selectedQuestion.text)}
-                                    disabled={generatingCompact[selectedQuestion.id] || !selectedQuestion.text}
+                                    disabled={readOnly || generatingCompact[selectedQuestion.id] || !selectedQuestion.text}
                                     title="Auto-generate with AI"
                                 >
                                     {generatingCompact[selectedQuestion.id] ? (
@@ -643,6 +663,7 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
                             <InlineTextEditor
                                 value={selectedQuestion.text || ""}
                                 onSave={(newText) => updateQuestion(selectedQuestion.id, { text: newText })}
+                                readOnly={readOnly}
                             />
                         </div>
                     </div>
@@ -682,39 +703,49 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
-                    {/* Auto-save status indicator */}
-                    {saveStatus === 'pending' && (
-                        <span className="text-xs text-slate-400 flex items-center gap-1">
-                            <span className="h-1.5 w-1.5 rounded-full bg-slate-300 animate-pulse" />
-                            Unsaved changes
+                    {readOnly ? (
+                        // Reference Snapshot — all write controls hidden
+                        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-full">
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                            Read-only
                         </span>
+                    ) : (
+                        <>
+                            {/* Auto-save status indicator */}
+                            {saveStatus === 'pending' && (
+                                <span className="text-xs text-slate-400 flex items-center gap-1">
+                                    <span className="h-1.5 w-1.5 rounded-full bg-slate-300 animate-pulse" />
+                                    Unsaved changes
+                                </span>
+                            )}
+                            {saveStatus === 'saving' && (
+                                <span className="text-xs text-indigo-500 flex items-center gap-1">
+                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                    Saving…
+                                </span>
+                            )}
+                            {saveStatus === 'saved' && (
+                                <span className="text-xs text-emerald-600 flex items-center gap-1">
+                                    <Cloud className="h-3 w-3" />
+                                    Saved
+                                </span>
+                            )}
+                            {saveStatus === 'error' && (
+                                <span className="text-xs text-red-500 flex items-center gap-1">
+                                    <CloudOff className="h-3 w-3" />
+                                    Save failed
+                                </span>
+                            )}
+                            <Button variant="outline" size="sm" onClick={handleAutoMap} disabled={analyzing} className="border-indigo-200 text-indigo-700 hover:bg-indigo-50">
+                                {analyzing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
+                                Auto-Map
+                            </Button>
+                            <Button size="sm" onClick={handleSave} disabled={saving} className="bg-slate-900 text-white hover:bg-slate-800">
+                                {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+                                Save
+                            </Button>
+                        </>
                     )}
-                    {saveStatus === 'saving' && (
-                        <span className="text-xs text-indigo-500 flex items-center gap-1">
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                            Saving…
-                        </span>
-                    )}
-                    {saveStatus === 'saved' && (
-                        <span className="text-xs text-emerald-600 flex items-center gap-1">
-                            <Cloud className="h-3 w-3" />
-                            Saved
-                        </span>
-                    )}
-                    {saveStatus === 'error' && (
-                        <span className="text-xs text-red-500 flex items-center gap-1">
-                            <CloudOff className="h-3 w-3" />
-                            Save failed
-                        </span>
-                    )}
-                    <Button variant="outline" size="sm" onClick={handleAutoMap} disabled={analyzing} className="border-indigo-200 text-indigo-700 hover:bg-indigo-50">
-                        {analyzing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
-                        Auto-Map
-                    </Button>
-                    <Button size="sm" onClick={handleSave} disabled={saving} className="bg-slate-900 text-white hover:bg-slate-800">
-                        {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
-                        Save
-                    </Button>
                 </div>
             </div>
 
@@ -821,31 +852,37 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
                                                 />
                                             </div>
 
-                                            {/* Col 4: Actions — hover-only */}
-                                            <div
-                                                className="px-2 flex items-center justify-end h-full gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
-                                                onClick={(e) => e.stopPropagation()}
-                                            >
-                                                <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-slate-600" onClick={() => handleMoveQuestionUp(q.id)}>
-                                                    <ChevronRight className="h-3.5 w-3.5 -rotate-90" />
-                                                </Button>
-                                                <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-slate-600" onClick={() => handleMoveQuestionDown(q.id)}>
-                                                    <ChevronRight className="h-3.5 w-3.5 rotate-90" />
-                                                </Button>
-                                                <Button variant="ghost" size="icon" className="h-6 w-6 text-red-400 hover:text-red-500 hover:bg-red-50" onClick={() => handleRemoveQuestion(q.id)}>
-                                                    <svg width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5"><path d="M5.5 1C5.22386 1 5 1.22386 5 1.5C5 1.77614 5.22386 2 5.5 2H9.5C9.77614 2 10 1.77614 10 1.5C10 1.22386 9.77614 1 9.5 1H5.5ZM3 3.5C3 3.22386 3.22386 3 3.5 3H11.5C11.7761 3 12 3.22386 12 3.5C12 3.77614 11.7761 4 11.5 4H11V12C11 12.5523 10.5523 13 10 13H5C4.44772 13 4 12.5523 4 12V4H3.5C3.22386 4 3 3.77614 3 3.5ZM5 4H10V12H5V4Z" fill="currentColor" fillRule="evenodd" clipRule="evenodd"></path></svg>
-                                                </Button>
-                                            </div>
+                                            {/* Col 4: Actions — hover-only; hidden when readOnly */}
+                                            {readOnly ? (
+                                                <div />
+                                            ) : (
+                                                <div
+                                                    className="px-2 flex items-center justify-end h-full gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                    onClick={(e) => e.stopPropagation()}
+                                                >
+                                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-slate-600" onClick={() => handleMoveQuestionUp(q.id)}>
+                                                        <ChevronRight className="h-3.5 w-3.5 -rotate-90" />
+                                                    </Button>
+                                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-slate-600" onClick={() => handleMoveQuestionDown(q.id)}>
+                                                        <ChevronRight className="h-3.5 w-3.5 rotate-90" />
+                                                    </Button>
+                                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-red-400 hover:text-red-500 hover:bg-red-50" onClick={() => handleRemoveQuestion(q.id)}>
+                                                        <svg width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5"><path d="M5.5 1C5.22386 1 5 1.22386 5 1.5C5 1.77614 5.22386 2 5.5 2H9.5C9.77614 2 10 1.77614 10 1.5C10 1.22386 9.77614 1 9.5 1H5.5ZM3 3.5C3 3.22386 3.22386 3 3.5 3H11.5C11.7761 3 12 3.22386 12 3.5C12 3.77614 11.7761 4 11.5 4H11V12C11 12.5523 10.5523 13 10 13H5C4.44772 13 4 12.5523 4 12V4H3.5C3.22386 4 3 3.77614 3 3.5ZM5 4H10V12H5V4Z" fill="currentColor" fillRule="evenodd" clipRule="evenodd"></path></svg>
+                                                    </Button>
+                                                </div>
+                                            )}
                                         </div>
                                     );
                                 })}
                             </div>
-                            <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/50">
-                                <Button variant="outline" size="sm" onClick={handleAddQuestion} className="w-full border-dashed border-slate-300 text-slate-500 hover:text-slate-800 hover:border-slate-400 bg-transparent h-10">
-                                    <Plus className="h-4 w-4 mr-2" />
-                                    Add Question Manually
-                                </Button>
-                            </div>
+                            {!readOnly && (
+                                <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/50">
+                                    <Button variant="outline" size="sm" onClick={handleAddQuestion} className="w-full border-dashed border-slate-300 text-slate-500 hover:text-slate-800 hover:border-slate-400 bg-transparent h-10">
+                                        <Plus className="h-4 w-4 mr-2" />
+                                        Add Question Manually
+                                    </Button>
+                                </div>
+                            )}
                         </div>
                     </div>
             </div>
@@ -909,6 +946,40 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData }: Q
 
         const allOptions = [...groupOptions, ...masterOptions, ...customOptions];
         const selectedOption = allOptions.find((o: any) => o.value === value);
+
+        // READ-ONLY: return static display — no Popover mounted, no interaction possible
+        if (readOnly) {
+            if (tableMode) {
+                return selectedOption ? (
+                    <div className="flex items-center gap-1.5 w-full min-w-0 h-full">
+                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-green-50 text-green-700 border border-green-200 shrink-0">
+                            <CheckCircle2 className="h-2.5 w-2.5" />
+                            Mapped
+                        </span>
+                        <span className="text-green-600 text-xs font-bold shrink-0">→</span>
+                        <span className="text-sm font-medium text-slate-800 truncate flex-1 min-w-0">{selectedOption.label}</span>
+                        {resolvedDisplay && (
+                            <span className="text-xs text-slate-400 truncate shrink-0 max-w-[120px]" title={resolvedDisplay}>
+                                · {resolvedDisplay}
+                            </span>
+                        )}
+                    </div>
+                ) : (
+                    <span className="text-sm italic text-slate-400">Unmapped</span>
+                );
+            }
+            // Panel mode (non-tableMode)
+            return selectedOption ? (
+                <div className="w-full py-3 px-4">
+                    <div className="flex items-start gap-0.5 flex-col">
+                        <span className="font-medium text-slate-900">{selectedOption.label}</span>
+                        <span className="text-xs text-slate-400">{selectedOption.meta}</span>
+                    </div>
+                </div>
+            ) : (
+                <div className="w-full py-3 px-4 text-slate-400 italic text-sm">No mapping</div>
+            );
+        }
 
         // Build ordered category sections from cats (preserves admin-defined order)
         // Each section: { heading: string, options: masterOption[] }

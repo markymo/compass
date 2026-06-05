@@ -16,8 +16,7 @@ export async function toggleFieldActive(fieldNo: number, isActive: boolean) {
             data: { isActive }
         });
         invalidateDefinitionCache();
-        revalidatePath("/app/admin/master-data");
-        revalidatePath("/app/admin/master-data/fields");
+        revalidatePath("/app/admin/master-data", "layout");
         return { success: true };
     } catch (e) {
         console.error("[toggleFieldActive] Error:", e);
@@ -34,8 +33,7 @@ export async function toggleGroupActive(id: string, isActive: boolean) {
             where: { id },
             data: { isActive }
         });
-        revalidatePath("/app/admin/master-data");
-        revalidatePath("/app/admin/master-data/groups");
+        revalidatePath("/app/admin/master-data", "layout");
         return { success: true };
     } catch (e) {
         console.error("[toggleGroupActive] Error:", e);
@@ -49,7 +47,7 @@ export async function toggleGroupActive(id: string, isActive: boolean) {
 export async function clearDefinitionCache() {
     try {
         invalidateDefinitionCache();
-        revalidatePath("/app/admin/master-data");
+        revalidatePath("/app/admin/master-data", "layout");
         return { success: true };
     } catch (e) {
         console.error("[clearDefinitionCache] Error:", e);
@@ -110,8 +108,7 @@ export async function updateMasterField(
             data: finalData
         });
         invalidateDefinitionCache();
-        revalidatePath("/app/admin/master-data");
-        revalidatePath("/app/admin/master-data/fields");
+        revalidatePath("/app/admin/master-data", "layout");
 
         // Step 10: Automated Observation Capture (Awaited for reliability in serverless)
         try {
@@ -201,8 +198,7 @@ export async function createMasterField(data: {
             }
         });
         invalidateDefinitionCache();
-        revalidatePath("/app/admin/master-data");
-        revalidatePath("/app/admin/master-data/fields");
+        revalidatePath("/app/admin/master-data", "layout");
         return { success: true, field };
     } catch (e) {
         console.error("[createMasterField] Error:", e);
@@ -223,8 +219,7 @@ export async function createMasterFieldGroup(data: {
     try {
         const group = await (prisma as any).masterFieldGroup.create({ data });
         invalidateDefinitionCache();
-        revalidatePath("/app/admin/master-data");
-        revalidatePath("/app/admin/master-data/groups");
+        revalidatePath("/app/admin/master-data", "layout");
         return { success: true, group };
     } catch (e) {
         console.error("[createMasterFieldGroup] Error:", e);
@@ -251,8 +246,7 @@ export async function updateMasterFieldGroup(
             data
         });
         invalidateDefinitionCache();
-        revalidatePath("/app/admin/master-data");
-        revalidatePath("/app/admin/master-data/groups");
+        revalidatePath("/app/admin/master-data", "layout");
         return { success: true };
     } catch (e) {
         console.error("[updateMasterFieldGroup] Error:", e);
@@ -278,8 +272,7 @@ export async function renameCustomField(
             data: { label: newLabel.trim() }
         });
 
-        revalidatePath("/app/admin/master-data");
-        revalidatePath("/app/admin/master-data/fields");
+        revalidatePath("/app/admin/master-data", "layout");
         // Revalidate workbench pages broadly
         revalidatePath("/app/le", "layout");
 
@@ -326,8 +319,7 @@ export async function renameMasterDataCategory(
         });
 
         invalidateDefinitionCache();
-        revalidatePath("/app/admin/master-data/manager");
-        revalidatePath("/app/admin/master-data");
+        revalidatePath("/app/admin/master-data", "layout");
 
         return { success: true };
     } catch (e) {
@@ -472,8 +464,7 @@ export async function retireMasterDataCategory(
         if (options?.forceHardDelete && fieldNos.length === 0) {
             await (prisma as any).masterDataCategory.delete({ where: { id: categoryId } });
             invalidateDefinitionCache();
-            revalidatePath("/app/admin/master-data/manager");
-            revalidatePath("/app/admin/master-data");
+            revalidatePath("/app/admin/master-data", "layout");
             return { success: true, hardDeleted: true };
         }
 
@@ -510,8 +501,7 @@ export async function retireMasterDataCategory(
         });
 
         invalidateDefinitionCache();
-        revalidatePath("/app/admin/master-data/manager");
-        revalidatePath("/app/admin/master-data");
+        revalidatePath("/app/admin/master-data", "layout");
 
         return { success: true, hardDeleted: false };
     } catch (e) {
