@@ -85,20 +85,31 @@ describe('reference-codes logic', () => {
     });
 
     describe('generateWorkingCopyTitle', () => {
-        it('working copy default title', () => {
+        it('working copy default title uses UNPUBLISHED and handles non-system', () => {
             const title = generateWorkingCopyTitle({
                 functionalCode: "FMSB",
                 clientLeShortCode: "ACME",
                 supplierShortCode: "STRIPE",
+                isSystemQuestionnaire: false,
             });
-            expect(title).toBe("FMSB_ACME_STRIPE");
+            expect(title).toBe("FMSB_UNPUBLISHED_ACME_STRIPE");
+        });
+
+        it('working copy default title with system questionnaire', () => {
+            const title = generateWorkingCopyTitle({
+                functionalCode: "FMSB",
+                clientLeShortCode: "ACME",
+                supplierShortCode: "STRIPE",
+                isSystemQuestionnaire: true,
+            });
+            expect(title).toBe("FMSB_UNPUBLISHED_COPARITY_ACME_STRIPE");
         });
 
         it('working copy default title with missing parties', () => {
             const title = generateWorkingCopyTitle({
                 functionalCode: "KYC-NEW",
             });
-            expect(title).toBe("KYCNEW_XXXXX_SSSSS");
+            expect(title).toBe("KYCNEW_UNPUBLISHED_XXXXX_SSSSS");
         });
     });
 

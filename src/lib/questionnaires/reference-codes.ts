@@ -13,7 +13,7 @@ export interface ReferenceCodeParams {
     functionalCode: string;
     clientLeShortCode?: string | null;
     supplierShortCode?: string | null;
-    isSystemQuestionnaire: boolean;
+    isSystemQuestionnaire?: boolean;
     date?: Date;
 }
 
@@ -22,7 +22,7 @@ export function generateReferenceCodePrefix(params: ReferenceCodeParams): string
         functionalCode, 
         clientLeShortCode, 
         supplierShortCode, 
-        isSystemQuestionnaire, 
+        isSystemQuestionnaire = false, 
         date = new Date() 
     } = params;
     
@@ -35,12 +35,13 @@ export function generateReferenceCodePrefix(params: ReferenceCodeParams): string
     return `${func}_${yymmdd}_${coparity}${client}_${supplier}`;
 }
 
-export function generateWorkingCopyTitle(params: Omit<ReferenceCodeParams, 'isSystemQuestionnaire' | 'date'>): string {
+export function generateWorkingCopyTitle(params: Omit<ReferenceCodeParams, 'date'>): string {
     const func = normalizeCode(params.functionalCode);
+    const coparity = params.isSystemQuestionnaire ? "COPARITY_" : "";
     const client = params.clientLeShortCode ? normalizeCode(params.clientLeShortCode) : "XXXXX";
     const supplier = params.supplierShortCode ? normalizeCode(params.supplierShortCode) : "SSSSS";
 
-    return `${func}_${client}_${supplier}`;
+    return `${func}_UNPUBLISHED_${coparity}${client}_${supplier}`;
 }
 
 export function computeNextVersion(prefix: string, existingCodes: string[]): number {

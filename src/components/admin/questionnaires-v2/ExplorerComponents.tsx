@@ -4,7 +4,7 @@ import { QV2Row } from "@/actions/questionnaires-v2";
 import { formatDistanceToNow, format } from "date-fns";
 import {
     PenLine, BookMarked, Hash, Globe, Lock, GitBranch,
-    ExternalLink, ArrowRight, ChevronRight, X, Share2, AlertTriangle, Box,
+    ExternalLink, ArrowRight, ChevronRight, X, Share2, AlertTriangle, Box, Trash2, Archive,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
@@ -19,11 +19,15 @@ interface TableProps {
     onAddToLibrary: (row: QV2Row) => void;
     onCreateWorkingCopy: (row: QV2Row) => void;
     onShare: (row: QV2Row) => void;
+    onArchiveWC: (row: QV2Row) => void;
+    onDeleteWC: (row: QV2Row) => void;
+    onArchiveRef: (row: QV2Row) => void;
+    onDeleteRef: (row: QV2Row) => void;
 }
 
 // ── Table ───────────────────────────────────────────────────────────────────
 
-export function ExplorerTable({ rows, tab, selectedId, onSelect, onAddToLibrary, onCreateWorkingCopy, onShare }: TableProps) {
+export function ExplorerTable({ rows, tab, selectedId, onSelect, onAddToLibrary, onCreateWorkingCopy, onShare, onArchiveWC, onDeleteWC, onArchiveRef, onDeleteRef }: TableProps) {
     return (
         <table className="w-full text-sm">
             <thead>
@@ -37,7 +41,9 @@ export function ExplorerTable({ rows, tab, selectedId, onSelect, onAddToLibrary,
             </thead>
             <tbody>
                 {rows.map((row, i) => (
-                    <ExplorerRow key={row.id} row={row} tab={tab} isSelected={row.id === selectedId} isLast={i === rows.length - 1} onSelect={onSelect} onAddToLibrary={onAddToLibrary} onCreateWorkingCopy={onCreateWorkingCopy} onShare={onShare} />
+                    <ExplorerRow key={row.id} row={row} tab={tab} isSelected={row.id === selectedId} isLast={i === rows.length - 1}
+                        onSelect={onSelect} onAddToLibrary={onAddToLibrary} onCreateWorkingCopy={onCreateWorkingCopy} onShare={onShare}
+                        onArchiveWC={onArchiveWC} onDeleteWC={onDeleteWC} onArchiveRef={onArchiveRef} onDeleteRef={onDeleteRef} />
                 ))}
             </tbody>
         </table>
@@ -46,10 +52,12 @@ export function ExplorerTable({ rows, tab, selectedId, onSelect, onAddToLibrary,
 
 // ── Row ─────────────────────────────────────────────────────────────────────
 
-function ExplorerRow({ row, tab, isSelected, isLast, onSelect, onAddToLibrary, onCreateWorkingCopy, onShare }: {
+function ExplorerRow({ row, tab, isSelected, isLast, onSelect, onAddToLibrary, onCreateWorkingCopy, onShare, onArchiveWC, onDeleteWC, onArchiveRef, onDeleteRef }: {
     row: QV2Row; tab: TabKey; isSelected: boolean; isLast: boolean;
     onSelect: (r: QV2Row) => void; onAddToLibrary: (r: QV2Row) => void;
     onCreateWorkingCopy: (r: QV2Row) => void; onShare: (r: QV2Row) => void;
+    onArchiveWC: (r: QV2Row) => void; onDeleteWC: (r: QV2Row) => void;
+    onArchiveRef: (r: QV2Row) => void; onDeleteRef: (r: QV2Row) => void;
 }) {
     const owner = row.ownerOrgName ?? row.fiOrgName ?? "—";
     return (
@@ -95,9 +103,9 @@ function ExplorerRow({ row, tab, isSelected, isLast, onSelect, onAddToLibrary, o
             <td className="px-4 py-2.5">
                 <div className="flex items-center justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
                     {tab === "working-copy"
-                        ? <WCActions id={row.id} onAddToLibrary={() => onAddToLibrary(row)} />
+                        ? <WCActions id={row.id} onAddToLibrary={() => onAddToLibrary(row)} onArchive={() => onArchiveWC(row)} onDelete={() => onDeleteWC(row)} />
                         : tab === "reference"
-                            ? <RefActions id={row.id} onCreateWC={() => onCreateWorkingCopy(row)} onShare={() => onShare(row)} />
+                            ? <RefActions id={row.id} row={row} onCreateWC={() => onCreateWorkingCopy(row)} onShare={() => onShare(row)} onArchive={() => onArchiveRef(row)} onDelete={() => onDeleteRef(row)} />
                             : <OtherActions id={row.id} />}
                 </div>
             </td>
@@ -135,18 +143,34 @@ export function SharingPill({ state }: { state: "PRIVATE" | "RESTRICTED" | "GLOB
     );
 }
 
-function WCActions({ id, onAddToLibrary }: { id: string; onAddToLibrary: () => void }) {
+function WCActions({ id, onAddToLibrary, onArchive, onDelete }: { id: string; onAddToLibrary: () => void; onArchive: () => void; onDelete: () => void }) {
     return (<>
         <Link href={`/app/admin/questionnaires/${id}`} className="text-[11px] text-slate-600 hover:text-slate-900 font-medium px-2 py-1 rounded border border-slate-200 hover:border-slate-300 transition-colors">Open</Link>
         <button onClick={onAddToLibrary} className="text-[11px] text-slate-600 hover:text-slate-900 font-medium px-2 py-1 rounded border border-slate-200 hover:border-slate-300 transition-colors whitespace-nowrap">Add to Library</button>
+        <button onClick={onArchive} className="p-1 rounded border border-slate-200 hover:border-amber-300 text-slate-400 hover:text-amber-600 transition-colors" title="Archive Working Copy"><Archive className="w-3 h-3" /></button>
+        <button onClick={onDelete} className="p-1 rounded border border-slate-200 hover:border-red-300 text-slate-400 hover:text-red-500 transition-colors" title="Delete Working Copy"><Trash2 className="w-3 h-3" /></button>
     </>);
 }
 
-function RefActions({ id, onCreateWC, onShare }: { id: string; onCreateWC: () => void; onShare: () => void }) {
+function RefActions({ id, row, onCreateWC, onShare, onArchive, onDelete }: { id: string; row: QV2Row; onCreateWC: () => void; onShare: () => void; onArchive: () => void; onDelete: () => void }) {
+    const canDelete = row.descendantCount === 0;
     return (<>
         <Link href={`/app/admin/questionnaires/${id}`} className="text-[11px] text-slate-600 hover:text-slate-900 font-medium px-2 py-1 rounded border border-slate-200 hover:border-slate-300 transition-colors">View</Link>
         <button onClick={onCreateWC} className="text-[11px] text-slate-600 hover:text-slate-900 font-medium px-2 py-1 rounded border border-slate-200 hover:border-slate-300 transition-colors whitespace-nowrap">Working Copy</button>
         <button onClick={onShare} className="text-[11px] text-slate-600 hover:text-slate-900 p-1 rounded border border-slate-200 hover:border-slate-300 transition-colors"><Share2 className="w-3 h-3" /></button>
+        <button onClick={onArchive} className="p-1 rounded border border-slate-200 hover:border-amber-300 text-slate-400 hover:text-amber-600 transition-colors" title="Archive Snapshot"><Archive className="w-3 h-3" /></button>
+        <button
+            onClick={canDelete ? onDelete : undefined}
+            disabled={!canDelete}
+            title={canDelete ? "Delete Snapshot" : "Cannot delete: this snapshot has been used to create other questionnaires"}
+            className={cn("p-1 rounded border transition-colors",
+                canDelete
+                    ? "border-slate-200 hover:border-red-300 text-slate-400 hover:text-red-500"
+                    : "border-slate-100 text-slate-200 cursor-not-allowed"
+            )}
+        >
+            <Trash2 className="w-3 h-3" />
+        </button>
     </>);
 }
 
@@ -174,13 +198,18 @@ export function EmptyState({ tab }: { tab: TabKey }) {
 
 // ── Detail Drawer ────────────────────────────────────────────────────────────
 
-export function DetailDrawer({ row, onClose, onAddToLibrary, onCreateWorkingCopy, onShare }: {
+export function DetailDrawer({ row, onClose, onAddToLibrary, onCreateWorkingCopy, onShare, onArchiveWC, onDeleteWC, onArchiveRef, onDeleteRef }: {
     row: QV2Row; onClose: () => void;
     onAddToLibrary: (r: QV2Row) => void;
     onCreateWorkingCopy: (r: QV2Row) => void;
     onShare: (r: QV2Row) => void;
+    onArchiveWC: (r: QV2Row) => void;
+    onDeleteWC: (r: QV2Row) => void;
+    onArchiveRef: (r: QV2Row) => void;
+    onDeleteRef: (r: QV2Row) => void;
 }) {
     const isRef = row.kind === "REFERENCE_SNAPSHOT";
+    const canDeleteRef = row.descendantCount === 0;
     return (
         <div className="w-72 shrink-0 ml-4 flex flex-col">
             <div className="flex items-center justify-between mb-4">
@@ -204,6 +233,9 @@ export function DetailDrawer({ row, onClose, onAddToLibrary, onCreateWorkingCopy
                     <DrawerRow label="Func Code" value={row.functionalCode ? <span className="font-mono bg-slate-100 px-1 rounded text-slate-600">{row.functionalCode}</span> : <span className="text-amber-500 flex items-center gap-1 justify-end"><AlertTriangle className="w-3 h-3" /> Missing</span>} />
                     <DrawerRow label="Ref Code" value={row.referenceCode ? <span className="font-mono text-[10px] text-slate-500">{row.referenceCode}</span> : isRef ? <span className="text-amber-500 flex items-center gap-1 justify-end"><AlertTriangle className="w-3 h-3" /> Missing</span> : <span className="text-slate-300 italic text-[11px]">N/A</span>} />
                     <DrawerRow label="Questions" value={row.questionCount > 0 ? <span className="flex items-center gap-1 justify-end"><Hash className="w-3 h-3 text-slate-300" />{row.questionCount}</span> : "—"} />
+                    {isRef && <DrawerRow label="Derived" value={row.descendantCount > 0
+                        ? <span className="text-[11px] text-slate-600">{row.descendantCount} questionnaire{row.descendantCount !== 1 ? "s" : ""}</span>
+                        : <span className="text-[11px] text-slate-300 italic">None</span>} />}
                     <DrawerRow label="Owner" value={row.isCoparityOwned ? "Coparity" : (row.ownerOrgName || "Unknown")} />
                     {!row.isCoparityOwned && row.kind === "ENGAGEMENT_QUESTIONNAIRE" && (
                         <>
@@ -221,7 +253,7 @@ export function DetailDrawer({ row, onClose, onAddToLibrary, onCreateWorkingCopy
 
                 {isRef && (
                     <div className="px-4 py-3 bg-amber-50/50 border-t border-amber-100">
-                        <p className="text-[10px] text-amber-700 leading-relaxed">Read-only. To make changes, create a working copy and add a revised version.</p>
+                        <p className="text-[10px] text-amber-700 leading-relaxed">Read-only. To make changes, create a working copy and publish a new snapshot.</p>
                     </div>
                 )}
 
@@ -237,6 +269,21 @@ export function DetailDrawer({ row, onClose, onAddToLibrary, onCreateWorkingCopy
                             <button onClick={() => onShare(row)} className="flex items-center justify-between w-full text-xs font-medium text-slate-600 hover:text-slate-900 px-3 py-2 rounded border border-slate-200 hover:border-slate-300 transition-colors">
                                 Share… <Share2 className="w-3 h-3" />
                             </button>
+                            <button onClick={() => onArchiveRef(row)} className="flex items-center justify-between w-full text-xs text-amber-700 hover:text-amber-900 hover:bg-amber-50 px-3 py-2 rounded border border-amber-100 hover:border-amber-200 transition-colors">
+                                Archive Snapshot <Archive className="w-3 h-3" />
+                            </button>
+                            <button
+                                onClick={canDeleteRef ? () => onDeleteRef(row) : undefined}
+                                disabled={!canDeleteRef}
+                                title={!canDeleteRef ? "Cannot delete: has been used to create other questionnaires" : undefined}
+                                className={cn("flex items-center justify-between w-full text-xs px-3 py-2 rounded border transition-colors",
+                                    canDeleteRef
+                                        ? "text-red-600 hover:text-red-700 hover:bg-red-50 border-red-100 hover:border-red-200"
+                                        : "text-slate-300 border-slate-100 cursor-not-allowed"
+                                )}
+                            >
+                                Delete Snapshot <Trash2 className="w-3 h-3" />
+                            </button>
                         </>
                     ) : row.kind === "WORKING_COPY" && row.isCoparityOwned ? (
                         <>
@@ -246,7 +293,12 @@ export function DetailDrawer({ row, onClose, onAddToLibrary, onCreateWorkingCopy
                             <button onClick={() => onAddToLibrary(row)} className="flex items-center justify-between w-full text-xs font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 px-3 py-2 rounded border border-amber-200 hover:border-amber-300 transition-colors">
                                 Add to Reference Library <BookMarked className="w-3 h-3" />
                             </button>
-                            <button disabled className="w-full text-left text-xs text-slate-300 px-3 py-2 cursor-not-allowed">Archive…</button>
+                            <button onClick={() => onArchiveWC(row)} className="flex items-center justify-between w-full text-xs text-amber-700 hover:text-amber-900 hover:bg-amber-50 px-3 py-2 rounded border border-amber-100 hover:border-amber-200 transition-colors">
+                                Archive Working Copy <Archive className="w-3 h-3" />
+                            </button>
+                            <button onClick={() => onDeleteWC(row)} className="flex items-center justify-between w-full text-xs text-red-600 hover:text-red-700 hover:bg-red-50 px-3 py-2 rounded border border-red-100 hover:border-red-200 transition-colors">
+                                Delete Working Copy <Trash2 className="w-3 h-3" />
+                            </button>
                         </>
                     ) : (
                         <Link href={`/app/admin/questionnaires/${row.id}`} className="flex items-center justify-between w-full text-xs font-medium text-slate-700 hover:text-slate-900 px-3 py-2 rounded border border-slate-200 hover:border-slate-300 transition-colors">

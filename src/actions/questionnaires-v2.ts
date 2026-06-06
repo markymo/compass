@@ -5,7 +5,8 @@ import prisma from "@/lib/prisma";
 import { 
     normalizeCode, 
     generateReferenceCodePrefix, 
-    computeNextVersion 
+    computeNextVersion,
+    formatYYMMDD
 } from "@/lib/questionnaires/reference-codes";
 import { bootstrapSystemOrg } from "./admin";
 import { isSystemAdmin } from "@/actions/security";
@@ -28,6 +29,8 @@ export interface QV2Row {
     supplierName: string | null;
     supplierShortCode: string | null;
     questionCount: number;
+    /** How many questionnaires have sourceId = this.id (including deleted/archived). */
+    descendantCount: number;
     updatedAt: Date;
     createdAt: Date;
     hasFile: boolean;
@@ -71,7 +74,9 @@ export async function getQuestionnairesV2(): Promise<{
     const sysOrg = await bootstrapSystemOrg();
 
     const rows = await prisma.questionnaire.findMany({
-        where: { isDeleted: false },
+        // Exclude hard-deleted and archived rows from the live list.
+        // Archived items are hidden from normal views (status = ARCHIVED).
+        where: { isDeleted: false, status: { not: "ARCHIVED" } },
         orderBy: { updatedAt: "desc" },
         select: {
             id: true,
@@ -97,7 +102,9 @@ export async function getQuestionnairesV2(): Promise<{
                     org: { select: { name: true, shortCode: true } }
                 }
             },
-            _count: { select: { questions: true } },
+            // descendantCount: count ALL children regardless of their deleted/archived state.
+            // This makes lineage permanent — once a child existed, the parent is forever "used".
+            _count: { select: { questions: true, derivedVersions: true } },
         },
     });
 
@@ -131,6 +138,7 @@ export async function getQuestionnairesV2(): Promise<{
             supplierName: r.fiEngagement?.org?.name ?? null,
             supplierShortCode: r.fiEngagement?.org?.shortCode ?? null,
             questionCount: r._count.questions,
+            descendantCount: r._count.derivedVersions,
             updatedAt: r.updatedAt,
             createdAt: r.createdAt,
             hasFile: !!(r.fileName || r.fileUrl),
@@ -154,9 +162,71 @@ export async function getQuestionnairesV2(): Promise<{
 // Creates a new read-only reference from a working copy.
 // Source working copy is never mutated.
 
+// Shared helper: derive the stable prefix + next version for a working copy, without writing to DB.
+async function computePublishPreview(workingCopyId: string) {
+    const source = await prisma.questionnaire.findUnique({
+        where: { id: workingCopyId, isDeleted: false },
+        select: { id: true, name: true, functionalCode: true, ownerOrgId: true },
+    });
+    if (!source) return null;
+
+    const sysOrg = await bootstrapSystemOrg();
+    const isSystemQuestionnaire = source.ownerOrgId === sysOrg.id;
+
+    let functionalCode = source.functionalCode;
+    if (!functionalCode) {
+        if (source.name.includes("_UNPUBLISHED_")) {
+            functionalCode = source.name.split("_UNPUBLISHED_")[0];
+        } else {
+            functionalCode = normalizeCode(source.name).slice(0, 10) || "GENERIC";
+        }
+    }
+
+    const publishDate = new Date();
+    const prefix = generateReferenceCodePrefix({
+        functionalCode,
+        clientLeShortCode: null,
+        supplierShortCode: null,
+        isSystemQuestionnaire,
+        date: publishDate,
+    });
+
+    const existing = await prisma.questionnaire.findMany({
+        where: { kind: "REFERENCE_SNAPSHOT", referenceCode: { startsWith: `${prefix}_v` } },
+        select: { referenceCode: true },
+    });
+    const existingCodes = existing.map((q: any) => q.referenceCode).filter(Boolean) as string[];
+    const nextVersion = computeNextVersion(prefix, existingCodes);
+    const proposedReferenceCode = `${prefix}_v${nextVersion}`;
+    const proposedSnapshotName = source.name.includes("_UNPUBLISHED_")
+        ? source.name.replace("_UNPUBLISHED_", `_${formatYYMMDD(publishDate)}_`) + `_v${nextVersion}`
+        : source.name;
+
+    return {
+        sourceName: source.name,
+        proposedReferenceCode,
+        proposedSnapshotName,
+        nextVersion,
+        publishDateToken: formatYYMMDD(publishDate),
+    };
+}
+
+export async function previewPublishReferenceSnapshot(
+    workingCopyId: string,
+): Promise<{ success: boolean; preview?: { sourceName: string; proposedReferenceCode: string; proposedSnapshotName: string; nextVersion: number; publishDateToken: string }; error?: string }> {
+    if (!await isSystemAdmin()) return { success: false, error: "Unauthorized" };
+    try {
+        const preview = await computePublishPreview(workingCopyId);
+        if (!preview) return { success: false, error: "Working copy not found" };
+        return { success: true, preview };
+    } catch (e: any) {
+        return { success: false, error: e.message || "Failed to compute preview" };
+    }
+}
+
 export async function addToReferenceLibrary(
     workingCopyId: string,
-): Promise<{ success: boolean; referenceId?: string; error?: string }> {
+): Promise<{ success: boolean; referenceId?: string; snapshotName?: string; snapshotReferenceCode?: string; error?: string }> {
     if (!await isSystemAdmin()) return { success: false, error: "Unauthorized" };
 
     const source = await prisma.questionnaire.findUnique({
@@ -171,8 +241,15 @@ export async function addToReferenceLibrary(
         const sysOrg = await bootstrapSystemOrg();
         const isSystemQuestionnaire = source.ownerOrgId === sysOrg.id;
         
-        // Ensure functionalCode falls back safely if missing
-        const functionalCode = source.functionalCode || normalizeCode(source.name).slice(0, 10) || "GENERIC";
+        // Ensure functionalCode falls back safely if missing and doesn't leak UNPUBLISHED
+        let functionalCode = source.functionalCode;
+        if (!functionalCode) {
+            if (source.name.includes("_UNPUBLISHED_")) {
+                functionalCode = source.name.split("_UNPUBLISHED_")[0];
+            } else {
+                functionalCode = normalizeCode(source.name).slice(0, 10) || "GENERIC";
+            }
+        }
 
         const prefix = generateReferenceCodePrefix({
             functionalCode,
@@ -193,11 +270,15 @@ export async function addToReferenceLibrary(
         const nextVersion = computeNextVersion(prefix, existingCodes);
         const newReferenceCode = `${prefix}_v${nextVersion}`;
 
+        const newName = source.name.includes("_UNPUBLISHED_")
+            ? source.name.replace("_UNPUBLISHED_", `_${formatYYMMDD(new Date())}_`) + `_v${nextVersion}`
+            : source.name;
+
         const reference = await prisma.questionnaire.create({
             data: {
                 fiOrgId: source.fiOrgId,
                 ownerOrgId: source.ownerOrgId ?? undefined,
-                name: source.name,
+                name: newName,
                 functionalCode,
                 referenceCode: newReferenceCode,
                 status: "ACTIVE",
@@ -228,7 +309,7 @@ export async function addToReferenceLibrary(
         }
 
         revalidatePath("/app/admin/questionnaires-v2");
-        return { success: true, referenceId: reference.id };
+        return { success: true, referenceId: reference.id, snapshotName: newName, snapshotReferenceCode: newReferenceCode };
     } catch (e: any) {
         console.error("[addToReferenceLibrary]", e);
         return { success: false, error: e.message || "Failed" };
@@ -330,6 +411,149 @@ export async function updateSharingState(
         return { success: true };
     } catch (e: any) {
         console.error("[updateSharingState]", e);
+        return { success: false, error: e.message || "Failed" };
+    }
+}
+
+// ── V2 Library Lifecycle: Archive & Delete ───────────────────────────────────
+//
+// Archive  → status = "ARCHIVED"  (hidden from live list, recoverable)
+// Delete   → isDeleted = true     (soft-delete, DB row retained for lineage)
+//
+// Lineage rule: a Reference Snapshot with descendantCount > 0 cannot be deleted.
+//               Archive is always allowed regardless of descendants.
+//               Working Copies have no lineage restriction.
+
+export async function archiveWorkingCopy(
+    workingCopyId: string,
+): Promise<{ success: boolean; error?: string }> {
+    if (!await isSystemAdmin()) return { success: false, error: "Unauthorized" };
+
+    const source = await prisma.questionnaire.findUnique({
+        where: { id: workingCopyId, isDeleted: false },
+        select: { id: true, kind: true, name: true },
+    });
+
+    if (!source) return { success: false, error: "Working copy not found" };
+    if (source.kind !== "WORKING_COPY") {
+        return { success: false, error: "Only Working Copies can be archived via this path" };
+    }
+
+    try {
+        // Archive = hidden from normal views but recoverable. NOT the same as delete.
+        await prisma.questionnaire.update({
+            where: { id: workingCopyId },
+            data: { status: "ARCHIVED" },
+        });
+
+        revalidatePath("/app/admin/questionnaires-v2");
+        return { success: true };
+    } catch (e: any) {
+        console.error("[archiveWorkingCopy]", e);
+        return { success: false, error: e.message || "Failed" };
+    }
+}
+
+export async function deleteWorkingCopy(
+    workingCopyId: string,
+): Promise<{ success: boolean; error?: string }> {
+    if (!await isSystemAdmin()) return { success: false, error: "Unauthorized" };
+
+    const source = await prisma.questionnaire.findUnique({
+        where: { id: workingCopyId, isDeleted: false },
+        select: { id: true, kind: true },
+    });
+
+    if (!source) return { success: false, error: "Working copy not found" };
+    if (source.kind !== "WORKING_COPY") {
+        return { success: false, error: "Only Working Copies can be deleted via this path" };
+    }
+
+    try {
+        await prisma.questionnaire.update({
+            where: { id: workingCopyId },
+            data: { isDeleted: true },
+        });
+
+        revalidatePath("/app/admin/questionnaires-v2");
+        return { success: true };
+    } catch (e: any) {
+        console.error("[deleteWorkingCopy]", e);
+        return { success: false, error: e.message || "Failed" };
+    }
+}
+
+export async function archiveReferenceSnapshot(
+    snapshotId: string,
+): Promise<{ success: boolean; error?: string }> {
+    if (!await isSystemAdmin()) return { success: false, error: "Unauthorized" };
+
+    const source = await prisma.questionnaire.findUnique({
+        where: { id: snapshotId, isDeleted: false },
+        select: { id: true, kind: true, isGlobal: true, isTemplate: true },
+    });
+
+    if (!source) return { success: false, error: "Reference Snapshot not found" };
+    const isRef = source.kind === "REFERENCE_SNAPSHOT" || (source.isGlobal && source.isTemplate);
+    if (!isRef) {
+        return { success: false, error: "Only Reference Snapshots can be archived via this path" };
+    }
+
+    try {
+        await prisma.questionnaire.update({
+            where: { id: snapshotId },
+            data: { status: "ARCHIVED" },
+        });
+
+        revalidatePath("/app/admin/questionnaires-v2");
+        return { success: true };
+    } catch (e: any) {
+        console.error("[archiveReferenceSnapshot]", e);
+        return { success: false, error: e.message || "Failed" };
+    }
+}
+
+export async function deleteReferenceSnapshot(
+    snapshotId: string,
+): Promise<{ success: boolean; error?: string; code?: string }> {
+    if (!await isSystemAdmin()) return { success: false, error: "Unauthorized" };
+
+    const source = await prisma.questionnaire.findUnique({
+        where: { id: snapshotId, isDeleted: false },
+        select: {
+            id: true,
+            kind: true,
+            isGlobal: true,
+            isTemplate: true,
+            _count: { select: { derivedVersions: true } },
+        },
+    });
+
+    if (!source) return { success: false, error: "Reference Snapshot not found" };
+    const isRef = source.kind === "REFERENCE_SNAPSHOT" || (source.isGlobal && source.isTemplate);
+    if (!isRef) {
+        return { success: false, error: "Only Reference Snapshots can be deleted via this path" };
+    }
+
+    // Lineage guard: descendants counted regardless of their own isDeleted/status.
+    if ((source._count as any).derivedVersions > 0) {
+        return {
+            success: false,
+            code: "REFERENCE_SNAPSHOT_HAS_DESCENDANTS",
+            error: "Cannot delete because this questionnaire has been used to create other questionnaires.",
+        };
+    }
+
+    try {
+        await prisma.questionnaire.update({
+            where: { id: snapshotId },
+            data: { isDeleted: true },
+        });
+
+        revalidatePath("/app/admin/questionnaires-v2");
+        return { success: true };
+    } catch (e: any) {
+        console.error("[deleteReferenceSnapshot]", e);
         return { success: false, error: e.message || "Failed" };
     }
 }

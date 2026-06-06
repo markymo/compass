@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useEffect, useTransition } from "react";
+import React from "react";
 import { useRouter } from "next/navigation";
-import { QV2Row, SharingState, addToReferenceLibrary, createWorkingCopy, updateSharingState } from "@/actions/questionnaires-v2";
+import { QV2Row, SharingState, addToReferenceLibrary, createWorkingCopy, updateSharingState, previewPublishReferenceSnapshot, archiveWorkingCopy, deleteWorkingCopy, archiveReferenceSnapshot, deleteReferenceSnapshot } from "@/actions/questionnaires-v2";
 import { createManualQuestionnaire } from "@/actions/questionnaire";
-import { generateReferenceCodePrefix, normalizeCode } from "@/lib/questionnaires/reference-codes";
-import { BookMarked, BookOpen, PenLine, Loader2, Globe, Lock, Plus, Upload, Info, Share2, FileText } from "lucide-react";
+import { generateReferenceCodePrefix, normalizeCode, generateWorkingCopyTitle } from "@/lib/questionnaires/reference-codes";
+import { BookMarked, BookOpen, PenLine, Loader2, Globe, Lock, Plus, Upload, Info, Share2, FileText, ArrowDown, Pencil, Trash2, Archive } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { ExplorerTable, DetailDrawer, EmptyState } from "./ExplorerComponents";
@@ -24,6 +25,10 @@ export function QuestionnairesV2Explorer({ data, initialTab }: Props) {
     const [confirmAddToLib, setConfirmAddToLib] = useState<QV2Row | null>(null);
     const [confirmCreateWC, setConfirmCreateWC] = useState<QV2Row | null>(null);
     const [confirmShare, setConfirmShare] = useState<QV2Row | null>(null);
+    const [confirmArchiveWC, setConfirmArchiveWC] = useState<QV2Row | null>(null);
+    const [confirmDeleteWC, setConfirmDeleteWC] = useState<QV2Row | null>(null);
+    const [confirmArchiveRef, setConfirmArchiveRef] = useState<QV2Row | null>(null);
+    const [confirmDeleteRef, setConfirmDeleteRef] = useState<QV2Row | null>(null);
     const [pendingSelectId, setPendingSelectId] = useState<string | null>(null);
     const [pendingSelectTab, setPendingSelectTab] = useState<TabKey | null>(null);
     const [showNewWCDialog, setShowNewWCDialog] = useState(false);
@@ -84,13 +89,29 @@ export function QuestionnairesV2Explorer({ data, initialTab }: Props) {
                     <div className="bg-white border border-slate-200 border-t-0 rounded-b-lg overflow-hidden">
                         {rows.length === 0
                             ? <EmptyState tab={tab} />
-                            : <ExplorerTable rows={rows} tab={tab} selectedId={selected?.id ?? null} onSelect={selectRow} onAddToLibrary={r => setConfirmAddToLib(r)} onCreateWorkingCopy={r => setConfirmCreateWC(r)} onShare={r => setConfirmShare(r)} />
+                            : <ExplorerTable rows={rows} tab={tab} selectedId={selected?.id ?? null} onSelect={selectRow}
+                                onAddToLibrary={r => setConfirmAddToLib(r)}
+                                onCreateWorkingCopy={r => setConfirmCreateWC(r)}
+                                onShare={r => setConfirmShare(r)}
+                                onArchiveWC={r => setConfirmArchiveWC(r)}
+                                onDeleteWC={r => setConfirmDeleteWC(r)}
+                                onArchiveRef={r => setConfirmArchiveRef(r)}
+                                onDeleteRef={r => setConfirmDeleteRef(r)}
+                            />
                         }
                     </div>
                 </div>
 
                 {selected && (
-                    <DetailDrawer row={selected} onClose={() => setSelected(null)} onAddToLibrary={r => setConfirmAddToLib(r)} onCreateWorkingCopy={r => setConfirmCreateWC(r)} onShare={r => setConfirmShare(r)} />
+                    <DetailDrawer row={selected} onClose={() => setSelected(null)}
+                        onAddToLibrary={r => setConfirmAddToLib(r)}
+                        onCreateWorkingCopy={r => setConfirmCreateWC(r)}
+                        onShare={r => setConfirmShare(r)}
+                        onArchiveWC={r => setConfirmArchiveWC(r)}
+                        onDeleteWC={r => setConfirmDeleteWC(r)}
+                        onArchiveRef={r => setConfirmArchiveRef(r)}
+                        onDeleteRef={r => setConfirmDeleteRef(r)}
+                    />
                 )}
             </div>
 
@@ -106,6 +127,38 @@ export function QuestionnairesV2Explorer({ data, initialTab }: Props) {
                 <ShareDialog row={confirmShare} onCancel={() => setConfirmShare(null)}
                     onSuccess={() => { setConfirmShare(null); setPendingSelectId(confirmShare.id); setPendingSelectTab("reference"); setSelected(null); router.refresh(); }} />
             )}
+            {confirmArchiveWC && (
+                <ConfirmArchiveDialog
+                    kind="working-copy"
+                    row={confirmArchiveWC}
+                    onCancel={() => setConfirmArchiveWC(null)}
+                    onSuccess={() => { setConfirmArchiveWC(null); setSelected(null); router.refresh(); }}
+                />
+            )}
+            {confirmDeleteWC && (
+                <ConfirmDeleteDialog
+                    kind="working-copy"
+                    row={confirmDeleteWC}
+                    onCancel={() => setConfirmDeleteWC(null)}
+                    onSuccess={() => { setConfirmDeleteWC(null); setSelected(null); router.refresh(); }}
+                />
+            )}
+            {confirmArchiveRef && (
+                <ConfirmArchiveDialog
+                    kind="reference"
+                    row={confirmArchiveRef}
+                    onCancel={() => setConfirmArchiveRef(null)}
+                    onSuccess={() => { setConfirmArchiveRef(null); setSelected(null); router.refresh(); }}
+                />
+            )}
+            {confirmDeleteRef && (
+                <ConfirmDeleteDialog
+                    kind="reference"
+                    row={confirmDeleteRef}
+                    onCancel={() => setConfirmDeleteRef(null)}
+                    onSuccess={() => { setConfirmDeleteRef(null); setSelected(null); router.refresh(); }}
+                />
+            )}
             {showNewWCDialog && (
                 <NewWorkingCopyDialog
                     onCancel={() => setShowNewWCDialog(false)}
@@ -120,11 +173,29 @@ export function QuestionnairesV2Explorer({ data, initialTab }: Props) {
 
 function ConfirmAddDialog({ row, onCancel, onSuccess }: { row: QV2Row; onCancel: () => void; onSuccess: (id: string) => void }) {
     const [isPending, startTransition] = useTransition();
+    const [preview, setPreview] = React.useState<{ sourceName: string; proposedReferenceCode: string; proposedSnapshotName: string; nextVersion: number } | null>(null);
+    const [previewError, setPreviewError] = React.useState<string | null>(null);
+
+    // Load the preview as soon as the dialog mounts
+    React.useEffect(() => {
+        let cancelled = false;
+        previewPublishReferenceSnapshot(row.id).then(res => {
+            if (cancelled) return;
+            if (res.success && res.preview) {
+                setPreview(res.preview);
+            } else {
+                setPreviewError(res.error ?? "Could not compute preview.");
+            }
+        });
+        return () => { cancelled = true; };
+    }, [row.id]);
+
     function handle() {
         startTransition(async () => {
             const r = await addToReferenceLibrary(row.id);
             if (r.success && r.referenceId) {
-                toast.success("Added to Reference Library", { description: `"${row.name}" is now a stable reference.` });
+                const label = r.snapshotReferenceCode ?? r.snapshotName ?? row.name;
+                toast.success("Reference Snapshot created", { description: label });
                 onSuccess(r.referenceId);
             } else {
                 toast.error("Failed", { description: r.error });
@@ -132,11 +203,84 @@ function ConfirmAddDialog({ row, onCancel, onSuccess }: { row: QV2Row; onCancel:
             }
         });
     }
+
     return (
         <DialogShell onBackdropClick={!isPending ? onCancel : undefined}>
-            <DialogHeader icon={<BookMarked className="w-4 h-4 text-amber-600" />} iconBg="bg-amber-50 border-amber-100" title="Add to Reference Library" description={<>Creates a stable, read-only reference from <strong>&ldquo;{row.name}&rdquo;</strong>.</>} />
-            <DialogBullets items={["Your working copy remains editable.", "The reference can be safely shared and reused.", "Engagements derived from it evolve independently."]} />
-            <DialogFooter onCancel={onCancel} onConfirm={handle} isPending={isPending} confirmLabel="Add to Reference Library" />
+            {/* ── Header ── */}
+            <div className="flex items-center gap-3 px-5 pt-5 pb-4 border-b border-slate-100">
+                <div className="w-8 h-8 rounded-lg bg-amber-50 border border-amber-100 flex items-center justify-center shrink-0">
+                    <BookMarked className="w-4 h-4 text-amber-600" />
+                </div>
+                <div>
+                    <h2 className="text-sm font-semibold text-slate-900">Publish to Reference Library</h2>
+                    <p className="text-xs text-slate-500 mt-0.5">This creates a locked, versioned snapshot.</p>
+                </div>
+            </div>
+
+            {/* ── Body ── */}
+            <div className="px-5 pt-5 pb-4">
+                {preview ? (
+                    <div className="space-y-1">
+                        {/* ── Creating card (top — emphasis) ── */}
+                        <div className="rounded-xl border-2 border-emerald-200 bg-emerald-50 px-4 py-3">
+                            <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest mb-1.5">Creating Reference Snapshot</p>
+                            <p className="font-mono text-[11px] font-semibold text-slate-900 break-all leading-relaxed">{preview.proposedSnapshotName}</p>
+                            <div className="flex items-center gap-1.5 mt-2">
+                                <Lock className="w-3 h-3 text-emerald-600" />
+                                <span className="text-[10px] font-semibold text-emerald-700">Read Only</span>
+                                <span className="mx-1 text-emerald-200">·</span>
+                                <span className="text-[10px] text-emerald-600">v{preview.nextVersion}</span>
+                            </div>
+                        </div>
+
+                        {/* ── Arrow ── */}
+                        <div className="flex items-center justify-center py-1">
+                            <div className="flex flex-col items-center gap-0.5">
+                                <ArrowDown className="w-3.5 h-3.5 text-slate-300" />
+                                <span className="text-[10px] text-slate-400 font-medium">published from</span>
+                            </div>
+                        </div>
+
+                        {/* ── Source card (bottom — provenance) ── */}
+                        <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Working Copy</p>
+                            <p className="font-mono text-[11px] text-slate-600 break-all leading-relaxed">{preview.sourceName}</p>
+                            <div className="flex items-center gap-1.5 mt-2">
+                                <Pencil className="w-3 h-3 text-slate-400" />
+                                <span className="text-[10px] text-slate-500">Remains editable</span>
+                            </div>
+                        </div>
+
+                        {/* ── Concise bullets ── */}
+                        <div className="pt-3 space-y-1">
+                            {[
+                                "Working Copy remains editable",
+                                "Future changes will not affect this Snapshot",
+                                "Engagements should use the Snapshot, not the Working Copy",
+                            ].map((item, i) => (
+                                <p key={i} className="text-[11px] text-slate-400 leading-relaxed">
+                                    <span className="text-emerald-500 font-bold mr-1">✓</span>{item}
+                                </p>
+                            ))}
+                        </div>
+                    </div>
+                ) : previewError ? (
+                    <p className="text-xs text-red-600">{previewError}</p>
+                ) : (
+                    <div className="flex items-center gap-2 py-6 justify-center">
+                        <Loader2 className="w-4 h-4 text-slate-400 animate-spin" />
+                        <span className="text-xs text-slate-400">Computing snapshot preview…</span>
+                    </div>
+                )}
+            </div>
+
+            <DialogFooter
+                onCancel={onCancel}
+                onConfirm={handle}
+                isPending={isPending}
+                confirmLabel="Publish Reference Snapshot"
+                disabled={!preview || !!previewError}
+            />
         </DialogShell>
     );
 }
@@ -160,6 +304,102 @@ function ConfirmCreateWCDialog({ row, onCancel, onSuccess }: { row: QV2Row; onCa
             <DialogHeader icon={<PenLine className="w-4 h-4 text-blue-500" />} iconBg="bg-blue-50 border-blue-100" title="Create Working Copy" description={<>Creates a new editable working copy from <strong>&ldquo;{row.name}&rdquo;</strong>.</>} />
             <DialogBullets items={["The original reference remains read-only.", "Questions and mappings are copied.", "Answers, comments and evidence are not copied."]} />
             <DialogFooter onCancel={onCancel} onConfirm={handle} isPending={isPending} confirmLabel="Create Working Copy" />
+        </DialogShell>
+    );
+}
+
+function ConfirmArchiveDialog({ kind, row, onCancel, onSuccess }: { kind: "working-copy" | "reference"; row: QV2Row; onCancel: () => void; onSuccess: () => void }) {
+    const [isPending, startTransition] = useTransition();
+    const label = kind === "reference" ? "Reference Snapshot" : "Working Copy";
+    function handle() {
+        startTransition(async () => {
+            const r = kind === "reference"
+                ? await archiveReferenceSnapshot(row.id)
+                : await archiveWorkingCopy(row.id);
+            if (r.success) {
+                toast.success(`${label} archived`, { description: row.name });
+                onSuccess();
+            } else {
+                toast.error("Failed", { description: r.error });
+                onCancel();
+            }
+        });
+    }
+    return (
+        <DialogShell onBackdropClick={!isPending ? onCancel : undefined}>
+            <div className="flex items-center gap-3 px-5 pt-5 pb-4 border-b border-slate-100">
+                <div className="w-8 h-8 rounded-lg bg-amber-50 border border-amber-100 flex items-center justify-center shrink-0">
+                    <Archive className="w-4 h-4 text-amber-600" />
+                </div>
+                <div>
+                    <h2 className="text-sm font-semibold text-slate-900">Archive {label}</h2>
+                    <p className="text-xs text-slate-500 mt-0.5">Hidden from normal views. Can be restored later.</p>
+                </div>
+            </div>
+            <div className="px-5 pt-4 pb-2 space-y-3">
+                <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5">
+                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">{label}</p>
+                    <p className="font-mono text-[11px] text-slate-700 break-all leading-relaxed">{row.name}</p>
+                </div>
+                <p className="text-[11px] text-slate-500 leading-relaxed">
+                    The record is retained in the database. Lineage links from derived questionnaires are preserved.
+                </p>
+            </div>
+            <div className="flex items-center justify-end gap-2 px-5 pb-5 pt-3">
+                <button onClick={onCancel} disabled={isPending} className="text-xs font-medium text-slate-600 hover:text-slate-900 px-4 py-2 rounded-lg border border-slate-200 hover:border-slate-300 transition-colors disabled:opacity-50">Cancel</button>
+                <button onClick={handle} disabled={isPending} className="flex items-center gap-1.5 text-xs font-semibold text-white bg-amber-600 hover:bg-amber-700 px-4 py-2 rounded-lg transition-colors disabled:opacity-50">
+                    {isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Archive className="w-3.5 h-3.5" />}
+                    {isPending ? "Archiving…" : `Archive ${label}`}
+                </button>
+            </div>
+        </DialogShell>
+    );
+}
+
+function ConfirmDeleteDialog({ kind, row, onCancel, onSuccess }: { kind: "working-copy" | "reference"; row: QV2Row; onCancel: () => void; onSuccess: () => void }) {
+    const [isPending, startTransition] = useTransition();
+    const label = kind === "reference" ? "Reference Snapshot" : "Working Copy";
+    function handle() {
+        startTransition(async () => {
+            const r = kind === "reference"
+                ? await deleteReferenceSnapshot(row.id)
+                : await deleteWorkingCopy(row.id);
+            if (r.success) {
+                toast.success(`${label} deleted`, { description: row.name });
+                onSuccess();
+            } else {
+                toast.error("Failed", { description: r.error });
+                onCancel();
+            }
+        });
+    }
+    return (
+        <DialogShell onBackdropClick={!isPending ? onCancel : undefined}>
+            <div className="flex items-center gap-3 px-5 pt-5 pb-4 border-b border-slate-100">
+                <div className="w-8 h-8 rounded-lg bg-red-50 border border-red-100 flex items-center justify-center shrink-0">
+                    <Trash2 className="w-4 h-4 text-red-500" />
+                </div>
+                <div>
+                    <h2 className="text-sm font-semibold text-slate-900">Delete {label}</h2>
+                    <p className="text-xs text-slate-500 mt-0.5">Removed from all views. The database record is retained for lineage.</p>
+                </div>
+            </div>
+            <div className="px-5 pt-4 pb-2 space-y-3">
+                <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5">
+                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">{label}</p>
+                    <p className="font-mono text-[11px] text-slate-700 break-all leading-relaxed">{row.name}</p>
+                </div>
+                <p className="text-[11px] text-red-600 leading-relaxed font-medium">
+                    This action cannot be undone from the UI.
+                </p>
+            </div>
+            <div className="flex items-center justify-end gap-2 px-5 pb-5 pt-3">
+                <button onClick={onCancel} disabled={isPending} className="text-xs font-medium text-slate-600 hover:text-slate-900 px-4 py-2 rounded-lg border border-slate-200 hover:border-slate-300 transition-colors disabled:opacity-50">Cancel</button>
+                <button onClick={handle} disabled={isPending} className="flex items-center gap-1.5 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg transition-colors disabled:opacity-50">
+                    {isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                    {isPending ? "Deleting…" : `Delete ${label}`}
+                </button>
+            </div>
         </DialogShell>
     );
 }
@@ -244,11 +484,11 @@ function DialogBullets({ items }: { items: string[] }) {
     );
 }
 
-function DialogFooter({ onCancel, onConfirm, isPending, confirmLabel }: { onCancel: () => void; onConfirm: () => void; isPending: boolean; confirmLabel: string }) {
+function DialogFooter({ onCancel, onConfirm, isPending, confirmLabel, disabled }: { onCancel: () => void; onConfirm: () => void; isPending: boolean; confirmLabel: string; disabled?: boolean }) {
     return (
         <div className="flex items-center justify-end gap-2 px-5 pb-5">
             <button onClick={onCancel} disabled={isPending} className="text-xs font-medium text-slate-600 hover:text-slate-900 px-4 py-2 rounded-lg border border-slate-200 hover:border-slate-300 transition-colors disabled:opacity-50">Cancel</button>
-            <button onClick={onConfirm} disabled={isPending} className="inline-flex items-center gap-1.5 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 px-4 py-2 rounded-lg transition-colors disabled:opacity-70">
+            <button onClick={onConfirm} disabled={isPending || disabled} className="inline-flex items-center gap-1.5 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 px-4 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                 {isPending && <Loader2 className="w-3 h-3 animate-spin" />}
                 {isPending ? "Working…" : confirmLabel}
             </button>
@@ -289,18 +529,18 @@ function ReferenceLibraryInfo() {
 
 // ── New Working Copy creation dialog ────────────────────────────────────────
 
-import React from "react";
-
 function NewWorkingCopyDialog({ onCancel, onSuccess }: { onCancel: () => void; onSuccess: (id: string) => void }) {
     const [funcCodeRaw, setFuncCodeRaw] = React.useState("");
     const [isPending, startTransition] = React.useTransition();
     const [error, setError] = React.useState<string | null>(null);
 
     const functionalCode = normalizeCode(funcCodeRaw);
-    const generatedName = generateReferenceCodePrefix({ 
-        functionalCode: functionalCode || "XXXXX", 
-        isSystemQuestionnaire: true 
-    });
+    const generatedName = functionalCode 
+        ? generateWorkingCopyTitle({ functionalCode, isSystemQuestionnaire: true }) 
+        : "";
+    const previewText = functionalCode 
+        ? generatedName 
+        : "Enter a functional code to preview";
 
     function handle() {
         if (!functionalCode) { setError("A functional code is required."); return; }
@@ -340,19 +580,21 @@ function NewWorkingCopyDialog({ onCancel, onSuccess }: { onCancel: () => void; o
                     autoFocus
                     value={funcCodeRaw}
                     onChange={e => { setFuncCodeRaw(e.target.value); setError(null); }}
-                    onKeyDown={e => e.key === "Enter" && handle()}
+                    onKeyDown={e => e.key === "Enter" && functionalCode && handle()}
                     placeholder="e.g. FMSB UK"
                     className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100 transition-colors uppercase"
                     disabled={isPending}
                 />
                 <div className="mt-4 p-3 bg-slate-50 border border-slate-100 rounded-lg">
                     <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">Preview</label>
-                    <div className="font-mono text-xs text-slate-600 break-all">{generatedName}</div>
+                    <div className={cn("font-mono text-xs break-all", functionalCode ? "text-slate-600 font-medium" : "text-slate-400 italic")}>
+                        {previewText}
+                    </div>
                 </div>
                 {error && <p className="text-xs text-red-600 mt-2">{error}</p>}
                 <p className="text-[11px] text-slate-400 mt-3">You will be taken to the editor to add questions and mappings.</p>
             </div>
-            <DialogFooter onCancel={onCancel} onConfirm={handle} isPending={isPending} confirmLabel="Create Working Copy" />
+            <DialogFooter onCancel={onCancel} onConfirm={handle} isPending={isPending} confirmLabel="Create Working Copy" disabled={!functionalCode} />
         </DialogShell>
     );
 }

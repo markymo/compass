@@ -7,7 +7,7 @@ import { getIdentity } from "@/lib/auth";
 
 
 import { can, Action, UserWithMemberships } from "@/lib/auth/permissions";
-import { generateWorkingCopyTitle } from "@/lib/questionnaires/reference-codes";
+import { generateWorkingCopyTitle, normalizeCode } from "@/lib/questionnaires/reference-codes";
 
 // NEW CORE ENGINE HELPER
 async function ensureAuthorization(action: Action, context: { partyId?: string, clientLEId?: string, engagementId?: string }) {
@@ -367,6 +367,23 @@ export async function createManualQuestionnaire(data: { name: string, fiOrgId?: 
             }
         }
 
+        if (functionalCode !== undefined) {
+            const trimmed = functionalCode.trim();
+            if (!trimmed) {
+                return { success: false, error: "Functional code cannot be empty." };
+            }
+            const normalizedFunc = normalizeCode(trimmed);
+            if (!normalizedFunc) {
+                return { success: false, error: "Invalid functional code." };
+            }
+            functionalCode = normalizedFunc;
+            name = generateWorkingCopyTitle({
+                functionalCode: normalizedFunc,
+                isSystemQuestionnaire: true
+            });
+            isGlobal = false;
+        }
+
         // Generate compact text for each question using AI
         console.log("[createManualQuestionnaire] Generating compact text for", questionLines.length, "questions...");
         const compactResults = await Promise.all(
@@ -390,7 +407,8 @@ export async function createManualQuestionnaire(data: { name: string, fiOrgId?: 
                 isTemplate: true,
                 ownerOrgId: fiOrgId,
                 kind: isGlobal ? "REFERENCE_SNAPSHOT" : "WORKING_COPY",
-                functionalCode,
+                functionalCode: functionalCode ?? null,
+                referenceCode: isGlobal ? undefined : null,
             } as any
         });
 
@@ -528,7 +546,7 @@ export async function archiveQuestionnaire(id: string) {
 export async function getQuestionnaireById(id: string, _t?: number) {
     unstable_noStore();
     console.log(`[SERVER] getQuestionnaireById called for ${id}${_t ? ` (t=${_t})` : ''}`);
-    try { await ensureQuestionnaireAccess(id, "WRITE"); } catch(e) {
+    try { await ensureQuestionnaireAccess(id, "READ"); } catch(e) {
         return null;
     }
     return await prisma.questionnaire.findUnique({
