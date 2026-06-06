@@ -342,12 +342,12 @@ export async function createCustomFieldDefinition(orgId: string, label: string, 
 /**
  * Creates a questionnaire manually with a list of questions.
  */
-export async function createManualQuestionnaire(data: { name: string, fiOrgId?: string, questions: string, isGlobal?: boolean }) {
+export async function createManualQuestionnaire(data: { name: string, fiOrgId?: string, questions: string, isGlobal?: boolean, functionalCode?: string }) {
     if (!(await isSystemAdmin())) {
         return { success: false, error: "Unauthorized" };
     }
 
-    let { name, fiOrgId, questions, isGlobal = false } = data;
+    let { name, fiOrgId, questions, isGlobal = false, functionalCode } = data;
     const questionLines = questions.split("\n").map((q: any) => q.trim()).filter((q: any) => q.length > 0);
 
     if (questionLines.length === 0) {
@@ -387,7 +387,10 @@ export async function createManualQuestionnaire(data: { name: string, fiOrgId?: 
                 status: "ACTIVE",
                 extractedContent: extractedContent as any,
                 isGlobal,
+                isTemplate: true,
+                ownerOrgId: fiOrgId,
                 kind: isGlobal ? "REFERENCE_SNAPSHOT" : "WORKING_COPY",
+                functionalCode,
             } as any
         });
 

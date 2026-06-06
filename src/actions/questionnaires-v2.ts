@@ -16,10 +16,17 @@ export type SharingState = "PRIVATE" | "RESTRICTED" | "GLOBAL";
 export interface QV2Row {
     id: string;
     name: string;
-    kind: "working-copy" | "reference";
+    kind: "WORKING_COPY" | "REFERENCE_SNAPSHOT" | "ENGAGEMENT_QUESTIONNAIRE" | null;
+    functionalCode: string | null;
+    referenceCode: string | null;
+    isCoparityOwned: boolean;
     status: string;
     fiOrgName: string | null;
     ownerOrgName: string | null;
+    clientLeName: string | null;
+    clientLeShortCode: string | null;
+    supplierName: string | null;
+    supplierShortCode: string | null;
     questionCount: number;
     updatedAt: Date;
     createdAt: Date;
@@ -57,17 +64,24 @@ function deepCopyJson(val: any) {
 export async function getQuestionnairesV2(): Promise<{
     workingCopies: QV2Row[];
     referenceLibrary: QV2Row[];
+    other: QV2Row[];
 }> {
-    if (!await isSystemAdmin()) return { workingCopies: [], referenceLibrary: [] };
+    if (!await isSystemAdmin()) return { workingCopies: [], referenceLibrary: [], other: [] };
+
+    const sysOrg = await bootstrapSystemOrg();
 
     const rows = await prisma.questionnaire.findMany({
-        where: { isDeleted: false, isTemplate: true },
+        where: { isDeleted: false },
         orderBy: { updatedAt: "desc" },
         select: {
             id: true,
             name: true,
             status: true,
             isGlobal: true,
+            isTemplate: true,
+            kind: true,
+            functionalCode: true,
+            referenceCode: true,
             sourceId: true, // lineage column
             updatedAt: true,
             createdAt: true,
@@ -75,21 +89,47 @@ export async function getQuestionnairesV2(): Promise<{
             fileUrl: true,
             processingLogs: true,
             fiOrg: { select: { name: true } },
+            ownerOrgId: true,
             ownerOrg: { select: { name: true } },
+            fiEngagement: {
+                select: {
+                    clientLE: { select: { name: true, shortCode: true } },
+                    org: { select: { name: true, shortCode: true } }
+                }
+            },
             _count: { select: { questions: true } },
         },
     });
 
     const mapped: QV2Row[] = rows.map((r: any) => {
         const refMeta = (r.processingLogs as any)?._ref;
-        const isRef = r.isGlobal;
+        
+        // Fallback for pre-migration data
+        let kind = r.kind;
+        if (!kind) {
+            if (r.isTemplate) {
+                kind = r.isGlobal ? "REFERENCE_SNAPSHOT" : "WORKING_COPY";
+            } else {
+                kind = "ENGAGEMENT_QUESTIONNAIRE";
+            }
+        }
+
+        const isCoparityOwned = r.ownerOrgId === sysOrg.id || (r.ownerOrgId === null && r.isTemplate === true);
+
         return {
             id: r.id,
             name: r.name,
-            kind: isRef ? "reference" : "working-copy",
+            kind,
+            functionalCode: r.functionalCode,
+            referenceCode: r.referenceCode,
+            isCoparityOwned,
             status: r.status,
             fiOrgName: r.fiOrg?.name ?? null,
             ownerOrgName: r.ownerOrg?.name ?? null,
+            clientLeName: r.fiEngagement?.clientLE?.name ?? null,
+            clientLeShortCode: r.fiEngagement?.clientLE?.shortCode ?? null,
+            supplierName: r.fiEngagement?.org?.name ?? null,
+            supplierShortCode: r.fiEngagement?.org?.shortCode ?? null,
             questionCount: r._count.questions,
             updatedAt: r.updatedAt,
             createdAt: r.createdAt,
@@ -97,15 +137,16 @@ export async function getQuestionnairesV2(): Promise<{
             basedOn: refMeta?.sourceName ?? null,
             // Read sourceId from the real DB column; fall back to processingLogs._ref for pre-migration records
             sourceId: r.sourceId ?? refMeta?.sourceId ?? null,
-            sharingState: isRef
+            sharingState: kind === "REFERENCE_SNAPSHOT"
                 ? (refMeta?.sharingState as SharingState | undefined) ?? "PRIVATE"
                 : null,
         };
     });
 
     return {
-        workingCopies:    mapped.filter(r => r.kind === "working-copy"),
-        referenceLibrary: mapped.filter(r => r.kind === "reference"),
+        workingCopies:    mapped.filter(r => r.kind === "WORKING_COPY" && r.isCoparityOwned),
+        referenceLibrary: mapped.filter(r => r.kind === "REFERENCE_SNAPSHOT" && r.isCoparityOwned),
+        other:            mapped.filter(r => !(r.kind === "WORKING_COPY" && r.isCoparityOwned) && !(r.kind === "REFERENCE_SNAPSHOT" && r.isCoparityOwned)),
     };
 }
 

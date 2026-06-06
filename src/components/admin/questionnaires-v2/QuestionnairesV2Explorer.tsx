@@ -4,15 +4,16 @@ import { useState, useEffect, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { QV2Row, SharingState, addToReferenceLibrary, createWorkingCopy, updateSharingState } from "@/actions/questionnaires-v2";
 import { createManualQuestionnaire } from "@/actions/questionnaire";
+import { generateReferenceCodePrefix, normalizeCode } from "@/lib/questionnaires/reference-codes";
 import { BookMarked, BookOpen, PenLine, Loader2, Globe, Lock, Plus, Upload, Info, Share2, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { ExplorerTable, DetailDrawer, EmptyState } from "./ExplorerComponents";
 
-type TabKey = "working-copy" | "reference";
+type TabKey = "working-copy" | "reference" | "other";
 
 interface Props {
-    data: { workingCopies: QV2Row[]; referenceLibrary: QV2Row[] };
+    data: { workingCopies: QV2Row[]; referenceLibrary: QV2Row[]; other: QV2Row[] };
     initialTab: TabKey;
 }
 
@@ -29,7 +30,7 @@ export function QuestionnairesV2Explorer({ data, initialTab }: Props) {
 
     useEffect(() => {
         if (!pendingSelectId || !pendingSelectTab) return;
-        const list = pendingSelectTab === "reference" ? data.referenceLibrary : data.workingCopies;
+        const list = pendingSelectTab === "reference" ? data.referenceLibrary : pendingSelectTab === "working-copy" ? data.workingCopies : data.other;
         const found = list.find(r => r.id === pendingSelectId);
         if (found) {
             setTabState(pendingSelectTab);
@@ -37,9 +38,9 @@ export function QuestionnairesV2Explorer({ data, initialTab }: Props) {
             setPendingSelectId(null);
             setPendingSelectTab(null);
         }
-    }, [data.referenceLibrary, data.workingCopies, pendingSelectId, pendingSelectTab]);
+    }, [data.referenceLibrary, data.workingCopies, data.other, pendingSelectId, pendingSelectTab]);
 
-    const rows = tab === "working-copy" ? data.workingCopies : data.referenceLibrary;
+    const rows = tab === "working-copy" ? data.workingCopies : tab === "reference" ? data.referenceLibrary : data.other;
 
     function setTab(t: TabKey) {
         setTabState(t);
@@ -72,9 +73,10 @@ export function QuestionnairesV2Explorer({ data, initialTab }: Props) {
                         <TopAction tab={tab} onNewWorkingCopy={() => setShowNewWCDialog(true)} />
                     </div>
 
-                    <div className="flex items-center border-b border-slate-200">
-                        <TabButton label="Working Copies" count={data.workingCopies.length} active={tab === "working-copy"} onClick={() => setTab("working-copy")} />
-                        <TabButton label="Reference Library" active={tab === "reference"} onClick={() => setTab("reference")} />
+                    <div className="flex items-center border-b border-slate-200 overflow-x-auto">
+                        <TabButton label="Coparity Working Copies" count={data.workingCopies.length} active={tab === "working-copy"} onClick={() => setTab("working-copy")} />
+                        <TabButton label="Coparity Reference Library" count={data.referenceLibrary.length} active={tab === "reference"} onClick={() => setTab("reference")} />
+                        <TabButton label="Other Questionnaires" count={data.other.length} active={tab === "other"} onClick={() => setTab("other")} />
                     </div>
 
                     {tab === "reference" && <ReferenceLibraryInfo />}
@@ -290,23 +292,30 @@ function ReferenceLibraryInfo() {
 import React from "react";
 
 function NewWorkingCopyDialog({ onCancel, onSuccess }: { onCancel: () => void; onSuccess: (id: string) => void }) {
-    const [name, setName] = React.useState("");
+    const [funcCodeRaw, setFuncCodeRaw] = React.useState("");
     const [isPending, startTransition] = React.useTransition();
     const [error, setError] = React.useState<string | null>(null);
 
+    const functionalCode = normalizeCode(funcCodeRaw);
+    const generatedName = generateReferenceCodePrefix({ 
+        functionalCode: functionalCode || "XXXXX", 
+        isSystemQuestionnaire: true 
+    });
+
     function handle() {
-        if (!name.trim()) { setError("A name is required."); return; }
+        if (!functionalCode) { setError("A functional code is required."); return; }
         setError(null);
         startTransition(async () => {
             const r = await createManualQuestionnaire({
-                name: name.trim(),
+                name: generatedName,
+                functionalCode,
                 // Provide a minimal first question so the action's non-empty guard passes;
                 // the admin will edit content in the mapper immediately after creation.
                 questions: "Enter your first question here",
                 isGlobal: false,
             });
             if (r.success && r.id) {
-                toast.success("Working Copy created", { description: `"${name.trim()}" is ready to edit.` });
+                toast.success("Working Copy created", { description: `"${generatedName}" is ready to edit.` });
                 onSuccess(r.id);
             } else {
                 setError(r.error || "Failed to create working copy.");
@@ -326,18 +335,22 @@ function NewWorkingCopyDialog({ onCancel, onSuccess }: { onCancel: () => void; o
                 </div>
             </div>
             <div className="px-5 pt-4 pb-4">
-                <label className="text-xs font-semibold text-slate-700 block mb-1.5">Name</label>
+                <label className="text-xs font-semibold text-slate-700 block mb-1.5">Functional Code</label>
                 <input
                     autoFocus
-                    value={name}
-                    onChange={e => { setName(e.target.value); setError(null); }}
+                    value={funcCodeRaw}
+                    onChange={e => { setFuncCodeRaw(e.target.value); setError(null); }}
                     onKeyDown={e => e.key === "Enter" && handle()}
-                    placeholder="e.g. ESG Supplier Questionnaire v3"
-                    className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100 transition-colors"
+                    placeholder="e.g. FMSB UK"
+                    className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100 transition-colors uppercase"
                     disabled={isPending}
                 />
-                {error && <p className="text-xs text-red-600 mt-1.5">{error}</p>}
-                <p className="text-[11px] text-slate-400 mt-2">You will be taken to the editor to add questions and mappings.</p>
+                <div className="mt-4 p-3 bg-slate-50 border border-slate-100 rounded-lg">
+                    <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">Preview</label>
+                    <div className="font-mono text-xs text-slate-600 break-all">{generatedName}</div>
+                </div>
+                {error && <p className="text-xs text-red-600 mt-2">{error}</p>}
+                <p className="text-[11px] text-slate-400 mt-3">You will be taken to the editor to add questions and mappings.</p>
             </div>
             <DialogFooter onCancel={onCancel} onConfirm={handle} isPending={isPending} confirmLabel="Create Working Copy" />
         </DialogShell>
