@@ -261,9 +261,11 @@ describe('Reference Codes Integration', () => {
                 kind: 'REFERENCE_SNAPSHOT',
                 isTemplate: true,
                 isGlobal: true,
-                referenceCode: 'FMSB_260605_COPARITY_XXXXX_SSSSS_v2'
+                referenceCode: 'FMSB_260605_COPARITY_XXXXX_SSSSS_v2',
+                visibility: 'GLOBAL', // must be discoverable by the per-test engagement org
             }
         });
+
 
         const res = await assignQuestionnaireToEngagement(ref.id, engagementId);
         if (!res.success) {
@@ -276,8 +278,11 @@ describe('Reference Codes Integration', () => {
         expect(instance?.functionalCode).toBe('FMSB');
         expect(instance?.referenceCode).toMatch(/^FMSB_\d{6}_COPARITY_XXXXX_SSSSS_v\d+$/);
         
-        // The default title should reflect the LE and Supplier short codes
-        expect(instance?.name).toBe(`FMSB_UNPUBLISHED_${currentLeShort}_${currentOrgShort}`);
+        // The default title is derived from the referenceCode: strip _v{n}, substitute real LE/supplier codes.
+        // referenceCode = 'FMSB_260605_COPARITY_XXXXX_SSSSS_v2'
+        // → strip _v2 → 'FMSB_260605_COPARITY_XXXXX_SSSSS'
+        // → sub XXXXX=leShort, SSSSS=orgShort
+        expect(instance?.name).toBe(`FMSB_260605_COPARITY_${currentLeShort}_${currentOrgShort}`);
     });
 
     it('New Working Copy creation rejects empty functionalCode and enforces formatting', async () => {

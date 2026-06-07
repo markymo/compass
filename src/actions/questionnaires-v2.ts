@@ -12,6 +12,9 @@ import { bootstrapSystemOrg } from "./admin";
 import { isSystemAdmin } from "@/actions/security";
 import { revalidatePath } from "next/cache";
 
+import { QuestionnaireVisibility } from "@prisma/client";
+
+/** @deprecated Use QuestionnaireVisibility from @prisma/client directly. */
 export type SharingState = "PRIVATE" | "RESTRICTED" | "GLOBAL";
 
 export interface QV2Row {
@@ -36,7 +39,10 @@ export interface QV2Row {
     hasFile: boolean;
     basedOn: string | null;
     sourceId: string | null;
-    sharingState: SharingState | null; // null for working copies
+    /** Visibility of this Reference Snapshot. Null for Working Copies and Engagement Questionnaires. */
+    visibility: QuestionnaireVisibility | null;
+    /** @deprecated kept for backwards compat; same value as visibility. */
+    sharingState: SharingState | null;
 }
 
 // ── Shared clone helper ─────────────────────────────────────────────────────
@@ -88,6 +94,7 @@ export async function getQuestionnairesV2(): Promise<{
             functionalCode: true,
             referenceCode: true,
             sourceId: true, // lineage column
+            visibility: true, // first-class visibility
             updatedAt: true,
             createdAt: true,
             fileName: true,
@@ -145,9 +152,10 @@ export async function getQuestionnairesV2(): Promise<{
             basedOn: refMeta?.sourceName ?? null,
             // Read sourceId from the real DB column; fall back to processingLogs._ref for pre-migration records
             sourceId: r.sourceId ?? refMeta?.sourceId ?? null,
-            sharingState: kind === "REFERENCE_SNAPSHOT"
-                ? (refMeta?.sharingState as SharingState | undefined) ?? "PRIVATE"
-                : null,
+            // Visibility: use the real DB column. Only meaningful for REFERENCE_SNAPSHOT.
+            visibility: kind === "REFERENCE_SNAPSHOT" ? (r.visibility ?? "PRIVATE") : null,
+            // sharingState: deprecated alias kept for backwards compat
+            sharingState: kind === "REFERENCE_SNAPSHOT" ? (r.visibility ?? "PRIVATE") as SharingState : null,
         };
     });
 
@@ -158,9 +166,130 @@ export async function getQuestionnairesV2(): Promise<{
     };
 }
 
+// ── Reference Library Discovery ─────────────────────────────────────────────
+//
+// Visibility-enforcement query for non-admin consumers.
+// Only Reference Snapshots participate in discovery.
+// Working Copies and Engagement Questionnaires are never exposed here.
+//
+// Rules:
+//   PRIVATE    → owner org only  (ownerOrgId = callerOrgId)
+//   GLOBAL     → all callers
+//   RESTRICTED → treated as PRIVATE until grant management is implemented
+//                (i.e. owner org only; no QuestionnaireVisibilityGrant join yet)
+//
+// No isSystemAdmin check here — callers must authenticate before calling this.
+
+export interface DiscoverableSnapshot {
+    id: string;
+    name: string;
+    functionalCode: string | null;
+    referenceCode: string | null;
+    visibility: QuestionnaireVisibility;
+    ownerOrgId: string | null;
+    ownerOrgName: string | null;
+    questionCount: number;
+    updatedAt: Date;
+    createdAt: Date;
+}
+
+export async function getDiscoverableReferenceSnapshotsForOrg(
+    callerOrgId: string,
+): Promise<DiscoverableSnapshot[]> {
+    if (!callerOrgId) return [];
+
+    const rows = await prisma.questionnaire.findMany({
+        where: {
+            isDeleted: false,
+            status: { not: "ARCHIVED" },
+            kind: "REFERENCE_SNAPSHOT",
+            // Visibility filter:
+            //   GLOBAL  → always visible
+            //   PRIVATE → only owner
+            //   RESTRICTED → same as PRIVATE for now (no grant join)
+            OR: [
+                // GLOBAL: visible to all
+                { visibility: "GLOBAL" },
+                // PRIVATE or RESTRICTED: visible only to owner
+                {
+                    visibility: { in: ["PRIVATE", "RESTRICTED"] },
+                    ownerOrgId: callerOrgId,
+                },
+            ],
+        },
+        orderBy: { updatedAt: "desc" },
+        select: {
+            id: true,
+            name: true,
+            functionalCode: true,
+            referenceCode: true,
+            visibility: true,
+            ownerOrgId: true,
+            ownerOrg: { select: { name: true } },
+            _count: { select: { questions: true } },
+            updatedAt: true,
+            createdAt: true,
+        },
+    });
+
+    return rows.map((r: any) => ({
+        id: r.id,
+        name: r.name,
+        functionalCode: r.functionalCode,
+        referenceCode: r.referenceCode,
+        visibility: r.visibility as QuestionnaireVisibility,
+        ownerOrgId: r.ownerOrgId,
+        ownerOrgName: r.ownerOrg?.name ?? null,
+        questionCount: r._count.questions,
+        updatedAt: r.updatedAt,
+        createdAt: r.createdAt,
+    }));
+}
+
+// ── Visibility pre-flight guard ─────────────────────────────────────────────
+//
+// Answers: can organisation `orgId` discover Reference Snapshot `questionnaireId`?
+//
+// Rules mirror getDiscoverableReferenceSnapshotsForOrg exactly:
+//   GLOBAL     → yes for all orgs
+//   PRIVATE    → yes only if ownerOrgId = orgId
+//   RESTRICTED → yes only if ownerOrgId = orgId (no grant table checked yet)
+//
+// Returns false if the row does not exist, is deleted, is archived,
+// or is not a REFERENCE_SNAPSHOT.
+//
+// Callers: assignQuestionnaireToEngagement (both implementations) before cloning.
+
+export async function canOrgDiscoverReferenceSnapshot(
+    orgId: string,
+    questionnaireId: string,
+): Promise<boolean> {
+    if (!orgId || !questionnaireId) return false;
+
+    const row = await prisma.questionnaire.findFirst({
+        where: {
+            id: questionnaireId,
+            isDeleted: false,
+            status: { not: "ARCHIVED" },
+            kind: "REFERENCE_SNAPSHOT",
+            OR: [
+                { visibility: "GLOBAL" },
+                {
+                    visibility: { in: ["PRIVATE", "RESTRICTED"] },
+                    ownerOrgId: orgId,
+                },
+            ],
+        },
+        select: { id: true },
+    });
+
+    return row !== null;
+}
+
 // ── Add to Reference Library ────────────────────────────────────────────────
 // Creates a new read-only reference from a working copy.
 // Source working copy is never mutated.
+
 
 // Shared helper: derive the stable prefix + next version for a working copy, without writing to DB.
 async function computePublishPreview(workingCopyId: string) {
@@ -285,6 +414,7 @@ export async function addToReferenceLibrary(
                 isTemplate: true,
                 isGlobal: true,
                 kind: "REFERENCE_SNAPSHOT",
+                visibility: "PRIVATE", // New snapshots always start PRIVATE; admin can promote via updateReferenceSnapshotVisibility
                 sourceId: workingCopyId, // lineage: derived from this working copy
                 fileUrl: source.fileUrl ?? undefined,
                 fileName: source.fileName ?? undefined,
@@ -295,7 +425,6 @@ export async function addToReferenceLibrary(
                     _ref: {
                         sourceId: source.id, // kept for backwards compatibility
                         sourceName: source.name,
-                        sharingState: "PRIVATE" as SharingState,
                         addedAt: new Date().toISOString(),
                     },
                 },
@@ -326,7 +455,7 @@ export async function createWorkingCopy(
     if (!await isSystemAdmin()) return { success: false, error: "Unauthorized" };
 
     const source = await prisma.questionnaire.findUnique({
-        where: { id: referenceId, isDeleted: false, isGlobal: true },
+        where: { id: referenceId, isDeleted: false, kind: "REFERENCE_SNAPSHOT" },
         include: { questions: true },
     });
 
@@ -374,45 +503,57 @@ export async function createWorkingCopy(
     }
 }
 
-// ── Update Sharing State ────────────────────────────────────────────────────
+// ── Update Visibility ───────────────────────────────────────────────────────
+//
+// Replaces the old updateSharingState (JSON blob) with a real DB column update.
+// Only applies to kind = REFERENCE_SNAPSHOT. Rejects Working Copies and
+// Engagement Questionnaires.
 
-export async function updateSharingState(
-    referenceId: string,
-    state: SharingState,
+export async function updateReferenceSnapshotVisibility(
+    snapshotId: string,
+    visibility: QuestionnaireVisibility,
 ): Promise<{ success: boolean; error?: string }> {
     if (!await isSystemAdmin()) return { success: false, error: "Unauthorized" };
 
     const source = await prisma.questionnaire.findUnique({
-        where: { id: referenceId, isDeleted: false, isGlobal: true },
-        select: { processingLogs: true },
+        where: { id: snapshotId, isDeleted: false },
+        select: { kind: true, isGlobal: true, isTemplate: true },
     });
 
-    if (!source) return { success: false, error: "Reference not found" };
+    if (!source) return { success: false, error: "Questionnaire not found" };
 
-    const existing = (source.processingLogs as any) ?? {};
-    const existingRef = existing._ref ?? {};
+    // Guard: only Reference Snapshots have managed visibility
+    const isRef = source.kind === "REFERENCE_SNAPSHOT" || (source.isGlobal && source.isTemplate);
+    if (!isRef) {
+        return {
+            success: false,
+            error: "Visibility can only be set on Reference Snapshots. Working Copies and Engagement Questionnaires are always private.",
+        };
+    }
 
     try {
         await prisma.questionnaire.update({
-            where: { id: referenceId },
-            data: {
-                processingLogs: {
-                    ...existing,
-                    _ref: {
-                        ...existingRef,
-                        sharingState: state,
-                        sharingUpdatedAt: new Date().toISOString(),
-                    },
-                },
-            },
+            where: { id: snapshotId },
+            data: { visibility },
         });
 
         revalidatePath("/app/admin/questionnaires-v2");
         return { success: true };
     } catch (e: any) {
-        console.error("[updateSharingState]", e);
+        console.error("[updateReferenceSnapshotVisibility]", e);
         return { success: false, error: e.message || "Failed" };
     }
+}
+
+/**
+ * @deprecated Use updateReferenceSnapshotVisibility instead.
+ * Kept for backwards compatibility. Delegates to the new action.
+ */
+export async function updateSharingState(
+    referenceId: string,
+    state: SharingState,
+): Promise<{ success: boolean; error?: string }> {
+    return updateReferenceSnapshotVisibility(referenceId, state as QuestionnaireVisibility);
 }
 
 // ── V2 Library Lifecycle: Archive & Delete ───────────────────────────────────

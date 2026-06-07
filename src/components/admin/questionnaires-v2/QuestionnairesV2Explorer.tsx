@@ -3,13 +3,15 @@
 import { useState, useEffect, useTransition } from "react";
 import React from "react";
 import { useRouter } from "next/navigation";
-import { QV2Row, SharingState, addToReferenceLibrary, createWorkingCopy, updateSharingState, previewPublishReferenceSnapshot, archiveWorkingCopy, deleteWorkingCopy, archiveReferenceSnapshot, deleteReferenceSnapshot } from "@/actions/questionnaires-v2";
+import { QV2Row, SharingState, addToReferenceLibrary, createWorkingCopy, updateReferenceSnapshotVisibility, previewPublishReferenceSnapshot, archiveWorkingCopy, deleteWorkingCopy, archiveReferenceSnapshot, deleteReferenceSnapshot } from "@/actions/questionnaires-v2";
+import { QuestionnaireVisibility } from "@prisma/client";
 import { createManualQuestionnaire } from "@/actions/questionnaire";
 import { generateReferenceCodePrefix, normalizeCode, generateWorkingCopyTitle } from "@/lib/questionnaires/reference-codes";
-import { BookMarked, BookOpen, PenLine, Loader2, Globe, Lock, Plus, Upload, Info, Share2, FileText, ArrowDown, Pencil, Trash2, Archive } from "lucide-react";
+import { BookMarked, BookOpen, PenLine, Loader2, Globe, Lock, Plus, Upload, Info, Eye, FileText, ArrowDown, Pencil, Trash2, Archive, X } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { ExplorerTable, DetailDrawer, EmptyState } from "./ExplorerComponents";
+import { ExplorerTable, DetailPanelContent, EmptyState } from "./ExplorerComponents";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
 type TabKey = "working-copy" | "reference" | "other";
 
@@ -24,7 +26,7 @@ export function QuestionnairesV2Explorer({ data, initialTab }: Props) {
     const [selected, setSelected] = useState<QV2Row | null>(null);
     const [confirmAddToLib, setConfirmAddToLib] = useState<QV2Row | null>(null);
     const [confirmCreateWC, setConfirmCreateWC] = useState<QV2Row | null>(null);
-    const [confirmShare, setConfirmShare] = useState<QV2Row | null>(null);
+    const [confirmVisibility, setConfirmVisibility] = useState<QV2Row | null>(null);
     const [confirmArchiveWC, setConfirmArchiveWC] = useState<QV2Row | null>(null);
     const [confirmDeleteWC, setConfirmDeleteWC] = useState<QV2Row | null>(null);
     const [confirmArchiveRef, setConfirmArchiveRef] = useState<QV2Row | null>(null);
@@ -92,7 +94,7 @@ export function QuestionnairesV2Explorer({ data, initialTab }: Props) {
                             : <ExplorerTable rows={rows} tab={tab} selectedId={selected?.id ?? null} onSelect={selectRow}
                                 onAddToLibrary={r => setConfirmAddToLib(r)}
                                 onCreateWorkingCopy={r => setConfirmCreateWC(r)}
-                                onShare={r => setConfirmShare(r)}
+                                onVisibility={r => setConfirmVisibility(r)}
                                 onArchiveWC={r => setConfirmArchiveWC(r)}
                                 onDeleteWC={r => setConfirmDeleteWC(r)}
                                 onArchiveRef={r => setConfirmArchiveRef(r)}
@@ -101,19 +103,37 @@ export function QuestionnairesV2Explorer({ data, initialTab }: Props) {
                         }
                     </div>
                 </div>
-
-                {selected && (
-                    <DetailDrawer row={selected} onClose={() => setSelected(null)}
-                        onAddToLibrary={r => setConfirmAddToLib(r)}
-                        onCreateWorkingCopy={r => setConfirmCreateWC(r)}
-                        onShare={r => setConfirmShare(r)}
-                        onArchiveWC={r => setConfirmArchiveWC(r)}
-                        onDeleteWC={r => setConfirmDeleteWC(r)}
-                        onArchiveRef={r => setConfirmArchiveRef(r)}
-                        onDeleteRef={r => setConfirmDeleteRef(r)}
-                    />
-                )}
             </div>
+
+            {/* ── Right-hand slide-out Sheet ── */}
+            <Sheet open={!!selected} onOpenChange={(open) => { if (!open) setSelected(null); }}>
+                <SheetContent
+                    side="right"
+                    className="w-[440px] sm:max-w-[440px] p-0 flex flex-col gap-0"
+                >
+                    {selected && (
+                        <>
+                            <SheetHeader className="px-5 py-4 border-b border-slate-100 shrink-0">
+                                <SheetTitle className="text-sm font-semibold text-slate-900 leading-snug">
+                                    {selected.kind === "REFERENCE_SNAPSHOT" ? "Reference Snapshot" : selected.kind === "WORKING_COPY" ? "Working Copy" : "Questionnaire"}
+                                </SheetTitle>
+                            </SheetHeader>
+                            <div className="flex-1 px-5 py-4 overflow-y-auto">
+                                <DetailPanelContent
+                                    row={selected}
+                                    onAddToLibrary={r => setConfirmAddToLib(r)}
+                                    onCreateWorkingCopy={r => setConfirmCreateWC(r)}
+                                    onVisibility={r => setConfirmVisibility(r)}
+                                    onArchiveWC={r => setConfirmArchiveWC(r)}
+                                    onDeleteWC={r => setConfirmDeleteWC(r)}
+                                    onArchiveRef={r => setConfirmArchiveRef(r)}
+                                    onDeleteRef={r => setConfirmDeleteRef(r)}
+                                />
+                            </div>
+                        </>
+                    )}
+                </SheetContent>
+            </Sheet>
 
             {confirmAddToLib && (
                 <ConfirmAddDialog row={confirmAddToLib} onCancel={() => setConfirmAddToLib(null)}
@@ -123,9 +143,9 @@ export function QuestionnairesV2Explorer({ data, initialTab }: Props) {
                 <ConfirmCreateWCDialog row={confirmCreateWC} onCancel={() => setConfirmCreateWC(null)}
                     onSuccess={id => { setConfirmCreateWC(null); afterAction(id, "working-copy"); }} />
             )}
-            {confirmShare && (
-                <ShareDialog row={confirmShare} onCancel={() => setConfirmShare(null)}
-                    onSuccess={() => { setConfirmShare(null); setPendingSelectId(confirmShare.id); setPendingSelectTab("reference"); setSelected(null); router.refresh(); }} />
+            {confirmVisibility && (
+                <VisibilityDialog row={confirmVisibility} onCancel={() => setConfirmVisibility(null)}
+                    onSuccess={() => { setConfirmVisibility(null); setPendingSelectId(confirmVisibility.id); setPendingSelectTab("reference"); setSelected(null); router.refresh(); }} />
             )}
             {confirmArchiveWC && (
                 <ConfirmArchiveDialog
@@ -404,19 +424,23 @@ function ConfirmDeleteDialog({ kind, row, onCancel, onSuccess }: { kind: "workin
     );
 }
 
-function ShareDialog({ row, onCancel, onSuccess }: { row: QV2Row; onCancel: () => void; onSuccess: () => void }) {
-    const [state, setState] = useState<SharingState>(row.sharingState ?? "PRIVATE");
+function VisibilityDialog({ row, onCancel, onSuccess }: { row: QV2Row; onCancel: () => void; onSuccess: () => void }) {
+    // If a row somehow has RESTRICTED from a previous session, keep it displayed but
+    // treat it as PRIVATE when the dialog opens so we don't allow saving RESTRICTED.
+    const initialVisibility: QuestionnaireVisibility =
+        row.visibility === "RESTRICTED" ? "PRIVATE" : (row.visibility ?? "PRIVATE");
+    const [visibility, setVisibility] = useState<QuestionnaireVisibility>(initialVisibility);
     const [isPending, startTransition] = useTransition();
     function handle() {
         startTransition(async () => {
-            const r = await updateSharingState(row.id, state);
+            const r = await updateReferenceSnapshotVisibility(row.id, visibility);
             if (r.success) {
-                const labels: Record<SharingState, string> = {
-                    PRIVATE: "Reference is now private to owner",
-                    RESTRICTED: "Reference sharing is restricted",
-                    GLOBAL: "Reference is now visible to all CoParity users",
+                const labels: Record<QuestionnaireVisibility, string> = {
+                    PRIVATE: "Reference Snapshot is now private",
+                    RESTRICTED: "Visibility updated",
+                    GLOBAL: "Reference Snapshot is now visible to all CoParity users",
                 };
-                toast.success(labels[state]);
+                toast.success(labels[visibility]);
                 onSuccess();
             } else {
                 toast.error("Failed", { description: r.error });
@@ -424,31 +448,66 @@ function ShareDialog({ row, onCancel, onSuccess }: { row: QV2Row; onCancel: () =
         });
     }
 
-    const options: { value: SharingState; icon: React.ReactNode; label: string; description: string }[] = [
-        { value: "PRIVATE",    icon: <Lock className="w-4 h-4 text-slate-400 shrink-0" />,   label: "Private to Owner",    description: "Only visible within your organisation" },
-        { value: "RESTRICTED", icon: <Share2 className="w-4 h-4 text-amber-500 shrink-0" />,  label: "Restricted Sharing",  description: "Shared with specific organisations only" },
-        { value: "GLOBAL",     icon: <Globe className="w-4 h-4 text-emerald-500 shrink-0" />, label: "Global",              description: "Visible to all CoParity users" },
+    type Option = { value: QuestionnaireVisibility; icon: React.ReactNode; label: string; description: string; disabled?: boolean; disabledReason?: string };
+    const options: Option[] = [
+        {
+            value: "PRIVATE",
+            icon: <Lock className="w-4 h-4 text-slate-400 shrink-0" />,
+            label: "Private",
+            description: "Visible only to Coparity admins",
+        },
+        {
+            value: "RESTRICTED",
+            icon: <Eye className="w-4 h-4 text-slate-300 shrink-0" />,
+            label: "Restricted",
+            description: "Visible to owner plus specific organisations",
+            disabled: true,
+            disabledReason: "Coming later — organisation grant management is not yet implemented",
+        },
+        {
+            value: "GLOBAL",
+            icon: <Globe className="w-4 h-4 text-emerald-500 shrink-0" />,
+            label: "Global",
+            description: "Visible to anyone with permission to discover questionnaires",
+        },
     ];
 
     return (
         <DialogShell onBackdropClick={!isPending ? onCancel : undefined}>
             <div className="px-5 pt-5 pb-4 border-b border-slate-100">
-                <h2 className="text-sm font-semibold text-slate-900">Sharing</h2>
-                <p className="text-xs text-slate-400 mt-0.5">Control who can access this Reference Library item.</p>
+                <h2 className="text-sm font-semibold text-slate-900">Visibility</h2>
+                <p className="text-xs text-slate-400 mt-0.5">Control who can discover this Reference Snapshot.</p>
             </div>
             <div className="px-5 pt-4 pb-4 space-y-2">
                 {options.map(opt => (
-                    <button key={opt.value} onClick={() => setState(opt.value)} className={cn("w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border text-left transition-colors", state === opt.value ? "border-slate-900 bg-slate-50" : "border-slate-200 hover:border-slate-300")}>
-                        {opt.icon}
-                        <div className="flex-1 min-w-0">
-                            <p className="text-xs font-semibold text-slate-800">{opt.label}</p>
-                            <p className="text-[11px] text-slate-400">{opt.description}</p>
-                        </div>
-                        {state === opt.value && <div className="w-2 h-2 rounded-full bg-slate-900 shrink-0" />}
-                    </button>
+                    <div
+                        key={opt.value}
+                        title={opt.disabled ? opt.disabledReason : undefined}
+                        className={cn(opt.disabled ? "cursor-not-allowed" : undefined)}
+                    >
+                        <button
+                            disabled={opt.disabled}
+                            onClick={opt.disabled ? undefined : () => setVisibility(opt.value)}
+                            className={cn(
+                                "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border text-left transition-colors",
+                                opt.disabled
+                                    ? "border-slate-100 bg-slate-50 opacity-50 cursor-not-allowed"
+                                    : visibility === opt.value
+                                        ? "border-slate-900 bg-slate-50"
+                                        : "border-slate-200 hover:border-slate-300",
+                            )}
+                        >
+                            {opt.icon}
+                            <div className="flex-1 min-w-0">
+                                <p className={cn("text-xs font-semibold", opt.disabled ? "text-slate-400" : "text-slate-800")}>{opt.label}</p>
+                                <p className="text-[11px] text-slate-400">{opt.description}</p>
+                            </div>
+                            {!opt.disabled && visibility === opt.value && <div className="w-2 h-2 rounded-full bg-slate-900 shrink-0" />}
+                        </button>
+                    </div>
                 ))}
             </div>
-            <DialogFooter onCancel={onCancel} onConfirm={handle} isPending={isPending} confirmLabel="Save" />
+            <DialogFooter onCancel={onCancel} onConfirm={handle} isPending={isPending} confirmLabel="Save Visibility" />
         </DialogShell>
     );
 }
@@ -571,7 +630,7 @@ function NewWorkingCopyDialog({ onCancel, onSuccess }: { onCancel: () => void; o
                 </div>
                 <div>
                     <h2 className="text-sm font-semibold text-slate-900">New Working Copy</h2>
-                    <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">Creates an editable working copy. Publish it to the Reference Library when it's ready for assignment.</p>
+                    <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">Creates an editable working copy. Publish it to the Reference Library when it&apos;s ready for assignment.</p>
                 </div>
             </div>
             <div className="px-5 pt-4 pb-4">
@@ -586,10 +645,13 @@ function NewWorkingCopyDialog({ onCancel, onSuccess }: { onCancel: () => void; o
                     disabled={isPending}
                 />
                 <div className="mt-4 p-3 bg-slate-50 border border-slate-100 rounded-lg">
-                    <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">Preview</label>
-                    <div className={cn("font-mono text-xs break-all", functionalCode ? "text-slate-600 font-medium" : "text-slate-400 italic")}>
-                        {previewText}
+                    <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1.5">Suggested Name</label>
+                    <div className={cn("font-mono text-xs break-all leading-relaxed", functionalCode ? "text-slate-700 font-semibold" : "text-slate-400 italic")}>
+                        {functionalCode ? previewText : "Enter a functional code to preview the suggested name"}
                     </div>
+                    {functionalCode && (
+                        <p className="text-[10px] text-slate-400 mt-2">You can edit this name later while it remains a Working Copy.</p>
+                    )}
                 </div>
                 {error && <p className="text-xs text-red-600 mt-2">{error}</p>}
                 <p className="text-[11px] text-slate-400 mt-3">You will be taken to the editor to add questions and mappings.</p>

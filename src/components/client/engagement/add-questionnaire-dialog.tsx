@@ -46,7 +46,7 @@ export function AddQuestionnaireDialog({ open, onOpenChange, onAdd, engagementId
 
     const handleSearch = async () => {
         setIsSearching(true);
-        const res = await searchAvailableQuestionnaires(searchQuery);
+        const res = await searchAvailableQuestionnaires(searchQuery, engagementId);
         if (res.success && res.data) {
             setSearchResults(res.data);
         }
@@ -173,7 +173,7 @@ export function AddQuestionnaireDialog({ open, onOpenChange, onAdd, engagementId
                         <div className="relative">
                             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-500" />
                             <Input
-                                placeholder="Search library (e.g. Wolfsberg)..."
+                                placeholder="Search by name, code or organisation..."
                                 className="pl-9"
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -186,7 +186,7 @@ export function AddQuestionnaireDialog({ open, onOpenChange, onAdd, engagementId
                                 </div>
                             ) : searchResults.length === 0 ? (
                                 <div className="text-center py-8 text-slate-500 text-sm">
-                                    {searchQuery ? "No matching questionnaires found." : "Start typing to search the library..."}
+                                    {searchQuery ? "No matching questionnaires found." : "No questionnaires available for this engagement."}
                                 </div>
                             ) : (
                                 searchResults.map((q: any) => (
@@ -216,7 +216,7 @@ export function AddQuestionnaireDialog({ open, onOpenChange, onAdd, engagementId
                                     >
                                         <div>
                                             <h4 className="font-medium text-slate-900 group-hover:text-indigo-700">{q.name}</h4>
-                                            <p className="text-xs text-slate-500">{q.fiOrg.name}</p>
+                                            <p className="text-xs text-slate-500">{q.fiOrg?.name ?? "Coparity"}</p>
                                         </div>
                                         <Button size="sm" variant="ghost" className="opacity-0 group-hover:opacity-100">Select</Button>
                                     </div>

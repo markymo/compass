@@ -1127,13 +1127,28 @@ export async function assignQuestionnaireToEngagement(
         return { success: false, error: "Unauthorized" };
     }
 
+    // VISIBILITY GUARD — Reference Snapshot discovery check.
+    // If the template is a REFERENCE_SNAPSHOT, the engagement's FI org must be
+    // able to discover it. This prevents a guessed PRIVATE snapshot ID from being
+    // cloned into an engagement that the owner did not intend to share.
+    // Non-REFERENCE_SNAPSHOT templates (legacy / uploaded / engagement questionnaires)
+    // bypass this check so existing flows are not broken.
+    if (template.kind === "REFERENCE_SNAPSHOT") {
+        const { canOrgDiscoverReferenceSnapshot } = await import("@/actions/questionnaires-v2");
+        const canDiscover = await canOrgDiscoverReferenceSnapshot(engagement.fiOrgId, templateId);
+        if (!canDiscover) {
+            return { success: false, error: "Unauthorized: this Reference Snapshot is not visible to your organisation" };
+        }
+    }
+
     // IDEMPOTENCY CHECK — look for an existing non-deleted instance for this
-    // engagement that was cloned from this template (same name, same fiOrgId, same engagement)
+    // engagement that was cloned from this template. Use sourceId (= templateId)
+    // as the key — more reliable than name since the engagement questionnaire name
+    // is now derived from the referenceCode, not copied verbatim from template.name.
     const existing = await prisma.questionnaire.findFirst({
         where: {
             fiEngagementId: engagementId,
-            fiOrgId: engagement.fiOrgId,
-            name: template.name,
+            sourceId: templateId,
             isDeleted: false,
         },
         orderBy: { createdAt: "desc" },
@@ -1153,11 +1168,39 @@ export async function assignQuestionnaireToEngagement(
             ? JSON.parse(JSON.stringify(template.mappings))
             : undefined;
 
-        const defaultName = template.functionalCode ? generateWorkingCopyTitle({
-            functionalCode: template.functionalCode,
-            clientLeShortCode: engagement.clientLE?.shortCode,
-            supplierShortCode: engagement.org?.shortCode,
-        }) : template.name;
+        // ── Engagement Questionnaire name derivation ──────────────────────────
+        // For V2 Reference Snapshots that carry a referenceCode
+        // (e.g. "FMSBUK_260606_COPARITY_XXXXX_SSSSS_v1"), derive the engagement
+        // questionnaire name by:
+        //   1. Stripping the version suffix (_v{n})
+        //   2. Replacing placeholder slots XXXXX and SSSSS with the real LE/supplier codes
+        //
+        // Result: "FMSBUK_260606_COPARITY_LYNNW_RSKBR"
+        //
+        // This preserves the published date and owner context, making the lineage
+        // immediately readable without querying the source snapshot.
+        //
+        // Legacy templates (no referenceCode) continue to use generateWorkingCopyTitle.
+        let defaultName: string;
+        if (template.kind === "REFERENCE_SNAPSHOT" && template.referenceCode) {
+            const leCode   = engagement.clientLE?.shortCode ? normalizeCode(engagement.clientLE.shortCode) : "XXXXX";
+            const supCode  = engagement.org?.shortCode      ? normalizeCode(engagement.org.shortCode)      : "SSSSS";
+            // Strip _v{n} suffix, replace _XXXXX_ → real LE, _SSSSS → real supplier.
+            // Note: \b word boundaries don't work across underscores in JS regex
+            // (underscore is a \w character), so we match with explicit _ delimiters.
+            defaultName = template.referenceCode
+                .replace(/_v\d+$/, "")                      // drop _v{n} version suffix
+                .replace(/_(XXXXX)(?=_|$)/, `_${leCode}`)  // substitute LE placeholder
+                .replace(/_(S{4,})(?=_|$)/, `_${supCode}`); // substitute supplier placeholder
+        } else if (template.functionalCode) {
+            defaultName = generateWorkingCopyTitle({
+                functionalCode: template.functionalCode,
+                clientLeShortCode: engagement.clientLE?.shortCode,
+                supplierShortCode: engagement.org?.shortCode,
+            });
+        } else {
+            defaultName = template.name;
+        }
 
         const instance = await prisma.questionnaire.create({
             data: {

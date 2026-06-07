@@ -576,6 +576,17 @@ export async function assignQuestionnaireToEngagement(engagementId: string, temp
 
     if (!template) return { success: false, error: "Template not found or mismatch" };
 
+    // VISIBILITY GUARD — if the template is a V2 Reference Snapshot, the engagement
+    // org must be able to discover it. Prevents guessed PRIVATE IDs from being cloned.
+    // Non-REFERENCE_SNAPSHOT rows (legacy uploads, engagement questionnaires) bypass.
+    if (template.kind === "REFERENCE_SNAPSHOT") {
+        const { canOrgDiscoverReferenceSnapshot } = await import("@/actions/questionnaires-v2");
+        const canDiscover = await canOrgDiscoverReferenceSnapshot(engagement.fiOrgId, templateId);
+        if (!canDiscover) {
+            return { success: false, error: "Unauthorized: this Reference Snapshot is not visible to your organisation" };
+        }
+    }
+
     try {
         // 2. Create Instance (Copy of Questionnaire) linked to Engagement
         const instance = await prisma.questionnaire.create({
