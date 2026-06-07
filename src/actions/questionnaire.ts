@@ -7,6 +7,7 @@ import { getIdentity } from "@/lib/auth";
 
 
 import { can, Action, UserWithMemberships } from "@/lib/auth/permissions";
+import { generateWorkingCopyTitle, normalizeCode } from "@/lib/questionnaires/reference-codes";
 
 // NEW CORE ENGINE HELPER
 async function ensureAuthorization(action: Action, context: { partyId?: string, clientLEId?: string, engagementId?: string }) {
@@ -341,12 +342,12 @@ export async function createCustomFieldDefinition(orgId: string, label: string, 
 /**
  * Creates a questionnaire manually with a list of questions.
  */
-export async function createManualQuestionnaire(data: { name: string, fiOrgId?: string, questions: string, isGlobal?: boolean }) {
+export async function createManualQuestionnaire(data: { name: string, fiOrgId?: string, questions: string, isGlobal?: boolean, functionalCode?: string }) {
     if (!(await isSystemAdmin())) {
         return { success: false, error: "Unauthorized" };
     }
 
-    let { name, fiOrgId, questions, isGlobal = false } = data;
+    let { name, fiOrgId, questions, isGlobal = false, functionalCode } = data;
     const questionLines = questions.split("\n").map((q: any) => q.trim()).filter((q: any) => q.length > 0);
 
     if (questionLines.length === 0) {
@@ -364,6 +365,23 @@ export async function createManualQuestionnaire(data: { name: string, fiOrgId?: 
             } else {
                 return { success: false, error: "System Organization not found. Please select an FI or contact support." };
             }
+        }
+
+        if (functionalCode !== undefined) {
+            const trimmed = functionalCode.trim();
+            if (!trimmed) {
+                return { success: false, error: "Functional code cannot be empty." };
+            }
+            const normalizedFunc = normalizeCode(trimmed);
+            if (!normalizedFunc) {
+                return { success: false, error: "Invalid functional code." };
+            }
+            functionalCode = normalizedFunc;
+            name = generateWorkingCopyTitle({
+                functionalCode: normalizedFunc,
+                isSystemQuestionnaire: true
+            });
+            isGlobal = false;
         }
 
         // Generate compact text for each question using AI
@@ -386,7 +404,11 @@ export async function createManualQuestionnaire(data: { name: string, fiOrgId?: 
                 status: "ACTIVE",
                 extractedContent: extractedContent as any,
                 isGlobal,
+                isTemplate: true,
+                ownerOrgId: fiOrgId,
                 kind: isGlobal ? "REFERENCE_SNAPSHOT" : "WORKING_COPY",
+                functionalCode: functionalCode ?? null,
+                referenceCode: isGlobal ? undefined : null,
             } as any
         });
 
@@ -524,7 +546,7 @@ export async function archiveQuestionnaire(id: string) {
 export async function getQuestionnaireById(id: string, _t?: number) {
     unstable_noStore();
     console.log(`[SERVER] getQuestionnaireById called for ${id}${_t ? ` (t=${_t})` : ''}`);
-    try { await ensureQuestionnaireAccess(id, "WRITE"); } catch(e) {
+    try { await ensureQuestionnaireAccess(id, "READ"); } catch(e) {
         return null;
     }
     return await prisma.questionnaire.findUnique({
@@ -1094,6 +1116,7 @@ export async function assignQuestionnaireToEngagement(
 
     const engagement = await prisma.fIEngagement.findUnique({
         where: { id: engagementId },
+        include: { clientLE: true, org: true },
     });
     if (!engagement) return { success: false, error: "Engagement not found" };
 
@@ -1104,13 +1127,28 @@ export async function assignQuestionnaireToEngagement(
         return { success: false, error: "Unauthorized" };
     }
 
+    // VISIBILITY GUARD — Reference Snapshot discovery check.
+    // If the template is a REFERENCE_SNAPSHOT, the engagement's FI org must be
+    // able to discover it. This prevents a guessed PRIVATE snapshot ID from being
+    // cloned into an engagement that the owner did not intend to share.
+    // Non-REFERENCE_SNAPSHOT templates (legacy / uploaded / engagement questionnaires)
+    // bypass this check so existing flows are not broken.
+    if (template.kind === "REFERENCE_SNAPSHOT") {
+        const { canOrgDiscoverReferenceSnapshot } = await import("@/actions/questionnaires-v2");
+        const canDiscover = await canOrgDiscoverReferenceSnapshot(engagement.fiOrgId, templateId);
+        if (!canDiscover) {
+            return { success: false, error: "Unauthorized: this Reference Snapshot is not visible to your organisation" };
+        }
+    }
+
     // IDEMPOTENCY CHECK — look for an existing non-deleted instance for this
-    // engagement that was cloned from this template (same name, same fiOrgId, same engagement)
+    // engagement that was cloned from this template. Use sourceId (= templateId)
+    // as the key — more reliable than name since the engagement questionnaire name
+    // is now derived from the referenceCode, not copied verbatim from template.name.
     const existing = await prisma.questionnaire.findFirst({
         where: {
             fiEngagementId: engagementId,
-            fiOrgId: engagement.fiOrgId,
-            name: template.name,
+            sourceId: templateId,
             isDeleted: false,
         },
         orderBy: { createdAt: "desc" },
@@ -1130,11 +1168,47 @@ export async function assignQuestionnaireToEngagement(
             ? JSON.parse(JSON.stringify(template.mappings))
             : undefined;
 
+        // ── Engagement Questionnaire name derivation ──────────────────────────
+        // For V2 Reference Snapshots that carry a referenceCode
+        // (e.g. "FMSBUK_260606_COPARITY_XXXXX_SSSSS_v1"), derive the engagement
+        // questionnaire name by:
+        //   1. Stripping the version suffix (_v{n})
+        //   2. Replacing placeholder slots XXXXX and SSSSS with the real LE/supplier codes
+        //
+        // Result: "FMSBUK_260606_COPARITY_LYNNW_RSKBR"
+        //
+        // This preserves the published date and owner context, making the lineage
+        // immediately readable without querying the source snapshot.
+        //
+        // Legacy templates (no referenceCode) continue to use generateWorkingCopyTitle.
+        let defaultName: string;
+        if (template.kind === "REFERENCE_SNAPSHOT" && template.referenceCode) {
+            const leCode   = engagement.clientLE?.shortCode ? normalizeCode(engagement.clientLE.shortCode) : "XXXXX";
+            const supCode  = engagement.org?.shortCode      ? normalizeCode(engagement.org.shortCode)      : "SSSSS";
+            // Strip _v{n} suffix, replace _XXXXX_ → real LE, _SSSSS → real supplier.
+            // Note: \b word boundaries don't work across underscores in JS regex
+            // (underscore is a \w character), so we match with explicit _ delimiters.
+            defaultName = template.referenceCode
+                .replace(/_v\d+$/, "")                      // drop _v{n} version suffix
+                .replace(/_(XXXXX)(?=_|$)/, `_${leCode}`)  // substitute LE placeholder
+                .replace(/_(S{4,})(?=_|$)/, `_${supCode}`); // substitute supplier placeholder
+        } else if (template.functionalCode) {
+            defaultName = generateWorkingCopyTitle({
+                functionalCode: template.functionalCode,
+                clientLeShortCode: engagement.clientLE?.shortCode,
+                supplierShortCode: engagement.org?.shortCode,
+            });
+        } else {
+            defaultName = template.name;
+        }
+
         const instance = await prisma.questionnaire.create({
             data: {
                 fiOrgId: engagement.fiOrgId,
                 fiEngagementId: engagementId,
-                name: template.name,
+                name: defaultName,
+                functionalCode: template.functionalCode,
+                referenceCode: template.referenceCode,
                 status: "ACTIVE",
                 extractedContent: extractedToCopy,
                 mappings: mappingsToCopy,
@@ -1312,11 +1386,19 @@ export async function shareQuestionnaireLaterally(sourceQuestionnaireId: string,
 
         // Clone for each target
         for (const target of targets) {
+            const defaultName = source.functionalCode ? generateWorkingCopyTitle({
+                functionalCode: source.functionalCode,
+                clientLeShortCode: source.fiEngagement?.clientLE?.shortCode, // Same client LE
+                supplierShortCode: target.org?.shortCode, // Target FI is the new supplier
+            }) : source.name;
+
             const clone = await prisma.questionnaire.create({
                 data: {
                     fiOrgId: target.fiOrgId,
                     fiEngagementId: target.id,
-                    name: source.name,
+                    name: defaultName,
+                    functionalCode: source.functionalCode,
+                    referenceCode: source.referenceCode,
                     status: "DRAFT", // Resets for the target FI
                     extractedContent: source.extractedContent ? JSON.parse(JSON.stringify(source.extractedContent)) : undefined,
                     mappings: source.mappings ? JSON.parse(JSON.stringify(source.mappings)) : undefined,

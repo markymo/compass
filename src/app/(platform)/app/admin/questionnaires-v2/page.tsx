@@ -6,9 +6,10 @@ export const dynamic = "force-dynamic";
 export default async function QuestionnairesV2Page({
     searchParams,
 }: {
-    searchParams: { tab?: string };
+    searchParams: Promise<{ tab?: string }>;
 }) {
-    const tab = searchParams.tab === "reference" ? "reference" : "working-copy";
+    const sp = await searchParams;
+    const tab = sp.tab === "reference" ? "reference" : sp.tab === "other" ? "other" : "working-copy";
     const data = await getQuestionnairesV2();
 
     return <QuestionnairesV2Explorer data={data} initialTab={tab} />;

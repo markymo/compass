@@ -1,6 +1,8 @@
 "use server"
 
 import { getIdentity } from "@/lib/auth";
+import { Action } from "@/lib/auth/permissions";
+import { generateWorkingCopyTitle } from "@/lib/questionnaires/reference-codes";
 import prisma from "@/lib/prisma";
 import { QuestionStatus, Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
@@ -522,13 +524,20 @@ export async function instantiateQuestionnaire(templateId: string, engagementId:
         // 2. Create New Questionnaire Instance
         const engagement = await prisma.fIEngagement.findUnique({
             where: { id: engagementId },
-            include: { org: true }
+            include: { org: true, clientLE: true }
         });
 
         if (!engagement) return { success: false, error: "Engagement not found" };
 
-        // IDEMPOTENCY GUARD — prevent duplicate instances with the same name for this engagement.
-        const resolvedName = name || template.name;
+        let resolvedName = name;
+        if (!resolvedName) {
+            resolvedName = template.functionalCode ? generateWorkingCopyTitle({
+                functionalCode: template.functionalCode,
+                clientLeShortCode: engagement.clientLE?.shortCode,
+                supplierShortCode: engagement.org?.shortCode,
+            }) : template.name;
+        }
+
         const existing = await prisma.questionnaire.findFirst({
             where: {
                 fiEngagementId: engagementId,
@@ -548,10 +557,13 @@ export async function instantiateQuestionnaire(templateId: string, engagementId:
         const newQuestionnaire = await prisma.questionnaire.create({
             data: {
                 name: resolvedName,
+                functionalCode: template.functionalCode,
+                referenceCode: template.referenceCode,
                 fiOrgId: engagement.fiOrgId,
                 status: "ACTIVE",
                 extractedContent: template.extractedContent as any,
                 fiEngagementId: engagementId, // Set for direct relation
+                sourceId: templateId, // Lineage pointer
                 kind: "ENGAGEMENT_QUESTIONNAIRE",
                 engagements: {
                     connect: { id: engagementId }

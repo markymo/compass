@@ -1,18 +1,22 @@
 "use client";
 
 import { useState, useEffect, useTransition } from "react";
+import React from "react";
 import { useRouter } from "next/navigation";
-import { QV2Row, SharingState, addToReferenceLibrary, createWorkingCopy, updateSharingState } from "@/actions/questionnaires-v2";
+import { QV2Row, SharingState, addToReferenceLibrary, createWorkingCopy, updateReferenceSnapshotVisibility, previewPublishReferenceSnapshot, archiveWorkingCopy, deleteWorkingCopy, archiveReferenceSnapshot, deleteReferenceSnapshot } from "@/actions/questionnaires-v2";
+import { QuestionnaireVisibility } from "@prisma/client";
 import { createManualQuestionnaire } from "@/actions/questionnaire";
-import { BookMarked, BookOpen, PenLine, Loader2, Globe, Lock, Plus, Upload, Info, Share2, FileText } from "lucide-react";
+import { generateReferenceCodePrefix, normalizeCode, generateWorkingCopyTitle } from "@/lib/questionnaires/reference-codes";
+import { BookMarked, BookOpen, PenLine, Loader2, Globe, Lock, Plus, Upload, Info, Eye, FileText, ArrowDown, Pencil, Trash2, Archive, X } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { ExplorerTable, DetailDrawer, EmptyState } from "./ExplorerComponents";
+import { ExplorerTable, DetailPanelContent, EmptyState } from "./ExplorerComponents";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
-type TabKey = "working-copy" | "reference";
+type TabKey = "working-copy" | "reference" | "other";
 
 interface Props {
-    data: { workingCopies: QV2Row[]; referenceLibrary: QV2Row[] };
+    data: { workingCopies: QV2Row[]; referenceLibrary: QV2Row[]; other: QV2Row[] };
     initialTab: TabKey;
 }
 
@@ -22,14 +26,18 @@ export function QuestionnairesV2Explorer({ data, initialTab }: Props) {
     const [selected, setSelected] = useState<QV2Row | null>(null);
     const [confirmAddToLib, setConfirmAddToLib] = useState<QV2Row | null>(null);
     const [confirmCreateWC, setConfirmCreateWC] = useState<QV2Row | null>(null);
-    const [confirmShare, setConfirmShare] = useState<QV2Row | null>(null);
+    const [confirmVisibility, setConfirmVisibility] = useState<QV2Row | null>(null);
+    const [confirmArchiveWC, setConfirmArchiveWC] = useState<QV2Row | null>(null);
+    const [confirmDeleteWC, setConfirmDeleteWC] = useState<QV2Row | null>(null);
+    const [confirmArchiveRef, setConfirmArchiveRef] = useState<QV2Row | null>(null);
+    const [confirmDeleteRef, setConfirmDeleteRef] = useState<QV2Row | null>(null);
     const [pendingSelectId, setPendingSelectId] = useState<string | null>(null);
     const [pendingSelectTab, setPendingSelectTab] = useState<TabKey | null>(null);
     const [showNewWCDialog, setShowNewWCDialog] = useState(false);
 
     useEffect(() => {
         if (!pendingSelectId || !pendingSelectTab) return;
-        const list = pendingSelectTab === "reference" ? data.referenceLibrary : data.workingCopies;
+        const list = pendingSelectTab === "reference" ? data.referenceLibrary : pendingSelectTab === "working-copy" ? data.workingCopies : data.other;
         const found = list.find(r => r.id === pendingSelectId);
         if (found) {
             setTabState(pendingSelectTab);
@@ -37,9 +45,9 @@ export function QuestionnairesV2Explorer({ data, initialTab }: Props) {
             setPendingSelectId(null);
             setPendingSelectTab(null);
         }
-    }, [data.referenceLibrary, data.workingCopies, pendingSelectId, pendingSelectTab]);
+    }, [data.referenceLibrary, data.workingCopies, data.other, pendingSelectId, pendingSelectTab]);
 
-    const rows = tab === "working-copy" ? data.workingCopies : data.referenceLibrary;
+    const rows = tab === "working-copy" ? data.workingCopies : tab === "reference" ? data.referenceLibrary : data.other;
 
     function setTab(t: TabKey) {
         setTabState(t);
@@ -72,9 +80,10 @@ export function QuestionnairesV2Explorer({ data, initialTab }: Props) {
                         <TopAction tab={tab} onNewWorkingCopy={() => setShowNewWCDialog(true)} />
                     </div>
 
-                    <div className="flex items-center border-b border-slate-200">
-                        <TabButton label="Working Copies" count={data.workingCopies.length} active={tab === "working-copy"} onClick={() => setTab("working-copy")} />
-                        <TabButton label="Reference Library" active={tab === "reference"} onClick={() => setTab("reference")} />
+                    <div className="flex items-center border-b border-slate-200 overflow-x-auto">
+                        <TabButton label="Coparity Working Copies" count={data.workingCopies.length} active={tab === "working-copy"} onClick={() => setTab("working-copy")} />
+                        <TabButton label="Coparity Reference Library" count={data.referenceLibrary.length} active={tab === "reference"} onClick={() => setTab("reference")} />
+                        <TabButton label="Other Questionnaires" count={data.other.length} active={tab === "other"} onClick={() => setTab("other")} />
                     </div>
 
                     {tab === "reference" && <ReferenceLibraryInfo />}
@@ -82,15 +91,49 @@ export function QuestionnairesV2Explorer({ data, initialTab }: Props) {
                     <div className="bg-white border border-slate-200 border-t-0 rounded-b-lg overflow-hidden">
                         {rows.length === 0
                             ? <EmptyState tab={tab} />
-                            : <ExplorerTable rows={rows} tab={tab} selectedId={selected?.id ?? null} onSelect={selectRow} onAddToLibrary={r => setConfirmAddToLib(r)} onCreateWorkingCopy={r => setConfirmCreateWC(r)} onShare={r => setConfirmShare(r)} />
+                            : <ExplorerTable rows={rows} tab={tab} selectedId={selected?.id ?? null} onSelect={selectRow}
+                                onAddToLibrary={r => setConfirmAddToLib(r)}
+                                onCreateWorkingCopy={r => setConfirmCreateWC(r)}
+                                onVisibility={r => setConfirmVisibility(r)}
+                                onArchiveWC={r => setConfirmArchiveWC(r)}
+                                onDeleteWC={r => setConfirmDeleteWC(r)}
+                                onArchiveRef={r => setConfirmArchiveRef(r)}
+                                onDeleteRef={r => setConfirmDeleteRef(r)}
+                            />
                         }
                     </div>
                 </div>
-
-                {selected && (
-                    <DetailDrawer row={selected} onClose={() => setSelected(null)} onAddToLibrary={r => setConfirmAddToLib(r)} onCreateWorkingCopy={r => setConfirmCreateWC(r)} onShare={r => setConfirmShare(r)} />
-                )}
             </div>
+
+            {/* ── Right-hand slide-out Sheet ── */}
+            <Sheet open={!!selected} onOpenChange={(open) => { if (!open) setSelected(null); }}>
+                <SheetContent
+                    side="right"
+                    className="w-[440px] sm:max-w-[440px] p-0 flex flex-col gap-0"
+                >
+                    {selected && (
+                        <>
+                            <SheetHeader className="px-5 py-4 border-b border-slate-100 shrink-0">
+                                <SheetTitle className="text-sm font-semibold text-slate-900 leading-snug">
+                                    {selected.kind === "REFERENCE_SNAPSHOT" ? "Reference Snapshot" : selected.kind === "WORKING_COPY" ? "Working Copy" : "Questionnaire"}
+                                </SheetTitle>
+                            </SheetHeader>
+                            <div className="flex-1 px-5 py-4 overflow-y-auto">
+                                <DetailPanelContent
+                                    row={selected}
+                                    onAddToLibrary={r => setConfirmAddToLib(r)}
+                                    onCreateWorkingCopy={r => setConfirmCreateWC(r)}
+                                    onVisibility={r => setConfirmVisibility(r)}
+                                    onArchiveWC={r => setConfirmArchiveWC(r)}
+                                    onDeleteWC={r => setConfirmDeleteWC(r)}
+                                    onArchiveRef={r => setConfirmArchiveRef(r)}
+                                    onDeleteRef={r => setConfirmDeleteRef(r)}
+                                />
+                            </div>
+                        </>
+                    )}
+                </SheetContent>
+            </Sheet>
 
             {confirmAddToLib && (
                 <ConfirmAddDialog row={confirmAddToLib} onCancel={() => setConfirmAddToLib(null)}
@@ -100,9 +143,41 @@ export function QuestionnairesV2Explorer({ data, initialTab }: Props) {
                 <ConfirmCreateWCDialog row={confirmCreateWC} onCancel={() => setConfirmCreateWC(null)}
                     onSuccess={id => { setConfirmCreateWC(null); afterAction(id, "working-copy"); }} />
             )}
-            {confirmShare && (
-                <ShareDialog row={confirmShare} onCancel={() => setConfirmShare(null)}
-                    onSuccess={() => { setConfirmShare(null); setPendingSelectId(confirmShare.id); setPendingSelectTab("reference"); setSelected(null); router.refresh(); }} />
+            {confirmVisibility && (
+                <VisibilityDialog row={confirmVisibility} onCancel={() => setConfirmVisibility(null)}
+                    onSuccess={() => { setConfirmVisibility(null); setPendingSelectId(confirmVisibility.id); setPendingSelectTab("reference"); setSelected(null); router.refresh(); }} />
+            )}
+            {confirmArchiveWC && (
+                <ConfirmArchiveDialog
+                    kind="working-copy"
+                    row={confirmArchiveWC}
+                    onCancel={() => setConfirmArchiveWC(null)}
+                    onSuccess={() => { setConfirmArchiveWC(null); setSelected(null); router.refresh(); }}
+                />
+            )}
+            {confirmDeleteWC && (
+                <ConfirmDeleteDialog
+                    kind="working-copy"
+                    row={confirmDeleteWC}
+                    onCancel={() => setConfirmDeleteWC(null)}
+                    onSuccess={() => { setConfirmDeleteWC(null); setSelected(null); router.refresh(); }}
+                />
+            )}
+            {confirmArchiveRef && (
+                <ConfirmArchiveDialog
+                    kind="reference"
+                    row={confirmArchiveRef}
+                    onCancel={() => setConfirmArchiveRef(null)}
+                    onSuccess={() => { setConfirmArchiveRef(null); setSelected(null); router.refresh(); }}
+                />
+            )}
+            {confirmDeleteRef && (
+                <ConfirmDeleteDialog
+                    kind="reference"
+                    row={confirmDeleteRef}
+                    onCancel={() => setConfirmDeleteRef(null)}
+                    onSuccess={() => { setConfirmDeleteRef(null); setSelected(null); router.refresh(); }}
+                />
             )}
             {showNewWCDialog && (
                 <NewWorkingCopyDialog
@@ -118,11 +193,29 @@ export function QuestionnairesV2Explorer({ data, initialTab }: Props) {
 
 function ConfirmAddDialog({ row, onCancel, onSuccess }: { row: QV2Row; onCancel: () => void; onSuccess: (id: string) => void }) {
     const [isPending, startTransition] = useTransition();
+    const [preview, setPreview] = React.useState<{ sourceName: string; proposedReferenceCode: string; proposedSnapshotName: string; nextVersion: number } | null>(null);
+    const [previewError, setPreviewError] = React.useState<string | null>(null);
+
+    // Load the preview as soon as the dialog mounts
+    React.useEffect(() => {
+        let cancelled = false;
+        previewPublishReferenceSnapshot(row.id).then(res => {
+            if (cancelled) return;
+            if (res.success && res.preview) {
+                setPreview(res.preview);
+            } else {
+                setPreviewError(res.error ?? "Could not compute preview.");
+            }
+        });
+        return () => { cancelled = true; };
+    }, [row.id]);
+
     function handle() {
         startTransition(async () => {
             const r = await addToReferenceLibrary(row.id);
             if (r.success && r.referenceId) {
-                toast.success("Added to Reference Library", { description: `"${row.name}" is now a stable reference.` });
+                const label = r.snapshotReferenceCode ?? r.snapshotName ?? row.name;
+                toast.success("Reference Snapshot created", { description: label });
                 onSuccess(r.referenceId);
             } else {
                 toast.error("Failed", { description: r.error });
@@ -130,11 +223,84 @@ function ConfirmAddDialog({ row, onCancel, onSuccess }: { row: QV2Row; onCancel:
             }
         });
     }
+
     return (
         <DialogShell onBackdropClick={!isPending ? onCancel : undefined}>
-            <DialogHeader icon={<BookMarked className="w-4 h-4 text-amber-600" />} iconBg="bg-amber-50 border-amber-100" title="Add to Reference Library" description={<>Creates a stable, read-only reference from <strong>&ldquo;{row.name}&rdquo;</strong>.</>} />
-            <DialogBullets items={["Your working copy remains editable.", "The reference can be safely shared and reused.", "Engagements derived from it evolve independently."]} />
-            <DialogFooter onCancel={onCancel} onConfirm={handle} isPending={isPending} confirmLabel="Add to Reference Library" />
+            {/* ── Header ── */}
+            <div className="flex items-center gap-3 px-5 pt-5 pb-4 border-b border-slate-100">
+                <div className="w-8 h-8 rounded-lg bg-amber-50 border border-amber-100 flex items-center justify-center shrink-0">
+                    <BookMarked className="w-4 h-4 text-amber-600" />
+                </div>
+                <div>
+                    <h2 className="text-sm font-semibold text-slate-900">Publish to Reference Library</h2>
+                    <p className="text-xs text-slate-500 mt-0.5">This creates a locked, versioned snapshot.</p>
+                </div>
+            </div>
+
+            {/* ── Body ── */}
+            <div className="px-5 pt-5 pb-4">
+                {preview ? (
+                    <div className="space-y-1">
+                        {/* ── Creating card (top — emphasis) ── */}
+                        <div className="rounded-xl border-2 border-emerald-200 bg-emerald-50 px-4 py-3">
+                            <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest mb-1.5">Creating Reference Snapshot</p>
+                            <p className="font-mono text-[11px] font-semibold text-slate-900 break-all leading-relaxed">{preview.proposedSnapshotName}</p>
+                            <div className="flex items-center gap-1.5 mt-2">
+                                <Lock className="w-3 h-3 text-emerald-600" />
+                                <span className="text-[10px] font-semibold text-emerald-700">Read Only</span>
+                                <span className="mx-1 text-emerald-200">·</span>
+                                <span className="text-[10px] text-emerald-600">v{preview.nextVersion}</span>
+                            </div>
+                        </div>
+
+                        {/* ── Arrow ── */}
+                        <div className="flex items-center justify-center py-1">
+                            <div className="flex flex-col items-center gap-0.5">
+                                <ArrowDown className="w-3.5 h-3.5 text-slate-300" />
+                                <span className="text-[10px] text-slate-400 font-medium">published from</span>
+                            </div>
+                        </div>
+
+                        {/* ── Source card (bottom — provenance) ── */}
+                        <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Working Copy</p>
+                            <p className="font-mono text-[11px] text-slate-600 break-all leading-relaxed">{preview.sourceName}</p>
+                            <div className="flex items-center gap-1.5 mt-2">
+                                <Pencil className="w-3 h-3 text-slate-400" />
+                                <span className="text-[10px] text-slate-500">Remains editable</span>
+                            </div>
+                        </div>
+
+                        {/* ── Concise bullets ── */}
+                        <div className="pt-3 space-y-1">
+                            {[
+                                "Working Copy remains editable",
+                                "Future changes will not affect this Snapshot",
+                                "Engagements should use the Snapshot, not the Working Copy",
+                            ].map((item, i) => (
+                                <p key={i} className="text-[11px] text-slate-400 leading-relaxed">
+                                    <span className="text-emerald-500 font-bold mr-1">✓</span>{item}
+                                </p>
+                            ))}
+                        </div>
+                    </div>
+                ) : previewError ? (
+                    <p className="text-xs text-red-600">{previewError}</p>
+                ) : (
+                    <div className="flex items-center gap-2 py-6 justify-center">
+                        <Loader2 className="w-4 h-4 text-slate-400 animate-spin" />
+                        <span className="text-xs text-slate-400">Computing snapshot preview…</span>
+                    </div>
+                )}
+            </div>
+
+            <DialogFooter
+                onCancel={onCancel}
+                onConfirm={handle}
+                isPending={isPending}
+                confirmLabel="Publish Reference Snapshot"
+                disabled={!preview || !!previewError}
+            />
         </DialogShell>
     );
 }
@@ -162,19 +328,119 @@ function ConfirmCreateWCDialog({ row, onCancel, onSuccess }: { row: QV2Row; onCa
     );
 }
 
-function ShareDialog({ row, onCancel, onSuccess }: { row: QV2Row; onCancel: () => void; onSuccess: () => void }) {
-    const [state, setState] = useState<SharingState>(row.sharingState ?? "PRIVATE");
+function ConfirmArchiveDialog({ kind, row, onCancel, onSuccess }: { kind: "working-copy" | "reference"; row: QV2Row; onCancel: () => void; onSuccess: () => void }) {
+    const [isPending, startTransition] = useTransition();
+    const label = kind === "reference" ? "Reference Snapshot" : "Working Copy";
+    function handle() {
+        startTransition(async () => {
+            const r = kind === "reference"
+                ? await archiveReferenceSnapshot(row.id)
+                : await archiveWorkingCopy(row.id);
+            if (r.success) {
+                toast.success(`${label} archived`, { description: row.name });
+                onSuccess();
+            } else {
+                toast.error("Failed", { description: r.error });
+                onCancel();
+            }
+        });
+    }
+    return (
+        <DialogShell onBackdropClick={!isPending ? onCancel : undefined}>
+            <div className="flex items-center gap-3 px-5 pt-5 pb-4 border-b border-slate-100">
+                <div className="w-8 h-8 rounded-lg bg-amber-50 border border-amber-100 flex items-center justify-center shrink-0">
+                    <Archive className="w-4 h-4 text-amber-600" />
+                </div>
+                <div>
+                    <h2 className="text-sm font-semibold text-slate-900">Archive {label}</h2>
+                    <p className="text-xs text-slate-500 mt-0.5">Hidden from normal views. Can be restored later.</p>
+                </div>
+            </div>
+            <div className="px-5 pt-4 pb-2 space-y-3">
+                <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5">
+                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">{label}</p>
+                    <p className="font-mono text-[11px] text-slate-700 break-all leading-relaxed">{row.name}</p>
+                </div>
+                <p className="text-[11px] text-slate-500 leading-relaxed">
+                    The record is retained in the database. Lineage links from derived questionnaires are preserved.
+                </p>
+            </div>
+            <div className="flex items-center justify-end gap-2 px-5 pb-5 pt-3">
+                <button onClick={onCancel} disabled={isPending} className="text-xs font-medium text-slate-600 hover:text-slate-900 px-4 py-2 rounded-lg border border-slate-200 hover:border-slate-300 transition-colors disabled:opacity-50">Cancel</button>
+                <button onClick={handle} disabled={isPending} className="flex items-center gap-1.5 text-xs font-semibold text-white bg-amber-600 hover:bg-amber-700 px-4 py-2 rounded-lg transition-colors disabled:opacity-50">
+                    {isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Archive className="w-3.5 h-3.5" />}
+                    {isPending ? "Archiving…" : `Archive ${label}`}
+                </button>
+            </div>
+        </DialogShell>
+    );
+}
+
+function ConfirmDeleteDialog({ kind, row, onCancel, onSuccess }: { kind: "working-copy" | "reference"; row: QV2Row; onCancel: () => void; onSuccess: () => void }) {
+    const [isPending, startTransition] = useTransition();
+    const label = kind === "reference" ? "Reference Snapshot" : "Working Copy";
+    function handle() {
+        startTransition(async () => {
+            const r = kind === "reference"
+                ? await deleteReferenceSnapshot(row.id)
+                : await deleteWorkingCopy(row.id);
+            if (r.success) {
+                toast.success(`${label} deleted`, { description: row.name });
+                onSuccess();
+            } else {
+                toast.error("Failed", { description: r.error });
+                onCancel();
+            }
+        });
+    }
+    return (
+        <DialogShell onBackdropClick={!isPending ? onCancel : undefined}>
+            <div className="flex items-center gap-3 px-5 pt-5 pb-4 border-b border-slate-100">
+                <div className="w-8 h-8 rounded-lg bg-red-50 border border-red-100 flex items-center justify-center shrink-0">
+                    <Trash2 className="w-4 h-4 text-red-500" />
+                </div>
+                <div>
+                    <h2 className="text-sm font-semibold text-slate-900">Delete {label}</h2>
+                    <p className="text-xs text-slate-500 mt-0.5">Removed from all views. The database record is retained for lineage.</p>
+                </div>
+            </div>
+            <div className="px-5 pt-4 pb-2 space-y-3">
+                <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5">
+                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">{label}</p>
+                    <p className="font-mono text-[11px] text-slate-700 break-all leading-relaxed">{row.name}</p>
+                </div>
+                <p className="text-[11px] text-red-600 leading-relaxed font-medium">
+                    This action cannot be undone from the UI.
+                </p>
+            </div>
+            <div className="flex items-center justify-end gap-2 px-5 pb-5 pt-3">
+                <button onClick={onCancel} disabled={isPending} className="text-xs font-medium text-slate-600 hover:text-slate-900 px-4 py-2 rounded-lg border border-slate-200 hover:border-slate-300 transition-colors disabled:opacity-50">Cancel</button>
+                <button onClick={handle} disabled={isPending} className="flex items-center gap-1.5 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg transition-colors disabled:opacity-50">
+                    {isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                    {isPending ? "Deleting…" : `Delete ${label}`}
+                </button>
+            </div>
+        </DialogShell>
+    );
+}
+
+function VisibilityDialog({ row, onCancel, onSuccess }: { row: QV2Row; onCancel: () => void; onSuccess: () => void }) {
+    // If a row somehow has RESTRICTED from a previous session, keep it displayed but
+    // treat it as PRIVATE when the dialog opens so we don't allow saving RESTRICTED.
+    const initialVisibility: QuestionnaireVisibility =
+        row.visibility === "RESTRICTED" ? "PRIVATE" : (row.visibility ?? "PRIVATE");
+    const [visibility, setVisibility] = useState<QuestionnaireVisibility>(initialVisibility);
     const [isPending, startTransition] = useTransition();
     function handle() {
         startTransition(async () => {
-            const r = await updateSharingState(row.id, state);
+            const r = await updateReferenceSnapshotVisibility(row.id, visibility);
             if (r.success) {
-                const labels: Record<SharingState, string> = {
-                    PRIVATE: "Reference is now private to owner",
-                    RESTRICTED: "Reference sharing is restricted",
-                    GLOBAL: "Reference is now visible to all CoParity users",
+                const labels: Record<QuestionnaireVisibility, string> = {
+                    PRIVATE: "Reference Snapshot is now private",
+                    RESTRICTED: "Visibility updated",
+                    GLOBAL: "Reference Snapshot is now visible to all CoParity users",
                 };
-                toast.success(labels[state]);
+                toast.success(labels[visibility]);
                 onSuccess();
             } else {
                 toast.error("Failed", { description: r.error });
@@ -182,31 +448,66 @@ function ShareDialog({ row, onCancel, onSuccess }: { row: QV2Row; onCancel: () =
         });
     }
 
-    const options: { value: SharingState; icon: React.ReactNode; label: string; description: string }[] = [
-        { value: "PRIVATE",    icon: <Lock className="w-4 h-4 text-slate-400 shrink-0" />,   label: "Private to Owner",    description: "Only visible within your organisation" },
-        { value: "RESTRICTED", icon: <Share2 className="w-4 h-4 text-amber-500 shrink-0" />,  label: "Restricted Sharing",  description: "Shared with specific organisations only" },
-        { value: "GLOBAL",     icon: <Globe className="w-4 h-4 text-emerald-500 shrink-0" />, label: "Global",              description: "Visible to all CoParity users" },
+    type Option = { value: QuestionnaireVisibility; icon: React.ReactNode; label: string; description: string; disabled?: boolean; disabledReason?: string };
+    const options: Option[] = [
+        {
+            value: "PRIVATE",
+            icon: <Lock className="w-4 h-4 text-slate-400 shrink-0" />,
+            label: "Private",
+            description: "Visible only to Coparity admins",
+        },
+        {
+            value: "RESTRICTED",
+            icon: <Eye className="w-4 h-4 text-slate-300 shrink-0" />,
+            label: "Restricted",
+            description: "Visible to owner plus specific organisations",
+            disabled: true,
+            disabledReason: "Coming later — organisation grant management is not yet implemented",
+        },
+        {
+            value: "GLOBAL",
+            icon: <Globe className="w-4 h-4 text-emerald-500 shrink-0" />,
+            label: "Global",
+            description: "Visible to anyone with permission to discover questionnaires",
+        },
     ];
 
     return (
         <DialogShell onBackdropClick={!isPending ? onCancel : undefined}>
             <div className="px-5 pt-5 pb-4 border-b border-slate-100">
-                <h2 className="text-sm font-semibold text-slate-900">Sharing</h2>
-                <p className="text-xs text-slate-400 mt-0.5">Control who can access this Reference Library item.</p>
+                <h2 className="text-sm font-semibold text-slate-900">Visibility</h2>
+                <p className="text-xs text-slate-400 mt-0.5">Control who can discover this Reference Snapshot.</p>
             </div>
             <div className="px-5 pt-4 pb-4 space-y-2">
                 {options.map(opt => (
-                    <button key={opt.value} onClick={() => setState(opt.value)} className={cn("w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border text-left transition-colors", state === opt.value ? "border-slate-900 bg-slate-50" : "border-slate-200 hover:border-slate-300")}>
-                        {opt.icon}
-                        <div className="flex-1 min-w-0">
-                            <p className="text-xs font-semibold text-slate-800">{opt.label}</p>
-                            <p className="text-[11px] text-slate-400">{opt.description}</p>
-                        </div>
-                        {state === opt.value && <div className="w-2 h-2 rounded-full bg-slate-900 shrink-0" />}
-                    </button>
+                    <div
+                        key={opt.value}
+                        title={opt.disabled ? opt.disabledReason : undefined}
+                        className={cn(opt.disabled ? "cursor-not-allowed" : undefined)}
+                    >
+                        <button
+                            disabled={opt.disabled}
+                            onClick={opt.disabled ? undefined : () => setVisibility(opt.value)}
+                            className={cn(
+                                "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border text-left transition-colors",
+                                opt.disabled
+                                    ? "border-slate-100 bg-slate-50 opacity-50 cursor-not-allowed"
+                                    : visibility === opt.value
+                                        ? "border-slate-900 bg-slate-50"
+                                        : "border-slate-200 hover:border-slate-300",
+                            )}
+                        >
+                            {opt.icon}
+                            <div className="flex-1 min-w-0">
+                                <p className={cn("text-xs font-semibold", opt.disabled ? "text-slate-400" : "text-slate-800")}>{opt.label}</p>
+                                <p className="text-[11px] text-slate-400">{opt.description}</p>
+                            </div>
+                            {!opt.disabled && visibility === opt.value && <div className="w-2 h-2 rounded-full bg-slate-900 shrink-0" />}
+                        </button>
+                    </div>
                 ))}
             </div>
-            <DialogFooter onCancel={onCancel} onConfirm={handle} isPending={isPending} confirmLabel="Save" />
+            <DialogFooter onCancel={onCancel} onConfirm={handle} isPending={isPending} confirmLabel="Save Visibility" />
         </DialogShell>
     );
 }
@@ -242,11 +543,11 @@ function DialogBullets({ items }: { items: string[] }) {
     );
 }
 
-function DialogFooter({ onCancel, onConfirm, isPending, confirmLabel }: { onCancel: () => void; onConfirm: () => void; isPending: boolean; confirmLabel: string }) {
+function DialogFooter({ onCancel, onConfirm, isPending, confirmLabel, disabled }: { onCancel: () => void; onConfirm: () => void; isPending: boolean; confirmLabel: string; disabled?: boolean }) {
     return (
         <div className="flex items-center justify-end gap-2 px-5 pb-5">
             <button onClick={onCancel} disabled={isPending} className="text-xs font-medium text-slate-600 hover:text-slate-900 px-4 py-2 rounded-lg border border-slate-200 hover:border-slate-300 transition-colors disabled:opacity-50">Cancel</button>
-            <button onClick={onConfirm} disabled={isPending} className="inline-flex items-center gap-1.5 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 px-4 py-2 rounded-lg transition-colors disabled:opacity-70">
+            <button onClick={onConfirm} disabled={isPending || disabled} className="inline-flex items-center gap-1.5 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 px-4 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                 {isPending && <Loader2 className="w-3 h-3 animate-spin" />}
                 {isPending ? "Working…" : confirmLabel}
             </button>
@@ -287,26 +588,33 @@ function ReferenceLibraryInfo() {
 
 // ── New Working Copy creation dialog ────────────────────────────────────────
 
-import React from "react";
-
 function NewWorkingCopyDialog({ onCancel, onSuccess }: { onCancel: () => void; onSuccess: (id: string) => void }) {
-    const [name, setName] = React.useState("");
+    const [funcCodeRaw, setFuncCodeRaw] = React.useState("");
     const [isPending, startTransition] = React.useTransition();
     const [error, setError] = React.useState<string | null>(null);
 
+    const functionalCode = normalizeCode(funcCodeRaw);
+    const generatedName = functionalCode 
+        ? generateWorkingCopyTitle({ functionalCode, isSystemQuestionnaire: true }) 
+        : "";
+    const previewText = functionalCode 
+        ? generatedName 
+        : "Enter a functional code to preview";
+
     function handle() {
-        if (!name.trim()) { setError("A name is required."); return; }
+        if (!functionalCode) { setError("A functional code is required."); return; }
         setError(null);
         startTransition(async () => {
             const r = await createManualQuestionnaire({
-                name: name.trim(),
+                name: generatedName,
+                functionalCode,
                 // Provide a minimal first question so the action's non-empty guard passes;
                 // the admin will edit content in the mapper immediately after creation.
                 questions: "Enter your first question here",
                 isGlobal: false,
             });
             if (r.success && r.id) {
-                toast.success("Working Copy created", { description: `"${name.trim()}" is ready to edit.` });
+                toast.success("Working Copy created", { description: `"${generatedName}" is ready to edit.` });
                 onSuccess(r.id);
             } else {
                 setError(r.error || "Failed to create working copy.");
@@ -322,24 +630,33 @@ function NewWorkingCopyDialog({ onCancel, onSuccess }: { onCancel: () => void; o
                 </div>
                 <div>
                     <h2 className="text-sm font-semibold text-slate-900">New Working Copy</h2>
-                    <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">Creates an editable working copy. Publish it to the Reference Library when it's ready for assignment.</p>
+                    <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">Creates an editable working copy. Publish it to the Reference Library when it&apos;s ready for assignment.</p>
                 </div>
             </div>
             <div className="px-5 pt-4 pb-4">
-                <label className="text-xs font-semibold text-slate-700 block mb-1.5">Name</label>
+                <label className="text-xs font-semibold text-slate-700 block mb-1.5">Functional Code</label>
                 <input
                     autoFocus
-                    value={name}
-                    onChange={e => { setName(e.target.value); setError(null); }}
-                    onKeyDown={e => e.key === "Enter" && handle()}
-                    placeholder="e.g. ESG Supplier Questionnaire v3"
-                    className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100 transition-colors"
+                    value={funcCodeRaw}
+                    onChange={e => { setFuncCodeRaw(e.target.value); setError(null); }}
+                    onKeyDown={e => e.key === "Enter" && functionalCode && handle()}
+                    placeholder="e.g. FMSB UK"
+                    className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100 transition-colors uppercase"
                     disabled={isPending}
                 />
-                {error && <p className="text-xs text-red-600 mt-1.5">{error}</p>}
-                <p className="text-[11px] text-slate-400 mt-2">You will be taken to the editor to add questions and mappings.</p>
+                <div className="mt-4 p-3 bg-slate-50 border border-slate-100 rounded-lg">
+                    <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1.5">Suggested Name</label>
+                    <div className={cn("font-mono text-xs break-all leading-relaxed", functionalCode ? "text-slate-700 font-semibold" : "text-slate-400 italic")}>
+                        {functionalCode ? previewText : "Enter a functional code to preview the suggested name"}
+                    </div>
+                    {functionalCode && (
+                        <p className="text-[10px] text-slate-400 mt-2">You can edit this name later while it remains a Working Copy.</p>
+                    )}
+                </div>
+                {error && <p className="text-xs text-red-600 mt-2">{error}</p>}
+                <p className="text-[11px] text-slate-400 mt-3">You will be taken to the editor to add questions and mappings.</p>
             </div>
-            <DialogFooter onCancel={onCancel} onConfirm={handle} isPending={isPending} confirmLabel="Create Working Copy" />
+            <DialogFooter onCancel={onCancel} onConfirm={handle} isPending={isPending} confirmLabel="Create Working Copy" disabled={!functionalCode} />
         </DialogShell>
     );
 }

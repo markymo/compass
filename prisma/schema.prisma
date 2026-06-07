@@ -100,10 +100,11 @@ model Organization {
   invitations            Invitation[]
   memberships            Membership[]
   questionnaires         Questionnaire[]
-  ownedQuestionnaires    Questionnaire[]         @relation("OwnedQuestionnaires")
-  ownedClaims            FieldClaim[]            @relation("OrganizationOwnerScope")
-  claims                 FieldClaim[]            @relation("OrganizationSubject")
-  referencedInClaims     FieldClaim[]            @relation("OrganizationValue")
+  ownedQuestionnaires    Questionnaire[]                    @relation("OwnedQuestionnaires")
+  ownedClaims            FieldClaim[]                       @relation("OrganizationOwnerScope")
+  claims                 FieldClaim[]                       @relation("OrganizationSubject")
+  referencedInClaims     FieldClaim[]                       @relation("OrganizationValue")
+  visibilityGrants       QuestionnaireVisibilityGrant[]
 }
 
 model Membership {
@@ -321,12 +322,17 @@ model Questionnaire {
   dueDate          DateTime?
   lockedAt         DateTime?
   kind             QuestionnaireKind?
+  functionalCode   String?
+  referenceCode    String?
   fileUrl          String?
   isTemplate       Boolean                @default(false)
   /// Lineage: the questionnaire this record was directly derived from (clone, assign, promote, lateral share).
   /// Null for original / uploaded / manually-created questionnaires.
   /// ancestry only — no inheritance, sync, or merge semantics.
   sourceId         String?
+  /// Visibility: controls who can discover/reference this Reference Snapshot.
+  /// Only meaningful for kind = REFERENCE_SNAPSHOT. Working Copies and Engagement Questionnaires are always private.
+  visibility       QuestionnaireVisibility @default(PRIVATE)
   questions        Question[]
   fiEngagement     FIEngagement?          @relation("QuestionnaireInstance", fields: [fiEngagementId], references: [id], onDelete: Cascade)
   fiOrg            Organization           @relation(fields: [fiOrgId], references: [id])
@@ -335,6 +341,9 @@ model Questionnaire {
   derivedVersions  Questionnaire[]        @relation("QuestionnaireLineage")
   versions         QuestionnaireVersion[]
   engagements      FIEngagement[]         @relation("FIEngagementToQuestionnaire")
+  visibilityGrants QuestionnaireVisibilityGrant[]
+
+  @@index([referenceCode])
 }
 
 model Question {
@@ -1045,6 +1054,27 @@ enum QuestionnaireKind {
   WORKING_COPY
   REFERENCE_SNAPSHOT
   ENGAGEMENT_QUESTIONNAIRE
+}
+
+enum QuestionnaireVisibility {
+  PRIVATE
+  RESTRICTED
+  GLOBAL
+}
+
+/// Grants visibility of a RESTRICTED Reference Snapshot to a specific organisation.
+/// Does not grant create/copy permissions — those are controlled by the Action/Role system.
+model QuestionnaireVisibilityGrant {
+  id              String        @id @default(uuid())
+  questionnaireId String
+  organizationId  String
+  createdAt       DateTime      @default(now())
+
+  questionnaire   Questionnaire @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
+  organization    Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([questionnaireId, organizationId])
+  @@index([organizationId])
 }
 
 enum OrgType {
