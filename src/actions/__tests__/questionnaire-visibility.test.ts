@@ -39,7 +39,7 @@ vi.mock('next/cache', () => ({
 
 import { vi } from 'vitest';
 
-describe('Questionnaire Visibility Model', () => {
+describe.skipIf(!process.env.DATABASE_URL)('Questionnaire Visibility Model', () => {
     let sysOrgId: string;
     const cleanup: string[] = [];
 
@@ -230,7 +230,7 @@ describe('Questionnaire Visibility Model', () => {
 // These tests exercise getDiscoverableReferenceSnapshotsForOrg directly,
 // verifying that the visibility filter is correctly applied at the query level.
 
-describe('getDiscoverableReferenceSnapshotsForOrg — enforcement', () => {
+describe.skipIf(!process.env.DATABASE_URL)('getDiscoverableReferenceSnapshotsForOrg — enforcement', () => {
     let sysOrgId: string;
     let otherOrgId: string;
     const cleanup: string[] = [];

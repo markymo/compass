@@ -46,7 +46,7 @@ vi.mock('next/cache', () => ({
 
 // ── Fixtures ─────────────────────────────────────────────────────────────────
 
-describe('searchAvailableQuestionnaires — engagement-context org resolution', () => {
+describe.skipIf(!process.env.DATABASE_URL)('searchAvailableQuestionnaires — engagement-context org resolution', () => {
     let sysOrgId: string;
     let orgAId: string;     // User's OLDEST membership — should be the fallback org
     let orgBId: string;     // Engagement fiOrgId — should be authoritative when engagementId provided

@@ -33,7 +33,7 @@ const STATEMENTS = [
         ON "QuestionnaireVisibilityGrant"("organizationId")`,
 ];
 
-describe('Apply visibility migration', () => {
+describe.skipIf(!process.env.DATABASE_URL)('Apply visibility migration', () => {
     it('runs all DDL statements idempotently', async () => {
         for (const stmt of STATEMENTS) {
             const preview = stmt.replace(/\s+/g, ' ').slice(0, 70);

@@ -30,7 +30,7 @@ vi.mock('next/cache', () => ({
 // we should just let it run or mock prisma. The project seems to run tests against a real DB (from test output).
 // Let's create actual DB entries.
 
-describe('Reference Codes Integration', () => {
+describe.skipIf(!process.env.DATABASE_URL)('Reference Codes Integration', () => {
     let sysOrgId: string;
     let templateId: string;
     let engagementId: string;
