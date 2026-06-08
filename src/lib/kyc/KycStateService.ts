@@ -351,7 +351,12 @@ export class KycStateService {
             // plain-text claims (collectionId = NULL) that predate the structured
             // collection architecture.
             const rawClaims = claimsByField.get(def.fieldNo) ?? [];
-            const claims = def.collectionId
+            // The collectionId filter excludes legacy plain-text claims (collectionId=NULL)
+            // that predate the structured collection architecture.
+            // Only apply this filter for multi-value (collection) fields — for single-value
+            // fields the filter is meaningless and would exclude valid claims written while
+            // isMultiValue was incorrectly set to false in the DB (e.g. SIC code backfills).
+            const claims = (def.isMultiValue && def.collectionId)
                 ? rawClaims.filter(c => c.collectionId === def.collectionId)
                 : rawClaims;
             const priorityMap = priorityMapByField.get(def.fieldNo) ?? new Map();

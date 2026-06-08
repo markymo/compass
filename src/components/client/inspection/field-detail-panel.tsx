@@ -1045,12 +1045,14 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                             <div className="flex flex-wrap gap-1.5 mt-1">
                                                                                 {data.current.value.map((v: any, idx: number) => (
                                                                                     <Badge key={idx} variant="outline" className="bg-white border-slate-300 text-slate-800 py-1 px-2.5 text-sm shadow-sm ring-1 ring-slate-100/50">
-                                                                                        {String(v)}
+                                                                                        {renderRowValue(v)}
                                                                                     </Badge>
                                                                                 ))}
                                                                             </div>
                                                                         ) : (
-                                                                            String(data.current.value)
+                                                                            // Use renderRowValue to handle JSONB objects (e.g. {code, label} SIC codes)
+                                                                            // instead of String() which produces [object Object]
+                                                                            renderRowValue(data.current.value)
                                                                         )}
                                                                     </div>
                                                                     <div className="mt-2 flex items-center gap-2">
