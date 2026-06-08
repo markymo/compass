@@ -67,9 +67,18 @@ export function FieldCreateSheet({ open, onOpenChange, categories=[] }: FieldCre
             if (payload.optionSetId === "none") {
                 payload.optionSetId = undefined;
             }
-            // JSONB fields can be multi-value structured collections (e.g. SIC codes, previous names).
-            // Only strip isMultiValue for types that genuinely cannot be collections.
-            const multiValueTypes = [APP_DATA_TYPES.SELECT, APP_DATA_TYPES.JSONB];
+            // Only strip isMultiValue for scalar types that cannot be collections.
+            // Reference types (PARTY_REF, ADDRESS_REF, etc.) support multi-value via
+            // MasterFieldGraphBinding — preserve the flag so graph-backed list fields work.
+            // JSONB/SELECT can also be multi-value (e.g. SIC codes, previous names).
+            const multiValueTypes = [
+                APP_DATA_TYPES.SELECT,
+                APP_DATA_TYPES.JSONB,
+                APP_DATA_TYPES.PARTY_REF,
+                APP_DATA_TYPES.PERSON_REF,
+                APP_DATA_TYPES.ORG_REF,
+                APP_DATA_TYPES.ADDRESS_REF,
+            ];
             if (!multiValueTypes.includes(payload.appDataType)) {
                 payload.optionSetId = undefined;
                 payload.isMultiValue = false;
@@ -156,49 +165,67 @@ export function FieldCreateSheet({ open, onOpenChange, categories=[] }: FieldCre
                                             </SelectItem>
                                         ))}
 
-                                        {/* ── Complex field patterns — informational, not yet creatable ── */}
+                                        {/* ── Graph-backed fields — admin-configurable via Graph Binding ── */}
                                         <div className="px-2 py-1.5 text-[10px] font-semibold text-slate-400 uppercase tracking-wider border-t mt-1 pt-2">
-                                            Complex field patterns
+                                            Graph-backed fields
                                         </div>
-                                        <div className="px-2 py-1.5 text-xs text-slate-400 italic">
-                                            Current Directors — requires config file entry
-                                        </div>
-                                        <div className="px-2 py-1 text-xs text-slate-400 italic">
-                                            Previous Names — coming soon
+                                        <div className="px-2 py-2 text-xs text-slate-500 leading-relaxed">
+                                            Choose <span className="font-medium text-slate-700">Party Reference</span> or{" "}
+                                            <span className="font-medium text-slate-700">Address Reference</span> above,
+                                            then add a <span className="font-medium text-slate-700">Graph Binding</span> after
+                                            saving. No code changes required.
                                         </div>
                                     </SelectContent>
                                 </Select>
-                            </div>
-
-                            {/* Show isMultiValue toggle for SELECT and JSONB types */}
-                            {(formData.appDataType === APP_DATA_TYPES.SELECT || formData.appDataType === APP_DATA_TYPES.JSONB) && (
+                                {/* isMultiValue toggle — shown for SELECT, JSONB, and all reference types */}
+                             {([APP_DATA_TYPES.SELECT, APP_DATA_TYPES.JSONB,
+                               APP_DATA_TYPES.PARTY_REF, APP_DATA_TYPES.PERSON_REF,
+                               APP_DATA_TYPES.ORG_REF, APP_DATA_TYPES.ADDRESS_REF
+                             ] as string[]).includes(formData.appDataType) && (
                                 <>
-                                    <div className="grid gap-2 col-span-2">
-                                        <Label className="text-xs text-slate-500">Option Set *</Label>
-                                        <Select value={formData.optionSetId} onValueChange={(val) => setFormData({ ...formData, optionSetId: val })}>
-                                            <SelectTrigger className="w-full bg-white">
-                                                <SelectValue placeholder="Select Option Set" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="none">-- Select Option Set --</SelectItem>
-                                                {optionSets.map(os => (
-                                                    <SelectItem key={os.id} value={os.id}>{os.name}</SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    <div className="grid gap-2 col-span-2 flex-row items-center border rounded-md p-3">
-                                        <div className="flex-1 space-y-1">
-                                            <p className="text-sm font-medium leading-none">Allow Multiple Selections</p>
-                                            <p className="text-xs text-muted-foreground">End users can pick more than one option.</p>
+                                    {formData.appDataType === APP_DATA_TYPES.SELECT && (
+                                        <div className="grid gap-2 col-span-2">
+                                            <Label className="text-xs text-slate-500">Option Set *</Label>
+                                            <Select value={formData.optionSetId} onValueChange={(val) => setFormData({ ...formData, optionSetId: val })}>
+                                                <SelectTrigger className="w-full bg-white">
+                                                    <SelectValue placeholder="Select Option Set" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="none">-- Select Option Set --</SelectItem>
+                                                    {optionSets.map(os => (
+                                                        <SelectItem key={os.id} value={os.id}>{os.name}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
                                         </div>
-                                        <Switch
-                                            checked={formData.isMultiValue}
-                                            onCheckedChange={(val) => setFormData({ ...formData, isMultiValue: val })}
-                                        />
+                                    )}
+                                    <div className="grid gap-2 col-span-2 flex-row items-center border rounded-md p-3">
+                                        <div className="flex items-center justify-between gap-4">
+                                            <div className="flex-1 space-y-0.5">
+                                                <p className="text-sm font-medium leading-none">
+                                                    {([APP_DATA_TYPES.PARTY_REF, APP_DATA_TYPES.PERSON_REF,
+                                                      APP_DATA_TYPES.ORG_REF, APP_DATA_TYPES.ADDRESS_REF
+                                                     ] as string[]).includes(formData.appDataType)
+                                                        ? 'Allow multiple references'
+                                                        : 'Allow multiple selections'}
+                                                </p>
+                                                <p className="text-xs text-muted-foreground">
+                                                    {([APP_DATA_TYPES.PARTY_REF, APP_DATA_TYPES.PERSON_REF,
+                                                      APP_DATA_TYPES.ORG_REF, APP_DATA_TYPES.ADDRESS_REF
+                                                     ] as string[]).includes(formData.appDataType)
+                                                        ? 'More than one entity can be linked to this field.'
+                                                        : 'End users can pick more than one option.'}
+                                                </p>
+                                            </div>
+                                            <Switch
+                                                checked={formData.isMultiValue}
+                                                onCheckedChange={(val) => setFormData({ ...formData, isMultiValue: val })}
+                                            />
+                                        </div>
                                     </div>
                                 </>
                             )}
+                            </div>
 
                             <div className="grid gap-2">
                                 <Label htmlFor="newCategory" className="text-xs text-slate-500">Category</Label>
