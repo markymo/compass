@@ -200,19 +200,88 @@ deactivated edges are excluded.
 
 ---
 
-## 7. Deferred / Not Implemented Yet
+## 7. Node Field Registry
+
+The fields available on each graph node type are catalogued in a **code-level registry**:
+
+```
+src/lib/graph/node-field-registry.ts
+```
+
+This file defines:
+- `NodeFieldDefinition` interface — metadata per field (label, dataType, scope, PII flag, etc.)
+- `NODE_FIELD_REGISTRY` constant — all 15 system fields across PERSON, LEGAL_ENTITY, ADDRESS
+- Lookup helpers: `getNodeFields`, `getNodeField`, `getDisplayableFields`, `getSearchableFields`
+
+### Current system fields
+
+| Node Type | fieldKey | dataType | isSearchable | isPii |
+|---|---|---|---|---|
+| PERSON | firstName | TEXT | ✅ | ✅ |
+| PERSON | middleName | TEXT | ❌ | ✅ |
+| PERSON | lastName | TEXT | ✅ | ✅ |
+| PERSON | dateOfBirth | DATE | ❌ | ✅ |
+| PERSON | placeOfBirth | TEXT | ❌ | ✅ |
+| PERSON | primaryNationality | COUNTRY_CODE | ✅ | ❌ |
+| PERSON | isPublicFigure | BOOLEAN | ❌ | ❌ |
+| LEGAL_ENTITY | name | TEXT | ✅ | ❌ |
+| LEGAL_ENTITY | localRegistrationNumber | TEXT | ✅ | ❌ |
+| ADDRESS | line1 | TEXT | ✅ | ❌ |
+| ADDRESS | line2 | TEXT | ❌ | ❌ |
+| ADDRESS | city | TEXT | ✅ | ❌ |
+| ADDRESS | region | TEXT | ❌ | ❌ |
+| ADDRESS | postalCode | TEXT | ❌ | ❌ |
+| ADDRESS | country | COUNTRY_CODE | ✅ | ❌ |
+
+### Invariants
+
+- All system fields have `storageKind = SYSTEM_COLUMN`, `scope = GLOBAL`, `isSystem = true`.
+- `storagePath` must start with the entity prefix: `person.` / `legalEntity.` / `address.`
+- `fieldKey` must be unique within each `nodeType`.
+- These invariants are enforced by unit tests in `src/lib/graph/__tests__/node-field-registry.test.ts`.
+
+### Admin-created custom node fields
+
+**Custom node fields are not implemented.** The registry is read-only and code-managed.
+Adding a new system field requires a Prisma schema migration and a PR updating the registry.
+
+When custom fields are needed, the plan is:
+1. Add `customProperties: Json?` to `ClientLEGraphNode` for simple LE-scoped values.
+2. Add a `NodeFieldValue` table for typed, queryable global or LE-scoped values.
+3. Custom field definitions will be stored in the DB and merged with `NODE_FIELD_REGISTRY` at runtime.
+
+### pickerConfig
+
+`pickerConfig` (not yet implemented on `MasterFieldGraphBinding`) will reference node fields
+by `fieldKey` string — the same keys used in this registry:
+
+```jsonc
+// Future MasterFieldGraphBinding.pickerConfig shape (not yet implemented)
+{
+  "displayFields": ["firstName", "lastName"],
+  "subFields": ["dateOfBirth", "primaryNationality"],
+  "searchFields": ["firstName", "lastName", "primaryNationality"]
+}
+```
+
+The server action will validate `fieldKey` values against the registry at save time.
+Unknown keys are silently ignored at runtime.
+
+---
+
+## 8. Deferred / Not Implemented Yet
 
 The following are deliberately **not implemented** in the current architecture.
 Do not implement any of these without an explicit design decision:
 
+- **pickerConfig on MasterFieldGraphBinding** — admin-configurable display/search fields
+  for the picker. Registry (§7) is the prerequisite; pickerConfig selects from registry fieldKeys.
+
 - **Snapshot-on-selection** — storing a point-in-time copy of entity fields at the
   moment of selection.
 
-- **Admin-configurable returned fields** — controlling which fields from the selected
-  entity appear in the field display.
-
-- **Admin-configurable picker display fields** — e.g. showing date of birth or
-  nationality alongside name in the picker list.
+- **Custom node fields** — admin-created fields extending PERSON/LEGAL_ENTITY/ADDRESS
+  beyond the current system columns.
 
 - **Candidate scopes beyond the current Client LE** — e.g. searching globally
   across all known persons, or searching by prior role in a related entity.
@@ -222,22 +291,12 @@ Do not implement any of these without an explicit design decision:
 
 - **Global person search** — cross-LE or cross-engagement entity lookup.
 
-The anticipated future configuration shape for returned/snapshot fields is noted
-here for reference only. It does **not** reflect current behaviour:
-
-```json
-{
-  "displayFields": ["firstName", "lastName", "dateOfBirth", "nationality"],
-  "searchFields": ["firstName", "lastName"],
-  "snapshotFields": []
-}
-```
-
-These fields do not exist in the current `MasterFieldGraphBinding` schema.
+The anticipated future pickerConfig shape is documented in §7 above as a design note
+only. `pickerConfig` does not exist in the current `MasterFieldGraphBinding` schema.
 
 ---
 
-## 8. Invariants and Warnings
+## 9. Invariants and Warnings
 
 > These rules must be followed by all code that reads or writes graph-backed reference fields.
 
@@ -248,13 +307,16 @@ These fields do not exist in the current `MasterFieldGraphBinding` schema.
 | 3 | **Do not treat `filterEdgeType` as the write-back edge type.** `filterEdgeType` is a legacy presentation hint. The edge type to write is always `writeBackEdgeType`. These may differ. |
 | 4 | **Do not copy node data into `FieldClaim.valueJson` unless the snapshot architecture is explicitly approved.** Storing entity fields in `valueJson` creates divergent copies that are difficult to reconcile with graph enrichment. |
 | 5 | **Do not read `FieldClaim` rows as the source of truth for multi-value graph-bound fields.** The authoritative source is `ClientLEGraphEdge` (via the graph-binding read path in `getFieldDetail`). |
+| 6 | **Do not add fields to `NODE_FIELD_REGISTRY` without a matching Prisma column.** SYSTEM_COLUMN fields must have a real column; adding a phantom field causes silent null values at runtime. |
 
 ---
 
-## 9. Related Files
+## 10. Related Files
 
 | File | Role |
 |---|---|
+| `src/lib/graph/node-field-registry.ts` | **Node Field Registry** — all system field definitions and lookup helpers |
+| `src/lib/graph/__tests__/node-field-registry.test.ts` | 44 tests covering registry integrity, helpers, field catalogues |
 | `src/lib/kyc/FieldClaimService.ts` | `writeBackGraphEdge()` — writes FK claim and graph edge on selection |
 | `src/actions/graph-node-picker.ts` | Server action — fetches picker items, alphabetical sort |
 | `src/components/client/graph/graph-node-picker.tsx` | Popover picker UI component |
@@ -263,4 +325,3 @@ These fields do not exist in the current `MasterFieldGraphBinding` schema.
 | `src/actions/kyc-query.ts` | `getFieldDetail()` — graph-binding read path (lines ~548–592) |
 | `src/lib/kyc/KycStateService.ts` | `mapToDerivedValue()` — claim-based value resolution |
 | `scripts/backfill-graph-edge-toNodeId.ts` | One-time backfill for null-toNodeId edges written before the June 2026 fix |
-| `docs/architecture/graph_snapshot_design.md` (in brain/artifacts) | Design notes for future snapshot capability |
