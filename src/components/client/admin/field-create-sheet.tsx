@@ -67,7 +67,10 @@ export function FieldCreateSheet({ open, onOpenChange, categories=[] }: FieldCre
             if (payload.optionSetId === "none") {
                 payload.optionSetId = undefined;
             }
-            if (payload.appDataType !== APP_DATA_TYPES.SELECT) {
+            // JSONB fields can be multi-value structured collections (e.g. SIC codes, previous names).
+            // Only strip isMultiValue for types that genuinely cannot be collections.
+            const multiValueTypes = [APP_DATA_TYPES.SELECT, APP_DATA_TYPES.JSONB];
+            if (!multiValueTypes.includes(payload.appDataType)) {
                 payload.optionSetId = undefined;
                 payload.isMultiValue = false;
             }
@@ -167,7 +170,8 @@ export function FieldCreateSheet({ open, onOpenChange, categories=[] }: FieldCre
                                 </Select>
                             </div>
 
-                            {formData.appDataType === "SELECT" && (
+                            {/* Show isMultiValue toggle for SELECT and JSONB types */}
+                            {(formData.appDataType === APP_DATA_TYPES.SELECT || formData.appDataType === APP_DATA_TYPES.JSONB) && (
                                 <>
                                     <div className="grid gap-2 col-span-2">
                                         <Label className="text-xs text-slate-500">Option Set *</Label>
