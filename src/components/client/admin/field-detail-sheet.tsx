@@ -223,7 +223,10 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
             if (payload.optionSetId === "none" || payload.appDataType !== APP_DATA_TYPES.SELECT) {
                 payload.optionSetId = null;
             }
-            if (payload.appDataType !== APP_DATA_TYPES.SELECT) {
+            // Only strip isMultiValue for types that cannot be collections.
+            // JSONB fields (e.g. SIC codes) can legitimately be multi-value structured collections.
+            const multiValueTypes = [APP_DATA_TYPES.SELECT, APP_DATA_TYPES.JSONB];
+            if (!multiValueTypes.includes(payload.appDataType)) {
                 payload.isMultiValue = false;
             }
 
