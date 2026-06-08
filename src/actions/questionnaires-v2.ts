@@ -414,7 +414,7 @@ export async function addToReferenceLibrary(
                 isTemplate: true,
                 isGlobal: true,
                 kind: "REFERENCE_SNAPSHOT",
-                visibility: "PRIVATE", // New snapshots always start PRIVATE; admin can promote via updateReferenceSnapshotVisibility
+                visibility: "GLOBAL", // New snapshots default to GLOBAL so they are immediately discoverable; admin can restrict to PRIVATE if needed
                 sourceId: workingCopyId, // lineage: derived from this working copy
                 fileUrl: source.fileUrl ?? undefined,
                 fileName: source.fileName ?? undefined,
