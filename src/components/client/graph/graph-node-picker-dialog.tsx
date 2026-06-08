@@ -5,7 +5,7 @@ import { getGraphNodesForPicker, GraphNodePickerItem } from "@/actions/graph-nod
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, Search, X, Users, Building2, MapPin, Star, Plus, Check } from "lucide-react";
+import { Loader2, Search, X, Users, Building2, MapPin, Plus, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
     Dialog,
@@ -111,9 +111,6 @@ function NodeRow({
                     <span className="font-medium text-slate-900 dark:text-slate-100 truncate text-base">
                         {item.displayLabel}
                     </span>
-                    {item.isPromoted && (
-                        <Star className="h-3.5 w-3.5 text-amber-500 flex-none" fill="currentColor" />
-                    )}
                 </div>
                 {item.subLabel && (
                     <p className="text-xs text-slate-500 truncate">{item.subLabel}</p>
@@ -193,8 +190,7 @@ export function GraphNodePickerDialog({
         );
     }, [items, query]);
 
-    const promoted = filtered.filter(i => i.isPromoted);
-    const others   = filtered.filter(i => !i.isPromoted);
+    // isPromoted is always false from the server; kept for type compat only.
 
     function handleSelect(item: GraphNodePickerItem) {
         const isSelected = selectedNodeIds.includes(item.nodeId);
@@ -275,48 +271,17 @@ export function GraphNodePickerDialog({
                                 )}
                             </div>
                         ) : (
-                            <div className="space-y-4 pt-2">
-                                {promoted.length > 0 && (
-                                    <div>
-                                        <p className="px-2 pb-2 text-[11px] font-bold uppercase tracking-wider text-amber-600 flex items-center gap-1.5">
-                                            <Star className="h-3.5 w-3.5" fill="currentColor" />
-                                            Suggested matches
-                                        </p>
-                                        <div className="space-y-1.5 bg-white p-2 rounded-xl shadow-sm border border-amber-100">
-                                            {promoted.map(item => (
-                                                <NodeRow
-                                                    key={item.nodeId}
-                                                    item={item}
-                                                    isSelected={selectedNodeIds.includes(item.nodeId)}
-                                                    isMultiValue={isMultiValue}
-                                                    onSelect={handleSelect}
-                                                />
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {others.length > 0 && (
-                                    <div>
-                                        {promoted.length > 0 && (
-                                            <p className="px-2 pb-2 pt-2 text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                                                All other {typeConfig.label}s
-                                            </p>
-                                        )}
-                                        <div className="space-y-1.5 bg-white p-2 rounded-xl shadow-sm border border-slate-200">
-                                            {others.map(item => (
-                                                <NodeRow
-                                                    key={item.nodeId}
-                                                    item={item}
-                                                    isSelected={selectedNodeIds.includes(item.nodeId)}
-                                                    isMultiValue={isMultiValue}
-                                                    onSelect={handleSelect}
-                                                />
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
+                            <div className="space-y-1.5 bg-white p-2 rounded-xl shadow-sm border border-slate-200">
+                                    {filtered.map(item => (
+                                        <NodeRow
+                                            key={item.nodeId}
+                                            item={item}
+                                            isSelected={selectedNodeIds.includes(item.nodeId)}
+                                            isMultiValue={isMultiValue}
+                                            onSelect={handleSelect}
+                                        />
+                                    ))}
+                                </div>
                         )}
                     </ScrollArea>
 

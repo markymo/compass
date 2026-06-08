@@ -83,9 +83,13 @@ export async function getGraphNodesForPicker(
         // 4. Build picker items
         const items: GraphNodePickerItem[] = nodes.map((node: any) => {
             const activeEdgeTypes = edgeMap.get(node.id) ?? [];
-            const isPromoted = filterEdgeType
-                ? activeEdgeTypes.includes(filterEdgeType)
-                : false;
+
+            // Promotion sort is intentionally disabled.
+            // filterEdgeType is kept in the binding config for future use,
+            // but the picker currently shows all known nodes of graphNodeType
+            // sorted purely alphabetically. Re-introduce isPromoted here when
+            // a deliberate candidate-population strategy is agreed.
+            const isPromoted = false;
 
             let displayLabel = "Unknown";
             let subLabel: string | null = null;
@@ -119,12 +123,9 @@ export async function getGraphNodesForPicker(
             };
         });
 
-        // 5. Sort: promoted nodes first, then alphabetical
-        items.sort((a, b) => {
-            if (a.isPromoted && !b.isPromoted) return -1;
-            if (!a.isPromoted && b.isPromoted) return 1;
-            return a.displayLabel.localeCompare(b.displayLabel);
-        });
+        // Sort: purely alphabetical ascending.
+        // No promoted-first section — all nodes treated equally.
+        items.sort((a, b) => a.displayLabel.localeCompare(b.displayLabel));
 
         return { success: true, items };
     } catch (e: any) {
