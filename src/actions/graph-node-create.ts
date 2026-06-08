@@ -58,17 +58,30 @@ export async function createGraphNodeAction(input: CreateGraphNodeInput) {
 
         if (!createdId) throw new Error("Unsupported node type or missing data");
 
-        // Create the Graph Node wrapper
-        const node = await (prisma as any).clientLEGraphNode.create({
-            data: {
-                clientLEId: input.clientLEId,
-                nodeType: input.nodeType,
-                personId: input.nodeType === "PERSON" ? createdId : null,
-                legalEntityId: input.nodeType === "LEGAL_ENTITY" ? createdId : null,
-                addressId: input.nodeType === "ADDRESS" ? createdId : null,
-                source: "USER_INPUT"
-            }
-        });
+        // ── Find-or-create the Graph Node wrapper ─────────────────────────────
+        // ClientLEGraphNode has @@unique([clientLEId, personId]),
+        // @@unique([clientLEId, legalEntityId]), @@unique([clientLEId, addressId]).
+        // A person can legitimately be both a Director AND a Named Signatory on
+        // the same LE, so we must not attempt a duplicate create when the graph
+        // node wrapper already exists.
+        const nodeWhere =
+            input.nodeType === "PERSON"         ? { clientLEId: input.clientLEId, personId:       createdId } :
+            input.nodeType === "LEGAL_ENTITY"   ? { clientLEId: input.clientLEId, legalEntityId:  createdId } :
+                                                  { clientLEId: input.clientLEId, addressId:      createdId };
+
+        let node = await (prisma as any).clientLEGraphNode.findFirst({ where: nodeWhere });
+        if (!node) {
+            node = await (prisma as any).clientLEGraphNode.create({
+                data: {
+                    clientLEId: input.clientLEId,
+                    nodeType: input.nodeType,
+                    personId:       input.nodeType === "PERSON"       ? createdId : null,
+                    legalEntityId:  input.nodeType === "LEGAL_ENTITY" ? createdId : null,
+                    addressId:      input.nodeType === "ADDRESS"       ? createdId : null,
+                    source: "USER_INPUT"
+                }
+            });
+        }
 
         revalidatePath(`/app/le/${input.clientLEId}`);
         return { success: true, nodeId: node.id, entityId: createdId };
