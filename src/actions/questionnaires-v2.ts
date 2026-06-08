@@ -77,7 +77,6 @@ export async function getQuestionnairesV2(): Promise<{
 }> {
     if (!await isSystemAdmin()) return { workingCopies: [], referenceLibrary: [], other: [] };
 
-    const sysOrg = await bootstrapSystemOrg();
 
     const rows = await prisma.questionnaire.findMany({
         // Exclude hard-deleted and archived rows from the live list.
@@ -102,7 +101,7 @@ export async function getQuestionnairesV2(): Promise<{
             processingLogs: true,
             fiOrg: { select: { name: true } },
             ownerOrgId: true,
-            ownerOrg: { select: { name: true } },
+            ownerOrg: { select: { name: true, types: true } },
             fiEngagement: {
                 select: {
                     clientLE: { select: { name: true, shortCode: true } },
@@ -128,7 +127,13 @@ export async function getQuestionnairesV2(): Promise<{
             }
         }
 
-        const isCoparityOwned = r.ownerOrgId === sysOrg.id || (r.ownerOrgId === null && r.isTemplate === true);
+        // isCoparityOwned = true when:
+        //   a) the ownerOrg is a SYSTEM-type organisation (covers Coparity sysOrg,
+        //      ONpro System legacy, and any future SYSTEM-typed org)
+        //   b) ownerOrgId is null and the row is a template (pre-migration system rows)
+        const isCoparityOwned =
+            (r.ownerOrg?.types?.includes('SYSTEM') ?? false) ||
+            (r.ownerOrgId === null && r.isTemplate === true);
 
         return {
             id: r.id,
