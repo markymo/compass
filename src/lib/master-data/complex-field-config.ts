@@ -85,7 +85,7 @@ export interface GraphRelationshipCollectionConfig {
     /** Temporal (effective-date) configuration. */
     temporal: {
         /** When true, KycStateService filters out rows where effectiveTo has passed. */
-        filterByEffectiveDate: true;
+        filterByEffectiveDate: boolean;
         /** UI label for the start-of-relationship field. */
         effectiveFromLabel: string;
         /** UI label for the end-of-relationship field. */
@@ -299,6 +299,48 @@ export const COMPLEX_FIELD_CONFIG = {
                 description: 'Ingests the officers array from the CH API. Each officer becomes one director row. Individual officers produce Person nodes; corporate officers produce LegalEntity nodes.',
             },
         ],
+    } satisfies GraphRelationshipCollectionConfig,
+
+    /**
+     * Field 125: Named Signatories
+     *
+     * Persons authorised to sign on behalf of this legal entity.
+     * Each Named Signatory is a Person node in the LE graph, linked via a
+     * NAMED_SIGNATORY edge. This is a purely user-curated field — there is
+     * no automated registry source for signatories.
+     *
+     * Stored as:
+     *   fieldNo      = 125
+     *   collectionId = NAMED_SIGNATORIES
+     *   instanceId   = node.id  (ClientLEGraphNode.id — via graph edge path)
+     *   valuePersonId linked through the graph node
+     *
+     * No temporal date-ranging by default — effectiveTo is not displayed,
+     * but the schema still allows it if needed in future.
+     */
+    125: {
+        kind: 'GRAPH_RELATIONSHIP_COLLECTION',
+        label: 'Named Signatories',
+        description:
+            'Persons who are authorised to sign on behalf of this legal entity. ' +
+            'User-curated — not sourced from any registry. ' +
+            'Each entry is a Person node in the Knowledge Graph.',
+        collectionId: 'NAMED_SIGNATORIES',
+        appDataType: 'PARTY_REF',
+        isMultiValue: true,
+        itemType: 'PARTY_RELATIONSHIP',
+        graph: {
+            nodeType: 'PERSON',
+            edgeType: 'NAMED_SIGNATORY',
+            filterActiveOnly: true,
+            writeBackEdgeType: 'NAMED_SIGNATORY',
+        },
+        temporal: {
+            filterByEffectiveDate: false, // show all signatories; no auto-expiry
+            effectiveFromLabel: 'Authorised from',
+            effectiveToLabel: 'Authorised to',
+        },
+        sourceTransforms: [], // User-curated only — no automated ingestion
     } satisfies GraphRelationshipCollectionConfig,
 
 } as const;

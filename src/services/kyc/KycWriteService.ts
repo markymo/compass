@@ -188,11 +188,25 @@ export class KycWriteService {
             // For repeating collection fields, idempotency is per-instanceId.
             // We fetch the most recent claim for this instanceId (tombstone or value)
             // and branch explicitly rather than relying on the valueJson filter.
+            //
+            // IMPORTANT: also scope the lookup to the expected collectionId.
+            // Without this, old claims written with collectionId=null (e.g. SIC claims
+            // written while isMultiValue was incorrectly false in the DB) would match,
+            // block the write of the correctly-tagged collectionId='SIC_CODES' claim,
+            // and leave the collection permanently empty after isMultiValue is corrected.
+            const complexCfgForIdempotency = getComplexFieldConfig(fieldNo);
+            const expectedCollectionId = def.isMultiValue
+                ? (complexCfgForIdempotency?.collectionId ?? def.categoryId ?? 'GENERAL')
+                : undefined;
+
             const existingInstance = await prisma.fieldClaim.findFirst({
                 where: {
                     subjectLeId: resolvedEntityId,
                     fieldNo,
                     instanceId: rowId,
+                    // Scope to the expected collectionId so mis-tagged historical claims
+                    // (collectionId=null) are not treated as idempotent matches.
+                    collectionId: expectedCollectionId ?? null,
                     valueJson: { not: Prisma.JsonNull }
                 },
                 select: { id: true, valueJson: true, sourceType: true },
@@ -212,8 +226,8 @@ export class KycWriteService {
                 }
 
                 if (!isTombstone) {
-                    // A non-tombstone value claim already exists — standard idempotency skip.
-                    console.log(`[KycWriteService] Idempotency: instanceId="${rowId}" already has a value claim for Field ${fieldNo}. Skipping.`);
+                    // A non-tombstone value claim already exists for this instanceId+collectionId — skip.
+                    console.log(`[KycWriteService] Idempotency: instanceId="${rowId}" collectionId="${expectedCollectionId}" already has a value claim for Field ${fieldNo}. Skipping.`);
                     return true;
                 }
 
