@@ -77,7 +77,9 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
 
     // Date & value formatting helpers
     const isDateType = data?.dataType === 'DATE' || data?.dataType === 'DATETIME';
-    const isPartyRef = data?.dataType === 'PARTY_REF';
+    const isPartyRef = data?.dataType === 'PARTY_REF'
+                    || data?.dataType === 'PERSON_REF'
+                    || data?.dataType === 'ORG_REF';
     const isAddressRef = data?.dataType === 'ADDRESS_REF';
     const isObjectRef = isPartyRef || isAddressRef;
     // Controlled-vocabulary collection: uses CodeListField UX instead of free-text
