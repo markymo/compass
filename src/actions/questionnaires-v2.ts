@@ -77,7 +77,6 @@ export async function getQuestionnairesV2(): Promise<{
 }> {
     if (!await isSystemAdmin()) return { workingCopies: [], referenceLibrary: [], other: [] };
 
-    const sysOrg = await bootstrapSystemOrg();
 
     const rows = await prisma.questionnaire.findMany({
         // Exclude hard-deleted and archived rows from the live list.
@@ -102,7 +101,7 @@ export async function getQuestionnairesV2(): Promise<{
             processingLogs: true,
             fiOrg: { select: { name: true } },
             ownerOrgId: true,
-            ownerOrg: { select: { name: true } },
+            ownerOrg: { select: { name: true, types: true } },
             fiEngagement: {
                 select: {
                     clientLE: { select: { name: true, shortCode: true } },
@@ -128,7 +127,13 @@ export async function getQuestionnairesV2(): Promise<{
             }
         }
 
-        const isCoparityOwned = r.ownerOrgId === sysOrg.id || (r.ownerOrgId === null && r.isTemplate === true);
+        // isCoparityOwned = true when:
+        //   a) the ownerOrg is a SYSTEM-type organisation (covers Coparity sysOrg,
+        //      ONpro System legacy, and any future SYSTEM-typed org)
+        //   b) ownerOrgId is null and the row is a template (pre-migration system rows)
+        const isCoparityOwned =
+            (r.ownerOrg?.types?.includes('SYSTEM') ?? false) ||
+            (r.ownerOrgId === null && r.isTemplate === true);
 
         return {
             id: r.id,
@@ -414,7 +419,7 @@ export async function addToReferenceLibrary(
                 isTemplate: true,
                 isGlobal: true,
                 kind: "REFERENCE_SNAPSHOT",
-                visibility: "PRIVATE", // New snapshots always start PRIVATE; admin can promote via updateReferenceSnapshotVisibility
+                visibility: "GLOBAL", // New snapshots default to GLOBAL so they are immediately discoverable; admin can restrict to PRIVATE if needed
                 sourceId: workingCopyId, // lineage: derived from this working copy
                 fileUrl: source.fileUrl ?? undefined,
                 fileName: source.fileName ?? undefined,

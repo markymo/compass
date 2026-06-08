@@ -76,16 +76,16 @@ describe.skipIf(!process.env.DATABASE_URL)('Questionnaire Visibility Model', () 
         return wc;
     }
 
-    // ── 1. Reference Snapshot defaults to PRIVATE ───────────────────────────
+    // ── 1. Reference Snapshot defaults to GLOBAL ────────────────────────────
 
-    it('new Reference Snapshot defaults to PRIVATE visibility', async () => {
+    it('new Reference Snapshot defaults to GLOBAL visibility', async () => {
         const wc = await makeWC('_default');
         const pub = await addToReferenceLibrary(wc.id);
         expect(pub.success).toBe(true);
         cleanup.push(pub.referenceId!);
 
         const snap = await prisma.questionnaire.findUnique({ where: { id: pub.referenceId! } });
-        expect(snap?.visibility).toBe('PRIVATE');
+        expect(snap?.visibility).toBe('GLOBAL');
     });
 
     // ── 2. isGlobal=true snapshots were backfilled to GLOBAL by migration ───
@@ -121,21 +121,21 @@ describe.skipIf(!process.env.DATABASE_URL)('Questionnaire Visibility Model', () 
         const snapId = pub.referenceId!;
         cleanup.push(snapId);
 
-        // Start PRIVATE, promote to GLOBAL
+        // Starts GLOBAL (new default), demote to RESTRICTED
         let snap = await prisma.questionnaire.findUnique({ where: { id: snapId } });
-        expect(snap?.visibility).toBe('PRIVATE');
+        expect(snap?.visibility).toBe('GLOBAL');
 
-        const res = await updateReferenceSnapshotVisibility(snapId, 'GLOBAL');
+        const res = await updateReferenceSnapshotVisibility(snapId, 'RESTRICTED');
         expect(res.success).toBe(true);
 
         snap = await prisma.questionnaire.findUnique({ where: { id: snapId } });
-        expect(snap?.visibility).toBe('GLOBAL');
+        expect(snap?.visibility).toBe('RESTRICTED');
 
-        // Set to RESTRICTED
-        const res2 = await updateReferenceSnapshotVisibility(snapId, 'RESTRICTED');
+        // Promote back to GLOBAL
+        const res2 = await updateReferenceSnapshotVisibility(snapId, 'GLOBAL');
         expect(res2.success).toBe(true);
         snap = await prisma.questionnaire.findUnique({ where: { id: snapId } });
-        expect(snap?.visibility).toBe('RESTRICTED');
+        expect(snap?.visibility).toBe('GLOBAL');
     });
 
     // ── 4. Update visibility rejected for WORKING_COPY ──────────────────────
