@@ -238,17 +238,43 @@ export class FieldClaimService {
             return;
         }
 
+        // 3.5. Resolve root LE node to use as toNodeId.
+        // This anchors the edge to the specific ClientLE rather than leaving it floating.
+        // Previously toNodeId was always null (a Prisma upsert workaround was incomplete).
+        let rootNodeId: string | null = null;
+        try {
+            const clientLERec = await prisma.clientLE.findUnique({
+                where: { id: clientLEId! },
+                select: { legalEntityId: true },
+            });
+            if (clientLERec?.legalEntityId) {
+                const rootNode = await (prisma as any).clientLEGraphNode.findFirst({
+                    where: { clientLEId, legalEntityId: clientLERec.legalEntityId },
+                    select: { id: true },
+                });
+                rootNodeId = rootNode?.id ?? null;
+                if (!rootNodeId) {
+                    console.warn(`[writeBackGraphEdge] Root LEGAL_ENTITY node not found for clientLE=${clientLEId}. Edge toNodeId will remain null.`);
+                }
+            }
+        } catch (e) {
+            console.warn(`[writeBackGraphEdge] Could not resolve root node, toNodeId will be null:`, e);
+        }
+
         // 4. Find-or-create the edge.
         // Prisma's upsert() cannot handle null values in nullable compound unique constraints
         // (the @@unique([fromNodeId, toNodeId, edgeType]) index). Use findFirst + create/update instead.
+        //
+        // Note: Do NOT include toNodeId in the WHERE — we want to find the edge regardless
+        // of whether it currently has a null or a real toNodeId. Existing null-toNodeId edges
+        // (written before this fix) are corrected in the update step below.
         try {
             const existingEdge = await (prisma as any).clientLEGraphEdge.findFirst({
                 where: {
                     fromNodeId: graphNode.id,
-                    toNodeId:   null,
                     edgeType:   binding.writeBackEdgeType,
                 },
-                select: { id: true },
+                select: { id: true, toNodeId: true },
             });
 
             let edge: any;
@@ -256,8 +282,9 @@ export class FieldClaimService {
                 edge = await (prisma as any).clientLEGraphEdge.update({
                     where: { id: existingEdge.id },
                     data: {
-                        isActive: binding.writeBackIsActive,
-                        source:   "USER_INPUT",
+                        isActive:  binding.writeBackIsActive,
+                        source:    "USER_INPUT",
+                        toNodeId:  rootNodeId,  // upgrade null → real node id if resolved
                     },
                 });
             } else {
@@ -265,20 +292,21 @@ export class FieldClaimService {
                     data: {
                         clientLEId,
                         fromNodeId: graphNode.id,
-                        toNodeId:   null,
+                        toNodeId:   rootNodeId,
                         edgeType:   binding.writeBackEdgeType,
                         isActive:   binding.writeBackIsActive,
                         source:     "USER_INPUT",
                     },
                 });
             }
-            console.log(`[writeBackGraphEdge] ✅ edge ${existingEdge ? 'updated' : 'created'} id=${edge.id} edgeType=${edge.edgeType} isActive=${edge.isActive}`);
+            console.log(`[writeBackGraphEdge] ✅ edge ${existingEdge ? 'updated' : 'created'} id=${edge.id} edgeType=${edge.edgeType} toNodeId=${edge.toNodeId ?? 'null'} isActive=${edge.isActive}`);
 
         } catch (e: any) {
             // Surface the error so the awaited caller can log it
             throw new Error(`Edge write-back failed: ${e.message}`);
         }
     }
+
 
     // ── Private: Validation ────────────────────────────────────────────────
 

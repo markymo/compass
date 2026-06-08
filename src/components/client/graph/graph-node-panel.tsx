@@ -118,13 +118,28 @@ export function GraphNodePanel({ open, onOpenChange, node, clientLEId, graphEdge
                                                     const isOutbound = edge.fromNodeId === node.id;
                                                     const otherNodeId = isOutbound ? edge.toNodeId : edge.fromNodeId;
                                                     const otherNode = allNodes.find(n => n.id === otherNodeId);
-                                                    
-                                                    let otherLabel = "Unknown Node";
+
+                                                    // Resolve display label for the connected node.
+                                                    // Fallback: when toNodeId is null (edges written before the
+                                                    // writeBackGraphEdge fix), show "This Legal Entity" to avoid
+                                                    // the misleading "Unknown Node" placeholder.
+                                                    let otherLabel: string;
                                                     if (otherNode) {
-                                                        if (otherNode.nodeType === "PERSON") otherLabel = [otherNode.person?.firstName, otherNode.person?.lastName].filter(Boolean).join(" ");
-                                                        else if (otherNode.nodeType === "LEGAL_ENTITY") otherLabel = otherNode.legalEntity?.name || "Company";
+                                                        if (otherNode.nodeType === "PERSON") otherLabel = [otherNode.person?.firstName, otherNode.person?.lastName].filter(Boolean).join(" ") || "Unknown Person";
+                                                        else if (otherNode.nodeType === "LEGAL_ENTITY") otherLabel = otherNode.legalEntity?.name || "Legal Entity";
                                                         else if (otherNode.nodeType === "ADDRESS") otherLabel = otherNode.address?.line1 || "Address";
+                                                        else otherLabel = "Unknown Node";
+                                                    } else if (isOutbound && edge.toNodeId === null) {
+                                                        // toNodeId was null — edge was written before the fix.
+                                                        // We know it's an LE-scoped role edge, so display accordingly.
+                                                        otherLabel = "This Legal Entity";
+                                                    } else {
+                                                        otherLabel = "Unknown Node";
                                                     }
+
+                                                    // Use directional preposition that matches the relationship semantics.
+                                                    // Outbound person→LE role edges read as "Director of: [LE]" not "To: [LE]".
+                                                    const directionLabel = isOutbound ? "Of:" : "From:";
 
                                                     return (
                                                         <div key={edge.id} className="p-3 bg-white border border-slate-200 rounded-lg shadow-sm flex items-center justify-between group">
@@ -140,7 +155,7 @@ export function GraphNodePanel({ open, onOpenChange, node, clientLEId, graphEdge
                                                                     )}
                                                                 </div>
                                                                 <p className="text-sm font-medium text-slate-800">
-                                                                    <span className="text-slate-400 font-normal mr-1">{isOutbound ? "To:" : "From:"}</span>
+                                                                    <span className="text-slate-400 font-normal mr-1">{directionLabel}</span>
                                                                     {otherLabel}
                                                                 </p>
                                                             </div>
@@ -154,6 +169,7 @@ export function GraphNodePanel({ open, onOpenChange, node, clientLEId, graphEdge
                                                 })}
                                             </div>
                                         );
+
                                     })()}
                                 </div>
                             </TabsContent>
