@@ -1,6 +1,9 @@
 "use server";
 
 import prisma from "@/lib/prisma";
+import { getNodeFields, type NodeType } from "@/lib/graph/node-field-registry";
+
+// ── Types ─────────────────────────────────────────────────────────────────
 
 export interface GraphNodePickerItem {
     nodeId: string;
@@ -9,28 +12,86 @@ export interface GraphNodePickerItem {
     legalEntityId: string | null;
     addressId: string | null;
     displayLabel: string;
-    subLabel: string | null;   // e.g. nationality, country
+    subLabel: string | null;
     source: string;
-    /** edgeTypes this node has in the LE graph (for promoted / role badges) */
+    /** edgeTypes this node has in the LE graph (for role badges) */
     activeEdgeTypes: string[];
     /** Whether this node has an active edge matching filterEdgeType */
     isPromoted: boolean;
+    /**
+     * Structured field values keyed by fieldKey from NODE_FIELD_REGISTRY.
+     *
+     * Phase 1 infrastructure — populated from registry storagePaths.
+     * Not currently consumed by the picker UI.
+     * Future pickerConfig (Phase 2+) will select display/search fields from here.
+     *
+     * Example:
+     *   { firstName: "Alan", lastName: "Bennett", primaryNationality: "British",
+     *     dateOfBirth: Date("1952-04-30"), placeOfBirth: null, ... }
+     */
+    rawFields: Record<string, unknown>;
 }
 
 interface GetGraphNodesForPickerInput {
     clientLEId: string;
     graphNodeType: "PERSON" | "LEGAL_ENTITY" | "ADDRESS";
-    /** If supplied, nodes with this edge type are marked isPromoted and sorted first */
     filterEdgeType?: string | null;
     filterActiveOnly?: boolean;
 }
+
+// ── Internal helpers ──────────────────────────────────────────────────────
+
+/**
+ * Build a Prisma select object for an entity (person / legalEntity / address)
+ * from NODE_FIELD_REGISTRY. Always includes `id` plus every column referenced
+ * by a SYSTEM_COLUMN storagePath for the given nodeType.
+ *
+ * This keeps the Prisma fetch in sync with the registry automatically:
+ * adding a field to the registry widens the select without a separate code change.
+ */
+function buildEntitySelect(nodeType: NodeType): Record<string, boolean> {
+    const select: Record<string, boolean> = { id: true };
+    for (const field of getNodeFields(nodeType)) {
+        const parts = field.storagePath.split(".");
+        if (parts.length === 2) {
+            select[parts[1]] = true; // e.g. "person.firstName" → "firstName"
+        }
+    }
+    return select;
+}
+
+/**
+ * Resolve all registry fields for a node into a flat Record<fieldKey, value>.
+ *
+ * Iterates NODE_FIELD_REGISTRY for the nodeType, reads each field's value by
+ * navigating the included entity object using storagePath:
+ *   "person.dateOfBirth"  → node.person?.dateOfBirth ?? null
+ *   "address.country"     → node.address?.country ?? null
+ *
+ * Missing/null fields resolve to null (never undefined).
+ */
+function buildRawFields(node: any, nodeType: NodeType): Record<string, unknown> {
+    const rawFields: Record<string, unknown> = {};
+    for (const field of getNodeFields(nodeType)) {
+        const parts = field.storagePath.split(".");
+        if (parts.length === 2) {
+            const [entityKey, columnKey] = parts;
+            rawFields[field.fieldKey] = node[entityKey]?.[columnKey] ?? null;
+        }
+    }
+    return rawFields;
+}
+
+// ── Server action ─────────────────────────────────────────────────────────
 
 /**
  * getGraphNodesForPicker
  *
  * Fetches all graph nodes for a given LE scoped to a node type.
- * Marks nodes as "promoted" if they have an active edge matching filterEdgeType.
- * Used by the GraphNodePicker component.
+ * Returns items sorted alphabetically ascending by displayLabel.
+ *
+ * Phase 1: each item now carries rawFields — structured field values from
+ * NODE_FIELD_REGISTRY. Display behaviour is unchanged.
  */
 export async function getGraphNodesForPicker(
     input: GetGraphNodesForPickerInput
@@ -38,7 +99,9 @@ export async function getGraphNodesForPicker(
     try {
         const { clientLEId, graphNodeType, filterEdgeType, filterActiveOnly = true } = input;
 
-        // 1. Fetch all nodes of the requested type for this LE
+        // 1. Fetch all nodes of the requested type for this LE.
+        //    Entity selects are derived from NODE_FIELD_REGISTRY so that widening
+        //    the registry automatically widens the fetch without a separate code change.
         const nodes = await (prisma as any).clientLEGraphNode.findMany({
             where: {
                 clientLEId,
@@ -46,13 +109,13 @@ export async function getGraphNodesForPicker(
             },
             include: {
                 person: {
-                    select: { id: true, firstName: true, middleName: true, lastName: true, primaryNationality: true },
+                    select: buildEntitySelect("PERSON"),
                 },
                 legalEntity: {
-                    select: { id: true, name: true, localRegistrationNumber: true },
+                    select: buildEntitySelect("LEGAL_ENTITY"),
                 },
                 address: {
-                    select: { id: true, line1: true, line2: true, city: true, postalCode: true, country: true },
+                    select: buildEntitySelect("ADDRESS"),
                 },
             },
             orderBy: { createdAt: "asc" },
@@ -86,11 +149,14 @@ export async function getGraphNodesForPicker(
 
             // Promotion sort is intentionally disabled.
             // filterEdgeType is kept in the binding config for future use,
-            // but the picker currently shows all known nodes of graphNodeType
-            // sorted purely alphabetically. Re-introduce isPromoted here when
-            // a deliberate candidate-population strategy is agreed.
+            // but the picker currently shows all nodes sorted purely alphabetically.
+            // Re-introduce isPromoted when a deliberate candidate-population strategy is agreed.
             const isPromoted = false;
 
+            // ── displayLabel / subLabel — unchanged from pre-Phase-1 ─────────
+            // These are still hardcoded and drive the current UI behaviour.
+            // Future pickerConfig (Phase 2) will replace these with
+            // registry-driven templates, using rawFields as the source.
             let displayLabel = "Unknown";
             let subLabel: string | null = null;
 
@@ -120,11 +186,13 @@ export async function getGraphNodesForPicker(
                 source: node.source ?? "UNKNOWN",
                 activeEdgeTypes,
                 isPromoted,
+                // Phase 1: structured field values from NODE_FIELD_REGISTRY.
+                // Not currently consumed by the picker UI.
+                rawFields: buildRawFields(node, node.nodeType as NodeType),
             };
         });
 
         // Sort: purely alphabetical ascending.
-        // No promoted-first section — all nodes treated equally.
         items.sort((a, b) => a.displayLabel.localeCompare(b.displayLabel));
 
         return { success: true, items };

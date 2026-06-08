@@ -267,6 +267,39 @@ by `fieldKey` string — the same keys used in this registry:
 The server action will validate `fieldKey` values against the registry at save time.
 Unknown keys are silently ignored at runtime.
 
+### GraphNodePickerItem.rawFields
+
+Introduced in Phase 1 (June 2026) as infrastructure for future pickerConfig.
+
+`rawFields` is a flat `Record<string, unknown>` on every `GraphNodePickerItem`,
+keyed by `fieldKey` from `NODE_FIELD_REGISTRY`:
+
+```ts
+{
+  displayLabel: "Alan Bennett",
+  subLabel: "British",
+  // ... other existing fields ...
+  rawFields: {
+    firstName: "Alan",
+    lastName: "Bennett",
+    middleName: null,
+    dateOfBirth: Date("1952-04-30"),
+    placeOfBirth: "Armley",
+    primaryNationality: "British",
+    isPublicFigure: false,
+  }
+}
+```
+
+- Populated by `buildRawFields()` in `graph-node-picker.ts` using registry `storagePath`s.
+- The Prisma `select` is now built from the registry (`buildEntitySelect()`), so widening
+  the registry automatically widens the DB fetch.
+- **Not currently consumed by the picker UI** — `displayLabel`/`subLabel` are still
+  hardcoded and drive the current display. rawFields is invisible to users.
+- Phase 2 will use `rawFields` as the data source when pickerConfig-driven display is
+  implemented.
+- Missing fields always resolve to `null`, never `undefined`.
+
 ---
 
 ## 8. Deferred / Not Implemented Yet
@@ -318,7 +351,7 @@ only. `pickerConfig` does not exist in the current `MasterFieldGraphBinding` sch
 | `src/lib/graph/node-field-registry.ts` | **Node Field Registry** — all system field definitions and lookup helpers |
 | `src/lib/graph/__tests__/node-field-registry.test.ts` | 44 tests covering registry integrity, helpers, field catalogues |
 | `src/lib/kyc/FieldClaimService.ts` | `writeBackGraphEdge()` — writes FK claim and graph edge on selection |
-| `src/actions/graph-node-picker.ts` | Server action — fetches picker items, alphabetical sort |
+| `src/actions/graph-node-picker.ts` | Server action — fetches picker items, builds `rawFields` from registry (Phase 1), alphabetical sort |
 | `src/components/client/graph/graph-node-picker.tsx` | Popover picker UI component |
 | `src/components/client/graph/graph-node-picker-dialog.tsx` | Dialog picker UI component |
 | `src/components/client/inspection/field-detail-panel.tsx` | Renders reference field rows; `renderRowValue()` resolves display from live entity object |
