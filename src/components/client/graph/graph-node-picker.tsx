@@ -191,7 +191,7 @@ export function GraphNodePicker({
                 // Focus search after load
                 setTimeout(() => inputRef.current?.focus(), 50);
             });
-    }, [open, clientLEId, graphNodeType, filterEdgeType, filterActiveOnly]);
+    }, [open, clientLEId, graphNodeType, filterEdgeType, filterActiveOnly, pickerConfig]);
 
     // ── Filtered items ────────────────────────────────────────────────────
     const filtered = useMemo(() => {

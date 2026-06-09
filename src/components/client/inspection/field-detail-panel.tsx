@@ -890,6 +890,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                                 filterEdgeType={graphBindings.find(b => b.isActive)?.filterEdgeType}
                                                                                 allowCreate={graphBindings.find(b => b.isActive)?.allowCreate ?? true}
                                                                                 pickerLabel={graphBindings.find(b => b.isActive)?.pickerLabel || (isPartyRef ? "Select Party" : "Select Address")}
+                                                                                pickerConfig={graphBindings.find(b => b.isActive)?.pickerConfig ?? null}
                                                                                 isMultiValue={false}
                                                                                 selectedNodeIds={currentSelectionIds}
                                                                                 disabled={isAddingSaving || isLoadingBindings}
@@ -1093,6 +1094,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                                 filterActiveOnly={graphBindings.find(b => b.isActive)?.filterActiveOnly ?? true}
                                                                                 allowCreate={graphBindings.find(b => b.isActive)?.allowCreate ?? true}
                                                                                 pickerLabel={graphBindings.find(b => b.isActive)?.pickerLabel || (isPartyRef ? "Select Party" : "Select Address")}
+                                                                                pickerConfig={graphBindings.find(b => b.isActive)?.pickerConfig ?? null}
                                                                                 isMultiValue={false}
                                                                                 selectedNodeIds={currentSelectionIds}
                                                                                 disabled={isAddingSaving || isLoadingBindings}
@@ -1523,6 +1525,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                 filterActiveOnly={graphBindings.find(b => b.isActive)?.filterActiveOnly ?? true}
                 allowCreate={graphBindings.find(b => b.isActive)?.allowCreate ?? true}
                 pickerLabel={graphBindings.find(b => b.isActive)?.pickerLabel || (isPartyRef ? "Select Party" : "Select Address")}
+                pickerConfig={graphBindings.find(b => b.isActive)?.pickerConfig ?? null}
                 isMultiValue={true}
                 selectedNodeIds={currentSelectionIds}
                 disabled={isAddingSaving || isLoadingBindings}

@@ -856,3 +856,82 @@ describe('getGraphNodesForPicker — Phase 3 pickerConfig display', () => {
         expect(result.items[0].subLabel).toBe('French');
     });
 });
+
+// ── Phase 5.1 wiring regression tests ────────────────────────────────────────
+//
+// Verifies the SERVER-SIDE contract for the pickerConfig prop wiring added in
+// Phase 5.1. field-detail-panel.tsx now passes:
+//
+//   pickerConfig={graphBindings.find(b => b.isActive)?.pickerConfig ?? null}
+//
+// to <GraphNodePicker> and <GraphNodePickerDialog>. These tests confirm that
+// getGraphNodesForPicker() correctly handles both the null (legacy) and
+// configured cases that the wiring will produce.
+//
+// WIRING-1: null pickerConfig → legacy display (unchanged behaviour)
+// WIRING-2: configured pickerConfig → overridden displayLabel
+// WIRING-3: configured pickerConfig → overridden subLabel
+// WIRING-4: binding with pickerConfig = null is treated identically to absent pickerConfig
+
+describe('Phase 5.1 — pickerConfig prop wiring contract', () => {
+    const clientLEId = 'wiring-le-1';
+
+    it('WIRING-1: null pickerConfig → legacy firstName lastName display', async () => {
+        const node = makePersonNode({ id: 'w1', clientLEId, firstName: 'Alice', lastName: 'Jones', nationality: 'British' });
+        (prismaMock as any).clientLEGraphNode = { findMany: vi.fn().mockResolvedValue([node]) };
+
+        const result = await getGraphNodesForPicker({ clientLEId, graphNodeType: 'PERSON', pickerConfig: null });
+
+        expect(result.success).toBe(true);
+        if (!result.success) return;
+        expect(result.items[0].displayLabel).toBe('Alice Jones');
+        expect(result.items[0].subLabel).toBe('British');
+    });
+
+    it('WIRING-2: configured displayFields overrides legacy displayLabel', async () => {
+        const node = makePersonNode({ id: 'w2', clientLEId, firstName: 'Alice', lastName: 'Jones', nationality: 'British' });
+        (prismaMock as any).clientLEGraphNode = { findMany: vi.fn().mockResolvedValue([node]) };
+
+        const result = await getGraphNodesForPicker({
+            clientLEId, graphNodeType: 'PERSON',
+            pickerConfig: { displayFields: ['lastName', 'firstName'] },
+        });
+
+        expect(result.success).toBe(true);
+        if (!result.success) return;
+        // lastName · firstName order
+        expect(result.items[0].displayLabel).toBe('Jones · Alice');
+    });
+
+    it('WIRING-3: configured subFields overrides legacy subLabel', async () => {
+        const node = makePersonNode({ id: 'w3', clientLEId, firstName: 'Alice', lastName: 'Jones', nationality: 'British' });
+        // Inject officerRole into the person mock via rawFields storagePath
+        node.person = { ...node.person, officerRole: 'director' };
+        (prismaMock as any).clientLEGraphNode = { findMany: vi.fn().mockResolvedValue([node]) };
+
+        const result = await getGraphNodesForPicker({
+            clientLEId, graphNodeType: 'PERSON',
+            pickerConfig: { subFields: ['officerRole'] },
+        });
+
+        expect(result.success).toBe(true);
+        if (!result.success) return;
+        expect(result.items[0].subLabel).toBe('director');
+    });
+
+    it('WIRING-4: missing pickerConfig (undefined) behaves identically to null', async () => {
+        const node = makePersonNode({ id: 'w4', clientLEId, firstName: 'Bob', lastName: 'Smith', nationality: null });
+        (prismaMock as any).clientLEGraphNode = { findMany: vi.fn().mockResolvedValue([node]) };
+
+        const [withNull, withUndefined] = await Promise.all([
+            getGraphNodesForPicker({ clientLEId, graphNodeType: 'PERSON', pickerConfig: null }),
+            getGraphNodesForPicker({ clientLEId, graphNodeType: 'PERSON' }),
+        ]);
+
+        expect(withNull.success).toBe(true);
+        expect(withUndefined.success).toBe(true);
+        if (!withNull.success || !withUndefined.success) return;
+        expect(withNull.items[0].displayLabel).toBe(withUndefined.items[0].displayLabel);
+        expect(withNull.items[0].subLabel).toBe(withUndefined.items[0].subLabel);
+    });
+});
