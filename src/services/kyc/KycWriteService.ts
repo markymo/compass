@@ -86,6 +86,41 @@ export class KycWriteService {
             return overallSuccess;
         }
 
+        // Scalar value path.
+        // Guard: if the field is multi-value (isMultiValue=true) but the transform produced
+        // a scalar rather than an array, we must still supply a rowId or updateField() throws.
+        // This happens when a SourceFieldMapping uses a non-list transform (e.g. DIRECT) on a
+        // repeating field — a mapping misconfiguration, but one we should survive gracefully.
+        // Strategy: wrap the scalar as a single-item write using a deterministic rowKey derived
+        // from the field number and value so re-enrichment stays idempotent.
+        // The warning makes the misconfigured mapping easy to find and fix.
+        const fieldDef = await getMasterFieldDefinition(candidate.fieldNo);
+        if (fieldDef?.isMultiValue) {
+            const deterministicKey = `scalar_f${candidate.fieldNo}_${
+                JSON.stringify(candidate.value).replace(/[^a-z0-9]/gi, '').slice(0, 40)
+            }`;
+            console.warn(
+                `[KycWriteService] applyFieldCandidate: scalar value for multi-value fieldNo=${candidate.fieldNo}. ` +
+                `Transform produced a non-array result — the SourceFieldMapping should use TO_PARTY_LIST, ` +
+                `TO_NAME_HISTORY_LIST, or a similar list transform. ` +
+                `Writing as single-item with rowId="${deterministicKey}" to avoid crash. Fix the mapping config.`
+            );
+            return this.updateField(
+                entityId,
+                candidate.fieldNo,
+                candidate.value,
+                {
+                    source: candidate.source,
+                    evidenceId: candidate.evidenceId || undefined,
+                    verifiedBy: userId,
+                    confidence: candidate.confidence,
+                    reason: candidate.sourceKey,
+                },
+                deterministicKey,
+                entityType
+            );
+        }
+
         return this.updateField(
             entityId,
             candidate.fieldNo,
@@ -97,7 +132,7 @@ export class KycWriteService {
                 confidence: candidate.confidence,
                 reason: candidate.sourceKey 
             },
-            undefined, // rowId
+            undefined, // rowId — field is not multi-value so this is safe
             entityType
         );
     }
