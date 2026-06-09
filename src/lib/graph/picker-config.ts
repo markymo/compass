@@ -1,93 +1,181 @@
 /**
  * picker-config.ts
  *
- * Type definition and server-side validation for MasterFieldGraphBinding.pickerConfig.
+ * Type definition, helpers, and server-side validation for
+ * MasterFieldGraphBinding.pickerConfig.
  *
  * ## Design decisions
  *
- * **Sanitize-not-reject:** Invalid field keys are silently removed rather than causing
- * an error. This prevents accidental data loss if a registry field is renamed after a
- * config was saved, and keeps the save action simple (no user-facing validation messages
- * for config that isn't surfaced in UI yet).
+ * **Sanitize-not-reject:** Invalid field keys are silently removed rather than
+ * causing an error. This prevents accidental data loss if a registry field is
+ * renamed after a config was saved.
  *
- * **Null-for-empty:** An empty or fully-stripped config is stored as null rather than {}.
- * This means "no pickerConfig" and "empty pickerConfig" are identical at runtime, avoiding
- * a distinction that would only cause confusion before Phase 3.
+ * **Null-for-empty:** A config with no picker UX settings AND projectionMode
+ * DEFAULT is stored as null (identical to "no config"). Only when the admin
+ * has made an explicit choice (CUSTOM or NONE, or any picker UX config) is the
+ * object persisted.
  *
- * **Non-object input → null:** Malformed JSON (string, number, array, etc.) is treated as
- * "no config" rather than an error, making the action safe against bad client payloads.
+ * **Non-object input → null:** Malformed JSON is treated as "no config".
  *
- * ## Not yet consumed
- * pickerConfig is stored but not yet read by getGraphNodesForPicker. Phase 3 will add
- * the display template logic that reads displayFields / subFields from here.
+ * **Fail-safe projection:** projectionMode absent / null config → DEFAULT
+ * (safe system defaults). An admin must explicitly choose NONE to suppress
+ * all fields, or CUSTOM to pick their own list.
  */
 
 import { getDisplayableFields, getSearchableFields, type NodeType } from "./node-field-registry";
 
-// ── Public type ────────────────────────────────────────────────────────────────
+// ── Public types ───────────────────────────────────────────────────────────────
 
 /**
- * Shape of MasterFieldGraphBinding.pickerConfig.
+ * How this Master Data Field projects node data downstream (governance layer).
  *
- * All fieldKey arrays reference keys from NODE_FIELD_REGISTRY for the binding's graphNodeType.
- * Unknown keys are removed at save time — see sanitizePickerConfig().
+ * DEFAULT  – use safe system defaults (first name + last name for PERSON, etc.)
+ * CUSTOM   – use exactly projectionFields[] after validation; empty array = expose nothing
+ * NONE     – expose nothing (only the internal reference ID is retained)
+ */
+export type ProjectionMode = "DEFAULT" | "CUSTOM" | "NONE";
+
+/** All valid projection mode values — used for runtime validation. */
+export const PROJECTION_MODES: readonly ProjectionMode[] = ["DEFAULT", "CUSTOM", "NONE"];
+
+/**
+ * Shape of MasterFieldGraphBinding.pickerConfig (stored as Prisma Json?).
  *
- * - displayFields:    node fields to build the picker item's primary display label from.
- * - subFields:        node fields to build the picker item's sub-label from.
- * - searchFields:     node fields included in picker client-side search.
- *                     Must be a subset of the nodeType's isSearchable fields.
- * - pickerPlaceholder: override text for the picker button when no node is selected.
- * - projectionFields: subset of node fields that this Master Data Field exposes
- *                     downstream after a node is selected (governance layer).
- *                     Stored in Phase 5.3; runtime consumption is Phase 5.4.
- *                     Must be displayable fields for the nodeType. Leave empty to
- *                     apply no restriction (all fields visible — current behaviour).
+ * Picker UX (node selection):
+ *   displayFields     – node fields used to build the primary picker row label
+ *   subFields         – node fields shown beneath the primary label
+ *   searchFields      – additional fields matched during picker text search
+ *   pickerPlaceholder – override text for the picker search input
+ *
+ * Governance (downstream projection):
+ *   projectionMode    – DEFAULT | CUSTOM | NONE (absent → DEFAULT at runtime)
+ *   projectionFields  – used only when projectionMode === "CUSTOM"
  */
 export interface GraphPickerConfig {
+    /** Node fields used to build the picker item's primary display label. */
     displayFields?:     string[];
+    /** Node fields shown beneath the primary label in the picker. */
     subFields?:         string[];
+    /** Additional node fields matched during picker search (isSearchable only). */
     searchFields?:      string[];
+    /** Override text for the picker search input. */
     pickerPlaceholder?: string;
     /**
-     * Downstream projection / governance layer.
-     * Declares which node fields this Master Data Field is allowed to expose
-     * after a node is selected. Empty / absent = no restriction (Phase 5.4 default).
+     * Governance mode for downstream projection.
+     * Absent (or null config) = DEFAULT.
+     */
+    projectionMode?:    ProjectionMode;
+    /**
+     * Active when projectionMode === "CUSTOM".
+     * The validated subset of displayable node fields to expose downstream.
+     * Empty array is valid and means "expose nothing".
      */
     projectionFields?:  string[];
 }
 
-// ── Helpers ────────────────────────────────────────────────────────────────────
+// ── Default projection fields ──────────────────────────────────────────────────
 
 /**
- * Returns true if a GraphPickerConfig carries no meaningful configuration.
- * Used to decide whether to store null vs. a config object.
+ * Safe system-default fields exposed downstream when projectionMode is DEFAULT
+ * or when no pickerConfig exists.
+ *
+ * These are deliberately minimal — only the fields needed to identify the node
+ * in a display context without exposing sensitive data.
  */
-export function isEmptyPickerConfig(config: GraphPickerConfig): boolean {
-    const hasDisplayFields    = config.displayFields    && config.displayFields.length    > 0;
-    const hasSubFields        = config.subFields        && config.subFields.length        > 0;
-    const hasSearchFields     = config.searchFields     && config.searchFields.length     > 0;
-    const hasPlaceholder      = config.pickerPlaceholder && config.pickerPlaceholder.trim().length > 0;
-    const hasProjectionFields = config.projectionFields && config.projectionFields.length > 0;
-    return !hasDisplayFields && !hasSubFields && !hasSearchFields && !hasPlaceholder && !hasProjectionFields;
+export function getDefaultProjectionFields(nodeType: NodeType): string[] {
+    switch (nodeType) {
+        case "PERSON":       return ["firstName", "lastName"];
+        case "LEGAL_ENTITY": return ["name"];
+        case "ADDRESS":      return ["line1", "postalCode"];
+        default:             return [];
+    }
 }
 
+// ── resolveProjectionFields ────────────────────────────────────────────────────
+
 /**
- * sanitizePickerConfig
+ * Resolves the effective set of projection fields for a given nodeType and config.
  *
+ * Rules (in priority order):
+ *  1. null / undefined config              → DEFAULT fields
+ *  2. projectionMode absent                → DEFAULT fields
+ *  3. projectionMode === "DEFAULT"         → DEFAULT fields (ignore projectionFields)
+ *  4. projectionMode === "NONE"            → [] (expose nothing)
+ *  5. projectionMode === "CUSTOM"          → projectionFields ?? []
+ *     (empty array is a valid explicit "expose nothing")
+ *  6. invalid projectionMode string        → DEFAULT fields (fail safe)
+ */
+export function resolveProjectionFields(
+    nodeType: NodeType,
+    config: GraphPickerConfig | null | undefined
+): string[] {
+    if (!config || !config.projectionMode) {
+        return getDefaultProjectionFields(nodeType);
+    }
+
+    switch (config.projectionMode) {
+        case "DEFAULT":
+            return getDefaultProjectionFields(nodeType);
+
+        case "NONE":
+            return [];
+
+        case "CUSTOM":
+            // Empty custom array is an explicit "expose nothing" — return as-is.
+            return config.projectionFields ?? [];
+
+        default:
+            // Invalid / future mode — fail safe
+            return getDefaultProjectionFields(nodeType);
+    }
+}
+
+// ── isEmptyPickerConfig ────────────────────────────────────────────────────────
+
+/**
+ * Returns true if a GraphPickerConfig carries no meaningful configuration
+ * that needs to be stored.
+ *
+ * projectionMode DEFAULT contributes nothing (it's the absence of a choice).
+ * projectionMode CUSTOM or NONE IS meaningful even with empty projectionFields,
+ * because those represent explicit admin decisions.
+ */
+export function isEmptyPickerConfig(config: GraphPickerConfig): boolean {
+    const hasDisplayFields    = (config.displayFields?.length    ?? 0) > 0;
+    const hasSubFields        = (config.subFields?.length        ?? 0) > 0;
+    const hasSearchFields     = (config.searchFields?.length     ?? 0) > 0;
+    const hasPlaceholder      = (config.pickerPlaceholder?.trim().length ?? 0) > 0;
+    const hasProjectionFields = (config.projectionFields?.length ?? 0) > 0;
+    // CUSTOM or NONE are explicit choices — always store them
+    const hasExplicitMode     = config.projectionMode === "CUSTOM" || config.projectionMode === "NONE";
+
+    return !hasDisplayFields
+        && !hasSubFields
+        && !hasSearchFields
+        && !hasPlaceholder
+        && !hasProjectionFields
+        && !hasExplicitMode;
+}
+
+// ── sanitizePickerConfig ───────────────────────────────────────────────────────
+
+/**
  * Validates and cleans an incoming pickerConfig payload against NODE_FIELD_REGISTRY
- * for the given nodeType. Returns a clean config object, or null if nothing meaningful
- * remains after validation.
+ * for the given nodeType. Returns a clean config object, or null if nothing
+ * meaningful remains after validation.
  *
  * Rules applied:
  *  1. Non-object input → null (handles null, string, number, array)
- *  2. displayFields    — only fieldKeys that are isDisplayable for nodeType
- *  3. subFields        — only fieldKeys that are isDisplayable for nodeType
- * 2.5. projectionFields — only fieldKeys that are isDisplayable for nodeType
- *                        (same constraint — only meaningful fields can be projected)
- *  4. searchFields   — only fieldKeys that are isSearchable for nodeType
- *  5. pickerPlaceholder — trimmed; omitted if empty after trim
- *  6. Empty arrays are omitted (not stored as [])
- *  7. Resulting empty config → null
+ *  2. displayFields     — only fieldKeys that are isDisplayable for nodeType
+ *  3. subFields         — only fieldKeys that are isDisplayable for nodeType
+ *  4. projectionMode    — only valid ProjectionMode values ("DEFAULT"|"CUSTOM"|"NONE")
+ *                         Invalid/missing → omitted (resolveProjectionFields defaults to DEFAULT)
+ *  5. projectionFields  — only when projectionMode === "CUSTOM"
+ *                         Validated against displayable keys; empty array IS kept
+ *                         (explicit "expose nothing via custom list")
+ *  6. searchFields      — only fieldKeys that are isSearchable for nodeType
+ *  7. pickerPlaceholder — trimmed; omitted if empty after trim
+ *  8. Resulting empty config → null
  */
 export function sanitizePickerConfig(
     nodeType: NodeType,
@@ -120,30 +208,40 @@ export function sanitizePickerConfig(
         if (Array.isArray(raw[prop])) {
             const valid = (raw[prop] as unknown[])
                 .filter((k): k is string => typeof k === "string" && displayableKeys.has(k));
-            if (valid.length > 0) clean[prop] = valid; // Rule 6: omit empty
+            if (valid.length > 0) clean[prop] = valid;
         }
     }
 
-    // Rule 2.5: projectionFields — must be displayable (same constraint as displayFields)
-    if (Array.isArray(raw.projectionFields)) {
-        const valid = (raw.projectionFields as unknown[])
-            .filter((k): k is string => typeof k === "string" && displayableKeys.has(k));
-        if (valid.length > 0) clean.projectionFields = valid; // Rule 6: omit empty
+    // Rule 4: projectionMode — only accept valid enum values
+    const rawMode = raw.projectionMode;
+    const validMode = (PROJECTION_MODES as readonly string[]).includes(rawMode as string)
+        ? (rawMode as ProjectionMode)
+        : undefined;
+    if (validMode !== undefined) {
+        clean.projectionMode = validMode;
     }
 
-    // Rule 4: searchFields — must be searchable
+    // Rule 5: projectionFields — only when CUSTOM mode; empty array is kept intentionally
+    if (validMode === "CUSTOM" && Array.isArray(raw.projectionFields)) {
+        const valid = (raw.projectionFields as unknown[])
+            .filter((k): k is string => typeof k === "string" && displayableKeys.has(k));
+        // Store even if empty — empty CUSTOM means "expose nothing explicitly"
+        clean.projectionFields = valid;
+    }
+
+    // Rule 6: searchFields — must be searchable
     if (Array.isArray(raw.searchFields)) {
         const valid = (raw.searchFields as unknown[])
             .filter((k): k is string => typeof k === "string" && searchableKeys.has(k));
-        if (valid.length > 0) clean.searchFields = valid; // Rule 6: omit empty
+        if (valid.length > 0) clean.searchFields = valid;
     }
 
-    // Rule 5: pickerPlaceholder — trim and omit if empty
+    // Rule 7: pickerPlaceholder — trim and omit if empty
     if (typeof raw.pickerPlaceholder === "string") {
         const trimmed = raw.pickerPlaceholder.trim();
         if (trimmed.length > 0) clean.pickerPlaceholder = trimmed;
     }
 
-    // Rule 7: empty config → null
+    // Rule 8: empty config → null
     return isEmptyPickerConfig(clean) ? null : clean;
 }

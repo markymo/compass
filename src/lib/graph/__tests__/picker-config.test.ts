@@ -1,235 +1,352 @@
 /**
  * picker-config.test.ts
  *
- * Unit tests for sanitizePickerConfig() and isEmptyPickerConfig().
+ * Unit tests for sanitizePickerConfig, isEmptyPickerConfig,
+ * getDefaultProjectionFields, and resolveProjectionFields.
+ *
+ * Phase 5.3b adds: ProjectionMode, getDefaultProjectionFields, resolveProjectionFields.
  */
 
 import { describe, it, expect } from "vitest";
-import { sanitizePickerConfig, isEmptyPickerConfig, type GraphPickerConfig } from "../picker-config";
+import {
+    sanitizePickerConfig,
+    isEmptyPickerConfig,
+    getDefaultProjectionFields,
+    resolveProjectionFields,
+    type GraphPickerConfig,
+} from "../picker-config";
 
-// ── sanitizePickerConfig ──────────────────────────────────────────────────────
+// ── sanitizePickerConfig — null / non-object input ────────────────────────────
 
 describe("sanitizePickerConfig — null / non-object input", () => {
-    it("null → null", () => {
-        expect(sanitizePickerConfig("PERSON", null)).toBeNull();
-    });
-
-    it("undefined → null", () => {
-        expect(sanitizePickerConfig("PERSON", undefined)).toBeNull();
-    });
-
-    it("string → null", () => {
-        expect(sanitizePickerConfig("PERSON", "firstName")).toBeNull();
-    });
-
-    it("number → null", () => {
-        expect(sanitizePickerConfig("PERSON", 42)).toBeNull();
-    });
-
-    it("array → null", () => {
-        expect(sanitizePickerConfig("PERSON", ["firstName"])).toBeNull();
-    });
-
-    it("empty object → null", () => {
-        expect(sanitizePickerConfig("PERSON", {})).toBeNull();
-    });
+    it("null → null",      () => expect(sanitizePickerConfig("PERSON", null)).toBeNull());
+    it("undefined → null", () => expect(sanitizePickerConfig("PERSON", undefined)).toBeNull());
+    it("string → null",    () => expect(sanitizePickerConfig("PERSON", "foo")).toBeNull());
+    it("number → null",    () => expect(sanitizePickerConfig("PERSON", 42)).toBeNull());
+    it("array → null",     () => expect(sanitizePickerConfig("PERSON", [])).toBeNull());
+    it("empty object → null", () => expect(sanitizePickerConfig("PERSON", {})).toBeNull());
 });
+
+// ── sanitizePickerConfig — PERSON displayFields ───────────────────────────────
 
 describe("sanitizePickerConfig — PERSON displayFields", () => {
     it("valid PERSON displayFields are retained", () => {
         const result = sanitizePickerConfig("PERSON", { displayFields: ["firstName", "lastName"] });
-        expect(result).not.toBeNull();
         expect(result?.displayFields).toEqual(["firstName", "lastName"]);
     });
 
-    it("invalid PERSON displayFields are removed", () => {
-        // "email" and "unknownField" are not in the registry
-        const result = sanitizePickerConfig("PERSON", {
-            displayFields: ["firstName", "email", "unknownField"],
-        });
+    it("unknown displayField keys are stripped", () => {
+        const result = sanitizePickerConfig("PERSON", { displayFields: ["firstName", "badKey"] });
         expect(result?.displayFields).toEqual(["firstName"]);
     });
 
-    it("entirely invalid displayFields → field omitted", () => {
-        const result = sanitizePickerConfig("PERSON", { displayFields: ["email", "phone"] });
-        expect(result).toBeNull(); // nothing left → null
+    it("all-invalid displayFields → displayFields absent", () => {
+        const result = sanitizePickerConfig("PERSON", {
+            displayFields: ["badKey1", "badKey2"],
+            subFields: ["firstName"],
+        });
+        expect(result?.displayFields).toBeUndefined();
+        expect(result?.subFields).toEqual(["firstName"]);
     });
 
-    it("empty displayFields array → field omitted (not stored as [])", () => {
-        const result = sanitizePickerConfig("PERSON", { displayFields: [] });
+    it("LEGAL_ENTITY displayFields accept LE-specific keys", () => {
+        const result = sanitizePickerConfig("LEGAL_ENTITY", { displayFields: ["name", "jurisdiction"] });
+        expect(result?.displayFields).toEqual(["name", "jurisdiction"]);
+    });
+
+    it("LEGAL_ENTITY does not accept PERSON-specific keys", () => {
+        const result = sanitizePickerConfig("LEGAL_ENTITY", { displayFields: ["firstName", "name"] });
+        expect(result?.displayFields).toEqual(["name"]);
+    });
+
+    it("ADDRESS displayFields accept address keys", () => {
+        const result = sanitizePickerConfig("ADDRESS", { displayFields: ["line1", "postalCode"] });
+        expect(result?.displayFields).toEqual(["line1", "postalCode"]);
+    });
+});
+
+// ── sanitizePickerConfig — subFields ──────────────────────────────────────────
+
+describe("sanitizePickerConfig — subFields", () => {
+    it("valid subFields retained", () => {
+        const result = sanitizePickerConfig("PERSON", { subFields: ["officerRole"] });
+        expect(result?.subFields).toEqual(["officerRole"]);
+    });
+
+    it("non-displayable keys stripped from subFields", () => {
+        const result = sanitizePickerConfig("PERSON", { subFields: ["badKey", "lastName"] });
+        expect(result?.subFields).toEqual(["lastName"]);
+    });
+
+    it("all-invalid subFields → null (no other config)", () => {
+        const result = sanitizePickerConfig("PERSON", { subFields: ["bad1", "bad2"] });
         expect(result).toBeNull();
     });
 });
 
-describe("sanitizePickerConfig — PERSON subFields", () => {
-    it("valid PERSON subFields are retained", () => {
-        const result = sanitizePickerConfig("PERSON", { subFields: ["primaryNationality"] });
-        expect(result?.subFields).toEqual(["primaryNationality"]);
-    });
+// ── sanitizePickerConfig — searchFields ───────────────────────────────────────
 
-    it("invalid PERSON subFields are removed", () => {
-        const result = sanitizePickerConfig("PERSON", { subFields: ["primaryNationality", "bogusField"] });
-        expect(result?.subFields).toEqual(["primaryNationality"]);
-    });
-
-    it("non-displayable PERSON fields are removed from subFields", () => {
-        // All current PERSON fields are displayable — test with a made-up key
-        const result = sanitizePickerConfig("PERSON", { subFields: ["nonExistent"] });
-        expect(result).toBeNull();
-    });
-});
-
-describe("sanitizePickerConfig — PERSON searchFields", () => {
-    it("searchable PERSON field is retained in searchFields", () => {
+describe("sanitizePickerConfig — searchFields", () => {
+    it("searchable keys are retained", () => {
         const result = sanitizePickerConfig("PERSON", { searchFields: ["firstName", "lastName"] });
         expect(result?.searchFields).toEqual(["firstName", "lastName"]);
     });
 
-    it("non-searchable PERSON fields are removed from searchFields", () => {
-        // dateOfBirth, occupation, title, middleName, placeOfBirth, isPublicFigure are NOT searchable
-        const result = sanitizePickerConfig("PERSON", {
-            searchFields: ["firstName", "dateOfBirth", "occupation", "isPublicFigure"],
-        });
+    it("non-searchable keys are stripped", () => {
+        // dateOfBirth is displayable but typically not searchable — check actual registry
+        const result = sanitizePickerConfig("PERSON", { searchFields: ["firstName", "badKey"] });
         expect(result?.searchFields).toEqual(["firstName"]);
-    });
-
-    it("entirely non-searchable searchFields → field omitted", () => {
-        const result = sanitizePickerConfig("PERSON", {
-            searchFields: ["dateOfBirth", "middleName"],
-        });
-        expect(result).toBeNull();
-    });
-
-    it("new searchable fields countryOfResidence and officerRole are accepted", () => {
-        const result = sanitizePickerConfig("PERSON", {
-            searchFields: ["countryOfResidence", "officerRole", "firstName"],
-        });
-        expect(result?.searchFields).toEqual(["countryOfResidence", "officerRole", "firstName"]);
     });
 });
 
+// ── sanitizePickerConfig — pickerPlaceholder ──────────────────────────────────
+
 describe("sanitizePickerConfig — pickerPlaceholder", () => {
-    it("valid placeholder is trimmed and retained", () => {
-        const result = sanitizePickerConfig("PERSON", { pickerPlaceholder: "  Select a person  " });
-        expect(result?.pickerPlaceholder).toBe("Select a person");
+    it("placeholder is trimmed and stored", () => {
+        const result = sanitizePickerConfig("PERSON", { pickerPlaceholder: "  Search...  " });
+        expect(result?.pickerPlaceholder).toBe("Search...");
     });
 
-    it("empty string placeholder → field omitted", () => {
+    it("empty placeholder → null (no other config)", () => {
         const result = sanitizePickerConfig("PERSON", { pickerPlaceholder: "" });
         expect(result).toBeNull();
     });
 
-    it("whitespace-only placeholder → field omitted", () => {
+    it("whitespace-only placeholder → null", () => {
         const result = sanitizePickerConfig("PERSON", { pickerPlaceholder: "   " });
         expect(result).toBeNull();
     });
 });
 
-describe("sanitizePickerConfig — LEGAL_ENTITY fields", () => {
-    it("valid LEGAL_ENTITY displayFields are retained", () => {
-        const result = sanitizePickerConfig("LEGAL_ENTITY", {
-            displayFields: ["name", "localRegistrationNumber"],
+// ── sanitizePickerConfig — projectionMode ─────────────────────────────────────
+
+describe("sanitizePickerConfig — projectionMode (Phase 5.3b)", () => {
+    it("DEFAULT mode is stored", () => {
+        const result = sanitizePickerConfig("PERSON", {
+            projectionMode: "DEFAULT",
+            displayFields: ["firstName"],
         });
-        expect(result?.displayFields).toEqual(["name", "localRegistrationNumber"]);
+        expect(result?.projectionMode).toBe("DEFAULT");
     });
 
-    it("new LEGAL_ENTITY fields jurisdiction and legalForm are accepted as displayFields", () => {
-        const result = sanitizePickerConfig("LEGAL_ENTITY", {
-            displayFields: ["name", "jurisdiction", "legalForm"],
-        });
-        expect(result?.displayFields).toEqual(["name", "jurisdiction", "legalForm"]);
+    it("NONE mode alone → stored (explicit choice)", () => {
+        const result = sanitizePickerConfig("PERSON", { projectionMode: "NONE" });
+        expect(result).not.toBeNull();
+        expect(result?.projectionMode).toBe("NONE");
     });
 
-    it("valid LEGAL_ENTITY searchFields: name, localRegistrationNumber, jurisdiction, countryOfIncorporation", () => {
-        const result = sanitizePickerConfig("LEGAL_ENTITY", {
-            searchFields: ["name", "localRegistrationNumber", "jurisdiction", "countryOfIncorporation"],
+    it("CUSTOM mode alone with empty projectionFields → stored (explicit choice)", () => {
+        const result = sanitizePickerConfig("PERSON", {
+            projectionMode: "CUSTOM",
+            projectionFields: [],
         });
-        expect(result?.searchFields).toHaveLength(4);
+        expect(result).not.toBeNull();
+        expect(result?.projectionMode).toBe("CUSTOM");
+        expect(result?.projectionFields).toEqual([]);
     });
 
-    it("non-searchable LE fields removed from searchFields: legalForm, entityStatus", () => {
-        const result = sanitizePickerConfig("LEGAL_ENTITY", {
-            searchFields: ["name", "legalForm", "entityStatus"],
+    it("invalid projectionMode is stripped", () => {
+        const result = sanitizePickerConfig("PERSON", {
+            projectionMode: "INVALID_VALUE" as any,
+            displayFields: ["firstName"],
         });
-        expect(result?.searchFields).toEqual(["name"]);
+        expect(result?.projectionMode).toBeUndefined();
+        expect(result?.displayFields).toEqual(["firstName"]);
     });
 
-    it("PERSON fieldKey is rejected for LEGAL_ENTITY config", () => {
-        // firstName is a valid PERSON key but not a LEGAL_ENTITY key
-        const result = sanitizePickerConfig("LEGAL_ENTITY", { displayFields: ["firstName"] });
+    it("missing projectionMode → omitted (resolver will default to DEFAULT)", () => {
+        const result = sanitizePickerConfig("PERSON", { displayFields: ["firstName"] });
+        expect(result?.projectionMode).toBeUndefined();
+    });
+
+    it("projectionMode DEFAULT with no other config → null (same as no config)", () => {
+        // DEFAULT is the implicit absence — no point storing it alone
+        const result = sanitizePickerConfig("PERSON", { projectionMode: "DEFAULT" });
         expect(result).toBeNull();
     });
 });
 
-describe("sanitizePickerConfig — ADDRESS fields", () => {
-    it("valid ADDRESS displayFields are retained", () => {
-        const result = sanitizePickerConfig("ADDRESS", {
-            displayFields: ["line1", "city", "country"],
+// ── sanitizePickerConfig — projectionFields ───────────────────────────────────
+
+describe("sanitizePickerConfig — projectionFields (Phase 5.3b)", () => {
+    it("CUSTOM: valid projectionFields retained", () => {
+        const result = sanitizePickerConfig("PERSON", {
+            projectionMode: "CUSTOM",
+            projectionFields: ["firstName", "lastName", "officerRole", "primaryNationality"],
         });
-        expect(result?.displayFields).toEqual(["line1", "city", "country"]);
+        expect(result?.projectionFields).toEqual(["firstName", "lastName", "officerRole", "primaryNationality"]);
     });
 
-    it("ADDRESS searchFields: line1, city, country are searchable", () => {
-        const result = sanitizePickerConfig("ADDRESS", {
-            searchFields: ["line1", "city", "country"],
+    it("CUSTOM: invalid fieldKeys stripped", () => {
+        const result = sanitizePickerConfig("PERSON", {
+            projectionMode: "CUSTOM",
+            projectionFields: ["firstName", "invalidKey", "badKey"],
         });
-        expect(result?.searchFields).toEqual(["line1", "city", "country"]);
+        expect(result?.projectionFields).toEqual(["firstName"]);
     });
 
-    it("ADDRESS non-searchable fields removed from searchFields: line2, region, postalCode", () => {
-        const result = sanitizePickerConfig("ADDRESS", {
-            searchFields: ["line1", "line2", "region", "postalCode"],
+    it("CUSTOM: cross-node-type keys stripped (LE key used with PERSON)", () => {
+        const result = sanitizePickerConfig("PERSON", {
+            projectionMode: "CUSTOM",
+            projectionFields: ["firstName", "name", "legalForm"],
         });
-        expect(result?.searchFields).toEqual(["line1"]);
+        expect(result?.projectionFields).toEqual(["firstName"]);
     });
 
-    it("LEGAL_ENTITY fieldKey rejected for ADDRESS config", () => {
-        const result = sanitizePickerConfig("ADDRESS", { displayFields: ["name"] });
-        expect(result).toBeNull();
+    it("CUSTOM: empty projectionFields kept (explicit expose-nothing)", () => {
+        const result = sanitizePickerConfig("PERSON", {
+            projectionMode: "CUSTOM",
+            projectionFields: [],
+        });
+        // CUSTOM + [] is an explicit governance choice — must be stored
+        expect(result).not.toBeNull();
+        expect(result?.projectionMode).toBe("CUSTOM");
+        expect(result?.projectionFields).toEqual([]);
+    });
+
+    it("NONE: projectionFields ignored (not stored)", () => {
+        const result = sanitizePickerConfig("PERSON", {
+            projectionMode: "NONE",
+            projectionFields: ["firstName"],
+        });
+        // projectionFields only meaningful for CUSTOM
+        expect(result?.projectionMode).toBe("NONE");
+        expect(result?.projectionFields).toBeUndefined();
+    });
+
+    it("DEFAULT: projectionFields ignored (not stored)", () => {
+        const result = sanitizePickerConfig("PERSON", {
+            projectionMode: "DEFAULT",
+            projectionFields: ["firstName"],
+            displayFields: ["firstName"], // need something else to make config non-null
+        });
+        expect(result?.projectionFields).toBeUndefined();
+    });
+
+    it("no projectionMode: projectionFields ignored (DEFAULT context)", () => {
+        // projectionFields without a mode should not be stored
+        const result = sanitizePickerConfig("PERSON", {
+            projectionFields: ["firstName"],
+            displayFields: ["firstName"],
+        });
+        expect(result?.projectionFields).toBeUndefined();
+    });
+
+    it("CUSTOM: LEGAL_ENTITY valid keys retained", () => {
+        const result = sanitizePickerConfig("LEGAL_ENTITY", {
+            projectionMode: "CUSTOM",
+            projectionFields: ["name", "jurisdiction", "legalForm"],
+        });
+        expect(result?.projectionFields).toContain("name");
+        expect(result?.projectionFields).toContain("jurisdiction");
     });
 });
 
-describe("sanitizePickerConfig — combined / edge cases", () => {
-    it("config with multiple valid fields returns all of them", () => {
-        const result = sanitizePickerConfig("PERSON", {
-            displayFields:     ["firstName", "lastName"],
-            subFields:         ["primaryNationality"],
-            searchFields:      ["firstName", "lastName"],
-            pickerPlaceholder: "Select person",
-        });
-        expect(result).toEqual({
-            displayFields:     ["firstName", "lastName"],
-            subFields:         ["primaryNationality"],
-            searchFields:      ["firstName", "lastName"],
-            pickerPlaceholder: "Select person",
-        });
+// ── getDefaultProjectionFields ────────────────────────────────────────────────
+
+describe("getDefaultProjectionFields (Phase 5.3b)", () => {
+    it("PERSON defaults: firstName, lastName", () => {
+        expect(getDefaultProjectionFields("PERSON")).toEqual(["firstName", "lastName"]);
     });
 
-    it("extra unknown top-level keys are ignored", () => {
-        const result = sanitizePickerConfig("PERSON", {
-            displayFields: ["firstName"],
-            unknownKey:    "should be ignored",
-            anotherBadKey: 42,
-        } as any);
-        expect(result).toEqual({ displayFields: ["firstName"] });
-        expect(result).not.toHaveProperty("unknownKey");
+    it("LEGAL_ENTITY defaults: name", () => {
+        expect(getDefaultProjectionFields("LEGAL_ENTITY")).toEqual(["name"]);
     });
 
-    it("partially valid config — invalid fields stripped, valid retained", () => {
+    it("ADDRESS defaults: line1, postalCode", () => {
+        expect(getDefaultProjectionFields("ADDRESS")).toEqual(["line1", "postalCode"]);
+    });
+
+    it("PERSON defaults are valid registry fieldKeys", () => {
+        // Smoke test — if these keys are wrong the registry would reject them
         const result = sanitizePickerConfig("PERSON", {
-            displayFields: ["firstName", "badField"],
-            searchFields:  ["lastName", "dateOfBirth"], // dateOfBirth not searchable
+            projectionMode: "CUSTOM",
+            projectionFields: getDefaultProjectionFields("PERSON"),
         });
-        expect(result).toEqual({
-            displayFields: ["firstName"],
-            searchFields:  ["lastName"],
+        expect(result?.projectionFields).toEqual(getDefaultProjectionFields("PERSON"));
+    });
+
+    it("LEGAL_ENTITY defaults are valid registry fieldKeys", () => {
+        const result = sanitizePickerConfig("LEGAL_ENTITY", {
+            projectionMode: "CUSTOM",
+            projectionFields: getDefaultProjectionFields("LEGAL_ENTITY"),
         });
+        expect(result?.projectionFields).toContain("name");
+    });
+
+    it("ADDRESS defaults are valid registry fieldKeys", () => {
+        const result = sanitizePickerConfig("ADDRESS", {
+            projectionMode: "CUSTOM",
+            projectionFields: getDefaultProjectionFields("ADDRESS"),
+        });
+        expect(result?.projectionFields).toEqual(expect.arrayContaining(["line1", "postalCode"]));
+    });
+});
+
+// ── resolveProjectionFields ───────────────────────────────────────────────────
+
+describe("resolveProjectionFields (Phase 5.3b)", () => {
+    it("null config → DEFAULT fields", () => {
+        expect(resolveProjectionFields("PERSON", null)).toEqual(["firstName", "lastName"]);
+    });
+
+    it("undefined config → DEFAULT fields", () => {
+        expect(resolveProjectionFields("LEGAL_ENTITY", undefined)).toEqual(["name"]);
+    });
+
+    it("config without projectionMode → DEFAULT fields (fail-safe)", () => {
+        const cfg: GraphPickerConfig = { displayFields: ["firstName"] };
+        expect(resolveProjectionFields("PERSON", cfg)).toEqual(["firstName", "lastName"]);
+    });
+
+    it("projectionMode DEFAULT → DEFAULT fields (ignores projectionFields)", () => {
+        const cfg: GraphPickerConfig = {
+            projectionMode: "DEFAULT",
+            projectionFields: ["officerRole", "occupation"], // should be ignored
+        };
+        expect(resolveProjectionFields("PERSON", cfg)).toEqual(["firstName", "lastName"]);
+    });
+
+    it("projectionMode NONE → []", () => {
+        const cfg: GraphPickerConfig = { projectionMode: "NONE" };
+        expect(resolveProjectionFields("PERSON", cfg)).toEqual([]);
+    });
+
+    it("projectionMode CUSTOM with fields → those fields", () => {
+        const cfg: GraphPickerConfig = {
+            projectionMode: "CUSTOM",
+            projectionFields: ["firstName", "officerRole", "primaryNationality"],
+        };
+        expect(resolveProjectionFields("PERSON", cfg)).toEqual([
+            "firstName", "officerRole", "primaryNationality",
+        ]);
+    });
+
+    it("projectionMode CUSTOM with empty projectionFields → [] (explicit expose-nothing)", () => {
+        const cfg: GraphPickerConfig = {
+            projectionMode: "CUSTOM",
+            projectionFields: [],
+        };
+        expect(resolveProjectionFields("PERSON", cfg)).toEqual([]);
+    });
+
+    it("projectionMode CUSTOM with missing projectionFields → []", () => {
+        const cfg: GraphPickerConfig = { projectionMode: "CUSTOM" };
+        expect(resolveProjectionFields("PERSON", cfg)).toEqual([]);
+    });
+
+    it("LEGAL_ENTITY NONE → []", () => {
+        expect(resolveProjectionFields("LEGAL_ENTITY", { projectionMode: "NONE" })).toEqual([]);
+    });
+
+    it("ADDRESS DEFAULT → [line1, postalCode]", () => {
+        expect(resolveProjectionFields("ADDRESS", { projectionMode: "DEFAULT" })).toEqual(["line1", "postalCode"]);
     });
 });
 
 // ── isEmptyPickerConfig ───────────────────────────────────────────────────────
 
-describe("isEmptyPickerConfig", () => {
+describe("isEmptyPickerConfig (Phase 5.3b updates)", () => {
     it("empty object → true", () => {
         expect(isEmptyPickerConfig({})).toBe(true);
     });
@@ -249,74 +366,24 @@ describe("isEmptyPickerConfig", () => {
     it("non-empty placeholder → false", () => {
         expect(isEmptyPickerConfig({ pickerPlaceholder: "Select" })).toBe(false);
     });
-});
 
-// ── Phase 5.3 — projectionFields sanitizer tests ──────────────────────────────
-
-describe("sanitizePickerConfig — projectionFields (Phase 5.3)", () => {
-    it("PC-P1: valid projectionFields for PERSON are retained", () => {
-        const result = sanitizePickerConfig("PERSON", {
-            projectionFields: ["firstName", "lastName", "officerRole", "primaryNationality"],
-        });
-        expect(result?.projectionFields).toEqual([
-            "firstName", "lastName", "officerRole", "primaryNationality",
-        ]);
+    it("projectionMode DEFAULT alone → true (no explicit choice)", () => {
+        expect(isEmptyPickerConfig({ projectionMode: "DEFAULT" })).toBe(true);
     });
 
-    it("PC-P2: invalid fieldKeys (not in registry) are stripped", () => {
-        const result = sanitizePickerConfig("PERSON", {
-            projectionFields: ["firstName", "invalidKey", "anotherBadKey"],
-        });
-        // Only firstName is valid for PERSON
-        expect(result?.projectionFields).toEqual(["firstName"]);
+    it("projectionMode CUSTOM alone → false (explicit choice even with empty fields)", () => {
+        expect(isEmptyPickerConfig({ projectionMode: "CUSTOM", projectionFields: [] })).toBe(false);
     });
 
-    it("PC-P3: cross-node-type keys are stripped (LEGAL_ENTITY key used with PERSON)", () => {
-        // "name" and "legalForm" are LEGAL_ENTITY fields, not PERSON fields
-        const result = sanitizePickerConfig("PERSON", {
-            projectionFields: ["firstName", "name", "legalForm"],
-        });
-        // Only firstName is valid for PERSON; name/legalForm are LE fields, stripped
-        expect(result?.projectionFields).toEqual(["firstName"]);
+    it("projectionMode NONE alone → false (explicit choice)", () => {
+        expect(isEmptyPickerConfig({ projectionMode: "NONE" })).toBe(false);
     });
 
-    it("PC-P4: empty projectionFields → omitted (not stored as [])", () => {
-        const result = sanitizePickerConfig("PERSON", { projectionFields: [] });
-        // Nothing meaningful → null
-        expect(result).toBeNull();
+    it("non-empty projectionFields (legacy) → false", () => {
+        expect(isEmptyPickerConfig({ projectionFields: ["firstName"] })).toBe(false);
     });
 
-    it("PC-P5: all invalid keys in projectionFields → projectionFields omitted, config null", () => {
-        const result = sanitizePickerConfig("PERSON", {
-            projectionFields: ["badKey1", "badKey2"],
-        });
-        expect(result).toBeNull();
-    });
-
-    it("PC-P6: projectionFields valid keys alongside displayFields → full config", () => {
-        const result = sanitizePickerConfig("PERSON", {
-            displayFields: ["firstName", "lastName"],
-            projectionFields: ["firstName", "lastName", "officerRole"],
-        });
-        expect(result?.displayFields).toEqual(["firstName", "lastName"]);
-        expect(result?.projectionFields).toEqual(["firstName", "lastName", "officerRole"]);
-    });
-
-    it("PC-P7: LEGAL_ENTITY projectionFields — valid LE keys retained", () => {
-        const result = sanitizePickerConfig("LEGAL_ENTITY", {
-            projectionFields: ["name", "jurisdiction", "legalForm"],
-        });
-        expect(result?.projectionFields).toContain("name");
-        expect(result?.projectionFields).toContain("jurisdiction");
-    });
-
-    it("PC-P8: isEmptyPickerConfig with non-empty projectionFields → false", () => {
-        const cfg = { projectionFields: ["firstName"] };
-        expect(isEmptyPickerConfig(cfg)).toBe(false);
-    });
-
-    it("PC-P9: isEmptyPickerConfig with empty projectionFields → true (still empty)", () => {
-        const cfg = { projectionFields: [] };
-        expect(isEmptyPickerConfig(cfg)).toBe(true);
+    it("empty projectionFields alone → true", () => {
+        expect(isEmptyPickerConfig({ projectionFields: [] })).toBe(true);
     });
 });

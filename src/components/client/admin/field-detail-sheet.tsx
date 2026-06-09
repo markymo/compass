@@ -23,7 +23,7 @@ import { SOURCE_OPTIONS, getSourceDisplayName } from "@/lib/source-display";
 import { SCALAR_UI_OPTIONS, REFERENCE_UI_OPTIONS, APP_DATA_TYPES } from "@/lib/master-data/field-types";
 import { getComplexFieldConfig, getFieldTypeLabel, type GraphRelationshipCollectionConfig, type StructuredCollectionConfig } from "@/lib/master-data/complex-field-config";
 import { getNodeFields, getDisplayableFields, getSearchableFields, type NodeType } from "@/lib/graph/node-field-registry";
-import { type GraphPickerConfig } from "@/lib/graph/picker-config";
+import { type GraphPickerConfig, type ProjectionMode, getDefaultProjectionFields } from "@/lib/graph/picker-config";
 import { bindingToBindingForm, bindingFormToPickerConfig, BLANK_BINDING_FORM } from "@/lib/graph/binding-form-helpers";
 import { Checkbox } from "@/components/ui/checkbox";
 
@@ -941,41 +941,84 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                                         </div>
 
                                         {/* ── Projection / Governance ────────────────────────────────────── */}
-                                        <div className="border-t pt-4 grid gap-4">
+                                        <div className="border-t pt-4 grid gap-3">
                                             <div>
                                                 <h4 className="text-xs font-semibold text-slate-700 mb-0.5">Returned Fields (Projection)</h4>
                                                 <p className="text-[10px] text-slate-400">
-                                                    Fields exposed by this Master Data Field after a node is selected.
-                                                    Use this to prevent sensitive node data being shown in inappropriate contexts.
-                                                    Leave empty to apply no restriction (all fields visible — current default).
-                                                </p>
-                                                <p className="text-[10px] text-amber-600 bg-amber-50 border border-amber-100 rounded px-2 py-1 mt-1.5">
-                                                    ⚠ Runtime enforcement is Phase 5.4. Values saved here are stored but not yet applied downstream.
+                                                    Controls which node fields are exposed downstream after a node is selected.
+                                                    Runtime enforcement is Phase 5.4 — values are stored now.
                                                 </p>
                                             </div>
 
-                                            <div className="grid gap-1.5">
-                                                <Label className="text-xs font-medium">Projection Fields</Label>
-                                                <div className="grid grid-cols-2 gap-y-1.5 gap-x-3 p-2 border rounded-md bg-slate-50">
-                                                    {getDisplayableFields(bindingForm.graphNodeType as NodeType).map(f => (
-                                                        <label key={f.fieldKey} className="flex items-center gap-2 cursor-pointer select-none">
-                                                            <Checkbox
-                                                                id={`proj-${f.fieldKey}`}
-                                                                checked={bindingForm.projectionFields.includes(f.fieldKey)}
-                                                                onCheckedChange={(checked) => {
-                                                                    setBindingForm(prev => ({
-                                                                        ...prev,
-                                                                        projectionFields: checked
-                                                                            ? [...prev.projectionFields, f.fieldKey]
-                                                                            : prev.projectionFields.filter(k => k !== f.fieldKey)
-                                                                    }));
-                                                                }}
-                                                            />
-                                                            <span className="text-xs text-slate-700">{f.label}</span>
-                                                        </label>
-                                                    ))}
-                                                </div>
+                                            {/* Mode selector */}
+                                            <div className="flex flex-col gap-2">
+                                                {([
+                                                    { mode: "DEFAULT" as ProjectionMode, label: "Default", desc: `Safe system defaults (${getDefaultProjectionFields(bindingForm.graphNodeType as NodeType).join(", ")})` },
+                                                    { mode: "CUSTOM" as ProjectionMode, label: "Custom", desc: "Choose which fields to expose" },
+                                                    { mode: "NONE"    as ProjectionMode, label: "None",   desc: "Return no node fields downstream" },
+                                                ]).map(({ mode, label, desc }) => (
+                                                    <label
+                                                        key={mode}
+                                                        className={`flex items-start gap-2.5 rounded-md border px-3 py-2.5 cursor-pointer select-none transition-colors ${
+                                                            bindingForm.projectionMode === mode
+                                                                ? "border-indigo-400 bg-indigo-50"
+                                                                : "border-slate-200 hover:border-slate-300 bg-white"
+                                                        }`}
+                                                    >
+                                                        <input
+                                                            type="radio"
+                                                            name={`projectionMode-${bindingForm.graphNodeType}`}
+                                                            value={mode}
+                                                            checked={bindingForm.projectionMode === mode}
+                                                            onChange={() => setBindingForm(prev => ({
+                                                                ...prev,
+                                                                projectionMode: mode,
+                                                                // Reset projectionFields when switching away from CUSTOM
+                                                                projectionFields: mode !== "CUSTOM" ? [] : prev.projectionFields,
+                                                            }))}
+                                                            className="mt-0.5 accent-indigo-600"
+                                                        />
+                                                        <div>
+                                                            <span className="text-xs font-medium text-slate-800">{label}</span>
+                                                            <p className="text-[10px] text-slate-400 mt-0.5">{desc}</p>
+                                                        </div>
+                                                    </label>
+                                                ))}
                                             </div>
+
+                                            {/* Custom field checkboxes — only when CUSTOM selected */}
+                                            {bindingForm.projectionMode === "CUSTOM" && (
+                                                <div className="grid gap-1.5">
+                                                    <Label className="text-xs font-medium">Fields to expose</Label>
+                                                    <p className="text-[10px] text-slate-400">Leave all unchecked to expose nothing.</p>
+                                                    <div className="grid grid-cols-2 gap-y-1.5 gap-x-3 p-2 border rounded-md bg-slate-50">
+                                                        {getDisplayableFields(bindingForm.graphNodeType as NodeType).map(f => (
+                                                            <label key={f.fieldKey} className="flex items-center gap-2 cursor-pointer select-none">
+                                                                <Checkbox
+                                                                    id={`proj-${f.fieldKey}`}
+                                                                    checked={bindingForm.projectionFields.includes(f.fieldKey)}
+                                                                    onCheckedChange={(checked) => {
+                                                                        setBindingForm(prev => ({
+                                                                            ...prev,
+                                                                            projectionFields: checked
+                                                                                ? [...prev.projectionFields, f.fieldKey]
+                                                                                : prev.projectionFields.filter(k => k !== f.fieldKey)
+                                                                        }));
+                                                                    }}
+                                                                />
+                                                                <span className="text-xs text-slate-700">{f.label}</span>
+                                                            </label>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* NONE warning */}
+                                            {bindingForm.projectionMode === "NONE" && (
+                                                <p className="text-[10px] text-red-600 bg-red-50 border border-red-100 rounded px-2 py-1">
+                                                    ⚠ No node fields will be exposed downstream. Only the internal reference ID is retained.
+                                                </p>
+                                            )}
                                         </div>
 
                                     </div>
