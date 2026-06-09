@@ -209,7 +209,9 @@ export class KycWriteService {
                     collectionId: expectedCollectionId ?? null,
                     valueJson: { not: Prisma.JsonNull }
                 },
-                select: { id: true, valueJson: true, sourceType: true },
+                // Include node-reference fields so we can run graph edge write-back
+                // even when the claim itself is idempotently skipped.
+                select: { id: true, valueJson: true, sourceType: true, valuePersonId: true, valueLeId: true, valueAddressId: true },
                 orderBy: { assertedAt: 'desc' } // most recent state first
             });
 
@@ -226,8 +228,25 @@ export class KycWriteService {
                 }
 
                 if (!isTombstone) {
-                    // A non-tombstone value claim already exists for this instanceId+collectionId — skip.
-                    console.log(`[KycWriteService] Idempotency: instanceId="${rowId}" collectionId="${expectedCollectionId}" already has a value claim for Field ${fieldNo}. Skipping.`);
+                    // A non-tombstone value claim already exists for this instanceId+collectionId — skip
+                    // the FieldClaim write, but still ensure the graph edge exists.
+                    //
+                    // WHY: the FieldClaim may have been written before a MasterFieldGraphBinding was
+                    // configured, leaving the node with no DIRECTOR/PSC edge. Re-enrichment and manual
+                    // re-saves must be able to backfill the edge without re-writing the claim.
+                    // performEdgeWriteback is a pure upsert — safe to call unconditionally.
+                    // clientLEId is already resolved in scope (line ~159).
+                    if (clientLEId) {
+                        await this.performEdgeWriteback(
+                            fieldNo,
+                            clientLEId,
+                            existingInstance.valuePersonId ?? undefined,
+                            existingInstance.valueLeId ?? undefined,
+                            existingInstance.valueAddressId ?? undefined,
+                            provenance.source as string,
+                        );
+                    }
+                    console.log(`[KycWriteService] Idempotency: instanceId="${rowId}" collectionId="${expectedCollectionId}" already has a value claim for Field ${fieldNo}. Skipping claim write.`);
                     return true;
                 }
 
@@ -433,77 +452,14 @@ export class KycWriteService {
 
         // 6. Graph Edge Write-back
         if (clientLEId) {
-            try {
-                const bindings = await prisma.masterFieldGraphBinding.findMany({
-                    where: { fieldNo, isActive: true }
-                });
-                const writeBinding = bindings.find((b: any) => b.writeBackEdgeType);
-
-                if (writeBinding) {
-                    // Find the node we ensured earlier
-                    const nodeWhere = { 
-                        clientLEId, 
-                        personId: valuePersonId || undefined, 
-                        legalEntityId: valueLeId || undefined, 
-                        addressId: valueAddressId || undefined 
-                    };
-                    
-                    // Only proceed if we actually have a valid node reference
-                    if (valuePersonId || valueLeId || valueAddressId) {
-                        const node = await prisma.clientLEGraphNode.findFirst({ where: nodeWhere as any });
-
-                        if (node) {
-                            // Find root node ID
-                            const clientLE = await prisma.clientLE.findUnique({ where: { id: clientLEId }});
-                            let rootNodeId: string | null = null;
-                            if (clientLE && clientLE.legalEntityId) {
-                                let rootNode = await prisma.clientLEGraphNode.findFirst({
-                                    where: { clientLEId, legalEntityId: clientLE.legalEntityId }
-                                });
-                                if (!rootNode) {
-                                    rootNode = await prisma.clientLEGraphNode.create({
-                                        data: {
-                                            clientLEId,
-                                            nodeType: 'LEGAL_ENTITY',
-                                            legalEntityId: clientLE.legalEntityId,
-                                            source: 'SYSTEM'
-                                        }
-                                    });
-                                }
-                                rootNodeId = rootNode.id;
-                            }
-
-                            if (rootNodeId) {
-                                await prisma.clientLEGraphEdge.upsert({
-                                    where: { 
-                                        fromNodeId_toNodeId_edgeType: { 
-                                            fromNodeId: node.id, 
-                                            toNodeId: rootNodeId,
-                                            edgeType: writeBinding.writeBackEdgeType! 
-                                        } 
-                                    },
-                                    update: { 
-                                        isActive: true, 
-                                        source: (provenance.source as any) || 'UNKNOWN',
-                                        updatedAt: new Date()
-                                    },
-                                    create: {
-                                        clientLEId,
-                                        fromNodeId: node.id,
-                                        toNodeId: rootNodeId,
-                                        edgeType: writeBinding.writeBackEdgeType!,
-                                        isActive: true,
-                                        source: (provenance.source as any) || 'UNKNOWN'
-                                    }
-                                });
-                                console.log(`[KycWriteService] Graph edge write-back successful for field ${fieldNo} (${writeBinding.writeBackEdgeType})`);
-                            }
-                        }
-                    }
-                }
-            } catch (graphErr) {
-                console.error(`[KycWriteService] Graph edge write-back failed for field ${fieldNo}:`, graphErr);
-            }
+            await this.performEdgeWriteback(
+                fieldNo,
+                clientLEId,
+                valuePersonId,
+                valueLeId,
+                valueAddressId,
+                provenance.source as string,
+            );
         }
 
         // 5. Propagate to Questions
@@ -516,6 +472,91 @@ export class KycWriteService {
         );
 
         return true;
+    }
+
+    /**
+     * Attempts to create or update a ClientLEGraphEdge for the node identified by
+     * (valuePersonId | valueLeId | valueAddressId) within a ClientLE.
+     *
+     * Extracted from updateField() so it can be called from both the normal write
+     * path (Step 6) AND the idempotency early-exit path — ensuring that a FieldClaim
+     * written before a MasterFieldGraphBinding existed will have its edge created on
+     * the next re-enrichment or manual update.
+     *
+     * This method is a pure upsert — safe to call unconditionally.
+     */
+    private async performEdgeWriteback(
+        fieldNo: number,
+        clientLEId: string,
+        valuePersonId: string | undefined,
+        valueLeId: string | undefined,
+        valueAddressId: string | undefined,
+        source: string,
+    ): Promise<void> {
+        try {
+            const bindings = await prisma.masterFieldGraphBinding.findMany({
+                where: { fieldNo, isActive: true }
+            });
+            const writeBinding = bindings.find((b: any) => b.writeBackEdgeType);
+
+            if (!writeBinding) return;
+
+            // Only proceed if we actually have a valid node reference
+            if (!valuePersonId && !valueLeId && !valueAddressId) return;
+
+            const nodeWhere = {
+                clientLEId,
+                personId: valuePersonId || undefined,
+                legalEntityId: valueLeId || undefined,
+                addressId: valueAddressId || undefined,
+            };
+            const node = await prisma.clientLEGraphNode.findFirst({ where: nodeWhere as any });
+            if (!node) return;
+
+            // Resolve root node (the LE itself in the graph)
+            const clientLE = await prisma.clientLE.findUnique({ where: { id: clientLEId } });
+            if (!clientLE?.legalEntityId) return;
+
+            let rootNode = await prisma.clientLEGraphNode.findFirst({
+                where: { clientLEId, legalEntityId: clientLE.legalEntityId }
+            });
+            if (!rootNode) {
+                rootNode = await prisma.clientLEGraphNode.create({
+                    data: {
+                        clientLEId,
+                        nodeType: 'LEGAL_ENTITY',
+                        legalEntityId: clientLE.legalEntityId,
+                        source: 'SYSTEM',
+                    }
+                });
+            }
+
+            await prisma.clientLEGraphEdge.upsert({
+                where: {
+                    fromNodeId_toNodeId_edgeType: {
+                        fromNodeId: node.id,
+                        toNodeId: rootNode.id,
+                        edgeType: writeBinding.writeBackEdgeType!,
+                    }
+                },
+                update: {
+                    isActive: true,
+                    source: source || 'UNKNOWN',
+                    updatedAt: new Date(),
+                },
+                create: {
+                    clientLEId,
+                    fromNodeId: node.id,
+                    toNodeId: rootNode.id,
+                    edgeType: writeBinding.writeBackEdgeType!,
+                    isActive: true,
+                    source: source || 'UNKNOWN',
+                },
+            });
+            console.log(`[KycWriteService] Graph edge write-back successful for field ${fieldNo} (${writeBinding.writeBackEdgeType})`);
+        } catch (graphErr) {
+            console.error(`[KycWriteService] Graph edge write-back failed for field ${fieldNo}:`, graphErr);
+        }
     }
 
     /**
