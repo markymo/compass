@@ -1,9 +1,9 @@
 import prisma from "@/lib/prisma";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { LayoutGrid } from "lucide-react";
 import { GroupListHeader } from "@/components/client/admin/group-list-header";
 import { GroupActions } from "@/components/client/admin/group-actions";
+import { GroupItemsTable } from "@/components/client/admin/group-items-table";
 
 export default async function GroupConfigurationsPage() {
     let groups: any[] = [];
@@ -55,50 +55,7 @@ export default async function GroupConfigurationsPage() {
                                 <GroupActions group={group} />
                             </div>
                         </div>
-                        <div className="p-0">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow className="hover:bg-transparent border-none">
-                                        <TableHead className="pl-6 w-[80px] text-[10px] uppercase font-bold text-slate-400 tracking-wider">Order</TableHead>
-                                        <TableHead className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Linked Field</TableHead>
-                                        <TableHead className="text-[10px] uppercase font-bold text-slate-400 tracking-wider text-right pr-6">Picker Visibility</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {group.items.map((item: any) => (
-                                        <TableRow key={item.id} className="group/row hover:bg-slate-50/50 dark:hover:bg-slate-900/20">
-                                            <TableCell className="pl-6 font-mono text-xs text-slate-400">
-                                                <Badge variant="outline" className="font-mono text-[10px] border-slate-100 dark:border-slate-800 text-slate-400 px-1.5 min-w-[24px] justify-center">
-                                                    {item.order}
-                                                </Badge>
-                                            </TableCell>
-                                            <TableCell>
-                                                <div className="flex items-center gap-2">
-                                                    <span className="font-medium text-slate-700 dark:text-slate-300">
-                                                        {item.field?.fieldName || `Field ${item.fieldNo}`}
-                                                    </span>
-                                                    <span className="text-[10px] text-slate-300 font-mono tracking-tighter">(No. {item.fieldNo})</span>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className="text-right pr-6">
-                                                {item.hideFromFieldPicker ? (
-                                                    <span className="text-[10px] text-amber-600 font-bold bg-amber-50 px-2 py-0.5 rounded border border-amber-100 dark:bg-amber-900/10 dark:text-amber-400 dark:border-amber-900/30">Hides Standalone</span>
-                                                ) : (
-                                                    <span className="text-[10px] text-slate-400 font-medium italic">Visible Standalone</span>
-                                                )}
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                    {group.items.length === 0 && (
-                                        <TableRow>
-                                            <TableCell colSpan={4} className="h-16 text-center text-xs text-slate-400 italic">
-                                                No fields mapped to this group yet.
-                                            </TableCell>
-                                        </TableRow>
-                                    )}
-                                </TableBody>
-                            </Table>
-                        </div>
+                        <GroupItemsTable group={group} />
                         {group.description && (
                             <div className="px-6 py-3 bg-slate-50/30 dark:bg-slate-900/10 border-t border-slate-100 dark:border-slate-800">
                                 <div className="flex gap-2 items-start">
