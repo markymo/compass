@@ -254,6 +254,186 @@ export async function updateMasterFieldGroup(
     }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Group Membership Actions
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * addFieldToGroup: Adds a field to a group as a new MasterFieldGroupItem.
+ *
+ * Guards:
+ *   - Group must exist and be active.
+ *   - Field must exist and be active.
+ *   - Field must not already be in this group (@@unique enforced at DB level too).
+ *
+ * The new item is appended (order = MAX(order) + 1) with hideFromFieldPicker=true by default,
+ * keeping the field hidden from the standalone picker until the admin opts out.
+ */
+export async function addFieldToGroup(
+    groupId: string,
+    fieldNo: number,
+    options?: { hideFromFieldPicker?: boolean }
+): Promise<{ success: boolean; error?: string }> {
+    try {
+        const group = await (prisma as any).masterFieldGroup.findUnique({
+            where: { id: groupId, isActive: true }
+        });
+        if (!group) return { success: false, error: 'Group not found or inactive.' };
+
+        const field = await (prisma as any).masterFieldDefinition.findUnique({
+            where: { fieldNo, isActive: true }
+        });
+        if (!field) return { success: false, error: `Field ${fieldNo} not found or inactive.` };
+
+        const existing = await (prisma as any).masterFieldGroupItem.findUnique({
+            where: { groupId_fieldNo: { groupId, fieldNo } }
+        });
+        if (existing) return { success: false, error: 'Field is already a member of this group.' };
+
+        const maxItem = await (prisma as any).masterFieldGroupItem.findFirst({
+            where: { groupId },
+            orderBy: { order: 'desc' },
+            select: { order: true }
+        });
+        const nextOrder = (maxItem?.order ?? -1) + 1;
+
+        await (prisma as any).masterFieldGroupItem.create({
+            data: {
+                groupId,
+                fieldNo,
+                order: nextOrder,
+                hideFromFieldPicker: options?.hideFromFieldPicker ?? true,
+            }
+        });
+
+        invalidateDefinitionCache();
+        revalidatePath('/app/admin/master-data', 'layout');
+        return { success: true };
+    } catch (e) {
+        console.error('[addFieldToGroup] Error:', e);
+        return { success: false, error: String(e) };
+    }
+}
+
+/**
+ * removeGroupItem: Removes a single MasterFieldGroupItem by its id.
+ */
+export async function removeGroupItem(
+    itemId: string
+): Promise<{ success: boolean; error?: string }> {
+    try {
+        await (prisma as any).masterFieldGroupItem.delete({ where: { id: itemId } });
+        invalidateDefinitionCache();
+        revalidatePath('/app/admin/master-data', 'layout');
+        return { success: true };
+    } catch (e) {
+        console.error('[removeGroupItem] Error:', e);
+        return { success: false, error: String(e) };
+    }
+}
+
+/**
+ * reorderGroupItems: Reorders all items in a group.
+ *
+ * `orderedItemIds` must be the COMPLETE current set of item IDs for this group —
+ * no more, no less. Any mismatch is rejected to prevent partial updates.
+ * Each item is assigned order = its index in the supplied array (0-based).
+ */
+export async function reorderGroupItems(
+    groupId: string,
+    orderedItemIds: string[]
+): Promise<{ success: boolean; error?: string }> {
+    try {
+        const currentItems = await (prisma as any).masterFieldGroupItem.findMany({
+            where: { groupId },
+            select: { id: true }
+        });
+        const currentIds = new Set(currentItems.map((i: any) => i.id));
+
+        if (currentItems.length !== orderedItemIds.length) {
+            return {
+                success: false,
+                error: `Supplied ${orderedItemIds.length} item IDs but group has ${currentItems.length} items. ` +
+                    `Provide the complete item list.`
+            };
+        }
+        for (const id of orderedItemIds) {
+            if (!currentIds.has(id)) {
+                return { success: false, error: `Item ID "${id}" does not belong to this group.` };
+            }
+        }
+
+        await (prisma as any).$transaction(
+            orderedItemIds.map((id: string, i: number) =>
+                (prisma as any).masterFieldGroupItem.update({ where: { id }, data: { order: i } })
+            )
+        );
+
+        invalidateDefinitionCache();
+        revalidatePath('/app/admin/master-data', 'layout');
+        return { success: true };
+    } catch (e) {
+        console.error('[reorderGroupItems] Error:', e);
+        return { success: false, error: String(e) };
+    }
+}
+
+/**
+ * toggleGroupItemPickerVisibility: Sets hideFromFieldPicker on a single group item.
+ *
+ * When true: the field is suppressed from the standalone field picker — it only
+ * appears via its parent group.
+ * When false: the field is visible both standalone and as part of its group.
+ */
+export async function toggleGroupItemPickerVisibility(
+    itemId: string,
+    hideFromFieldPicker: boolean
+): Promise<{ success: boolean; error?: string }> {
+    try {
+        await (prisma as any).masterFieldGroupItem.update({
+            where: { id: itemId },
+            data: { hideFromFieldPicker }
+        });
+        invalidateDefinitionCache();
+        revalidatePath('/app/admin/master-data', 'layout');
+        return { success: true };
+    } catch (e) {
+        console.error('[toggleGroupItemPickerVisibility] Error:', e);
+        return { success: false, error: String(e) };
+    }
+}
+
+/**
+ * getAvailableFieldsForGroup: Returns active fields NOT yet in this group.
+ * Used by the AddFieldPopover to populate its search list.
+ * Lazy-loaded (called only when the popover opens).
+ */
+export async function getAvailableFieldsForGroup(
+    groupId: string
+): Promise<{ success: boolean; fields?: { fieldNo: number; fieldName: string; appDataType: string }[]; error?: string }> {
+    try {
+        const existingItems = await (prisma as any).masterFieldGroupItem.findMany({
+            where: { groupId },
+            select: { fieldNo: true }
+        });
+        const existingFieldNos: number[] = existingItems.map((i: any) => i.fieldNo);
+
+        const fields = await (prisma as any).masterFieldDefinition.findMany({
+            where: {
+                isActive: true,
+                fieldNo: existingFieldNos.length > 0 ? { notIn: existingFieldNos } : undefined
+            },
+            select: { fieldNo: true, fieldName: true, appDataType: true },
+            orderBy: [{ order: 'asc' }, { fieldNo: 'asc' }]
+        });
+
+        return { success: true, fields };
+    } catch (e) {
+        console.error('[getAvailableFieldsForGroup] Error:', e);
+        return { success: false, error: String(e) };
+    }
+}
+
 /**
  * renameCustomField: Updates the label of a CustomFieldDefinition.
  * Available to LE_Admin and LE_User roles.

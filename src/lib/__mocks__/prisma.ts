@@ -7,15 +7,24 @@ const modelMock = () => ({
     findMany: vi.fn().mockResolvedValue([]),
     create: vi.fn(),
     update: vi.fn(),
+    updateMany: vi.fn(),
     delete: vi.fn(),
+    deleteMany: vi.fn(),
+    count: vi.fn().mockResolvedValue(0),
+    upsert: vi.fn(),
 })
 
-// We mock specific models used in tests
+// We mock the specific Prisma models used across the test suite.
+// Add new models here as they are needed by tests.
 const prismaMock = {
     $connect: vi.fn(),
     $disconnect: vi.fn(),
-    // $transaction: executes the callback with a mock tx client
-    $transaction: vi.fn().mockImplementation(async (cb: any) => cb(prismaMock)),
+    // $transaction: handles both the interactive-transaction (callback) form
+    // and the batch-promise (array) form used by reorderGroupItems.
+    $transaction: vi.fn().mockImplementation(async (cbOrArray: any) => {
+        if (typeof cbOrArray === 'function') return cbOrArray(prismaMock);
+        return Promise.all(cbOrArray);
+    }),
     user: modelMock(),
     kycField: modelMock(),
     legalEntity: modelMock(),
@@ -28,7 +37,10 @@ const prismaMock = {
     fIEngagement: modelMock(),
     membership: modelMock(),
     usageLog: modelMock(),
-    sourceFieldMapping: modelMock(),   // for KycStateService priority resolution
+    sourceFieldMapping: modelMock(),    // KycStateService priority resolution
+    masterFieldGroup: modelMock(),      // Group membership actions
+    masterFieldGroupItem: modelMock(),  // Group membership actions
+    masterFieldDefinition: modelMock(), // Group membership actions / field guards
 }
 
 export { prismaMock }
