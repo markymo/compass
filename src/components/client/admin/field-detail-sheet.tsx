@@ -774,14 +774,14 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                                         <Plus className="h-3 w-3 mr-1" /> Add Binding
                                     </Button>
                                 </DialogTrigger>
-                                <DialogContent className="sm:max-w-[480px]">
-                                    <DialogHeader>
+                                <DialogContent className="sm:max-w-[500px] max-h-[90vh] flex flex-col">
+                                    <DialogHeader className="shrink-0">
                                         <DialogTitle>Add Graph Node Binding</DialogTitle>
                                         <DialogDescription>
                                             Connect this field to the LE Graph so answers are drawn from graph nodes and optionally write back edges.
                                         </DialogDescription>
                                     </DialogHeader>
-                                    <div className="grid gap-4 py-4">
+                                    <div className="grid gap-4 py-4 overflow-y-auto flex-1 pr-1">
                                         <div className="grid gap-2">
                                             <Label>Graph Node Type</Label>
                                             <Select
@@ -944,7 +944,7 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                                         </div>
 
                                     </div>
-                                    <DialogFooter>
+                                    <DialogFooter className="shrink-0 pt-2">
                                         <Button onClick={handleSaveBinding} disabled={isBindingSaving}>
                                             {isBindingSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                             Save Binding
