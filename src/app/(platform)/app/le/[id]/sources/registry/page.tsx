@@ -116,7 +116,7 @@ export default async function RegistryPage({ params }: { params: Promise<{ id: s
                 </div>
 
                 <div className="flex flex-col items-end gap-2">
-                    <RegistryRefreshButton leId={le.id} lastRefreshed={le.registryFetchedAt} />
+                    <RegistryRefreshButton leId={le.id} referenceId={primaryRef?.id ?? null} lastRefreshed={le.registryFetchedAt} />
                     <div className="flex gap-2">
                         {extractedCandidates.length > 0 && (
                             <ExtractedCandidatesViewer candidates={extractedCandidates} />
