@@ -32,17 +32,28 @@ import { getDisplayableFields, getSearchableFields, type NodeType } from "./node
  * All fieldKey arrays reference keys from NODE_FIELD_REGISTRY for the binding's graphNodeType.
  * Unknown keys are removed at save time — see sanitizePickerConfig().
  *
- * - displayFields: node fields to build the picker item's primary display label from (Phase 3).
- * - subFields:     node fields to build the picker item's sub-label from (Phase 3).
- * - searchFields:  node fields included in picker client-side search (Phase 3).
- *                  Must be a subset of the nodeType's isSearchable fields.
+ * - displayFields:    node fields to build the picker item's primary display label from.
+ * - subFields:        node fields to build the picker item's sub-label from.
+ * - searchFields:     node fields included in picker client-side search.
+ *                     Must be a subset of the nodeType's isSearchable fields.
  * - pickerPlaceholder: override text for the picker button when no node is selected.
+ * - projectionFields: subset of node fields that this Master Data Field exposes
+ *                     downstream after a node is selected (governance layer).
+ *                     Stored in Phase 5.3; runtime consumption is Phase 5.4.
+ *                     Must be displayable fields for the nodeType. Leave empty to
+ *                     apply no restriction (all fields visible — current behaviour).
  */
 export interface GraphPickerConfig {
     displayFields?:     string[];
     subFields?:         string[];
     searchFields?:      string[];
     pickerPlaceholder?: string;
+    /**
+     * Downstream projection / governance layer.
+     * Declares which node fields this Master Data Field is allowed to expose
+     * after a node is selected. Empty / absent = no restriction (Phase 5.4 default).
+     */
+    projectionFields?:  string[];
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -52,11 +63,12 @@ export interface GraphPickerConfig {
  * Used to decide whether to store null vs. a config object.
  */
 export function isEmptyPickerConfig(config: GraphPickerConfig): boolean {
-    const hasDisplayFields  = config.displayFields  && config.displayFields.length  > 0;
-    const hasSubFields      = config.subFields      && config.subFields.length      > 0;
-    const hasSearchFields   = config.searchFields   && config.searchFields.length   > 0;
-    const hasPlaceholder    = config.pickerPlaceholder && config.pickerPlaceholder.trim().length > 0;
-    return !hasDisplayFields && !hasSubFields && !hasSearchFields && !hasPlaceholder;
+    const hasDisplayFields    = config.displayFields    && config.displayFields.length    > 0;
+    const hasSubFields        = config.subFields        && config.subFields.length        > 0;
+    const hasSearchFields     = config.searchFields     && config.searchFields.length     > 0;
+    const hasPlaceholder      = config.pickerPlaceholder && config.pickerPlaceholder.trim().length > 0;
+    const hasProjectionFields = config.projectionFields && config.projectionFields.length > 0;
+    return !hasDisplayFields && !hasSubFields && !hasSearchFields && !hasPlaceholder && !hasProjectionFields;
 }
 
 /**
@@ -68,8 +80,10 @@ export function isEmptyPickerConfig(config: GraphPickerConfig): boolean {
  *
  * Rules applied:
  *  1. Non-object input → null (handles null, string, number, array)
- *  2. displayFields  — only fieldKeys that are isDisplayable for nodeType
- *  3. subFields      — only fieldKeys that are isDisplayable for nodeType
+ *  2. displayFields    — only fieldKeys that are isDisplayable for nodeType
+ *  3. subFields        — only fieldKeys that are isDisplayable for nodeType
+ * 2.5. projectionFields — only fieldKeys that are isDisplayable for nodeType
+ *                        (same constraint — only meaningful fields can be projected)
  *  4. searchFields   — only fieldKeys that are isSearchable for nodeType
  *  5. pickerPlaceholder — trimmed; omitted if empty after trim
  *  6. Empty arrays are omitted (not stored as [])
@@ -108,6 +122,13 @@ export function sanitizePickerConfig(
                 .filter((k): k is string => typeof k === "string" && displayableKeys.has(k));
             if (valid.length > 0) clean[prop] = valid; // Rule 6: omit empty
         }
+    }
+
+    // Rule 2.5: projectionFields — must be displayable (same constraint as displayFields)
+    if (Array.isArray(raw.projectionFields)) {
+        const valid = (raw.projectionFields as unknown[])
+            .filter((k): k is string => typeof k === "string" && displayableKeys.has(k));
+        if (valid.length > 0) clean.projectionFields = valid; // Rule 6: omit empty
     }
 
     // Rule 4: searchFields — must be searchable

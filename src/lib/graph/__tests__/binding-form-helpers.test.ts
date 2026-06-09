@@ -205,3 +205,61 @@ describe("bindingToBindingForm — boolean fields", () => {
         expect(bindingToBindingForm(makeRow({ writeBackIsActive: false })).writeBackIsActive).toBe(false);
     });
 });
+
+// ── Phase 5.3 — projectionFields ─────────────────────────────────────────────
+
+describe("bindingToBindingForm — projectionFields (Phase 5.3)", () => {
+    it("BFH-1e: null pickerConfig → projectionFields is []", () => {
+        expect(bindingToBindingForm(makeRow()).projectionFields).toEqual([]);
+    });
+    it("BFH-2f: existing projectionFields populated from pickerConfig", () => {
+        const row = makeRow({
+            pickerConfig: {
+                displayFields: ["firstName", "lastName"],
+                projectionFields: ["firstName", "lastName", "officerRole", "primaryNationality"],
+            },
+        });
+        expect(bindingToBindingForm(row).projectionFields).toEqual([
+            "firstName", "lastName", "officerRole", "primaryNationality",
+        ]);
+    });
+    it("BFH-2g: pickerConfig without projectionFields → projectionFields is []", () => {
+        const row = makeRow({
+            pickerConfig: { displayFields: ["firstName"] },
+        });
+        expect(bindingToBindingForm(row).projectionFields).toEqual([]);
+    });
+});
+
+describe("bindingFormToPickerConfig — projectionFields (Phase 5.3)", () => {
+    it("BFH-3f: populated projectionFields serialises correctly", () => {
+        const form: BindingForm = {
+            ...BLANK_BINDING_FORM,
+            projectionFields: ["firstName", "lastName", "officerRole"],
+        };
+        expect(bindingFormToPickerConfig(form)?.projectionFields).toEqual([
+            "firstName", "lastName", "officerRole",
+        ]);
+    });
+    it("BFH-3g: form with only projectionFields → non-null result", () => {
+        const form = { ...BLANK_BINDING_FORM, projectionFields: ["firstName"] };
+        const result = bindingFormToPickerConfig(form);
+        expect(result).not.toBeNull();
+        expect(result?.projectionFields).toEqual(["firstName"]);
+        // No other keys set
+        expect(result?.displayFields).toBeUndefined();
+        expect(result?.searchFields).toBeUndefined();
+    });
+    it("BFH-4d: form with empty projectionFields still → null (no other config)", () => {
+        // Empty projectionFields alone should not produce a non-null config
+        const form = { ...BLANK_BINDING_FORM };
+        expect(bindingFormToPickerConfig(form)).toBeNull();
+    });
+});
+
+describe("BLANK_BINDING_FORM — projectionFields default (Phase 5.3)", () => {
+    it("BFH-6c: BLANK_BINDING_FORM has projectionFields: []", () => {
+        expect(BLANK_BINDING_FORM.projectionFields).toEqual([]);
+    });
+});
+

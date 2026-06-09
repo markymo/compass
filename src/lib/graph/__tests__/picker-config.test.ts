@@ -250,3 +250,73 @@ describe("isEmptyPickerConfig", () => {
         expect(isEmptyPickerConfig({ pickerPlaceholder: "Select" })).toBe(false);
     });
 });
+
+// ── Phase 5.3 — projectionFields sanitizer tests ──────────────────────────────
+
+describe("sanitizePickerConfig — projectionFields (Phase 5.3)", () => {
+    it("PC-P1: valid projectionFields for PERSON are retained", () => {
+        const result = sanitizePickerConfig("PERSON", {
+            projectionFields: ["firstName", "lastName", "officerRole", "primaryNationality"],
+        });
+        expect(result?.projectionFields).toEqual([
+            "firstName", "lastName", "officerRole", "primaryNationality",
+        ]);
+    });
+
+    it("PC-P2: invalid fieldKeys (not in registry) are stripped", () => {
+        const result = sanitizePickerConfig("PERSON", {
+            projectionFields: ["firstName", "invalidKey", "anotherBadKey"],
+        });
+        // Only firstName is valid for PERSON
+        expect(result?.projectionFields).toEqual(["firstName"]);
+    });
+
+    it("PC-P3: cross-node-type keys are stripped (LEGAL_ENTITY key used with PERSON)", () => {
+        // "name" and "legalForm" are LEGAL_ENTITY fields, not PERSON fields
+        const result = sanitizePickerConfig("PERSON", {
+            projectionFields: ["firstName", "name", "legalForm"],
+        });
+        // Only firstName is valid for PERSON; name/legalForm are LE fields, stripped
+        expect(result?.projectionFields).toEqual(["firstName"]);
+    });
+
+    it("PC-P4: empty projectionFields → omitted (not stored as [])", () => {
+        const result = sanitizePickerConfig("PERSON", { projectionFields: [] });
+        // Nothing meaningful → null
+        expect(result).toBeNull();
+    });
+
+    it("PC-P5: all invalid keys in projectionFields → projectionFields omitted, config null", () => {
+        const result = sanitizePickerConfig("PERSON", {
+            projectionFields: ["badKey1", "badKey2"],
+        });
+        expect(result).toBeNull();
+    });
+
+    it("PC-P6: projectionFields valid keys alongside displayFields → full config", () => {
+        const result = sanitizePickerConfig("PERSON", {
+            displayFields: ["firstName", "lastName"],
+            projectionFields: ["firstName", "lastName", "officerRole"],
+        });
+        expect(result?.displayFields).toEqual(["firstName", "lastName"]);
+        expect(result?.projectionFields).toEqual(["firstName", "lastName", "officerRole"]);
+    });
+
+    it("PC-P7: LEGAL_ENTITY projectionFields — valid LE keys retained", () => {
+        const result = sanitizePickerConfig("LEGAL_ENTITY", {
+            projectionFields: ["name", "jurisdiction", "legalForm"],
+        });
+        expect(result?.projectionFields).toContain("name");
+        expect(result?.projectionFields).toContain("jurisdiction");
+    });
+
+    it("PC-P8: isEmptyPickerConfig with non-empty projectionFields → false", () => {
+        const cfg = { projectionFields: ["firstName"] };
+        expect(isEmptyPickerConfig(cfg)).toBe(false);
+    });
+
+    it("PC-P9: isEmptyPickerConfig with empty projectionFields → true (still empty)", () => {
+        const cfg = { projectionFields: [] };
+        expect(isEmptyPickerConfig(cfg)).toBe(true);
+    });
+});

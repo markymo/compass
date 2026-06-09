@@ -25,6 +25,7 @@ export interface BindingForm {
     subFields: string[];
     searchFields: string[];
     pickerPlaceholder: string;
+    projectionFields: string[];
 }
 
 /** The shape returned by getGraphBindingsForField / field.graphBindings */
@@ -54,6 +55,7 @@ export const BLANK_BINDING_FORM: BindingForm = {
     subFields: [],
     searchFields: [],
     pickerPlaceholder: "",
+    projectionFields: [],
 };
 
 // ── bindingToBindingForm ──────────────────────────────────────────────────────
@@ -76,10 +78,11 @@ export function bindingToBindingForm(b: BindingRow): BindingForm {
         writeBackIsActive: b.writeBackIsActive,
         pickerLabel:      b.pickerLabel       ?? "",
         allowCreate:      b.allowCreate,
-        displayFields:    cfg.displayFields   ?? [],
-        subFields:        cfg.subFields       ?? [],
-        searchFields:     cfg.searchFields    ?? [],
+        displayFields:    cfg.displayFields    ?? [],
+        subFields:        cfg.subFields        ?? [],
+        searchFields:     cfg.searchFields     ?? [],
         pickerPlaceholder: cfg.pickerPlaceholder ?? "",
+        projectionFields: cfg.projectionFields  ?? [],
     };
 }
 
@@ -96,10 +99,11 @@ export function bindingToBindingForm(b: BindingRow): BindingForm {
  */
 export function bindingFormToPickerConfig(form: BindingForm): GraphPickerConfig | null {
     const cfg: GraphPickerConfig = {};
-    if (form.displayFields.length > 0)          cfg.displayFields     = form.displayFields;
-    if (form.subFields.length > 0)              cfg.subFields         = form.subFields;
-    if (form.searchFields.length > 0)           cfg.searchFields      = form.searchFields;
+    if (form.displayFields.length > 0)            cfg.displayFields     = form.displayFields;
+    if (form.subFields.length > 0)                cfg.subFields         = form.subFields;
+    if (form.searchFields.length > 0)             cfg.searchFields      = form.searchFields;
     if (form.pickerPlaceholder.trim().length > 0) cfg.pickerPlaceholder = form.pickerPlaceholder.trim();
+    if (form.projectionFields.length > 0)         cfg.projectionFields  = form.projectionFields;
 
     return Object.keys(cfg).length > 0 ? cfg : null;
 }

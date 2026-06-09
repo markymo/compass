@@ -940,6 +940,44 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                                             </div>
                                         </div>
 
+                                        {/* ── Projection / Governance ────────────────────────────────────── */}
+                                        <div className="border-t pt-4 grid gap-4">
+                                            <div>
+                                                <h4 className="text-xs font-semibold text-slate-700 mb-0.5">Returned Fields (Projection)</h4>
+                                                <p className="text-[10px] text-slate-400">
+                                                    Fields exposed by this Master Data Field after a node is selected.
+                                                    Use this to prevent sensitive node data being shown in inappropriate contexts.
+                                                    Leave empty to apply no restriction (all fields visible — current default).
+                                                </p>
+                                                <p className="text-[10px] text-amber-600 bg-amber-50 border border-amber-100 rounded px-2 py-1 mt-1.5">
+                                                    ⚠ Runtime enforcement is Phase 5.4. Values saved here are stored but not yet applied downstream.
+                                                </p>
+                                            </div>
+
+                                            <div className="grid gap-1.5">
+                                                <Label className="text-xs font-medium">Projection Fields</Label>
+                                                <div className="grid grid-cols-2 gap-y-1.5 gap-x-3 p-2 border rounded-md bg-slate-50">
+                                                    {getDisplayableFields(bindingForm.graphNodeType as NodeType).map(f => (
+                                                        <label key={f.fieldKey} className="flex items-center gap-2 cursor-pointer select-none">
+                                                            <Checkbox
+                                                                id={`proj-${f.fieldKey}`}
+                                                                checked={bindingForm.projectionFields.includes(f.fieldKey)}
+                                                                onCheckedChange={(checked) => {
+                                                                    setBindingForm(prev => ({
+                                                                        ...prev,
+                                                                        projectionFields: checked
+                                                                            ? [...prev.projectionFields, f.fieldKey]
+                                                                            : prev.projectionFields.filter(k => k !== f.fieldKey)
+                                                                    }));
+                                                                }}
+                                                            />
+                                                            <span className="text-xs text-slate-700">{f.label}</span>
+                                                        </label>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </div>
+
                                     </div>
                                     <DialogFooter className="shrink-0 pt-2">
                                         <Button variant="outline" onClick={() => closeBindingDialog(false)} disabled={isBindingSaving}>
