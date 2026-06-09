@@ -361,11 +361,30 @@ Exports:
 Both `graph-node-picker.tsx` and `graph-node-picker-dialog.tsx` import `itemMatchesSearch` from here.
 `graph-node-picker.ts` (server action) also imports `formatRawFieldValue` from here.
 
-#### Admin UI — not yet built
+#### Admin UI — fully configurable (Phase 5)
 
-No admin checkbox UI for `pickerConfig` exists yet. The binding form only shows
-`filterEdgeType`, `writeBackEdgeType`, `pickerLabel`, `allowCreate`, and `filterActiveOnly`.
-Phase 4 will add the `pickerConfig` editor.
+`pickerConfig` is now fully configurable through the existing **Graph Node Binding** dialog in
+the Field Detail Sheet. Admins no longer need to edit JSON directly.
+
+**Location:** `Admin → Master Data → [field] → Graph Node Binding → Add Binding → Picker Configuration`
+
+**UI sections:**
+
+| Section | UI | Registry source |
+|---|---|---|
+| Display Fields | Checkbox list | `getDisplayableFields(nodeType)` |
+| Secondary Fields | Checkbox list | `getDisplayableFields(nodeType)` |
+| Search Fields | Checkbox list | `getSearchableFields(nodeType)` — non-searchable fields hidden |
+| Picker Placeholder | Text input | free text |
+
+All field labels and keys come from `NODE_FIELD_REGISTRY`, sorted by `order ASC`.
+The list automatically changes when the **Graph Node Type** selector changes.
+
+**Save flow:**
+1. UI builds a partial `GraphPickerConfig` object from checked fields.
+2. Empty arrays / blank placeholder → `null` is passed (no config stored).
+3. `upsertGraphBinding()` calls `sanitizePickerConfig()` server-side before DB write.
+4. Existing bindings with `pickerConfig` show a `configured` badge in the binding list row.
 
 #### Validation helper
 

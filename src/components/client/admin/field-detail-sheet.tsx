@@ -22,6 +22,9 @@ import { DataInspectorPanel } from "@/components/client/admin/source-mappings/da
 import { SOURCE_OPTIONS, getSourceDisplayName } from "@/lib/source-display";
 import { SCALAR_UI_OPTIONS, REFERENCE_UI_OPTIONS, APP_DATA_TYPES } from "@/lib/master-data/field-types";
 import { getComplexFieldConfig, getFieldTypeLabel, type GraphRelationshipCollectionConfig, type StructuredCollectionConfig } from "@/lib/master-data/complex-field-config";
+import { getNodeFields, getDisplayableFields, getSearchableFields, type NodeType } from "@/lib/graph/node-field-registry";
+import { type GraphPickerConfig } from "@/lib/graph/picker-config";
+import { Checkbox } from "@/components/ui/checkbox";
 
 
 
@@ -116,6 +119,11 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
         writeBackIsActive: true,
         pickerLabel: "",
         allowCreate: true,
+        // pickerConfig state — mirrors GraphPickerConfig shape
+        displayFields:      [] as string[],
+        subFields:          [] as string[],
+        searchFields:       [] as string[],
+        pickerPlaceholder:  "",
     });
 
     // Sources that support the live Browse inspector.
@@ -175,6 +183,16 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
     const handleSaveBinding = async () => {
         setIsBindingSaving(true);
         try {
+            // Build pickerConfig from UI state.
+            // sanitizePickerConfig() runs server-side inside upsertGraphBinding —
+            // we just need to pass a well-formed object. Empty arrays are omitted
+            // so the server stores null for fully-empty configs.
+            const pickerConfigPayload: GraphPickerConfig = {};
+            if (bindingForm.displayFields.length > 0)     pickerConfigPayload.displayFields     = bindingForm.displayFields;
+            if (bindingForm.subFields.length > 0)          pickerConfigPayload.subFields          = bindingForm.subFields;
+            if (bindingForm.searchFields.length > 0)       pickerConfigPayload.searchFields       = bindingForm.searchFields;
+            if (bindingForm.pickerPlaceholder.trim())      pickerConfigPayload.pickerPlaceholder  = bindingForm.pickerPlaceholder.trim();
+
             const res = await upsertGraphBinding({
                 fieldNo: field.fieldNo,
                 graphNodeType: bindingForm.graphNodeType,
@@ -184,11 +202,18 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                 writeBackIsActive: bindingForm.writeBackIsActive,
                 pickerLabel: bindingForm.pickerLabel.trim() || null,
                 allowCreate: bindingForm.allowCreate,
+                pickerConfig: Object.keys(pickerConfigPayload).length > 0 ? pickerConfigPayload : null,
             });
             if (res.success) {
-                toast.success("Graph binding added");
+                toast.success("Graph binding saved");
                 setIsAddBindingOpen(false);
-                setBindingForm({ graphNodeType: "PERSON", filterEdgeType: "", filterActiveOnly: true, writeBackEdgeType: "", writeBackIsActive: true, pickerLabel: "", allowCreate: true });
+                setBindingForm({
+                    graphNodeType: "PERSON",
+                    filterEdgeType: "", filterActiveOnly: true,
+                    writeBackEdgeType: "", writeBackIsActive: true,
+                    pickerLabel: "", allowCreate: true,
+                    displayFields: [], subFields: [], searchFields: [], pickerPlaceholder: "",
+                });
                 router.refresh();
             } else {
                 toast.error(res.error || "Failed to add binding");
@@ -817,6 +842,107 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                                                 <Label className="text-xs cursor-pointer">Allow inline creation</Label>
                                             </div>
                                         </div>
+
+                                        {/* ── Picker Configuration ────────────────────────────────── */}
+                                        <div className="border-t pt-4 grid gap-4">
+                                            <div>
+                                                <h4 className="text-xs font-semibold text-slate-700 mb-0.5">Picker Configuration</h4>
+                                                <p className="text-[10px] text-slate-400">
+                                                    Controls how nodes are displayed and searched in this field&apos;s picker.
+                                                    Leave empty to use default display.
+                                                </p>
+                                            </div>
+
+                                            {/* Display Fields */}
+                                            <div className="grid gap-1.5">
+                                                <Label className="text-xs font-medium">Display Fields</Label>
+                                                <p className="text-[10px] text-slate-400">Used as the main label shown in picker results.</p>
+                                                <div className="grid grid-cols-2 gap-y-1.5 gap-x-3 p-2 border rounded-md bg-slate-50">
+                                                    {getDisplayableFields(bindingForm.graphNodeType as NodeType).map(f => (
+                                                        <label key={f.fieldKey} className="flex items-center gap-2 cursor-pointer select-none">
+                                                            <Checkbox
+                                                                id={`display-${f.fieldKey}`}
+                                                                checked={bindingForm.displayFields.includes(f.fieldKey)}
+                                                                onCheckedChange={(checked) => {
+                                                                    setBindingForm(prev => ({
+                                                                        ...prev,
+                                                                        displayFields: checked
+                                                                            ? [...prev.displayFields, f.fieldKey]
+                                                                            : prev.displayFields.filter(k => k !== f.fieldKey)
+                                                                    }));
+                                                                }}
+                                                            />
+                                                            <span className="text-xs text-slate-700">{f.label}</span>
+                                                        </label>
+                                                    ))}
+                                                </div>
+                                            </div>
+
+                                            {/* Secondary (sub) Fields */}
+                                            <div className="grid gap-1.5">
+                                                <Label className="text-xs font-medium">Secondary Fields</Label>
+                                                <p className="text-[10px] text-slate-400">Shown beneath the main label in each picker row.</p>
+                                                <div className="grid grid-cols-2 gap-y-1.5 gap-x-3 p-2 border rounded-md bg-slate-50">
+                                                    {getDisplayableFields(bindingForm.graphNodeType as NodeType).map(f => (
+                                                        <label key={f.fieldKey} className="flex items-center gap-2 cursor-pointer select-none">
+                                                            <Checkbox
+                                                                id={`sub-${f.fieldKey}`}
+                                                                checked={bindingForm.subFields.includes(f.fieldKey)}
+                                                                onCheckedChange={(checked) => {
+                                                                    setBindingForm(prev => ({
+                                                                        ...prev,
+                                                                        subFields: checked
+                                                                            ? [...prev.subFields, f.fieldKey]
+                                                                            : prev.subFields.filter(k => k !== f.fieldKey)
+                                                                    }));
+                                                                }}
+                                                            />
+                                                            <span className="text-xs text-slate-700">{f.label}</span>
+                                                        </label>
+                                                    ))}
+                                                </div>
+                                            </div>
+
+                                            {/* Search Fields — only isSearchable fields shown */}
+                                            <div className="grid gap-1.5">
+                                                <Label className="text-xs font-medium">Search Fields</Label>
+                                                <p className="text-[10px] text-slate-400">Additional fields matched during search. Only searchable fields shown.</p>
+                                                <div className="grid grid-cols-2 gap-y-1.5 gap-x-3 p-2 border rounded-md bg-slate-50">
+                                                    {getSearchableFields(bindingForm.graphNodeType as NodeType).map(f => (
+                                                        <label key={f.fieldKey} className="flex items-center gap-2 cursor-pointer select-none">
+                                                            <Checkbox
+                                                                id={`search-${f.fieldKey}`}
+                                                                checked={bindingForm.searchFields.includes(f.fieldKey)}
+                                                                onCheckedChange={(checked) => {
+                                                                    setBindingForm(prev => ({
+                                                                        ...prev,
+                                                                        searchFields: checked
+                                                                            ? [...prev.searchFields, f.fieldKey]
+                                                                            : prev.searchFields.filter(k => k !== f.fieldKey)
+                                                                    }));
+                                                                }}
+                                                            />
+                                                            <span className="text-xs text-slate-700">{f.label}</span>
+                                                        </label>
+                                                    ))}
+                                                    {getSearchableFields(bindingForm.graphNodeType as NodeType).length === 0 && (
+                                                        <p className="text-[10px] text-slate-400 col-span-2">No searchable fields for this node type.</p>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {/* Picker Placeholder */}
+                                            <div className="grid gap-1.5">
+                                                <Label className="text-xs font-medium">Picker Placeholder <span className="text-slate-400">(optional)</span></Label>
+                                                <p className="text-[10px] text-slate-400">Custom placeholder shown in the picker search box.</p>
+                                                <Input
+                                                    value={bindingForm.pickerPlaceholder}
+                                                    onChange={(e) => setBindingForm({ ...bindingForm, pickerPlaceholder: e.target.value })}
+                                                    placeholder="e.g. Search beneficiaries..."
+                                                />
+                                            </div>
+                                        </div>
+
                                     </div>
                                     <DialogFooter>
                                         <Button onClick={handleSaveBinding} disabled={isBindingSaving}>
@@ -844,6 +970,11 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                                             )}
                                             {b.pickerLabel && (
                                                 <span className="text-xs text-slate-400 italic">&ldquo;{b.pickerLabel}&rdquo;</span>
+                                            )}
+                                            {b.pickerConfig && (
+                                                <Badge variant="secondary" className="text-[10px] py-0 bg-indigo-50 text-indigo-600 border border-indigo-100">
+                                                    configured
+                                                </Badge>
                                             )}
                                             <div className="flex gap-2">
                                                 {b.filterActiveOnly && <Badge variant="secondary" className="text-[10px] py-0">Active only</Badge>}
