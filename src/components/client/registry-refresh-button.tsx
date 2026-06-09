@@ -31,6 +31,13 @@ export function RegistryRefreshButton({ leId, referenceId, lastRefreshed, classN
 
             if (result.success) {
                 toast.success("Registry data updated successfully");
+                // Surface any candidate-level mapping failures as warnings.
+                // These do not block enrichment but indicate misconfigured SourceFieldMappings.
+                if (result.warnings?.length) {
+                    result.warnings.forEach((w: string) =>
+                        toast.warning(`Mapping warning: ${w}`, { duration: 8000 })
+                    );
+                }
                 // Re-render the server component tree so the Sources page immediately
                 // reflects the newly written RegistrySourcePayload rows.
                 // revalidatePath() alone only marks the cache stale for the next navigation;
@@ -38,6 +45,11 @@ export function RegistryRefreshButton({ leId, referenceId, lastRefreshed, classN
                 router.refresh();
             } else {
                 toast.error(`Error: ${result.error || "Unknown"}`);
+                if (result.warnings?.length) {
+                    result.warnings.forEach((w: string) =>
+                        toast.warning(`Mapping warning: ${w}`, { duration: 8000 })
+                    );
+                }
             }
         } catch (error: any) {
             console.error(error);

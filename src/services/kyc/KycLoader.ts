@@ -1,6 +1,6 @@
 import prisma from '@/lib/prisma';
 import { getFieldDefinition } from '@/domain/kyc/FieldDefinitions';
-import { FIELD_GROUPS } from '@/domain/kyc/FieldGroups';
+import { getMasterFieldGroup } from '@/services/masterData/definitionService';
 import { ProvenanceSource } from '@/domain/kyc/types/ProvenanceTypes';
 import { KycStateService } from '@/lib/kyc/KycStateService';
 
@@ -83,20 +83,29 @@ export class KycLoader {
 
     /**
      * Loads all fields for a given Field Group.
+     *
+     * Reads group membership from the database (MasterFieldGroup + MasterFieldGroupItem).
+     * getMasterFieldGroup() throws "Unknown or Inactive Field Group: X" if the key
+     * is not found or the group is inactive — same error contract as before.
+     *
+     * Field ordering follows MasterFieldGroupItem.order (ascending), which is the
+     * same ordering used by the questionnaire picker and propagation trigger.
      */
     async loadGroup(
         entityId: string,
         groupKey: string,
         entityType: 'LEGAL_ENTITY' | 'CLIENT_LE' = 'LEGAL_ENTITY'
     ): Promise<Record<string, LoadedField | null>> {
-        const group = FIELD_GROUPS[groupKey];
-        if (!group) throw new Error(`Field Group ${groupKey} not found`);
+        // DB-backed lookup — MasterFieldGroup is the sole source of truth for group membership.
+        // FieldGroups.ts (hardcoded) is no longer read here.
+        const group = await getMasterFieldGroup(groupKey);
+        const fieldNos = group.items.map(item => item.fieldNo);
 
         const results: Record<string, LoadedField | null> = {};
 
-        // Parallel fetch for all fields in group
+        // Parallel fetch for all fields in group.
         // Optimization: Group fields by Model to reduce DB calls (Future)
-        await Promise.all(group.fieldNos.map(async (fieldNo) => {
+        await Promise.all(fieldNos.map(async (fieldNo) => {
             const result = await this.loadField(entityId, fieldNo, entityType);
             results[fieldNo] = result;
         }));

@@ -56,6 +56,7 @@ export class LegalEntityEnrichmentService {
         }
 
         // 2. Persist Evidence from GLEIF and Apply Candidates
+        const candidateWarnings: string[] = [];
         try {
             const evidenceId = await evidenceService.normalizeEvidence(
                 gleifData,
@@ -66,7 +67,22 @@ export class LegalEntityEnrichmentService {
 
             const gleifCandidates = await mapGleifPayloadToFieldCandidates(gleifData, evidenceId);
             for (const candidate of gleifCandidates) {
-                await kycWriteService.applyFieldCandidate(legalEntityId, candidate, undefined, 'CLIENT_LE');
+                try {
+                    await kycWriteService.applyFieldCandidate(legalEntityId, candidate, undefined, 'CLIENT_LE');
+                } catch (e: any) {
+                    const valuePreview = candidate.value == null
+                        ? 'null'
+                        : JSON.stringify(candidate.value).slice(0, 80);
+                    const warning =
+                        `GLEIF candidate skipped — ` +
+                        `fieldNo=${candidate.fieldNo} ` +
+                        `source=${candidate.source} ` +
+                        (candidate.sourceKey ? `sourceKey=${candidate.sourceKey} ` : '') +
+                        `value=${valuePreview} ` +
+                        `error: ${e.message}`;
+                    console.error(`[LegalEntityEnrichmentService.bootstrapEntity] ${warning}`);
+                    candidateWarnings.push(warning);
+                }
             }
 
             // 3. Derive National Registry References and Enrich
@@ -132,10 +148,10 @@ export class LegalEntityEnrichmentService {
                 await this.refreshRegistryClaims(reference.id, { autoApply: true, initiatedBy: 'CREATE_CLIENT_LE' });
             }
 
-            return { success: true };
+            return { success: true, warnings: candidateWarnings.length > 0 ? candidateWarnings : undefined };
         } catch (error: any) {
             console.error(`[LegalEntityEnrichmentService.bootstrapEntity] Error:`, error);
-            return { success: false, error: error.message };
+            return { success: false, error: error.message, warnings: candidateWarnings.length > 0 ? candidateWarnings : undefined };
         }
     }
 
