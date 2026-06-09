@@ -24,6 +24,7 @@ import { SCALAR_UI_OPTIONS, REFERENCE_UI_OPTIONS, APP_DATA_TYPES } from "@/lib/m
 import { getComplexFieldConfig, getFieldTypeLabel, type GraphRelationshipCollectionConfig, type StructuredCollectionConfig } from "@/lib/master-data/complex-field-config";
 import { getNodeFields, getDisplayableFields, getSearchableFields, type NodeType } from "@/lib/graph/node-field-registry";
 import { type GraphPickerConfig } from "@/lib/graph/picker-config";
+import { bindingToBindingForm, bindingFormToPickerConfig, BLANK_BINDING_FORM } from "@/lib/graph/binding-form-helpers";
 import { Checkbox } from "@/components/ui/checkbox";
 
 
@@ -109,22 +110,26 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
 
     // ── Graph Binding state ────────────────────────────────────────────────
     const [isAddBindingOpen, setIsAddBindingOpen] = useState(false);
+    /** null = add mode; string = id of binding being edited */
+    const [editingBindingId, setEditingBindingId] = useState<string | null>(null);
     const [deletingBindingId, setDeletingBindingId] = useState<string | null>(null);
     const [isBindingSaving, setIsBindingSaving] = useState(false);
-    const [bindingForm, setBindingForm] = useState({
-        graphNodeType: "PERSON" as "PERSON" | "LEGAL_ENTITY" | "ADDRESS",
-        filterEdgeType: "",
-        filterActiveOnly: true,
-        writeBackEdgeType: "",
-        writeBackIsActive: true,
-        pickerLabel: "",
-        allowCreate: true,
-        // pickerConfig state — mirrors GraphPickerConfig shape
-        displayFields:      [] as string[],
-        subFields:          [] as string[],
-        searchFields:       [] as string[],
-        pickerPlaceholder:  "",
-    });
+    const [bindingForm, setBindingForm] = useState(BLANK_BINDING_FORM);
+
+    const openEditBinding = (b: any) => {
+        setBindingForm(bindingToBindingForm(b));
+        setEditingBindingId(b.id);
+        setIsAddBindingOpen(true);
+    };
+
+    const closeBindingDialog = (open: boolean) => {
+        setIsAddBindingOpen(open);
+        if (!open) {
+            // Reset form and mode when dialog closes (cancel or backdrop click)
+            setEditingBindingId(null);
+            setBindingForm(BLANK_BINDING_FORM);
+        }
+    };
 
     // Sources that support the live Browse inspector.
     const liveSourceTypes = SOURCE_OPTIONS
@@ -183,17 +188,9 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
     const handleSaveBinding = async () => {
         setIsBindingSaving(true);
         try {
-            // Build pickerConfig from UI state.
-            // sanitizePickerConfig() runs server-side inside upsertGraphBinding —
-            // we just need to pass a well-formed object. Empty arrays are omitted
-            // so the server stores null for fully-empty configs.
-            const pickerConfigPayload: GraphPickerConfig = {};
-            if (bindingForm.displayFields.length > 0)     pickerConfigPayload.displayFields     = bindingForm.displayFields;
-            if (bindingForm.subFields.length > 0)          pickerConfigPayload.subFields          = bindingForm.subFields;
-            if (bindingForm.searchFields.length > 0)       pickerConfigPayload.searchFields       = bindingForm.searchFields;
-            if (bindingForm.pickerPlaceholder.trim())      pickerConfigPayload.pickerPlaceholder  = bindingForm.pickerPlaceholder.trim();
-
             const res = await upsertGraphBinding({
+                // Pass id when editing — server action branches to update vs. create
+                ...(editingBindingId ? { id: editingBindingId } : {}),
                 fieldNo: field.fieldNo,
                 graphNodeType: bindingForm.graphNodeType,
                 filterEdgeType: bindingForm.filterEdgeType.trim() || null,
@@ -202,21 +199,17 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                 writeBackIsActive: bindingForm.writeBackIsActive,
                 pickerLabel: bindingForm.pickerLabel.trim() || null,
                 allowCreate: bindingForm.allowCreate,
-                pickerConfig: Object.keys(pickerConfigPayload).length > 0 ? pickerConfigPayload : null,
+                // bindingFormToPickerConfig prunes empty arrays; server re-sanitizes
+                pickerConfig: bindingFormToPickerConfig(bindingForm),
             });
             if (res.success) {
-                toast.success("Graph binding saved");
+                toast.success(editingBindingId ? "Binding updated" : "Graph binding saved");
                 setIsAddBindingOpen(false);
-                setBindingForm({
-                    graphNodeType: "PERSON",
-                    filterEdgeType: "", filterActiveOnly: true,
-                    writeBackEdgeType: "", writeBackIsActive: true,
-                    pickerLabel: "", allowCreate: true,
-                    displayFields: [], subFields: [], searchFields: [], pickerPlaceholder: "",
-                });
+                setEditingBindingId(null);
+                setBindingForm(BLANK_BINDING_FORM);
                 router.refresh();
             } else {
-                toast.error(res.error || "Failed to add binding");
+                toast.error(res.error || (editingBindingId ? "Failed to update binding" : "Failed to add binding"));
             }
         } catch (e) {
             toast.error("An error occurred");
@@ -768,7 +761,7 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                                     Declares that this field&apos;s answer is drawn from — and optionally written back to — the LE Graph.
                                 </p>
                             </div>
-                            <Dialog open={isAddBindingOpen} onOpenChange={setIsAddBindingOpen}>
+                            <Dialog open={isAddBindingOpen} onOpenChange={closeBindingDialog}>
                                 <DialogTrigger asChild>
                                     <Button variant="outline" size="sm" className="h-7 text-xs shrink-0">
                                         <Plus className="h-3 w-3 mr-1" /> Add Binding
@@ -776,9 +769,13 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                                 </DialogTrigger>
                                 <DialogContent className="sm:max-w-[500px] max-h-[90vh] flex flex-col">
                                     <DialogHeader className="shrink-0">
-                                        <DialogTitle>Add Graph Node Binding</DialogTitle>
+                                        <DialogTitle>
+                                            {editingBindingId ? "Edit Graph Node Binding" : "Add Graph Node Binding"}
+                                        </DialogTitle>
                                         <DialogDescription>
-                                            Connect this field to the LE Graph so answers are drawn from graph nodes and optionally write back edges.
+                                            {editingBindingId
+                                                ? "Update the configuration for this graph node binding."
+                                                : "Connect this field to the LE Graph so answers are drawn from graph nodes and optionally write back edges."}
                                         </DialogDescription>
                                     </DialogHeader>
                                     <div className="grid gap-4 py-4 overflow-y-auto flex-1 pr-1">
@@ -945,9 +942,12 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
 
                                     </div>
                                     <DialogFooter className="shrink-0 pt-2">
+                                        <Button variant="outline" onClick={() => closeBindingDialog(false)} disabled={isBindingSaving}>
+                                            Cancel
+                                        </Button>
                                         <Button onClick={handleSaveBinding} disabled={isBindingSaving}>
                                             {isBindingSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                            Save Binding
+                                            {editingBindingId ? "Save Changes" : "Add Binding"}
                                         </Button>
                                     </DialogFooter>
                                 </DialogContent>
@@ -981,18 +981,29 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                                                 {b.allowCreate && <Badge variant="secondary" className="text-[10px] py-0">Allow create</Badge>}
                                             </div>
                                         </div>
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-6 w-6 text-slate-300 hover:text-red-500 hover:bg-red-50 shrink-0 ml-3"
-                                            disabled={deletingBindingId === b.id}
-                                            onClick={() => handleDeleteBinding(b.id)}
-                                            title="Remove binding"
-                                        >
-                                            {deletingBindingId === b.id
-                                                ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                                : <Trash2 className="h-3.5 w-3.5" />}
-                                        </Button>
+                                        <div className="flex items-center gap-1 shrink-0 ml-3">
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-6 w-6 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50"
+                                                onClick={() => openEditBinding(b)}
+                                                title="Edit binding"
+                                            >
+                                                <Edit className="h-3.5 w-3.5" />
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-6 w-6 text-slate-300 hover:text-red-500 hover:bg-red-50"
+                                                disabled={deletingBindingId === b.id}
+                                                onClick={() => handleDeleteBinding(b.id)}
+                                                title="Remove binding"
+                                            >
+                                                {deletingBindingId === b.id
+                                                    ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                                    : <Trash2 className="h-3.5 w-3.5" />}
+                                            </Button>
+                                        </div>
                                     </div>
                                 ))}
                             </div>
