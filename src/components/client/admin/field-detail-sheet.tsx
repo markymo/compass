@@ -780,7 +780,7 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                                                     placeholder="e.g. DIRECTOR"
                                                     className="font-mono text-sm"
                                                 />
-                                                <p className="text-[10px] text-slate-400">Promotes matching nodes to top of picker list.</p>
+                                                <p className="text-[10px] text-slate-400">Legacy edge hint — not currently used by picker ordering.</p>
                                             </div>
                                             <div className="grid gap-2">
                                                 <Label className="text-xs">Write-back Edge Type <span className="text-slate-400">(optional)</span></Label>

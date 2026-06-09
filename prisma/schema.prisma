@@ -759,6 +759,12 @@ model MasterFieldGraphBinding {
   writeBackIsActive Boolean               @default(true)
   /// UI hint: overrides the generic picker label shown to the user
   pickerLabel       String?
+  /// Optional picker display/search configuration, validated against NODE_FIELD_REGISTRY.
+  /// Null means legacy/default picker behaviour — displayLabel and subLabel are hardcoded.
+  /// Not yet consumed by the picker UI (Phase 3+).
+  /// Shape: { displayFields?, subFields?, searchFields?, pickerPlaceholder? }
+  /// All fieldKey values must be valid for the binding's graphNodeType.
+  pickerConfig      Json?
   /// Whether the user can create a new graph node inline from the picker
   allowCreate       Boolean               @default(true)
   isActive          Boolean               @default(true)

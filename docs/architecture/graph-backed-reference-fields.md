@@ -120,7 +120,7 @@ This is created by an admin after the field definition is saved.
 |---|---|---|
 | `fieldNo` | Int | The `MasterFieldDefinition.fieldNo` this binding applies to |
 | `graphNodeType` | String | Type of graph node the picker shows: `PERSON`, `LEGAL_ENTITY`, or `ADDRESS` |
-| `filterEdgeType` | String? | Legacy/presentation hint only. **Not used for picker sorting or filtering in the current implementation.** Retained for future candidate-scope configuration |
+| `filterEdgeType` | String? | Legacy edge hint. **Not used for picker sorting or filtering in the current implementation.** Retained for future candidate-scope configuration. Do not rely on this for ordering. |
 | `filterActiveOnly` | Boolean | Legacy setting linked to `filterEdgeType`; not central to current picker behaviour |
 | `writeBackEdgeType` | String? | The `edgeType` value written to `ClientLEGraphEdge` when a node is selected |
 | `writeBackIsActive` | Boolean | Whether the written edge has `isActive = true` (default: `true`) |
@@ -274,22 +274,60 @@ When custom fields are needed, the plan is:
 2. Add a `NodeFieldValue` table for typed, queryable global or LE-scoped values.
 3. Custom field definitions will be stored in the DB and merged with `NODE_FIELD_REGISTRY` at runtime.
 
-### pickerConfig
+### pickerConfig (Phase 2 — stored, not yet consumed)
 
-`pickerConfig` (not yet implemented on `MasterFieldGraphBinding`) will reference node fields
-by `fieldKey` string — the same keys used in this registry:
+`pickerConfig` was added in June 2026 as a nullable JSON column on `MasterFieldGraphBinding`.
+It allows per-field picker display/search configuration to be stored and validated
+without changing the current picker behaviour.
 
-```jsonc
-// Future MasterFieldGraphBinding.pickerConfig shape (not yet implemented)
-{
-  "displayFields": ["firstName", "lastName"],
-  "subFields": ["dateOfBirth", "primaryNationality"],
-  "searchFields": ["firstName", "lastName", "primaryNationality"]
-}
+#### Column
+
+```prisma
+pickerConfig Json?  // on MasterFieldGraphBinding
 ```
 
-The server action will validate `fieldKey` values against the registry at save time.
-Unknown keys are silently ignored at runtime.
+#### Shape
+
+```ts
+type GraphPickerConfig = {
+  displayFields?:     string[];  // fieldKeys for primary display label
+  subFields?:         string[];  // fieldKeys for sub-label
+  searchFields?:      string[];  // fieldKeys included in search
+  pickerPlaceholder?: string;    // override for picker button text
+};
+```
+
+#### Validation rules (enforced server-side by `sanitizePickerConfig`)
+
+- Non-object input → stored as `null`
+- `displayFields` and `subFields` — only `isDisplayable` fieldKeys for the binding's `graphNodeType`
+- `searchFields` — only `isSearchable` fieldKeys for the binding's `graphNodeType`
+- Unknown fieldKeys → silently removed (sanitize-not-reject)
+- Empty arrays → omitted from the stored object
+- Empty string placeholder → omitted
+- Resulting empty config → stored as `null`
+
+**Null means legacy/default picker behaviour** — `displayLabel` and `subLabel` remain
+hardcoded by node type. `null` and an absent config are identical at runtime.
+
+#### Not yet consumed
+
+`getGraphNodesForPicker` does not read `pickerConfig` yet.
+Phase 3 will implement the display-template logic that uses `displayFields` / `subFields`
+from `rawFields` as the source, replacing the hardcoded label builders.
+
+#### Validation helper
+
+```
+src/lib/graph/picker-config.ts
+```
+
+Exports:
+- `GraphPickerConfig` interface
+- `sanitizePickerConfig(nodeType, input)` → validated config or null
+- `isEmptyPickerConfig(config)` → boolean
+
+The `upsertGraphBinding` server action calls `sanitizePickerConfig` before every DB write.
 
 ### GraphNodePickerItem.rawFields
 

@@ -2,6 +2,8 @@
 
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { sanitizePickerConfig, type GraphPickerConfig } from "@/lib/graph/picker-config";
+import type { NodeType } from "@/lib/graph/node-field-registry";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -14,6 +16,13 @@ export interface GraphBindingInput {
     writeBackEdgeType?: string | null;
     writeBackIsActive?: boolean;
     pickerLabel?: string | null;
+    /**
+     * Optional picker display/search config.
+     * Server-side validated against NODE_FIELD_REGISTRY before persistence.
+     * Unknown field keys are silently removed; empty config stored as null.
+     * Not yet consumed by picker UI (Phase 3+).
+     */
+    pickerConfig?: GraphPickerConfig | Record<string, unknown> | null;
     allowCreate?: boolean;
     isActive?: boolean;
 }
@@ -45,6 +54,13 @@ export async function upsertGraphBinding(input: GraphBindingInput) {
     }
 
     try {
+        // Sanitize pickerConfig server-side against NODE_FIELD_REGISTRY.
+        // Unknown fieldKeys are silently removed; empty config stored as null.
+        const sanitizedPickerConfig = sanitizePickerConfig(
+            input.graphNodeType as NodeType,
+            input.pickerConfig ?? null
+        );
+
         const data = {
             fieldNo: input.fieldNo,
             graphNodeType: input.graphNodeType,
@@ -53,6 +69,7 @@ export async function upsertGraphBinding(input: GraphBindingInput) {
             writeBackEdgeType: input.writeBackEdgeType ?? null,
             writeBackIsActive: input.writeBackIsActive ?? true,
             pickerLabel: input.pickerLabel ?? null,
+            pickerConfig: sanitizedPickerConfig,  // null if empty/invalid
             allowCreate: input.allowCreate ?? true,
             isActive: input.isActive ?? true,
         };
