@@ -31,7 +31,8 @@ vi.mock('@/lib/prisma');
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
 
 import prismaMock from '@/lib/__mocks__/prisma';
-import { getGraphNodesForPicker, formatRawFieldValue } from '@/actions/graph-node-picker';
+import { getGraphNodesForPicker } from '@/actions/graph-node-picker';
+import { formatRawFieldValue } from '@/lib/graph/field-value-formatting';
 import { getNodeFields } from '@/lib/graph/node-field-registry';
 
 // ── Mock node factories ──────────────────────────────────────────────────────

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
-import { getGraphNodesForPicker, GraphNodePickerItem } from "@/actions/graph-node-picker";
+import { getGraphNodesForPicker } from "@/actions/graph-node-picker";
+import type { GraphNodePickerItem } from "@/lib/graph/graph-node-picker-types";
 import { itemMatchesSearch } from "@/lib/graph/field-value-formatting";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

@@ -4,37 +4,12 @@ import prisma from "@/lib/prisma";
 import { getNodeFields, getNodeField, type NodeType } from "@/lib/graph/node-field-registry";
 import { sanitizePickerConfig, type GraphPickerConfig } from "@/lib/graph/picker-config";
 import { formatRawFieldValue } from "@/lib/graph/field-value-formatting";
+import type { GraphNodePickerItem } from "@/lib/graph/graph-node-picker-types";
 
-// Re-export for tests and consumers that imported from here before the shared file existed.
-export { formatRawFieldValue } from "@/lib/graph/field-value-formatting";
+// Re-export the type so existing imports from this module continue to work.
+export type { GraphNodePickerItem } from "@/lib/graph/graph-node-picker-types";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
-
-export interface GraphNodePickerItem {
-    nodeId: string;
-    nodeType: "PERSON" | "LEGAL_ENTITY" | "ADDRESS";
-    personId: string | null;
-    legalEntityId: string | null;
-    addressId: string | null;
-    displayLabel: string;
-    subLabel: string | null;
-    source: string;
-    /** edgeTypes this node has in the LE graph (for role badges) */
-    activeEdgeTypes: string[];
-    /** Whether this node has an active edge matching filterEdgeType */
-    isPromoted: boolean;
-    /**
-     * Structured field values keyed by fieldKey from NODE_FIELD_REGISTRY.
-     *
-     * Phase 1 infrastructure — populated from registry storagePaths.
-     * Phase 3: consumed by buildConfiguredDisplay() when pickerConfig is present.
-     *
-     * Example:
-     *   { firstName: "Alan", lastName: "Bennett", primaryNationality: "British",
-     *     dateOfBirth: Date("1952-04-30"), placeOfBirth: null, ... }
-     */
-    rawFields: Record<string, unknown>;
-}
 
 interface GetGraphNodesForPickerInput {
     clientLEId: string;
