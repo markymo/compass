@@ -101,10 +101,18 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
     const [editingPriorityId, setEditingPriorityId] = useState<string | null>(null);
     const [priorityValue, setPriorityValue] = useState<number>(0);
     const [isPrioritySaving, setIsPrioritySaving] = useState(false);
-    const [mappingForm, setMappingForm] = useState({
+    const [mappingForm, setMappingForm] = useState<{
+        sourceType: string;
+        sourcePath: string;
+        transformType: string;
+        mappingScope: string;
+        payloadSubtype: string;
+    }>({
         sourceType: "GLEIF",
         sourcePath: "",
-        transformType: "DIRECT"
+        transformType: "DIRECT",
+        mappingScope: "BASELINE",
+        payloadSubtype: "NONE",
     });
     const [isMappingSaving, setIsMappingSaving] = useState(false);
 
@@ -168,12 +176,20 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                 targetFieldNo: field.fieldNo,
                 transformType: mappingForm.transformType as any,
                 confidenceDefault: 1.0,
-                priority: 100
+                priority: 100,
+                // Scope is resolved here so the action-layer default is a fallback,
+                // not the primary decision point. For RA sources we default to
+                // RAW_PAYLOAD/COMPANY_PROFILE; for GLEIF we leave scope as BASELINE
+                // (GleifNormalizer ignores it anyway).
+                mappingScope: mappingForm.mappingScope as any,
+                payloadSubtype: (mappingForm.payloadSubtype === 'NONE' || !mappingForm.payloadSubtype)
+                    ? null
+                    : mappingForm.payloadSubtype as any,
             });
             if (res.success) {
                 toast.success("Mapping added successfully");
                 setIsAddMappingOpen(false);
-                setMappingForm({ sourceType: "GLEIF", sourcePath: "", transformType: "DIRECT" });
+                setMappingForm({ sourceType: "GLEIF", sourcePath: "", transformType: "DIRECT", mappingScope: "BASELINE", payloadSubtype: "NONE" });
                 router.refresh();
             } else {
                 toast.error(res.error || "Failed to add mapping");
@@ -573,7 +589,16 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                                     <div className="grid gap-4 py-4">
                                         <div className="grid gap-2">
                                             <Label htmlFor="sourceType">Source Type</Label>
-                                            <Select value={mappingForm.sourceType} onValueChange={(val) => setMappingForm({ ...mappingForm, sourceType: val })}>
+                                            <Select value={mappingForm.sourceType} onValueChange={(val) => {
+                                                const opt = SOURCE_OPTIONS.find(o => o.value === val);
+                                                const isGleif = opt?.sourceType === 'GLEIF';
+                                                setMappingForm({
+                                                    ...mappingForm,
+                                                    sourceType: val,
+                                                    mappingScope: isGleif ? 'BASELINE' : 'RAW_PAYLOAD',
+                                                    payloadSubtype: isGleif ? 'NONE' : 'COMPANY_PROFILE',
+                                                });
+                                            }}>
                                                 <SelectTrigger>
                                                     <SelectValue placeholder="Select type" />
                                                 </SelectTrigger>
@@ -624,6 +649,32 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                                                     <SelectItem value="MAP">Map Dictionary</SelectItem>
                                                 </SelectContent>
                                             </Select>
+                                        </div>
+                                        {/* Payload Subtype — RA only. Controls which RegistrySourcePayload subtype the path resolves against. */}
+                                        {SOURCE_OPTIONS.find(o => o.value === mappingForm.sourceType)?.sourceType === 'REGISTRATION_AUTHORITY' && (
+                                            <div className="grid gap-2">
+                                                <Label htmlFor="payloadSubtype">Payload Subtype</Label>
+                                                <Select value={mappingForm.payloadSubtype} onValueChange={(val) => setMappingForm({ ...mappingForm, payloadSubtype: val })}>
+                                                    <SelectTrigger>
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="COMPANY_PROFILE">Company Profile (name, address, status, SIC)</SelectItem>
+                                                        <SelectItem value="OFFICERS">Officers / Directors</SelectItem>
+                                                        <SelectItem value="PSC">Persons with Significant Control</SelectItem>
+                                                        <SelectItem value="FILING_HISTORY">Filing History</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                                <p className="text-[10px] text-slate-400">Which part of the raw registry payload this path reads from.</p>
+                                            </div>
+                                        )}
+                                        {/* Scope confirmation strip */}
+                                        <div className="flex items-center gap-1.5 font-mono text-[10px] text-slate-400 bg-slate-50 border border-slate-100 rounded px-2.5 py-1.5">
+                                            <span className="text-slate-300">scope:</span>
+                                            <span className="text-slate-600">{mappingForm.mappingScope}</span>
+                                            {mappingForm.payloadSubtype && mappingForm.payloadSubtype !== 'NONE' && (
+                                                <><span className="text-slate-200 mx-0.5">·</span><span className="text-slate-300">subtype:</span><span className="text-slate-600">{mappingForm.payloadSubtype}</span></>
+                                            )}
                                         </div>
                                     </div>
                                     <DialogFooter>
@@ -701,6 +752,7 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
       const res = await upsertSourceMapping({
         id: mapping.id,
         sourceType: mapping.sourceType,
+        sourceReference: mapping.sourceReference ?? undefined,
         sourcePath: mapping.sourcePath,
         targetFieldNo: field.fieldNo,
         priority: priorityValue,

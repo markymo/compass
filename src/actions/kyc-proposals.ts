@@ -85,6 +85,40 @@ export async function refreshGleifProposals(legalEntityId: string): Promise<{ su
         const registryRefs = deriveRegistryReferencesFromGleif(legalEntityId, lei, attributes);
 
         for (const refData of registryRefs) {
+            // Ensure the RegistryAuthority row exists before touching the FK-constrained
+            // RegistryReference row. bootstrapEntity does this; refreshGleifProposals must
+            // mirror it, otherwise the upsert below fires a FK constraint error for any
+            // authority that was never seeded (e.g. first-ever GLEIF refresh after import).
+            const existingAuth = await prisma.registryAuthority.findUnique({
+                where: { id: refData.registryAuthorityId! }
+            });
+            if (!existingAuth) {
+                let authorityName = refData.registryAuthorityId!;
+                let countryCode = 'UNKNOWN';
+                try {
+                    const raRes = await fetch(`https://api.gleif.org/api/v1/registration-authorities/${refData.registryAuthorityId!}`);
+                    if (raRes.ok) {
+                        const raJson = await raRes.json();
+                        authorityName = raJson.data?.attributes?.internationalOrganizationName
+                            || raJson.data?.attributes?.internationalName
+                            || authorityName;
+                        countryCode = raJson.data?.attributes?.jurisdiction || countryCode;
+                    }
+                } catch (e) {
+                    console.warn(`[refreshGleifProposals] Failed to resolve authority name for ${refData.registryAuthorityId!}`);
+                }
+                await prisma.registryAuthority.upsert({
+                    where: { id: refData.registryAuthorityId! },
+                    update: {},
+                    create: {
+                        id: refData.registryAuthorityId!,
+                        registryKey: refData.registryAuthorityId!,
+                        name: authorityName,
+                        countryCode,
+                    }
+                });
+            }
+
             // Upsert the reference to prevent duplicates and track state
             const reference = await prisma.registryReference.upsert({
                 where: {

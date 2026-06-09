@@ -199,17 +199,19 @@ export async function upsertSourceMapping(input: UpsertMappingInput) {
             }
         }
 
-        // ── Scope defaults for COMPANIES_HOUSE mappings ──
-        // If the caller omits mappingScope, default to RAW_PAYLOAD for COMPANIES_HOUSE.
-        // If the caller omits payloadSubtype, default to COMPANY_PROFILE — but never override
-        // an explicit PSC or OFFICERS subtype the caller has provided.
-        const isCH = input.sourceType === 'REGISTRATION_AUTHORITY'
-            && input.sourceReference === 'COMPANIES_HOUSE';
+        // ── Scope defaults for REGISTRATION_AUTHORITY mappings ──
+        // If the caller omits mappingScope, default to RAW_PAYLOAD for ALL RA sources.
+        // Previously this only applied to COMPANIES_HOUSE — any other RA (RA000192, RA000242,
+        // future jurisdictions) would fall through to the Prisma schema default of BASELINE,
+        // which is incorrect: BASELINE only covers a thin extract (registeredAddress, legalName,
+        // entityStatus) and never resolves officers, SIC codes, or profile fields.
+        // GLEIF is not affected — GleifNormalizer ignores mappingScope entirely.
+        const isRA = input.sourceType === 'REGISTRATION_AUTHORITY';
         const effectiveMappingScope = input.mappingScope
-            ?? (isCH ? 'RAW_PAYLOAD' : undefined);
+            ?? (isRA ? 'RAW_PAYLOAD' : undefined);
         const effectivePayloadSubtype = input.payloadSubtype !== undefined
             ? input.payloadSubtype
-            : (isCH ? 'COMPANY_PROFILE' : undefined);
+            : (isRA ? 'COMPANY_PROFILE' : undefined);
 
         // ── Upsert ──
         const data = {
