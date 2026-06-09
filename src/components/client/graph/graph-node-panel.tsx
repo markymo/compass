@@ -8,6 +8,74 @@ import { useState, useEffect } from "react";
 import { getAuditHistory } from "@/actions/audit-actions";
 import { NodeCreateDialog } from "./node-create-dialog";
 
+// ── Structured detail rows ─────────────────────────────────────────────────────
+
+function Row({ label, value }: { label: string; value: string | null | undefined }) {
+    if (!value) return null;
+    return (
+        <div className="flex gap-2 text-sm py-1 border-b border-slate-50 last:border-0">
+            <span className="text-slate-400 w-36 shrink-0 text-xs font-medium leading-5">{label}</span>
+            <span className="text-slate-800 break-all">{value}</span>
+        </div>
+    );
+}
+
+function NodeDetailRows({ node }: { node: any }) {
+    const p = node.person;
+    const le = node.legalEntity;
+    const a = node.address;
+
+    if (node.nodeType === "PERSON" && p) {
+        const dob = p.dateOfBirth ? new Date(p.dateOfBirth).toISOString().slice(0, 10) : null;
+        return (
+            <div className="bg-slate-50 rounded-lg border border-slate-100 px-4 py-3 divide-y divide-slate-100">
+                <Row label="Title"                value={p.title} />
+                <Row label="First Name"           value={p.firstName} />
+                <Row label="Middle Name"          value={p.middleName} />
+                <Row label="Last Name"            value={p.lastName} />
+                <Row label="Date of Birth"        value={dob} />
+                <Row label="Place of Birth"       value={p.placeOfBirth} />
+                <Row label="Nationality"          value={p.primaryNationality} />
+                <Row label="Officer Role"         value={p.officerRole} />
+                <Row label="Occupation"           value={p.occupation} />
+                <Row label="Country of Residence" value={p.countryOfResidence} />
+                {p.isPublicFigure && (
+                    <Row label="PEP / Public Figure" value="Yes" />
+                )}
+            </div>
+        );
+    }
+
+    if (node.nodeType === "LEGAL_ENTITY" && le) {
+        return (
+            <div className="bg-slate-50 rounded-lg border border-slate-100 px-4 py-3 divide-y divide-slate-100">
+                <Row label="Name"                     value={le.name} />
+                <Row label="Registration Number"      value={le.localRegistrationNumber} />
+                <Row label="Jurisdiction"             value={le.jurisdiction} />
+                <Row label="Legal Form"               value={le.legalForm} />
+                <Row label="Entity Status"            value={le.entityStatus} />
+                <Row label="Country of Incorporation" value={le.countryOfIncorporation} />
+            </div>
+        );
+    }
+
+    if (node.nodeType === "ADDRESS" && a) {
+        return (
+            <div className="bg-slate-50 rounded-lg border border-slate-100 px-4 py-3 divide-y divide-slate-100">
+                <Row label="Line 1"      value={a.line1} />
+                <Row label="Line 2"      value={a.line2} />
+                <Row label="City"        value={a.city} />
+                <Row label="Region"      value={a.region} />
+                <Row label="Postal Code" value={a.postalCode} />
+                <Row label="Country"     value={a.country} />
+            </div>
+        );
+    }
+
+    return <p className="text-sm text-slate-400 italic">No data available.</p>;
+}
+
+
 interface GraphNodePanelProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
@@ -84,12 +152,7 @@ export function GraphNodePanel({ open, onOpenChange, node, clientLEId, graphEdge
                             </TabsList>
                             
                             <TabsContent value="details" className="mt-4 space-y-4">
-                                <div className="text-sm text-slate-600 bg-slate-50 rounded-lg p-4 border border-slate-100">
-                                    <p className="mb-2 text-xs font-semibold text-slate-400 uppercase">Current Data</p>
-                                    <pre className="text-[10px] whitespace-pre-wrap overflow-x-auto">
-                                        {JSON.stringify(node.person || node.legalEntity || node.address, null, 2)}
-                                    </pre>
-                                </div>
+                                <NodeDetailRows node={node} />
                             </TabsContent>
 
                             <TabsContent value="connections" className="mt-4 space-y-4">
