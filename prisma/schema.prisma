@@ -546,6 +546,10 @@ model LegalEntity {
   updatedAt               DateTime            @updatedAt
   localRegistrationNumber String?
   name                    String?
+  jurisdiction            String?             // GLEIF entity.jurisdiction / CH country
+  legalForm               String?             // GLEIF legalForm.id / CH legal_form text
+  entityStatus            String?             // GLEIF entity.status: "ACTIVE" | "INACTIVE" etc
+  countryOfIncorporation  String?             // GLEIF country of incorporation (ISO alpha-2)
   clientLEs               ClientLE[]
   graphNodes              ClientLEGraphNode[]
   documents               DocumentRegistry[]
@@ -628,12 +632,18 @@ model Address {
 
 model Person {
   id                 String              @id @default(uuid())
+  title              String?             // e.g. "Mr", "Dr" — CH + user input
   firstName          String?
-  lastName           String?
   middleName         String?
+  lastName           String?
   dateOfBirth        DateTime?
   placeOfBirth       String?
   primaryNationality String?
+  /// Officer role from source system (CH: "director", "secretary", "llp-member" etc).
+  /// Stored as raw free-text string — no enum. May later migrate to edge attribute.
+  officerRole        String?
+  occupation         String?             // Free-text occupation (CH: "Company Director")
+  countryOfResidence String?             // ISO 3166-1 alpha-2 or country name
   isPublicFigure     Boolean             @default(false)
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt

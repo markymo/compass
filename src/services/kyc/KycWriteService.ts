@@ -345,7 +345,9 @@ export class KycWriteService {
                     if (!le) {
                         le = await prisma.legalEntity.create({ data: {
                             reference: `AUTO-${Date.now()}`,
-                            ...query
+                            ...query,
+                            // MVP node field — preserve legalForm from CH corporate officer identification
+                            legalForm: value.legalForm || null,
                         }});
                     }
                     if (value.address) {
@@ -365,7 +367,12 @@ export class KycWriteService {
                         person = await prisma.person.create({ data: {
                             ...query,
                             primaryNationality: value.primaryNationality || null,
-                            dateOfBirth: value.dateOfBirth ? new Date(value.dateOfBirth) : null
+                            dateOfBirth:        value.dateOfBirth ? new Date(value.dateOfBirth) : null,
+                            // MVP node fields — preserve raw source data
+                            title:              value.title              || null,
+                            officerRole:        value.officerRole        || null,
+                            occupation:         value.occupation         || null,
+                            countryOfResidence: value.countryOfResidence || null,
                         }});
                     }
                     if (value.address) {

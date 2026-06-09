@@ -51,6 +51,10 @@ function makePersonNode(overrides: {
     dateOfBirth?: Date | null;
     placeOfBirth?: string | null;
     isPublicFigure?: boolean;
+    title?: string | null;
+    officerRole?: string | null;
+    occupation?: string | null;
+    countryOfResidence?: string | null;
 }) {
     return {
         id: overrides.id,
@@ -63,13 +67,17 @@ function makePersonNode(overrides: {
         createdAt: new Date(),
         person: {
             id: `person-${overrides.id}`,
-            firstName: overrides.firstName,
-            middleName: overrides.middleName ?? null,
-            lastName: overrides.lastName,
-            dateOfBirth: overrides.dateOfBirth ?? null,
-            placeOfBirth: overrides.placeOfBirth ?? null,
-            primaryNationality: overrides.nationality ?? null,
-            isPublicFigure: overrides.isPublicFigure ?? false,
+            title:              overrides.title             ?? null,
+            firstName:          overrides.firstName,
+            middleName:         overrides.middleName        ?? null,
+            lastName:           overrides.lastName,
+            dateOfBirth:        overrides.dateOfBirth       ?? null,
+            placeOfBirth:       overrides.placeOfBirth      ?? null,
+            primaryNationality: overrides.nationality       ?? null,
+            countryOfResidence: overrides.countryOfResidence ?? null,
+            officerRole:        overrides.officerRole       ?? null,
+            occupation:         overrides.occupation        ?? null,
+            isPublicFigure:     overrides.isPublicFigure    ?? false,
         },
         legalEntity: null,
         address: null,
@@ -81,6 +89,10 @@ function makeLeNode(overrides: {
     clientLEId: string;
     name: string;
     localRegistrationNumber?: string | null;
+    jurisdiction?: string | null;
+    legalForm?: string | null;
+    entityStatus?: string | null;
+    countryOfIncorporation?: string | null;
 }) {
     return {
         id: overrides.id,
@@ -94,8 +106,12 @@ function makeLeNode(overrides: {
         person: null,
         legalEntity: {
             id: `le-${overrides.id}`,
-            name: overrides.name,
+            name:                    overrides.name,
             localRegistrationNumber: overrides.localRegistrationNumber ?? null,
+            jurisdiction:            overrides.jurisdiction            ?? null,
+            legalForm:               overrides.legalForm               ?? null,
+            entityStatus:            overrides.entityStatus            ?? null,
+            countryOfIncorporation:  overrides.countryOfIncorporation  ?? null,
         },
         address: null,
     };
@@ -305,6 +321,10 @@ describe('getGraphNodesForPicker — rawFields (Phase 1)', () => {
             dateOfBirth: dob,
             placeOfBirth: 'Armley',
             isPublicFigure: false,
+            title: 'Mr',
+            officerRole: 'director',
+            occupation: 'Company Director',
+            countryOfResidence: 'GB',
         });
         (prismaMock as any).clientLEGraphNode = { findMany: vi.fn().mockResolvedValue([node]) };
 
@@ -314,6 +334,7 @@ describe('getGraphNodesForPicker — rawFields (Phase 1)', () => {
         if (!result.success) return;
         const { rawFields } = result.items[0];
 
+        // Original fields
         expect(rawFields.firstName).toBe('Alan');
         expect(rawFields.lastName).toBe('Bennett');
         expect(rawFields.middleName).toBeNull();
@@ -321,6 +342,11 @@ describe('getGraphNodesForPicker — rawFields (Phase 1)', () => {
         expect(rawFields.dateOfBirth).toBe(dob);
         expect(rawFields.placeOfBirth).toBe('Armley');
         expect(rawFields.isPublicFigure).toBe(false);
+        // New MVP fields
+        expect(rawFields.title).toBe('Mr');
+        expect(rawFields.officerRole).toBe('director');
+        expect(rawFields.occupation).toBe('Company Director');
+        expect(rawFields.countryOfResidence).toBe('GB');
     });
 
     // RF-2: LEGAL_ENTITY node produces rawFields with LE field values
@@ -330,6 +356,10 @@ describe('getGraphNodesForPicker — rawFields (Phase 1)', () => {
             clientLEId,
             name: 'Lynn Wind Farm Ltd',
             localRegistrationNumber: '12345678',
+            jurisdiction: 'GB',
+            legalForm: 'Private Limited Company',
+            entityStatus: 'ACTIVE',
+            countryOfIncorporation: 'GB',
         });
         (prismaMock as any).clientLEGraphNode = { findMany: vi.fn().mockResolvedValue([node]) };
 
@@ -339,8 +369,14 @@ describe('getGraphNodesForPicker — rawFields (Phase 1)', () => {
         if (!result.success) return;
         const { rawFields } = result.items[0];
 
+        // Original fields
         expect(rawFields.name).toBe('Lynn Wind Farm Ltd');
         expect(rawFields.localRegistrationNumber).toBe('12345678');
+        // New MVP fields
+        expect(rawFields.jurisdiction).toBe('GB');
+        expect(rawFields.legalForm).toBe('Private Limited Company');
+        expect(rawFields.entityStatus).toBe('ACTIVE');
+        expect(rawFields.countryOfIncorporation).toBe('GB');
     });
 
     // RF-3: ADDRESS node produces rawFields with address field values

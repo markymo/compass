@@ -12,6 +12,9 @@ export type CreateGraphNodeInput = {
     firstName?: string;
     lastName?: string;
     nationality?: string;
+    title?: string;
+    occupation?: string;
+    countryOfResidence?: string;
     // For LEGAL_ENTITY
     entityName?: string;
     registrationNumber?: string;
@@ -34,6 +37,9 @@ export async function createGraphNodeAction(input: CreateGraphNodeInput) {
                     firstName: input.firstName || "",
                     lastName: input.lastName || "",
                     primaryNationality: input.nationality,
+                    title:              input.title              || null,
+                    occupation:         input.occupation         || null,
+                    countryOfResidence: input.countryOfResidence || null,
                 }
             });
             createdId = p.id;
@@ -99,6 +105,9 @@ export type UpdateGraphNodeInput = {
     firstName?: string;
     lastName?: string;
     nationality?: string;
+    title?: string;
+    occupation?: string;
+    countryOfResidence?: string;
     // LEGAL_ENTITY
     entityName?: string;
     registrationNumber?: string;
@@ -124,15 +133,18 @@ export async function updateGraphNodeAction(input: UpdateGraphNodeInput) {
                         firstName: input.firstName,
                         lastName: input.lastName,
                         primaryNationality: input.nationality,
+                        ...(input.title              !== undefined && { title:              input.title }),
+                        ...(input.occupation         !== undefined && { occupation:         input.occupation }),
+                        ...(input.countryOfResidence !== undefined && { countryOfResidence: input.countryOfResidence }),
                     }
                 });
                 await logAudit(tx, {
                     entityType: "PERSON",
                     entityId: input.entityId,
                     action: "UPDATE",
-                    changedFields: ["firstName", "lastName", "primaryNationality"],
-                    oldData: { firstName: current.firstName, lastName: current.lastName, primaryNationality: current.primaryNationality },
-                    newData: { firstName: updated.firstName, lastName: updated.lastName, primaryNationality: updated.primaryNationality },
+                    changedFields: ["firstName", "lastName", "primaryNationality", "title", "occupation", "countryOfResidence"],
+                    oldData: { firstName: current.firstName, lastName: current.lastName, primaryNationality: current.primaryNationality, title: current.title, occupation: current.occupation, countryOfResidence: current.countryOfResidence },
+                    newData: { firstName: updated.firstName, lastName: updated.lastName, primaryNationality: updated.primaryNationality, title: updated.title, occupation: updated.occupation, countryOfResidence: updated.countryOfResidence },
                     actorUserId: identity.userId,
                     sourceType: "UI",
                 });

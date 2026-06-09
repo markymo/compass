@@ -210,28 +210,52 @@ src/lib/graph/node-field-registry.ts
 
 This file defines:
 - `NodeFieldDefinition` interface — metadata per field (label, dataType, scope, PII flag, etc.)
-- `NODE_FIELD_REGISTRY` constant — all 15 system fields across PERSON, LEGAL_ENTITY, ADDRESS
+- `NODE_FIELD_REGISTRY` constant — all 23 system fields across PERSON (11), LEGAL_ENTITY (6), ADDRESS (6)
 - Lookup helpers: `getNodeFields`, `getNodeField`, `getDisplayableFields`, `getSearchableFields`
 
 ### Current system fields
 
 | Node Type | fieldKey | dataType | isSearchable | isPii |
 |---|---|---|---|---|
+| PERSON | title | TEXT | ❌ | ❌ |
 | PERSON | firstName | TEXT | ✅ | ✅ |
 | PERSON | middleName | TEXT | ❌ | ✅ |
 | PERSON | lastName | TEXT | ✅ | ✅ |
 | PERSON | dateOfBirth | DATE | ❌ | ✅ |
 | PERSON | placeOfBirth | TEXT | ❌ | ✅ |
 | PERSON | primaryNationality | COUNTRY_CODE | ✅ | ❌ |
+| PERSON | countryOfResidence | COUNTRY_CODE | ✅ | ❌ |
+| PERSON | officerRole | TEXT | ✅ | ❌ |
+| PERSON | occupation | TEXT | ❌ | ❌ |
 | PERSON | isPublicFigure | BOOLEAN | ❌ | ❌ |
 | LEGAL_ENTITY | name | TEXT | ✅ | ❌ |
 | LEGAL_ENTITY | localRegistrationNumber | TEXT | ✅ | ❌ |
+| LEGAL_ENTITY | jurisdiction | TEXT | ✅ | ❌ |
+| LEGAL_ENTITY | legalForm | TEXT | ❌ | ❌ |
+| LEGAL_ENTITY | entityStatus | TEXT | ❌ | ❌ |
+| LEGAL_ENTITY | countryOfIncorporation | COUNTRY_CODE | ✅ | ❌ |
 | ADDRESS | line1 | TEXT | ✅ | ❌ |
 | ADDRESS | line2 | TEXT | ❌ | ❌ |
 | ADDRESS | city | TEXT | ✅ | ❌ |
 | ADDRESS | region | TEXT | ❌ | ❌ |
 | ADDRESS | postalCode | TEXT | ❌ | ❌ |
 | ADDRESS | country | COUNTRY_CODE | ✅ | ❌ |
+
+### Design note: `Person.officerRole` — MVP denormalisation
+
+`officerRole` is stored as a free-text `String?` on the `Person` model, preserving the raw
+value from Companies House (e.g. `"director"`, `"secretary"`, `"llp-member"`).
+
+This is an intentional MVP pragmatism:
+- CH provides the role alongside person identity in the same officer payload.
+- Storing it on `Person` avoids losing the information on ingest.
+- The role relationship (person is a director of company X) is separately modelled as a
+  `ClientLEGraphEdge` with `edgeType = DIRECTOR`.
+
+**Future migration path:** `Person.officerRole` may eventually move to an edge attribute
+(`ClientLEGraphEdge.officerRole String?`) when edge-level role semantics are needed for
+querying or filtering. Until then, the field provides read-access to the source value
+without requiring an edge traversal.
 
 ### Invariants
 
@@ -348,8 +372,8 @@ only. `pickerConfig` does not exist in the current `MasterFieldGraphBinding` sch
 
 | File | Role |
 |---|---|
-| `src/lib/graph/node-field-registry.ts` | **Node Field Registry** — all system field definitions and lookup helpers |
-| `src/lib/graph/__tests__/node-field-registry.test.ts` | 44 tests covering registry integrity, helpers, field catalogues |
+| `src/lib/graph/node-field-registry.ts` | **Node Field Registry** — all system field definitions and lookup helpers (23 fields) |
+| `src/lib/graph/__tests__/node-field-registry.test.ts` | Tests covering registry integrity, helpers, field catalogues |
 | `src/lib/kyc/FieldClaimService.ts` | `writeBackGraphEdge()` — writes FK claim and graph edge on selection |
 | `src/actions/graph-node-picker.ts` | Server action — fetches picker items, builds `rawFields` from registry (Phase 1), alphabetical sort |
 | `src/components/client/graph/graph-node-picker.tsx` | Popover picker UI component |

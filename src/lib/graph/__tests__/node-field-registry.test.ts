@@ -73,32 +73,40 @@ describe("NODE_FIELD_REGISTRY — expected PERSON fields", () => {
     const personKeys = personFields.map(f => f.fieldKey);
 
     const EXPECTED_PERSON_FIELDS = [
+        "title",
         "firstName",
         "middleName",
         "lastName",
         "dateOfBirth",
         "placeOfBirth",
         "primaryNationality",
+        "countryOfResidence",
+        "officerRole",
+        "occupation",
         "isPublicFigure",
     ] as const;
 
-    it("contains all 7 expected PERSON fields", () => {
+    it("contains all 11 expected PERSON fields", () => {
         expect(personKeys.sort()).toEqual([...EXPECTED_PERSON_FIELDS].sort());
     });
 
-    it("marks firstName, lastName, primaryNationality as searchable", () => {
+    it("marks firstName, lastName, primaryNationality, countryOfResidence, officerRole as searchable", () => {
         const searchable = personFields.filter(f => f.isSearchable).map(f => f.fieldKey);
         expect(searchable).toContain("firstName");
         expect(searchable).toContain("lastName");
         expect(searchable).toContain("primaryNationality");
+        expect(searchable).toContain("countryOfResidence");
+        expect(searchable).toContain("officerRole");
     });
 
-    it("marks dateOfBirth, middleName, placeOfBirth, isPublicFigure as NOT searchable", () => {
+    it("marks dateOfBirth, middleName, placeOfBirth, isPublicFigure, title, occupation as NOT searchable", () => {
         const notSearchable = personFields.filter(f => !f.isSearchable).map(f => f.fieldKey);
         expect(notSearchable).toContain("dateOfBirth");
         expect(notSearchable).toContain("middleName");
         expect(notSearchable).toContain("placeOfBirth");
         expect(notSearchable).toContain("isPublicFigure");
+        expect(notSearchable).toContain("title");
+        expect(notSearchable).toContain("occupation");
     });
 
     it("marks PII fields correctly", () => {
@@ -106,10 +114,14 @@ describe("NODE_FIELD_REGISTRY — expected PERSON fields", () => {
         expect(piiFields).toContain("firstName");
         expect(piiFields).toContain("lastName");
         expect(piiFields).toContain("dateOfBirth");
-        // nationality is NOT PII by default
+        // Non-PII fields
         const nonPii = personFields.filter(f => !f.isPii).map(f => f.fieldKey);
         expect(nonPii).toContain("primaryNationality");
         expect(nonPii).toContain("isPublicFigure");
+        expect(nonPii).toContain("title");
+        expect(nonPii).toContain("officerRole");
+        expect(nonPii).toContain("occupation");
+        expect(nonPii).toContain("countryOfResidence");
     });
 
     it("isPublicFigure has dataType BOOLEAN", () => {
@@ -126,25 +138,104 @@ describe("NODE_FIELD_REGISTRY — expected PERSON fields", () => {
         const field = personFields.find(f => f.fieldKey === "primaryNationality");
         expect(field?.dataType).toBe("COUNTRY_CODE");
     });
+
+    it("countryOfResidence has dataType COUNTRY_CODE and storagePath person.countryOfResidence", () => {
+        const field = personFields.find(f => f.fieldKey === "countryOfResidence");
+        expect(field?.dataType).toBe("COUNTRY_CODE");
+        expect(field?.storagePath).toBe("person.countryOfResidence");
+        expect(field?.isSearchable).toBe(true);
+        expect(field?.isDisplayable).toBe(true);
+        expect(field?.isPii).toBe(false);
+    });
+
+    it("officerRole has dataType TEXT and storagePath person.officerRole", () => {
+        const field = personFields.find(f => f.fieldKey === "officerRole");
+        expect(field?.dataType).toBe("TEXT");
+        expect(field?.storagePath).toBe("person.officerRole");
+        expect(field?.isSearchable).toBe(true);
+        expect(field?.isDisplayable).toBe(true);
+        expect(field?.isPii).toBe(false);
+    });
+
+    it("occupation has dataType TEXT and storagePath person.occupation", () => {
+        const field = personFields.find(f => f.fieldKey === "occupation");
+        expect(field?.dataType).toBe("TEXT");
+        expect(field?.storagePath).toBe("person.occupation");
+        expect(field?.isSearchable).toBe(false);
+        expect(field?.isDisplayable).toBe(true);
+        expect(field?.isPii).toBe(false);
+    });
+
+    it("title has dataType TEXT and storagePath person.title", () => {
+        const field = personFields.find(f => f.fieldKey === "title");
+        expect(field?.dataType).toBe("TEXT");
+        expect(field?.storagePath).toBe("person.title");
+        expect(field?.isSearchable).toBe(false);
+        expect(field?.isDisplayable).toBe(true);
+        expect(field?.isPii).toBe(false);
+    });
 });
 
 describe("NODE_FIELD_REGISTRY — expected LEGAL_ENTITY fields", () => {
     const leFields = NODE_FIELD_REGISTRY.filter(f => f.nodeType === "LEGAL_ENTITY");
     const leKeys = leFields.map(f => f.fieldKey);
 
-    it("contains all 2 expected LEGAL_ENTITY fields", () => {
-        expect(leKeys.sort()).toEqual(["localRegistrationNumber", "name"].sort());
+    const EXPECTED_LE_FIELDS = [
+        "name",
+        "localRegistrationNumber",
+        "jurisdiction",
+        "legalForm",
+        "entityStatus",
+        "countryOfIncorporation",
+    ] as const;
+
+    it("contains all 6 expected LEGAL_ENTITY fields", () => {
+        expect(leKeys.sort()).toEqual([...EXPECTED_LE_FIELDS].sort());
     });
 
-    it("marks name and localRegistrationNumber as searchable", () => {
+    it("marks name, localRegistrationNumber, jurisdiction, countryOfIncorporation as searchable", () => {
         const searchable = leFields.filter(f => f.isSearchable).map(f => f.fieldKey);
         expect(searchable).toContain("name");
         expect(searchable).toContain("localRegistrationNumber");
+        expect(searchable).toContain("jurisdiction");
+        expect(searchable).toContain("countryOfIncorporation");
+    });
+
+    it("marks legalForm and entityStatus as NOT searchable", () => {
+        const notSearchable = leFields.filter(f => !f.isSearchable).map(f => f.fieldKey);
+        expect(notSearchable).toContain("legalForm");
+        expect(notSearchable).toContain("entityStatus");
     });
 
     it("marks no LEGAL_ENTITY fields as PII", () => {
         const piiFields = leFields.filter(f => f.isPii);
         expect(piiFields).toHaveLength(0);
+    });
+
+    it("countryOfIncorporation has dataType COUNTRY_CODE and storagePath legalEntity.countryOfIncorporation", () => {
+        const field = leFields.find(f => f.fieldKey === "countryOfIncorporation");
+        expect(field?.dataType).toBe("COUNTRY_CODE");
+        expect(field?.storagePath).toBe("legalEntity.countryOfIncorporation");
+        expect(field?.isSearchable).toBe(true);
+        expect(field?.isDisplayable).toBe(true);
+    });
+
+    it("jurisdiction has dataType TEXT and storagePath legalEntity.jurisdiction", () => {
+        const field = leFields.find(f => f.fieldKey === "jurisdiction");
+        expect(field?.dataType).toBe("TEXT");
+        expect(field?.storagePath).toBe("legalEntity.jurisdiction");
+    });
+
+    it("legalForm has dataType TEXT and storagePath legalEntity.legalForm", () => {
+        const field = leFields.find(f => f.fieldKey === "legalForm");
+        expect(field?.dataType).toBe("TEXT");
+        expect(field?.storagePath).toBe("legalEntity.legalForm");
+    });
+
+    it("entityStatus has dataType TEXT and storagePath legalEntity.entityStatus", () => {
+        const field = leFields.find(f => f.fieldKey === "entityStatus");
+        expect(field?.dataType).toBe("TEXT");
+        expect(field?.storagePath).toBe("legalEntity.entityStatus");
     });
 });
 
@@ -210,12 +301,12 @@ describe("getNodeFields", () => {
         }
     });
 
-    it("PERSON returns 7 fields", () => {
-        expect(getNodeFields("PERSON")).toHaveLength(7);
+    it("PERSON returns 11 fields", () => {
+        expect(getNodeFields("PERSON")).toHaveLength(11);
     });
 
-    it("LEGAL_ENTITY returns 2 fields", () => {
-        expect(getNodeFields("LEGAL_ENTITY")).toHaveLength(2);
+    it("LEGAL_ENTITY returns 6 fields", () => {
+        expect(getNodeFields("LEGAL_ENTITY")).toHaveLength(6);
     });
 
     it("ADDRESS returns 6 fields", () => {
@@ -278,8 +369,8 @@ describe("getDisplayableFields", () => {
     });
 
     it("all current system PERSON fields are displayable (none hidden)", () => {
-        // All 7 PERSON system fields are marked isDisplayable = true in the current registry
-        expect(getDisplayableFields("PERSON")).toHaveLength(7);
+        // All 11 PERSON system fields are marked isDisplayable = true
+        expect(getDisplayableFields("PERSON")).toHaveLength(11);
     });
 
     it("all current system ADDRESS fields are displayable", () => {
@@ -301,14 +392,14 @@ describe("getSearchableFields", () => {
         expect(fields.every(f => f.nodeType === "LEGAL_ENTITY")).toBe(true);
     });
 
-    it("PERSON searchable fields are: firstName, lastName, primaryNationality", () => {
+    it("PERSON searchable fields include: firstName, lastName, primaryNationality, countryOfResidence, officerRole", () => {
         const keys = getSearchableFields("PERSON").map(f => f.fieldKey).sort();
-        expect(keys).toEqual(["firstName", "lastName", "primaryNationality"].sort());
+        expect(keys).toEqual(["countryOfResidence", "firstName", "lastName", "officerRole", "primaryNationality"].sort());
     });
 
-    it("LEGAL_ENTITY searchable fields are: name, localRegistrationNumber", () => {
+    it("LEGAL_ENTITY searchable fields include: name, localRegistrationNumber, jurisdiction, countryOfIncorporation", () => {
         const keys = getSearchableFields("LEGAL_ENTITY").map(f => f.fieldKey).sort();
-        expect(keys).toEqual(["localRegistrationNumber", "name"].sort());
+        expect(keys).toEqual(["countryOfIncorporation", "jurisdiction", "localRegistrationNumber", "name"].sort());
     });
 
     it("ADDRESS searchable fields are: line1, city, country", () => {
