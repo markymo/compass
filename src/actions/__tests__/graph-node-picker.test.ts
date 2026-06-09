@@ -31,7 +31,7 @@ vi.mock('@/lib/prisma');
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
 
 import prismaMock from '@/lib/__mocks__/prisma';
-import { getGraphNodesForPicker } from '@/actions/graph-node-picker';
+import { getGraphNodesForPicker, formatRawFieldValue } from '@/actions/graph-node-picker';
 import { getNodeFields } from '@/lib/graph/node-field-registry';
 
 // ── Mock node factories ──────────────────────────────────────────────────────
@@ -528,5 +528,330 @@ describe('getGraphNodesForPicker — rawFields (Phase 1)', () => {
         expect(rawFields.dateOfBirth).toBeNull();
         expect(rawFields.placeOfBirth).toBeNull();
         expect(rawFields.middleName).toBeNull();
+    });
+});
+
+// ── formatRawFieldValue unit tests ────────────────────────────────────────────
+
+describe('formatRawFieldValue — direct unit tests', () => {
+    it('TEXT: returns string as-is', () => {
+        expect(formatRawFieldValue('hello', 'TEXT')).toBe('hello');
+    });
+    it('TEXT: trims whitespace', () => {
+        expect(formatRawFieldValue('  hello  ', 'TEXT')).toBe('hello');
+    });
+    it('TEXT: empty string → null', () => {
+        expect(formatRawFieldValue('', 'TEXT')).toBeNull();
+    });
+    it('TEXT: null → null', () => {
+        expect(formatRawFieldValue(null, 'TEXT')).toBeNull();
+    });
+    it('COUNTRY_CODE: returns string', () => {
+        expect(formatRawFieldValue('GB', 'COUNTRY_CODE')).toBe('GB');
+    });
+    it('DATE: Date object → YYYY-MM-DD', () => {
+        expect(formatRawFieldValue(new Date('1952-04-30'), 'DATE')).toBe('1952-04-30');
+    });
+    it('DATE: ISO string → YYYY-MM-DD', () => {
+        expect(formatRawFieldValue('2000-06-15T00:00:00.000Z', 'DATE')).toBe('2000-06-15');
+    });
+    it('DATE: invalid string → null', () => {
+        expect(formatRawFieldValue('not-a-date', 'DATE')).toBeNull();
+    });
+    it('DATE: null → null', () => {
+        expect(formatRawFieldValue(null, 'DATE')).toBeNull();
+    });
+    it('BOOLEAN: true → "Yes"', () => {
+        expect(formatRawFieldValue(true, 'BOOLEAN')).toBe('Yes');
+    });
+    it('BOOLEAN: false → "No"', () => {
+        expect(formatRawFieldValue(false, 'BOOLEAN')).toBe('No');
+    });
+    it('BOOLEAN: null → null', () => {
+        expect(formatRawFieldValue(null, 'BOOLEAN')).toBeNull();
+    });
+    it('NUMBER: number → string', () => {
+        expect(formatRawFieldValue(42, 'NUMBER')).toBe('42');
+    });
+    it('NUMBER: null → null', () => {
+        expect(formatRawFieldValue(null, 'NUMBER')).toBeNull();
+    });
+    it('object → null (unsupported)', () => {
+        expect(formatRawFieldValue({ foo: 1 }, 'TEXT')).toBeNull();
+    });
+});
+
+// ── Phase 3: pickerConfig-driven displayLabel/subLabel ────────────────────────
+
+describe('getGraphNodesForPicker — Phase 3 pickerConfig display', () => {
+    const clientLEId = 'le-p3';
+
+    beforeEach(() => {
+        vi.clearAllMocks();
+        (prismaMock as any).clientLEGraphEdge = { findMany: vi.fn().mockResolvedValue([]) };
+    });
+
+    // ── Legacy fallback ───────────────────────────────────────────────────────
+
+    it('PC-1: pickerConfig null → PERSON uses legacy displayLabel/subLabel', async () => {
+        const node = makePersonNode({ id: 'pc1', clientLEId, firstName: 'Alan', lastName: 'Bennett', nationality: 'British' });
+        (prismaMock as any).clientLEGraphNode = { findMany: vi.fn().mockResolvedValue([node]) };
+
+        const result = await getGraphNodesForPicker({ clientLEId, graphNodeType: 'PERSON', pickerConfig: null });
+
+        expect(result.success).toBe(true);
+        if (!result.success) return;
+        expect(result.items[0].displayLabel).toBe('Alan Bennett');
+        expect(result.items[0].subLabel).toBe('British');
+    });
+
+    it('PC-1b: pickerConfig null → LEGAL_ENTITY uses legacy display', async () => {
+        const node = makeLeNode({ id: 'pc1b', clientLEId, name: 'Acme Ltd', localRegistrationNumber: '12345678' });
+        (prismaMock as any).clientLEGraphNode = { findMany: vi.fn().mockResolvedValue([node]) };
+
+        const result = await getGraphNodesForPicker({ clientLEId, graphNodeType: 'LEGAL_ENTITY', pickerConfig: null });
+
+        expect(result.success).toBe(true);
+        if (!result.success) return;
+        expect(result.items[0].displayLabel).toBe('Acme Ltd');
+        expect(result.items[0].subLabel).toBe('12345678');
+    });
+
+    it('PC-1c: pickerConfig null → ADDRESS uses legacy display', async () => {
+        const node = makeAddressNode({ id: 'pc1c', clientLEId, line1: '1 High St', city: 'London', postalCode: 'SW1A 1AA', country: 'GB' });
+        (prismaMock as any).clientLEGraphNode = { findMany: vi.fn().mockResolvedValue([node]) };
+
+        const result = await getGraphNodesForPicker({ clientLEId, graphNodeType: 'ADDRESS', pickerConfig: null });
+
+        expect(result.success).toBe(true);
+        if (!result.success) return;
+        expect(result.items[0].displayLabel).toBe('1 High St, London, SW1A 1AA, GB');
+        expect(result.items[0].subLabel).toBe('GB');
+    });
+
+    // ── PERSON configured display ─────────────────────────────────────────────
+
+    it('PC-4: displayFields ["firstName","lastName"] → "Alan Bennett"', async () => {
+        const node = makePersonNode({ id: 'pc4', clientLEId, firstName: 'Alan', lastName: 'Bennett', nationality: 'British' });
+        (prismaMock as any).clientLEGraphNode = { findMany: vi.fn().mockResolvedValue([node]) };
+
+        const result = await getGraphNodesForPicker({
+            clientLEId, graphNodeType: 'PERSON',
+            pickerConfig: { displayFields: ['firstName', 'lastName'] },
+        });
+
+        expect(result.success).toBe(true);
+        if (!result.success) return;
+        // Configured fields are always joined with " · " separator.
+        // Legacy space-join only applies to the hardcoded PERSON display path.
+        expect(result.items[0].displayLabel).toBe('Alan · Bennett');
+    });
+
+    it('PC-5: subFields ["officerRole","occupation","primaryNationality"] → joined with " · "', async () => {
+        const node = makePersonNode({
+            id: 'pc5', clientLEId, firstName: 'Alan', lastName: 'Bennett',
+            nationality: 'British', officerRole: 'director', occupation: 'Company Director',
+        });
+        (prismaMock as any).clientLEGraphNode = { findMany: vi.fn().mockResolvedValue([node]) };
+
+        const result = await getGraphNodesForPicker({
+            clientLEId, graphNodeType: 'PERSON',
+            pickerConfig: { subFields: ['officerRole', 'occupation', 'primaryNationality'] },
+        });
+
+        expect(result.success).toBe(true);
+        if (!result.success) return;
+        expect(result.items[0].subLabel).toBe('director · Company Director · British');
+    });
+
+    it('PC-6: invalid displayFields keys are ignored by sanitizePickerConfig', async () => {
+        const node = makePersonNode({ id: 'pc6', clientLEId, firstName: 'Alan', lastName: 'Bennett' });
+        (prismaMock as any).clientLEGraphNode = { findMany: vi.fn().mockResolvedValue([node]) };
+
+        const result = await getGraphNodesForPicker({
+            clientLEId, graphNodeType: 'PERSON',
+            // 'email' is not a registry field — sanitizer strips it, 'firstName' retained
+            pickerConfig: { displayFields: ['firstName', 'email'] },
+        });
+
+        expect(result.success).toBe(true);
+        if (!result.success) return;
+        // Only firstName survived sanitization → single word, still non-empty → used
+        expect(result.items[0].displayLabel).toBe('Alan');
+    });
+
+    it('PC-7: displayFields all invalid → falls back to legacy displayLabel', async () => {
+        const node = makePersonNode({ id: 'pc7', clientLEId, firstName: 'Alan', lastName: 'Bennett', nationality: 'British' });
+        (prismaMock as any).clientLEGraphNode = { findMany: vi.fn().mockResolvedValue([node]) };
+
+        const result = await getGraphNodesForPicker({
+            clientLEId, graphNodeType: 'PERSON',
+            pickerConfig: { displayFields: ['email', 'phone'] },  // both invalid
+        });
+
+        expect(result.success).toBe(true);
+        if (!result.success) return;
+        // Sanitizer returns null config → falls back to legacy
+        expect(result.items[0].displayLabel).toBe('Alan Bennett');
+        expect(result.items[0].subLabel).toBe('British');
+    });
+
+    // ── DATE / BOOLEAN formatting ─────────────────────────────────────────────
+
+    it('PC-8: dateOfBirth in subFields formats as YYYY-MM-DD', async () => {
+        const dob = new Date('1952-04-30');
+        const node = makePersonNode({ id: 'pc8', clientLEId, firstName: 'Alan', lastName: 'Bennett', dateOfBirth: dob });
+        (prismaMock as any).clientLEGraphNode = { findMany: vi.fn().mockResolvedValue([node]) };
+
+        const result = await getGraphNodesForPicker({
+            clientLEId, graphNodeType: 'PERSON',
+            pickerConfig: { subFields: ['dateOfBirth'] },
+        });
+
+        expect(result.success).toBe(true);
+        if (!result.success) return;
+        expect(result.items[0].subLabel).toBe('1952-04-30');
+    });
+
+    it('PC-9: isPublicFigure true formats as "Yes"', async () => {
+        const node = makePersonNode({ id: 'pc9', clientLEId, firstName: 'A', lastName: 'B', isPublicFigure: true });
+        (prismaMock as any).clientLEGraphNode = { findMany: vi.fn().mockResolvedValue([node]) };
+
+        const result = await getGraphNodesForPicker({
+            clientLEId, graphNodeType: 'PERSON',
+            pickerConfig: { subFields: ['isPublicFigure'] },
+        });
+
+        expect(result.success).toBe(true);
+        if (!result.success) return;
+        expect(result.items[0].subLabel).toBe('Yes');
+    });
+
+    it('PC-10: isPublicFigure false formats as "No"', async () => {
+        const node = makePersonNode({ id: 'pc10', clientLEId, firstName: 'A', lastName: 'B', isPublicFigure: false });
+        (prismaMock as any).clientLEGraphNode = { findMany: vi.fn().mockResolvedValue([node]) };
+
+        const result = await getGraphNodesForPicker({
+            clientLEId, graphNodeType: 'PERSON',
+            pickerConfig: { subFields: ['isPublicFigure'] },
+        });
+
+        expect(result.success).toBe(true);
+        if (!result.success) return;
+        expect(result.items[0].subLabel).toBe('No');
+    });
+
+    // ── LEGAL_ENTITY configured display ───────────────────────────────────────
+
+    it('PC-11: LE displayFields ["name","jurisdiction"] joins with " · "', async () => {
+        const node = makeLeNode({ id: 'pc11', clientLEId, name: 'Acme Ltd', jurisdiction: 'GB' });
+        (prismaMock as any).clientLEGraphNode = { findMany: vi.fn().mockResolvedValue([node]) };
+
+        const result = await getGraphNodesForPicker({
+            clientLEId, graphNodeType: 'LEGAL_ENTITY',
+            pickerConfig: { displayFields: ['name', 'jurisdiction'] },
+        });
+
+        expect(result.success).toBe(true);
+        if (!result.success) return;
+        expect(result.items[0].displayLabel).toBe('Acme Ltd · GB');
+    });
+
+    it('PC-12: LE subFields ["legalForm","entityStatus","countryOfIncorporation"] joins values', async () => {
+        const node = makeLeNode({
+            id: 'pc12', clientLEId, name: 'Acme Ltd',
+            legalForm: 'Private Limited Company', entityStatus: 'ACTIVE', countryOfIncorporation: 'GB',
+        });
+        (prismaMock as any).clientLEGraphNode = { findMany: vi.fn().mockResolvedValue([node]) };
+
+        const result = await getGraphNodesForPicker({
+            clientLEId, graphNodeType: 'LEGAL_ENTITY',
+            pickerConfig: { subFields: ['legalForm', 'entityStatus', 'countryOfIncorporation'] },
+        });
+
+        expect(result.success).toBe(true);
+        if (!result.success) return;
+        expect(result.items[0].subLabel).toBe('Private Limited Company · ACTIVE · GB');
+    });
+
+    // ── ADDRESS configured display ────────────────────────────────────────────
+
+    it('PC-13: ADDRESS displayFields ["line1","city"] → "1 High Street · London"', async () => {
+        const node = makeAddressNode({ id: 'pc13', clientLEId, line1: '1 High Street', city: 'London' });
+        (prismaMock as any).clientLEGraphNode = { findMany: vi.fn().mockResolvedValue([node]) };
+
+        const result = await getGraphNodesForPicker({
+            clientLEId, graphNodeType: 'ADDRESS',
+            pickerConfig: { displayFields: ['line1', 'city'] },
+        });
+
+        expect(result.success).toBe(true);
+        if (!result.success) return;
+        expect(result.items[0].displayLabel).toBe('1 High Street · London');
+    });
+
+    it('PC-14: ADDRESS subFields ["postalCode","country"] → "SW1A 1AA · GB"', async () => {
+        const node = makeAddressNode({ id: 'pc14', clientLEId, line1: '1 High St', postalCode: 'SW1A 1AA', country: 'GB' });
+        (prismaMock as any).clientLEGraphNode = { findMany: vi.fn().mockResolvedValue([node]) };
+
+        const result = await getGraphNodesForPicker({
+            clientLEId, graphNodeType: 'ADDRESS',
+            pickerConfig: { subFields: ['postalCode', 'country'] },
+        });
+
+        expect(result.success).toBe(true);
+        if (!result.success) return;
+        expect(result.items[0].subLabel).toBe('SW1A 1AA · GB');
+    });
+
+    // ── Fallback safety ───────────────────────────────────────────────────────
+
+    it('PC-15: non-object pickerConfig falls back to legacy display (sanitizer returns null)', async () => {
+        const node = makePersonNode({ id: 'pc15', clientLEId, firstName: 'Jane', lastName: 'Doe', nationality: 'French' });
+        (prismaMock as any).clientLEGraphNode = { findMany: vi.fn().mockResolvedValue([node]) };
+
+        const result = await getGraphNodesForPicker({
+            clientLEId, graphNodeType: 'PERSON',
+            pickerConfig: 'this is not a valid config' as any,
+        });
+
+        expect(result.success).toBe(true);
+        if (!result.success) return;
+        // sanitizePickerConfig rejects string → null → legacy used
+        expect(result.items[0].displayLabel).toBe('Jane Doe');
+        expect(result.items[0].subLabel).toBe('French');
+    });
+
+    it('PC-15b: configured displayFields resolving to empty string fall back to legacy', async () => {
+        // All configured fields are null on this node → empty join → legacy fallback
+        const node = makePersonNode({ id: 'pc15b', clientLEId, firstName: 'Jane', lastName: 'Doe', nationality: 'French' });
+        // officerRole and occupation are null on this node
+        (prismaMock as any).clientLEGraphNode = { findMany: vi.fn().mockResolvedValue([node]) };
+
+        const result = await getGraphNodesForPicker({
+            clientLEId, graphNodeType: 'PERSON',
+            pickerConfig: { displayFields: ['officerRole', 'occupation'] },
+        });
+
+        expect(result.success).toBe(true);
+        if (!result.success) return;
+        // Both fields are null → joined string is empty → legacy displayLabel used
+        expect(result.items[0].displayLabel).toBe('Jane Doe');
+    });
+
+    it('PC-15c: configured subFields resolving to empty string fall back to legacy subLabel', async () => {
+        const node = makePersonNode({ id: 'pc15c', clientLEId, firstName: 'Jane', lastName: 'Doe', nationality: 'French' });
+        // placeOfBirth is null → empty join
+        (prismaMock as any).clientLEGraphNode = { findMany: vi.fn().mockResolvedValue([node]) };
+
+        const result = await getGraphNodesForPicker({
+            clientLEId, graphNodeType: 'PERSON',
+            pickerConfig: { subFields: ['placeOfBirth'] },
+        });
+
+        expect(result.success).toBe(true);
+        if (!result.success) return;
+        // placeOfBirth is null → empty → legacy subLabel (primaryNationality)
+        expect(result.items[0].subLabel).toBe('French');
     });
 });

@@ -32,6 +32,12 @@ interface GraphNodePickerProps {
     filterActiveOnly?: boolean;
     allowCreate?: boolean;
     pickerLabel?: string | null;
+    /**
+     * Optional picker display config from MasterFieldGraphBinding.pickerConfig.
+     * Passed through to getGraphNodesForPicker for server-side display computation.
+     * No UI change — displayLabel/subLabel are resolved server-side.
+     */
+    pickerConfig?: Record<string, unknown> | null;
 
     /** Currently selected node IDs (for multi-value fields) */
     selectedNodeIds?: string[];
@@ -149,6 +155,7 @@ export function GraphNodePicker({
     filterActiveOnly = true,
     allowCreate = true,
     pickerLabel,
+    pickerConfig,
     selectedNodeIds = [],
     onSelect,
     onDeselect,
@@ -172,7 +179,7 @@ export function GraphNodePicker({
         if (!open) return;
         setLoading(true);
         setError(null);
-        getGraphNodesForPicker({ clientLEId, graphNodeType, filterEdgeType, filterActiveOnly })
+        getGraphNodesForPicker({ clientLEId, graphNodeType, filterEdgeType, filterActiveOnly, pickerConfig })
             .then(res => {
                 if (res.success) setItems(res.items);
                 else setError(res.error);

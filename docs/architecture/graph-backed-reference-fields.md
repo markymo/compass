@@ -274,11 +274,11 @@ When custom fields are needed, the plan is:
 2. Add a `NodeFieldValue` table for typed, queryable global or LE-scoped values.
 3. Custom field definitions will be stored in the DB and merged with `NODE_FIELD_REGISTRY` at runtime.
 
-### pickerConfig (Phase 2 — stored, not yet consumed)
+### pickerConfig (Phase 3 — stored and consumed for display labels)
 
 `pickerConfig` was added in June 2026 as a nullable JSON column on `MasterFieldGraphBinding`.
-It allows per-field picker display/search configuration to be stored and validated
-without changing the current picker behaviour.
+As of Phase 3, it is consumed by `getGraphNodesForPicker` to build `displayLabel` and `subLabel`
+from `rawFields` when present.
 
 #### Column
 
@@ -292,7 +292,7 @@ pickerConfig Json?  // on MasterFieldGraphBinding
 type GraphPickerConfig = {
   displayFields?:     string[];  // fieldKeys for primary display label
   subFields?:         string[];  // fieldKeys for sub-label
-  searchFields?:      string[];  // fieldKeys included in search
+  searchFields?:      string[];  // fieldKeys included in search (Phase 4)
   pickerPlaceholder?: string;    // override for picker button text
 };
 ```
@@ -310,11 +310,36 @@ type GraphPickerConfig = {
 **Null means legacy/default picker behaviour** — `displayLabel` and `subLabel` remain
 hardcoded by node type. `null` and an absent config are identical at runtime.
 
-#### Not yet consumed
+#### Phase 3 display behaviour
 
-`getGraphNodesForPicker` does not read `pickerConfig` yet.
-Phase 3 will implement the display-template logic that uses `displayFields` / `subFields`
-from `rawFields` as the source, replacing the hardcoded label builders.
+When a valid `pickerConfig` is passed to `getGraphNodesForPicker`:
+
+1. `sanitizePickerConfig()` validates the config server-side.
+2. If `displayFields` is set, values are read from `rawFields` via `formatRawFieldValue()` and joined with ` · `.
+3. If `subFields` is set, values are joined the same way.
+4. **Fallback**: if configured display resolves to an empty string (all fields null), the legacy hardcoded label is used. This prevents blank rows from bad config.
+
+`formatRawFieldValue()` rules:
+
+| dataType | Output |
+|---|---|
+| TEXT / COUNTRY_CODE | String as-is (trimmed); objects → null |
+| DATE | `YYYY-MM-DD` (locale-independent) |
+| BOOLEAN | `"Yes"` / `"No"` |
+| NUMBER | `String(value)` |
+| null / undefined / empty | omitted |
+
+#### searchFields — stored, not yet consumed (Phase 4)
+
+`searchFields` is validated and stored, but `getGraphNodesForPicker` does not yet use it to
+filter results. Client-side search still matches against `displayLabel` and `subLabel`.
+Phase 4 will implement server-side or client-side search using `rawFields` values.
+
+#### Admin UI — not yet built
+
+No admin checkbox UI for `pickerConfig` exists yet. The binding form only shows
+`filterEdgeType`, `writeBackEdgeType`, `pickerLabel`, `allowCreate`, and `filterActiveOnly`.
+Phase 4 will add the `pickerConfig` editor.
 
 #### Validation helper
 
