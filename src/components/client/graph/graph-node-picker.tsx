@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useTransition, useRef } from "react";
 import { getGraphNodesForPicker, GraphNodePickerItem } from "@/actions/graph-node-picker";
+import { itemMatchesSearch } from "@/lib/graph/field-value-formatting";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -194,13 +195,9 @@ export function GraphNodePicker({
     // ── Filtered items ────────────────────────────────────────────────────
     const filtered = useMemo(() => {
         if (!query.trim()) return items;
-        const q = query.toLowerCase();
-        return items.filter(item =>
-            item.displayLabel.toLowerCase().includes(q) ||
-            (item.subLabel?.toLowerCase().includes(q) ?? false) ||
-            item.activeEdgeTypes.some(et => et.toLowerCase().includes(q))
-        );
-    }, [items, query]);
+        const q = query.trim().toLowerCase();
+        return items.filter(item => itemMatchesSearch(item, q, pickerConfig));
+    }, [items, query, pickerConfig]);
 
     // isPromoted is always false from the server; kept for type compat only.
 

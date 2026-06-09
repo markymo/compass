@@ -329,11 +329,37 @@ When a valid `pickerConfig` is passed to `getGraphNodesForPicker`:
 | NUMBER | `String(value)` |
 | null / undefined / empty | omitted |
 
-#### searchFields — stored, not yet consumed (Phase 4)
+#### searchFields — consumed by client-side picker search (Phase 4)
 
-`searchFields` is validated and stored, but `getGraphNodesForPicker` does not yet use it to
-filter results. Client-side search still matches against `displayLabel` and `subLabel`.
-Phase 4 will implement server-side or client-side search using `rawFields` values.
+`searchFields` is validated, stored, and consumed by both picker components.
+
+When `pickerConfig.searchFields` is set, the client-side search logic searches:
+
+1. **Legacy corpus** (always searched, regardless of config):
+   - `displayLabel`
+   - `subLabel`
+   - `activeEdgeTypes`
+
+2. **Configured rawFields** (when searchFields is present):
+   - `rawFields[fieldKey]` for each `fieldKey` in validated `searchFields`
+   - Values formatted via `formatRawFieldValue()` and lowercased before comparison
+   - Null/empty formatted values are skipped (not searched)
+
+Only `isSearchable = true` fields from `NODE_FIELD_REGISTRY` survive `sanitizePickerConfig()`.
+Non-searchable fields (e.g. `occupation`, `postalCode`, `dateOfBirth`) are automatically excluded.
+
+**Shared helper location:**
+```
+src/lib/graph/field-value-formatting.ts
+```
+
+Exports:
+- `formatRawFieldValue(value, dataType)` — type-aware value formatter
+- `itemMatchesSearch(item, query, pickerConfig?)` — full search matcher
+- `PickerItemSearchable` — minimal structural interface
+
+Both `graph-node-picker.tsx` and `graph-node-picker-dialog.tsx` import `itemMatchesSearch` from here.
+`graph-node-picker.ts` (server action) also imports `formatRawFieldValue` from here.
 
 #### Admin UI — not yet built
 

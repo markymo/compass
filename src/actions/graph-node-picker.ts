@@ -1,8 +1,12 @@
 "use server";
 
 import prisma from "@/lib/prisma";
-import { getNodeFields, getNodeField, type NodeType, type NodeFieldDataType } from "@/lib/graph/node-field-registry";
+import { getNodeFields, getNodeField, type NodeType } from "@/lib/graph/node-field-registry";
 import { sanitizePickerConfig, type GraphPickerConfig } from "@/lib/graph/picker-config";
+import { formatRawFieldValue } from "@/lib/graph/field-value-formatting";
+
+// Re-export for tests and consumers that imported from here before the shared file existed.
+export { formatRawFieldValue } from "@/lib/graph/field-value-formatting";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -80,66 +84,9 @@ function buildRawFields(node: any, nodeType: NodeType): Record<string, unknown> 
     return rawFields;
 }
 
-/**
- * Format a single rawField value for display, based on its NODE_FIELD_REGISTRY dataType.
- *
- * Rules:
- *   null / undefined / empty string → null (omit from display)
- *   TEXT / COUNTRY_CODE             → string as-is
- *   DATE (Date object or ISO string)→ YYYY-MM-DD
- *   BOOLEAN                         → "Yes" / "No"
- *   NUMBER                          → String(value)
- *   unsupported object              → null (omit)
- *
- * Intentionally locale-independent for stable, testable output.
- */
-export function formatRawFieldValue(value: unknown, dataType: NodeFieldDataType): string | null {
-    if (value === null || value === undefined) return null;
-
-    switch (dataType) {
-        case "TEXT":
-        case "COUNTRY_CODE": {
-            // Reject objects and arrays — only stringify primitives
-            if (typeof value === "object") return null;
-            const str = typeof value === "string" ? value.trim() : String(value).trim();
-            return str.length > 0 ? str : null;
-        }
-
-        case "DATE": {
-            if (value instanceof Date) {
-                if (isNaN(value.getTime())) return null;
-                return value.toISOString().slice(0, 10); // YYYY-MM-DD
-            }
-            if (typeof value === "string") {
-                const d = new Date(value);
-                if (isNaN(d.getTime())) return null;
-                return d.toISOString().slice(0, 10);
-            }
-            return null;
-        }
-
-        case "BOOLEAN": {
-            if (typeof value === "boolean") return value ? "Yes" : "No";
-            if (value === "true")  return "Yes";
-            if (value === "false") return "No";
-            return null;
-        }
-
-        case "NUMBER": {
-            if (typeof value === "number" && !isNaN(value)) return String(value);
-            if (typeof value === "string" && value.trim().length > 0) return value.trim();
-            return null;
-        }
-
-        default:
-            // Reject objects, arrays, etc.
-            if (typeof value === "object") return null;
-            return null;
-    }
-}
-
 /** Separator used between configured field values in subLabel / displayLabel. */
 const FIELD_SEPARATOR = " · ";
+
 
 /**
  * Join a list of fieldKeys from rawFields into a display string, omitting
