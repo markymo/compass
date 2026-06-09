@@ -1,11 +1,13 @@
 "use client";
 
 import { useState, useEffect, useMemo, useTransition, useRef } from "react";
-import { getGraphNodesForPicker, GraphNodePickerItem } from "@/actions/graph-node-picker";
+import { getGraphNodesForPicker } from "@/actions/graph-node-picker";
+import type { GraphNodePickerItem } from "@/lib/graph/graph-node-picker-types";
+import { itemMatchesSearch } from "@/lib/graph/field-value-formatting";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, Search, X, Users, Building2, MapPin, Star, ChevronDown, Plus, Check } from "lucide-react";
+import { Loader2, Search, X, Users, Building2, MapPin, ChevronDown, Plus, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
     Popover,
@@ -32,6 +34,12 @@ interface GraphNodePickerProps {
     filterActiveOnly?: boolean;
     allowCreate?: boolean;
     pickerLabel?: string | null;
+    /**
+     * Optional picker display config from MasterFieldGraphBinding.pickerConfig.
+     * Passed through to getGraphNodesForPicker for server-side display computation.
+     * No UI change — displayLabel/subLabel are resolved server-side.
+     */
+    pickerConfig?: Record<string, unknown> | null;
 
     /** Currently selected node IDs (for multi-value fields) */
     selectedNodeIds?: string[];
@@ -115,9 +123,6 @@ function NodeRow({
                     <span className="font-medium text-slate-900 dark:text-slate-100 truncate">
                         {item.displayLabel}
                     </span>
-                    {item.isPromoted && (
-                        <Star className="h-3 w-3 text-amber-500 flex-none" />
-                    )}
                 </div>
                 {item.subLabel && (
                     <p className="text-[10px] text-slate-400 truncate">{item.subLabel}</p>
@@ -152,6 +157,7 @@ export function GraphNodePicker({
     filterActiveOnly = true,
     allowCreate = true,
     pickerLabel,
+    pickerConfig,
     selectedNodeIds = [],
     onSelect,
     onDeselect,
@@ -175,7 +181,7 @@ export function GraphNodePicker({
         if (!open) return;
         setLoading(true);
         setError(null);
-        getGraphNodesForPicker({ clientLEId, graphNodeType, filterEdgeType, filterActiveOnly })
+        getGraphNodesForPicker({ clientLEId, graphNodeType, filterEdgeType, filterActiveOnly, pickerConfig })
             .then(res => {
                 if (res.success) setItems(res.items);
                 else setError(res.error);
@@ -185,21 +191,16 @@ export function GraphNodePicker({
                 // Focus search after load
                 setTimeout(() => inputRef.current?.focus(), 50);
             });
-    }, [open, clientLEId, graphNodeType, filterEdgeType, filterActiveOnly]);
+    }, [open, clientLEId, graphNodeType, filterEdgeType, filterActiveOnly, pickerConfig]);
 
     // ── Filtered items ────────────────────────────────────────────────────
     const filtered = useMemo(() => {
         if (!query.trim()) return items;
-        const q = query.toLowerCase();
-        return items.filter(item =>
-            item.displayLabel.toLowerCase().includes(q) ||
-            (item.subLabel?.toLowerCase().includes(q) ?? false) ||
-            item.activeEdgeTypes.some(et => et.toLowerCase().includes(q))
-        );
-    }, [items, query]);
+        const q = query.trim().toLowerCase();
+        return items.filter(item => itemMatchesSearch(item, q, pickerConfig));
+    }, [items, query, pickerConfig]);
 
-    const promoted = filtered.filter(i => i.isPromoted);
-    const others   = filtered.filter(i => !i.isPromoted);
+    // isPromoted is always false from the server; kept for type compat only.
 
     // ── Current selection labels (for trigger display) ────────────────────
     const selectedItems = items.filter(i => selectedNodeIds.includes(i.nodeId));
@@ -307,48 +308,16 @@ export function GraphNodePicker({
                         </div>
                     ) : (
                         <div className="p-1.5 space-y-1">
-                            {/* Promoted section */}
-                            {promoted.length > 0 && (
-                                <>
-                                    <p className="px-2 pt-1 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-amber-600 flex items-center gap-1">
-                                        <Star className="h-3 w-3" />
-                                        {filterEdgeType?.replace(/_/g, " ")} ({promoted.length})
-                                    </p>
-                                    {promoted.map(item => (
-                                        <NodeRow
-                                            key={item.nodeId}
-                                            item={item}
-                                            isSelected={selectedNodeIds.includes(item.nodeId)}
-                                            isMultiValue={isMultiValue}
-                                            onSelect={handleSelect}
-                                        />
-                                    ))}
-                                    {others.length > 0 && (
-                                        <div className="border-t border-slate-100 dark:border-slate-800 my-1" />
-                                    )}
-                                </>
-                            )}
-
-                            {/* Other nodes */}
-                            {others.length > 0 && (
-                                <>
-                                    {promoted.length > 0 && (
-                                        <p className="px-2 pt-1 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                                            Other {typeConfig.label}s ({others.length})
-                                        </p>
-                                    )}
-                                    {others.map(item => (
-                                        <NodeRow
-                                            key={item.nodeId}
-                                            item={item}
-                                            isSelected={selectedNodeIds.includes(item.nodeId)}
-                                            isMultiValue={isMultiValue}
-                                            onSelect={handleSelect}
-                                        />
-                                    ))}
-                                </>
-                            )}
-                        </div>
+                                {filtered.map(item => (
+                                    <NodeRow
+                                        key={item.nodeId}
+                                        item={item}
+                                        isSelected={selectedNodeIds.includes(item.nodeId)}
+                                        isMultiValue={isMultiValue}
+                                        onSelect={handleSelect}
+                                    />
+                                ))}
+                            </div>
                     )}
                 </ScrollArea>
 

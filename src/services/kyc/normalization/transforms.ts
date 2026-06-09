@@ -323,6 +323,11 @@ export function applyTransform(
                     lastName,
                     primaryNationality: value.nationality || '',
                     dateOfBirth: dob,
+                    // Preserve raw source fields — stored on Person node, not as FieldClaims.
+                    // officerRole is free-text from CH (e.g. "director", "secretary", "llp-member").
+                    // May later migrate to edge attribute; kept here for MVP data preservation.
+                    officerRole: value.officer_role || undefined,
+                    occupation:  value.occupation  || undefined,
                     address: extractedAddress
                 };
                 return { value: personDto, confidencePenalty: 0 };

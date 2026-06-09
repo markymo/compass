@@ -77,7 +77,9 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
 
     // Date & value formatting helpers
     const isDateType = data?.dataType === 'DATE' || data?.dataType === 'DATETIME';
-    const isPartyRef = data?.dataType === 'PARTY_REF';
+    const isPartyRef = data?.dataType === 'PARTY_REF'
+                    || data?.dataType === 'PERSON_REF'
+                    || data?.dataType === 'ORG_REF';
     const isAddressRef = data?.dataType === 'ADDRESS_REF';
     const isObjectRef = isPartyRef || isAddressRef;
     // Controlled-vocabulary collection: uses CodeListField UX instead of free-text
@@ -888,6 +890,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                                 filterEdgeType={graphBindings.find(b => b.isActive)?.filterEdgeType}
                                                                                 allowCreate={graphBindings.find(b => b.isActive)?.allowCreate ?? true}
                                                                                 pickerLabel={graphBindings.find(b => b.isActive)?.pickerLabel || (isPartyRef ? "Select Party" : "Select Address")}
+                                                                                pickerConfig={graphBindings.find(b => b.isActive)?.pickerConfig ?? null}
                                                                                 isMultiValue={false}
                                                                                 selectedNodeIds={currentSelectionIds}
                                                                                 disabled={isAddingSaving || isLoadingBindings}
@@ -1091,6 +1094,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                                 filterActiveOnly={graphBindings.find(b => b.isActive)?.filterActiveOnly ?? true}
                                                                                 allowCreate={graphBindings.find(b => b.isActive)?.allowCreate ?? true}
                                                                                 pickerLabel={graphBindings.find(b => b.isActive)?.pickerLabel || (isPartyRef ? "Select Party" : "Select Address")}
+                                                                                pickerConfig={graphBindings.find(b => b.isActive)?.pickerConfig ?? null}
                                                                                 isMultiValue={false}
                                                                                 selectedNodeIds={currentSelectionIds}
                                                                                 disabled={isAddingSaving || isLoadingBindings}
@@ -1521,6 +1525,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                 filterActiveOnly={graphBindings.find(b => b.isActive)?.filterActiveOnly ?? true}
                 allowCreate={graphBindings.find(b => b.isActive)?.allowCreate ?? true}
                 pickerLabel={graphBindings.find(b => b.isActive)?.pickerLabel || (isPartyRef ? "Select Party" : "Select Address")}
+                pickerConfig={graphBindings.find(b => b.isActive)?.pickerConfig ?? null}
                 isMultiValue={true}
                 selectedNodeIds={currentSelectionIds}
                 disabled={isAddingSaving || isLoadingBindings}

@@ -1,36 +1,150 @@
 "use server";
 
 import prisma from "@/lib/prisma";
+import { getNodeFields, getNodeField, type NodeType } from "@/lib/graph/node-field-registry";
+import { sanitizePickerConfig, type GraphPickerConfig } from "@/lib/graph/picker-config";
+import { formatRawFieldValue } from "@/lib/graph/field-value-formatting";
+import type { GraphNodePickerItem } from "@/lib/graph/graph-node-picker-types";
 
-export interface GraphNodePickerItem {
-    nodeId: string;
-    nodeType: "PERSON" | "LEGAL_ENTITY" | "ADDRESS";
-    personId: string | null;
-    legalEntityId: string | null;
-    addressId: string | null;
-    displayLabel: string;
-    subLabel: string | null;   // e.g. nationality, country
-    source: string;
-    /** edgeTypes this node has in the LE graph (for promoted / role badges) */
-    activeEdgeTypes: string[];
-    /** Whether this node has an active edge matching filterEdgeType */
-    isPromoted: boolean;
-}
+// Re-export the type so existing imports from this module continue to work.
+export type { GraphNodePickerItem } from "@/lib/graph/graph-node-picker-types";
+
+// ── Types ──────────────────────────────────────────────────────────────────────
 
 interface GetGraphNodesForPickerInput {
     clientLEId: string;
     graphNodeType: "PERSON" | "LEGAL_ENTITY" | "ADDRESS";
-    /** If supplied, nodes with this edge type are marked isPromoted and sorted first */
     filterEdgeType?: string | null;
     filterActiveOnly?: boolean;
+    /**
+     * Optional per-binding picker display config (from MasterFieldGraphBinding.pickerConfig).
+     * When present and valid: drives displayLabel / subLabel from rawFields + registry.
+     * When null / absent / invalid: legacy hardcoded display used unchanged.
+     * Server-side validated with sanitizePickerConfig() before use.
+     */
+    pickerConfig?: GraphPickerConfig | Record<string, unknown> | null;
 }
+
+// ── Internal helpers ───────────────────────────────────────────────────────────
+
+/**
+ * Build a Prisma select object for an entity (person / legalEntity / address)
+ * from NODE_FIELD_REGISTRY. Always includes `id` plus every column referenced
+ * by a SYSTEM_COLUMN storagePath for the given nodeType.
+ */
+function buildEntitySelect(nodeType: NodeType): Record<string, boolean> {
+    const select: Record<string, boolean> = { id: true };
+    for (const field of getNodeFields(nodeType)) {
+        const parts = field.storagePath.split(".");
+        if (parts.length === 2) {
+            select[parts[1]] = true; // e.g. "person.firstName" → "firstName"
+        }
+    }
+    return select;
+}
+
+/**
+ * Resolve all registry fields for a node into a flat Record<fieldKey, value>.
+ * Missing/null fields resolve to null (never undefined).
+ */
+function buildRawFields(node: any, nodeType: NodeType): Record<string, unknown> {
+    const rawFields: Record<string, unknown> = {};
+    for (const field of getNodeFields(nodeType)) {
+        const parts = field.storagePath.split(".");
+        if (parts.length === 2) {
+            const [entityKey, columnKey] = parts;
+            rawFields[field.fieldKey] = node[entityKey]?.[columnKey] ?? null;
+        }
+    }
+    return rawFields;
+}
+
+/** Separator used between configured field values in subLabel / displayLabel. */
+const FIELD_SEPARATOR = " · ";
+
+
+/**
+ * Join a list of fieldKeys from rawFields into a display string, omitting
+ * fields that are null/empty after dataType-aware formatting.
+ */
+function joinConfiguredFields(
+    fieldKeys: string[],
+    rawFields: Record<string, unknown>,
+    nodeType: NodeType
+): string {
+    const parts: string[] = [];
+    for (const key of fieldKeys) {
+        const fieldDef = getNodeField(nodeType, key);
+        if (!fieldDef) continue;
+        const formatted = formatRawFieldValue(rawFields[key], fieldDef.dataType);
+        if (formatted !== null) parts.push(formatted);
+    }
+    return parts.join(FIELD_SEPARATOR);
+}
+
+/**
+ * Build display label/subLabel using pickerConfig fieldKeys from rawFields.
+ * Returns null for each slot if the resulting string is empty (caller falls back to legacy).
+ */
+function buildConfiguredDisplay(
+    rawFields: Record<string, unknown>,
+    nodeType: NodeType,
+    config: GraphPickerConfig
+): { displayLabel: string | null; subLabel: string | null } {
+    const displayLabel =
+        config.displayFields && config.displayFields.length > 0
+            ? joinConfiguredFields(config.displayFields, rawFields, nodeType) || null
+            : null;
+
+    const subLabel =
+        config.subFields && config.subFields.length > 0
+            ? joinConfiguredFields(config.subFields, rawFields, nodeType) || null
+            : null;
+
+    return { displayLabel, subLabel };
+}
+
+/**
+ * Build legacy hardcoded display labels (pre-Phase-3 behaviour).
+ * Used when pickerConfig is null, or when configured display resolves to empty.
+ */
+function buildLegacyDisplay(
+    node: any
+): { displayLabel: string; subLabel: string | null } {
+    let displayLabel = "Unknown";
+    let subLabel: string | null = null;
+
+    if (node.nodeType === "PERSON" && node.person) {
+        displayLabel = [node.person.firstName, node.person.middleName, node.person.lastName]
+            .filter(Boolean)
+            .join(" ") || "Unknown Person";
+        subLabel = node.person.primaryNationality ?? null;
+    } else if (node.nodeType === "LEGAL_ENTITY" && node.legalEntity) {
+        displayLabel = node.legalEntity.name || node.legalEntity.localRegistrationNumber || "Unknown Entity";
+        subLabel = node.legalEntity.localRegistrationNumber ?? null;
+    } else if (node.nodeType === "ADDRESS" && node.address) {
+        displayLabel = [node.address.line1, node.address.city, node.address.postalCode, node.address.country]
+            .filter(Boolean)
+            .join(", ") || "Unknown Address";
+        subLabel = node.address.country ?? null;
+    }
+
+    return { displayLabel, subLabel };
+}
+
+// ── Server action ──────────────────────────────────────────────────────────────
 
 /**
  * getGraphNodesForPicker
  *
  * Fetches all graph nodes for a given LE scoped to a node type.
- * Marks nodes as "promoted" if they have an active edge matching filterEdgeType.
- * Used by the GraphNodePicker component.
+ * Returns items sorted alphabetically ascending by displayLabel.
+ *
+ * Phase 1: each item carries rawFields (registry-driven structured field values).
+ * Phase 3: when pickerConfig is supplied and valid, displayLabel / subLabel are built
+ *          from pickerConfig.displayFields / pickerConfig.subFields via rawFields.
+ *          Falls back to legacy hardcoded display if config is null, invalid, or produces
+ *          an empty string.
  */
 export async function getGraphNodesForPicker(
     input: GetGraphNodesForPickerInput
@@ -38,7 +152,16 @@ export async function getGraphNodesForPicker(
     try {
         const { clientLEId, graphNodeType, filterEdgeType, filterActiveOnly = true } = input;
 
-        // 1. Fetch all nodes of the requested type for this LE
+        // Validate and sanitize pickerConfig server-side.
+        // Accepts raw DB JSON or a typed object. Invalid/unknown keys stripped.
+        const validatedConfig = sanitizePickerConfig(
+            graphNodeType as NodeType,
+            input.pickerConfig ?? null
+        );
+
+        // 1. Fetch all nodes of the requested type for this LE.
+        //    Entity selects are derived from NODE_FIELD_REGISTRY so that widening
+        //    the registry automatically widens the fetch without a separate code change.
         const nodes = await (prisma as any).clientLEGraphNode.findMany({
             where: {
                 clientLEId,
@@ -46,13 +169,13 @@ export async function getGraphNodesForPicker(
             },
             include: {
                 person: {
-                    select: { id: true, firstName: true, middleName: true, lastName: true, primaryNationality: true },
+                    select: buildEntitySelect("PERSON"),
                 },
                 legalEntity: {
-                    select: { id: true, name: true, localRegistrationNumber: true },
+                    select: buildEntitySelect("LEGAL_ENTITY"),
                 },
                 address: {
-                    select: { id: true, line1: true, line2: true, city: true, postalCode: true, country: true },
+                    select: buildEntitySelect("ADDRESS"),
                 },
             },
             orderBy: { createdAt: "asc" },
@@ -83,26 +206,27 @@ export async function getGraphNodesForPicker(
         // 4. Build picker items
         const items: GraphNodePickerItem[] = nodes.map((node: any) => {
             const activeEdgeTypes = edgeMap.get(node.id) ?? [];
-            const isPromoted = filterEdgeType
-                ? activeEdgeTypes.includes(filterEdgeType)
-                : false;
 
-            let displayLabel = "Unknown";
-            let subLabel: string | null = null;
+            // Promotion sort is intentionally disabled.
+            const isPromoted = false;
 
-            if (node.nodeType === "PERSON" && node.person) {
-                displayLabel = [node.person.firstName, node.person.middleName, node.person.lastName]
-                    .filter(Boolean)
-                    .join(" ") || "Unknown Person";
-                subLabel = node.person.primaryNationality ?? null;
-            } else if (node.nodeType === "LEGAL_ENTITY" && node.legalEntity) {
-                displayLabel = node.legalEntity.name || node.legalEntity.localRegistrationNumber || "Unknown Entity";
-                subLabel = node.legalEntity.localRegistrationNumber ?? null;
-            } else if (node.nodeType === "ADDRESS" && node.address) {
-                displayLabel = [node.address.line1, node.address.city, node.address.postalCode, node.address.country]
-                    .filter(Boolean)
-                    .join(", ") || "Unknown Address";
-                subLabel = node.address.country ?? null;
+            // Build rawFields from registry (Phase 1 infrastructure)
+            const rawFields = buildRawFields(node, node.nodeType as NodeType);
+
+            // ── displayLabel / subLabel ────────────────────────────────────────
+            // Phase 3: if a valid pickerConfig is present, use configured display.
+            // Fall back to legacy if config is null OR configured output is empty.
+            const legacy = buildLegacyDisplay(node);
+
+            let displayLabel = legacy.displayLabel;
+            let subLabel = legacy.subLabel;
+
+            if (validatedConfig) {
+                const configured = buildConfiguredDisplay(rawFields, node.nodeType as NodeType, validatedConfig);
+                // Only adopt configured value if it produced a non-empty string.
+                // Empty string → keep legacy (prevents blank rows from bad config).
+                if (configured.displayLabel !== null) displayLabel = configured.displayLabel;
+                if (configured.subLabel !== null) subLabel = configured.subLabel;
             }
 
             return {
@@ -116,15 +240,14 @@ export async function getGraphNodesForPicker(
                 source: node.source ?? "UNKNOWN",
                 activeEdgeTypes,
                 isPromoted,
+                // Phase 1: structured field values from NODE_FIELD_REGISTRY.
+                // Phase 3: consumed by buildConfiguredDisplay() when pickerConfig is present.
+                rawFields,
             };
         });
 
-        // 5. Sort: promoted nodes first, then alphabetical
-        items.sort((a, b) => {
-            if (a.isPromoted && !b.isPromoted) return -1;
-            if (!a.isPromoted && b.isPromoted) return 1;
-            return a.displayLabel.localeCompare(b.displayLabel);
-        });
+        // Sort: purely alphabetical ascending.
+        items.sort((a, b) => a.displayLabel.localeCompare(b.displayLabel));
 
         return { success: true, items };
     } catch (e: any) {
