@@ -257,18 +257,16 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
             if (payload.optionSetId === "none" || payload.appDataType !== APP_DATA_TYPES.SELECT) {
                 payload.optionSetId = null;
             }
-            // Only strip isMultiValue for scalar types that cannot be collections.
-            // Reference types (PARTY_REF, ADDRESS_REF, etc.) support multi-value via
-            // MasterFieldGraphBinding — preserve the flag so graph-backed list fields work.
-            const multiValueTypes = [
-                APP_DATA_TYPES.SELECT,
-                APP_DATA_TYPES.JSONB,
-                APP_DATA_TYPES.PARTY_REF,
-                APP_DATA_TYPES.PERSON_REF,
-                APP_DATA_TYPES.ORG_REF,
-                APP_DATA_TYPES.ADDRESS_REF,
+            // Strip isMultiValue only for types where a collection makes no semantic sense.
+            // TEXT, NUMBER, JSONB, SELECT, and all reference types CAN be multi-value
+            // (e.g. trading names, SIC codes, directors). Only BOOLEAN, DATETIME, and
+            // DOCUMENT_REF have no meaningful collection interpretation.
+            const noMultiValueTypes = [
+                APP_DATA_TYPES.BOOLEAN,
+                APP_DATA_TYPES.DATETIME,
+                APP_DATA_TYPES.DOCUMENT_REF,
             ];
-            if (!multiValueTypes.includes(payload.appDataType)) {
+            if (noMultiValueTypes.includes(payload.appDataType)) {
                 payload.isMultiValue = false;
             }
 
