@@ -153,8 +153,8 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
     const mappedQuestions = questions.filter((q: any) => q.masterFieldNo || q.masterQuestionGroupId || q.customFieldDefinitionId);
     if (mappedQuestions.length > 0 && subjectLeId) {
         // Build fieldDefMap from already-loaded allFields
-        const fieldDefMap = new Map<number, { fieldNo: number; appDataType: string; isMultiValue: boolean }>(
-            allFields.map((f: any) => [f.fieldNo, { fieldNo: f.fieldNo, appDataType: f.appDataType, isMultiValue: f.isMultiValue }])
+        const fieldDefMap = new Map<number, { fieldNo: number; fieldName: string; appDataType: string; isMultiValue: boolean }>(
+            allFields.map((f: any) => [f.fieldNo, { fieldNo: f.fieldNo, fieldName: f.fieldName ?? '', appDataType: f.appDataType, isMultiValue: f.isMultiValue }])
         );
 
         // Build groupFieldMap from already-loaded allGroupsWithItems
@@ -218,7 +218,7 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
                         const codeSystem = cfg && 'codeSystem' in cfg ? (cfg as any).codeSystem : undefined;
                         groupFields.push({
                             fieldNo,
-                            fieldName: (def as any).fieldName ?? `Field ${fieldNo}`,
+                            fieldName: def.fieldName ? `F${fieldNo} ${def.fieldName}` : `F${fieldNo}`,
                             appDataType: def.appDataType,
                             isMultiValue: def.isMultiValue,
                             ...(codeSystem ? { codeSystem } : {}),

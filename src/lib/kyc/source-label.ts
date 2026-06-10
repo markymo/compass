@@ -1,14 +1,13 @@
 /**
  * source-label.ts
  *
- * Pure helpers for resolving human-readable source display labels from
- * internal HydratedValue provenance fields.
+ * Pure, client-safe helpers for resolving human-readable source display labels
+ * from internal HydratedValue provenance fields.
  *
- * No DB calls here. The RA name map must be pre-fetched by the caller
- * (once per page render) and passed in.
+ * NO imports from @/lib/prisma or any server-only module.
+ * The RA name map must be pre-fetched server-side (see source-label.server.ts)
+ * and passed in as a plain Record<string, string> prop.
  */
-
-import prisma from '@/lib/prisma';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -67,25 +66,4 @@ export function resolveSourceLabel(
             // Unknown internal type — return as-is so nothing is silently swallowed.
             return source;
     }
-}
-
-// ── RA name pre-fetch ─────────────────────────────────────────────────────────
-
-/**
- * Fetches all active RegistryAuthority rows and returns a plain-object
- * name lookup suitable for passing as a Next.js server → client prop.
- *
- * Call once per page render / resolver invocation.
- * The table is small (~10–50 rows) — no caching required at this stage.
- *
- * Key:   RegistryAuthority.id     e.g. 'RA000585'
- * Value: RegistryAuthority.name   e.g. 'Companies House'
- */
-export async function fetchRaNameLookup(): Promise<RaNameLookup> {
-    const rows = await (prisma as any).registryAuthority.findMany({
-        where: { isActive: true },
-        select: { id: true, name: true },
-    }) as Array<{ id: string; name: string }>;
-
-    return Object.fromEntries(rows.map(r => [r.id, r.name]));
 }
