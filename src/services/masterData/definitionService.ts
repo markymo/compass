@@ -2,8 +2,8 @@ import prisma from "@/lib/prisma";
 import { MasterFieldDefinition, MasterFieldGroup, MasterFieldGroupItem } from "@prisma/client";
 
 let definitionCache: Record<number, MasterFieldDefinition> | null = null;
-let lastCacheUpdate = 0;
-const CACHE_TTL = 30000; // 30 seconds
+let lastCacheUpdate = 0; // 0 = always stale on first load after module reload
+const CACHE_TTL = 30_000; // 30 seconds
 
 /**
  * getMasterFieldDefinition: Fetches a single field definition from the DB with caching.
