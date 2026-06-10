@@ -579,7 +579,7 @@ export default function MasterDataManager({ initialData, rawFields, initialUserC
                                         return (
                                             <Draggable key={category.id} draggableId={category.id} index={index}>
                                                 {(provided) => (
-                                                    <div ref={provided.innerRef} {...provided.draggableProps} className="border-b border-slate-200 last:border-b-0 bg-slate-50/50">
+                                                    <div ref={provided.innerRef} {...provided.draggableProps} style={provided.draggableProps.style as React.CSSProperties} className="border-b border-slate-200 last:border-b-0 bg-slate-50/50">
                                                         <div className="flex items-center p-2 bg-slate-100/80 border-b border-slate-200 group">
                                                             <div {...provided.dragHandleProps} className="p-1 cursor-grab active:cursor-grabbing text-slate-400 hover:text-slate-600">
                                                                 <GripVertical className="w-4 h-4" />
