@@ -152,6 +152,8 @@ export async function getAllQuestionnaires() {
             fileUrl: true,
             ownerOrgId: true,
             fiEngagementId: true,
+            kind: true,
+            visibility: true,
             fiOrg: {
                 select: { name: true }
             },
