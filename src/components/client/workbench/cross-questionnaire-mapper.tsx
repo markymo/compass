@@ -40,6 +40,8 @@ import {
 } from "lucide-react";
 import { useSearchParams, usePathname, useRouter } from "next/navigation";
 import { FieldDetailPanel } from "../inspection/field-detail-panel";
+import { GroupAnswerRenderer } from "../engagement/group-answer-renderer";
+import type { GroupFieldData } from "../engagement/group-answer-renderer";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
@@ -840,7 +842,15 @@ function QuestionCard({
                                 ) : (
                                     <div className="text-sm text-slate-700 bg-slate-50/50 px-2 py-1.5 rounded border border-slate-100/50 w-full font-medium relative flex items-center">
                                         <span className="flex-1">
-                                            {question.masterDataValue != null && question.masterDataValue !== '' ? (
+                                            {question.masterQuestionGroupId && (question as any).masterDataGroupFields?.length > 0 ? (
+                                                /* ── Group answer: per-field vertical list ── */
+                                                <GroupAnswerRenderer
+                                                    groupLabel=""
+                                                    fields={(question as any).masterDataGroupFields as GroupFieldData[]}
+                                                    raNameLookup={{}}
+                                                    className="py-0.5"
+                                                />
+                                            ) : question.masterDataValue != null && question.masterDataValue !== '' ? (
                                                 Array.isArray(question.masterDataValue) ? (
                                                     <div className="flex flex-wrap gap-1">
                                                         {question.masterDataValue.map((val: any, i: any) => (

@@ -4,6 +4,8 @@ import prisma from "@/lib/prisma";
 import { getConsoleQuestions, ConsoleQuestion, resolveMasterData, resolveMasterDataBatch, BatchResolverInput } from "./kyc-query";
 import { KycStateService } from "@/lib/kyc/KycStateService";
 import { listAllMasterFields, listAllMasterGroups, listAllMasterGroupsWithItems, getMasterFieldGroup } from "@/services/masterData/definitionService";
+import { getComplexFieldConfig } from "@/lib/master-data/complex-field-config";
+import type { GroupFieldData } from "@/components/client/engagement/group-answer-renderer";
 import { revalidatePath } from "next/cache";
 import { generateObject } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
@@ -193,6 +195,12 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
                     const groupMap: Record<string, any> = {};
                     let latestDate: Date | null = null;
                     let primarySource: string | null = null;
+
+                    // Build the ordered per-field list for GroupAnswerRenderer.
+                    // Ordering follows the group's fieldNos array (already DB-ordered).
+                    const groupFieldNos = groupFieldMap.get(q.masterQuestionGroupId) ?? [];
+                    const groupFields: GroupFieldData[] = [];
+
                     for (const [fNo, fv] of Object.entries(resolvedValues[q.id])) {
                         groupMap[fNo] = fv.value;
                         if (!latestDate || (fv.updatedAt && fv.updatedAt > latestDate)) {
@@ -200,9 +208,28 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
                             primarySource = fv.source;
                         }
                     }
-                    q.masterDataValue = groupMap;
+
+                    // Populate groupFields in group-item order
+                    for (const fieldNo of groupFieldNos) {
+                        const def = fieldDefMap.get(fieldNo);
+                        if (!def) continue;
+                        const hydratedVal = resolvedValues[q.id][String(fieldNo)];
+                        const cfg = getComplexFieldConfig(fieldNo);
+                        const codeSystem = cfg && 'codeSystem' in cfg ? (cfg as any).codeSystem : undefined;
+                        groupFields.push({
+                            fieldNo,
+                            fieldName: (def as any).fieldName ?? `Field ${fieldNo}`,
+                            appDataType: def.appDataType,
+                            isMultiValue: def.isMultiValue,
+                            ...(codeSystem ? { codeSystem } : {}),
+                            hydrated: hydratedVal ?? { value: null, source: null, isSynced: false },
+                        });
+                    }
+
+                    q.masterDataValue = groupMap;           // preserved — backward compat
                     q.masterDataSource = primarySource || 'MASTER_RECORD';
                     q.masterDataUpdatedAt = latestDate;
+                    (q as any).masterDataGroupFields = groupFields;
                 } else {
                     const fieldValues = Object.values(resolvedValues[q.id]);
                     if (fieldValues.length > 0) {
