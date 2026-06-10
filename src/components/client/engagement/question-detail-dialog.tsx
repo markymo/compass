@@ -32,7 +32,9 @@ interface QuestionDetailDialogProps {
 }
 
 import { updateSupplierNote, toggleQuestionLock, getLETeamMembers, assignQuestion, attachDocumentToQuestion, approveQuestionMapping, shareQuestion, releaseQuestion } from "@/actions/kanban-actions";
-import { getFieldDetail, FieldDetailData } from "@/actions/kyc-query";
+import { getFieldDetail, FieldDetailData, GroupFieldDetail } from "@/actions/kyc-query";
+import { GroupAnswerRenderer } from "@/components/client/engagement/group-answer-renderer";
+import type { GroupFieldData } from "@/components/client/engagement/group-answer-renderer";
 import { toast } from "sonner";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -393,34 +395,49 @@ export function QuestionDetailDialog({ open, onOpenChange, task, clientLEId }: Q
                                                 </div>
                                             ) : (
                                                 <div className="space-y-1">
-                                                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">
-                                                        Authoritative Value
-                                                    </div>
-                                                    {fieldData?.current?.value != null ? (
-                                                        <div className="text-sm font-medium text-slate-900">
-                                                            {Array.isArray(fieldData.current.value) ? (
-                                                                <div className="flex flex-wrap gap-1 mt-1">
-                                                                    {fieldData.current.value.map((v: any, idx: number) => (
-                                                                        <Badge key={idx} variant="outline" className="bg-white border-slate-300 text-slate-800 py-0.5 px-2 text-xs">
-                                                                            {String(v)}
-                                                                        </Badge>
-                                                                    ))}
-                                                                </div>
-                                                            ) : typeof fieldData.current.value === "object" ? (
-                                                                <div className="flex flex-col gap-1 mt-1">
-                                                                    {Object.entries(fieldData.current.value).map(([key, val]) => (
-                                                                        <div key={key} className="text-xs bg-slate-100 text-slate-800 py-1 px-2 rounded-md">
-                                                                            <span className="font-semibold text-slate-500 mr-2">{key}:</span>
-                                                                            {String(val)}
+                                                    {/* ── Group-mapped question: per-field vertical list ── */}
+                                                    {task.masterQuestionGroupId && fieldData?.groupFields && fieldData.groupFields.length > 0 ? (
+                                                        <GroupAnswerRenderer
+                                                            groupLabel={fieldData.fieldName || "Group"}
+                                                            fields={fieldData.groupFields as GroupFieldData[]}
+                                                            // raNameLookup is not yet threaded from the server page.
+                                                            // RA codes will fall back to 'Registry' until Phase 6 adds
+                                                            // fetchRaNameLookup() to the parent server component.
+                                                            raNameLookup={{}}
+                                                        />
+                                                    ) : (
+                                                        /* ── Single-field / custom-field: existing rendering (unchanged) ── */
+                                                        <>
+                                                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">
+                                                                Authoritative Value
+                                                            </div>
+                                                            {fieldData?.current?.value != null ? (
+                                                                <div className="text-sm font-medium text-slate-900">
+                                                                    {Array.isArray(fieldData.current.value) ? (
+                                                                        <div className="flex flex-wrap gap-1 mt-1">
+                                                                            {fieldData.current.value.map((v: any, idx: number) => (
+                                                                                <Badge key={idx} variant="outline" className="bg-white border-slate-300 text-slate-800 py-0.5 px-2 text-xs">
+                                                                                    {String(v)}
+                                                                                </Badge>
+                                                                            ))}
                                                                         </div>
-                                                                    ))}
+                                                                    ) : typeof fieldData.current.value === "object" ? (
+                                                                        <div className="flex flex-col gap-1 mt-1">
+                                                                            {Object.entries(fieldData.current.value).map(([key, val]) => (
+                                                                                <div key={key} className="text-xs bg-slate-100 text-slate-800 py-1 px-2 rounded-md">
+                                                                                    <span className="font-semibold text-slate-500 mr-2">{key}:</span>
+                                                                                    {String(val)}
+                                                                                </div>
+                                                                            ))}
+                                                                        </div>
+                                                                    ) : (
+                                                                        String(fieldData.current.value)
+                                                                    )}
                                                                 </div>
                                                             ) : (
-                                                                String(fieldData.current.value)
+                                                                <span className="text-xs italic text-slate-400">No value recorded</span>
                                                             )}
-                                                        </div>
-                                                    ) : (
-                                                        <span className="text-xs italic text-slate-400">No value recorded</span>
+                                                        </>
                                                     )}
                                                 </div>
                                             )}

@@ -302,4 +302,150 @@ describe('resolveMasterDataBatch', () => {
         expect(result['qNoMap']).toEqual({});
     });
 
+    // ── T10: sourceReference is threaded from claim to HydratedValue ────────
+
+    it('T10: REGISTRATION_AUTHORITY claim carries sourceReference through to HydratedValue', async () => {
+        const claim = makeClaim({
+            id: 'c-t10', fieldNo: 3,
+            sourceType: 'REGISTRATION_AUTHORITY', sourceReference: 'RA000585',
+            valueText: 'Lynn Wind Farm Ltd',
+        });
+        const input: BatchResolverInput = {
+            subjectLeId: SUBJECT_LE_ID,
+            ownerScopeId: null,
+            questions: [{ questionId: 'q10', masterFieldNo: 3 }],
+            fieldDefMap: new Map([[3, makeDef(3)]]),
+            groupFieldMap: new Map(),
+            claims: [claim],
+            sourceMappings: [makeMapping(3, 'REGISTRATION_AUTHORITY', 'RA000585', 20)],
+        };
+
+        const result = await resolveMasterDataBatch(input);
+
+        expect(result['q10']['3'].sourceReference).toBe('RA000585');
+        expect(result['q10']['3'].source).toBe('REGISTRATION_AUTHORITY'); // source unchanged
+        expect(result['q10']['3'].isSynced).toBe(true);
+    });
+
+    // ── T11: USER_INPUT produces sourceReference: null ───────────────────────
+
+    it('T11: USER_INPUT claim produces null sourceReference in HydratedValue', async () => {
+        // Note: makeClaim uses ?? so null is coalesced to the default 'COMPANIES_HOUSE'.
+        // Use an explicit empty-string sentinel to force null-like, or omit sourceReference
+        // and instead build a raw claim object directly.
+        const claim = {
+            id: 'c-t11', fieldNo: 3,
+            subjectLeId: SUBJECT_LE_ID,
+            ownerScopeId: null,
+            status: 'VERIFIED',
+            sourceType: 'USER_INPUT',
+            sourceReference: null,      // explicitly null — not coalesced by factory
+            assertedAt: new Date('2026-01-01T00:00:00Z'),
+            collectionId: null, instanceId: null,
+            valueText: 'Manually entered name',
+            valueNumber: null, valueDate: null, valueJson: null, valueDocId: null,
+            evidenceId: null, confidenceScore: null, effectiveFrom: null, effectiveTo: null,
+        };
+        const input: BatchResolverInput = {
+            subjectLeId: SUBJECT_LE_ID,
+            ownerScopeId: null,
+            questions: [{ questionId: 'q11', masterFieldNo: 3 }],
+            fieldDefMap: new Map([[3, makeDef(3)]]),
+            groupFieldMap: new Map(),
+            claims: [claim as any],
+            sourceMappings: [],
+        };
+
+        const result = await resolveMasterDataBatch(input);
+
+        expect(result['q11']['3'].sourceReference).toBeNull();
+        expect(result['q11']['3'].source).toBe('USER_INPUT');
+    });
+
+    // ── T12: Collection updatedAt = MAX(assertedAt), not first item ──────────
+
+    it('T12: Collection updatedAt uses MAX assertedAt not collection[0].assertedAt', async () => {
+        const older = makeClaim({
+            id: 'c-t12-old', fieldNo: 20,
+            sourceType: 'REGISTRATION_AUTHORITY', sourceReference: 'RA000585',
+            collectionId: 'SIC_CODES', instanceId: 'sic_35110',
+            valueJson: { code: '35110', label: 'Production of electricity' },
+            assertedAt: new Date('2026-01-01T00:00:00Z'),
+        });
+        const newer = makeClaim({
+            id: 'c-t12-new', fieldNo: 20,
+            sourceType: 'REGISTRATION_AUTHORITY', sourceReference: 'RA000585',
+            collectionId: 'SIC_CODES', instanceId: 'sic_20100',
+            valueJson: { code: '20100', label: 'Manufacture of plastics' },
+            assertedAt: new Date('2026-06-10T10:00:00Z'), // newer
+        });
+        const input: BatchResolverInput = {
+            subjectLeId: SUBJECT_LE_ID,
+            ownerScopeId: null,
+            questions: [{ questionId: 'q12', masterFieldNo: 20 }],
+            fieldDefMap: new Map([[20, makeDef(20, true)]]),
+            groupFieldMap: new Map(),
+            claims: [older, newer],
+            sourceMappings: [makeMapping(20, 'REGISTRATION_AUTHORITY', 'RA000585', 20)],
+        };
+
+        const result = await resolveMasterDataBatch(input);
+
+        // updatedAt must equal the NEWER timestamp, not older
+        const updatedAt = result['q12']['20'].updatedAt as Date;
+        expect(updatedAt).toEqual(new Date('2026-06-10T10:00:00Z'));
+        expect(result['q12']['20'].value).toHaveLength(2);
+    });
+
+    // ── T13: sourceReference threads into group sub-fields ───────────────────
+
+    it('T13: Group sub-field carries sourceReference from its winning claim', async () => {
+        const claim = makeClaim({
+            id: 'c-t13', fieldNo: 6,
+            sourceType: 'REGISTRATION_AUTHORITY', sourceReference: 'RA000585',
+            valueText: '1 Wind Farm Road',
+        });
+        const input: BatchResolverInput = {
+            subjectLeId: SUBJECT_LE_ID,
+            ownerScopeId: null,
+            questions: [{ questionId: 'q13', masterQuestionGroupId: 'REGISTERED_ADDRESS' }],
+            fieldDefMap: new Map([[6, makeDef(6)]]),
+            groupFieldMap: new Map([['REGISTERED_ADDRESS', [6]]]),
+            claims: [claim],
+            sourceMappings: [makeMapping(6, 'REGISTRATION_AUTHORITY', 'RA000585', 20)],
+        };
+
+        const result = await resolveMasterDataBatch(input);
+
+        expect(result['q13']['6'].sourceReference).toBe('RA000585');
+        expect(result['q13']['6'].source).toBe('REGISTRATION_AUTHORITY');
+    });
+
+    // ── T14: Consumers destructuring only {value,source,isSynced} unaffected ─
+
+    it('T14: Existing consumer destructuring source/value/isSynced still works (backwards compat)', async () => {
+        const claim = makeClaim({ id: 'c-t14', fieldNo: 3, sourceType: 'GLEIF', sourceReference: null, valueText: 'Test' });
+        const input: BatchResolverInput = {
+            subjectLeId: SUBJECT_LE_ID,
+            ownerScopeId: null,
+            questions: [{ questionId: 'q14', masterFieldNo: 3 }],
+            fieldDefMap: new Map([[3, makeDef(3)]]),
+            groupFieldMap: new Map(),
+            claims: [claim],
+            sourceMappings: [makeMapping(3, 'GLEIF', null, 10)],
+        };
+
+        const result = await resolveMasterDataBatch(input);
+
+        // Simulate a consumer that only cares about the original three fields
+        const { value, source, isSynced } = result['q14']['3'];
+        expect(value).toBe('Test');
+        expect(source).toBe('GLEIF');
+        expect(isSynced).toBe(true);
+        // sourceReference is optional — accessing it does not throw.
+        // The makeClaim factory defaults sourceReference to 'COMPANIES_HOUSE' when not
+        // overridden; the field is present and should not be undefined.
+        expect(result['q14']['3'].sourceReference).toBeDefined();
+    });
+
 });
