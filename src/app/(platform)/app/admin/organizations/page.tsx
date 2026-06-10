@@ -1,20 +1,263 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { getOrganizations, createOrganization } from "@/actions/org";
+import { useState, useEffect, useRef } from "react";
+import { getOrganizations, createOrganization, updateOrganization, checkOrgDeletable, deleteOrganization } from "@/actions/org";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
-import { Loader2, Plus, Building2, Users, Search } from "lucide-react";
+import { Loader2, Plus, Building2, Users, Search, Trash2, AlertTriangle, Ban } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { toast } from "sonner";
 
 import { useSearchParams } from "next/navigation";
+
+// ── Inline-editable cell ─────────────────────────────────────────────────────
+
+function InlineEditCell({
+    value,
+    orgId,
+    field,
+    placeholder,
+    onSaved,
+    className = "",
+}: {
+    value: string | null | undefined;
+    orgId: string;
+    field: "name" | "shortCode" | "domain";
+    placeholder?: string;
+    onSaved: () => void;
+    className?: string;
+}) {
+    const [editing, setEditing] = useState(false);
+    const [editVal, setEditVal] = useState(value ?? "");
+    const [saving, setSaving] = useState(false);
+    const inputRef = useRef<HTMLInputElement>(null);
+    const cancelledRef = useRef(false);
+
+    const startEdit = () => {
+        cancelledRef.current = false;
+        setEditVal(value ?? "");
+        setEditing(true);
+        setTimeout(() => inputRef.current?.select(), 0);
+    };
+
+    const commit = async () => {
+        // If Escape was pressed, don't save on the subsequent blur
+        if (cancelledRef.current) return;
+
+        const trimmed = editVal.trim();
+        // No-op if unchanged
+        if (trimmed === (value ?? "")) {
+            setEditing(false);
+            return;
+        }
+        // Name cannot be empty
+        if (field === "name" && !trimmed) {
+            toast.error("Name cannot be empty");
+            // Revert
+            setEditVal(value ?? "");
+            setEditing(false);
+            return;
+        }
+
+        setSaving(true);
+        const payload: Record<string, string | null> = {};
+        payload[field] = trimmed || null;
+
+        const res = await updateOrganization(orgId, payload);
+        setSaving(false);
+        if (res.success) {
+            toast.success(`${field === "shortCode" ? "Short code" : field.charAt(0).toUpperCase() + field.slice(1)} updated`);
+            setEditing(false);
+            onSaved();
+        } else {
+            toast.error(res.error || "Update failed");
+            setEditing(false);
+        }
+    };
+
+    const cancel = () => {
+        cancelledRef.current = true;
+        setEditing(false);
+        setEditVal(value ?? "");
+    };
+
+    if (editing) {
+        return (
+            <Input
+                ref={inputRef}
+                value={editVal}
+                onChange={(e) => setEditVal(e.target.value)}
+                onBlur={commit}
+                onKeyDown={(e) => {
+                    if (e.key === "Enter") { e.currentTarget.blur(); }
+                    if (e.key === "Escape") { cancel(); }
+                }}
+                className={`h-7 text-sm w-full min-w-[80px] ${saving ? "opacity-50" : ""}`}
+                disabled={saving}
+                placeholder={placeholder}
+            />
+        );
+    }
+
+    return (
+        <span
+            onClick={startEdit}
+            title="Click to edit"
+            className={`cursor-pointer hover:bg-slate-100 rounded px-1 -mx-1 py-0.5 transition-colors ${className}`}
+        >
+            {value || <span className="text-slate-300 italic">{placeholder || "—"}</span>}
+        </span>
+    );
+}
+
+// ── Delete confirmation dialog ───────────────────────────────────────────────
+
+function DeleteOrgButton({ orgId, orgName, orgCount, onDeleted }: {
+    orgId: string;
+    orgName: string;
+    orgCount: Record<string, number>;
+    onDeleted: () => void;
+}) {
+    const [open, setOpen] = useState(false);
+    const [checking, setChecking] = useState(false);
+    const [deleting, setDeleting] = useState(false);
+    const [checkResult, setCheckResult] = useState<{ deletable: boolean; error?: string; blockers?: string[] } | null>(null);
+
+    // Compute whether the org has any dependencies from the pre-fetched counts
+    const totalDeps = Object.values(orgCount).reduce((sum, n) => sum + n, 0);
+    const hasDeps = totalDeps > 0;
+
+    // Build a human-readable tooltip summarising why deletion is blocked
+    const depSummary = hasDeps
+        ? Object.entries(orgCount)
+            .filter(([, n]) => n > 0)
+            .map(([key, n]) => {
+                const labels: Record<string, string> = {
+                    memberships: "member",
+                    ownedLEs: "owned LE",
+                    engagements: "engagement",
+                    questionnaires: "questionnaire",
+                    ownedQuestionnaires: "owned questionnaire",
+                    customFieldDefinitions: "custom field",
+                    fiSchemas: "schema",
+                    invitations: "invitation",
+                    ownedClaims: "owned claim",
+                    claims: "subject claim",
+                    referencedInClaims: "referenced claim",
+                    visibilityGrants: "visibility grant",
+                };
+                const label = labels[key] || key;
+                return `${n} ${label}${n !== 1 ? "s" : ""}`;
+            })
+            .join(", ")
+        : undefined;
+
+    const handleOpen = async () => {
+        setOpen(true);
+        setChecking(true);
+        setCheckResult(null);
+        const res = await checkOrgDeletable(orgId);
+        setCheckResult({ deletable: res.deletable, error: res.error, blockers: res.blockers });
+        setChecking(false);
+    };
+
+    const handleConfirmDelete = async () => {
+        setDeleting(true);
+        const res = await deleteOrganization(orgId);
+        setDeleting(false);
+        if (res.success) {
+            toast.success("Organization deleted");
+            setOpen(false);
+            onDeleted();
+        } else {
+            toast.error(res.error || "Delete failed");
+        }
+    };
+
+    return (
+        <>
+            <span
+                title={hasDeps ? `Cannot delete: ${depSummary}` : "Delete organization"}
+                className="inline-flex"
+            >
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    className={
+                        hasDeps
+                            ? "text-slate-300 cursor-not-allowed pointer-events-none h-8 w-8 p-0"
+                            : "text-slate-400 hover:text-red-600 hover:bg-red-50 h-8 w-8 p-0"
+                    }
+                    onClick={hasDeps ? undefined : handleOpen}
+                    tabIndex={hasDeps ? -1 : undefined}
+                    aria-disabled={hasDeps}
+                >
+                    {hasDeps
+                        ? <Ban className="h-3.5 w-3.5" />
+                        : <Trash2 className="h-3.5 w-3.5" />
+                    }
+                </Button>
+            </span>
+            <Dialog open={open} onOpenChange={setOpen}>
+                <DialogContent className="sm:max-w-[420px]">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <AlertTriangle className="h-5 w-5 text-amber-500" />
+                            Delete Organization
+                        </DialogTitle>
+                        <DialogDescription>
+                            {orgName}
+                        </DialogDescription>
+                    </DialogHeader>
+                    {checking ? (
+                        <div className="flex items-center gap-2 py-4 text-sm text-slate-500">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Checking for related data…
+                        </div>
+                    ) : checkResult && !checkResult.deletable ? (
+                        <div className="py-2 space-y-2">
+                            <p className="text-sm text-red-600 font-medium">{checkResult.error}</p>
+                            {checkResult.blockers && checkResult.blockers.length > 0 && (
+                                <ul className="text-xs text-slate-500 list-disc list-inside space-y-0.5">
+                                    {checkResult.blockers.map((b, i) => <li key={i}>{b}</li>)}
+                                </ul>
+                            )}
+                            <p className="text-xs text-slate-500">Remove all related data before this organization can be deleted.</p>
+                        </div>
+                    ) : checkResult && checkResult.deletable ? (
+                        <div className="py-2 space-y-2">
+                            <p className="text-sm text-slate-700">This organization has no related data and can be safely deleted.</p>
+                            <p className="text-xs text-slate-500 font-medium">This action cannot be undone.</p>
+                        </div>
+                    ) : null}
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setOpen(false)}>
+                            {checkResult?.deletable ? "Cancel" : "Close"}
+                        </Button>
+                        {checkResult?.deletable && (
+                            <Button
+                                variant="destructive"
+                                onClick={handleConfirmDelete}
+                                disabled={deleting}
+                            >
+                                {deleting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Trash2 className="h-4 w-4 mr-1" />}
+                                Confirm Delete
+                            </Button>
+                        )}
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </>
+    );
+}
+
+// ── Main page ────────────────────────────────────────────────────────────────
 
 export default function OrganizationsPage() {
     const searchParams = useSearchParams();
@@ -48,13 +291,9 @@ export default function OrganizationsPage() {
         if (!name || types.length === 0) return;
         setCreating(true);
 
-        // Logic: If FI or LAW_FIRM is selected, ensure SUPPLIER is also added for categorisation
-        const finalTypes = [...types];
-        if ((finalTypes.includes("FI") || finalTypes.includes("LAW_FIRM")) && !finalTypes.includes("SUPPLIER")) {
-            finalTypes.push("SUPPLIER");
-        }
-
-        const validTypes = finalTypes as ("CLIENT" | "FI" | "SYSTEM" | "LAW_FIRM" | "SUPPLIER")[];
+        // SUPPLIER auto-tag is enforced server-side for FI / LAW_FIRM / OTHER;
+        // pass the user's selection as-is.
+        const validTypes = types as ("CLIENT" | "FI" | "SYSTEM" | "LAW_FIRM" | "SUPPLIER" | "OTHER")[];
         const res = await createOrganization(name, validTypes);
 
         setCreating(false);
@@ -152,7 +391,20 @@ export default function OrganizationsPage() {
                                                 />
                                                 <div className="grid gap-0.5 pointer-events-none">
                                                     <Label htmlFor="chk-law" className="cursor-pointer pointer-events-auto">Law Firm</Label>
-                                                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Specialist service provider</p>
+                                                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Specialist legal service provider</p>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center space-x-3">
+                                                <input
+                                                    type="checkbox"
+                                                    id="chk-other"
+                                                    checked={types.includes("OTHER")}
+                                                    onChange={() => toggleType("OTHER")}
+                                                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                                />
+                                                <div className="grid gap-0.5 pointer-events-none">
+                                                    <Label htmlFor="chk-other" className="cursor-pointer pointer-events-auto">Other Supplier</Label>
+                                                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">e.g. Risk consultant, advisor, auditor</p>
                                                 </div>
                                             </div>
                                         </div>
@@ -184,7 +436,7 @@ export default function OrganizationsPage() {
                     <SelectContent>
                         <SelectItem value="ALL">All Roles</SelectItem>
                         <SelectItem value="CLIENT">Client</SelectItem>
-                        <SelectItem value="SUPPLIER">Supplier (FI / Law Firm)</SelectItem>
+                        <SelectItem value="SUPPLIER">Supplier (FI / Law Firm / Other)</SelectItem>
                     </SelectContent>
                 </Select>
             </div>
@@ -195,21 +447,23 @@ export default function OrganizationsPage() {
                         <TableHeader>
                             <TableRow>
                                 <TableHead>Name</TableHead>
+                                <TableHead className="w-[100px]">Short Code</TableHead>
+                                <TableHead className="w-[160px]">Domain</TableHead>
                                 <TableHead>Roles</TableHead>
-                                <TableHead>Members</TableHead>
-                                <TableHead className="text-right">Action</TableHead>
+                                <TableHead className="w-[80px]">Members</TableHead>
+                                <TableHead className="text-right w-[140px]">Action</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {loading ? (
                                 <TableRow>
-                                    <TableCell colSpan={4} className="h-24 text-center">
+                                    <TableCell colSpan={6} className="h-24 text-center">
                                         <Loader2 className="h-6 w-6 animate-spin inline-block" />
                                     </TableCell>
                                 </TableRow>
                             ) : filteredOrgs.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
+                                    <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
                                         No organizations found matching your filters.
                                     </TableCell>
                                 </TableRow>
@@ -217,9 +471,35 @@ export default function OrganizationsPage() {
                                 <TableRow key={org.id}>
                                     <TableCell className="font-medium">
                                         <div className="flex items-center gap-2">
-                                            <Building2 className="w-4 h-4 text-muted-foreground" />
-                                            {org.name}
+                                            <Building2 className="w-4 h-4 text-muted-foreground shrink-0" />
+                                            <InlineEditCell
+                                                value={org.name}
+                                                orgId={org.id}
+                                                field="name"
+                                                placeholder="Org name"
+                                                onSaved={loadData}
+                                            />
                                         </div>
+                                    </TableCell>
+                                    <TableCell>
+                                        <InlineEditCell
+                                            value={org.shortCode}
+                                            orgId={org.id}
+                                            field="shortCode"
+                                            placeholder="Code"
+                                            onSaved={loadData}
+                                            className="font-mono text-xs"
+                                        />
+                                    </TableCell>
+                                    <TableCell>
+                                        <InlineEditCell
+                                            value={org.domain}
+                                            orgId={org.id}
+                                            field="domain"
+                                            placeholder="domain.com"
+                                            onSaved={loadData}
+                                            className="text-xs"
+                                        />
                                     </TableCell>
                                     <TableCell>
                                         <div className="flex gap-1">
@@ -231,13 +511,21 @@ export default function OrganizationsPage() {
                                     <TableCell>
                                         <div className="flex items-center gap-1 text-muted-foreground">
                                             <Users className="w-3 h-3" />
-                                            {org._count.members}
+                                            {org._count?.memberships ?? 0}
                                         </div>
                                     </TableCell>
                                     <TableCell className="text-right">
-                                        <Link href={`/app/admin/organizations/${org.id}`}>
-                                            <Button variant="ghost" size="sm">Manage</Button>
-                                        </Link>
+                                        <div className="flex items-center justify-end gap-1">
+                                            <Link href={`/app/admin/organizations/${org.id}`}>
+                                                <Button variant="ghost" size="sm">Manage</Button>
+                                            </Link>
+                                            <DeleteOrgButton
+                                                orgId={org.id}
+                                                orgName={org.name}
+                                                orgCount={org._count ?? {}}
+                                                onDeleted={loadData}
+                                            />
+                                        </div>
                                     </TableCell>
                                 </TableRow>
                             ))}

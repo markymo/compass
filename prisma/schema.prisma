@@ -1099,6 +1099,7 @@ enum OrgType {
   SYSTEM
   LAW_FIRM
   SUPPLIER
+  OTHER
 }
 
 enum RecordStatus {
