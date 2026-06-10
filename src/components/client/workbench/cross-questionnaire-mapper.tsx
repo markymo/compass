@@ -36,7 +36,8 @@ import {
     Sparkles,
     Loader2,
     Lock,
-    Share2
+    Share2,
+    ExternalLink
 } from "lucide-react";
 import { useSearchParams, usePathname, useRouter } from "next/navigation";
 import { FieldDetailPanel } from "../inspection/field-detail-panel";
@@ -884,30 +885,60 @@ function QuestionCard({
                                         </span>
 
                                         <div className="flex items-center gap-1 ml-2 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button
-                                                onClick={handleStartEdit}
-                                                disabled={!isMapped || question.status === 'RELEASED'}
-                                                title={question.status === 'RELEASED' ? "Cannot edit released questions" : isMapped ? "Edit value" : "Map a field first"}
-                                                className={cn(
-                                                    "p-1 rounded transition-colors",
-                                                    (isMapped && question.status !== 'RELEASED')
-                                                        ? "text-indigo-500 hover:bg-indigo-50 hover:text-indigo-700"
-                                                        : "text-slate-300 cursor-not-allowed"
-                                                )}
-                                            >
-                                                <Pencil className="h-3.5 w-3.5" />
-                                            </button>
-                                            <button
-                                                onClick={() => {
-                                                    const fNo = question.masterFieldNo || 0;
-                                                    const customId = (question as any).customFieldDefinitionId;
-                                                    onInspect(fNo, question.text, customId);
-                                                }}
-                                                title="View history & details"
-                                                className="p-1 rounded text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
-                                            >
-                                                <PanelLeftOpen className="h-3.5 w-3.5" />
-                                            </button>
+                                            {isGroupAnswer ? (
+                                                /* Group answers: icons non-functional — direct user to Master Data tab */
+                                                <>
+                                                    <button
+                                                        disabled
+                                                        title="Group fields can't be edited here — use the Master Data tab"
+                                                        className="p-1 rounded text-slate-200 cursor-not-allowed"
+                                                    >
+                                                        <Pencil className="h-3.5 w-3.5" />
+                                                    </button>
+                                                    <button
+                                                        disabled
+                                                        title="Group fields can't be inspected here — use the Master Data tab"
+                                                        className="p-1 rounded text-slate-200 cursor-not-allowed"
+                                                    >
+                                                        <PanelLeftOpen className="h-3.5 w-3.5" />
+                                                    </button>
+                                                    <a
+                                                        href={`/app/le/${leId}/master`}
+                                                        title="Open Master Data tab to edit these fields"
+                                                        className="p-1 rounded text-slate-300 hover:text-indigo-500 hover:bg-indigo-50 transition-colors"
+                                                    >
+                                                        <ExternalLink className="h-3.5 w-3.5" />
+                                                    </a>
+                                                </>
+                                            ) : (
+                                                /* Single-field answers: existing behaviour unchanged */
+                                                <>
+                                                    <button
+                                                        onClick={handleStartEdit}
+                                                        disabled={!isMapped || question.status === 'RELEASED'}
+                                                        title={question.status === 'RELEASED' ? "Cannot edit released questions" : isMapped ? "Edit value" : "Map a field first"}
+                                                        className={cn(
+                                                            "p-1 rounded transition-colors",
+                                                            (isMapped && question.status !== 'RELEASED')
+                                                                ? "text-indigo-500 hover:bg-indigo-50 hover:text-indigo-700"
+                                                                : "text-slate-300 cursor-not-allowed"
+                                                        )}
+                                                    >
+                                                        <Pencil className="h-3.5 w-3.5" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => {
+                                                            const fNo = question.masterFieldNo || 0;
+                                                            const customId = (question as any).customFieldDefinitionId;
+                                                            onInspect(fNo, question.text, customId);
+                                                        }}
+                                                        title="View history & details"
+                                                        className="p-1 rounded text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+                                                    >
+                                                        <PanelLeftOpen className="h-3.5 w-3.5" />
+                                                    </button>
+                                                </>
+                                            )}
                                         </div>
                                     </div>
                                 )}
