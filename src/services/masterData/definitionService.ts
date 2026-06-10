@@ -2,8 +2,8 @@ import prisma from "@/lib/prisma";
 import { MasterFieldDefinition, MasterFieldGroup, MasterFieldGroupItem } from "@prisma/client";
 
 let definitionCache: Record<number, MasterFieldDefinition> | null = null;
-let lastCacheUpdate = 0;
-const CACHE_TTL = 30000; // 30 seconds
+let lastCacheUpdate = 0; // 0 = always stale on first load after module reload
+const CACHE_TTL = 30_000; // 30 seconds
 
 /**
  * getMasterFieldDefinition: Fetches a single field definition from the DB with caching.
@@ -20,13 +20,13 @@ export async function getMasterFieldDefinition(fieldNo: number): Promise<MasterF
         // (might be a newly added field before cache refresh)
         const fresh = await prisma.masterFieldDefinition.findUnique({
             where: { fieldNo, isActive: true },
-            include: { masterDataCategory: true }
+            include: { masterDataCategory: true, optionSet: true }
         });
         if (!fresh) {
             throw new Error(`Unknown or Inactive Field No: ${fieldNo}`);
         }
-        definitionCache![fieldNo] = fresh;
-        return fresh;
+        definitionCache![fieldNo] = fresh as any;
+        return fresh as any;
     }
     return def;
 }
@@ -37,7 +37,7 @@ export async function getMasterFieldDefinition(fieldNo: number): Promise<MasterF
 export async function refreshDefinitionCache() {
     const all = await prisma.masterFieldDefinition.findMany({
         where: { isActive: true },
-        include: { masterDataCategory: true },
+        include: { masterDataCategory: true, optionSet: true },
         orderBy: [
             { order: 'asc' },
             { fieldNo: 'asc' },

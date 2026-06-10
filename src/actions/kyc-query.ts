@@ -359,7 +359,7 @@ export interface FieldDetailData {
     dataType: string;
     category?: string;
     modelField?: string;
-    options?: string[];
+    options?: Array<string | { label: string; value: string }>;
     notes?: string;
     userNote?: string | null;
     current: {
@@ -808,8 +808,23 @@ export async function getFieldDetail(
         isRepeating: def?.isMultiValue || false,
         dataType: def?.appDataType || 'string',
         category: (def as any)?.masterDataCategory?.displayName || undefined,
-        modelField: (def as any).modelField || undefined, // We'll need to check how this is stored in DB
-        options: def?.options || [],
+        modelField: (def as any).modelField || undefined,
+        // Prefer options from the linked MasterDataOptionSet (admin-managed dropdown list).
+        // The optionSet.options field is a Json array of {label, value} objects.
+        // Fall back to the legacy def.options string array for backward compat.
+        options: (() => {
+            const optionSet = (def as any)?.optionSet;
+            if (optionSet?.options && Array.isArray(optionSet.options) && optionSet.options.length > 0) {
+                // Return {label, value} objects for rich Select rendering
+                return optionSet.options.map((o: any) =>
+                    typeof o === 'object' && o.label !== undefined
+                        ? { label: String(o.label), value: String(o.value ?? o.label) }
+                        : { label: String(o), value: String(o) }
+                );
+            }
+            // Legacy: plain string array — wrap as {label, value} for uniform handling
+            return (def?.options || []).map((s: string) => ({ label: s, value: s }));
+        })(),
         notes: def?.notes || undefined,
         current: derived ? {
             value: def?.isMultiValue && rows ? rows.map((r: any) => r.value) : derived.value,

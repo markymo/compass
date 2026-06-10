@@ -56,7 +56,9 @@ export async function updateFieldManually(
 
         // Assign value to the correct slot
         switch (def.appDataType) {
-            case 'TEXT': claimInput.valueText = value; break;
+            case 'TEXT':
+            case 'SELECT': // Option-set fields store the selected value as text
+                claimInput.valueText = value; break;
             case 'NUMBER': claimInput.valueNumber = value; break;
             case 'DATE':
             case 'DATETIME': claimInput.valueDate = new Date(value); break;

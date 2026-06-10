@@ -145,6 +145,14 @@ export default function MasterDataManager({ initialData, rawFields, initialUserC
         });
     };
 
+    const collapseAllCategories = () => {
+        setCollapsedCategories(new Set(categories.map((c: any) => c.id)));
+    };
+
+    const expandAllCategories = () => {
+        setCollapsedCategories(new Set());
+    };
+
     const handleDragEnd = (result: DropResult) => {
         const { source, destination, type } = result;
         if (!destination) return;
@@ -512,6 +520,12 @@ export default function MasterDataManager({ initialData, rawFields, initialUserC
                     <Button variant="outline" size="sm" onClick={handleSaveCategories} disabled={isSavingOrder} className="h-9 gap-1.5 shadow-sm text-sm"><Save className="w-3.5 h-3.5" /> Save Categories</Button>
                     <Button variant="outline" size="sm" onClick={handleSaveFields} disabled={isSavingOrder} className="h-9 gap-1.5 shadow-sm text-sm"><Save className="w-3.5 h-3.5" /> Save Fields</Button>
 
+                    <Button variant="outline" size="sm" onClick={collapseAllCategories} className="h-9 gap-1.5 shadow-sm text-sm" title="Collapse all categories">
+                        <ChevronRight className="w-3.5 h-3.5" /> Collapse All
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={expandAllCategories} className="h-9 gap-1.5 shadow-sm text-sm" title="Expand all categories">
+                        <ChevronDown className="w-3.5 h-3.5" /> Expand All
+                    </Button>
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild><Button variant="outline" size="sm" className="h-9 gap-2 shadow-sm text-sm"><SlidersHorizontal className="h-4 w-4" /> Columns</Button></DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-[180px]">
