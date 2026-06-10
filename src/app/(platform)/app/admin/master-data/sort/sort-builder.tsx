@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { Button } from "@/components/ui/button";
 import { updateCategoryOrder, updateFieldOrder } from "@/actions/master-data-sort";
@@ -185,6 +185,7 @@ export default function MasterDataSortBuilder({ initialData }: { initialData: an
                                         <div
                                             ref={provided.innerRef}
                                             {...provided.draggableProps}
+                                            style={provided.draggableProps.style as React.CSSProperties}
                                             className="border rounded-md p-4 bg-slate-50 dark:bg-slate-800/50 shadow-sm"
                                         >
                                             <div className="flex items-center gap-3 mb-2 font-semibold text-lg">
@@ -216,6 +217,7 @@ export default function MasterDataSortBuilder({ initialData }: { initialData: an
                                                                         <div
                                                                             ref={provided.innerRef}
                                                                             {...provided.draggableProps}
+                                                                            style={provided.draggableProps.style as React.CSSProperties}
                                                                             className="flex items-center gap-3 p-3 bg-white dark:bg-slate-900 border rounded-md shadow-sm"
                                                                         >
                                                                             <div {...provided.dragHandleProps} className="cursor-grab active:cursor-grabbing text-slate-300 dark:text-slate-600">
