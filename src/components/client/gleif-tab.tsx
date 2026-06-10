@@ -3,7 +3,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Copy, Calendar, MapPin, Globe, Fingerprint, Building2, CheckCircle2, Clock, Users, ExternalLink } from "lucide-react";
+import { Copy, Calendar, MapPin, Globe, Fingerprint, Building2, CheckCircle2, Clock, Users, ExternalLink, GitBranch, Scale } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
@@ -279,7 +279,107 @@ export function GleifTab({ leId, data, fetchedAt, nationalRegistryData }: GleifT
             </div>
 
             {/* Companies House Linked Banner */}
+            {/* ─── Legal Form & Corporate Hierarchy (Source Metadata) ─────── */}
+            {(data.gleifElf || data.gleifL2) && (() => {
+                const elf = data.gleifElf;
+                const l2: any = data.gleifL2;
+                const hasElfName = elf?.id;
+                const hasParent = l2?.directParent;
+                const hasUltimate = l2?.ultimateParent;
+                const childrenCount = l2?.directChildrenCount;
+                const dpException = l2?.directParentException;
+                const upException = l2?.ultimateParentException;
+
+                const hasAnything = hasElfName || hasParent || hasUltimate ||
+                    childrenCount != null || dpException || upException;
+                if (!hasAnything) return null;
+
+                return (
+                    <Card className="md:col-span-2 border-slate-100 bg-slate-50/30">
+                        <CardHeader className="pb-3">
+                            <CardTitle className="text-base flex items-center gap-2">
+                                <GitBranch className="h-4 w-4 text-slate-500" />
+                                Legal Form &amp; Corporate Hierarchy
+                                <Badge variant="outline" className="text-[10px] h-5 px-1.5 ml-1 text-slate-500 border-slate-300">
+                                    SOURCE METADATA
+                                </Badge>
+                            </CardTitle>
+                            <CardDescription className="text-xs">
+                                GLEIF-reported data — not a verified Coparity claim
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            {/* ELF Legal Form */}
+                            {hasElfName && (
+                                <div className="flex items-start gap-2">
+                                    <Scale className="h-3.5 w-3.5 text-slate-400 mt-0.5 shrink-0" />
+                                    <div>
+                                        <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Legal Form</label>
+                                        <div className="text-sm mt-0.5 text-slate-800 dark:text-slate-200">
+                                            {elf.name
+                                                ? <>{elf.name} <span className="text-slate-400 font-mono text-xs">({elf.id})</span></>
+                                                : <span className="font-mono text-slate-500">{elf.id} <span className="font-sans text-slate-400 text-xs">(unresolved)</span></span>
+                                            }
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Parent / hierarchy */}
+                            <div className="grid md:grid-cols-2 gap-4 pt-1">
+                                {/* Direct parent */}
+                                <div>
+                                    <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Direct Parent</label>
+                                    {hasParent ? (
+                                        <div className="mt-1 space-y-0.5">
+                                            <div className="text-sm font-medium text-slate-800 dark:text-slate-200">{l2.directParent.legalName}</div>
+                                            <div className="font-mono text-xs text-slate-500">{l2.directParent.lei}</div>
+                                            <div className="text-xs text-slate-500">
+                                                {l2.directParent.jurisdiction}
+                                                {l2.directParent.registeredAs && ` · ${l2.directParent.registeredAs}`}
+                                            </div>
+                                        </div>
+                                    ) : dpException ? (
+                                        <div className="mt-1 text-xs text-amber-600 italic">{dpException.replace(/_/g, " ").toLowerCase()}</div>
+                                    ) : (
+                                        <div className="mt-1 text-xs text-slate-400 italic">None reported</div>
+                                    )}
+                                </div>
+
+                                {/* Ultimate parent */}
+                                <div>
+                                    <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Ultimate Parent</label>
+                                    {hasUltimate ? (
+                                        <div className="mt-1 space-y-0.5">
+                                            <div className="text-sm font-medium text-slate-800 dark:text-slate-200">{l2.ultimateParent.legalName}</div>
+                                            <div className="font-mono text-xs text-slate-500">{l2.ultimateParent.lei}</div>
+                                            <div className="text-xs text-slate-500">
+                                                {l2.ultimateParent.jurisdiction}
+                                                {l2.ultimateParent.registeredAs && ` · ${l2.ultimateParent.registeredAs}`}
+                                            </div>
+                                        </div>
+                                    ) : upException ? (
+                                        <div className="mt-1 text-xs text-amber-600 italic">{upException.replace(/_/g, " ").toLowerCase()}</div>
+                                    ) : (
+                                        <div className="mt-1 text-xs text-slate-400 italic">None reported</div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Children count */}
+                            {childrenCount != null && (
+                                <div className="pt-2 border-t border-slate-100 flex items-center gap-2 text-xs text-slate-500">
+                                    <GitBranch className="h-3 w-3" />
+                                    <span>{childrenCount === 0 ? "No direct subsidiaries reported" : `${childrenCount} direct subsidiar${childrenCount === 1 ? "y" : "ies"} in GLEIF`}</span>
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                );
+            })()}
+
             {nationalRegistryData && (
+
                 <div className="flex items-center justify-between bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-lg p-3">
                     <div className="flex items-center gap-2.5">
                         <div className="bg-white dark:bg-blue-900/30 p-1 rounded-md border border-blue-100 dark:border-blue-800 shadow-sm overflow-hidden flex items-center justify-center w-8 h-8">
