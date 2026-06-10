@@ -2,6 +2,7 @@
 
 import prisma from "@/lib/prisma";
 import { getConsoleQuestions, ConsoleQuestion, resolveMasterData, resolveMasterDataBatch, BatchResolverInput } from "./kyc-query";
+import { fetchRaNameLookup } from "@/lib/kyc/source-label.server";
 import { KycStateService } from "@/lib/kyc/KycStateService";
 import { listAllMasterFields, listAllMasterGroups, listAllMasterGroupsWithItems, getMasterFieldGroup } from "@/services/masterData/definitionService";
 import { getComplexFieldConfig } from "@/lib/master-data/complex-field-config";
@@ -20,6 +21,8 @@ export interface Workbench4Data {
     relationships: string[];
     questionnaires: string[];
     ownerOrgId?: string;
+    /** Pre-fetched RA name map: { 'RA000585': 'Companies House', ... } */
+    raNameLookup: Record<string, string>;
 }
 
 /**
@@ -32,9 +35,10 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
     const questions = await getConsoleQuestions(leId, true);
 
     // 1. Get standard Master Fields & Groups (with sub-field items for batch resolver)
-    const [allFields, allGroupsWithItems] = await Promise.all([
+    const [allFields, allGroupsWithItems, raNameLookup] = await Promise.all([
         listAllMasterFields(),
         listAllMasterGroupsWithItems(),
+        fetchRaNameLookup(),
     ]);
     const allGroups = allGroupsWithItems; // still compatible for label/category display
 
@@ -257,7 +261,8 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
         customFields,
         relationships,
         questionnaires,
-        ownerOrgId
+        ownerOrgId,
+        raNameLookup,
     };
 }
 

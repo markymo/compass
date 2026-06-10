@@ -416,6 +416,7 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
                         masterFields={data.masterFields}
                         masterGroups={data.masterGroups}
                         customFields={data.customFields}
+                        raNameLookup={data.raNameLookup}
                         onMap={(val) => handleMap(q.id, val)}
                         onInspect={(fieldNo, name, customFieldId) => {
                             setSelectedInspectionField({ fieldNo, name, customFieldId });
@@ -588,6 +589,7 @@ function QuestionCard({
     masterFields,
     masterGroups,
     customFields,
+    raNameLookup,
     onMap,
     onInspect,
     onInlineEdit,
@@ -601,6 +603,7 @@ function QuestionCard({
     masterFields: Array<{ fieldNo: number; label: string }>;
     masterGroups: Array<{ key: string; label: string }>;
     customFields: Array<{ id: string; label: string }>;
+    raNameLookup: Record<string, string>;
     onMap: (val: string) => void;
     onInspect: (fieldNo: number, name: string, customFieldId?: string) => void;
     onInlineEdit: (newValue: any, newSource: string, newUpdatedAt: Date) => void;
@@ -610,6 +613,7 @@ function QuestionCard({
     isPinned?: boolean;
 }) {
     const isMapped = !!(question.masterFieldNo || question.masterQuestionGroupId || (question as any).customFieldDefinitionId);
+    const isGroupAnswer = !!(question.masterQuestionGroupId && (question as any).masterDataGroupFields?.length > 0);
     const [isEditing, setIsEditing] = useState(false);
     const [editValue, setEditValue] = useState("");
     const [isSaving, setIsSaving] = useState(false);
@@ -847,7 +851,7 @@ function QuestionCard({
                                                 <GroupAnswerRenderer
                                                     groupLabel=""
                                                     fields={(question as any).masterDataGroupFields as GroupFieldData[]}
-                                                    raNameLookup={{}}
+                                                    raNameLookup={raNameLookup}
                                                     className="py-0.5"
                                                 />
                                             ) : question.masterDataValue != null && question.masterDataValue !== '' ? (
@@ -908,7 +912,7 @@ function QuestionCard({
                                     </div>
                                 )}
                             </div>
-                            {!isEditing && (question.masterDataSource || question.masterDataUpdatedAt) && (
+                            {!isEditing && !isGroupAnswer && (question.masterDataSource || question.masterDataUpdatedAt) && (
                                 <div className="flex items-center gap-3 pl-6 text-[10px] text-slate-400 font-medium">
                                     {question.masterDataSource && (
                                         <div className="flex items-center gap-1 bg-slate-100/50 px-1.5 py-0.5 rounded border border-slate-200/50">
