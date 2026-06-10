@@ -1104,35 +1104,67 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                             />
                                                                         ) : (
                                                                             <>
-                                                                                <Input
-                                                                                    type={isDateType ? 'date' : 'text'}
-                                                                                    value={isDateType ? formatDateForInput(manualValue) : manualValue}
-                                                                                    onChange={(e) => setManualValue(isDateType ? parseDateFromInput(e.target.value) : e.target.value)}
-                                                                                    onKeyDown={(e) => {
-                                                                                        if (e.key === 'Enter' && manualValue) {
-                                                                                            setIsEditing(true);
-                                                                                            handleManualSave();
-                                                                                        }
-                                                                                    }}
-                                                                                    placeholder={isDateType ? '' : 'Type a value and press Enter...'}
-                                                                                    className="bg-white border-slate-200 focus:border-indigo-300 focus:ring-indigo-200"
-                                                                                />
-                                                                                {manualValue && (
-                                                                                    <div className="flex items-center gap-2">
-                                                                                        <Button
-                                                                                            size="sm"
-                                                                                            className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700"
-                                                                                            onClick={() => {
-                                                                                                setIsEditing(true);
-                                                                                                handleManualSave();
-                                                                                            }}
-                                                                                            disabled={isSaving}
-                                                                                        >
-                                                                                            {isSaving ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Check className="h-3 w-3 mr-1" />}
-                                                                                            Save
-                                                                                        </Button>
-                                                                                        <span className="text-[10px] text-slate-400">or press Enter</span>
+                                                                                {data?.options && data.options.length > 0 ? (
+                                                                                    <div className="space-y-2">
+                                                                                        <Select value={manualValue} onValueChange={(v) => setManualValue(v)}>
+                                                                                            <SelectTrigger className="bg-white border-slate-200 focus:border-indigo-300">
+                                                                                                <SelectValue placeholder={`Select ${fieldName}...`} />
+                                                                                            </SelectTrigger>
+                                                                                            <SelectContent>
+                                                                                                {data.options.map((opt) => {
+                                                                                                    const v = typeof opt === 'object' ? opt.value : opt;
+                                                                                                    const l = typeof opt === 'object' ? opt.label : opt;
+                                                                                                    return <SelectItem key={v} value={v}>{l}</SelectItem>;
+                                                                                                })}
+                                                                                            </SelectContent>
+                                                                                        </Select>
+                                                                                        {manualValue && (
+                                                                                            <div className="flex items-center gap-2">
+                                                                                                <Button
+                                                                                                    size="sm"
+                                                                                                    className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700"
+                                                                                                    onClick={() => { setIsEditing(true); handleManualSave(); }}
+                                                                                                    disabled={isSaving}
+                                                                                                >
+                                                                                                    {isSaving ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Check className="h-3 w-3 mr-1" />}
+                                                                                                    Save
+                                                                                                </Button>
+                                                                                            </div>
+                                                                                        )}
                                                                                     </div>
+                                                                                ) : (
+                                                                                    <>
+                                                                                        <Input
+                                                                                            type={isDateType ? 'date' : 'text'}
+                                                                                            value={isDateType ? formatDateForInput(manualValue) : manualValue}
+                                                                                            onChange={(e) => setManualValue(isDateType ? parseDateFromInput(e.target.value) : e.target.value)}
+                                                                                            onKeyDown={(e) => {
+                                                                                                if (e.key === 'Enter' && manualValue) {
+                                                                                                    setIsEditing(true);
+                                                                                                    handleManualSave();
+                                                                                                }
+                                                                                            }}
+                                                                                            placeholder={isDateType ? '' : 'Type a value and press Enter...'}
+                                                                                            className="bg-white border-slate-200 focus:border-indigo-300 focus:ring-indigo-200"
+                                                                                        />
+                                                                                        {manualValue && (
+                                                                                            <div className="flex items-center gap-2">
+                                                                                                <Button
+                                                                                                    size="sm"
+                                                                                                    className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700"
+                                                                                                    onClick={() => {
+                                                                                                        setIsEditing(true);
+                                                                                                        handleManualSave();
+                                                                                                    }}
+                                                                                                    disabled={isSaving}
+                                                                                                >
+                                                                                                    {isSaving ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Check className="h-3 w-3 mr-1" />}
+                                                                                                    Save
+                                                                                                </Button>
+                                                                                                <span className="text-[10px] text-slate-400">or press Enter</span>
+                                                                                            </div>
+                                                                                        )}
+                                                                                    </>
                                                                                 )}
                                                                             </>
                                                                         )}
@@ -1185,9 +1217,11 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                             <SelectValue placeholder={`Select ${fieldName}...`} />
                                                         </SelectTrigger>
                                                         <SelectContent>
-                                                            {data.options.map((opt: string) => (
-                                                                <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                                                            ))}
+                                                            {data.options.map((opt) => {
+                                                                const v = typeof opt === 'object' ? opt.value : opt;
+                                                                const l = typeof opt === 'object' ? opt.label : opt;
+                                                                return <SelectItem key={v} value={v}>{l}</SelectItem>;
+                                                            })}
                                                         </SelectContent>
                                                     </Select>
                                                 ) : isDateType ? (
