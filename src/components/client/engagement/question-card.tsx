@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { Draggable } from "@hello-pangea/dnd";
 import { Card } from "@/components/ui/card";
 import { Sparkles, Loader2, Check, X, Paperclip, Lock, Share2 } from "lucide-react";
@@ -59,40 +59,44 @@ export function QuestionCard({ task, index, onClick }: QuestionCardProps) {
     return (
         <Draggable draggableId={task.id} index={index}>
             {(provided, snapshot) => (
-                <Card
+                <div
                     ref={provided.innerRef}
                     {...provided.draggableProps}
-                    {...provided.dragHandleProps}
-                    className={cn(
-                        "mb-0.5 rounded-sm border-l-4 relative group hover:shadow-md transition-all bg-white cursor-pointer p-0",
-                        statusColors[task.status],
-                        snapshot.isDragging && "shadow-2xl scale-105 z-50",
-                        task.status === 'RELEASED' && "opacity-80"
-                    )}
+                    style={provided.draggableProps.style as React.CSSProperties}
                 >
-                    <div className="px-2 pt-px pb-px">
-                        {/* Line 1: Question text with AI button */}
-                        <div className="flex items-center justify-between gap-2">
-                            <p
-                                className="text-sm font-semibold truncate text-slate-900 flex-1 leading-tight"
-                                onClick={() => onClick?.(task)}
-                            >
-                                {task.compactText || task.question.slice(0, 20)}
-                            </p>
-                            <div className="flex items-center gap-1">
-                                {(task.allowAttachments || (task.documents && task.documents.length > 0)) && (
-                                    <Paperclip className={cn("h-3.5 w-3.5 flex-shrink-0", task.documents && task.documents.length > 0 ? "text-indigo-600" : "text-slate-400")} />
-                                )}
-                                {task.status === 'RELEASED' && (
-                                    <Lock className="h-3.5 w-3.5 text-slate-900" />
-                                )}
-                                {task.status === 'SHARED' && (
-                                    <Share2 className="h-3.5 w-3.5 text-indigo-600" />
-                                )}
+                    <Card
+                        {...provided.dragHandleProps}
+                        className={cn(
+                            "mb-0.5 rounded-sm border-l-4 relative group hover:shadow-md transition-all bg-white cursor-pointer p-0",
+                            statusColors[task.status],
+                            snapshot.isDragging && "shadow-2xl scale-105 z-50",
+                            task.status === 'RELEASED' && "opacity-80"
+                        )}
+                    >
+                        <div className="px-2 pt-px pb-px">
+                            {/* Line 1: Question text with AI button */}
+                            <div className="flex items-center justify-between gap-2">
+                                <p
+                                    className="text-sm font-semibold truncate text-slate-900 flex-1 leading-tight"
+                                    onClick={() => onClick?.(task)}
+                                >
+                                    {task.compactText || task.question.slice(0, 20)}
+                                </p>
+                                <div className="flex items-center gap-1">
+                                    {(task.allowAttachments || (task.documents && task.documents.length > 0)) && (
+                                        <Paperclip className={cn("h-3.5 w-3.5 flex-shrink-0", task.documents && task.documents.length > 0 ? "text-indigo-600" : "text-slate-400")} />
+                                    )}
+                                    {task.status === 'RELEASED' && (
+                                        <Lock className="h-3.5 w-3.5 text-slate-900" />
+                                    )}
+                                    {task.status === 'SHARED' && (
+                                        <Share2 className="h-3.5 w-3.5 text-indigo-600" />
+                                    )}
+                                </div>
                             </div>
                         </div>
-                    </div>
-                </Card>
+                    </Card>
+                </div>
             )}
         </Draggable>
     );
