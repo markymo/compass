@@ -860,6 +860,10 @@ export interface ConsoleQuestion {
     isLocked?: boolean;
     approvedAt?: Date | null;
     releasedAt?: Date | null;
+    /** For group-mapped questions only. Per-field breakdown with full provenance.
+     *  Populated by getWorkbench4Data(). Consumed by GroupAnswerRenderer in workbench4.
+     *  undefined for all non-group questions — fully backward compatible. */
+    masterDataGroupFields?: GroupFieldDetail[];
 };
 
 export async function getConsoleQuestions(leId: string, includeLocked: boolean = false): Promise<ConsoleQuestion[]> {

@@ -2,8 +2,11 @@
 
 import prisma from "@/lib/prisma";
 import { getConsoleQuestions, ConsoleQuestion, resolveMasterData, resolveMasterDataBatch, BatchResolverInput } from "./kyc-query";
+import { fetchRaNameLookup } from "@/lib/kyc/source-label.server";
 import { KycStateService } from "@/lib/kyc/KycStateService";
 import { listAllMasterFields, listAllMasterGroups, listAllMasterGroupsWithItems, getMasterFieldGroup } from "@/services/masterData/definitionService";
+import { getComplexFieldConfig } from "@/lib/master-data/complex-field-config";
+import type { GroupFieldData } from "@/components/client/engagement/group-answer-renderer";
 import { revalidatePath } from "next/cache";
 import { generateObject } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
@@ -18,6 +21,8 @@ export interface Workbench4Data {
     relationships: string[];
     questionnaires: string[];
     ownerOrgId?: string;
+    /** Pre-fetched RA name map: { 'RA000585': 'Companies House', ... } */
+    raNameLookup: Record<string, string>;
 }
 
 /**
@@ -30,9 +35,10 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
     const questions = await getConsoleQuestions(leId, true);
 
     // 1. Get standard Master Fields & Groups (with sub-field items for batch resolver)
-    const [allFields, allGroupsWithItems] = await Promise.all([
+    const [allFields, allGroupsWithItems, raNameLookup] = await Promise.all([
         listAllMasterFields(),
         listAllMasterGroupsWithItems(),
+        fetchRaNameLookup(),
     ]);
     const allGroups = allGroupsWithItems; // still compatible for label/category display
 
@@ -151,8 +157,8 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
     const mappedQuestions = questions.filter((q: any) => q.masterFieldNo || q.masterQuestionGroupId || q.customFieldDefinitionId);
     if (mappedQuestions.length > 0 && subjectLeId) {
         // Build fieldDefMap from already-loaded allFields
-        const fieldDefMap = new Map<number, { fieldNo: number; appDataType: string; isMultiValue: boolean }>(
-            allFields.map((f: any) => [f.fieldNo, { fieldNo: f.fieldNo, appDataType: f.appDataType, isMultiValue: f.isMultiValue }])
+        const fieldDefMap = new Map<number, { fieldNo: number; fieldName: string; appDataType: string; isMultiValue: boolean }>(
+            allFields.map((f: any) => [f.fieldNo, { fieldNo: f.fieldNo, fieldName: f.fieldName ?? '', appDataType: f.appDataType, isMultiValue: f.isMultiValue }])
         );
 
         // Build groupFieldMap from already-loaded allGroupsWithItems
@@ -193,6 +199,12 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
                     const groupMap: Record<string, any> = {};
                     let latestDate: Date | null = null;
                     let primarySource: string | null = null;
+
+                    // Build the ordered per-field list for GroupAnswerRenderer.
+                    // Ordering follows the group's fieldNos array (already DB-ordered).
+                    const groupFieldNos = groupFieldMap.get(q.masterQuestionGroupId) ?? [];
+                    const groupFields: GroupFieldData[] = [];
+
                     for (const [fNo, fv] of Object.entries(resolvedValues[q.id])) {
                         groupMap[fNo] = fv.value;
                         if (!latestDate || (fv.updatedAt && fv.updatedAt > latestDate)) {
@@ -200,9 +212,28 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
                             primarySource = fv.source;
                         }
                     }
-                    q.masterDataValue = groupMap;
+
+                    // Populate groupFields in group-item order
+                    for (const fieldNo of groupFieldNos) {
+                        const def = fieldDefMap.get(fieldNo);
+                        if (!def) continue;
+                        const hydratedVal = resolvedValues[q.id][String(fieldNo)];
+                        const cfg = getComplexFieldConfig(fieldNo);
+                        const codeSystem = cfg && 'codeSystem' in cfg ? (cfg as any).codeSystem : undefined;
+                        groupFields.push({
+                            fieldNo,
+                            fieldName: def.fieldName ? `F${fieldNo} ${def.fieldName}` : `F${fieldNo}`,
+                            appDataType: def.appDataType,
+                            isMultiValue: def.isMultiValue,
+                            ...(codeSystem ? { codeSystem } : {}),
+                            hydrated: hydratedVal ?? { value: null, source: null, isSynced: false },
+                        });
+                    }
+
+                    q.masterDataValue = groupMap;           // preserved — backward compat
                     q.masterDataSource = primarySource || 'MASTER_RECORD';
                     q.masterDataUpdatedAt = latestDate;
+                    (q as any).masterDataGroupFields = groupFields;
                 } else {
                     const fieldValues = Object.values(resolvedValues[q.id]);
                     if (fieldValues.length > 0) {
@@ -230,7 +261,8 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
         customFields,
         relationships,
         questionnaires,
-        ownerOrgId
+        ownerOrgId,
+        raNameLookup,
     };
 }
 

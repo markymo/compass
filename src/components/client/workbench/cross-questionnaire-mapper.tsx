@@ -36,10 +36,13 @@ import {
     Sparkles,
     Loader2,
     Lock,
-    Share2
+    Share2,
+    ExternalLink
 } from "lucide-react";
 import { useSearchParams, usePathname, useRouter } from "next/navigation";
 import { FieldDetailPanel } from "../inspection/field-detail-panel";
+import { GroupAnswerRenderer } from "../engagement/group-answer-renderer";
+import type { GroupFieldData } from "../engagement/group-answer-renderer";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
@@ -414,6 +417,7 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
                         masterFields={data.masterFields}
                         masterGroups={data.masterGroups}
                         customFields={data.customFields}
+                        raNameLookup={data.raNameLookup}
                         onMap={(val) => handleMap(q.id, val)}
                         onInspect={(fieldNo, name, customFieldId) => {
                             setSelectedInspectionField({ fieldNo, name, customFieldId });
@@ -586,6 +590,7 @@ function QuestionCard({
     masterFields,
     masterGroups,
     customFields,
+    raNameLookup,
     onMap,
     onInspect,
     onInlineEdit,
@@ -599,6 +604,7 @@ function QuestionCard({
     masterFields: Array<{ fieldNo: number; label: string }>;
     masterGroups: Array<{ key: string; label: string }>;
     customFields: Array<{ id: string; label: string }>;
+    raNameLookup: Record<string, string>;
     onMap: (val: string) => void;
     onInspect: (fieldNo: number, name: string, customFieldId?: string) => void;
     onInlineEdit: (newValue: any, newSource: string, newUpdatedAt: Date) => void;
@@ -608,6 +614,7 @@ function QuestionCard({
     isPinned?: boolean;
 }) {
     const isMapped = !!(question.masterFieldNo || question.masterQuestionGroupId || (question as any).customFieldDefinitionId);
+    const isGroupAnswer = !!(question.masterQuestionGroupId && (question as any).masterDataGroupFields?.length > 0);
     const [isEditing, setIsEditing] = useState(false);
     const [editValue, setEditValue] = useState("");
     const [isSaving, setIsSaving] = useState(false);
@@ -840,7 +847,15 @@ function QuestionCard({
                                 ) : (
                                     <div className="text-sm text-slate-700 bg-slate-50/50 px-2 py-1.5 rounded border border-slate-100/50 w-full font-medium relative flex items-center">
                                         <span className="flex-1">
-                                            {question.masterDataValue != null && question.masterDataValue !== '' ? (
+                                            {question.masterQuestionGroupId && (question as any).masterDataGroupFields?.length > 0 ? (
+                                                /* ── Group answer: per-field vertical list ── */
+                                                <GroupAnswerRenderer
+                                                    groupLabel=""
+                                                    fields={(question as any).masterDataGroupFields as GroupFieldData[]}
+                                                    raNameLookup={raNameLookup}
+                                                    className="py-0.5"
+                                                />
+                                            ) : question.masterDataValue != null && question.masterDataValue !== '' ? (
                                                 Array.isArray(question.masterDataValue) ? (
                                                     <div className="flex flex-wrap gap-1">
                                                         {question.masterDataValue.map((val: any, i: any) => (
@@ -870,35 +885,65 @@ function QuestionCard({
                                         </span>
 
                                         <div className="flex items-center gap-1 ml-2 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button
-                                                onClick={handleStartEdit}
-                                                disabled={!isMapped || question.status === 'RELEASED'}
-                                                title={question.status === 'RELEASED' ? "Cannot edit released questions" : isMapped ? "Edit value" : "Map a field first"}
-                                                className={cn(
-                                                    "p-1 rounded transition-colors",
-                                                    (isMapped && question.status !== 'RELEASED')
-                                                        ? "text-indigo-500 hover:bg-indigo-50 hover:text-indigo-700"
-                                                        : "text-slate-300 cursor-not-allowed"
-                                                )}
-                                            >
-                                                <Pencil className="h-3.5 w-3.5" />
-                                            </button>
-                                            <button
-                                                onClick={() => {
-                                                    const fNo = question.masterFieldNo || 0;
-                                                    const customId = (question as any).customFieldDefinitionId;
-                                                    onInspect(fNo, question.text, customId);
-                                                }}
-                                                title="View history & details"
-                                                className="p-1 rounded text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
-                                            >
-                                                <PanelLeftOpen className="h-3.5 w-3.5" />
-                                            </button>
+                                            {isGroupAnswer ? (
+                                                /* Group answers: icons non-functional — direct user to Master Data tab */
+                                                <>
+                                                    <button
+                                                        disabled
+                                                        title="Group fields can't be edited here — use the Master Data tab"
+                                                        className="p-1 rounded text-slate-200 cursor-not-allowed"
+                                                    >
+                                                        <Pencil className="h-3.5 w-3.5" />
+                                                    </button>
+                                                    <button
+                                                        disabled
+                                                        title="Group fields can't be inspected here — use the Master Data tab"
+                                                        className="p-1 rounded text-slate-200 cursor-not-allowed"
+                                                    >
+                                                        <PanelLeftOpen className="h-3.5 w-3.5" />
+                                                    </button>
+                                                    <a
+                                                        href={`/app/le/${leId}/master`}
+                                                        title="Open Master Data tab to edit these fields"
+                                                        className="p-1 rounded text-slate-300 hover:text-indigo-500 hover:bg-indigo-50 transition-colors"
+                                                    >
+                                                        <ExternalLink className="h-3.5 w-3.5" />
+                                                    </a>
+                                                </>
+                                            ) : (
+                                                /* Single-field answers: existing behaviour unchanged */
+                                                <>
+                                                    <button
+                                                        onClick={handleStartEdit}
+                                                        disabled={!isMapped || question.status === 'RELEASED'}
+                                                        title={question.status === 'RELEASED' ? "Cannot edit released questions" : isMapped ? "Edit value" : "Map a field first"}
+                                                        className={cn(
+                                                            "p-1 rounded transition-colors",
+                                                            (isMapped && question.status !== 'RELEASED')
+                                                                ? "text-indigo-500 hover:bg-indigo-50 hover:text-indigo-700"
+                                                                : "text-slate-300 cursor-not-allowed"
+                                                        )}
+                                                    >
+                                                        <Pencil className="h-3.5 w-3.5" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => {
+                                                            const fNo = question.masterFieldNo || 0;
+                                                            const customId = (question as any).customFieldDefinitionId;
+                                                            onInspect(fNo, question.text, customId);
+                                                        }}
+                                                        title="View history & details"
+                                                        className="p-1 rounded text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+                                                    >
+                                                        <PanelLeftOpen className="h-3.5 w-3.5" />
+                                                    </button>
+                                                </>
+                                            )}
                                         </div>
                                     </div>
                                 )}
                             </div>
-                            {!isEditing && (question.masterDataSource || question.masterDataUpdatedAt) && (
+                            {!isEditing && !isGroupAnswer && (question.masterDataSource || question.masterDataUpdatedAt) && (
                                 <div className="flex items-center gap-3 pl-6 text-[10px] text-slate-400 font-medium">
                                     {question.masterDataSource && (
                                         <div className="flex items-center gap-1 bg-slate-100/50 px-1.5 py-0.5 rounded border border-slate-200/50">

@@ -7,7 +7,8 @@
  * to a MasterFieldGroup as a vertical list of populated field rows.
  *
  * Rules:
- *  - Empty / unsynced fields are hidden (isSynced: false).
+ *  - Empty / unsynced fields are hidden by default (isSynced: false).
+ *  - A subtle Eye toggle appears when hidden fields exist, allowing expand/collapse.
  *  - Source + Updated date shown per field row.
  *  - No DB calls. No client-side SIC lookup.
  *  - RA display names resolved from the pre-fetched raNameLookup prop.
@@ -16,7 +17,7 @@
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronUp, Database } from "lucide-react";
+import { ChevronDown, ChevronUp, Database, Eye, EyeOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { resolveSourceLabel, RaNameLookup } from "@/lib/kyc/source-label";
 import type { HydratedValue } from "@/actions/kyc-query";
@@ -232,14 +233,20 @@ function ArrayValue({ items }: { items: unknown[] }) {
 function GroupFieldRow({
     field,
     raNameLookup,
+    dimmed = false,
 }: {
     field: GroupFieldData;
     raNameLookup: RaNameLookup;
+    /** True for isSynced:false rows shown when the expand toggle is on */
+    dimmed?: boolean;
 }) {
     const { fieldName, appDataType, isMultiValue, codeSystem, hydrated } = field;
     const { value, source, sourceReference, updatedAt } = hydrated;
 
     const renderValue = () => {
+        if (dimmed) {
+            return <span className="text-xs text-slate-300 italic">—</span>;
+        }
         if (isMultiValue && Array.isArray(value)) {
             if (codeSystem) {
                 return <CodeListValue items={value} />;
@@ -250,19 +257,21 @@ function GroupFieldRow({
     };
 
     return (
-        <div className="py-3 border-b border-slate-50 last:border-0">
+        <div className={cn("py-3 border-b border-slate-50 last:border-0 transition-opacity", dimmed && "opacity-40")}>
             <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
                 {fieldName}
             </p>
             <div className="text-sm text-slate-900">
                 {renderValue()}
             </div>
-            <ProvenanceLine
-                source={source}
-                sourceReference={sourceReference}
-                updatedAt={updatedAt}
-                raNameLookup={raNameLookup}
-            />
+            {!dimmed && (
+                <ProvenanceLine
+                    source={source}
+                    sourceReference={sourceReference}
+                    updatedAt={updatedAt}
+                    raNameLookup={raNameLookup}
+                />
+            )}
         </div>
     );
 }
@@ -275,8 +284,14 @@ export function GroupAnswerRenderer({
     raNameLookup,
     className,
 }: GroupAnswerRendererProps) {
+    const [showEmpty, setShowEmpty] = useState(false);
+
     // Filter: only show fields that have data
     const populated = fields.filter(f => f.hydrated.isSynced);
+    const empty = fields.filter(f => !f.hydrated.isSynced);
+    const hasHidden = empty.length > 0;
+
+    const visibleFields = showEmpty ? fields : populated;
 
     if (populated.length === 0) {
         return (
@@ -289,16 +304,33 @@ export function GroupAnswerRenderer({
 
     return (
         <div className={cn("space-y-0", className)}>
-            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-2 flex items-center gap-1.5">
-                <Database className="h-3 w-3" />
-                {groupLabel}
-            </div>
-            <div className="rounded-lg border border-slate-100 bg-white overflow-hidden divide-y divide-slate-50 px-3">
-                {populated.map(field => (
+            {groupLabel && (
+                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                    <Database className="h-3 w-3" />
+                    {groupLabel}
+                </div>
+            )}
+            <div className="relative rounded-lg border border-slate-100 bg-white overflow-hidden divide-y divide-slate-50 px-3">
+                {/* Expand/collapse empty-field toggle — only when hidden fields exist */}
+                {hasHidden && (
+                    <button
+                        onClick={() => setShowEmpty(v => !v)}
+                        title={showEmpty ? `Hide ${empty.length} empty field${empty.length !== 1 ? 's' : ''}` : `Show ${empty.length} empty field${empty.length !== 1 ? 's' : ''}`}
+                        className="absolute top-1.5 right-1.5 z-10 flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-medium text-slate-300 hover:text-slate-500 hover:bg-slate-50 transition-colors"
+                    >
+                        {showEmpty
+                            ? <EyeOff className="h-3 w-3" />
+                            : <Eye className="h-3 w-3" />
+                        }
+                        <span>{empty.length}</span>
+                    </button>
+                )}
+                {visibleFields.map(field => (
                     <GroupFieldRow
                         key={field.fieldNo}
                         field={field}
                         raNameLookup={raNameLookup}
+                        dimmed={!field.hydrated.isSynced}
                     />
                 ))}
             </div>
