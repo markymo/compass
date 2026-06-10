@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Plus, Trash2, Loader2 } from "lucide-react";
 import { OptionSetValueType, MasterDataOptionSetPayload } from "@/types/master-data";
 import { createOptionSet, updateOptionSet } from "@/actions/master-data-option-sets";
@@ -127,7 +126,7 @@ export function OptionSetSheet({ open, onOpenChange, optionSet }: OptionSetSheet
 
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
-            <SheetContent className="sm:max-w-[500px] flex flex-col gap-0 p-0 border-l border-slate-200">
+            <SheetContent className="sm:max-w-[500px] flex flex-col gap-0 p-0 border-l border-slate-200 h-full overflow-hidden">
                 <div className="p-6 border-b border-slate-100 bg-slate-50/50">
                     <SheetHeader>
                         <SheetTitle className="font-serif text-xl text-slate-800">
@@ -139,8 +138,8 @@ export function OptionSetSheet({ open, onOpenChange, optionSet }: OptionSetSheet
                     </SheetHeader>
                 </div>
 
-                <ScrollArea className="flex-1 p-6">
-                    <div className="space-y-6 pb-[100px]">
+                <div className="flex-1 min-h-0 overflow-y-auto">
+                    <div className="space-y-6 p-6 pb-4">
                         <div className="space-y-2">
                             <Label>Internal Name <span className="text-red-500">*</span></Label>
                             <Input 
@@ -224,7 +223,7 @@ export function OptionSetSheet({ open, onOpenChange, optionSet }: OptionSetSheet
                         </div>
 
                     </div>
-                </ScrollArea>
+                </div>
 
                 <div className="p-6 border-t bg-slate-50 flex items-center justify-end gap-3 shrink-0">
                     <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
