@@ -15,6 +15,7 @@
     "db:seed:full": "ts-node -O '{\"module\":\"commonjs\"}' scripts/seed-full.ts",
     "db:seed:preview": "ts-node -r tsconfig-paths/register scripts/seed-preview.ts",
     "db:seed:prod": "ts-node -O '{\"module\":\"commonjs\"}' scripts/seed-prod.ts",
+    "db:seed:option-sets": "ts-node -O '{\"module\":\"commonjs\"}' scripts/seed-option-sets.ts",
     "vercel:build": "node scripts/vercel-build.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
