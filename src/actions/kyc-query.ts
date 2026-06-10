@@ -18,6 +18,8 @@ export type ResolverRequest = {
 export type HydratedValue = {
     value: any;
     source: string | null;
+    /** Raw RA code e.g. 'RA000585'. Null for GLEIF/USER_INPUT. Additive — do not remove source. */
+    sourceReference?: string | null;
     updatedAt?: Date | null;
     isSynced: boolean; // True if value exists in Master Data
 };
@@ -55,10 +57,15 @@ export async function resolveMasterData(
                                 ownerScopeId || undefined
                             );
                             if (collection.length > 0) {
+                                const maxUpdatedAt = collection.reduce(
+                                    (max: Date, c: any) => (c.assertedAt > max ? c.assertedAt : max),
+                                    collection[0].assertedAt as Date
+                                );
                                 response[q.questionId][fieldNo] = {
                                     value: collection.map((c: any) => c.value),
                                     source: collection[0].isScoped ? 'USER_INPUT' : (collection[0].evidenceProvider || 'MASTER_RECORD'),
-                                    updatedAt: collection[0].assertedAt,
+                                    sourceReference: collection[0].sourceReference ?? null,
+                                    updatedAt: maxUpdatedAt,
                                     isSynced: true
                                 };
                             }
@@ -73,6 +80,7 @@ export async function resolveMasterData(
                                 response[q.questionId][fieldNo] = {
                                     value: derived.value,
                                     source: derived.isScoped ? 'USER_INPUT' : (derived.evidenceProvider || 'MASTER_RECORD'),
+                                    sourceReference: derived.sourceReference ?? null,
                                     updatedAt: derived.assertedAt,
                                     isSynced: true
                                 };
@@ -96,10 +104,15 @@ export async function resolveMasterData(
                 if (collection.length > 0) {
                     const vals = collection.map((c: any) => c.value);
                     console.log(`[resolveMasterData] Field ${q.masterFieldNo} is multi-value. Values:`, vals);
+                    const maxUpdatedAt = collection.reduce(
+                        (max: Date, c: any) => (c.assertedAt > max ? c.assertedAt : max),
+                        collection[0].assertedAt as Date
+                    );
                     response[q.questionId][q.masterFieldNo] = {
                         value: vals,
                         source: collection[0].isScoped ? 'USER_INPUT' : (collection[0].evidenceProvider || 'MASTER_RECORD'),
-                        updatedAt: collection[0].assertedAt,
+                        sourceReference: collection[0].sourceReference ?? null,
+                        updatedAt: maxUpdatedAt,
                         isSynced: true
                     };
                 }
@@ -114,6 +127,7 @@ export async function resolveMasterData(
                     response[q.questionId][q.masterFieldNo] = {
                         value: derived.value,
                         source: derived.isScoped ? 'USER_INPUT' : (derived.evidenceProvider || 'MASTER_RECORD'),
+                        sourceReference: derived.sourceReference ?? null,
                         updatedAt: derived.assertedAt,
                         isSynced: true
                     };
@@ -222,12 +236,14 @@ function resolveField(
 
         const values: any[] = [];
         let firstDerived: any = null;
+        let maxAssertedAt: Date | null = null;
         for (const group of Object.values(itemGroups)) {
             const winner = KycStateService.pickWinner(group, ownerScopeId ?? undefined, priorityMap);
             if (winner && !KycStateService.isTombstone(winner)) {
                 const derived = KycStateService.mapToDerivedValue(winner, ownerScopeId ?? undefined);
                 values.push(derived.value);
                 if (!firstDerived) firstDerived = derived;
+                if (!maxAssertedAt || derived.assertedAt > maxAssertedAt) maxAssertedAt = derived.assertedAt;
             }
         }
 
@@ -239,7 +255,8 @@ function resolveField(
             [fieldNo]: {
                 value: values,
                 source: firstDerived.isScoped ? 'USER_INPUT' : (firstDerived.evidenceProvider || firstDerived.sourceType || 'MASTER_RECORD'),
-                updatedAt: firstDerived.assertedAt,
+                sourceReference: firstDerived.sourceReference ?? null,
+                updatedAt: maxAssertedAt,
                 isSynced: true,
             }
         };
@@ -256,6 +273,7 @@ function resolveField(
             [fieldNo]: {
                 value: derived.value,
                 source: derived.isScoped ? 'USER_INPUT' : (derived.evidenceProvider || derived.sourceType || 'MASTER_RECORD'),
+                sourceReference: derived.sourceReference ?? null,
                 updatedAt: derived.assertedAt,
                 isSynced: true,
             }
@@ -320,6 +338,20 @@ export async function resolveMasterDataBatch(input: BatchResolverInput): Promise
 
 
 
+/**
+ * Per-field breakdown for group-mapped questions.
+ * Consumed by GroupAnswerRenderer.
+ */
+export interface GroupFieldDetail {
+    fieldNo: number;
+    fieldName: string;
+    appDataType: string;
+    isMultiValue: boolean;
+    /** Present if the field is a controlled-vocabulary code list (e.g. 'SIC_2007_UK') */
+    codeSystem?: string;
+    hydrated: HydratedValue;
+}
+
 export interface FieldDetailData {
     fieldNo?: number;
     fieldName?: string;
@@ -372,6 +404,12 @@ export interface FieldDetailData {
      * Value is a key in CODE_SYSTEMS — e.g. "SIC_2007_UK".
      */
     codeSystem?: string;
+    /**
+     * For group-mapped questions only.
+     * Per-field breakdown suitable for GroupAnswerRenderer.
+     * Only populated when getFieldDetail() is called with a masterQuestionGroupId.
+     */
+    groupFields?: GroupFieldDetail[];
 }
 
 export async function getFieldDetail(
@@ -411,23 +449,86 @@ export async function getFieldDetail(
 
         try {
             const group = await getMasterFieldGroup(masterQuestionGroupId);
-            const groupValues: Record<string, any> = {};
+            const groupFields: GroupFieldDetail[] = [];
 
+            // Keep a flat dict for backward compat with existing current.value consumers
+            const groupValues: Record<string, any> = {};
             let latestTimestamp = new Date(0);
 
             for (const item of group.items) {
                 const def = await getMasterFieldDefinition(item.fieldNo);
+                const cfg = getComplexFieldConfig(item.fieldNo);
+                const codeSystem = cfg && 'codeSystem' in cfg ? cfg.codeSystem : undefined;
+
                 if (def.isMultiValue) {
-                    const collection = await KycStateService.getAuthoritativeCollection({ subjectLeId }, item.fieldNo, ownerScopeId);
+                    const collection = await KycStateService.getAuthoritativeCollection(
+                        { subjectLeId }, item.fieldNo, ownerScopeId
+                    );
                     if (collection.length > 0) {
-                        groupValues[def.fieldName] = collection.map((c: any) => c.value);
-                        if (collection[0].assertedAt > latestTimestamp) latestTimestamp = collection[0].assertedAt;
+                        const maxUpdatedAt = collection.reduce(
+                            (max: Date, c: any) => (c.assertedAt > max ? c.assertedAt : max),
+                            collection[0].assertedAt as Date
+                        );
+                        const hydrated: HydratedValue = {
+                            value: collection.map((c: any) => c.value),
+                            source: collection[0].isScoped ? 'USER_INPUT' : (collection[0].evidenceProvider || 'MASTER_RECORD'),
+                            sourceReference: collection[0].sourceReference ?? null,
+                            updatedAt: maxUpdatedAt,
+                            isSynced: true,
+                        };
+                        groupFields.push({
+                            fieldNo: item.fieldNo,
+                            fieldName: def.fieldName,
+                            appDataType: def.appDataType,
+                            isMultiValue: true,
+                            codeSystem,
+                            hydrated,
+                        });
+                        groupValues[def.fieldName] = hydrated.value;
+                        if (maxUpdatedAt > latestTimestamp) latestTimestamp = maxUpdatedAt;
+                    } else {
+                        // Empty collection — still emit a row so order is preserved;
+                        // GroupAnswerRenderer hides isSynced:false rows
+                        groupFields.push({
+                            fieldNo: item.fieldNo,
+                            fieldName: def.fieldName,
+                            appDataType: def.appDataType,
+                            isMultiValue: true,
+                            codeSystem,
+                            hydrated: { value: null, source: null, isSynced: false },
+                        });
                     }
                 } else {
-                    const derived = await KycStateService.getAuthoritativeValue({ subjectLeId }, item.fieldNo, ownerScopeId);
+                    const derived = await KycStateService.getAuthoritativeValue(
+                        { subjectLeId }, item.fieldNo, ownerScopeId
+                    );
                     if (derived) {
-                        groupValues[def.fieldName] = derived.value;
+                        const hydrated: HydratedValue = {
+                            value: derived.value,
+                            source: derived.isScoped ? 'USER_INPUT' : (derived.evidenceProvider || 'MASTER_RECORD'),
+                            sourceReference: derived.sourceReference ?? null,
+                            updatedAt: derived.assertedAt,
+                            isSynced: true,
+                        };
+                        groupFields.push({
+                            fieldNo: item.fieldNo,
+                            fieldName: def.fieldName,
+                            appDataType: def.appDataType,
+                            isMultiValue: false,
+                            codeSystem,
+                            hydrated,
+                        });
+                        groupValues[def.fieldName] = hydrated.value;
                         if (derived.assertedAt > latestTimestamp) latestTimestamp = derived.assertedAt;
+                    } else {
+                        groupFields.push({
+                            fieldNo: item.fieldNo,
+                            fieldName: def.fieldName,
+                            appDataType: def.appDataType,
+                            isMultiValue: false,
+                            codeSystem,
+                            hydrated: { value: null, source: null, isSynced: false },
+                        });
                     }
                 }
             }
@@ -444,19 +545,20 @@ export async function getFieldDetail(
                     timestamp: latestTimestamp.getTime() > 0 ? latestTimestamp : new Date(),
                     confidence: 1.0
                 },
+                groupFields,
                 assignment: null,
                 history: [],
                 candidates: []
             };
         } catch (e) {
             console.warn(`[getFieldDetail] Error fetching group data:`, e);
-            // Fallback to minimal return object if group fails
             return {
                 fieldNo: 0,
                 fieldName: "Unknown Group",
                 isRepeating: false,
                 dataType: "JSON",
                 current: null,
+                groupFields: [],
                 assignment: null,
                 history: [],
                 candidates: []
