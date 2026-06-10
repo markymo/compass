@@ -67,19 +67,15 @@ export function FieldCreateSheet({ open, onOpenChange, categories=[] }: FieldCre
             if (payload.optionSetId === "none") {
                 payload.optionSetId = undefined;
             }
-            // Only strip isMultiValue for scalar types that cannot be collections.
-            // Reference types (PARTY_REF, ADDRESS_REF, etc.) support multi-value via
-            // MasterFieldGraphBinding — preserve the flag so graph-backed list fields work.
-            // JSONB/SELECT can also be multi-value (e.g. SIC codes, previous names).
-            const multiValueTypes = [
-                APP_DATA_TYPES.SELECT,
-                APP_DATA_TYPES.JSONB,
-                APP_DATA_TYPES.PARTY_REF,
-                APP_DATA_TYPES.PERSON_REF,
-                APP_DATA_TYPES.ORG_REF,
-                APP_DATA_TYPES.ADDRESS_REF,
+            // Strip isMultiValue only for types where a collection makes no semantic sense.
+            // TEXT and NUMBER CAN be multi-value (e.g. trading names, SIC codes as numbers).
+            // Only BOOLEAN, DATETIME, and DOCUMENT_REF have no meaningful collection interpretation.
+            const noMultiValueTypes = [
+                APP_DATA_TYPES.BOOLEAN,
+                APP_DATA_TYPES.DATETIME,
+                APP_DATA_TYPES.DOCUMENT_REF,
             ];
-            if (!multiValueTypes.includes(payload.appDataType)) {
+            if (noMultiValueTypes.includes(payload.appDataType)) {
                 payload.optionSetId = undefined;
                 payload.isMultiValue = false;
             }
@@ -177,11 +173,10 @@ export function FieldCreateSheet({ open, onOpenChange, categories=[] }: FieldCre
                                         </div>
                                     </SelectContent>
                                 </Select>
-                                {/* isMultiValue toggle — shown for SELECT, JSONB, and all reference types */}
-                             {([APP_DATA_TYPES.SELECT, APP_DATA_TYPES.JSONB,
-                               APP_DATA_TYPES.PARTY_REF, APP_DATA_TYPES.PERSON_REF,
-                               APP_DATA_TYPES.ORG_REF, APP_DATA_TYPES.ADDRESS_REF
-                             ] as string[]).includes(formData.appDataType) && (
+                                {/* isMultiValue toggle — hidden only for BOOLEAN, DATETIME, DOCUMENT_REF */}
+                             {!([APP_DATA_TYPES.BOOLEAN, APP_DATA_TYPES.DATETIME,
+                                 APP_DATA_TYPES.DOCUMENT_REF
+                               ] as string[]).includes(formData.appDataType) && (
                                 <>
                                     {formData.appDataType === APP_DATA_TYPES.SELECT && (
                                         <div className="grid gap-2 col-span-2">

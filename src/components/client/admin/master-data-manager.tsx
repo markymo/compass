@@ -54,7 +54,9 @@ export default function MasterDataManager({ initialData, rawFields, initialUserC
         setUncategorizedFields(initialData.uncategorizedFields || []);
     }, [initialData]);
 
-    const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
+    const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(
+        () => new Set<string>(initialUserConfig?.collapsedCategories || [])
+    );
     const [isSavingOrder, setIsSavingOrder] = useState(false);
 
     // -- Table States --
@@ -93,12 +95,13 @@ export default function MasterDataManager({ initialData, rawFields, initialUserC
                     filterCategory,
                     filterDomain,
                     filterDataType,
-                    filterStatus
+                    filterStatus,
+                    collapsedCategories: [...collapsedCategories], // Set → array for JSON serialisation
                 }
             });
         }, 1000); // 1s debounce
         return () => clearTimeout(timeoutId);
-    }, [sorting, columnVisibility, columnSizing, filterCategory, filterDomain, filterDataType, filterStatus]);
+    }, [sorting, columnVisibility, columnSizing, filterCategory, filterDomain, filterDataType, filterStatus, collapsedCategories]);
 
     const [selectedField, setSelectedField] = useState<any>(null);
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
