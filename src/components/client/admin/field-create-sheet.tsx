@@ -33,8 +33,27 @@ export function FieldCreateSheet({ open, onOpenChange, categories=[] }: FieldCre
             getOptionSets().then(res => {
                 if (res.success) setOptionSets(res.optionSets || []);
             });
+
+            if (typeof window !== "undefined") {
+                const params = new URLSearchParams(window.location.search);
+                if (params.get("prefill") === "true") {
+                    const name = params.get("fieldName") || "";
+                    const catName = params.get("categoryName") || "";
+                    const desc = params.get("description") || "";
+                    
+                    const matchedCat = categories.find(c => c.displayName.toLowerCase() === catName.toLowerCase());
+                    
+                    setFormData(prev => ({
+                        ...prev,
+                        fieldName: name || prev.fieldName,
+                        categoryId: matchedCat ? matchedCat.id : "",
+                        newCategoryName: matchedCat ? "" : catName,
+                        description: desc || prev.description
+                    }));
+                }
+            }
         }
-    }, [open]);
+    }, [open, categories]);
 
     // Initialize form state
     const [formData, setFormData] = useState({
@@ -173,6 +192,11 @@ export function FieldCreateSheet({ open, onOpenChange, categories=[] }: FieldCre
                                         </div>
                                     </SelectContent>
                                 </Select>
+                                {typeof window !== "undefined" && new URLSearchParams(window.location.search).get("prefillType") === "ADDRESS" && (
+                                    <div className="text-[11px] text-indigo-650 bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-100 rounded-md p-2 mt-1 leading-normal font-sans">
+                                        Note: This field is configured as <strong>TEXT</strong> as a placeholder in preparation for the future <strong>ADDRESS</strong> datatype.
+                                    </div>
+                                )}
                                 {/* isMultiValue toggle — hidden only for BOOLEAN, DATETIME, DOCUMENT_REF */}
                              {!([APP_DATA_TYPES.BOOLEAN, APP_DATA_TYPES.DATETIME,
                                  APP_DATA_TYPES.DOCUMENT_REF

@@ -282,6 +282,7 @@ export default function SourceMappingsV2Page() {
                             readOnly={false}
                             title={selectedOption.label}
                             resolvedDefaults={resolvedDefaults}
+                            fieldDefinitions={fieldDefs}
                         />
                     ) : (
                         <div className="flex h-[300px] items-center justify-center rounded-lg border border-dashed border-slate-200 bg-white/50 dark:bg-zinc-900/50 dark:border-zinc-800">
