@@ -33,8 +33,29 @@ export function FieldCreateSheet({ open, onOpenChange, categories=[] }: FieldCre
             getOptionSets().then(res => {
                 if (res.success) setOptionSets(res.optionSets || []);
             });
+
+            if (typeof window !== "undefined") {
+                const params = new URLSearchParams(window.location.search);
+                if (params.get("prefill") === "true") {
+                    const name = params.get("fieldName") || "";
+                    const catName = params.get("categoryName") || "";
+                    const desc = params.get("description") || "";
+                    const prefillType = params.get("prefillType") || "";
+                    
+                    const matchedCat = categories.find(c => c.displayName.toLowerCase() === catName.toLowerCase());
+                    
+                    setFormData(prev => ({
+                        ...prev,
+                        fieldName: name || prev.fieldName,
+                        categoryId: matchedCat ? matchedCat.id : "",
+                        newCategoryName: matchedCat ? "" : catName,
+                        description: desc || prev.description,
+                        appDataType: prefillType === "ADDRESS" ? APP_DATA_TYPES.ADDRESS : prev.appDataType
+                    }));
+                }
+            }
         }
-    }, [open]);
+    }, [open, categories]);
 
     // Initialize form state
     const [formData, setFormData] = useState({
@@ -173,6 +194,11 @@ export function FieldCreateSheet({ open, onOpenChange, categories=[] }: FieldCre
                                         </div>
                                     </SelectContent>
                                 </Select>
+                                {formData.appDataType === APP_DATA_TYPES.ADDRESS && (
+                                    <div className="text-[11px] text-indigo-650 bg-indigo-50 dark:bg-indigo-955/20 border border-indigo-100 dark:border-indigo-900/30 rounded-md p-2 mt-1 leading-normal font-sans">
+                                        This field stores a structured address: Address lines, Locality, Region, Postcode and Country.
+                                    </div>
+                                )}
                                 {/* isMultiValue toggle — hidden only for BOOLEAN, DATETIME, DOCUMENT_REF */}
                              {!([APP_DATA_TYPES.BOOLEAN, APP_DATA_TYPES.DATETIME,
                                  APP_DATA_TYPES.DOCUMENT_REF

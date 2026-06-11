@@ -52,6 +52,13 @@ export default function MasterDataManager({ initialData, rawFields, initialUserC
     useEffect(() => {
         setCategories(initialData.categories || []);
         setUncategorizedFields(initialData.uncategorizedFields || []);
+
+        if (typeof window !== "undefined") {
+            const params = new URLSearchParams(window.location.search);
+            if (params.get("prefill") === "true") {
+                setIsCreateDialogOpen(true);
+            }
+        }
     }, [initialData]);
 
     const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(

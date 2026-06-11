@@ -71,6 +71,7 @@ type TransformType =
     | 'FIRST_ARRAY_ITEM'
     | 'JOIN_ARRAY'
     | 'TO_ADDRESS_OBJECT'
+    | 'TO_ADDRESS_VALUE'
     | 'TO_PARTY_OBJECT'
     | 'TO_PARTY_LIST'
     | 'TO_NAME_HISTORY_LIST'
@@ -282,6 +283,57 @@ export function applyTransform(
                 addressDto.line1 = `${value.premises} ${value.address_line_1}`.trim();
             }
             return { value: addressDto, confidencePenalty: 0 };
+        }
+
+        case 'TO_ADDRESS_VALUE': {
+            if (typeof value !== 'object' || value === null) {
+                return { value: null, confidencePenalty: 1 };
+            }
+
+            const paths = transformConfig || {};
+            
+            const resolve = (path: string | undefined): string | null => {
+                if (!path) return null;
+                
+                const parts = path.split('.');
+                let current = value;
+                for (const part of parts) {
+                    if (current == null || typeof current !== 'object') return null;
+                    current = current[part];
+                }
+                
+                if (Array.isArray(current)) {
+                    return null; 
+                }
+                return current != null ? String(current) : null;
+            };
+
+            const linesPaths: string[] = Array.isArray(paths.addressLines) ? paths.addressLines : [];
+            const addressLines: string[] = [];
+            
+            for (const p of linesPaths) {
+                const parts = p.split('.');
+                let current = value;
+                for (const part of parts) {
+                    if (current == null || typeof current !== 'object') break;
+                    current = current[part];
+                }
+                if (Array.isArray(current)) {
+                    addressLines.push(...current.map(String));
+                } else if (current != null) {
+                    addressLines.push(String(current));
+                }
+            }
+
+            const addressValue = {
+                addressLines,
+                locality: resolve(paths.locality),
+                region: resolve(paths.region),
+                postalCode: resolve(paths.postalCode),
+                countryCode: resolve(paths.countryCode)
+            };
+            
+            return { value: addressValue, confidencePenalty: 0 };
         }
 
         case 'TO_PARTY_OBJECT': {

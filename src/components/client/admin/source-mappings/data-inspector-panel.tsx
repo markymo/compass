@@ -1,13 +1,34 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Loader2, Search, Check, PlusCircle, Globe, Tag } from "lucide-react";
+import { Loader2, Search, Check, PlusCircle, Globe, Tag, MapPin } from "lucide-react";
 import { fetchLiveGleifRecord } from "@/actions/gleif-live";
 import { fetchLiveRegistryRecord } from "@/actions/registry-live";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+import {
+    detectAddressCandidate,
+    isAddressLikePath,
+    AddressDetectionResult,
+    buildRelativeTransformConfig
+} from "@/lib/address-detector";
+import { upsertSourceMapping } from "@/actions/source-mappings";
+import { detectAddressWithAI } from "@/actions/ai-address";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+    DialogFooter
+} from "@/components/ui/dialog";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 // ── Types ──────────────────────────────────────────────────────────────
 
@@ -42,6 +63,7 @@ interface DataInspectorPanelProps {
         chCompanyNo: string;
         frSiren: string;
     };
+    fieldDefinitions?: any[];
 }
 
 // ── Component ──────────────────────────────────────────────────────────
@@ -55,8 +77,10 @@ export function DataInspectorPanel({
     onSelectPath, 
     readOnly = false,
     title,
-    resolvedDefaults
+    resolvedDefaults,
+    fieldDefinitions = []
 }: DataInspectorPanelProps) {
+    const router = useRouter();
     const isCompaniesHouse = sourceType === "REGISTRATION_AUTHORITY"
         && (sourceReference === "COMPANIES_HOUSE"
             || sourceReference === "RA000585"
@@ -75,6 +99,89 @@ export function DataInspectorPanel({
     const [loading, setLoading] = useState(false);
     const [payload, setPayload] = useState<any>(null);
     const [error, setError] = useState<string | null>(null);
+
+    // Helper to format address paths to prefilled field name
+    const formatFieldPrefillName = (path: string): string => {
+        const lastPart = path.split('.').pop() || 'Address';
+        if (lastPart.toLowerCase() === 'siege') return 'Registered Address';
+        return lastPart
+            .replace(/([A-Z])/g, ' $1')
+            .replace(/[_-]+/g, ' ')
+            .trim()
+            .split(' ')
+            .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+            .join(' ');
+    };
+
+    const [activeAddressCandidate, setActiveAddressCandidate] = useState<{
+        path: string;
+        value: any;
+        heuristicResult: AddressDetectionResult;
+    } | null>(null);
+    const [aiLoading, setAiLoading] = useState(false);
+    const [aiResult, setAiResult] = useState<AddressDetectionResult | null>(null);
+    const [aiError, setAiError] = useState<string | null>(null);
+    const [aiCache] = useState<Map<string, AddressDetectionResult>>(new Map());
+
+    // Phase 2 State
+    const [actionMode, setActionMode] = useState<"create" | "map">("create");
+    const [newFieldName, setNewFieldName] = useState("");
+    const [newFieldCategory, setNewFieldCategory] = useState("Address Information");
+    const [newFieldDescription, setNewFieldDescription] = useState("");
+    const [selectedFieldNo, setSelectedFieldNo] = useState<number | null>(null);
+    const [fieldSearchTerm, setFieldSearchTerm] = useState("");
+    const [isReviewingMapping, setIsReviewingMapping] = useState(false);
+
+    useEffect(() => {
+        if (activeAddressCandidate === null) {
+            setIsReviewingMapping(false);
+        }
+    }, [activeAddressCandidate]);
+
+    const handleMapAddress = async (path: string, value: any, heuristicResult: AddressDetectionResult) => {
+        setAiResult(null);
+        setAiError(null);
+        setIsReviewingMapping(false);
+        setActiveAddressCandidate({ path, value, heuristicResult });
+        
+        // Prefill Phase 2 states
+        setActionMode("create");
+        setNewFieldName(formatFieldPrefillName(path));
+        setNewFieldCategory("Address Information");
+        setNewFieldDescription(`Imported address structure from source payload at ${path}.`);
+        setSelectedFieldNo(null);
+        setFieldSearchTerm("");
+
+        // If score is borderline (3-7), lazily run AI detection
+        if (heuristicResult.score >= 3 && heuristicResult.score <= 7) {
+            const cacheKey = `${sourceType}:${sourceReference || "NONE"}:${path}:${JSON.stringify(value)}`;
+            if (aiCache.has(cacheKey)) {
+                setAiResult(aiCache.get(cacheKey) || null);
+                return;
+            }
+
+            setAiLoading(true);
+            try {
+                const res = await detectAddressWithAI({
+                    sourceType,
+                    sourceReference,
+                    nodePath: path,
+                    nodeValue: value,
+                    nearbyChildKeys: Object.keys(value)
+                });
+                if (res.success && res.result) {
+                    setAiResult(res.result);
+                    aiCache.set(cacheKey, res.result);
+                } else {
+                    setAiError(res.error || "Failed to analyze with AI");
+                }
+            } catch (e: any) {
+                setAiError(e.message || "Failed to analyze with AI");
+            } finally {
+                setAiLoading(false);
+            }
+        }
+    };
 
     useEffect(() => {
         setQuery(defaultQuery);
@@ -238,10 +345,453 @@ export function DataInspectorPanel({
                             otherFieldPathMap={otherFieldPathMap}
                             onSelect={onSelectPath} 
                             readOnly={readOnly}
+                            onMapAddress={handleMapAddress}
                         />
                     </div>
                 )}
             </CardContent>
+
+            {/* Address Detection Dialog */}
+            <Dialog open={activeAddressCandidate !== null} onOpenChange={(open) => { if (!open) setActiveAddressCandidate(null); }}>
+                <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto custom-scrollbar flex flex-col gap-4">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-slate-900 dark:text-slate-100">
+                            <MapPin className="h-5 w-5 text-indigo-500" />
+                            {isReviewingMapping ? "Review Address Mapping" : "Address detected"}
+                        </DialogTitle>
+                        <DialogDescription className="text-slate-500 dark:text-slate-400">
+                            {isReviewingMapping 
+                                ? "Please review the source-to-field mappings before persistence."
+                                : "We think this source object represents an address structure."}
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    {/* Dialog Content body */}
+                    <div className="space-y-4 py-1 flex-1">
+                        {isReviewingMapping ? (
+                            (() => {
+                                const currentResult = aiResult || activeAddressCandidate?.heuristicResult;
+                                const relativeConfig = activeAddressCandidate && currentResult
+                                    ? buildRelativeTransformConfig(activeAddressCandidate.value, currentResult.detectedFields)
+                                    : null;
+                                
+                                const getSampleForKeys = (keys: string[]): string => {
+                                    if (!keys || keys.length === 0) return "";
+                                    const samples: string[] = [];
+                                    for (const k of keys) {
+                                        const val = activeAddressCandidate?.value?.[k];
+                                        if (Array.isArray(val)) {
+                                            samples.push(...val.map(String));
+                                        } else if (val != null) {
+                                            samples.push(String(val));
+                                        }
+                                    }
+                                    return samples.join(', ');
+                                };
+
+                                const getSampleForKey = (key: string | null): string => {
+                                    if (!key) return "";
+                                    const val = activeAddressCandidate?.value?.[key];
+                                    if (Array.isArray(val)) {
+                                        return val.join(', ');
+                                    }
+                                    return val != null ? String(val) : "";
+                                };
+
+                                return (
+                                    <div className="space-y-4">
+                                        <div className="bg-indigo-50/50 dark:bg-indigo-955/10 border border-indigo-100/50 dark:border-indigo-900/30 rounded-xl p-3.5 text-xs space-y-2">
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-slate-400">Target Field:</span>
+                                                <span className="font-semibold text-slate-800 dark:text-slate-200">
+                                                    {fieldDefinitions.find(f => f.fieldNo === selectedFieldNo)?.fieldName} (Field #{selectedFieldNo})
+                                                </span>
+                                            </div>
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-slate-400">Source Path:</span>
+                                                <span className="font-mono text-[10px] text-slate-700 dark:text-slate-300">
+                                                    {activeAddressCandidate?.path}
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        <div className="border border-slate-100 dark:border-zinc-800 rounded-xl overflow-hidden text-xs">
+                                            <div className="bg-slate-50 dark:bg-zinc-900 px-3.5 py-2 font-semibold text-slate-700 dark:text-zinc-300 border-b border-slate-100 dark:border-zinc-800">
+                                                Source-to-Field Mappings
+                                            </div>
+                                            <div className="divide-y divide-slate-100 dark:divide-zinc-800 bg-white dark:bg-zinc-900">
+                                                {/* Address Lines */}
+                                                <div className="p-3 space-y-1">
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="font-medium text-slate-900 dark:text-slate-100">Address Lines</span>
+                                                        <span className="font-mono text-[10px] text-slate-400">
+                                                            {relativeConfig?.addressLines?.length > 0 
+                                                                ? relativeConfig.addressLines.map((k: string) => `${activeAddressCandidate?.path}.${k}`).join(' & ')
+                                                                : 'Not mapped'}
+                                                        </span>
+                                                    </div>
+                                                    <div className="text-[11px] text-slate-500 italic">
+                                                        Sample: {getSampleForKeys(relativeConfig?.addressLines || []) || '—'}
+                                                    </div>
+                                                </div>
+
+                                                {/* Locality */}
+                                                <div className="p-3 space-y-1">
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="font-medium text-slate-900 dark:text-slate-100">Locality</span>
+                                                        <span className="font-mono text-[10px] text-slate-400">
+                                                            {relativeConfig?.locality 
+                                                                ? `${activeAddressCandidate?.path}.${relativeConfig.locality}`
+                                                                : 'Not mapped'}
+                                                        </span>
+                                                    </div>
+                                                    <div className="text-[11px] text-slate-500 italic">
+                                                        Sample: {getSampleForKey(relativeConfig?.locality) || '—'}
+                                                    </div>
+                                                </div>
+
+                                                {/* Region */}
+                                                <div className="p-3 space-y-1">
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="font-medium text-slate-900 dark:text-slate-100">Region</span>
+                                                        <span className="font-mono text-[10px] text-slate-400">
+                                                            {relativeConfig?.region 
+                                                                ? `${activeAddressCandidate?.path}.${relativeConfig.region}`
+                                                                : 'Not mapped'}
+                                                        </span>
+                                                    </div>
+                                                    <div className="text-[11px] text-slate-500 italic">
+                                                        Sample: {getSampleForKey(relativeConfig?.region) || '—'}
+                                                    </div>
+                                                </div>
+
+                                                {/* Postcode */}
+                                                <div className="p-3 space-y-1">
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="font-medium text-slate-900 dark:text-slate-100">Postcode</span>
+                                                        <span className="font-mono text-[10px] text-slate-400">
+                                                            {relativeConfig?.postalCode 
+                                                                ? `${activeAddressCandidate?.path}.${relativeConfig.postalCode}`
+                                                                : 'Not mapped'}
+                                                        </span>
+                                                    </div>
+                                                    <div className="text-[11px] text-slate-500 italic">
+                                                        Sample: {getSampleForKey(relativeConfig?.postalCode) || '—'}
+                                                    </div>
+                                                </div>
+
+                                                {/* Country */}
+                                                <div className="p-3 space-y-1">
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="font-medium text-slate-900 dark:text-slate-100">Country</span>
+                                                        <span className="font-mono text-[10px] text-slate-400">
+                                                            {relativeConfig?.countryCode 
+                                                                ? `${activeAddressCandidate?.path}.${relativeConfig.countryCode}`
+                                                                : 'Not mapped'}
+                                                        </span>
+                                                    </div>
+                                                    <div className="text-[11px] text-slate-500 italic">
+                                                        Sample: {getSampleForKey(relativeConfig?.countryCode) || '—'}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })()
+                        ) : (
+                            <>
+                                {/* Detection Info */}
+                                <div className="grid grid-cols-2 gap-2 text-xs bg-slate-50 dark:bg-zinc-900/50 p-2.5 rounded-lg border border-slate-100 dark:border-zinc-800">
+                                    <div>
+                                        <span className="text-slate-400">Method:</span>{" "}
+                                        <span className="font-semibold text-slate-700 dark:text-zinc-200">
+                                            {aiLoading ? "Analyzing..." : (aiResult ? "AI" : "Heuristic")}
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <span className="text-slate-400">Confidence:</span>{" "}
+                                        <span className={cn(
+                                            "font-semibold",
+                                            (aiResult || activeAddressCandidate?.heuristicResult)?.confidence === "HIGH" ? "text-green-600" :
+                                            (aiResult || activeAddressCandidate?.heuristicResult)?.confidence === "MEDIUM" ? "text-amber-600" :
+                                            "text-red-600"
+                                        )}>
+                                            {aiLoading ? "..." : (aiResult || activeAddressCandidate?.heuristicResult)?.confidence}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {/* Loading / Error */}
+                                {aiLoading ? (
+                                    <div className="flex flex-col items-center justify-center py-6 gap-2">
+                                        <Loader2 className="h-5 w-5 animate-spin text-indigo-600" />
+                                        <span className="text-xs text-slate-500">Running AI address analysis...</span>
+                                    </div>
+                                ) : aiError ? (
+                                    <div className="text-xs text-red-600 bg-red-50 dark:bg-red-955/20 p-2.5 rounded-lg border border-red-100 dark:border-red-900/50">
+                                        <p className="font-semibold">AI Analysis failed:</p>
+                                        <p>{aiError}</p>
+                                        <p className="mt-1 text-slate-500">Falling back to Heuristic results.</p>
+                                    </div>
+                                ) : null}
+
+                                {/* Display resolved checkmarks if not loading */}
+                                {!aiLoading && (() => {
+                                    const currentResult = aiResult || activeAddressCandidate?.heuristicResult;
+                                    if (!currentResult) return null;
+
+                                    const detected = currentResult.detectedFields || {};
+                                    const addressLinesOk = Array.isArray(detected.addressLines) ? detected.addressLines.length > 0 : !!detected.addressLines;
+                                    const localityOk = !!detected.locality;
+                                    const regionOk = !!detected.region;
+                                    const postalCodeOk = !!detected.postalCode;
+                                    const countryOk = !!detected.countryCode;
+
+                                    return (
+                                        <div className="space-y-4">
+                                            {/* Detected Fields checklist */}
+                                            <div className="text-xs space-y-1.5 bg-slate-50 dark:bg-zinc-900/50 p-3 rounded-lg border border-slate-100 dark:border-zinc-800">
+                                                <div className="font-semibold text-slate-700 dark:text-zinc-300">Detected:</div>
+                                                <div className="grid grid-cols-2 gap-2 text-[11px]">
+                                                    <div className="flex items-center gap-1.5 text-slate-600 dark:text-zinc-400">
+                                                        {addressLinesOk ? <span className="text-emerald-600 font-bold">✓</span> : <span className="text-slate-300 dark:text-zinc-700">○</span>}
+                                                        <span>Address lines</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-1.5 text-slate-600 dark:text-zinc-400">
+                                                        {localityOk ? <span className="text-emerald-600 font-bold">✓</span> : <span className="text-slate-300 dark:text-zinc-700">○</span>}
+                                                        <span>Locality</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-1.5 text-slate-600 dark:text-zinc-400">
+                                                        {regionOk ? <span className="text-emerald-600 font-bold">✓</span> : <span className="text-slate-300 dark:text-zinc-700">○</span>}
+                                                        <span>Region</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-1.5 text-slate-600 dark:text-zinc-400">
+                                                        {postalCodeOk ? <span className="text-emerald-600 font-bold">✓</span> : <span className="text-slate-300 dark:text-zinc-700">○</span>}
+                                                        <span>Postal code</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-1.5 text-slate-600 dark:text-zinc-400 col-span-2">
+                                                        {countryOk ? <span className="text-emerald-600 font-bold">✓</span> : <span className="text-slate-300 dark:text-zinc-700">○</span>}
+                                                        <span>Country</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Action Mode selection */}
+                                            <div className="space-y-2">
+                                                <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300">What would you like to do?</label>
+                                                <RadioGroup value={actionMode} onValueChange={(val: any) => setActionMode(val)} className="grid gap-2">
+                                                    <div className="flex items-center space-x-2 rounded-md border border-slate-200 dark:border-zinc-800 p-2 bg-white dark:bg-zinc-900 cursor-pointer hover:bg-slate-50 dark:hover:bg-zinc-800/30">
+                                                        <RadioGroupItem value="create" id="r-create" className="border-slate-300 dark:border-zinc-700" />
+                                                        <Label htmlFor="r-create" className="flex-1 text-xs cursor-pointer font-medium text-slate-700 dark:text-zinc-200">
+                                                            Create new Address field
+                                                        </Label>
+                                                    </div>
+                                                    <div className="flex items-center space-x-2 rounded-md border border-slate-200 dark:border-zinc-800 p-2 bg-white dark:bg-zinc-900 cursor-pointer hover:bg-slate-50 dark:hover:bg-zinc-800/30">
+                                                        <RadioGroupItem value="map" id="r-map" className="border-slate-300 dark:border-zinc-700" />
+                                                        <Label htmlFor="r-map" className="flex-1 text-xs cursor-pointer font-medium text-slate-700 dark:text-zinc-200">
+                                                            Map to existing Address field
+                                                        </Label>
+                                                    </div>
+                                                </RadioGroup>
+                                            </div>
+
+                                            {/* Mode-specific content */}
+                                            {actionMode === "create" && (
+                                                <div className="space-y-3 p-3 bg-slate-50 dark:bg-zinc-900/50 border border-slate-100 dark:border-zinc-800 rounded-lg">
+                                                    <div className="grid gap-1">
+                                                        <Label htmlFor="new-field-name" className="text-[11px] text-slate-500 dark:text-zinc-400">Field Name</Label>
+                                                        <Input
+                                                            id="new-field-name"
+                                                            value={newFieldName}
+                                                            onChange={(e) => setNewFieldName(e.target.value)}
+                                                            className="bg-white dark:bg-zinc-900 h-8 text-xs border-slate-200 dark:border-zinc-800"
+                                                            placeholder="e.g. Registered Address"
+                                                        />
+                                                    </div>
+                                                    <div className="grid gap-1">
+                                                        <Label htmlFor="new-field-category" className="text-[11px] text-slate-500 dark:text-zinc-400">Category</Label>
+                                                        <Input
+                                                            id="new-field-category"
+                                                            value={newFieldCategory}
+                                                            disabled
+                                                            className="bg-slate-100 dark:bg-zinc-800/50 h-8 text-xs text-slate-500 dark:text-zinc-400 border-slate-200 dark:border-zinc-800"
+                                                        />
+                                                    </div>
+                                                    <div className="grid gap-1">
+                                                        <Label htmlFor="new-field-desc" className="text-[11px] text-slate-500 dark:text-zinc-400">Description (optional)</Label>
+                                                        <Textarea
+                                                            id="new-field-desc"
+                                                            value={newFieldDescription}
+                                                            onChange={(e) => setNewFieldDescription(e.target.value)}
+                                                            className="bg-white dark:bg-zinc-900 text-xs min-h-[60px] border-slate-200 dark:border-zinc-800"
+                                                            placeholder="Describe what this address represents..."
+                                                        />
+                                                    </div>
+                                                    <div className="text-[10px] text-indigo-700 bg-indigo-50 dark:bg-indigo-955/20 border border-indigo-100 dark:border-indigo-900/30 rounded-md p-2 mt-1 leading-normal font-sans">
+                                                        This field stores a structured address: Address lines, Locality, Region, Postcode and Country.
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {actionMode === "map" && (() => {
+                                                const addressFields = fieldDefinitions.filter(f => f.appDataType === 'ADDRESS');
+
+                                                if (addressFields.length === 0) {
+                                                    return (
+                                                        <div className="text-xs text-slate-500 text-center py-4 bg-slate-50 dark:bg-zinc-900/50 border border-dashed border-slate-200 dark:border-zinc-800 rounded-lg p-4">
+                                                            No ADDRESS fields exist yet. Create an ADDRESS field first.
+                                                        </div>
+                                                    );
+                                                }
+
+                                                // Apply search filter
+                                                const searchedCandidates = addressFields.filter(f => 
+                                                    f.fieldName.toLowerCase().includes(fieldSearchTerm.toLowerCase()) ||
+                                                    (f.masterDataCategory?.displayName || "").toLowerCase().includes(fieldSearchTerm.toLowerCase())
+                                                );
+
+                                                return (
+                                                    <div className="space-y-2.5 p-3 bg-slate-50 dark:bg-zinc-900/50 border border-slate-100 dark:border-zinc-800 rounded-lg flex flex-col max-h-[260px]">
+                                                        <div className="relative">
+                                                            <Search className="absolute left-2 top-2 h-3.5 w-3.5 text-slate-400" />
+                                                            <Input
+                                                                value={fieldSearchTerm}
+                                                                onChange={(e) => setFieldSearchTerm(e.target.value)}
+                                                                placeholder="Search existing fields..."
+                                                                className="pl-7 bg-white dark:bg-zinc-900 h-8 text-xs border-slate-200 dark:border-zinc-800"
+                                                            />
+                                                        </div>
+
+                                                        <div className="flex-1 overflow-y-auto space-y-1 border border-slate-100 dark:border-zinc-800 rounded bg-white dark:bg-zinc-900 p-1.5 custom-scrollbar min-h-[100px] max-h-[150px]">
+                                                            {searchedCandidates.length === 0 ? (
+                                                                <div className="text-[11px] text-slate-400 text-center py-4">
+                                                                    No fields match the search.
+                                                                </div>
+                                                            ) : (
+                                                                searchedCandidates.map(field => {
+                                                                    const isSelected = selectedFieldNo === field.fieldNo;
+                                                                    return (
+                                                                        <div
+                                                                            key={field.fieldNo}
+                                                                            onClick={() => setSelectedFieldNo(field.fieldNo)}
+                                                                            className={cn(
+                                                                                "flex items-center justify-between p-1.5 rounded cursor-pointer text-xs transition-colors",
+                                                                                isSelected 
+                                                                                    ? "bg-indigo-50 border-indigo-200 dark:bg-indigo-955/20 border text-indigo-900 dark:text-indigo-200 font-semibold"
+                                                                                    : "hover:bg-slate-50 dark:hover:bg-zinc-800/50 text-slate-700 dark:text-zinc-300 border border-transparent"
+                                                                            )}
+                                                                        >
+                                                                            <div className="flex flex-col gap-0.5">
+                                                                                <span>{field.fieldName}</span>
+                                                                                <span className="text-[10px] text-slate-400 dark:text-zinc-500 font-normal">
+                                                                                    {field.masterDataCategory?.displayName || "Uncategorized"} · {field.appDataType}
+                                                                                </span>
+                                                                            </div>
+                                                                            {isSelected && <Check className="h-4 w-4 text-indigo-600 shrink-0" />}
+                                                                        </div>
+                                                                    );
+                                                                })
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })()}
+                                        </div>
+                                    );
+                                })()}
+                            </>
+                        )}
+                    </div>
+
+                    <DialogFooter className="border-t border-slate-100 dark:border-zinc-800 pt-3 flex items-center justify-end gap-2">
+                        {isReviewingMapping ? (
+                            <>
+                                <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    onClick={() => setIsReviewingMapping(false)} 
+                                    className="h-8 text-xs border-slate-200 dark:border-zinc-850"
+                                >
+                                    Back
+                                </Button>
+                                <Button 
+                                    size="sm" 
+                                    className="bg-indigo-600 hover:bg-indigo-700 text-white h-8 text-xs font-semibold" 
+                                    onClick={async () => {
+                                        if (!activeAddressCandidate || selectedFieldNo === null) return;
+                                        const currentResult = aiResult || activeAddressCandidate.heuristicResult;
+                                        const relativeConfig = buildRelativeTransformConfig(
+                                            activeAddressCandidate.value,
+                                            currentResult.detectedFields
+                                        );
+
+                                        try {
+                                            const res = await upsertSourceMapping({
+                                                sourceType: sourceType as any,
+                                                sourceReference: sourceReference || null,
+                                                payloadSubtype: null,
+                                                sourcePath: activeAddressCandidate.path,
+                                                targetFieldNo: selectedFieldNo,
+                                                transformType: 'TO_ADDRESS_VALUE',
+                                                transformConfig: relativeConfig,
+                                                priority: 100,
+                                                mappingScope: 'BASELINE'
+                                            });
+
+                                            if (res.success) {
+                                                toast.success("Address mapping saved as deterministic SourceFieldMapping.");
+                                                setActiveAddressCandidate(null);
+                                                router.refresh();
+                                            } else {
+                                                toast.error(res.error || "Failed to save mapping.");
+                                            }
+                                        } catch (e: any) {
+                                            toast.error(e.message || "An error occurred while saving the mapping.");
+                                        }
+                                    }}
+                                >
+                                    Save Mapping
+                                </Button>
+                            </>
+                        ) : (
+                            <>
+                                <Button variant="outline" size="sm" onClick={() => setActiveAddressCandidate(null)} className="h-8 text-xs border-slate-200 dark:border-zinc-850">
+                                    Cancel
+                                </Button>
+                                <Button 
+                                    size="sm" 
+                                    className="bg-indigo-600 hover:bg-indigo-700 text-white h-8 text-xs font-semibold" 
+                                    onClick={async () => {
+                                        if (!activeAddressCandidate) return;
+                                        if (actionMode === "create") {
+                                            if (!newFieldName.trim()) {
+                                                toast.error("Please enter a field name.");
+                                                return;
+                                            }
+                                            setActiveAddressCandidate(null);
+                                            router.push(`/app/admin/master-data/manager?prefill=true&prefillType=ADDRESS&fieldName=${encodeURIComponent(newFieldName)}&categoryName=${encodeURIComponent(newFieldCategory)}&description=${encodeURIComponent(newFieldDescription)}`);
+                                        } else {
+                                            if (selectedFieldNo === null) {
+                                                toast.error("Please select a field to map to.");
+                                                return;
+                                            }
+                                            const match = fieldDefinitions.find(f => f.fieldNo === selectedFieldNo);
+                                            if (!match || match.appDataType !== 'ADDRESS') {
+                                                toast.error("Selected field is not an ADDRESS field.");
+                                                return;
+                                            }
+                                            setIsReviewingMapping(true);
+                                        }
+                                    }}
+                                >
+                                    {actionMode === "create" ? "Continue" : "Review Mapping"}
+                                </Button>
+                            </>
+                        )}
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </Card>
     );
 }
@@ -254,14 +804,16 @@ function JsonTree({
     thisFieldPaths,
     otherFieldPathMap,
     onSelect,
-    readOnly = false
+    readOnly = false,
+    onMapAddress
 }: { 
     data: any,
     path?: string,
     thisFieldPaths: Set<string>,
     otherFieldPathMap: Map<string, { fieldNo: number; fieldName: string }>,
     onSelect: (path: string) => void,
-    readOnly?: boolean
+    readOnly?: boolean,
+    onMapAddress?: (path: string, value: any, heuristicResult: AddressDetectionResult) => void
 }) {
     if (data === null) {
         return <span className="text-slate-400 font-mono text-xs">null</span>;
@@ -284,6 +836,7 @@ function JsonTree({
                                     otherFieldPathMap={otherFieldPathMap}
                                     onSelect={onSelect} 
                                     readOnly={readOnly}
+                                    onMapAddress={onMapAddress}
                                 />
                             ) : (
                                 <ValueNode 
@@ -328,6 +881,7 @@ function JsonTree({
                             otherFieldPathMap={otherFieldPathMap}
                             onSelect={onSelect}
                             readOnly={readOnly}
+                            onMapAddress={onMapAddress}
                         />
                     );
                 })}
@@ -361,6 +915,7 @@ function ObjectRow({
     otherFieldPathMap,
     onSelect,
     readOnly,
+    onMapAddress,
 }: {
     keyName: string;
     value: any;
@@ -372,8 +927,15 @@ function ObjectRow({
     otherFieldPathMap: Map<string, { fieldNo: number; fieldName: string }>;
     onSelect: (path: string) => void;
     readOnly: boolean;
+    onMapAddress?: (path: string, value: any, heuristicResult: AddressDetectionResult) => void;
 }) {
     const [isHovered, setIsHovered] = useState(false);
+
+    const detection = isObject ? detectAddressCandidate(childPath, value) : null;
+    const showMapAddressBtn = isObject && !readOnly && detection && (
+        detection.score >= 8 ||
+        (detection.score >= 3 && detection.score <= 7 && isAddressLikePath(childPath))
+    );
 
     return (
         <div
@@ -427,16 +989,24 @@ function ObjectRow({
 
                 {/* Object/array level badge */}
                 {isObject && !readOnly && (
-                    <div className="ml-auto pl-2 shrink-0">
+                    <div className="ml-auto pl-2 shrink-0 flex items-center gap-1.5">
                         {isMappedHere ? (
                             <ThisFieldBadge />
                         ) : otherFieldMapping ? (
-                            <div className="flex items-center gap-1">
+                            <div className="flex items-center gap-1.5">
                                 <OtherFieldBadge fieldNo={otherFieldMapping.fieldNo} fieldName={otherFieldMapping.fieldName} />
+                                {showMapAddressBtn && detection && (
+                                    <MapAddressButton onClick={() => onMapAddress?.(childPath, value, detection)} visible={isHovered} />
+                                )}
                                 <MappingButton onClick={() => onSelect(childPath)} visible={isHovered} />
                             </div>
                         ) : (
-                            <MappingButton onClick={() => onSelect(childPath)} visible={isHovered} />
+                            <div className="flex items-center gap-1.5">
+                                {showMapAddressBtn && detection && (
+                                    <MapAddressButton onClick={() => onMapAddress?.(childPath, value, detection)} visible={isHovered} />
+                                )}
+                                <MappingButton onClick={() => onSelect(childPath)} visible={isHovered} />
+                            </div>
                         )}
                     </div>
                 )}
@@ -452,6 +1022,7 @@ function ObjectRow({
                         otherFieldPathMap={otherFieldPathMap}
                         onSelect={onSelect} 
                         readOnly={readOnly}
+                        onMapAddress={onMapAddress}
                     />
                 </div>
             )}
@@ -554,6 +1125,24 @@ function MappingButton({ onClick, visible }: { onClick: () => void; visible: boo
         >
             <PlusCircle className="h-3 w-3" />
             Add
+        </button>
+    );
+}
+
+function MapAddressButton({ onClick, visible }: { onClick: () => void; visible: boolean }) {
+    return (
+        <button 
+            type="button" 
+            onClick={(e) => { e.stopPropagation(); onClick(); }}
+            className={cn(
+                "flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded transition-all border shadow-sm",
+                visible
+                    ? "text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border-indigo-200 opacity-100"
+                    : "text-slate-400 bg-slate-50 border-slate-200 opacity-40 hover:opacity-80"
+            )}
+        >
+            <MapPin className="h-3 w-3 text-indigo-500" />
+            Map Address?
         </button>
     );
 }

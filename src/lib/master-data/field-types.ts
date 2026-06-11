@@ -40,6 +40,9 @@ export const APP_DATA_TYPES = {
     // Dropdown selection (option-set backed)
     SELECT:       'SELECT',
 
+    // Address — stored as embedded JSON in production (new)
+    ADDRESS:      'ADDRESS',
+
     // Reference types — require MasterFieldGraphBinding to be configured.
     // PERSON_REF: links to a Person graph node (strictly individuals)
     PERSON_REF:   'PERSON_REF',
@@ -67,6 +70,7 @@ export const SCALAR_TYPES = new Set<AppDataType>([
     APP_DATA_TYPES.DATETIME,
     APP_DATA_TYPES.JSONB,
     APP_DATA_TYPES.SELECT,
+    APP_DATA_TYPES.ADDRESS,
 ]);
 
 /** Types that materialise relational rows (Person, Address, LegalEntity) */
@@ -114,6 +118,7 @@ export const SCALAR_UI_OPTIONS: AppDataTypeOption[] = [
     { value: APP_DATA_TYPES.DATETIME, label: 'Date / DateTime' },
     { value: APP_DATA_TYPES.JSONB,    label: 'JSON' },
     { value: APP_DATA_TYPES.SELECT,   label: 'Dropdown Selection' },
+    { value: APP_DATA_TYPES.ADDRESS,  label: 'Address (Structured Embedded)' },
 ];
 
 /** Reference types — require additional graph binding configuration. */

@@ -13,6 +13,7 @@ import { FieldProposal, ProvenanceSource } from "@/domain/kyc/types/ProposalType
 import { cn } from "@/lib/utils";
 import { getSourceDisplayName } from "@/lib/source-display";
 import { FieldDetailPanel } from "./inspection/field-detail-panel";
+import { isAddressValue, getAddressSummary } from "./fields/AddressValueViewer";
 import { Input } from "@/components/ui/input";
 import { Search, Filter, AlertCircle, CheckCircle2, Circle } from "lucide-react";
 import {
@@ -733,6 +734,9 @@ export function formatGraphValue(val: any): string {
         return val.map(v => formatGraphValue(v)).join(' | ');
     }
     if (typeof val === 'object') {
+        if (isAddressValue(val)) {
+            return getAddressSummary(val);
+        }
         if (val.line1 || val.city || val.country) {
             const parts = [val.line1, val.line2, val.city, val.region, val.postalCode, val.country].filter(Boolean);
             return parts.join(', ');
