@@ -26,6 +26,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { CollectionRowDisplay } from "@/lib/master-data/structured-collection-renderers";
 import { CodeListField } from "@/components/client/fields/CodeListField";
+import { AddressValueViewer, isAddressValue } from "../fields/AddressValueViewer";
 
 import {
     DropdownMenu,
@@ -88,6 +89,9 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
     const renderRowValue = (val: any) => {
         if (!val) return <span className="text-slate-400 italic">Empty</span>;
         if (typeof val === 'object') {
+            if (isAddressValue(val)) {
+                return <AddressValueViewer value={val} layout="compact" />;
+            }
             if (val.firstName || val.lastName) return `${val.firstName || ''} ${val.lastName || ''}`.trim() + (val.metadata_type === 'LEGAL_ENTITY' ? ' (Company)' : '');
             if (val.name) return val.name;
             if (val.line1) return `${val.line1}${val.city ? ', ' + val.city : ''}`;
@@ -1095,7 +1099,9 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                             <div className="flex items-start gap-3">
                                                                 <div className="flex-1 mt-0.5">
                                                                     <div className="text-base font-medium text-slate-900 break-all leading-relaxed">
-                                                                        {Array.isArray(data.current.value) ? (
+                                                                        {isAddressValue(data.current.value) ? (
+                                                                            <AddressValueViewer value={data.current.value} layout="detailed" />
+                                                                        ) : Array.isArray(data.current.value) ? (
                                                                             <div className="flex flex-wrap gap-1.5 mt-1">
                                                                                 {data.current.value.map((v: any, idx: number) => (
                                                                                     <Badge key={idx} variant="outline" className="bg-white border-slate-300 text-slate-800 py-1 px-2.5 text-sm shadow-sm ring-1 ring-slate-100/50">

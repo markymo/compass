@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { GitBranch, Loader2, AlertTriangle, CheckCircle2, CircleDot, Trash2, Pencil, ChevronsUpDown, Check, Search } from "lucide-react";
+import { GitBranch, Loader2, AlertTriangle, CheckCircle2, CircleDot, Trash2, Pencil, ChevronsUpDown, Check, Search, ChevronDown, ChevronUp } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -19,12 +19,15 @@ import { SOURCE_OPTIONS, type SourceOption } from "@/lib/source-display";
 import { getEffectiveMappingDefaults } from "@/actions/user-preferences";
 import { DataInspectorPanel } from "@/components/client/admin/source-mappings/data-inspector-panel";
 import { TRANSFORM_SELECT_OPTIONS, TRANSFORM_DEFINITION_MAP, getTransformDescription } from "@/lib/master-data/transform-registry";
+import { getCountryName } from "@/components/client/fields/AddressValueViewer";
+import { resolvePathString } from "@/services/kyc/normalization/pathResolver";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface MappingRow {
     id: string;
     sourcePath: string;
+    transformConfig?: any;
     targetFieldNo: number;
     mappingScope: string;
     payloadSubtype: string | null;
@@ -300,6 +303,7 @@ export default function SourceMappingsV2Page() {
             existingMapping={editingMapping}
             initialSourcePath={prefillPath}
             onSaved={handleSaved}
+            resolvedDefaults={resolvedDefaults}
         />
         </>
     );
@@ -421,7 +425,134 @@ const GLEIF_SCOPE_DEFAULT    = "BASELINE";
 const RA_SCOPE_DEFAULT       = "RAW_PAYLOAD";
 const RA_SUBTYPE_DEFAULT     = "COMPANY_PROFILE";
 
-function MappingFormDialog({ open, onOpenChange, selectedOption, fieldDefs, existingMapping, initialSourcePath, onSaved }: {
+function SummaryRow({ sourcePath, mappingRootPath, sampleValue, targetLabel }: { sourcePath: string | null | undefined, mappingRootPath: string, sampleValue?: any, targetLabel: string }) {
+    if (!sourcePath) {
+        return (
+            <div className="flex items-center justify-between py-1 border-b border-slate-100/50 last:border-0 dark:border-zinc-800/50">
+                <div className="text-slate-400 italic">Unmapped</div>
+                <div className="text-slate-400 italic">→ {targetLabel}</div>
+            </div>
+        );
+    }
+
+    const parts = sourcePath.split('.');
+    const fieldName = parts[parts.length - 1] || sourcePath;
+    const fullPath = mappingRootPath ? `${mappingRootPath}.${sourcePath}` : sourcePath;
+
+    return (
+        <div className="flex items-start justify-between py-1 border-b border-slate-100/50 last:border-0 dark:border-zinc-800/50">
+            <div className="flex flex-col min-w-0">
+                <span className="font-semibold text-slate-700 dark:text-zinc-200 truncate">{fieldName}</span>
+                <span className="text-[10px] text-slate-400 truncate mt-0.5">{fullPath}</span>
+                {sampleValue !== undefined && sampleValue !== null && (
+                    <span className="text-[10px] text-blue-600 dark:text-blue-400 italic mt-0.5 truncate bg-blue-50/50 dark:bg-blue-950/20 px-1.5 py-0.5 rounded border border-blue-100/30 w-fit">
+                        "{String(sampleValue)}"
+                    </span>
+                )}
+            </div>
+            <div className="flex items-center gap-2 text-slate-500 dark:text-zinc-400 shrink-0 self-center">
+                <span>→</span>
+                <span className="font-medium bg-slate-100 dark:bg-zinc-800 px-2 py-0.5 rounded text-[11px] text-slate-800 dark:text-zinc-200">
+                    {targetLabel}
+                </span>
+            </div>
+        </div>
+    );
+}
+
+function AddressMappingSummary({ config, mappingRootPath, samplePayload }: { config: any, mappingRootPath: string, samplePayload: any }) {
+    const [rawOpen, setRawOpen] = useState(false);
+    
+    const addressLines: string[] = Array.isArray(config?.addressLines) ? config.addressLines : [];
+    const locality = config?.locality;
+    const region = config?.region;
+    const postalCode = config?.postalCode;
+    const countryCode = config?.countryCode;
+
+    const rawSourceNodeText = useMemo(() => {
+        if (!samplePayload || !mappingRootPath) {
+            return "No sample data loaded";
+        }
+        const rootValue = resolvePathString(samplePayload, mappingRootPath);
+        if (rootValue === null || rootValue === undefined) {
+            return `No node found at path: ${mappingRootPath}`;
+        }
+        return JSON.stringify(rootValue, null, 2);
+    }, [samplePayload, mappingRootPath]);
+
+    const getSampleVal = (relPath: string | null | undefined) => {
+        if (!relPath || !samplePayload || !mappingRootPath) return null;
+        const absPath = `${mappingRootPath}.${relPath}`;
+        return resolvePathString(samplePayload, absPath);
+    };
+
+    return (
+        <div className="grid gap-2">
+            <div className="flex items-center justify-between text-xs font-semibold text-slate-500 dark:text-zinc-400 uppercase tracking-wider">
+                <button
+                    type="button"
+                    onClick={() => setRawOpen(!rawOpen)}
+                    className="flex items-center gap-1 hover:text-slate-700 dark:hover:text-zinc-200 transition-colors animate-pulse"
+                >
+                    <span>Source Field (Payload)</span>
+                    <span className="text-[10px] lowercase font-normal text-slate-400">({rawOpen ? "hide raw" : "show raw"})</span>
+                </button>
+                <span>Target Field (Address)</span>
+            </div>
+
+            {rawOpen && (
+                <div className="grid gap-1 bg-slate-50 dark:bg-zinc-900/50 p-2.5 rounded-lg border border-slate-100 dark:border-zinc-800">
+                    <pre className="font-mono text-[10px] text-slate-600 dark:text-zinc-400 overflow-auto max-h-[120px] whitespace-pre-wrap">
+                        {rawSourceNodeText}
+                    </pre>
+                </div>
+            )}
+
+            <div className="space-y-1.5 font-mono text-xs bg-slate-50 dark:bg-zinc-900/50 border border-slate-100 dark:border-zinc-800 rounded-lg p-3 text-slate-700 dark:text-zinc-300">
+                {addressLines.length > 0 ? (
+                    addressLines.map((path, idx) => (
+                        <SummaryRow
+                            key={`line-${idx}`}
+                            sourcePath={path}
+                            mappingRootPath={mappingRootPath}
+                            sampleValue={getSampleVal(path)}
+                            targetLabel={`Address Line ${idx + 1}`}
+                        />
+                    ))
+                ) : (
+                    <SummaryRow sourcePath={null} mappingRootPath={mappingRootPath} targetLabel="Address Lines" />
+                )}
+                
+                <SummaryRow sourcePath={locality} mappingRootPath={mappingRootPath} sampleValue={getSampleVal(locality)} targetLabel="Locality" />
+                <SummaryRow sourcePath={region} mappingRootPath={mappingRootPath} sampleValue={getSampleVal(region)} targetLabel="Region" />
+                <SummaryRow sourcePath={postalCode} mappingRootPath={mappingRootPath} sampleValue={getSampleVal(postalCode)} targetLabel="Postcode" />
+                <SummaryRow sourcePath={countryCode} mappingRootPath={mappingRootPath} sampleValue={getSampleVal(countryCode)} targetLabel="Country" />
+            </div>
+        </div>
+    );
+}
+
+function AddressPostalPreview({ value }: { value: any }) {
+    if (!value) return null;
+    const lines = value.addressLines || [];
+    const postcode = value.postalCode || "";
+    const locality = value.locality || "";
+    const country = getCountryName(value.countryCode) || value.countryCode || "";
+
+    return (
+        <div className="bg-slate-50 dark:bg-zinc-900/50 p-4 rounded-lg border border-slate-100 dark:border-zinc-800 font-mono text-xs whitespace-pre-wrap leading-relaxed text-slate-700 dark:text-zinc-300">
+            {lines.map((line: string, idx: number) => (
+                <div key={idx}>{line}</div>
+            ))}
+            {(postcode || locality) && (
+                <div>{`${postcode} ${locality}`.trim()}</div>
+            )}
+            {country && <div>{country}</div>}
+        </div>
+    );
+}
+
+function MappingFormDialog({ open, onOpenChange, selectedOption, fieldDefs, existingMapping, initialSourcePath, onSaved, resolvedDefaults }: {
     open: boolean;
     onOpenChange: (v: boolean) => void;
     selectedOption: SourceOption;
@@ -429,6 +560,7 @@ function MappingFormDialog({ open, onOpenChange, selectedOption, fieldDefs, exis
     existingMapping: MappingRow | null;
     initialSourcePath: string;
     onSaved: () => void;
+    resolvedDefaults?: any;
 }) {
     const isGleif  = selectedOption.sourceType === "GLEIF";
     const isEdit   = !!existingMapping;
@@ -442,6 +574,22 @@ function MappingFormDialog({ open, onOpenChange, selectedOption, fieldDefs, exis
     const [notes,         setNotes]         = useState("");
     const [saving,        setSaving]        = useState(false);
 
+    // Collapsible / Advanced Settings State
+    const [advancedOpen,  setAdvancedOpen]  = useState(false);
+
+    // Live preview sample states
+    const [transformConfig, setTransformConfig] = useState<any>(null);
+    const [samplePayload, setSamplePayload] = useState<any>(null);
+    const [loadingSample, setLoadingSample] = useState(false);
+
+    const targetField = useMemo(() => {
+        return fieldDefs.find((f: any) => String(f.fieldNo) === targetFieldNo);
+    }, [fieldDefs, targetFieldNo]);
+
+    const isAddressMapping = useMemo(() => {
+        return transformType === "TO_ADDRESS_VALUE" || targetField?.appDataType === "ADDRESS";
+    }, [transformType, targetField]);
+
     const transformDescription = getTransformDescription(transformType);
 
     useEffect(() => {
@@ -453,7 +601,101 @@ function MappingFormDialog({ open, onOpenChange, selectedOption, fieldDefs, exis
         setTransformType(existingMapping?.transformType ?? "DIRECT");
         setPriority(existingMapping?.priority?.toString() ?? "100");
         setNotes(existingMapping?.notes ?? "");
+        setTransformConfig(existingMapping?.transformConfig ?? null);
+        setAdvancedOpen(false);
     }, [open, existingMapping, initialSourcePath, isGleif]);
+
+    // Load sample payload for preview
+    useEffect(() => {
+        if (!open || !isAddressMapping) {
+            setSamplePayload(null);
+            return;
+        }
+
+        const fetchSample = async () => {
+            setLoadingSample(true);
+            try {
+                const query = selectedOption.sourceType === "GLEIF"
+                    ? (resolvedDefaults?.gleifLei || "213800SN8QHYGA7QUF79")
+                    : selectedOption.sourceReference === "RA000192"
+                    ? (resolvedDefaults?.frSiren || "542051180")
+                    : (resolvedDefaults?.chCompanyNo || "14059418");
+
+                if (selectedOption.sourceType === "GLEIF") {
+                    const { fetchLiveGleifRecord } = await import("@/actions/gleif-live");
+                    const res = await fetchLiveGleifRecord(query);
+                    if (res.success) setSamplePayload(res.payload);
+                } else if (selectedOption.sourceType === "REGISTRATION_AUTHORITY") {
+                    const { fetchLiveRegistryRecord } = await import("@/actions/registry-live");
+                    const res = await fetchLiveRegistryRecord(query, selectedOption.sourceReference || "COMPANIES_HOUSE");
+                    if (res.success) setSamplePayload(res.payload);
+                }
+            } catch (err) {
+                console.error("Failed to load preview sample:", err);
+            } finally {
+                setLoadingSample(false);
+            }
+        };
+
+        fetchSample();
+    }, [open, isAddressMapping, selectedOption, resolvedDefaults]);
+
+    const previewAddress = useMemo(() => {
+        const config = transformConfig || {};
+
+        // 1. Try to resolve using samplePayload if available
+        if (samplePayload && sourcePath) {
+            const rootValue = resolvePathString(samplePayload, sourcePath);
+            if (rootValue && typeof rootValue === "object") {
+                const resolveRelative = (relPath: string | undefined): string | null => {
+                    if (!relPath) return null;
+                    return resolvePathString(rootValue, relPath);
+                };
+
+                const linesPaths: string[] = Array.isArray(config.addressLines) ? config.addressLines : [];
+                const addressLines: string[] = [];
+                for (const p of linesPaths) {
+                    const val = resolvePathString(rootValue, p);
+                    if (Array.isArray(val)) {
+                        addressLines.push(...val.map(String));
+                    } else if (val != null) {
+                        addressLines.push(String(val));
+                    }
+                }
+
+                const resolved = {
+                    addressLines,
+                    locality: resolveRelative(config.locality),
+                    region: resolveRelative(config.region),
+                    postalCode: resolveRelative(config.postalCode),
+                    countryCode: resolveRelative(config.countryCode),
+                };
+
+                // Check if any field is populated
+                if (resolved.addressLines.length > 0 || resolved.locality || resolved.region || resolved.postalCode || resolved.countryCode) {
+                    return resolved;
+                }
+            }
+        }
+
+        // 2. Otherwise derive from the current mapping config where possible
+        const cleanVal = (val: any) => {
+            if (!val) return null;
+            if (Array.isArray(val)) return val.map(v => v.split('.').pop() || v);
+            return val.split('.').pop() || val;
+        };
+
+        const lines = cleanVal(config.addressLines);
+        return {
+            addressLines: Array.isArray(lines) ? lines : (lines ? [lines] : ["addressLines"]),
+            locality: cleanVal(config.locality) || "locality",
+            region: cleanVal(config.region) || "region",
+            postalCode: cleanVal(config.postalCode) || "postalCode",
+            countryCode: cleanVal(config.countryCode) || "countryCode",
+        };
+    }, [samplePayload, sourcePath, transformConfig]);
+
+
 
     const handleSave = async () => {
         if (!sourcePath.trim() || !targetFieldNo) return;
@@ -464,7 +706,8 @@ function MappingFormDialog({ open, onOpenChange, selectedOption, fieldDefs, exis
             sourceReference:selectedOption.sourceReference,
             sourcePath:     sourcePath.trim(),
             targetFieldNo:  parseInt(targetFieldNo),
-            transformType:  transformType as any,
+            transformType:  (isAddressMapping ? "TO_ADDRESS_VALUE" : transformType) as any,
+            transformConfig: (isAddressMapping ? transformConfig : undefined),
             priority:       parseInt(priority) || 100,
             notes:          notes || undefined,
             mappingScope,
@@ -493,54 +736,117 @@ function MappingFormDialog({ open, onOpenChange, selectedOption, fieldDefs, exis
                     </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-2">
-                    <div className="grid gap-1.5">
-                        <Label htmlFor="v2-sourcePath">Source Path</Label>
-                        <Input
-                            id="v2-sourcePath"
-                            value={sourcePath}
-                            onChange={e => setSourcePath(e.target.value)}
-                            placeholder="e.g. company_name"
-                            className="font-mono text-sm"
-                            readOnly={!!initialSourcePath && !isEdit}
-                        />
-                        <p className="text-[10px] text-slate-400">Dot-notation path relative to payload root.</p>
-                    </div>
                     <TargetFieldPicker fieldDefs={fieldDefs} value={targetFieldNo} onChange={setTargetFieldNo} />
-                    {/* Scope / Subtype — implementation detail, shown for debugging only */}
-                    <div className="flex items-center gap-1.5 font-mono text-[10px] text-slate-400 bg-slate-50 border border-slate-100 rounded px-2.5 py-1.5">
-                        <span className="text-slate-300">scope:</span>
-                        <span className="text-slate-500">{displayScope(mappingScope, selectedOption.sourceType)}</span>
-                        <span className="text-slate-200 mx-0.5">·</span>
-                        <span className="text-slate-300">subtype:</span>
-                        <span className="text-slate-500">{(!payloadSubtype || payloadSubtype === "NONE") ? "—" : payloadSubtype}</span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                    <div className="grid gap-1.5">
-                            <Label>Transform</Label>
-                            <Select value={transformType} onValueChange={setTransformType}>
-                                <SelectTrigger><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                    {TRANSFORM_SELECT_OPTIONS.map(t => (
-                                        <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            {transformDescription && (
-                                <p className="text-[11px] text-slate-500 leading-snug">
-                                    {transformDescription}
-                                </p>
-                            )}
-                        </div>
-                        <div className="grid gap-1.5">
-                            <Label htmlFor="v2-priority">Priority</Label>
-                            <Input id="v2-priority" type="number" min={1} value={priority} onChange={e => setPriority(e.target.value)} />
-                            <p className="text-[10px] text-slate-400">Lower = higher precedence.</p>
-                        </div>
-                    </div>
-                    <div className="grid gap-1.5">
-                        <Label htmlFor="v2-notes">Notes (optional)</Label>
-                        <Input id="v2-notes" value={notes} onChange={e => setNotes(e.target.value)} placeholder="e.g. UK registered company name" />
-                    </div>
+
+                    {isAddressMapping ? (
+                        <>
+                            {/* 1. Mapping Summary */}
+                            <AddressMappingSummary config={transformConfig} mappingRootPath={sourcePath} samplePayload={samplePayload} />
+
+                            {/* 2. Preview */}
+                            <div className="grid gap-1.5">
+                                <Label className="text-xs font-semibold text-slate-500 dark:text-zinc-400 uppercase tracking-wider">Preview</Label>
+                                {loadingSample ? (
+                                    <div className="flex items-center gap-2 text-xs text-slate-400 py-3">
+                                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                        <span>Resolving live sample data...</span>
+                                    </div>
+                                ) : (
+                                    <AddressPostalPreview value={previewAddress} />
+                                )}
+                            </div>
+
+                            {/* 3. Advanced Settings */}
+                            <div className="border border-slate-100 dark:border-zinc-800 rounded-lg overflow-hidden mt-1">
+                                <button
+                                    type="button"
+                                    onClick={() => setAdvancedOpen(!advancedOpen)}
+                                    className="flex items-center justify-between w-full px-3 py-2 bg-slate-50 dark:bg-zinc-900/50 text-xs font-semibold text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800/80 transition-colors"
+                                >
+                                    <span>Advanced Settings</span>
+                                    {advancedOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                                </button>
+                                {advancedOpen && (
+                                    <div className="p-3 space-y-3 border-t border-slate-100 dark:border-zinc-800 bg-white dark:bg-zinc-950">
+                                        <div className="grid gap-1.5">
+                                            <Label htmlFor="v2-sourcePath">Source Path</Label>
+                                            <Input
+                                                id="v2-sourcePath"
+                                                value={sourcePath}
+                                                onChange={e => setSourcePath(e.target.value)}
+                                                placeholder="e.g. company_name"
+                                                className="font-mono text-sm"
+                                                readOnly={!!initialSourcePath && !isEdit}
+                                            />
+                                            <p className="text-[10px] text-slate-400">Dot-notation path relative to payload root.</p>
+                                        </div>
+                                        <div className="grid gap-1.5">
+                                            <Label htmlFor="v2-priority">Priority</Label>
+                                            <Input id="v2-priority" type="number" min={1} value={priority} onChange={e => setPriority(e.target.value)} />
+                                            <p className="text-[10px] text-slate-400">Lower = higher precedence.</p>
+                                        </div>
+                                        <div className="grid gap-1.5">
+                                            <Label htmlFor="v2-notes">Notes (optional)</Label>
+                                            <Input id="v2-notes" value={notes} onChange={e => setNotes(e.target.value)} placeholder="e.g. UK registered company name" />
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            <div className="grid gap-1.5">
+                                <Label htmlFor="v2-sourcePath">Source Path</Label>
+                                <Input
+                                    id="v2-sourcePath"
+                                    value={sourcePath}
+                                    onChange={e => setSourcePath(e.target.value)}
+                                    placeholder="e.g. company_name"
+                                    className="font-mono text-sm"
+                                    readOnly={!!initialSourcePath && !isEdit}
+                                />
+                                <p className="text-[10px] text-slate-400">Dot-notation path relative to payload root.</p>
+                            </div>
+
+                            {/* Scope / Subtype — implementation detail, shown for debugging only */}
+                            <div className="flex items-center gap-1.5 font-mono text-[10px] text-slate-400 bg-slate-50 dark:bg-zinc-900/50 border border-slate-100 dark:border-zinc-800 rounded px-2.5 py-1.5">
+                                <span className="text-slate-300">scope:</span>
+                                <span className="text-slate-500">{displayScope(mappingScope, selectedOption.sourceType)}</span>
+                                <span className="text-slate-200 mx-0.5">·</span>
+                                <span className="text-slate-300">subtype:</span>
+                                <span className="text-slate-500">{(!payloadSubtype || payloadSubtype === "NONE") ? "—" : payloadSubtype}</span>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="grid gap-1.5">
+                                    <Label>Transform</Label>
+                                    <Select value={transformType} onValueChange={setTransformType}>
+                                        <SelectTrigger><SelectValue /></SelectTrigger>
+                                        <SelectContent>
+                                            {TRANSFORM_SELECT_OPTIONS.map(t => (
+                                                <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    {transformDescription && (
+                                        <p className="text-[11px] text-slate-500 leading-snug">
+                                            {transformDescription}
+                                        </p>
+                                    )}
+                                </div>
+                                <div className="grid gap-1.5">
+                                    <Label htmlFor="v2-priority">Priority</Label>
+                                    <Input id="v2-priority" type="number" min={1} value={priority} onChange={e => setPriority(e.target.value)} />
+                                    <p className="text-[10px] text-slate-400">Lower = higher precedence.</p>
+                                </div>
+                            </div>
+
+                            <div className="grid gap-1.5">
+                                <Label htmlFor="v2-notes">Notes (optional)</Label>
+                                <Input id="v2-notes" value={notes} onChange={e => setNotes(e.target.value)} placeholder="e.g. UK registered company name" />
+                            </div>
+                        </>
+                    )}
                 </div>
                 <DialogFooter>
                     <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
