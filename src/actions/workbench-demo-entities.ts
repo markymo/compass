@@ -7,6 +7,7 @@ import {
     DEFAULT_FR_SIREN,
     WbEntitySearchResult,
 } from "@/lib/mapping-workbench/demo-entity-defaults";
+import { getEffectiveMappingDefaults } from "@/actions/user-preferences";
 
 // Re-export types so callers can import from one place
 export type { WbEntitySearchResult };
@@ -156,9 +157,13 @@ export async function refreshWorkbenchLiveData(entities: {
 }): Promise<{ refs: WbLiveEntityRef[]; payloads: Record<string, any> }> {
     if (!await isSystemAdmin()) return { refs: [], payloads: {} };
 
-    const lei      = entities.gleifLei    ?? DEFAULT_GLEIF_LEI;
-    const chNo     = entities.chCompanyNo ?? DEFAULT_CH_COMPANY_NO;
-    const frSiren  = entities.frSiren     ?? DEFAULT_FR_SIREN;
+    const defaults = (entities.gleifLei && entities.chCompanyNo && entities.frSiren)
+        ? {}
+        : await getEffectiveMappingDefaults();
+
+    const lei      = entities.gleifLei    ?? defaults.gleifLei ?? DEFAULT_GLEIF_LEI;
+    const chNo     = entities.chCompanyNo ?? defaults.registryOverrides?.RA000585?.registeredAs ?? DEFAULT_CH_COMPANY_NO;
+    const frSiren  = entities.frSiren     ?? defaults.registryOverrides?.RA000192?.registeredAs ?? DEFAULT_FR_SIREN;
     const apiKey   = process.env.COMPANIES_HOUSE_API_KEY;
 
     const [gleif, ch, fr] = await Promise.allSettled([

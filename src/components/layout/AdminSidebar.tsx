@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { updateUserPreferences } from "@/actions/user-preferences";
+import { DefaultMappingCompanyPicker } from "@/components/layout/DefaultMappingCompanyPicker";
 
 interface NavItem {
     title: string;
@@ -179,6 +180,8 @@ export function AdminSidebar({ initialCollapsed = false }: { initialCollapsed?: 
                         <NavLink key={"short-" + item.href} item={item} isCollapsed={isCollapsed} />
                     ))}
                 </nav>
+
+                <DefaultMappingCompanyPicker isCollapsed={isCollapsed} />
             </div>
         </aside>
     );
