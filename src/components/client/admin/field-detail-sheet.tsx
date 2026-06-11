@@ -712,25 +712,31 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                                         </DialogDescription>
                                     </DialogHeader>
                                     <div className="flex-1 overflow-hidden p-4">
-                                        <DataInspectorPanel
-                                            sourceType={
-                                                // DataInspectorPanel expects the backend SourceType string
-                                                SOURCE_OPTIONS.find(o => o.value === mappingForm.sourceType)?.sourceType
-                                                || mappingForm.sourceType
-                                            }
-                                            sourceReference={
-                                                SOURCE_OPTIONS.find(o => o.value === mappingForm.sourceType)?.sourceReference
-                                            }
-                                            existingMappings={field.sourceMappings || []}
-                                            allSourceMappings={allSourceMappings}
-                                            currentFieldNo={field.fieldNo}
-                                            readOnly={false}
-                                            resolvedDefaults={resolvedDefaults || undefined}
-                                            onSelectPath={(path) => {
-                                                setMappingForm(f => ({ ...f, sourcePath: path }));
-                                                setIsBrowserOpen(false);
-                                            }}
-                                        />
+                                        {resolvedDefaults ? (
+                                            <DataInspectorPanel
+                                                sourceType={
+                                                    // DataInspectorPanel expects the backend SourceType string
+                                                    SOURCE_OPTIONS.find(o => o.value === mappingForm.sourceType)?.sourceType
+                                                    || mappingForm.sourceType
+                                                }
+                                                sourceReference={
+                                                    SOURCE_OPTIONS.find(o => o.value === mappingForm.sourceType)?.sourceReference
+                                                }
+                                                existingMappings={field.sourceMappings || []}
+                                                allSourceMappings={allSourceMappings}
+                                                currentFieldNo={field.fieldNo}
+                                                readOnly={false}
+                                                resolvedDefaults={resolvedDefaults}
+                                                onSelectPath={(path) => {
+                                                    setMappingForm(f => ({ ...f, sourcePath: path }));
+                                                    setIsBrowserOpen(false);
+                                                }}
+                                            />
+                                        ) : (
+                                            <div className="flex h-[300px] items-center justify-center rounded-lg border border-dashed border-slate-200 bg-white/50 dark:bg-zinc-900/50 dark:border-zinc-800">
+                                                <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+                                            </div>
+                                        )}
                                     </div>
                                 </DialogContent>
                             </Dialog>

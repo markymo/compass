@@ -271,17 +271,23 @@ export default function SourceMappingsV2Page() {
                         <span className="inline-block h-2 w-2 rounded-full bg-amber-400 shrink-0" />
                         Amber highlights indicate source paths already mapped to master fields.
                     </p>
-                    <DataInspectorPanel
-                        key={selectedValue}
-                        sourceType={selectedOption.sourceType}
-                        sourceReference={selectedOption.sourceReference}
-                        existingMappings={[]}
-                        allSourceMappings={inspectorMappings}
-                        onSelectPath={handleSelectPath}
-                        readOnly={false}
-                        title={selectedOption.label}
-                        resolvedDefaults={resolvedDefaults || undefined}
-                    />
+                    {resolvedDefaults ? (
+                        <DataInspectorPanel
+                            key={selectedValue}
+                            sourceType={selectedOption.sourceType}
+                            sourceReference={selectedOption.sourceReference}
+                            existingMappings={[]}
+                            allSourceMappings={inspectorMappings}
+                            onSelectPath={handleSelectPath}
+                            readOnly={false}
+                            title={selectedOption.label}
+                            resolvedDefaults={resolvedDefaults}
+                        />
+                    ) : (
+                        <div className="flex h-[300px] items-center justify-center rounded-lg border border-dashed border-slate-200 bg-white/50 dark:bg-zinc-900/50 dark:border-zinc-800">
+                            <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
