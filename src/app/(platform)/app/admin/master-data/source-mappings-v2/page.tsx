@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { getSourceMappingsV2, upsertSourceMapping, deleteSourceMapping, toggleSourceMapping, getActiveFieldDefinitions } from "@/actions/source-mappings";
 import { SOURCE_OPTIONS, type SourceOption } from "@/lib/source-display";
+import { getEffectiveMappingDefaults } from "@/actions/user-preferences";
 import { DataInspectorPanel } from "@/components/client/admin/source-mappings/data-inspector-panel";
 import { TRANSFORM_SELECT_OPTIONS, TRANSFORM_DEFINITION_MAP, getTransformDescription } from "@/lib/master-data/transform-registry";
 
@@ -104,6 +105,18 @@ export default function SourceMappingsV2Page() {
         loadMappings(selectedOption);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedValue]);
+
+    const [resolvedDefaults, setResolvedDefaults] = useState<any>(null);
+
+    useEffect(() => {
+        getEffectiveMappingDefaults().then((res) => {
+            setResolvedDefaults({
+                gleifLei: res.gleifLei || "213800SN8QHYGA7QUF79",
+                chCompanyNo: res.registryOverrides?.RA000585?.registeredAs || "14059418",
+                frSiren: res.registryOverrides?.RA000192?.registeredAs || "542051180"
+            });
+        });
+    }, []);
 
     useEffect(() => {
         getActiveFieldDefinitions().then(r => { if (r.success) setFieldDefs(r.fields); });
@@ -267,6 +280,7 @@ export default function SourceMappingsV2Page() {
                         onSelectPath={handleSelectPath}
                         readOnly={false}
                         title={selectedOption.label}
+                        resolvedDefaults={resolvedDefaults || undefined}
                     />
                 </div>
             </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -37,6 +37,11 @@ interface DataInspectorPanelProps {
     onSelectPath: (path: string) => void;
     readOnly?: boolean;
     title?: string;
+    resolvedDefaults?: {
+        gleifLei: string;
+        chCompanyNo: string;
+        frSiren: string;
+    };
 }
 
 // ── Component ──────────────────────────────────────────────────────────
@@ -49,7 +54,8 @@ export function DataInspectorPanel({
     currentFieldNo,
     onSelectPath, 
     readOnly = false,
-    title
+    title,
+    resolvedDefaults
 }: DataInspectorPanelProps) {
     const isCompaniesHouse = sourceType === "REGISTRATION_AUTHORITY"
         && (sourceReference === "COMPANIES_HOUSE"
@@ -57,15 +63,46 @@ export function DataInspectorPanel({
             || sourceReference === "RA000586"
             || sourceReference === "RA000587");
 
-    const defaultQuery =
-        sourceType === "GLEIF" ? "213800SN8QHYGA7QUF79"
-        : sourceReference === "RA000192" ? "542051180"
-        : "04155137"; // Default CH example
+    const defaultQuery = resolvedDefaults
+        ? (sourceType === "GLEIF" ? resolvedDefaults.gleifLei
+           : sourceReference === "RA000192" ? resolvedDefaults.frSiren
+           : resolvedDefaults.chCompanyNo)
+        : (sourceType === "GLEIF" ? "213800SN8QHYGA7QUF79"
+           : sourceReference === "RA000192" ? "542051180"
+           : "04155137"); // Default CH example
 
     const [query, setQuery] = useState(defaultQuery);
     const [loading, setLoading] = useState(false);
     const [payload, setPayload] = useState<any>(null);
     const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        setQuery(defaultQuery);
+        if (defaultQuery && defaultQuery.trim().length >= 3) {
+            setLoading(true);
+            setError(null);
+            const triggerFetch = async () => {
+                try {
+                    if (sourceType === "GLEIF") {
+                        const res = await fetchLiveGleifRecord(defaultQuery);
+                        if (res.success) setPayload(res.payload);
+                        else { setError(res.error || "Failed to fetch data"); setPayload(null); }
+                    } else if (sourceType === "REGISTRATION_AUTHORITY") {
+                        const res = await fetchLiveRegistryRecord(defaultQuery, sourceReference || "COMPANIES_HOUSE");
+                        if (res.success) setPayload(res.payload);
+                        else { setError(res.error || "Failed to fetch registry data"); setPayload(null); }
+                    }
+                } catch (e) {
+                    setError("An unexpected error occurred");
+                } finally {
+                    setLoading(false);
+                }
+            };
+            triggerFetch();
+        } else {
+            setPayload(null);
+        }
+    }, [defaultQuery, sourceType, sourceReference]);
 
     // Fix 1: Only highlight paths that belong to THIS source (sourceType + sourceReference match).
     // Previously all mappings were included regardless of source, causing inconsistent

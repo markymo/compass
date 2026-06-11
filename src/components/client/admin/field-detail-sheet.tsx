@@ -21,6 +21,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { CategoryCombobox } from "./category-combobox";
 import { DataInspectorPanel } from "@/components/client/admin/source-mappings/data-inspector-panel";
 import { SOURCE_OPTIONS, getSourceDisplayName } from "@/lib/source-display";
+import { getEffectiveMappingDefaults } from "@/actions/user-preferences";
 import { SCALAR_UI_OPTIONS, REFERENCE_UI_OPTIONS, APP_DATA_TYPES } from "@/lib/master-data/field-types";
 import { getComplexFieldConfig, getFieldTypeLabel, type GraphRelationshipCollectionConfig, type StructuredCollectionConfig } from "@/lib/master-data/complex-field-config";
 import { getNodeFields, getDisplayableFields, getSearchableFields, type NodeType } from "@/lib/graph/node-field-registry";
@@ -48,10 +49,19 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
     const prevFieldNoRef = useRef<number | null>(null);
     const prevOpenRef   = useRef<boolean>(false);
 
+    const [resolvedDefaults, setResolvedDefaults] = useState<any>(null);
+
     useEffect(() => {
         if (open) {
             getOptionSets().then(res => {
                 if (res.success) setOptionSets(res.optionSets || []);
+            });
+            getEffectiveMappingDefaults().then((res) => {
+                setResolvedDefaults({
+                    gleifLei: res.gleifLei || "213800SN8QHYGA7QUF79",
+                    chCompanyNo: res.registryOverrides?.RA000585?.registeredAs || "14059418",
+                    frSiren: res.registryOverrides?.RA000192?.registeredAs || "542051180"
+                });
             });
         }
     }, [open]);
@@ -715,6 +725,7 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                                             allSourceMappings={allSourceMappings}
                                             currentFieldNo={field.fieldNo}
                                             readOnly={false}
+                                            resolvedDefaults={resolvedDefaults || undefined}
                                             onSelectPath={(path) => {
                                                 setMappingForm(f => ({ ...f, sourcePath: path }));
                                                 setIsBrowserOpen(false);

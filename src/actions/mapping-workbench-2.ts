@@ -5,6 +5,7 @@ import { isSystemAdmin } from "@/actions/admin";
 import { getPathHint } from "@/lib/mapping-workbench/semantic-hints";
 import { SOURCE_OPTIONS, SourceOption } from "@/lib/source-display";
 import { fetchGLEIFData } from "@/actions/gleif";
+import { getEffectiveMappingDefaults } from "@/actions/user-preferences";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -89,6 +90,11 @@ export interface Wb2PageData {
     masterFieldsUnmappedCount: number;
     questionnaires: Wb2Questionnaire[];
     liveEntityRefs: Wb2LiveEntityRef[];
+    resolvedDefaults: {
+        gleifLei: string;
+        chCompanyNo: string;
+        frSiren: string;
+    };
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -137,13 +143,13 @@ const DEMO_ENTITIES = {
 };
 
 /** Fetch live entity data for the three demo entities. Returns Map<internalKey, payload>. */
-async function fetchLivePayloads(): Promise<{ payloads: Map<string, any>; refs: Wb2LiveEntityRef[] }> {
+async function fetchLivePayloads(defaults: { gleifLei: string; chCompanyNo: string; frSiren: string }): Promise<{ payloads: Map<string, any>; refs: Wb2LiveEntityRef[] }> {
     const payloads = new Map<string, any>();
     const refs: Wb2LiveEntityRef[] = [];
 
     const [gleif, ch, fr] = await Promise.allSettled([
         // GLEIF — use our enriched fetch action
-        fetchGLEIFData(DEMO_ENTITIES.GLEIF.lei)
+        fetchGLEIFData(defaults.gleifLei)
             .then(res => {
                 if (res.success && res.data) {
                     const data = res.data;
@@ -164,7 +170,7 @@ async function fetchLivePayloads(): Promise<{ payloads: Map<string, any>; refs: 
             if (!apiKey) return null;
             const auth = `Basic ${Buffer.from(apiKey + ":").toString("base64")}`;
             const profile = await fetch(
-                `https://api.company-information.service.gov.uk/company/${DEMO_ENTITIES.CH_RA000585.companyNo}`,
+                `https://api.company-information.service.gov.uk/company/${defaults.chCompanyNo}`,
                 { headers: { Authorization: auth }, cache: "no-store", signal: AbortSignal.timeout(30000) }
             ).then(r => r.json());
             // Return the raw profile — CH source mappings reference raw field names
@@ -172,12 +178,12 @@ async function fetchLivePayloads(): Promise<{ payloads: Map<string, any>; refs: 
         })(),
 
         // French Registry — public API
-        fetch(`https://recherche-entreprises.api.gouv.fr/search?q=${DEMO_ENTITIES.FR_RA000192.siren}&page=1&per_page=1`,
+        fetch(`https://recherche-entreprises.api.gouv.fr/search?q=${defaults.frSiren}&page=1&per_page=1`,
             { headers: { Accept: "application/json", "User-Agent": "CoParity-Admin/1.0" }, cache: "no-store", signal: AbortSignal.timeout(30000) })
             .then(r => r.json())
             .then(d => {
                 const c = d.results?.[0];
-                if (!c || c.siren !== DEMO_ENTITIES.FR_RA000192.siren) return null;
+                if (!c || String(c.siren) !== String(defaults.frSiren)) return null;
                 const siege = c.siege ?? {};
                 return {
                     entityName: c.nom_raison_sociale || c.nom_complet || null,
@@ -197,10 +203,10 @@ async function fetchLivePayloads(): Promise<{ payloads: Map<string, any>; refs: 
     const gleifPayload = gleif.status === "fulfilled" ? gleif.value : null;
     const gleifError   = gleif.status === "rejected"  ? String(gleif.reason) : null;
     if (gleifError) console.error("[LivePayloads] GLEIF fetch failed:", gleifError);
-    payloads.set(DEMO_ENTITIES.GLEIF.internalKey, gleifPayload);
+    payloads.set("GLEIF", gleifPayload);
     refs.push({
         sourceKey: "GLEIF",
-        entityId: DEMO_ENTITIES.GLEIF.lei,
+        entityId: defaults.gleifLei,
         entityName: (gleifPayload as any)?.entity?.legalName?.name ?? null,
         ok: !!gleifPayload,
         error: gleifError,
@@ -213,10 +219,10 @@ async function fetchLivePayloads(): Promise<{ payloads: Map<string, any>; refs: 
     const chPayload = (chRaw && typeof chRaw === "object" && "company_name" in chRaw) ? chRaw : null;
     if (chError)              console.error("[LivePayloads] CH fetch failed:", chError);
     if (chRaw && !chPayload)  console.error("[LivePayloads] CH returned unexpected response:", JSON.stringify(chRaw).slice(0, 200));
-    payloads.set(DEMO_ENTITIES.CH_RA000585.internalKey, chPayload);
+    payloads.set("REGISTRATION_AUTHORITY:RA000585", chPayload);
     refs.push({
         sourceKey: "CH_RA000585",
-        entityId: DEMO_ENTITIES.CH_RA000585.companyNo,
+        entityId: defaults.chCompanyNo,
         entityName: (chPayload as any)?.company_name ?? null,
         ok: !!chPayload,
         error: chError ?? (chRaw && !chPayload ? "Unexpected API response (no company_name)" : null),
@@ -227,10 +233,10 @@ async function fetchLivePayloads(): Promise<{ payloads: Map<string, any>; refs: 
     const frError  = fr.status === "rejected"  ? String(fr.reason) : null;
     if (frError) console.error("[LivePayloads] FR fetch failed:", frError);
     const frPayload = frRaw ?? null; // already validated inside the fetch chain
-    payloads.set(DEMO_ENTITIES.FR_RA000192.internalKey, frPayload);
+    payloads.set("REGISTRATION_AUTHORITY:RA000192", frPayload);
     refs.push({
         sourceKey: "FR_RA000192",
-        entityId: DEMO_ENTITIES.FR_RA000192.siren,
+        entityId: defaults.frSiren,
         entityName: (frPayload as any)?.entityName ?? null,
         ok: !!frPayload,
         error: frError,
@@ -244,6 +250,13 @@ async function fetchLivePayloads(): Promise<{ payloads: Map<string, any>; refs: 
 export async function getMappingWorkbench2Data(): Promise<Wb2PageData> {
     const isAdmin = await isSystemAdmin();
     if (!isAdmin) throw new Error("Unauthorized");
+
+    const defaults = await getEffectiveMappingDefaults();
+    const resolvedDefaults = {
+        gleifLei: defaults.gleifLei || "213800SN8QHYGA7QUF79",
+        chCompanyNo: defaults.registryOverrides?.RA000585?.registeredAs || "14059418",
+        frSiren: defaults.registryOverrides?.RA000192?.registeredAs || "542051180"
+    };
 
     const [allMappings, fieldDefs, samplePayloads, questionnaires, groups, liveData] = await Promise.all([
         prisma.sourceFieldMapping.findMany({
@@ -280,7 +293,7 @@ export async function getMappingWorkbench2Data(): Promise<Wb2PageData> {
             where: { isActive: true },
             select: { key: true, label: true },
         }),
-        fetchLivePayloads(),
+        fetchLivePayloads(resolvedDefaults),
     ]);
 
     // ── Index maps ──────────────────────────────────────────────────────
@@ -493,6 +506,6 @@ export async function getMappingWorkbench2Data(): Promise<Wb2PageData> {
         masterFieldsUnmappedCount,
         questionnaires: wb2Questionnaires,
         liveEntityRefs: liveData.refs,
-
+        resolvedDefaults,
     };
 }

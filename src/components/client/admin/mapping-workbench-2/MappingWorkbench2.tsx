@@ -107,16 +107,16 @@ export function MappingWorkbench2({ data }: { data: Wb2PageData }) {
         setRefreshing(true);
         try {
             const result = await refreshWorkbenchLiveData({
-                gleifLei:    entities?.gleif?.id ?? DEFAULT_GLEIF_LEI,
-                chCompanyNo: entities?.ch?.id    ?? DEFAULT_CH_COMPANY_NO,
-                frSiren:     entities?.fr?.id    ?? DEFAULT_FR_SIREN,
+                gleifLei:    entities?.gleif?.id ?? data.resolvedDefaults.gleifLei,
+                chCompanyNo: entities?.ch?.id    ?? data.resolvedDefaults.chCompanyNo,
+                frSiren:     entities?.fr?.id    ?? data.resolvedDefaults.frSiren,
             });
             setOverrideRefs(result.refs as Wb2LiveEntityRef[]);
             setOverridePayloads(result.payloads);
         } finally {
             setRefreshing(false);
         }
-    }, []);
+    }, [data.resolvedDefaults.gleifLei, data.resolvedDefaults.chCompanyNo, data.resolvedDefaults.frSiren]);
 
     // Refresh whenever saved entity preferences change (including on initial load)
     const savedKey = JSON.stringify(savedEntities);

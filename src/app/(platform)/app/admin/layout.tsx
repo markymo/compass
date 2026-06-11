@@ -24,7 +24,7 @@ export default async function AdminLayout({
     try {
         const prefRes = await getUserPreferences();
         if (prefRes.success && prefRes.preferences?.adminSidebarCollapsed !== undefined) {
-            sidebarCollapsed = prefRes.preferences.adminSidebarCollapsed;
+            sidebarCollapsed = prefRes.preferences.adminSidebarCollapsed === true;
         }
     } catch (e) {
         // Fallback to expanded
