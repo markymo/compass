@@ -1174,6 +1174,11 @@ enum MappingTransformType {
   TO_PARTY_LIST
   TO_NAME_HISTORY_LIST
   TO_CODE_LIST
+  /// Converts a GLEIF Registration Authority code (e.g. RA000192) to the
+  /// human-readable name stored in the registry_authorities table.
+  /// Lookup is pre-loaded at enrichment time; applyTransform receives it
+  /// via transformConfig.raNameLookup (plain Record<string, string>).
+  RA_CODE_TO_NAME
 }
 
 enum SyncStatus {

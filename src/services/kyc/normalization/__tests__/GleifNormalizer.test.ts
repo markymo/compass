@@ -10,13 +10,15 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 vi.mock("@/lib/prisma", () => ({
     default: {
         sourceFieldMapping: { findMany: vi.fn() },
+        registryAuthority:  { findMany: vi.fn() },
     },
 }));
 
 import prisma from "@/lib/prisma";
 import { mapGleifPayloadToFieldCandidates } from "../GleifNormalizer";
 
-const db = (prisma as any).sourceFieldMapping;
+const db  = (prisma as any).sourceFieldMapping;
+const raDb = (prisma as any).registryAuthority;
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -39,6 +41,8 @@ const ATTR = {
         category: "GENERAL",
         status: "ACTIVE",
         creationDate: "1959-01-01T00:00:00.000Z",
+        // registeredAt — present in real GLEIF payloads
+        registeredAt: { id: "RA000192", other: null },
     },
     registration: {
         managingLou: "EVK05KS7XY1DEII3R011",
@@ -68,6 +72,8 @@ describe("GleifNormalizer", () => {
     beforeEach(() => {
         vi.clearAllMocks();
         _id = 0;
+        // Default: no RA rows needed for most tests
+        raDb.findMany.mockResolvedValue([]);
     });
 
     // GN-1: DB-driven path produces candidates
@@ -211,5 +217,39 @@ describe("GleifNormalizer", () => {
             dbErr
         );
         spy.mockRestore();
+    });
+
+    // GN-10: RA_CODE_TO_NAME — normalizer pre-loads RA lookup and injects it
+    it("GN-10: RA_CODE_TO_NAME mapping resolves registeredAt.id to authority name", async () => {
+        db.findMany.mockResolvedValue([
+            row({ targetFieldNo: 17, sourcePath: "entity.registeredAt.id", transformType: "RA_CODE_TO_NAME" }),
+        ]);
+        raDb.findMany.mockResolvedValue([
+            { id: "RA000192", name: "Registre du Commerce et des Sociétés (France)" },
+            { id: "RA000585", name: "Companies House" },
+        ]);
+
+        const candidates = await mapGleifPayloadToFieldCandidates(ATTR, "ev-010");
+
+        expect(candidates).toHaveLength(1);
+        expect(candidates[0].fieldNo).toBe(17);
+        expect(candidates[0].value).toBe("Registre du Commerce et des Sociétés (France)");
+        expect(candidates[0].source).toBe("GLEIF");
+        // registryAuthority.findMany called exactly once (preloaded, not per-field)
+        expect(raDb.findMany).toHaveBeenCalledTimes(1);
+    });
+
+    // GN-11: registryAuthority.findMany is NOT called when no RA_CODE_TO_NAME mapping is active
+    it("GN-11: registryAuthority.findMany is skipped when no RA_CODE_TO_NAME mapping is present", async () => {
+        db.findMany.mockResolvedValue([
+            row({ targetFieldNo: 2, sourcePath: "lei", transformType: "DIRECT" }),
+            row({ targetFieldNo: 3, sourcePath: "entity.legalName.name", transformType: "DIRECT" }),
+        ]);
+        // raDb.findMany already mocked to return [] in beforeEach — assert it is never called
+
+        const candidates = await mapGleifPayloadToFieldCandidates(ATTR, "ev-011");
+
+        expect(candidates).toHaveLength(2);
+        expect(raDb.findMany).not.toHaveBeenCalled();
     });
 });

@@ -9,10 +9,7 @@ import prisma from "@/lib/prisma";
  * Loads active mappings from the SourceFieldMapping table and resolves
  * them against the canonical GLEIF attributes root.
  *
- * Fallback: If zero DB mappings exist, falls back to the original
- * hardcoded logic with a loud console warning. This fallback is a
- * temporary migration safeguard and should be removed after production
- * validation.
+ * Fallback: If zero DB mappings exist, returns [] with a loud console error.
  */
 export async function mapGleifPayloadToFieldCandidates(payload: any, evidenceId: string): Promise<FieldCandidate[]> {
     // 1. Extract canonical root
@@ -40,7 +37,24 @@ export async function mapGleifPayloadToFieldCandidates(payload: any, evidenceId:
         return [];
     }
 
-    // 4. Group by targetFieldNo for priority deduplication
+    // 4. Pre-load RA name lookup once — only if any RA_CODE_TO_NAME mapping is active.
+    //    This avoids the extra DB call for deployments that don't use this transform.
+    //    Result: plain Record<string, string> (raId → name), injected via transformConfig.
+    const hasRaCodeTransform = dbMappings.some((m: any) => m.transformType === 'RA_CODE_TO_NAME');
+    let raNameLookup: Record<string, string> = {};
+    if (hasRaCodeTransform) {
+        try {
+            const raRows = await (prisma as any).registryAuthority.findMany({
+                where: { isActive: true },
+                select: { id: true, name: true },
+            }) as Array<{ id: string; name: string }>;
+            raNameLookup = Object.fromEntries(raRows.map((r: { id: string; name: string }) => [r.id, r.name]));
+        } catch (e) {
+            console.warn("[GleifNormalizer] Failed to load RA name lookup — RA_CODE_TO_NAME will fall back to raw codes.", e);
+        }
+    }
+
+    // 5. Group by targetFieldNo for priority deduplication
     const byTarget = new Map<number, typeof dbMappings>();
     for (const mapping of dbMappings) {
         const group = byTarget.get(mapping.targetFieldNo) || [];
@@ -48,7 +62,7 @@ export async function mapGleifPayloadToFieldCandidates(payload: any, evidenceId:
         byTarget.set(mapping.targetFieldNo, group);
     }
 
-    // 5. Resolve mappings
+    // 6. Resolve mappings
     const candidates: FieldCandidate[] = [];
 
     for (const [targetFieldNo, mappings] of byTarget) {
@@ -60,7 +74,13 @@ export async function mapGleifPayloadToFieldCandidates(payload: any, evidenceId:
 
                 if (rawValue == null) continue; // Try next priority
 
-                const transformed = applyTransform(rawValue, mapping.transformType, mapping.transformConfig);
+                // For RA_CODE_TO_NAME: inject the pre-loaded lookup into transformConfig
+                // so that applyTransform can resolve the name without hitting the DB.
+                const effectiveConfig = mapping.transformType === 'RA_CODE_TO_NAME'
+                    ? { ...(mapping.transformConfig ?? {}), raNameLookup }
+                    : mapping.transformConfig;
+
+                const transformed = applyTransform(rawValue, mapping.transformType, effectiveConfig);
 
                 if (transformed.value == null) continue;
 

@@ -13,6 +13,7 @@ import { updateMasterField } from "@/actions/master-data-governance";
 import { useRouter } from "next/navigation";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { TRANSFORM_SELECT_OPTIONS, getTransformDescription } from "@/lib/master-data/transform-registry";
 import { getOptionSets } from "@/actions/master-data-option-sets";
 import { upsertSourceMapping, deleteSourceMapping } from "@/actions/source-mappings";
 import { upsertGraphBinding, deleteGraphBinding } from "@/actions/graph-bindings";
@@ -641,12 +642,16 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                                                     <SelectValue placeholder="Select transform" />
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                    <SelectItem value="DIRECT">Direct (String/Number)</SelectItem>
-                                                    <SelectItem value="DATE_TO_ISO">Date to ISO String</SelectItem>
-                                                    <SelectItem value="EXTRACT">Extract Nested Payload</SelectItem>
-                                                    <SelectItem value="MAP">Map Dictionary</SelectItem>
+                                                    {TRANSFORM_SELECT_OPTIONS.map(t => (
+                                                        <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                                                    ))}
                                                 </SelectContent>
                                             </Select>
+                                            {getTransformDescription(mappingForm.transformType) && (
+                                                <p className="text-[11px] text-slate-500 leading-snug">
+                                                    {getTransformDescription(mappingForm.transformType)}
+                                                </p>
+                                            )}
                                         </div>
                                         {/* Payload Subtype — RA only. Controls which RegistrySourcePayload subtype the path resolves against. */}
                                         {SOURCE_OPTIONS.find(o => o.value === mappingForm.sourceType)?.sourceType === 'REGISTRATION_AUTHORITY' && (
