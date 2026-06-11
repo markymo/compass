@@ -252,4 +252,58 @@ describe("GleifNormalizer", () => {
         expect(candidates).toHaveLength(2);
         expect(raDb.findMany).not.toHaveBeenCalled();
     });
+
+    // GN-12: resolves enriched paths (gleifL2.*, gleifElf.*) from root payload via fallback
+    it("GN-12: resolves enriched paths (gleifL2.*, gleifElf.*) from root payload via fallback", async () => {
+        db.findMany.mockResolvedValue([
+            row({ targetFieldNo: 30, sourcePath: "gleifL2.directParent.legalName", transformType: "DIRECT" }),
+            row({ targetFieldNo: 31, sourcePath: "gleifElf.name", transformType: "DIRECT" }),
+        ]);
+
+        const payload = {
+            id: "213800SN8QHYGA7QUF79",
+            type: "lei-records",
+            attributes: ATTR,
+            gleifL2: {
+                directParent: {
+                    legalName: "HSBC Group East Asia Holdings Limited"
+                }
+            },
+            gleifElf: {
+                name: "Public Limited Company"
+            }
+        };
+
+        const candidates = await mapGleifPayloadToFieldCandidates(payload, "ev-012");
+
+        expect(candidates).toHaveLength(2);
+        const c30 = candidates.find(c => c.fieldNo === 30);
+        const c31 = candidates.find(c => c.fieldNo === 31);
+        expect(c30).toBeDefined();
+        expect(c30?.value).toBe("HSBC Group East Asia Holdings Limited");
+        expect(c31).toBeDefined();
+        expect(c31?.value).toBe("Public Limited Company");
+    });
+
+    // GN-13: preserves backward compatibility for standard paths resolving against attributes even when fallback conditions are not met
+    it("GN-13: preserves backward compatibility for standard paths resolving against attributes even when fallback conditions are not met", async () => {
+        db.findMany.mockResolvedValue([
+            row({ targetFieldNo: 3, sourcePath: "entity.legalName.name", transformType: "DIRECT" }),
+            row({ targetFieldNo: 30, sourcePath: "gleifL2.directParent.legalName", transformType: "DIRECT" }),
+        ]);
+
+        const payload = {
+            id: "213800SN8QHYGA7QUF79",
+            type: "lei-records",
+            attributes: ATTR,
+            // gleifL2 is missing or null
+            gleifL2: null
+        };
+
+        const candidates = await mapGleifPayloadToFieldCandidates(payload, "ev-013");
+
+        expect(candidates).toHaveLength(1);
+        expect(candidates[0].fieldNo).toBe(3);
+        expect(candidates[0].value).toBe("HSBC Holdings plc");
+    });
 });

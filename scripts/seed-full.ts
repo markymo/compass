@@ -278,6 +278,108 @@ async function main() {
         });
     }
 
+    // --- 9. SEED DEFAULT GLEIF SAMPLE PAYLOAD ---
+    console.log('📦 Seeding Default GLEIF Sample Payload...');
+    const gleifSamplePayload = {
+      lei: "549300MLUDYVRQOOXS22",
+      entity: {
+        status: "ACTIVE",
+        category: "GENERAL",
+        legalName: {
+          name: "HSBC Holdings plc",
+          language: "en"
+        },
+        creationDate: "1959-01-01T00:00:00.000Z",
+        jurisdiction: "GB",
+        legalAddress: {
+          city: "London",
+          region: "GB-LND",
+          country: "GB",
+          language: "en",
+          postalCode: "E14 5HQ",
+          addressLines: [
+            "8 Canada Square"
+          ]
+        },
+        registeredAs: "617987",
+        registeredAt: {
+          id: "RA000585"
+        },
+        headquartersAddress: {
+          city: "London",
+          region: "GB-LND",
+          country: "GB",
+          language: "en",
+          postalCode: "E14 5HQ",
+          addressLines: [
+            "8 Canada Square"
+          ]
+        }
+      },
+      gleifL2: {
+        fetchedAt: "2026-06-11T12:50:45Z",
+        directParent: {
+          lei: "54930005OPLAX5193B63",
+          legalName: "HSBC Group East Asia Holdings Limited",
+          legalFormId: "FBL0",
+          entityStatus: "ACTIVE",
+          jurisdiction: "HK",
+          registeredAs: "12345678",
+          registeredAt: "RA000411",
+          registrationStatus: "ISSUED"
+        },
+        ultimateParent: {
+          lei: "549300MLUDYVRQOOXS22",
+          legalName: "HSBC Holdings plc",
+          legalFormId: "8FGD",
+          entityStatus: "ACTIVE",
+          jurisdiction: "GB",
+          registeredAs: "617987",
+          registeredAt: "RA000585",
+          registrationStatus: "ISSUED"
+        },
+        directChildrenCount: 12,
+        directParentException: null,
+        ultimateParentException: null
+      },
+      gleifElf: {
+        id: "8FGD",
+        name: "Public Limited Company",
+        fetchedAt: "2026-06-11T12:50:45Z",
+        jurisdictionCode: "GB"
+      },
+      registration: {
+        status: "ISSUED",
+        managingLOU: "EVK05KS7XY1DEII3R011",
+        lastUpdateDate: "2024-06-20T21:31:00.000Z",
+        nextRenewalDate: "2025-06-19T21:31:00.000Z",
+        initialRegistrationDate: "2012-06-06T15:53:00.000Z"
+      }
+    };
+
+    const existing = await prisma.sourceSamplePayload.findFirst({
+        where: { sourceType: "GLEIF", isDefault: true }
+    });
+
+    if (existing) {
+        await prisma.sourceSamplePayload.update({
+            where: { id: existing.id },
+            data: {
+                payload: gleifSamplePayload,
+                label: "HSBC Holdings plc (Default Preview)"
+            }
+        });
+    } else {
+        await prisma.sourceSamplePayload.create({
+            data: {
+                sourceType: "GLEIF",
+                label: "HSBC Holdings plc (Default Preview)",
+                payload: gleifSamplePayload,
+                isDefault: true
+            }
+        });
+    }
+
     console.log('✅ Refreshed Seed Complete!');
 }
 
