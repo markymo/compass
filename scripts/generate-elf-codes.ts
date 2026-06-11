@@ -143,7 +143,7 @@ function generateTypeScript(entries: ElfEntry[], sourceUrl: string, generatedAt:
     const mapLines = entries.map(e => {
         const safeName    = e.name.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
         const safeAbbrev  = e.abbreviation?.replace(/\\/g, "\\\\").replace(/"/g, '\\"') ?? null;
-        const countryPart = e.countryCode ? `countryCode: ${JSON.stringify(e.countryCode)}` : `countryCode: undefined`;
+        const countryPart = e.countryCode ? `countryCode: ${JSON.stringify(e.countryCode)}, jurisdictionCode: ${JSON.stringify(e.countryCode)}` : `countryCode: undefined, jurisdictionCode: undefined`;
         const abbrevPart  = safeAbbrev ? `, abbreviation: "${safeAbbrev}"` : "";
         return `    "${e.code}": { name: "${safeName}", ${countryPart}${abbrevPart} },`;
     });
@@ -168,10 +168,11 @@ export interface ElfResolution {
     id: string;
     name: string | null;
     countryCode?: string;
+    jurisdictionCode?: string;
     abbreviation?: string;
 }
 
-const ELF_MAP: Record<string, { name: string; countryCode?: string; abbreviation?: string }> = {
+const ELF_MAP: Record<string, { name: string; countryCode?: string; jurisdictionCode?: string; abbreviation?: string }> = {
 ${mapLines.join("\n")}
 };
 
@@ -187,6 +188,7 @@ export function resolveElfCode(elfId: string | null | undefined): ElfResolution 
         id: elfId,
         name: entry.name,
         countryCode: entry.countryCode,
+        jurisdictionCode: entry.jurisdictionCode,
         abbreviation: entry.abbreviation,
     };
 }
