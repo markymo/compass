@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { getSourceMappingsV2, upsertSourceMapping, deleteSourceMapping, toggleSourceMapping, getActiveFieldDefinitions } from "@/actions/source-mappings";
 import { SOURCE_OPTIONS, type SourceOption } from "@/lib/source-display";
 import { DataInspectorPanel } from "@/components/client/admin/source-mappings/data-inspector-panel";
+import { TRANSFORM_SELECT_OPTIONS, TRANSFORM_DEFINITION_MAP, getTransformDescription } from "@/lib/master-data/transform-registry";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -66,15 +67,8 @@ function displayScope(rawScope: string, sourceType: string): string {
     return SCOPE_LABELS[rawScope] ?? rawScope;
 }
 
-const TRANSFORM_TYPES = [
-    { value: "DIRECT",           label: "Direct (as-is)" },
-    { value: "DATE_TO_ISO",      label: "Date → ISO" },
-    { value: "COUNTRY_TO_NAME",  label: "Country Code → Name" },
-    { value: "ENUM_MAP",         label: "Enum Map" },
-    { value: "FIRST_ARRAY_ITEM", label: "First Array Item" },
-    { value: "JOIN_ARRAY",       label: "Join Array" },
-    { value: "TO_PARTY_LIST",    label: "To Party List" },
-];
+// TRANSFORM_TYPES is now sourced from the central transform-registry (see import above).
+// TRANSFORM_SELECT_OPTIONS provides { value, label } pairs for the <Select> dropdown.
 
 const PAYLOAD_SUBTYPES = [
     { value: "COMPANY_PROFILE",  label: "Company Profile" },
@@ -339,7 +333,15 @@ function MappingTable({ mappings, onEdit, onDelete, onToggle }: {
                                         ? <Badge variant="outline" className="text-[10px] bg-blue-50 text-blue-700 border-blue-200">{m.payloadSubtype}</Badge>
                                         : <span className="text-slate-300 text-xs">—</span>}
                                 </Td>
-                                <Td center><Badge variant="secondary" className="text-[10px]">{m.transformType}</Badge></Td>
+                                <Td center>
+                                    <Badge
+                                        variant="secondary"
+                                        className="text-[10px] max-w-[140px] truncate block text-center"
+                                        title={m.transformType}
+                                    >
+                                        {TRANSFORM_DEFINITION_MAP[m.transformType]?.label ?? m.transformType}
+                                    </Badge>
+                                </Td>
                                 <Td center><span className="font-mono text-xs text-slate-600 dark:text-slate-400">{m.priority}</span></Td>
                                 <Td center>
                                     <Switch checked={m.isActive} onCheckedChange={v => onToggle(m.id, v)} />
@@ -419,6 +421,8 @@ function MappingFormDialog({ open, onOpenChange, selectedOption, fieldDefs, exis
     const [notes,         setNotes]         = useState("");
     const [saving,        setSaving]        = useState(false);
 
+    const transformDescription = getTransformDescription(transformType);
+
     useEffect(() => {
         if (!open) return;
         setSourcePath(existingMapping?.sourcePath ?? initialSourcePath ?? "");
@@ -490,16 +494,21 @@ function MappingFormDialog({ open, onOpenChange, selectedOption, fieldDefs, exis
                         <span className="text-slate-500">{(!payloadSubtype || payloadSubtype === "NONE") ? "—" : payloadSubtype}</span>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
-                        <div className="grid gap-1.5">
+                    <div className="grid gap-1.5">
                             <Label>Transform</Label>
                             <Select value={transformType} onValueChange={setTransformType}>
                                 <SelectTrigger><SelectValue /></SelectTrigger>
                                 <SelectContent>
-                                    {TRANSFORM_TYPES.map(t => (
+                                    {TRANSFORM_SELECT_OPTIONS.map(t => (
                                         <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
+                            {transformDescription && (
+                                <p className="text-[11px] text-slate-500 leading-snug">
+                                    {transformDescription}
+                                </p>
+                            )}
                         </div>
                         <div className="grid gap-1.5">
                             <Label htmlFor="v2-priority">Priority</Label>

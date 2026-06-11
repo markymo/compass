@@ -14,6 +14,7 @@ import { Loader2, Trash2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { CODE_DEFAULTS } from "@/lib/kyc/source-priority-config";
+import { TRANSFORM_SELECT_OPTIONS, getTransformDescription } from "@/lib/master-data/transform-registry";
 
 /**
  * Sensible per-mapping priority defaults when creating a NEW mapping.
@@ -38,19 +39,8 @@ function getDefaultPriority(sourceType: string): number {
 }
 
 
-const TRANSFORM_TYPES = [
-    { value: "DIRECT",           label: "Direct (as-is)" },
-    { value: "DATE_TO_ISO",      label: "Date → ISO (YYYY-MM-DD)" },
-    { value: "DATETIME_TO_ISO",  label: "DateTime → ISO" },
-    { value: "COUNTRY_TO_NAME",  label: "Country Code → Name" },
-    { value: "COUNTRY_TO_ISO2",  label: "Country → ISO Alpha-2" },
-    { value: "ENUM_MAP",         label: "Enum Map (via config)" },
-    { value: "FIRST_ARRAY_ITEM", label: "First Array Item" },
-    { value: "JOIN_ARRAY",       label: "Join Array" },
-    { value: "TO_ADDRESS_OBJECT",label: "→ Address Object" },
-    { value: "TO_PARTY_OBJECT",  label: "→ Party Object" },
-    { value: "TO_PARTY_LIST",    label: "→ Party List" },
-];
+// Transform options are sourced from the central transform-registry.
+// See src/lib/master-data/transform-registry.ts
 
 export interface MappingSlideOverProps {
     open: boolean;
@@ -212,11 +202,16 @@ export function MappingSlideOver({
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                                {TRANSFORM_TYPES.map(t => (
+                                {TRANSFORM_SELECT_OPTIONS.map(t => (
                                     <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>
+                        {getTransformDescription(transformType) && (
+                            <p className="text-[11px] text-slate-500 leading-snug">
+                                {getTransformDescription(transformType)}
+                            </p>
+                        )}
                     </div>
 
                     {/* Priority + Confidence */}

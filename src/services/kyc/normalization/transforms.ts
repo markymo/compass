@@ -74,7 +74,22 @@ type TransformType =
     | 'TO_PARTY_OBJECT'
     | 'TO_PARTY_LIST'
     | 'TO_NAME_HISTORY_LIST'
-    | 'TO_CODE_LIST';
+    | 'TO_CODE_LIST'
+    /**
+     * Converts a GLEIF Registration Authority code (e.g. "RA000192") to the
+     * human-readable name stored in the registry_authorities table.
+     *
+     * The lookup is injected by the caller (GleifNormalizer) via
+     * transformConfig.raNameLookup — a plain Record<string, string> loaded
+     * once per enrichment run.  applyTransform never touches the DB.
+     *
+     * Input shapes supported:
+     *   - bare string:  "RA000192"
+     *   - object:       { id: "RA000192", other: null }
+     *
+     * On unknown code: returns the raw code with a 0.1 confidence penalty.
+     */
+    | 'RA_CODE_TO_NAME';
 
 
 /**
@@ -507,6 +522,34 @@ export function applyTransform(
                 .filter((v: any) => v !== null);
 
             return { value: list, confidencePenalty: 0, rowKeys };
+        }
+
+        case 'RA_CODE_TO_NAME': {
+            // Extract the bare RA code from either a string or { id, other } object
+            let code: string;
+            if (typeof value === 'object' && value !== null) {
+                code = String(value.id ?? value.code ?? '').trim();
+            } else {
+                code = String(value).trim();
+            }
+
+            if (!code) {
+                return { value: null, confidencePenalty: 0 };
+            }
+
+            // Look up the name from the pre-loaded map injected by the caller.
+            // transformConfig.raNameLookup is a Record<string, string> (raId → name).
+            const lookup: Record<string, string> | undefined = transformConfig?.raNameLookup;
+            const name = lookup?.[code];
+
+            if (name) {
+                return { value: name, confidencePenalty: 0 };
+            }
+
+            // Unknown code — pass through the raw code with a small confidence penalty.
+            // This ensures the field is populated even if registry_authorities is stale,
+            // and makes the gap visible to operators via the confidence score.
+            return { value: code, confidencePenalty: 0.1 };
         }
 
         default:
