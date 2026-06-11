@@ -485,8 +485,8 @@ export function DataInspectorPanel({
                                                     placeholder="Describe what this address represents..."
                                                 />
                                             </div>
-                                            <div className="text-[10px] text-indigo-700 bg-indigo-50 dark:bg-indigo-955/20 border border-indigo-100 dark:border-indigo-900/50 rounded-md p-2 mt-1 leading-normal font-sans">
-                                                Note: This field uses a <strong>TEXT</strong> placeholder in preparation for the future <strong>ADDRESS</strong> datatype.
+                                            <div className="text-[10px] text-indigo-700 bg-indigo-50 dark:bg-indigo-955/20 border border-indigo-100 dark:border-indigo-900/30 rounded-md p-2 mt-1 leading-normal font-sans">
+                                                This field stores a structured address: Address lines, Locality, Region, Postcode and Country.
                                             </div>
                                         </div>
                                     )}

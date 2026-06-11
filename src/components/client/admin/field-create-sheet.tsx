@@ -40,6 +40,7 @@ export function FieldCreateSheet({ open, onOpenChange, categories=[] }: FieldCre
                     const name = params.get("fieldName") || "";
                     const catName = params.get("categoryName") || "";
                     const desc = params.get("description") || "";
+                    const prefillType = params.get("prefillType") || "";
                     
                     const matchedCat = categories.find(c => c.displayName.toLowerCase() === catName.toLowerCase());
                     
@@ -48,7 +49,8 @@ export function FieldCreateSheet({ open, onOpenChange, categories=[] }: FieldCre
                         fieldName: name || prev.fieldName,
                         categoryId: matchedCat ? matchedCat.id : "",
                         newCategoryName: matchedCat ? "" : catName,
-                        description: desc || prev.description
+                        description: desc || prev.description,
+                        appDataType: prefillType === "ADDRESS" ? APP_DATA_TYPES.ADDRESS : prev.appDataType
                     }));
                 }
             }
@@ -192,9 +194,9 @@ export function FieldCreateSheet({ open, onOpenChange, categories=[] }: FieldCre
                                         </div>
                                     </SelectContent>
                                 </Select>
-                                {typeof window !== "undefined" && new URLSearchParams(window.location.search).get("prefillType") === "ADDRESS" && (
-                                    <div className="text-[11px] text-indigo-650 bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-100 rounded-md p-2 mt-1 leading-normal font-sans">
-                                        Note: This field is configured as <strong>TEXT</strong> as a placeholder in preparation for the future <strong>ADDRESS</strong> datatype.
+                                {formData.appDataType === APP_DATA_TYPES.ADDRESS && (
+                                    <div className="text-[11px] text-indigo-650 bg-indigo-50 dark:bg-indigo-955/20 border border-indigo-100 dark:border-indigo-900/30 rounded-md p-2 mt-1 leading-normal font-sans">
+                                        This field stores a structured address: Address lines, Locality, Region, Postcode and Country.
                                     </div>
                                 )}
                                 {/* isMultiValue toggle — hidden only for BOOLEAN, DATETIME, DOCUMENT_REF */}
