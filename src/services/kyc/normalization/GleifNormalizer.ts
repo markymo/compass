@@ -70,7 +70,11 @@ export async function mapGleifPayloadToFieldCandidates(payload: any, evidenceId:
         for (const mapping of mappings) {
             try {
                 const segments = parsePath(mapping.sourcePath);
-                const rawValue = resolveDotPath(attr, segments);
+                let rawValue = resolveDotPath(attr, segments);
+
+                if (rawValue == null && (mapping.sourcePath.startsWith("gleifL2") || mapping.sourcePath.startsWith("gleifElf"))) {
+                    rawValue = resolveDotPath(payload, segments);
+                }
 
                 if (rawValue == null) continue; // Try next priority
 

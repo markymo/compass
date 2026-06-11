@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { isSystemAdmin } from "@/actions/admin";
 import { getPathHint } from "@/lib/mapping-workbench/semantic-hints";
 import { SOURCE_OPTIONS, SourceOption } from "@/lib/source-display";
+import { fetchGLEIFData } from "@/actions/gleif";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -141,11 +142,19 @@ async function fetchLivePayloads(): Promise<{ payloads: Map<string, any>; refs: 
     const refs: Wb2LiveEntityRef[] = [];
 
     const [gleif, ch, fr] = await Promise.allSettled([
-        // GLEIF — public API, no key needed
-        fetch(`https://api.gleif.org/api/v1/lei-records?filter[lei]=${DEMO_ENTITIES.GLEIF.lei}`,
-            { headers: { Accept: "application/vnd.api+json" }, cache: "no-store", signal: AbortSignal.timeout(30000) })
-            .then(r => r.json())
-            .then(j => j.data?.[0]?.attributes ?? null),
+        // GLEIF — use our enriched fetch action
+        fetchGLEIFData(DEMO_ENTITIES.GLEIF.lei)
+            .then(res => {
+                if (res.success && res.data) {
+                    const data = res.data;
+                    return {
+                        ...data.attributes,
+                        gleifL2: data.gleifL2,
+                        gleifElf: data.gleifElf,
+                    };
+                }
+                return null;
+            }),
 
         // Companies House — return RAW API profile so paths like
         // company_name, company_status, date_of_creation resolve correctly.
