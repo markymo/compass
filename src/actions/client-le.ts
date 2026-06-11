@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import { ExtractedItem } from "./ai-mapper"; // Importing type
 import { MasterSchemaDefinition } from "@/types/schema";
 import { Action, can } from "@/lib/auth/permissions";
-import { getMasterFieldDefinition, listAllMasterFields, listAllMasterGroups } from "@/services/masterData/definitionService";
+import { getMasterFieldDefinition, listAllMasterFields, listAllMasterGroupsWithItems } from "@/services/masterData/definitionService";
 import { getIdentity } from "@/lib/auth";
 import { getUserFIOrg } from "./security";
 import { calculateEngagementMetrics, calculateQuestionnaireMetrics } from "@/lib/metrics-calc";
@@ -696,7 +696,7 @@ export async function getFullMasterData(clientLEId: string) {
         // Sourced from RegistryReference.authority.id — the authoritative GLEIF identifier.
         registrationAuthorityId: clientLE.registryReferences?.[0]?.authority?.id ?? undefined,
         masterFields: await listAllMasterFields(), // Already fetched above, but for clarity
-        masterGroups: await listAllMasterGroups()
+        masterGroups: await listAllMasterGroupsWithItems()
     };
 
 }

@@ -1,8 +1,8 @@
 "use server";
 // Trigger CI Build
 
-
 import { fetchCompanyOfficers } from "@/lib/companies-house";
+import { fetchGleifL2, resolveGleifElf } from "@/lib/gleif/gleif-l2";
 
 export interface GLEIFData {
     data: {
@@ -101,47 +101,48 @@ export async function fetchGLEIFData(lei: string): Promise<GLEIFFetchResult> {
             status: attributes.registration.status // e.g. ISSUED, LAPSED
         };
 
-        // --- Registration Authority Name Fetch ---
-        let registrationAuthorityName = "Unknown Registry";
+        // --- Parallel secondary fetches ---
+        // All use Promise.allSettled so no failure can block the main GLEIF data.
         const registrationAuthorityId = entity.registeredAt?.id;
 
-        if (registrationAuthorityId) {
-            try {
-                const raRes = await fetch(`https://api.gleif.org/api/v1/registration-authorities/${registrationAuthorityId}`, {
-                    next: { revalidate: 86400 } // Cache RA names for 24h as they rarely change
-                });
-                if (raRes.ok) {
-                    const raJson = await raRes.json();
-                    registrationAuthorityName =
-                        raJson.data?.attributes?.internationalOrganizationName ||
-                        raJson.data?.attributes?.internationalName ||
-                        "Unknown Registry";
-                }
-            } catch (e) {
-                console.warn(`Failed to fetch RA name for ${registrationAuthorityId}`);
-            }
-        }
+        const [raResult, l2Result, chResult] = await Promise.allSettled([
+            // 1. Registration Authority name
+            registrationAuthorityId
+                ? fetch(`https://api.gleif.org/api/v1/registration-authorities/${registrationAuthorityId}`, {
+                      next: { revalidate: 86400 },
+                  }).then(r => r.ok ? r.json() : null).catch(() => null)
+                : Promise.resolve(null),
 
-        // --- Companies House Integration ---
+            // 2. L2 relationships (direct parent, ultimate parent, children count)
+            fetchGleifL2(cleanLEI),
+
+            // 3. Companies House (UK only)
+            entity.jurisdiction === "GB" && registrationAuthorityId === "RA000585" && entity.registeredAs
+                ? fetchCompanyOfficers(entity.registeredAs)
+                : Promise.resolve([]),
+        ]);
+
+        // RA name
+        const raJson = raResult.status === "fulfilled" ? raResult.value : null;
+        const registrationAuthorityName =
+            raJson?.data?.attributes?.internationalOrganizationName ||
+            raJson?.data?.attributes?.internationalName ||
+            "Unknown Registry";
+
+        // L2 data
+        const gleifL2 = l2Result.status === "fulfilled" ? l2Result.value : null;
+
+        // ELF resolution (synchronous — reads from main record attributes)
+        const gleifElf = resolveGleifElf(attributes);
+
+        // Companies House
         let nationalRegistryData = null;
-
-        // Check for UK Jurisdiction (GB) and Companies House Registration Authority (RA000585)
-        // Usually 'registeredAt.id' is the RA Code.
-        if (entity.jurisdiction === "GB") {
-            // 'registeredAs' is typically the Company Number
-            const companyNumber = entity.registeredAs;
-
-            // RA000585 = Companies House
-            if (registrationAuthorityId === "RA000585" && companyNumber) {
-                const officers = await fetchCompanyOfficers(companyNumber);
-                if (officers.length > 0) {
-                    nationalRegistryData = {
-                        source: "Companies House",
-                        company_number: companyNumber,
-                        officers: officers
-                    };
-                }
-            }
+        if (chResult.status === "fulfilled" && Array.isArray(chResult.value) && chResult.value.length > 0) {
+            nationalRegistryData = {
+                source: "Companies House",
+                company_number: entity.registeredAs,
+                officers: chResult.value,
+            };
         }
 
         return {
@@ -149,7 +150,9 @@ export async function fetchGLEIFData(lei: string): Promise<GLEIFFetchResult> {
             data: {
                 ...record,
                 registrationAuthorityName,
-                nationalRegistryData // Attach to the record structure we pass to UI
+                nationalRegistryData,
+                gleifL2,   // NEW — isolated, never read by GleifNormalizer
+                gleifElf,  // NEW — isolated, never read by GleifNormalizer
             },
             summary
         };

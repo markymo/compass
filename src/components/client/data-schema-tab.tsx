@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { Fingerprint, RefreshCcw, ArrowRight, ShieldCheck, Ban, Info, Building2, FileText, Users, Sparkles, ChevronDown, ChevronUp, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { refreshGleifProposals, acceptProposal } from "@/actions/kyc-proposals";
@@ -65,6 +66,26 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
     const [search, setSearch] = useState("");
     const [catFilter, setCatFilter] = useState("ALL");
     const [popFilter, setPopFilter] = useState("ALL");
+
+    const fieldGroupMap = useMemo(() => {
+        const map = new Map<number, { id: string; label: string }[]>();
+        if (!masterGroups) return map;
+        for (const group of masterGroups) {
+            const fieldNos: number[] = group.fieldNos || 
+                group.items?.map((item: any) => item.fieldNo) || 
+                [];
+            for (const fieldNo of fieldNos) {
+                if (!map.has(fieldNo)) {
+                    map.set(fieldNo, []);
+                }
+                map.get(fieldNo)!.push({
+                    id: group.id,
+                    label: group.label
+                });
+            }
+        }
+        return map;
+    }, [masterGroups]);
 
     const categoryList = useMemo(() => {
         return categories.map((cat: any) => {
@@ -502,6 +523,7 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                                                 sourceReference={data?.sourceReference}
                                                 description={field.description}
                                                 registrationAuthorityId={registrationAuthorityId}
+                                                groups={fieldGroupMap.get(field.fieldNo)}
                                                 onClick={() => setSelectedField({ fieldNo: field.fieldNo, name: field.fieldName })}
                                             />
                                         );
@@ -532,6 +554,7 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                                             sourceReference={data?.sourceReference}
                                             description={field.description}
                                             registrationAuthorityId={registrationAuthorityId}
+                                            groups={fieldGroupMap.get(field.fieldNo)}
                                             onClick={() => setSelectedField({ fieldNo: field.fieldNo, name: field.fieldName })}
                                         />
                                     );
@@ -571,7 +594,7 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
     );
 }
 
-function MasterFieldDisplay({ label, fieldNo, value, source, sourceReference, registrationAuthorityId, onClick, description, isCustom }: {
+function MasterFieldDisplay({ label, fieldNo, value, source, sourceReference, registrationAuthorityId, onClick, description, isCustom, groups = [] }: {
     label: string,
     fieldNo: number,
     value: any,
@@ -581,7 +604,8 @@ function MasterFieldDisplay({ label, fieldNo, value, source, sourceReference, re
     registrationAuthorityId?: string,
     onClick?: () => void,
     description?: string,
-    isCustom?: boolean
+    isCustom?: boolean,
+    groups?: { id: string; label: string }[]
 }) {
     const hasValue = value !== null && value !== undefined && value !== "";
 
@@ -607,9 +631,28 @@ function MasterFieldDisplay({ label, fieldNo, value, source, sourceReference, re
                     )}
                 </div>
                 {!isCustom && (
-                    <Badge variant="outline" className="text-[10px] bg-slate-50 text-slate-500 group-hover:bg-blue-50 group-hover:text-blue-600 group-hover:border-blue-200 transition-colors">
-                        Field {fieldNo}
-                    </Badge>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                        <TooltipProvider delayDuration={150}>
+                            {groups.map(group => (
+                                <Tooltip key={group.id}>
+                                    <TooltipTrigger asChild>
+                                        <Badge
+                                            variant="outline"
+                                            className="text-[10px] bg-indigo-50/40 text-indigo-600 border-indigo-200/50 font-medium"
+                                        >
+                                            CF: {group.label}
+                                        </Badge>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top" className="text-xs bg-slate-900 text-white border-slate-800">
+                                        Composite Field: {group.label}
+                                    </TooltipContent>
+                                </Tooltip>
+                            ))}
+                        </TooltipProvider>
+                        <Badge variant="outline" className="text-[10px] bg-slate-50 text-slate-500 group-hover:bg-blue-50 group-hover:text-blue-600 group-hover:border-blue-200 transition-colors">
+                            Field {fieldNo}
+                        </Badge>
+                    </div>
                 )}
                 {isCustom && (
                     <Badge variant="outline" className="text-[10px] bg-purple-50 text-purple-600 border-purple-200">
