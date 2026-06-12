@@ -34,7 +34,13 @@ interface CategoryDef {
 
 interface DataSchemaTabProps {
     leId: string;
-    masterData: Record<number, { value: any; source?: string; sourceReference?: string }>;
+    masterData: Record<number, { 
+        value: any; 
+        source?: string; 
+        sourceReference?: string;
+        displayState?: "HAS_VALUE" | "MAPPED_NOT_CHECKED" | "CHECKED_NO_DATA" | "DEFAULT_RESPONSE" | "UNMAPPED_NO_RESPONSE";
+        defaultResponse?: string;
+    }>;
     customData?: Record<string, any>;
     customDefinitions?: any[];
     gleifLastSynced?: Date;
@@ -525,6 +531,8 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                                                 description={field.description}
                                                 registrationAuthorityId={registrationAuthorityId}
                                                 groups={fieldGroupMap.get(field.fieldNo)}
+                                                displayState={data?.displayState}
+                                                defaultResponse={data?.defaultResponse}
                                                 onClick={() => setSelectedField({ fieldNo: field.fieldNo, name: field.fieldName })}
                                             />
                                         );
@@ -556,6 +564,8 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                                             description={field.description}
                                             registrationAuthorityId={registrationAuthorityId}
                                             groups={fieldGroupMap.get(field.fieldNo)}
+                                            displayState={data?.displayState}
+                                            defaultResponse={data?.defaultResponse}
                                             onClick={() => setSelectedField({ fieldNo: field.fieldNo, name: field.fieldName })}
                                         />
                                     );
@@ -595,7 +605,7 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
     );
 }
 
-function MasterFieldDisplay({ label, fieldNo, value, source, sourceReference, registrationAuthorityId, onClick, description, isCustom, groups = [] }: {
+function MasterFieldDisplay({ label, fieldNo, value, source, sourceReference, registrationAuthorityId, onClick, description, isCustom, groups = [], displayState, defaultResponse }: {
     label: string,
     fieldNo: number,
     value: any,
@@ -606,9 +616,12 @@ function MasterFieldDisplay({ label, fieldNo, value, source, sourceReference, re
     onClick?: () => void,
     description?: string,
     isCustom?: boolean,
-    groups?: { id: string; label: string }[]
+    groups?: { id: string; label: string }[],
+    displayState?: "HAS_VALUE" | "MAPPED_NOT_CHECKED" | "CHECKED_NO_DATA" | "DEFAULT_RESPONSE" | "UNMAPPED_NO_RESPONSE",
+    defaultResponse?: string
 }) {
     const hasValue = value !== null && value !== undefined && value !== "";
+    const resolvedState = displayState || (hasValue ? "HAS_VALUE" : (source ? "CHECKED_NO_DATA" : "UNMAPPED_NO_RESPONSE"));
 
     // Format Value for Display
     let displayValue = value;
@@ -667,12 +680,21 @@ function MasterFieldDisplay({ label, fieldNo, value, source, sourceReference, re
                 onClick && "group-hover:border-blue-200 group-hover:bg-white group-hover:shadow-sm"
             )}>
                 <div className="font-mono text-sm truncate max-w-[300px]" title={typeof value === 'object' && value ? JSON.stringify(value, null, 2) : String(value)}>
-                    {hasValue ? displayValue : <span className="text-slate-400 italic">Empty</span>}
+                    {resolvedState === "HAS_VALUE" && displayValue}
+                    {resolvedState === "MAPPED_NOT_CHECKED" && <span className="text-slate-400 italic">Source not checked yet</span>}
+                    {resolvedState === "CHECKED_NO_DATA" && <span className="text-slate-400 italic">No data in source record</span>}
+                    {resolvedState === "DEFAULT_RESPONSE" && (
+                        <span className="flex items-center gap-2">
+                            <span>{defaultResponse}</span>
+                            <Badge variant="outline" className="text-[9px] uppercase tracking-wider text-slate-500 bg-slate-50 border-slate-200">Field Default</Badge>
+                        </span>
+                    )}
+                    {resolvedState === "UNMAPPED_NO_RESPONSE" && <span className="text-slate-400 italic">No response recorded</span>}
                 </div>
-                {hasValue && (
+                {(resolvedState === "HAS_VALUE" || resolvedState === "MAPPED_NOT_CHECKED" || resolvedState === "CHECKED_NO_DATA") && source && (
                     <div className="flex items-center gap-2">
                         {/* If we had meta timestamp, we'd pass it. For now just source if available. */}
-                        {source && <SourceBadge source={source} sourceReference={sourceReference} registrationAuthorityId={registrationAuthorityId} />}
+                        <SourceBadge source={source} sourceReference={sourceReference} registrationAuthorityId={registrationAuthorityId} />
                     </div>
                 )}
                 {!hasValue && !isCustom && (
