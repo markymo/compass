@@ -75,6 +75,7 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
         fmsbRef: field?.fmsbRef || "",
         description: field?.description || "",
         notes: field?.notes || "",
+        defaultResponse: field?.defaultResponse || "",
         isMultiValue: field?.isMultiValue || false,
         optionSetId: field?.optionSetId || "none",
         appDataType: field?.appDataType || "TEXT"
@@ -96,6 +97,7 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                 fmsbRef:         field.fmsbRef || "",
                 description:     field.description || "",
                 notes:           field.notes || "",
+                defaultResponse: field.defaultResponse || "",
                 isMultiValue:    field.isMultiValue || false,
                 optionSetId:     field.optionSetId || "none",
                 appDataType:     field.appDataType || "TEXT",
@@ -567,6 +569,19 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                                     value={formData.notes}
                                     onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                                     className="min-h-[80px] bg-yellow-50/30 border-yellow-200 resize-y"
+                                />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="defaultResponse" className="text-xs text-slate-500 flex justify-between">
+                                    <span>Default Response</span>
+                                    <span className="text-[10px] text-slate-400 font-normal">Fallback value</span>
+                                </Label>
+                                <Textarea
+                                    id="defaultResponse"
+                                    placeholder="When no value exists and the field is not mapped to a source, this response will be displayed in the Master Record."
+                                    value={formData.defaultResponse}
+                                    onChange={(e) => setFormData({ ...formData, defaultResponse: e.target.value })}
+                                    className="min-h-[80px] bg-slate-50 border-slate-200 resize-y"
                                 />
                             </div>
                         </div>

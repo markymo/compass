@@ -718,6 +718,7 @@ model MasterFieldDefinition {
   isMultiValue       Boolean                   @default(false)
   options            String[]                  @default([])
   notes              String?
+  defaultResponse    String?
   categoryId         String?
   isActive           Boolean                   @default(true)
   order              Float                     @default(0)

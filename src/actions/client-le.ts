@@ -563,7 +563,32 @@ export async function getFullMasterData(clientLEId: string) {
     const subjectLeId = clientLE.legalEntityId;
     const ownerScopeId = await KycStateService.resolveScopeId(clientLEId);
 
-    const flattened: Record<number, { value: any, source?: string, sourceReference?: string }> = {};
+    const flattened: Record<number, { 
+        value: any, 
+        source?: string, 
+        sourceReference?: string,
+        displayState: "HAS_VALUE" | "MAPPED_NOT_CHECKED" | "CHECKED_NO_DATA" | "DEFAULT_RESPONSE" | "UNMAPPED_NO_RESPONSE",
+        defaultResponse?: string
+    }> = {};
+
+    const isEmptyValue = (val: any) => {
+        if (val === null || val === undefined) return true;
+        if (typeof val === 'string' && val.trim() === '') return true;
+        if (Array.isArray(val) && val.length === 0) return true;
+        if (typeof val === 'object' && Object.keys(val).length === 0) return true;
+        return false;
+    };
+
+    const allMappings = await prisma.sourceFieldMapping.findMany({
+        where: { isActive: true },
+        select: { targetFieldNo: true, sourceType: true }
+    });
+    const mappingsByField = new Map<number, string[]>();
+    for (const m of allMappings) {
+        const list = mappingsByField.get(m.targetFieldNo) || [];
+        list.push(m.sourceType);
+        mappingsByField.set(m.targetFieldNo, list);
+    }
 
     if (subjectLeId) {
         const allFields = await listAllMasterFields();
@@ -587,25 +612,72 @@ export async function getFullMasterData(clientLEId: string) {
 
         for (const def of allFields) {
             const val = resolved.get(def.fieldNo);
-            if (val === null || val === undefined) continue;
+            let valueToSet: any = null;
+            let sourceToSet: string | undefined = undefined;
+            let sourceRefToSet: string | undefined = undefined;
 
-            if (Array.isArray(val)) {
-                // Collection field
-                if (val.length > 0) {
-                    flattened[def.fieldNo] = {
-                        value: val.map(c => c.value),
-                        source: val[0].isScoped ? 'USER_INPUT' : (val[0].evidenceProvider || val[0].sourceType || 'MASTER_RECORD'),
-                        sourceReference: val[0].sourceReference ?? undefined,
-                    };
+            if (val !== null && val !== undefined) {
+                if (Array.isArray(val)) {
+                    if (val.length > 0) {
+                        valueToSet = val.map(c => c.value);
+                        sourceToSet = val[0].isScoped ? 'USER_INPUT' : (val[0].evidenceProvider || val[0].sourceType || 'MASTER_RECORD');
+                        sourceRefToSet = val[0].sourceReference ?? undefined;
+                    }
+                } else {
+                    valueToSet = val.value;
+                    sourceToSet = val.isScoped ? 'USER_INPUT' : (val.evidenceProvider || val.sourceType || 'MASTER_RECORD');
+                    sourceRefToSet = val.sourceReference ?? undefined;
                 }
-            } else {
-                // Single-value field
-                flattened[def.fieldNo] = {
-                    value: val.value,
-                    source: val.isScoped ? 'USER_INPUT' : (val.evidenceProvider || val.sourceType || 'MASTER_RECORD'),
-                    sourceReference: val.sourceReference ?? undefined,
-                };
             }
+
+            const hasValue = !isEmptyValue(valueToSet);
+            const mappedSources = mappingsByField.get(def.fieldNo) || [];
+            const hasMapping = mappedSources.length > 0;
+            
+            let hasEvaluationAttempt = false;
+            let evaluatedSourceBadge = "";
+            
+            if (hasMapping) {
+                if (mappedSources.includes("GLEIF") && clientLE.gleifFetchedAt) {
+                    hasEvaluationAttempt = true;
+                    evaluatedSourceBadge = "GLEIF";
+                } else if (mappedSources.includes("REGISTRATION_AUTHORITY") && clientLE.registryReferences?.some((r: any) => r.lastSyncSucceededAt || r.lastSyncStatus)) {
+                    hasEvaluationAttempt = true;
+                    evaluatedSourceBadge = "REGISTRATION_AUTHORITY";
+                } else if (mappedSources.includes("COMPANIES_HOUSE") && clientLE.registryReferences?.some((r: any) => r.authority?.name?.includes("Companies House"))) {
+                    hasEvaluationAttempt = true;
+                    evaluatedSourceBadge = "COMPANIES_HOUSE";
+                } else if (clientLE.gleifFetchedAt || clientLE.registryReferences?.length > 0) {
+                    // Fallback: If it's mapped to some automated source and we've done general enrichment
+                    hasEvaluationAttempt = true;
+                }
+                
+                if (!evaluatedSourceBadge && mappedSources.length > 0) {
+                    evaluatedSourceBadge = mappedSources[0];
+                }
+            }
+
+            let displayState: "HAS_VALUE" | "MAPPED_NOT_CHECKED" | "CHECKED_NO_DATA" | "DEFAULT_RESPONSE" | "UNMAPPED_NO_RESPONSE" = "UNMAPPED_NO_RESPONSE";
+
+            if (hasValue) {
+                displayState = "HAS_VALUE";
+            } else if (hasMapping && !hasEvaluationAttempt) {
+                displayState = "MAPPED_NOT_CHECKED";
+                sourceToSet = evaluatedSourceBadge || undefined;
+            } else if (hasMapping && hasEvaluationAttempt) {
+                displayState = "CHECKED_NO_DATA";
+                sourceToSet = evaluatedSourceBadge || undefined;
+            } else if (def.defaultResponse) {
+                displayState = "DEFAULT_RESPONSE";
+            }
+
+            flattened[def.fieldNo] = {
+                value: valueToSet,
+                source: sourceToSet,
+                sourceReference: sourceRefToSet,
+                displayState,
+                defaultResponse: def.defaultResponse ?? undefined
+            };
         }
     }
 

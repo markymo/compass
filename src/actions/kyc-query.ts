@@ -370,6 +370,8 @@ export interface FieldDetailData {
         sourceReference?: string;
         claimId?: string;
     } | null;
+    displayState?: "HAS_VALUE" | "MAPPED_NOT_CHECKED" | "CHECKED_NO_DATA" | "DEFAULT_RESPONSE" | "UNMAPPED_NO_RESPONSE";
+    defaultResponse?: string;
     assignment: {
         id: string;
         assignedToUserId: string;
@@ -802,6 +804,65 @@ export async function getFieldDetail(
 
     const noteText = noteRecord?.[0]?.text || null;
 
+    const fieldMappings = await prisma.sourceFieldMapping.findMany({
+        where: { targetFieldNo: fieldNo, isActive: true },
+        select: { sourceType: true }
+    });
+    const mappedSources = fieldMappings.map((m: any) => m.sourceType);
+    const hasMapping = mappedSources.length > 0;
+    
+    let hasEvaluationAttempt = false;
+    let evaluatedSourceBadge = "";
+    
+    if (hasMapping && entityType === 'CLIENT_LE') {
+        const clientLE = await prisma.clientLE.findUnique({
+            where: { id: entityId },
+            include: { registryReferences: { include: { authority: true } } }
+        });
+        if (clientLE) {
+            if (mappedSources.includes("GLEIF") && clientLE.gleifFetchedAt) {
+                hasEvaluationAttempt = true;
+                evaluatedSourceBadge = "GLEIF";
+            } else if (mappedSources.includes("REGISTRATION_AUTHORITY") && clientLE.registryReferences?.some((r: any) => r.lastSyncSucceededAt || r.lastSyncStatus)) {
+                hasEvaluationAttempt = true;
+                evaluatedSourceBadge = "REGISTRATION_AUTHORITY";
+            } else if (mappedSources.includes("COMPANIES_HOUSE") && clientLE.registryReferences?.some((r: any) => r.authority?.name?.includes("Companies House"))) {
+                hasEvaluationAttempt = true;
+                evaluatedSourceBadge = "COMPANIES_HOUSE";
+            } else if (clientLE.gleifFetchedAt || clientLE.registryReferences?.length > 0) {
+                hasEvaluationAttempt = true;
+            }
+        }
+        if (!evaluatedSourceBadge && mappedSources.length > 0) {
+            evaluatedSourceBadge = mappedSources[0];
+        }
+    }
+
+    const isEmptyValue = (val: any) => {
+        if (val === null || val === undefined) return true;
+        if (typeof val === 'string' && val.trim() === '') return true;
+        if (Array.isArray(val) && val.length === 0) return true;
+        if (typeof val === 'object' && Object.keys(val).length === 0) return true;
+        return false;
+    };
+
+    let displayState: "HAS_VALUE" | "MAPPED_NOT_CHECKED" | "CHECKED_NO_DATA" | "DEFAULT_RESPONSE" | "UNMAPPED_NO_RESPONSE" = "UNMAPPED_NO_RESPONSE";
+    
+    const derivedValueForCheck = def?.isMultiValue && rows ? rows.map((r: any) => r.value) : derived?.value;
+    const hasValue = !isEmptyValue(derivedValueForCheck);
+    
+    if (hasValue) {
+        displayState = "HAS_VALUE";
+    } else if (hasMapping && !hasEvaluationAttempt) {
+        displayState = "MAPPED_NOT_CHECKED";
+    } else if (hasMapping && hasEvaluationAttempt) {
+        displayState = "CHECKED_NO_DATA";
+    } else if ((def as any)?.defaultResponse) {
+        displayState = "DEFAULT_RESPONSE";
+    }
+
+    let finalSourceBadgeForEmpty = (!hasValue && (displayState === 'MAPPED_NOT_CHECKED' || displayState === 'CHECKED_NO_DATA')) ? evaluatedSourceBadge : undefined;
+
     return {
         fieldNo,
         fieldName: def?.fieldName,
@@ -828,12 +889,19 @@ export async function getFieldDetail(
         notes: def?.notes || undefined,
         current: derived ? {
             value: def?.isMultiValue && rows ? rows.map((r: any) => r.value) : derived.value,
-            source: (derived.isScoped ? 'USER_INPUT' : (derived.evidenceProvider || 'SYSTEM')) as ProvenanceSource,
+            source: (derived.isScoped ? 'USER_INPUT' : (derived.evidenceProvider || derived.sourceType || 'SYSTEM')) as ProvenanceSource,
             sourceReference: derived.sourceReference || undefined,
             timestamp: derived.assertedAt,
             confidence: derived.confidenceScore || 1.0,
             claimId: derived.claimId
-        } : null,
+        } : (finalSourceBadgeForEmpty ? {
+            value: null,
+            source: finalSourceBadgeForEmpty as ProvenanceSource,
+            timestamp: null,
+            confidence: null
+        } : null),
+        displayState,
+        defaultResponse: (def as any)?.defaultResponse || undefined,
         assignment: assignment ? {
             id: assignment.id,
             assignedToUserId: assignment.assignedToUserId,

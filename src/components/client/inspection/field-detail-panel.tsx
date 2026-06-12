@@ -87,7 +87,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
     const isCodeList = !!data?.codeSystem;
     
     const renderRowValue = (val: any) => {
-        if (!val) return <span className="text-slate-400 italic">Empty</span>;
+        if (!val) return <span className="text-slate-400 italic">No value provided</span>;
         if (typeof val === 'object') {
             if (isAddressValue(val)) {
                 return <AddressValueViewer value={val} layout="compact" />;
@@ -1138,11 +1138,52 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                             </div>
                                                         </div>
                                                     ) : (
-                                                        /* Empty state — show inline input directly */
+                                                        /* Empty state — show state-aware display first, then inline input */
                                                         <div className="flex items-start gap-3 mt-2">
                                                             <div className="flex-1 space-y-2">
-                                                                {!isLocked ? (
-                                                                    <>
+                                                                {!isEditing ? (
+                                                                    <div className="flex items-start justify-between">
+                                                                        <div className="mt-0.5">
+                                                                            <div className="text-sm text-slate-500 italic mb-2">
+                                                                                {data?.displayState === 'MAPPED_NOT_CHECKED' && 'Source not checked yet'}
+                                                                                {data?.displayState === 'CHECKED_NO_DATA' && 'No data in source record'}
+                                                                                {data?.displayState === 'DEFAULT_RESPONSE' && (
+                                                                                    <span className="flex items-center gap-2 not-italic text-slate-800">
+                                                                                        <span>{data.defaultResponse}</span>
+                                                                                        <Badge variant="outline" className="text-[9px] uppercase tracking-wider text-slate-500 bg-slate-50 border-slate-200">Field Default</Badge>
+                                                                                    </span>
+                                                                                )}
+                                                                                {(!data?.displayState || data?.displayState === 'UNMAPPED_NO_RESPONSE') && 'No response recorded'}
+                                                                            </div>
+                                                                            {(data?.displayState === 'MAPPED_NOT_CHECKED' || data?.displayState === 'CHECKED_NO_DATA') && data?.current?.source && (
+                                                                                <div className="mt-2 flex items-center gap-2">
+                                                                                    <SourceBadge source={data.current.source} registrationAuthorityId={registrationAuthorityId} />
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+                                                                        {!isLocked && (
+                                                                            <button
+                                                                                className="p-1.5 rounded text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors shrink-0"
+                                                                                onClick={() => setIsEditing(true)}
+                                                                                title="Add value"
+                                                                            >
+                                                                                <Plus className="h-4 w-4" />
+                                                                            </button>
+                                                                        )}
+                                                                    </div>
+                                                                ) : !isLocked ? (
+                                                                    <div className="space-y-4">
+                                                                        <div className="flex items-center justify-between">
+                                                                            <span className="text-xs font-semibold text-slate-600 uppercase tracking-tight">Add Value</span>
+                                                                            <Button
+                                                                                variant="ghost"
+                                                                                size="sm"
+                                                                                className="h-auto p-0 text-[10px] text-slate-500 hover:bg-transparent hover:underline"
+                                                                                onClick={() => setIsEditing(false)}
+                                                                            >
+                                                                                Cancel
+                                                                            </Button>
+                                                                        </div>
                                                                         {isObjectRef ? (
                                                                             <GraphNodePicker
                                                                                 clientLEId={legalEntityId}
@@ -1225,7 +1266,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                                 )}
                                                                             </>
                                                                         )}
-                                                                    </>
+                                                                        </div>
                                                                 ) : (
                                                                     <div className="text-[13px] text-slate-400 italic mt-2">No value provided.</div>
                                                                 )}
