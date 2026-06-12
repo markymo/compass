@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import Link from "next/link";
 import { Loader2, Save, FileText, Database, Link as LinkIcon, BookOpen, ScanSearch, Trash2, GitBranch, Plus, Edit } from "lucide-react";
 import { updateMasterField } from "@/actions/master-data-governance";
 import { useRouter } from "next/navigation";
@@ -20,6 +21,8 @@ import { upsertGraphBinding, deleteGraphBinding } from "@/actions/graph-bindings
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { CategoryCombobox } from "./category-combobox";
 import { DataInspectorPanel } from "@/components/client/admin/source-mappings/data-inspector-panel";
+import { AddressFieldSourceMappingModal } from "@/components/client/admin/source-mappings/address-field-source-mapping-modal";
+import { MappingFormDialog } from "@/components/client/admin/source-mappings/mapping-form-dialog";
 import { SOURCE_OPTIONS, getSourceDisplayName } from "@/lib/source-display";
 import { getEffectiveMappingDefaults } from "@/actions/user-preferences";
 import { SCALAR_UI_OPTIONS, REFERENCE_UI_OPTIONS, APP_DATA_TYPES } from "@/lib/master-data/field-types";
@@ -38,9 +41,10 @@ interface FieldDetailSheetProps {
     categories: any[];
     /** All active source mappings across ALL master fields, enriched with fieldNo + fieldName. */
     allSourceMappings?: Array<{ sourceType: string; sourceReference?: string | null; sourcePath: string; fieldNo: number; fieldName: string; isActive: boolean }>;
+    fieldDefinitions?: any[];
 }
 
-export function FieldDetailSheet({ field, open, onOpenChange, categories=[], allSourceMappings=[] }: FieldDetailSheetProps) {
+export function FieldDetailSheet({ field, open, onOpenChange, categories=[], allSourceMappings=[], fieldDefinitions=[] }: FieldDetailSheetProps) {
     const router = useRouter();
     const [loading, setLoading] = useState(false);
     const [optionSets, setOptionSets] = useState<any[]>([]);
@@ -109,11 +113,10 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
     }, [field, open]);
 
     const [isAddMappingOpen, setIsAddMappingOpen] = useState(false);
+    const [isAddressMappingModalOpen, setIsAddressMappingModalOpen] = useState(false);
     const [isBrowserOpen, setIsBrowserOpen] = useState(false);
     const [deletingMappingId, setDeletingMappingId] = useState<string | null>(null);
-    const [editingPriorityId, setEditingPriorityId] = useState<string | null>(null);
-    const [priorityValue, setPriorityValue] = useState<number>(0);
-    const [isPrioritySaving, setIsPrioritySaving] = useState(false);
+    const [editingMapping, setEditingMapping] = useState<any | null>(null);
     const [mappingForm, setMappingForm] = useState<{
         sourceType: string;
         sourcePath: string;
@@ -599,10 +602,23 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                             <h3 className="text-sm font-semibold flex items-center gap-2 text-slate-800">
                                 <LinkIcon className="w-4 h-4 text-slate-400" /> Source Mappings
                             </h3>
-                            <Dialog open={isAddMappingOpen} onOpenChange={setIsAddMappingOpen}>
-                                <DialogTrigger asChild>
-                                    <Button variant="outline" size="sm" className="h-7 text-xs">Add Mapping</Button>
-                                </DialogTrigger>
+                            {field.appDataType === 'ADDRESS' ? (
+                                <>
+                                    <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setIsAddressMappingModalOpen(true)}>Add Address Source Mapping</Button>
+                                    <AddressFieldSourceMappingModal
+                                        open={isAddressMappingModalOpen}
+                                        onOpenChange={setIsAddressMappingModalOpen}
+                                        targetFieldNo={field.fieldNo}
+                                        targetFieldName={field.fieldName}
+                                        resolvedDefaults={resolvedDefaults}
+                                        fieldDefinitions={fieldDefinitions}
+                                    />
+                                </>
+                            ) : (
+                                <Dialog open={isAddMappingOpen} onOpenChange={setIsAddMappingOpen}>
+                                    <DialogTrigger asChild>
+                                        <Button variant="outline" size="sm" className="h-7 text-xs">Add Mapping</Button>
+                                    </DialogTrigger>
                                 <DialogContent className="sm:max-w-[425px]">
                                     <DialogHeader>
                                         <DialogTitle>Add Source Mapping</DialogTitle>
@@ -713,6 +729,7 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                                     </DialogFooter>
                                 </DialogContent>
                             </Dialog>
+                            )}
 
                             {/* Live Data Browser — secondary dialog triggered from Browse button */}
                             <Dialog open={isBrowserOpen} onOpenChange={setIsBrowserOpen}>
@@ -772,46 +789,13 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                                         <div className="flex items-center gap-3 shrink-0 ml-3">
                                             <span className="text-xs text-slate-400">{mapping.transformType}</span>
 
-{editingPriorityId === mapping.id ? (
-  <div className="flex items-center gap-2">
-    <Input
-      type="number"
-      min={1}
-      value={priorityValue}
-      onChange={(e) => setPriorityValue(parseInt(e.target.value, 10) || 0)}
-      className="w-16"
-    />
-    <Button variant="outline" size="sm" onClick={() => setEditingPriorityId(null)} disabled={isPrioritySaving}>Cancel</Button>
-    <Button size="sm" onClick={async () => {
-      setIsPrioritySaving(true);
-      const res = await upsertSourceMapping({
-        id: mapping.id,
-        sourceType: mapping.sourceType,
-        sourceReference: mapping.sourceReference ?? undefined,
-        sourcePath: mapping.sourcePath,
-        targetFieldNo: field.fieldNo,
-        priority: priorityValue,
-      });
-      setIsPrioritySaving(false);
-      if (res.success) {
-        toast.success('Priority updated');
-        router.refresh();
-        setEditingPriorityId(null);
-      } else {
-        toast.error(res.error ?? 'Failed to update priority');
-      }
-    }} disabled={isPrioritySaving}>Save</Button>
-  </div>
-) : (
-  <>
-    <Badge variant={mapping.isActive ? "default" : "secondary"} className={mapping.isActive ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-100" : ""}>
-      {mapping.priority}
-    </Badge>
-    <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-primary" onClick={() => { setEditingPriorityId(mapping.id); setPriorityValue(mapping.priority); }}>
-      <Edit className="h-3 w-3" />
-    </Button>
-  </>
-)}
+                                            <Badge variant={mapping.isActive ? "default" : "secondary"} className={mapping.isActive ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-100" : ""}>
+                                              {mapping.priority}
+                                            </Badge>
+                                            <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-primary" onClick={() => setEditingMapping(mapping)}>
+                                              <Edit className="h-3 w-3" />
+                                            </Button>
+
                     <Button
                       variant="ghost"
                       size="icon"
@@ -1187,6 +1171,19 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                     </section>
                 </div>
             </SheetContent>
+        <MappingFormDialog
+            open={!!editingMapping}
+            onOpenChange={(v) => !v && setEditingMapping(null)}
+            selectedOption={SOURCE_OPTIONS.find(o => o.sourceType === editingMapping?.sourceType && o.sourceReference === editingMapping?.sourceReference) || SOURCE_OPTIONS[0]}
+            fieldDefs={fieldDefinitions}
+            existingMapping={{...editingMapping, targetFieldNo: field?.fieldNo}}
+            initialSourcePath=""
+            onSaved={() => {
+                setEditingMapping(null);
+                router.refresh();
+            }}
+            resolvedDefaults={resolvedDefaults}
+        />
         </Sheet>
     );
 }
