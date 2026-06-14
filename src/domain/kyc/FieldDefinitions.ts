@@ -13,7 +13,7 @@ export type FieldDefinition = {
     fieldName: string;
     model: string; // Legacy: Prisma model name
     field: string | null; // Legacy: Prisma field name
-    appDataType: 'TEXT' | 'NUMBER' | 'DATE' | 'DATETIME' | 'PERSON_REF' | 'PARTY_REF' | 'ORG_REF' | 'ADDRESS_REF' | 'DOCUMENT_REF' | 'JSONB' | 'ADDRESS';
+    appDataType: 'TEXT' | 'NUMBER' | 'DATE' | 'DATETIME' | 'PERSON_REF' | 'PARTY_REF' | 'ORG_REF' | 'ADDRESS_REF' | 'DOCUMENT_REF' | 'JSONB' | 'ADDRESS' | 'PERSON_OR_CONTACT';
     dataType: 'string' | 'integer' | 'boolean' | 'date' | 'datetime' | 'jsonb' | 'document'; // Legacy
     isMultiValue: boolean; // New multiplicity flag
     isRepeating: boolean; // Legacy multiplicity flag
@@ -811,13 +811,13 @@ export const FIELD_DEFINITIONS: Record<number, FieldDefinition> = {
         fieldName: 'List of company directors',
         model: 'Stakeholder',
         field: 'role',
-        appDataType: 'PARTY_REF',
-        dataType: 'string',
+        appDataType: 'PERSON_OR_CONTACT',
+        dataType: 'jsonb',
         isMultiValue: true,
         isRepeating: true,
         dbTable: 'stakeholders',
         dbColumn: 'role',
-        notes: 'Role = DIRECTOR. Can also point to Org.',
+        notes: 'List of company directors stored as embedded PersonOrContact structures with roles[].',
         options: ['DIRECTOR', 'UBO', 'CONTROLLER'],
     },
     64: {

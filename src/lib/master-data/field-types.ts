@@ -43,6 +43,12 @@ export const APP_DATA_TYPES = {
     // Address — stored as embedded JSON in production (new)
     ADDRESS:      'ADDRESS',
 
+    // Person or Contact — Phase 1: stored as embedded JSON in FieldClaim.valueJson.
+    // The enrichment pipeline does not create Person/LE graph nodes for this type.
+    // Future: KG promotion (PERSON_REF linkage, director/signatory edges) is in scope
+    // and is not constrained by this registration.
+    PERSON_OR_CONTACT: 'PERSON_OR_CONTACT',
+
     // Reference types — require MasterFieldGraphBinding to be configured.
     // PERSON_REF: links to a Person graph node (strictly individuals)
     PERSON_REF:   'PERSON_REF',
@@ -71,6 +77,7 @@ export const SCALAR_TYPES = new Set<AppDataType>([
     APP_DATA_TYPES.JSONB,
     APP_DATA_TYPES.SELECT,
     APP_DATA_TYPES.ADDRESS,
+    APP_DATA_TYPES.PERSON_OR_CONTACT,
 ]);
 
 /** Types that materialise relational rows (Person, Address, LegalEntity) */
@@ -112,13 +119,14 @@ export interface AppDataTypeOption {
 
 /** Scalar types for the standard admin field create/edit dropdowns. */
 export const SCALAR_UI_OPTIONS: AppDataTypeOption[] = [
-    { value: APP_DATA_TYPES.TEXT,     label: 'Text (String)' },
-    { value: APP_DATA_TYPES.NUMBER,   label: 'Number' },
-    { value: APP_DATA_TYPES.BOOLEAN,  label: 'Boolean' },
-    { value: APP_DATA_TYPES.DATETIME, label: 'Date / DateTime' },
-    { value: APP_DATA_TYPES.JSONB,    label: 'JSON' },
-    { value: APP_DATA_TYPES.SELECT,   label: 'Dropdown Selection' },
-    { value: APP_DATA_TYPES.ADDRESS,  label: 'Address (Structured Embedded)' },
+    { value: APP_DATA_TYPES.TEXT,              label: 'Text (String)' },
+    { value: APP_DATA_TYPES.NUMBER,            label: 'Number' },
+    { value: APP_DATA_TYPES.BOOLEAN,           label: 'Boolean' },
+    { value: APP_DATA_TYPES.DATETIME,          label: 'Date / DateTime' },
+    { value: APP_DATA_TYPES.JSONB,             label: 'JSON' },
+    { value: APP_DATA_TYPES.SELECT,            label: 'Dropdown Selection' },
+    { value: APP_DATA_TYPES.ADDRESS,           label: 'Address (Structured Embedded)' },
+    { value: APP_DATA_TYPES.PERSON_OR_CONTACT, label: 'Person or Contact (Structured Embedded)' },
 ];
 
 /** Reference types — require additional graph binding configuration. */

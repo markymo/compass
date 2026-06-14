@@ -159,8 +159,7 @@ describe('NS-7: complex-field-config — fieldNo 125 Named Signatories', () => {
 
     it('does not affect field 63 Directors config', () => {
         const cfg = getComplexFieldConfig(63) as any;
-        expect(cfg.graph.edgeType).toBe('DIRECTOR');
-        expect(cfg.graph.writeBackEdgeType).toBe('DIRECTOR');
+        expect(cfg.kind).toBe('STRUCTURED_COLLECTION');
         expect(cfg.collectionId).toBe('DIRECTORS');
     });
 });
@@ -394,7 +393,7 @@ describe('NS-6: Field 63 Directors — still writes DIRECTOR edge, unaffected by
 
     it('field 63 config is still correct after adding field 125', () => {
         const cfg = getComplexFieldConfig(63) as any;
-        expect(cfg.graph.edgeType).toBe('DIRECTOR');
+        expect(cfg.kind).toBe('STRUCTURED_COLLECTION');
         expect(cfg.collectionId).toBe('DIRECTORS');
         expect(getComplexFieldConfig(125)).toBeDefined(); // both coexist
     });

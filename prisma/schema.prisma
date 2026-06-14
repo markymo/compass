@@ -857,6 +857,8 @@ model SourceFieldMapping {
   confidenceDefault Float                 @default(1.0)
   transformType     MappingTransformType  @default(DIRECT)
   transformConfig   Json?
+  filterConfig      Json?
+  syncMode          String                @default("UPSERT_ONLY")
   priority          Int                   @default(100)
   isActive          Boolean               @default(true)
   notes             String?
@@ -1176,6 +1178,8 @@ enum MappingTransformType {
   TO_PARTY_LIST
   TO_NAME_HISTORY_LIST
   TO_CODE_LIST
+  TO_PERSON_OR_CONTACT_VALUE
+  TO_PERSON_OR_CONTACT_LIST
   /// Converts a GLEIF Registration Authority code (e.g. RA000192) to the
   /// human-readable name stored in the registry_authorities table.
   /// Lookup is pre-loaded at enrichment time; applyTransform receives it

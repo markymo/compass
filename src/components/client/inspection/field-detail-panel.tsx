@@ -27,6 +27,9 @@ import { cn } from "@/lib/utils";
 import { CollectionRowDisplay } from "@/lib/master-data/structured-collection-renderers";
 import { CodeListField } from "@/components/client/fields/CodeListField";
 import { AddressValueViewer, isAddressValue } from "../fields/AddressValueViewer";
+import { isPersonOrContactValue, getPersonOrContactSummary } from "@/lib/master-data/person-or-contact-value";
+import { PersonOrContactValueViewer } from "../fields/PersonOrContactValueViewer";
+import { PersonOrContactValueEditor } from "../fields/PersonOrContactValueEditor";
 
 import {
     DropdownMenu,
@@ -69,10 +72,12 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
 
     // Multi-value inline management state
     const [editingRowId, setEditingRowId] = useState<string | null>(null);
-    const [editingRowValue, setEditingRowValue] = useState("");
+    const [editingRowValue, setEditingRowValue] = useState<any>("");
     const [deletingRowId, setDeletingRowId] = useState<string | null>(null);
     const [newEntryValue, setNewEntryValue] = useState("");
     const [isAddingSaving, setIsAddingSaving] = useState(false);
+    const [isAddingPerson, setIsAddingPerson] = useState(false);
+    const [newPersonData, setNewPersonData] = useState<any>(null);
     const [addDialogOpen, setAddDialogOpen] = useState(false);
     const newEntryInputRef = useRef<HTMLInputElement>(null);
 
@@ -82,22 +87,38 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                     || data?.dataType === 'PERSON_REF'
                     || data?.dataType === 'ORG_REF';
     const isAddressRef = data?.dataType === 'ADDRESS_REF';
-    const isObjectRef = isPartyRef || isAddressRef;
+    const isPersonOrContactField = data?.dataType === 'PERSON_OR_CONTACT';
+
+    let isObjectRef = isPartyRef || isAddressRef;
+    if (isPersonOrContactField) {
+        isObjectRef = false;
+    }
     // Controlled-vocabulary collection: uses CodeListField UX instead of free-text
     const isCodeList = !!data?.codeSystem;
     
     const renderRowValue = (val: any) => {
         if (!val) return <span className="text-slate-400 italic">No value provided</span>;
-        if (typeof val === 'object') {
-            if (isAddressValue(val)) {
-                return <AddressValueViewer value={val} layout="compact" />;
+        
+        let parsedVal = val;
+        if (typeof val === 'string' && (val.startsWith('{') || val.startsWith('['))) {
+            try {
+                parsedVal = JSON.parse(val);
+            } catch (e) {}
+        }
+
+        if (typeof parsedVal === 'object') {
+            if (isAddressValue(parsedVal)) {
+                return <AddressValueViewer value={parsedVal} layout="compact" />;
             }
-            if (val.firstName || val.lastName) return `${val.firstName || ''} ${val.lastName || ''}`.trim() + (val.metadata_type === 'LEGAL_ENTITY' ? ' (Company)' : '');
-            if (val.name) return val.name;
-            if (val.line1) return `${val.line1}${val.city ? ', ' + val.city : ''}`;
+            if (isPersonOrContactValue(parsedVal)) {
+                return <PersonOrContactValueViewer value={parsedVal} layout="compact" />;
+            }
+            if (parsedVal.firstName || parsedVal.lastName) return `${parsedVal.firstName || ''} ${parsedVal.lastName || ''}`.trim() + (parsedVal.metadata_type === 'LEGAL_ENTITY' ? ' (Company)' : '');
+            if (parsedVal.name) return parsedVal.name;
+            if (parsedVal.line1) return `${parsedVal.line1}${parsedVal.city ? ', ' + parsedVal.city : ''}`;
             // Code-list items: { code, label } — e.g. SIC codes
-            if (val.code !== undefined) return val.label ? `${val.code} — ${val.label}` : String(val.code);
-            return JSON.stringify(val);
+            if (parsedVal.code !== undefined) return parsedVal.label ? `${parsedVal.code} — ${parsedVal.label}` : String(parsedVal.code);
+            return JSON.stringify(parsedVal);
         }
         return String(val);
     };
@@ -349,14 +370,17 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
         }
     }, [selectedRowId, data?.rows, data?.category]);
 
-    const handleAddNewEntry = async () => {
-        if (!newEntryValue.trim()) return;
+    const handleAddNewEntry = async (valToUse?: any) => {
+        const val = valToUse !== undefined ? valToUse : newEntryValue;
+        if (val == null) return;
+        if (typeof val === 'string' && !val.trim()) return;
         setIsAddingSaving(true);
         try {
-            const res = await addMultiValueEntry(legalEntityId, fieldNo, newEntryValue.trim());
+            const res = await addMultiValueEntry(legalEntityId, fieldNo, typeof val === 'string' ? val.trim() : val);
             if (res.success) {
                 toast.success("Value added");
                 setNewEntryValue("");
+                setIsAddingPerson(false);
                 const refreshed = await getFieldDetail(legalEntityId, fieldNo, 'CLIENT_LE', customFieldId);
                 setData(refreshed);
                 if (onUpdate && refreshed?.current) {
@@ -479,13 +503,15 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
     };
 
     const handleInlineEditSave = async (row: any) => {
-        if (!editingRowValue.trim()) return;
+        if (editingRowValue == null) return;
+        const isString = typeof editingRowValue === 'string';
+        if (isString && !editingRowValue.trim()) return;
         setIsSaving(true);
         try {
             const result = await updateFieldManually(
                 legalEntityId,
                 fieldNo,
-                editingRowValue.trim(),
+                isString ? editingRowValue.trim() : editingRowValue,
                 "Inline edit",
                 row.instanceId,
                 'CLIENT_LE'
@@ -903,6 +929,14 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                                 onCreateNew={() => handleCreateNewNode(graphBindings.find(b => b.isActive)?.graphNodeType || (isPartyRef ? "PERSON" : "ADDRESS"))}
                                                                             />
                                                                         </div>
+                                                                    ) : isPersonOrContactField ? (
+                                                                        <div className="flex-1 min-w-0 bg-slate-50 p-2 rounded border border-slate-200">
+                                                                            <PersonOrContactValueEditor
+                                                                                value={editingRowValue || { contactType: 'PERSON', roles: [] } as any}
+                                                                                onChange={setEditingRowValue}
+                                                                                disabled={isSaving}
+                                                                            />
+                                                                        </div>
                                                                     ) : (
                                                                         data?.options && data.options.length > 0 ? (
                                                                             <Select
@@ -942,7 +976,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                             size="icon"
                                                                             className="h-7 w-7 text-green-600 hover:bg-green-50"
                                                                             onClick={() => handleInlineEditSave(row)}
-                                                                            disabled={isSaving || !editingRowValue.trim()}
+                                                                            disabled={isSaving || (typeof editingRowValue === 'string' ? !editingRowValue.trim() : !(editingRowValue?.forenames?.trim() || editingRowValue?.surname?.trim()))}
                                                                         >
                                                                             {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
                                                                         </Button>
@@ -961,13 +995,22 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                 <div className="group flex items-center gap-2 px-3 py-2.5 rounded-lg border border-slate-150 bg-white hover:border-slate-300 hover:shadow-sm transition-all">
                                                                     <div className="flex-1 min-w-0">
                                                                         {/* Structured collection row (e.g. Field 5 Previous Names) */}
-                                                                        {row.value && typeof row.value === 'object' && row.value.name ? (
-                                                                            <CollectionRowDisplay fieldNo={fieldNo} row={row.value} />
-                                                                        ) : (
-                                                                            <div className="text-sm font-medium text-slate-900 truncate">
-                                                                                {renderRowValue(row.value)}
-                                                                            </div>
-                                                                        )}
+                                                                        {(() => {
+                                                                            let displayRow = row.value;
+                                                                            if (typeof row.value === 'string' && (row.value.startsWith('{') || row.value.startsWith('['))) {
+                                                                                try {
+                                                                                    displayRow = JSON.parse(row.value);
+                                                                                } catch (e) {}
+                                                                            }
+                                                                            if (displayRow && typeof displayRow === 'object' && (displayRow.name || isPersonOrContactValue(displayRow))) {
+                                                                                return <CollectionRowDisplay fieldNo={fieldNo} row={displayRow} />;
+                                                                            }
+                                                                            return (
+                                                                                <div className="text-sm font-medium text-slate-900 truncate">
+                                                                                    {renderRowValue(row.value)}
+                                                                                </div>
+                                                                            );
+                                                                        })()}
                                                                         <div className="flex items-center gap-2 mt-0.5">
                                                                             <SourceBadge source={row.source as any} sourceReference={row.sourceReference} registrationAuthorityId={registrationAuthorityId} />
                                                                             <span className="text-[9px] text-slate-400">
@@ -984,7 +1027,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                                         handleEditNode(row);
                                                                                     } else {
                                                                                         setEditingRowId(row.id);
-                                                                                        setEditingRowValue(String(row.value));
+                                                                                        setEditingRowValue(isPersonOrContactField ? row.value : String(row.value));
                                                                                     }
                                                                                 }}
                                                                                 title="Edit value"
@@ -1024,6 +1067,80 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                             <Plus className="h-4 w-4 mr-2" />
                                                             Add {graphBindings.find(b => b.isActive)?.pickerLabel?.replace('Select ', '') || (isPartyRef ? "Party" : "Address")}
                                                         </Button>
+                                                    ) : isPersonOrContactField ? (
+                                                        <div>
+                                                            {!isAddingPerson ? (
+                                                                <Button
+                                                                    variant="outline"
+                                                                    onClick={() => {
+                                                                        setIsAddingPerson(true);
+                                                                        setNewPersonData({
+                                                                            contactType: "PERSON",
+                                                                            title: null,
+                                                                            forenames: "",
+                                                                            surname: "",
+                                                                            email: null,
+                                                                            phones: [],
+                                                                            nationality: [],
+                                                                            countryOfResidence: null,
+                                                                            dateOfBirth: null,
+                                                                            placeOfBirth: null,
+                                                                            roles: [
+                                                                                {
+                                                                                    roleType: "director",
+                                                                                    roleTitle: "director",
+                                                                                    company: {
+                                                                                        coparityCompanyId: null,
+                                                                                        externalId: null,
+                                                                                        externalIdScheme: null,
+                                                                                        name: null
+                                                                                    },
+                                                                                    isActiveRole: true,
+                                                                                    appointedOn: null,
+                                                                                    resignedOn: null,
+                                                                                    natureOfControl: []
+                                                                                }
+                                                                            ],
+                                                                            sourceIdentifiers: [],
+                                                                            isActivePersonOrContact: null,
+                                                                            visibility: { scope: "CLIENT_LE" }
+                                                                        } as any);
+                                                                    }}
+                                                                    className="w-full justify-center bg-indigo-50/50 hover:bg-indigo-50 border-indigo-200 text-indigo-700 border-dashed"
+                                                                >
+                                                                    <Plus className="h-4 w-4 mr-2" />
+                                                                    Add Person / Contact
+                                                                </Button>
+                                                            ) : (
+                                                                <div className="space-y-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
+                                                                    <PersonOrContactValueEditor
+                                                                        value={newPersonData || { contactType: 'PERSON', roles: [] } as any}
+                                                                        onChange={setNewPersonData}
+                                                                        disabled={isAddingSaving}
+                                                                    />
+                                                                    <div className="flex items-center gap-2 mt-2">
+                                                                        <Button
+                                                                            size="sm"
+                                                                            className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700"
+                                                                            onClick={() => handleAddNewEntry(newPersonData)}
+                                                                            disabled={isAddingSaving || !(newPersonData?.forenames?.trim() || newPersonData?.surname?.trim())}
+                                                                        >
+                                                                            {isAddingSaving ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Check className="h-3 w-3 mr-1" />}
+                                                                            Add Person
+                                                                        </Button>
+                                                                        <Button
+                                                                            variant="ghost"
+                                                                            size="sm"
+                                                                            className="h-7 text-xs text-slate-500 hover:bg-slate-100"
+                                                                            onClick={() => setIsAddingPerson(false)}
+                                                                            disabled={isAddingSaving}
+                                                                        >
+                                                                            Cancel
+                                                                        </Button>
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                     ) : (
                                                         <div className="flex items-center gap-1.5">
                                                             {data?.options && data.options.length > 0 ? (
@@ -1101,6 +1218,8 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                     <div className="text-base font-medium text-slate-900 break-all leading-relaxed">
                                                                         {isAddressValue(data.current.value) ? (
                                                                             <AddressValueViewer value={data.current.value} layout="detailed" />
+                                                                        ) : isPersonOrContactValue(data.current.value) ? (
+                                                                            <PersonOrContactValueViewer value={data.current.value} layout="detailed" />
                                                                         ) : Array.isArray(data.current.value) ? (
                                                                             <div className="flex flex-wrap gap-1.5 mt-1">
                                                                                 {data.current.value.map((v: any, idx: number) => (
@@ -1126,7 +1245,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                     <button
                                                                         className="p-1.5 rounded text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors shrink-0"
                                                                         onClick={() => {
-                                                                            setManualValue(String(data?.current?.value || ""));
+                                                                            setManualValue(isPersonOrContactField ? (data?.current?.value || "") : String(data?.current?.value || ""));
                                                                             setIsEditing(true);
                                                                             setRelatedValues({});
                                                                         }}
@@ -1202,7 +1321,29 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                             />
                                                                         ) : (
                                                                             <>
-                                                                                {data?.options && data.options.length > 0 ? (
+                                                                                {isPersonOrContactField ? (
+                                                                                    <div className="space-y-3">
+                                                                                        <PersonOrContactValueEditor
+                                                                                            value={typeof manualValue === 'object' && manualValue ? manualValue : { contactType: 'PERSON', roles: [] } as any}
+                                                                                            onChange={(val) => setManualValue(val as any)}
+                                                                                            disabled={isSaving}
+                                                                                        />
+                                                                                        <div className="flex items-center gap-2">
+                                                                                            <Button
+                                                                                                size="sm"
+                                                                                                className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700"
+                                                                                                onClick={() => {
+                                                                                                    setIsEditing(true);
+                                                                                                    handleManualSave();
+                                                                                                }}
+                                                                                                disabled={isSaving}
+                                                                                            >
+                                                                                                {isSaving ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Check className="h-3 w-3 mr-1" />}
+                                                                                                Save
+                                                                                            </Button>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                ) : data?.options && data.options.length > 0 ? (
                                                                                     <div className="space-y-2">
                                                                                         <Select value={manualValue} onValueChange={(v) => setManualValue(v)}>
                                                                                             <SelectTrigger className="bg-white border-slate-200 focus:border-indigo-300">
@@ -1342,7 +1483,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                     </div>
 
                                     {/* ─── Related Fields (UX Enhancement) ─── */}
-                                    {selectedRowId && (data?.fieldNo === 62 || data?.fieldNo === 63 || data?.fieldNo === 64) && (
+                                    {selectedRowId && (data?.fieldNo === 62 || data?.fieldNo === 64) && (
                                         <div className="space-y-3 bg-slate-50 p-3 rounded-md border border-slate-200">
                                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Related Information</p>
 

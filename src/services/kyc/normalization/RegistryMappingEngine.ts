@@ -135,6 +135,59 @@ export class RegistryMappingEngine {
                     }
                     console.log(`[RegistryMappingEngine] field=${fieldNo} transform="${mapping.transformType}" → ${Array.isArray(transformed.value) ? `array[${transformed.value.length}]` : JSON.stringify(transformed.value).slice(0, 80)}`);
 
+                    // FILTER LAYER
+                    // MVP Filter: "includeRoles" on array items (e.g. PERSON_OR_CONTACT)
+                    if (mapping.filterConfig && Array.isArray(transformed.value)) {
+                        const config = mapping.filterConfig as any;
+                        if (config.includeRoles && Array.isArray(config.includeRoles)) {
+                            const filteredValue: any[] = [];
+                            const filteredRowKeys: string[] = [];
+
+                            for (let i = 0; i < transformed.value.length; i++) {
+                                const item = transformed.value[i];
+                                const rowKey = transformed.rowKeys?.[i];
+                                const roles = item.roles || [];
+                                
+                                let matched = false;
+                                for (const filterRule of config.includeRoles) {
+                                    const matchRule = roles.some((r: any) => {
+                                        let rTypeMatch = true;
+                                        if (filterRule.roleType !== undefined) {
+                                            rTypeMatch = String(r.roleType || '').toLowerCase() === String(filterRule.roleType).toLowerCase();
+                                        }
+                                        let rActiveMatch = true;
+                                        if (filterRule.isActiveRole !== undefined) {
+                                            rActiveMatch = r.isActiveRole === filterRule.isActiveRole;
+                                        }
+                                        return rTypeMatch && rActiveMatch;
+                                    });
+                                    if (matchRule) {
+                                        matched = true;
+                                        break;
+                                    }
+                                }
+
+                                if (matched) {
+                                    filteredValue.push(item);
+                                    if (rowKey !== undefined) filteredRowKeys.push(rowKey);
+                                }
+                            }
+
+                            transformed.value = filteredValue;
+                            if (transformed.rowKeys) {
+                                transformed.rowKeys = filteredRowKeys;
+                            }
+                            
+                            console.log(`[RegistryMappingEngine] field=${fieldNo} filter applied → retained ${filteredValue.length} items`);
+                        }
+                    }
+
+                    // If filter removed all items, skip Candidate generation
+                    if (Array.isArray(transformed.value) && transformed.value.length === 0) {
+                        console.log(`[RegistryMappingEngine] skip field=${fieldNo}: filter removed all items`);
+                        continue;
+                    }
+
                     // CANDIDATE GENERATION
                     // [FieldTypeRegistry] Warn on unknown appDataType before emitting a candidate.
                     const targetFieldDef = await prisma.masterFieldDefinition.findUnique({ where: { fieldNo } });
@@ -174,6 +227,9 @@ export class RegistryMappingEngine {
                         // KycWriteService.applyFieldCandidate() uses deterministic instanceIds
                         // during fan-out rather than ephemeral auto_{timestamp}_{i} keys.
                         rowKeys: transformed.rowKeys,
+                        sourceMappingId: mapping.id,
+                        payloadSubtype: mapping.payloadSubtype,
+                        syncMode: mapping.syncMode,
                         source: SourceType.REGISTRATION_AUTHORITY,
                         sourceKey: mappingSourceKey || raId || 'GENERIC_RA',
                         evidenceId: run.id, // Linking to the Run ID as evidence context

@@ -247,59 +247,25 @@ export const COMPLEX_FIELD_CONFIG = {
      * effectiveFrom = appointedOn and effectiveTo = resignedOn.
      */
     63: {
-        kind: 'GRAPH_RELATIONSHIP_COLLECTION',
+        kind: 'STRUCTURED_COLLECTION',
         label: 'Current Directors',
         description:
-            'Current director relationships for this legal entity. ' +
-            'Derived from Companies House officer records and projected into the graph. ' +
-            'Historical (resigned) directors are retained in the audit trail.',
+            'Current director records for this legal entity. ' +
+            'Derived from Companies House officer records and stored as embedded JSON values.',
         collectionId: 'DIRECTORS',
-
-        /**
-         * appDataType: PARTY_REF — not PERSON_REF.
-         *
-         * A director can be either a natural person (individual) or a corporate
-         * entity. UK company law explicitly permits corporate directors, and CH
-         * returns both in its officers array with a `kind` discriminant
-         * ("individual" vs "corporate-entity"). PARTY_REF is the correct type
-         * because it covers both Person and LegalEntity nodes, whereas
-         * PERSON_REF is strictly individuals.
-         *
-         * NOTE: The production DB currently stores 'PERSON_REF' for fields 62–64
-         * (from the 2026-05-19 inventory). That is a pre-existing mismatch that
-         * predates this registry. The DB value should be migrated to 'PARTY_REF'
-         * in a future additive migration. Until then, KycWriteService must
-         * handle both values when routing directors.
-         */
-        appDataType: 'PARTY_REF',
-
+        appDataType: 'PERSON_OR_CONTACT',
         isMultiValue: true,
-        itemType: 'PARTY_RELATIONSHIP',
-        graph: {
-            /**
-             * nodeType PERSON_OR_LEGAL_ENTITY reflects that CH officers may be
-             * natural persons OR corporate entities. The write path discriminates
-             * on the CH `kind` field; the UI should show person fields for
-             * individuals and org fields for corporate directors.
-             */
-            nodeType: 'PERSON_OR_LEGAL_ENTITY',
-            edgeType: 'DIRECTOR',
-            filterActiveOnly: true,
-            writeBackEdgeType: 'DIRECTOR',
-        },
+        itemType: 'STRUCTURED_VALUE',
+        fields: [
+            { key: 'forenames', label: 'Forenames', dataType: 'TEXT', required: false },
+            { key: 'surname',   label: 'Surname',   dataType: 'TEXT', required: false },
+        ],
         temporal: {
             filterByEffectiveDate: true,
-            effectiveFromLabel: 'Appointed',
-            effectiveToLabel: 'Resigned',
+            effectiveFromKey: 'appointedOn',
+            effectiveToKey:   'resignedOn',
         },
-        sourceTransforms: [
-            {
-                source: 'Companies House',
-                transformType: 'TO_PARTY_LIST',
-                description: 'Ingests the officers array from the CH API. Each officer becomes one director row. Individual officers produce Person nodes; corporate officers produce LegalEntity nodes.',
-            },
-        ],
-    } satisfies GraphRelationshipCollectionConfig,
+    } satisfies StructuredCollectionConfig,
 
     /**
      * Field 125: Named Signatories

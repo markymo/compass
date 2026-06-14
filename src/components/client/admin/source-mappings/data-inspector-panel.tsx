@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Loader2, Search, Check, PlusCircle, Globe, Tag, MapPin } from "lucide-react";
+import { Loader2, Search, Check, PlusCircle, Globe, Tag, MapPin, Users, User } from "lucide-react";
 import { fetchLiveGleifRecord } from "@/actions/gleif-live";
 import { fetchLiveRegistryRecord } from "@/actions/registry-live";
 import { cn } from "@/lib/utils";
@@ -56,7 +56,7 @@ interface DataInspectorPanelProps {
     allSourceMappings?: CrossFieldMapping[];
     /** fieldNo of the field being edited — used to exclude its own mappings from the "other field" set. */
     currentFieldNo?: number;
-    onSelectPath: (path: string) => void;
+    onSelectPath: (path: string, payloadSubtype?: string, transformType?: string, transformConfig?: any) => void;
     readOnly?: boolean;
     title?: string;
     resolvedDefaults?: {
@@ -99,6 +99,7 @@ export function DataInspectorPanel({
            : "04155137"); // Default CH example
 
     const [query, setQuery] = useState(defaultQuery);
+    const [payloadSubtype, setPayloadSubtype] = useState("COMPANY_PROFILE");
     const [loading, setLoading] = useState(false);
     const [payload, setPayload] = useState<any>(null);
     const [error, setError] = useState<string | null>(null);
@@ -145,7 +146,7 @@ export function DataInspectorPanel({
                         if (res.success) setPayload(res.payload);
                         else { setError(res.error || "Failed to fetch data"); setPayload(null); }
                     } else if (sourceType === "REGISTRATION_AUTHORITY") {
-                        const res = await fetchLiveRegistryRecord(defaultQuery, sourceReference || "COMPANIES_HOUSE");
+                        const res = await fetchLiveRegistryRecord(defaultQuery, sourceReference || "COMPANIES_HOUSE", payloadSubtype);
                         if (res.success) setPayload(res.payload);
                         else { setError(res.error || "Failed to fetch registry data"); setPayload(null); }
                     }
@@ -159,7 +160,7 @@ export function DataInspectorPanel({
         } else {
             setPayload(null);
         }
-    }, [defaultQuery, sourceType, sourceReference]);
+    }, [defaultQuery, sourceType, sourceReference, payloadSubtype]);
 
     // Fix 1: Only highlight paths that belong to THIS source (sourceType + sourceReference match).
     // Previously all mappings were included regardless of source, causing inconsistent
@@ -200,7 +201,7 @@ export function DataInspectorPanel({
             } else if (sourceType === "REGISTRATION_AUTHORITY") {
                 // Pass sourceReference (mappingSourceKey or RA code).
                 // fetchLiveRegistryRecord resolves COMPANIES_HOUSE → RA000585 for connector routing.
-                const res = await fetchLiveRegistryRecord(query, sourceReference || "COMPANIES_HOUSE");
+                const res = await fetchLiveRegistryRecord(query, sourceReference || "COMPANIES_HOUSE", payloadSubtype);
                 if (res.success) setPayload(res.payload);
                 else { setError(res.error || "Failed to fetch registry data"); setPayload(null); }
             } else {
@@ -220,6 +221,30 @@ export function DataInspectorPanel({
             : sourceReference === "RA000192"
             ? "Enter SIREN (9 digits, e.g. 542051180)..."
             : "Enter Company Number (e.g. 07640868)...";
+
+    const targetFieldDef = fieldDefinitions?.find(f => f.fieldNo === (currentFieldNo || initialTargetFieldNo));
+    const isPersonOrContactContext = targetFieldDef?.appDataType === "PERSON_OR_CONTACT" || payloadSubtype === "OFFICERS" || payloadSubtype === "PSC";
+
+    const handleMapPersonOrContact = (path: string, isList: boolean) => {
+        onSelectPath(
+            path,
+            payloadSubtype,
+            isList ? "TO_PERSON_OR_CONTACT_LIST" : "TO_PERSON_OR_CONTACT_VALUE",
+            {
+                fullNamePath: "name",
+                roleTitlePath: "officer_role",
+                appointedOnPath: "appointed_on",
+                resignedOnPath: "resigned_on",
+                nationalityPath: "nationality",
+                countryOfResidencePath: "country_of_residence",
+                dobMonthPath: "date_of_birth.month",
+                dobYearPath: "date_of_birth.year",
+                sourceIdentifiers: [
+                    { scheme: "COMPANIES_HOUSE_PERSON_NUMBER", valuePath: "person_number" }
+                ]
+            }
+        );
+    };
 
     return (
         <Card className="flex flex-col h-[calc(100vh-12rem)] sticky top-6">
@@ -248,6 +273,26 @@ export function DataInspectorPanel({
                         <span className="inline-block w-2 h-2 rounded-full bg-slate-300" /> Unmapped
                     </span>
                 </div>
+
+                {isCompaniesHouse && (
+                    <div className="flex gap-1 mt-3">
+                        {["COMPANY_PROFILE", "OFFICERS", "PSC"].map(sub => (
+                            <button
+                                key={sub}
+                                onClick={() => setPayloadSubtype(sub)}
+                                className={cn("text-[10px] px-2 py-0.5 rounded border transition-colors",
+                                    payloadSubtype === sub
+                                        ? "bg-blue-600 text-white border-blue-600 font-medium"
+                                        : "text-slate-500 border-slate-200 hover:border-slate-300 bg-white"
+                                )}
+                            >
+                                {sub === "COMPANY_PROFILE" ? "Company Profile"
+                                  : sub === "OFFICERS" ? "Officers"
+                                  : "PSCs"}
+                            </button>
+                        ))}
+                    </div>
+                )}
                 
                 <div className="flex gap-2 mt-3 pt-1">
                     <div className="relative flex-1">
@@ -293,9 +338,11 @@ export function DataInspectorPanel({
                             data={payload} 
                             thisFieldPaths={thisFieldPaths}
                             otherFieldPathMap={otherFieldPathMap}
-                            onSelect={onSelectPath} 
+                            onSelect={(p) => onSelectPath(p, payloadSubtype)} 
                             readOnly={readOnly}
                             onMapAddress={handleMapAddress}
+                            onMapPersonOrContact={handleMapPersonOrContact}
+                            isPersonOrContactContext={isPersonOrContactContext}
                         />
                     </div>
                 )}
@@ -334,7 +381,9 @@ function JsonTree({
     otherFieldPathMap,
     onSelect,
     readOnly = false,
-    onMapAddress
+    onMapAddress,
+    onMapPersonOrContact,
+    isPersonOrContactContext
 }: { 
     data: any,
     path?: string,
@@ -342,7 +391,9 @@ function JsonTree({
     otherFieldPathMap: Map<string, { fieldNo: number; fieldName: string }>,
     onSelect: (path: string) => void,
     readOnly?: boolean,
-    onMapAddress?: (path: string, value: any, heuristicResult: AddressDetectionResult) => void
+    onMapAddress?: (path: string, value: any, heuristicResult: AddressDetectionResult) => void,
+    onMapPersonOrContact?: (path: string, isList: boolean) => void,
+    isPersonOrContactContext?: boolean
 }) {
     if (data === null) {
         return <span className="text-slate-400 font-mono text-xs">null</span>;
@@ -353,6 +404,19 @@ function JsonTree({
         
         return (
             <div className="pl-4 border-l border-slate-200 ml-1 mt-1 space-y-1">
+                {isPersonOrContactContext && !readOnly && onMapPersonOrContact && (
+                    <div className="mb-2 -ml-1">
+                        <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="h-7 text-[11px] font-semibold text-blue-600 border-blue-200 hover:bg-blue-50"
+                            onClick={() => onMapPersonOrContact(path === "" ? "$" : path, true)}
+                        >
+                            <Users className="w-3.5 h-3.5 mr-1.5" />
+                            Map list as Person or Contact
+                        </Button>
+                    </div>
+                )}
                 {data.map((item, index) => (
                     <div key={index} className="flex gap-2">
                         <span className="text-slate-400 text-xs shrink-0 font-mono">[{index}]</span>
@@ -360,17 +424,19 @@ function JsonTree({
                             {typeof item === 'object' && item !== null ? (
                                 <JsonTree 
                                     data={item} 
-                                    path={`${path}[${index}]`}
+                                    path={path === "" ? `[${index}]` : `${path}[${index}]`}
                                     thisFieldPaths={thisFieldPaths}
                                     otherFieldPathMap={otherFieldPathMap}
                                     onSelect={onSelect} 
                                     readOnly={readOnly}
                                     onMapAddress={onMapAddress}
+                                    onMapPersonOrContact={onMapPersonOrContact}
+                                    isPersonOrContactContext={isPersonOrContactContext}
                                 />
                             ) : (
                                 <ValueNode 
                                     value={item} 
-                                    itemPath={`${path}[${index}]`}
+                                    itemPath={path === "" ? `[${index}]` : `${path}[${index}]`}
                                     isMappedHere={thisFieldPaths.has(`${path}[${index}]`)}
                                     otherFieldMapping={otherFieldPathMap.get(`${path}[${index}]`) ?? null}
                                     onSelect={onSelect} 
@@ -411,6 +477,8 @@ function JsonTree({
                             onSelect={onSelect}
                             readOnly={readOnly}
                             onMapAddress={onMapAddress}
+                            onMapPersonOrContact={onMapPersonOrContact}
+                            isPersonOrContactContext={isPersonOrContactContext}
                         />
                     );
                 })}
@@ -445,6 +513,8 @@ function ObjectRow({
     onSelect,
     readOnly,
     onMapAddress,
+    onMapPersonOrContact,
+    isPersonOrContactContext,
 }: {
     keyName: string;
     value: any;
@@ -457,6 +527,8 @@ function ObjectRow({
     onSelect: (path: string) => void;
     readOnly: boolean;
     onMapAddress?: (path: string, value: any, heuristicResult: AddressDetectionResult) => void;
+    onMapPersonOrContact?: (path: string, isList: boolean) => void;
+    isPersonOrContactContext?: boolean;
 }) {
     const [isHovered, setIsHovered] = useState(false);
 
@@ -552,6 +624,8 @@ function ObjectRow({
                         onSelect={onSelect} 
                         readOnly={readOnly}
                         onMapAddress={onMapAddress}
+                        onMapPersonOrContact={onMapPersonOrContact}
+                        isPersonOrContactContext={isPersonOrContactContext}
                     />
                 </div>
             )}

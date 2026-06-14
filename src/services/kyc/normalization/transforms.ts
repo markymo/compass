@@ -90,7 +90,48 @@ type TransformType =
      *
      * On unknown code: returns the raw code with a 0.1 confidence penalty.
      */
-    | 'RA_CODE_TO_NAME';
+    | 'RA_CODE_TO_NAME'
+    /**
+     * Converts a single source object into a PersonOrContactValue (PERSON_OR_CONTACT
+     * appDataType). Stored in FieldClaim.valueJson. No graph node is created.
+     *
+     * transformConfig: ToPersonOrContactValueConfig — field path mappings.
+     * Confidence penalty 0.05 applied when fullNamePath triggers the name parser.
+     */
+    | 'TO_PERSON_OR_CONTACT_VALUE'
+    /**
+     * Converts an array of source objects into PersonOrContactValue[].
+     * Returns { value: PersonOrContactValue[], rowKeys: string[] }.
+     *
+     * Each array item becomes a SEPARATE FieldClaim via applyFieldCandidate fan-out.
+     * The array is the TOP-LEVEL value — never embedded inside a single valueJson.
+     * Mirrors the TO_PARTY_LIST / applyFieldCandidate contract exactly.
+     */
+    | 'TO_PERSON_OR_CONTACT_LIST';
+
+/**
+ * Builds a deterministic row key for a PERSON_OR_CONTACT claim.
+ * Stable within a single Legal Entity context (claims are already scoped to subjectLeId).
+ *
+ * Format: poc_{appointedOn}_{normalisedSurname}_{firstInitial}
+ * Falls back to 'poc_unknown_{normalisedSurname}_{firstInitial}' when appointedOn is absent.
+ *
+ * @internal — exported for testing only
+ */
+export function buildPersonOrContactRowKey(
+    appointedOn: string | null,
+    poc: { surname?: string | null; forenames?: string | null }
+): string {
+    const surname = (poc.surname || 'unknown')
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '');
+    const firstInitial = (poc.forenames || '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '')
+        .charAt(0) || '_';
+    const dateStr = appointedOn ? appointedOn.split('T')[0] : 'unknown';
+    return `poc_${dateStr}_${surname}_${firstInitial}`;
+}
 
 
 /**
@@ -602,6 +643,283 @@ export function applyTransform(
             // This ensures the field is populated even if registry_authorities is stale,
             // and makes the gap visible to operators via the confidence score.
             return { value: code, confidencePenalty: 0.1 };
+        }
+
+        case 'TO_PERSON_OR_CONTACT_VALUE': {
+            // ── Single PERSON_OR_CONTACT object ───────────────────────────────────
+            // Converts one source object → PersonOrContactValue (PERSON_OR_CONTACT appDataType).
+            // Stored in FieldClaim.valueJson. No graph node or edge is created.
+            //
+            // Uses an inline dot-path resolver (matching TO_ADDRESS_VALUE pattern)
+            // so this file stays self-contained with no new imports.
+            // ─────────────────────────────────────────────────────────────────────
+            if (value == null || typeof value !== 'object' || Array.isArray(value)) {
+                return { value: null, confidencePenalty: 1 };
+            }
+
+            const cfg = transformConfig || {};
+            let confidencePenalty = 0;
+
+            // Inline dot-path resolver — mirrors TO_ADDRESS_VALUE pattern
+            const resolveP = (path: string | undefined, src: any = value): any => {
+                if (!path) return null;
+                const parts = path.split('.');
+                let cur = src;
+                for (const part of parts) {
+                    if (cur == null || typeof cur !== 'object') return null;
+                    cur = cur[part];
+                }
+                return cur ?? null;
+            };
+
+            // ── Contact type ──────────────────────────────────────────────────
+            let contactType: 'PERSON' | 'CONTACT' = cfg.defaultContactType || 'PERSON';
+            if (cfg.contactTypePath) {
+                const raw = resolveP(cfg.contactTypePath);
+                if (raw && cfg.contactTypeMap && cfg.contactTypeMap[raw]) {
+                    contactType = cfg.contactTypeMap[raw];
+                }
+            }
+
+            // ── Name parsing ──────────────────────────────────────────────────
+            let forenames: string | null = null;
+            let surname:   string | null = null;
+            let title: string | null = null;
+
+            if (cfg.titlePath) {
+                const raw = resolveP(cfg.titlePath);
+                title = raw ? String(raw).trim() || null : null;
+            }
+
+            if (cfg.fullNamePath) {
+                // Comma-split parser — handles CH format "SMITH, John Robert"
+                const raw = resolveP(cfg.fullNamePath);
+                const rawStr = raw ? String(raw).trim() : '';
+                if (rawStr) {
+                    if (rawStr.includes(',')) {
+                        const commaIdx = rawStr.indexOf(',');
+                        const rawSurname   = rawStr.slice(0, commaIdx).trim();
+                        const rawForenames = rawStr.slice(commaIdx + 1).trim();
+                        // Title-case the surname (CH sends it in ALL CAPS)
+                        surname   = rawSurname.charAt(0).toUpperCase() +
+                                    rawSurname.slice(1).toLowerCase();
+                        forenames = rawForenames || null;
+                    } else if (rawStr.includes(' ')) {
+                        // No comma — last token = surname, rest = forenames
+                        const tokens = rawStr.split(/\s+/);
+                        surname   = tokens.pop() || null;
+                        forenames = tokens.join(' ') || null;
+                    } else {
+                        // Single token — treat as surname
+                        surname   = rawStr;
+                        forenames = null;
+                    }
+                    confidencePenalty = Math.max(confidencePenalty, 0.05); // heuristic parse
+                }
+            } else {
+                // Pre-split name paths
+                if (cfg.forenamesPath) {
+                    const raw = resolveP(cfg.forenamesPath);
+                    forenames = raw ? String(raw).trim() || null : null;
+                }
+                if (cfg.surnamePath) {
+                    const raw = resolveP(cfg.surnamePath);
+                    surname = raw ? String(raw).trim() || null : null;
+                }
+            }
+
+            // Legacy fallback: If mapping used displayNamePath (e.g. for a team/contact),
+            // we map it into forenames if forenames is not already set.
+            if (cfg.displayNamePath) {
+                const raw = resolveP(cfg.displayNamePath);
+                if (raw) forenames = String(raw).trim() || forenames;
+            }
+
+            // ── Contact ───────────────────────────────────────────────────────
+            let email: string | null = null;
+            if (cfg.emailPath) {
+                const raw = resolveP(cfg.emailPath);
+                email = raw ? String(raw).trim() || null : null;
+            }
+
+            // Phones — populated via static config or future extension
+            const phones: { type: 'LANDLINE' | 'MOBILE' | 'OTHER'; number: string }[] = [];
+
+            // ── Nationality ───────────────────────────────────────────────────
+            let nationality: string[] = [];
+            if (cfg.nationalityPath) {
+                const raw = resolveP(cfg.nationalityPath);
+                if (Array.isArray(raw)) {
+                    nationality = raw.map((n: any) => String(n).trim()).filter(Boolean);
+                } else if (raw) {
+                    nationality = [String(raw).trim()].filter(Boolean);
+                }
+            }
+
+            let countryOfResidence: string | null = null;
+            if (cfg.countryOfResidencePath) {
+                const raw = resolveP(cfg.countryOfResidencePath);
+                countryOfResidence = raw ? String(raw).trim() || null : null;
+            }
+
+            // ── Date of Birth — partial (day: null, NEVER defaulted to 1) ─────
+            let dateOfBirth: { year: number | null; month: number | null; day: number | null } | null = null;
+            const dobYear  = cfg.dobYearPath  ? resolveP(cfg.dobYearPath)  : null;
+            const dobMonth = cfg.dobMonthPath ? resolveP(cfg.dobMonthPath) : null;
+            const dobDay   = cfg.dobDayPath   ? resolveP(cfg.dobDayPath)   : null;
+            if (dobYear != null || dobMonth != null) {
+                dateOfBirth = {
+                    year:  dobYear  != null ? Number(dobYear)  : null,
+                    month: dobMonth != null ? Number(dobMonth) : null,
+                    day:   dobDay   != null ? Number(dobDay)   : null,   // null, never 1
+                };
+            }
+
+            let placeOfBirth: string | null = null;
+            if (cfg.placeOfBirthPath) {
+                const raw = resolveP(cfg.placeOfBirthPath);
+                placeOfBirth = raw ? String(raw).trim() || null : null;
+            }
+
+            // ── Role ─────────────────────────────────────────────────────────
+            const roles: any[] = [];
+            const roleTitleRaw = cfg.roleTitlePath ? resolveP(cfg.roleTitlePath) : null;
+            const roleTypeRaw  = cfg.roleTypePath  ? resolveP(cfg.roleTypePath)  : null;
+
+            const mapRoleType = (raw: string | null): any => {
+                if (!raw) return null;
+                // If a map is provided, try to use it; otherwise, return the raw value
+                return (cfg.roleTypeMap && cfg.roleTypeMap[raw]) ? cfg.roleTypeMap[raw] : raw;
+            };
+
+            const appointedOnRaw = cfg.appointedOnPath ? resolveP(cfg.appointedOnPath) : null;
+            const resignedOnRaw  = cfg.resignedOnPath  ? resolveP(cfg.resignedOnPath)  : null;
+
+            // INVARIANT: isActiveRole is derived from role dates only.
+            // NEVER copied into isActivePersonOrContact.
+            const isActiveRole = (appointedOnRaw !== undefined && appointedOnRaw !== null)
+                ? (resignedOnRaw == null)
+                : null;
+
+            let natureOfControl: string[] = [];
+            if (cfg.natureOfControlPath) {
+                const raw = resolveP(cfg.natureOfControlPath);
+                if (Array.isArray(raw)) {
+                    natureOfControl = raw.map((n: any) => String(n).trim()).filter(Boolean);
+                } else if (raw) {
+                    natureOfControl = [String(raw).trim()].filter(Boolean);
+                }
+            }
+
+            if (roleTitleRaw || roleTypeRaw || appointedOnRaw || natureOfControl.length > 0) {
+                roles.push({
+                    roleTitle: roleTitleRaw ? String(roleTitleRaw).trim() : null,
+                    roleType:  mapRoleType(roleTitleRaw ? String(roleTitleRaw) : null) ??
+                               mapRoleType(roleTypeRaw  ? String(roleTypeRaw)  : null),
+                    company: {
+                        coparityCompanyId: null,
+                        externalId:        null,
+                        externalIdScheme:  null,
+                        name:              null,
+                    },
+                    isActiveRole,
+                    appointedOn: appointedOnRaw ? String(appointedOnRaw) : null,
+                    resignedOn:  resignedOnRaw  ? String(resignedOnRaw)  : null,
+                    natureOfControl,
+                });
+            }
+
+            // ── Source identifiers ────────────────────────────────────────────
+            const sourceIdentifiers: { scheme: string; value: string }[] = [];
+            if (Array.isArray(cfg.sourceIdentifiers)) {
+                for (const si of cfg.sourceIdentifiers) {
+                    const id = resolveP(si.valuePath);
+                    if (id != null) {
+                        sourceIdentifiers.push({ scheme: si.scheme, value: String(id) });
+                    }
+                }
+            }
+
+            // ── Assemble PersonOrContactValue ─────────────────────────────────
+            // INVARIANT: isActivePersonOrContact is ALWAYS null from automated transforms.
+            // It must NEVER be derived from role.isActiveRole or any registry status.
+            // Only USER_INPUT may set true/false.
+            const poc = {
+                contactType,
+                title:                   title || null,
+                forenames:               forenames || null,
+                surname:                 surname || null,
+                email,
+                phones,
+                nationality,
+                countryOfResidence,
+                dateOfBirth,
+                placeOfBirth,
+                roles,
+                sourceIdentifiers,
+                isActivePersonOrContact: null,   // INVARIANT — never derived from role status
+                visibility:              { scope: 'CLIENT_LE' as const },
+            };
+
+            return { value: poc, confidencePenalty };
+        }
+
+        case 'TO_PERSON_OR_CONTACT_LIST': {
+            // ── Array fan-out → multiple PERSON_OR_CONTACT claims ─────────────
+            // Mirrors TO_PARTY_LIST / applyFieldCandidate contract exactly.
+            //
+            // CONTRACT:
+            //   Returns { value: PersonOrContactValue[], rowKeys: string[] }
+            //   The array IS the top-level value — NEVER embedded inside valueJson.
+            //   Each item becomes a SEPARATE FieldClaim via applyFieldCandidate fan-out.
+            //   No changes to RegistryMappingEngine or applyFieldCandidate() needed.
+            // ─────────────────────────────────────────────────────────────────────
+            if (!Array.isArray(value)) {
+                return { value: null, confidencePenalty: 1 };
+            }
+
+            const cfg2 = transformConfig || {};
+
+            // Inline resolver for list items
+            const resolveFromItem = (path: string | undefined, src: any): any => {
+                if (!path) return null;
+                const parts = path.split('.');
+                let cur = src;
+                for (const part of parts) {
+                    if (cur == null || typeof cur !== 'object') return null;
+                    cur = cur[part];
+                }
+                return cur ?? null;
+            };
+
+            const rowKeys: string[] = [];
+            const list = value
+                .map((item: any) => {
+                    const res = applyTransform(item, 'TO_PERSON_OR_CONTACT_VALUE', transformConfig);
+                    if (res.value == null) { rowKeys.push(''); return null; }
+
+                    // Resolve temporal metadata per item for FieldClaim.effectiveFrom/effectiveTo
+                    const appointedOn: string | null =
+                        (cfg2.appointedOnPath ? resolveFromItem(cfg2.appointedOnPath, item) : null) ??
+                        item.appointed_on ?? item.notified_on ?? null;
+                    const resignedOn: string | null =
+                        (cfg2.resignedOnPath ? resolveFromItem(cfg2.resignedOnPath, item) : null) ??
+                        item.resigned_on ?? item.ceased_on ?? null;
+
+                    const rowKey = buildPersonOrContactRowKey(appointedOn, res.value);
+                    rowKeys.push(rowKey);
+
+                    // We add rowKey to the item temporarily so KycWriteService can use it,
+                    // but we will strip appointedOn and resignedOn from the top level
+                    // because they belong in roles[0].
+                    return {
+                        ...res.value,
+                        rowKey,
+                    };
+                })
+                .filter((v: any) => v !== null);
+
+            return { value: list, confidencePenalty: 0, rowKeys };
         }
 
         default:

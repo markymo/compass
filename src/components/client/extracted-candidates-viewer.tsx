@@ -92,6 +92,55 @@ function PartyCard({ data }: { data: any }) {
     );
 }
 
+function PersonOrContactCard({ data }: { data: any }) {
+    const name = [data.forenames || (data as any).firstName, data.surname || (data as any).lastName].filter(Boolean).join(' ') ||
+        (data.contactType === 'PERSON' ? 'Person' : data.contactType === 'CONTACT' ? 'Contact' : 'Unknown');
+    const contactType = data.contactType || 'PERSON';
+    
+    const firstRole = Array.isArray(data.roles) && data.roles.length > 0 ? data.roles[0] : null;
+    const roleType = firstRole?.roleType || firstRole?.roleTitle;
+    const companyName = firstRole?.company?.name;
+    const isActiveRole = firstRole?.isActiveRole;
+
+    return (
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-3 w-[300px] flex-shrink-0 shadow-sm relative overflow-hidden group hover:border-blue-300 transition-colors">
+            <div className="absolute top-0 right-0 p-1">
+                <Badge variant="outline" className={`text-[9px] font-normal ${contactType === 'PERSON' ? "bg-emerald-50 text-emerald-600 border-emerald-100" : "bg-blue-50 text-blue-500 border-blue-100"}`}>
+                    {contactType}
+                </Badge>
+            </div>
+            
+            <div className="flex items-start gap-3 mt-1 relative z-10">
+                <div className={`p-2 rounded-md ${contactType === 'PERSON' ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40" : "bg-blue-50 text-blue-600 dark:bg-blue-950/40"}`}>
+                    <User className="h-4 w-4" />
+                </div>
+                <div className="min-w-0 flex-1 pr-6 pb-1">
+                    <div className="font-bold text-sm truncate text-slate-800 dark:text-slate-200">
+                        {name}
+                    </div>
+                    {roleType && (
+                        <div className="text-xs text-slate-500 font-medium truncate">
+                            Role: {roleType}
+                        </div>
+                    )}
+                    {companyName && (
+                        <div className="text-[11px] text-slate-400 truncate">
+                            Company: {companyName}
+                        </div>
+                    )}
+                    {isActiveRole !== undefined && isActiveRole !== null && (
+                        <div className="mt-1">
+                            <Badge className={`text-[9px] px-1.5 py-0 ${isActiveRole ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400" : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"}`}>
+                                {isActiveRole ? "Active" : "Inactive"}
+                            </Badge>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+}
+
 export function ExtractedCandidatesViewer({ candidates }: { candidates: FieldCandidate[] }) {
     const [viewMode, setViewMode] = useState<"graph" | "json">("graph");
     const [copied, setCopied] = useState(false);
@@ -217,18 +266,28 @@ export function ExtractedCandidatesViewer({ candidates }: { candidates: FieldCan
                                             <ScrollArea className="w-full whitespace-nowrap rounded-xl pb-4">
                                                 <div className="flex w-max gap-4 p-1">
                                                     {items.map((item, idx) => {
-                                                        // Render Address or Party based on heuristic
-                                                        if (typeof item === 'object' && ('line1' in item || 'postalCode' in item || 'city' in item)) {
-                                                            return <AddressCard key={idx} data={item} />;
+                                                        let parsedItem = item;
+                                                        if (typeof item === 'string' && (item.startsWith('{') || item.startsWith('['))) {
+                                                            try {
+                                                                parsedItem = JSON.parse(item);
+                                                            } catch (e) {}
                                                         }
-                                                        if (typeof item === 'object' && ('metadata_type' in item)) {
-                                                            return <PartyCard key={idx} data={item} />;
+                                                        
+                                                        // Render Address, PersonOrContact, or Party based on heuristic
+                                                        if (typeof parsedItem === 'object' && parsedItem && ('line1' in parsedItem || 'postalCode' in parsedItem || 'city' in parsedItem)) {
+                                                            return <AddressCard key={idx} data={parsedItem} />;
+                                                        }
+                                                        if (typeof parsedItem === 'object' && parsedItem && (parsedItem.contactType === 'PERSON' || parsedItem.contactType === 'CONTACT' || 'forenames' in parsedItem || 'surname' in parsedItem || 'roles' in parsedItem)) {
+                                                            return <PersonOrContactCard key={idx} data={parsedItem} />;
+                                                        }
+                                                        if (typeof parsedItem === 'object' && parsedItem && ('metadata_type' in parsedItem)) {
+                                                            return <PartyCard key={idx} data={parsedItem} />;
                                                         }
                                                         
                                                         // Fallback generic card
                                                         return (
-                                                            <div key={idx} className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4 w-48 shadow-sm">
-                                                                <div className="text-xs font-mono text-slate-500 truncate">{JSON.stringify(item)}</div>
+                                                            <div key={idx} className="bg-slate-50 dark:bg-slate-900 border border-slate-200/50 dark:border-slate-800/50 rounded-lg p-4 w-48 shadow-sm">
+                                                                <div className="text-xs font-mono text-slate-500 truncate">{JSON.stringify(parsedItem)}</div>
                                                             </div>
                                                         );
                                                     })}

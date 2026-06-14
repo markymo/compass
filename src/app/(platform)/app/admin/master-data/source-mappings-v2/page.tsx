@@ -57,6 +57,9 @@ export default function SourceMappingsV2Page() {
     const [dialogOpen, setDialogOpen] = useState(false);
     const [editingMapping, setEditingMapping] = useState<MappingRow | null>(null);
     const [prefillPath, setPrefillPath] = useState("");
+    const [prefillSubtype, setPrefillSubtype] = useState<string | null>(null);
+    const [prefillTransformType, setPrefillTransformType] = useState<string | null>(null);
+    const [prefillTransformConfig, setPrefillTransformConfig] = useState<any>(null);
     const [initialTargetFieldNo, setInitialTargetFieldNo] = useState<number | null>(null);
 
     useEffect(() => {
@@ -102,7 +105,14 @@ export default function SourceMappingsV2Page() {
     }, []);
 
     const handleSourceChange = (value: string) => setSelectedValue(value);
-    const handleSelectPath = (path: string) => { setPrefillPath(path); setEditingMapping(null); setDialogOpen(true); };
+    const handleSelectPath = (path: string, payloadSubtype?: string, transformType?: string, transformConfig?: any) => { 
+        setPrefillPath(path); 
+        setPrefillSubtype(payloadSubtype || null); 
+        setPrefillTransformType(transformType || null);
+        setPrefillTransformConfig(transformConfig || null);
+        setEditingMapping(null); 
+        setDialogOpen(true); 
+    };
     const handleEdit = (m: MappingRow) => { setEditingMapping(m); setPrefillPath(""); setDialogOpen(true); };
     const handleDelete = async (id: string) => {
         if (!confirm("Delete this mapping? This cannot be undone.")) return;
@@ -279,6 +289,9 @@ export default function SourceMappingsV2Page() {
             fieldDefs={fieldDefs}
             existingMapping={editingMapping}
             initialSourcePath={prefillPath}
+            initialPayloadSubtype={prefillSubtype}
+            initialTransformType={prefillTransformType}
+            initialTransformConfig={prefillTransformConfig}
             onSaved={handleSaved}
             resolvedDefaults={resolvedDefaults}
         />
