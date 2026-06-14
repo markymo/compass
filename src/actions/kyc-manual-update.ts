@@ -72,7 +72,10 @@ export async function updateFieldManually(
                 claimInput.valuePersonId = value; 
                 break;
             case 'DOCUMENT_REF': claimInput.valueText = value; break; // Manual edits store as text; valueDocId requires valid FK
-            case 'JSONB': claimInput.valueJson = value; break;
+            case 'JSONB':
+            case 'ADDRESS':
+            case 'PERSON_OR_CONTACT':
+                claimInput.valueJson = value; break;
         }
 
         const claim = await FieldClaimService.assertClaim({

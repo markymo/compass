@@ -33,9 +33,33 @@ export class KycWriteService {
         userId?: string,
         entityType: 'LEGAL_ENTITY' | 'CLIENT_LE' = 'LEGAL_ENTITY'
     ): Promise<boolean> {
+        const fieldDef = await getMasterFieldDefinition(candidate.fieldNo);
+
+        // Pre-fetch ClientLE context for PERSON_OR_CONTACT to inject into roles[0].company
+        let clientLEContext: any = null;
+        if (entityType === 'CLIENT_LE' && fieldDef?.appDataType === 'PERSON_OR_CONTACT') {
+            clientLEContext = await prisma.clientLE.findUnique({
+                where: { id: entityId },
+                select: { 
+                    id: true, 
+                    lei: true,
+                    legalEntity: { select: { name: true } },
+                    registryReferences: {
+                        select: {
+                            localRegistrationNumber: true,
+                            sourceSystem: true,
+                            authority: { select: { registryKey: true } }
+                        }
+                    }
+                }
+            });
+        }
+
         // Handle Iteration for Array lists mapped to repeating fields
         if (Array.isArray(candidate.value)) {
             let overallSuccess = true;
+            const processedRowIds = new Set<string>();
+
             for (let i = 0; i < candidate.value.length; i++) {
                 const item = candidate.value[i];
 
@@ -55,15 +79,60 @@ export class KycWriteService {
                     );
                 }
 
+                processedRowIds.add(rowId);
+
                 // Extract temporal metadata from the item DTO if present.
-                // TO_PARTY_LIST  sets appointedOn / resignedOn on each item.
+                // TO_PARTY_LIST sets appointedOn / resignedOn on each item.
                 // TO_NAME_HISTORY_LIST sets effectiveFrom / effectiveTo directly.
+                // PERSON_OR_CONTACT has dates inside roles[0].
                 const effectiveFrom: Date | undefined =
                     (item?.effectiveFrom ? new Date(item.effectiveFrom) : undefined) ??
-                    (item?.appointedOn  ? new Date(item.appointedOn)   : undefined);
+                    (item?.appointedOn  ? new Date(item.appointedOn)   : undefined) ??
+                    (item?.roles?.[0]?.appointedOn ? new Date(item.roles[0].appointedOn) : undefined);
+                
                 const effectiveTo: Date | undefined =
                     (item?.effectiveTo ? new Date(item.effectiveTo) : undefined) ??
-                    (item?.resignedOn  ? new Date(item.resignedOn)  : undefined);
+                    (item?.resignedOn  ? new Date(item.resignedOn)  : undefined) ??
+                    (item?.roles?.[0]?.resignedOn ? new Date(item.roles[0].resignedOn) : undefined);
+
+                // Inject ClientLE context into PERSON_OR_CONTACT roles[0].company before saving
+                if (clientLEContext && item?.roles?.[0]?.company) {
+                    item.roles[0].company.coparityCompanyId = clientLEContext.id;
+                    item.roles[0].company.name = clientLEContext.legalEntity?.name || null;
+                    // Provide actual registry identifiers if safely resolvable
+                    if (candidate.source === 'REGISTRATION_AUTHORITY' || candidate.source === 'GLEIF') {
+                        let externalId = null;
+                        let externalIdScheme = candidate.sourceKey || candidate.source;
+
+                        if (clientLEContext.registryReferences?.length > 0) {
+                            const ref = clientLEContext.registryReferences.find((r: any) => 
+                                r.authority?.registryKey === candidate.sourceKey || 
+                                r.sourceSystem === candidate.source ||
+                                (candidate.sourceKey && r.authority?.registryKey?.includes(candidate.sourceKey)) ||
+                                (r.authority?.registryKey && candidate.sourceKey?.includes(r.authority.registryKey))
+                            );
+                            if (ref) {
+                                externalId = ref.localRegistrationNumber;
+                                if (ref.authority?.registryKey === 'GB_COMPANIES_HOUSE') {
+                                    externalIdScheme = 'COMPANIES_HOUSE';
+                                } else if (ref.authority?.registryKey) {
+                                    externalIdScheme = ref.authority.registryKey;
+                                }
+                            } else if (candidate.source === 'GLEIF' && clientLEContext.lei) {
+                                externalId = clientLEContext.lei;
+                                externalIdScheme = 'GLEIF';
+                            }
+                        }
+
+                        item.roles[0].company.externalIdScheme = externalIdScheme;
+                        item.roles[0].company.externalId = externalId;
+
+                        console.log(`[KycWriteService] Injected PERSON_OR_CONTACT company pointer: ${JSON.stringify(item.roles[0].company)}`);
+                    }
+                }
+
+                // Strip transient properties
+                delete item.rowKey;
 
                 const success = await this.updateField(
                     entityId,
@@ -83,6 +152,66 @@ export class KycWriteService {
                 );
                 if (!success) overallSuccess = false;
             }
+
+            if (candidate.syncMode === 'SNAPSHOT_SYNC') {
+                let resolvedEntityId = entityId;
+                if (entityType === 'CLIENT_LE') {
+                    resolvedEntityId = await this.ensureLegalEntity(entityId);
+                }
+
+                const complexCfgForIdempotency = getComplexFieldConfig(candidate.fieldNo);
+                const expectedCollectionId = fieldDef?.isMultiValue
+                    ? (complexCfgForIdempotency?.collectionId ?? fieldDef?.categoryId ?? 'GENERAL')
+                    : undefined;
+
+                if (expectedCollectionId) {
+                    // LIMITATION: FieldClaim does not store sourceMappingId or payloadSubtype.
+                    // The narrowest safe scope is subjectLeId, fieldNo, sourceType, sourceReference, collectionId.
+                    // If multiple mappings exist for the exact same sourceReference & fieldNo but different subtypes,
+                    // they will overwrite/tombstone each other.
+                    const existingClaims = await prisma.fieldClaim.findMany({
+                        where: {
+                            subjectLeId: resolvedEntityId,
+                            fieldNo: candidate.fieldNo,
+                            sourceType: candidate.source,
+                            sourceReference: candidate.sourceKey || null,
+                            collectionId: expectedCollectionId,
+                        },
+                        select: {
+                            id: true,
+                            instanceId: true,
+                            valueJson: true,
+                            sourceType: true,
+                            collectionId: true
+                        }
+                    });
+
+                    for (const claim of existingClaims) {
+                        if (!claim.instanceId) continue;
+                        if (processedRowIds.has(claim.instanceId)) continue;
+                        if (claim.sourceType === 'USER_INPUT') continue;
+
+                        const isTombstone = claim.valueJson !== null &&
+                            typeof claim.valueJson === 'object' &&
+                            (claim.valueJson as any).tombstone === true;
+
+                        if (isTombstone) continue;
+
+                        console.log(`[KycWriteService] SNAPSHOT_SYNC: Tombstoning omitted instanceId="${claim.instanceId}" for Field ${candidate.fieldNo} (Source: ${candidate.source})`);
+
+                        // Use existing emitTombstone mechanism
+                        await FieldClaimService.emitTombstone(
+                            { subjectLeId: resolvedEntityId },
+                            candidate.fieldNo,
+                            claim.collectionId || 'GENERAL',
+                            claim.instanceId,
+                            null,
+                            candidate.source as any
+                        );
+                    }
+                }
+            }
+
             return overallSuccess;
         }
 
@@ -94,7 +223,6 @@ export class KycWriteService {
         // Strategy: wrap the scalar as a single-item write using a deterministic rowKey derived
         // from the field number and value so re-enrichment stays idempotent.
         // The warning makes the misconfigured mapping easy to find and fix.
-        const fieldDef = await getMasterFieldDefinition(candidate.fieldNo);
         if (fieldDef?.isMultiValue) {
             const deterministicKey = `scalar_f${candidate.fieldNo}_${
                 JSON.stringify(candidate.value).replace(/[^a-z0-9]/gi, '').slice(0, 40)
@@ -381,6 +509,25 @@ export class KycWriteService {
                 valueAddressId = await materializeNestedAddress(value, { subjectLeId: resolvedEntityId });
                 await ensureGraphNode('ADDRESS', { addressId: valueAddressId });
                 finalJsonValue = undefined; // Drop json copy since we mapped relationally
+            } else if (def.appDataType === APP_DATA_TYPES.PERSON_OR_CONTACT) {
+                // ── Phase 1: Enrichment pipeline — embedded JSON storage only ─────────
+                //
+                // The value is stored as-is in FieldClaim.valueJson.
+                // Multiplicity comes from collectionId + instanceId (claim architecture).
+                //
+                // The following operations are NOT performed by the automated pipeline:
+                //   - Person / LegalEntity row lookup or creation
+                //   - ClientLEGraphNode creation
+                //   - ClientLEGraphEdge writeback
+                //
+                // This is a Phase 1 pipeline default, NOT a permanent capability limit.
+                // Future KG promotion workflows (e.g. "Promote to Person node",
+                // director/signatory edge creation, IDNow integration) are in scope.
+                // Those workflows should resolve a Person ID and call
+                // performEdgeWriteback() directly with that ID rather than going
+                // through this enrichment path.
+                // ──────────────────────────────────────────────────────────────────────
+                finalJsonValue = value;  // value is already a PersonOrContactValue object
             } else if (
                 def.appDataType === APP_DATA_TYPES.PERSON_REF ||
                 def.appDataType === APP_DATA_TYPES.ORG_REF       ||
@@ -486,7 +633,13 @@ export class KycWriteService {
         }
 
         // 6. Graph Edge Write-back
-        if (clientLEId) {
+        // Phase 1: PERSON_OR_CONTACT skips automatic edge writeback.
+        // valuePersonId / valueLeId / valueAddressId are all undefined for this type,
+        // so the call would be a no-op — but we skip it explicitly for clarity and to
+        // avoid a fragile implicit dependency on undefined-check logic inside
+        // performEdgeWriteback. Future KG promotion workflows should call
+        // performEdgeWriteback() directly after resolving a Person node ID.
+        if (clientLEId && def.appDataType !== APP_DATA_TYPES.PERSON_OR_CONTACT) {
             await this.performEdgeWriteback(
                 fieldNo,
                 clientLEId,

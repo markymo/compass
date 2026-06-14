@@ -12,6 +12,7 @@
  */
 
 import React from 'react';
+import { isPersonOrContactValue } from '@/lib/master-data/person-or-contact-value';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -72,6 +73,31 @@ export function renderNameHistoryRow(row: NameHistoryEntry): RowRenderResult {
     return { primary, secondary };
 }
 
+// ── Field 63: Company Directors ────────────────────────────────────────────────
+
+export function renderPersonOrContactRow(row: any): RowRenderResult {
+    const primary = [row.forenames || row.firstName, row.surname || row.lastName].filter(Boolean).join(' ') || 
+        (row.contactType === 'PERSON' ? 'Person' : row.contactType === 'CONTACT' ? 'Contact' : 'Unknown');
+
+    const rolesList = Array.isArray(row.roles) ? row.roles : [];
+    const firstRole = rolesList[0];
+    const roleLabel = firstRole?.roleTitle ?? firstRole?.roleType ?? null;
+
+    const from = formatDate(firstRole?.appointedOn);
+    const to = formatDate(firstRole?.resignedOn);
+
+    let secondary: string | null = null;
+    if (roleLabel) {
+        secondary = roleLabel;
+    }
+    if (from || to) {
+        const datesStr = from && to ? `${from} → ${to}` : from ? `Appointed ${from}` : `Resigned ${to}`;
+        secondary = secondary ? `${secondary} (${datesStr})` : datesStr;
+    }
+
+    return { primary, secondary };
+}
+
 // ── Registry ──────────────────────────────────────────────────────────────────
 
 /**
@@ -80,6 +106,7 @@ export function renderNameHistoryRow(row: NameHistoryEntry): RowRenderResult {
  */
 export const FIELD_ROW_RENDERERS: Record<number, (row: any) => RowRenderResult> = {
     5: renderNameHistoryRow,
+    63: renderPersonOrContactRow,
 };
 
 /**
@@ -87,18 +114,29 @@ export const FIELD_ROW_RENDERERS: Record<number, (row: any) => RowRenderResult> 
  * Falls back to a best-effort display of the raw value if no renderer is registered.
  */
 export function renderCollectionRow(fieldNo: number, row: any): RowRenderResult {
+    let parsedRow = row;
+    if (typeof row === 'string' && (row.startsWith('{') || row.startsWith('['))) {
+        try {
+            parsedRow = JSON.parse(row);
+        } catch (e) {}
+    }
+
+    if (isPersonOrContactValue(parsedRow)) {
+        return renderPersonOrContactRow(parsedRow);
+    }
+
     const renderer = FIELD_ROW_RENDERERS[fieldNo];
-    if (renderer) return renderer(row);
+    if (renderer) return renderer(parsedRow);
 
     // Generic fallback: try common name fields, then JSON
-    if (row && typeof row === 'object') {
-        const name = row.name ?? row.label ?? row.value ?? null;
+    if (parsedRow && typeof parsedRow === 'object') {
+        const name = parsedRow.name ?? parsedRow.label ?? parsedRow.value ?? null;
         return {
-            primary: name ? String(name) : JSON.stringify(row),
+            primary: name ? String(name) : JSON.stringify(parsedRow),
             secondary: null,
         };
     }
-    return { primary: String(row ?? ''), secondary: null };
+    return { primary: String(parsedRow ?? ''), secondary: null };
 }
 
 // ── React component ───────────────────────────────────────────────────────────

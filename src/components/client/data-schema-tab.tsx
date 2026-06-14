@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import { getSourceDisplayName } from "@/lib/source-display";
 import { FieldDetailPanel } from "./inspection/field-detail-panel";
 import { isAddressValue, getAddressSummary } from "./fields/AddressValueViewer";
+import { isPersonOrContactValue, getPersonOrContactSummary } from "@/lib/master-data/person-or-contact-value";
 import { Input } from "@/components/ui/input";
 import { Search, Filter, AlertCircle, CheckCircle2, Circle } from "lucide-react";
 import {
@@ -752,37 +753,47 @@ export function formatGraphValue(val: any): string {
     if (val === null || val === undefined || val === '') return '';
     if (val instanceof Date) return val.toLocaleDateString();
     if (typeof val === 'boolean') return val ? 'Yes' : 'No';
-    if (Array.isArray(val)) {
-        return val.map(v => formatGraphValue(v)).join(' | ');
+
+    let parsedVal = val;
+    if (typeof val === 'string' && (val.startsWith('{') || val.startsWith('['))) {
+        try {
+            parsedVal = JSON.parse(val);
+        } catch (e) {}
     }
-    if (typeof val === 'object') {
-        if (isAddressValue(val)) {
-            return getAddressSummary(val);
+
+    if (Array.isArray(parsedVal)) {
+        return parsedVal.map(v => formatGraphValue(v)).join(' | ');
+    }
+    if (typeof parsedVal === 'object') {
+        if (isPersonOrContactValue(parsedVal)) {
+            return getPersonOrContactSummary(parsedVal);
         }
-        if (val.line1 || val.city || val.country) {
-            const parts = [val.line1, val.line2, val.city, val.region, val.postalCode, val.country].filter(Boolean);
+        if (isAddressValue(parsedVal)) {
+            return getAddressSummary(parsedVal);
+        }
+        if (parsedVal.line1 || parsedVal.city || parsedVal.country) {
+            const parts = [parsedVal.line1, parsedVal.line2, parsedVal.city, parsedVal.region, parsedVal.postalCode, parsedVal.country].filter(Boolean);
             return parts.join(', ');
         }
-        if (val.firstName || val.lastName) {
-            const parts = [val.firstName, val.middleName, val.lastName].filter(Boolean);
+        if (parsedVal.firstName || parsedVal.lastName) {
+            const parts = [parsedVal.firstName, parsedVal.middleName, parsedVal.lastName].filter(Boolean);
             const name = parts.join(' ');
-            return val.primaryNationality ? `${name} (${val.primaryNationality})` : name;
+            return parsedVal.primaryNationality ? `${name} (${parsedVal.primaryNationality})` : name;
         }
-        if (val.name) return val.name;
-        if (val.legalName) return val.legalName;
-        if (val.entityName) return val.entityName;
-        if (val.fullName) return val.fullName;
+        if (parsedVal.name) return parsedVal.name;
+        if (parsedVal.legalName) return parsedVal.legalName;
+        if (parsedVal.entityName) return parsedVal.entityName;
+        if (parsedVal.fullName) return parsedVal.fullName;
         // Code-list items: { code, label } — e.g. SIC codes
-        if (val.code !== undefined) return val.label ? `${val.code} — ${val.label}` : String(val.code);
+        if (parsedVal.code !== undefined) return parsedVal.label ? `${parsedVal.code} — ${parsedVal.label}` : String(parsedVal.code);
         
-        return JSON.stringify(val);
-
+        return JSON.stringify(parsedVal);
     }
-    if (typeof val === 'string' && val.match(/^\d{4}-\d{2}-\d{2}T/)) {
-        const d = new Date(val);
+    if (typeof parsedVal === 'string' && parsedVal.match(/^\d{4}-\d{2}-\d{2}T/)) {
+        const d = new Date(parsedVal);
         if (!isNaN(d.getTime())) return d.toLocaleDateString();
     }
-    return String(val);
+    return String(parsedVal);
 }
 
 /** Delegates to getSourceDisplayName for a short friendly label (no sourceReference available at call site). */

@@ -17,4 +17,7 @@ export type FieldCandidate = {
      * identities are easy to detect and fix.
      */
     rowKeys?: string[];
+    sourceMappingId?: string;
+    payloadSubtype?: string;
+    syncMode?: string;
 };

@@ -32,7 +32,8 @@ const MAPPING_SOURCE_KEY_TO_RA: Record<string, string> = {
  */
 export async function fetchLiveRegistryRecord(
     registrationNumber: string,
-    sourceRef: string = "COMPANIES_HOUSE"
+    sourceRef: string = "COMPANIES_HOUSE",
+    payloadSubtype: string = "COMPANY_PROFILE"
 ) {
     if (!registrationNumber || registrationNumber.trim().length < 3) {
         return { success: false, error: "Please enter at least 3 characters." };
@@ -63,10 +64,8 @@ export async function fetchLiveRegistryRecord(
             return { success: false, error: "No record found for that registration number." };
         }
 
-        // Return the raw COMPANY_PROFILE payload so the inspector shows the
-        // same field paths that RegistryMappingEngine resolves against.
-        // Fall back to the full canonical record if rawSourcePayload is absent.
-        const payload = record.rawSourcePayload?.COMPANY_PROFILE ?? record;
+        // Return the requested payload subtype, or fallback to COMPANY_PROFILE, or fallback to the full record
+        const payload = record.rawSourcePayload?.[payloadSubtype] ?? record.rawSourcePayload?.COMPANY_PROFILE ?? record;
 
         return { success: true, payload };
 

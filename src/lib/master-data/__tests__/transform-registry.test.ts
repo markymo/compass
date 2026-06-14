@@ -31,6 +31,8 @@ const EXPECTED_KEYS = [
     'TO_NAME_HISTORY_LIST',
     'TO_CODE_LIST',
     'RA_CODE_TO_NAME',
+    'TO_PERSON_OR_CONTACT_VALUE',
+    'TO_PERSON_OR_CONTACT_LIST',
 ];
 
 // ── Tests ─────────────────────────────────────────────────────────────────────

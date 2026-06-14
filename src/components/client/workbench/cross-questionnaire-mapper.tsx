@@ -72,26 +72,37 @@ interface Props {
  */
 export function formatPartyLabel(item: unknown): string {
     if (item == null) return '';
-    if (typeof item === 'string') {
-        // Raw UUID FK — show truncated, not the full UUID
-        if (/^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(item)) return `ID:${item.slice(0, 8)}…`;
-        return item;
+    
+    let parsedItem = item;
+    if (typeof item === 'string' && (item.startsWith('{') || item.startsWith('['))) {
+        try {
+            parsedItem = JSON.parse(item);
+        } catch (e) {}
     }
-    if (typeof item === 'number' || typeof item === 'boolean') return String(item);
-    if (item instanceof Date) return item.toLocaleDateString();
-    if (typeof item === 'object') {
-        const obj = item as Record<string, any>;
+
+    if (typeof parsedItem === 'string') {
+        // Raw UUID FK — show truncated, not the full UUID
+        if (/^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(parsedItem)) return `ID:${parsedItem.slice(0, 8)}…`;
+        return parsedItem;
+    }
+    if (typeof parsedItem === 'number' || typeof parsedItem === 'boolean') return String(parsedItem);
+    if (parsedItem instanceof Date) return parsedItem.toLocaleDateString();
+    if (typeof parsedItem === 'object' && parsedItem !== null) {
+        const obj = parsedItem as Record<string, any>;
         // Prefer explicit full name fields
         if (obj.fullName)                                      return String(obj.fullName);
         if (obj.firstName || obj.lastName)                     return `${obj.firstName ?? ''} ${obj.lastName ?? ''}`.trim();
+        if (obj.forenames || obj.surname)                      return `${obj.forenames ?? ''} ${obj.surname ?? ''}`.trim();
         if (obj.name)                                          return String(obj.name);
         if (obj.displayName)                                   return String(obj.displayName);
+        if (obj.contactType === "PERSON")                      return "Person";
+        if (obj.contactType === "CONTACT")                     return "Contact";
         // Fallback: first non-null string-value property
         const firstStr = Object.values(obj).find(v => typeof v === 'string' && v.length > 0);
         if (firstStr)                                          return firstStr as string;
         return '[unknown party]';
     }
-    return String(item);
+    return String(parsedItem);
 }
 
 /**

@@ -19,6 +19,8 @@ const Toaster = ({ ...props }: ToasterProps) => {
       className="toaster group"
       duration={10000}
       closeButton
+      expand={true}
+      richColors={true}
       toastOptions={{
         classNames: {
           toast: "select-text",

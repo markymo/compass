@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { Loader2, ChevronsUpDown, Check, Search, ChevronDown, ChevronUp } from "lucide-react";
+import { Loader2, ChevronsUpDown, Check, Search, ChevronDown, ChevronUp, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -180,13 +180,16 @@ function AddressPostalPreview({ value }: { value: any }) {
     );
 }
 
-export function MappingFormDialog({ open, onOpenChange, selectedOption, fieldDefs, existingMapping, initialSourcePath, onSaved, resolvedDefaults }: {
+export function MappingFormDialog({ open, onOpenChange, selectedOption, fieldDefs, existingMapping, initialSourcePath, initialPayloadSubtype, initialTransformType, initialTransformConfig, onSaved, resolvedDefaults }: {
     open: boolean;
     onOpenChange: (v: boolean) => void;
     selectedOption: SourceOption;
     fieldDefs: any[];
     existingMapping: MappingRow | null;
     initialSourcePath: string;
+    initialPayloadSubtype?: string | null;
+    initialTransformType?: string | null;
+    initialTransformConfig?: any;
     onSaved: () => void;
     resolvedDefaults?: any;
 }) {
@@ -218,6 +221,12 @@ export function MappingFormDialog({ open, onOpenChange, selectedOption, fieldDef
         return transformType === "TO_ADDRESS_VALUE" || targetField?.appDataType === "ADDRESS";
     }, [transformType, targetField]);
 
+    const isPersonOrContactMapping = useMemo(() => {
+        return transformType === "TO_PERSON_OR_CONTACT_LIST" || 
+               transformType === "TO_PERSON_OR_CONTACT_VALUE" || 
+               targetField?.appDataType === "PERSON_OR_CONTACT";
+    }, [transformType, targetField]);
+
     const transformDescription = getTransformDescription(transformType);
 
     useEffect(() => {
@@ -225,13 +234,18 @@ export function MappingFormDialog({ open, onOpenChange, selectedOption, fieldDef
         setSourcePath(existingMapping?.sourcePath ?? initialSourcePath ?? "");
         setTargetFieldNo(existingMapping?.targetFieldNo?.toString() ?? "");
         setMappingScope(existingMapping?.mappingScope ?? (isGleif ? GLEIF_SCOPE_DEFAULT : RA_SCOPE_DEFAULT));
-        setPayloadSubtype(existingMapping?.payloadSubtype ?? (isGleif ? "NONE" : RA_SUBTYPE_DEFAULT));
-        setTransformType(existingMapping?.transformType ?? "DIRECT");
+
+        const targetFieldId = existingMapping?.targetFieldNo?.toString() ?? "";
+        const field = fieldDefs.find((f: any) => String(f.fieldNo) === targetFieldId);
+        const defaultSubtype = isGleif ? "NONE" : (field?.appDataType === "PERSON_OR_CONTACT" ? "OFFICERS" : RA_SUBTYPE_DEFAULT);
+        setPayloadSubtype(existingMapping?.payloadSubtype ?? initialPayloadSubtype ?? defaultSubtype);
+
+        setTransformType(existingMapping?.transformType ?? initialTransformType ?? "DIRECT");
         setPriority(existingMapping?.priority?.toString() ?? "100");
         setNotes(existingMapping?.notes ?? "");
-        setTransformConfig(existingMapping?.transformConfig ?? null);
+        setTransformConfig(existingMapping?.transformConfig ?? initialTransformConfig ?? null);
         setAdvancedOpen(false);
-    }, [open, existingMapping, initialSourcePath, isGleif]);
+    }, [open, existingMapping, initialSourcePath, initialPayloadSubtype, initialTransformType, initialTransformConfig, isGleif, fieldDefs]);
 
     // Load sample payload for preview
     useEffect(() => {
@@ -364,7 +378,13 @@ export function MappingFormDialog({ open, onOpenChange, selectedOption, fieldDef
                     </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-2">
-                    <TargetFieldPicker fieldDefs={fieldDefs} value={targetFieldNo} onChange={setTargetFieldNo} />
+                    <TargetFieldPicker fieldDefs={fieldDefs} value={targetFieldNo} onChange={(val) => {
+                        setTargetFieldNo(val);
+                        const field = fieldDefs.find((f: any) => String(f.fieldNo) === val);
+                        if (!isGleif && field?.appDataType === "PERSON_OR_CONTACT") {
+                            setPayloadSubtype("OFFICERS");
+                        }
+                    }} />
 
                     {isAddressMapping ? (
                         <>
@@ -436,6 +456,18 @@ export function MappingFormDialog({ open, onOpenChange, selectedOption, fieldDef
                                 <p className="text-[10px] text-slate-400">Dot-notation path relative to payload root.</p>
                             </div>
 
+                            {isPersonOrContactMapping && (
+                                <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900 rounded-lg p-4 space-y-2">
+                                    <div className="flex items-center gap-2 text-blue-700 dark:text-blue-400 font-medium">
+                                        <Users className="w-4 h-4" />
+                                        <span>Map all Officers as Person or Contact</span>
+                                    </div>
+                                    <p className="text-xs text-blue-600/80 dark:text-blue-400/80 leading-relaxed">
+                                        This will map the entire {payloadSubtype || "OFFICERS"} list into this repeating Person or Contact field using the system's standard structured extraction rules.
+                                    </p>
+                                </div>
+                            )}
+
                             {/* Scope / Subtype — implementation detail, shown for debugging only */}
                             <div className="flex items-center gap-1.5 font-mono text-[10px] text-slate-400 bg-slate-50 dark:bg-zinc-900/50 border border-slate-100 dark:border-zinc-800 rounded px-2.5 py-1.5">
                                 <span className="text-slate-300">scope:</span>
@@ -445,29 +477,31 @@ export function MappingFormDialog({ open, onOpenChange, selectedOption, fieldDef
                                 <span className="text-slate-500">{(!payloadSubtype || payloadSubtype === "NONE") ? "—" : payloadSubtype}</span>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-3">
-                                <div className="grid gap-1.5">
-                                    <Label>Transform</Label>
-                                    <Select value={transformType} onValueChange={setTransformType}>
-                                        <SelectTrigger><SelectValue /></SelectTrigger>
-                                        <SelectContent>
-                                            {TRANSFORM_SELECT_OPTIONS.map(t => (
-                                                <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    {transformDescription && (
-                                        <p className="text-[11px] text-slate-500 leading-snug">
-                                            {transformDescription}
-                                        </p>
-                                    )}
+                            {!isPersonOrContactMapping && (
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="grid gap-1.5">
+                                        <Label>Transform</Label>
+                                        <Select value={transformType} onValueChange={setTransformType}>
+                                            <SelectTrigger><SelectValue /></SelectTrigger>
+                                            <SelectContent>
+                                                {TRANSFORM_SELECT_OPTIONS.map(t => (
+                                                    <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        {transformDescription && (
+                                            <p className="text-[11px] text-slate-500 leading-snug">
+                                                {transformDescription}
+                                            </p>
+                                        )}
+                                    </div>
+                                    <div className="grid gap-1.5">
+                                        <Label htmlFor="v2-priority">Priority</Label>
+                                        <Input id="v2-priority" type="number" min={1} value={priority} onChange={e => setPriority(e.target.value)} />
+                                        <p className="text-[10px] text-slate-400">Lower = higher precedence.</p>
+                                    </div>
                                 </div>
-                                <div className="grid gap-1.5">
-                                    <Label htmlFor="v2-priority">Priority</Label>
-                                    <Input id="v2-priority" type="number" min={1} value={priority} onChange={e => setPriority(e.target.value)} />
-                                    <p className="text-[10px] text-slate-400">Lower = higher precedence.</p>
-                                </div>
-                            </div>
+                            )}
 
                             <div className="grid gap-1.5">
                                 <Label htmlFor="v2-notes">Notes (optional)</Label>

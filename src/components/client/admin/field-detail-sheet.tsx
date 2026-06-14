@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import Link from "next/link";
-import { Loader2, Save, FileText, Database, Link as LinkIcon, BookOpen, ScanSearch, Trash2, GitBranch, Plus, Edit } from "lucide-react";
+import { ChevronRight, Database, Edit, Save, BookOpen, FileText, Globe, Link as LinkIcon, Trash2, GitBranch, Plus, Loader2, ScanSearch, Users } from "lucide-react";
 import { updateMasterField } from "@/actions/master-data-governance";
 import { useRouter } from "next/navigation";
 import { Switch } from "@/components/ui/switch";
@@ -123,12 +123,14 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
         transformType: string;
         mappingScope: string;
         payloadSubtype: string;
+        transformConfig?: any;
     }>({
         sourceType: "GLEIF",
         sourcePath: "",
         transformType: "DIRECT",
         mappingScope: "BASELINE",
         payloadSubtype: "NONE",
+        transformConfig: null,
     });
     const [isMappingSaving, setIsMappingSaving] = useState(false);
 
@@ -191,6 +193,7 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                 sourcePath: mappingForm.sourcePath.trim(),
                 targetFieldNo: field.fieldNo,
                 transformType: mappingForm.transformType as any,
+                transformConfig: mappingForm.transformConfig || null,
                 confidenceDefault: 1.0,
                 priority: 100,
                 // Scope is resolved here so the action-layer default is a fallback,
@@ -205,7 +208,7 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
             if (res.success) {
                 toast.success("Mapping added successfully");
                 setIsAddMappingOpen(false);
-                setMappingForm({ sourceType: "GLEIF", sourcePath: "", transformType: "DIRECT", mappingScope: "BASELINE", payloadSubtype: "NONE" });
+                setMappingForm({ sourceType: "GLEIF", sourcePath: "", transformType: "DIRECT", mappingScope: "BASELINE", payloadSubtype: "NONE", transformConfig: null });
                 router.refresh();
             } else {
                 toast.error(res.error || "Failed to add mapping");
@@ -632,11 +635,14 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                                             <Select value={mappingForm.sourceType} onValueChange={(val) => {
                                                 const opt = SOURCE_OPTIONS.find(o => o.value === val);
                                                 const isGleif = opt?.sourceType === 'GLEIF';
+                                                const defaultSubtype = isGleif 
+                                                    ? 'NONE' 
+                                                    : (field.appDataType === 'PERSON_OR_CONTACT' ? 'OFFICERS' : 'COMPANY_PROFILE');
                                                 setMappingForm({
                                                     ...mappingForm,
                                                     sourceType: val,
                                                     mappingScope: isGleif ? 'BASELINE' : 'RAW_PAYLOAD',
-                                                    payloadSubtype: isGleif ? 'NONE' : 'COMPANY_PROFILE',
+                                                    payloadSubtype: defaultSubtype,
                                                 });
                                             }}>
                                                 <SelectTrigger>
@@ -651,49 +657,75 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                                                 </SelectContent>
                                             </Select>
                                         </div>
-                                        <div className="grid gap-2">
-                                             <Label htmlFor="sourcePath">JSON Path</Label>
-                                             <div className="flex gap-2">
-                                                 <Input
-                                                     id="sourcePath"
-                                                     value={mappingForm.sourcePath}
-                                                     onChange={(e) => setMappingForm({ ...mappingForm, sourcePath: e.target.value })}
-                                                     placeholder="e.g. entity.legalName.name"
-                                                     className="font-mono text-sm flex-1"
-                                                 />
-                                                 {liveSourceTypes.includes(mappingForm.sourceType) && (
-                                                     <Button
-                                                         type="button"
-                                                         variant="outline"
-                                                         size="sm"
-                                                         className="shrink-0 h-9 gap-1.5 text-blue-600 border-blue-200 hover:bg-blue-50 hover:text-blue-700"
-                                                         onClick={() => setIsBrowserOpen(true)}
-                                                     >
-                                                         <ScanSearch className="h-3.5 w-3.5" />
-                                                         Browse
-                                                     </Button>
-                                                 )}
-                                             </div>
-                                             <p className="text-[10px] text-slate-400">Dot-notation path into the source JSON, or click Browse to pick visually.</p>
-                                         </div>
-                                        <div className="grid gap-2">
-                                            <Label htmlFor="transformType">Transform Type</Label>
-                                            <Select value={mappingForm.transformType} onValueChange={(val) => setMappingForm({ ...mappingForm, transformType: val })}>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Select transform" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {TRANSFORM_SELECT_OPTIONS.map(t => (
-                                                        <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                            {getTransformDescription(mappingForm.transformType) && (
-                                                <p className="text-[11px] text-slate-500 leading-snug">
-                                                    {getTransformDescription(mappingForm.transformType)}
-                                                </p>
-                                            )}
-                                        </div>
+
+                                        {(() => {
+                                            const isPersonOrContactMapping =
+                                                mappingForm.transformType === "TO_PERSON_OR_CONTACT_LIST" ||
+                                                mappingForm.transformType === "TO_PERSON_OR_CONTACT_VALUE" ||
+                                                field?.appDataType === "PERSON_OR_CONTACT";
+
+                                            return (
+                                                <>
+                                                    <div className="grid gap-2">
+                                                        <Label htmlFor="sourcePath">JSON Path</Label>
+                                                        <div className="flex gap-2">
+                                                            <Input
+                                                                id="sourcePath"
+                                                                value={mappingForm.sourcePath}
+                                                                onChange={(e) => setMappingForm({ ...mappingForm, sourcePath: e.target.value })}
+                                                                placeholder="e.g. entity.legalName.name"
+                                                                className="font-mono text-sm flex-1"
+                                                            />
+                                                            {liveSourceTypes.includes(mappingForm.sourceType) && (
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="outline"
+                                                                    size="sm"
+                                                                    className="shrink-0 h-9 gap-1.5 text-blue-600 border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                                                                    onClick={() => setIsBrowserOpen(true)}
+                                                                >
+                                                                    <ScanSearch className="h-3.5 w-3.5" />
+                                                                    Browse
+                                                                </Button>
+                                                            )}
+                                                        </div>
+                                                        <p className="text-[10px] text-slate-400">Dot-notation path into the source JSON, or click Browse to pick visually.</p>
+                                                    </div>
+
+                                                    {isPersonOrContactMapping ? (
+                                                        <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900 rounded-lg p-4 space-y-2">
+                                                            <div className="flex items-center gap-2 text-blue-700 dark:text-blue-400 font-medium">
+                                                                <Users className="w-4 h-4" />
+                                                                <span>Map all Officers as Person or Contact</span>
+                                                            </div>
+                                                            <p className="text-xs text-blue-600/80 dark:text-blue-400/80 leading-relaxed">
+                                                                This will map the entire {mappingForm.payloadSubtype || "OFFICERS"} list into this repeating Person or Contact field using the system's standard structured extraction rules.
+                                                            </p>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="grid gap-2">
+                                                            <Label htmlFor="transformType">Transform Type</Label>
+                                                            <Select value={mappingForm.transformType} onValueChange={(val) => setMappingForm({ ...mappingForm, transformType: val })}>
+                                                                <SelectTrigger>
+                                                                    <SelectValue placeholder="Select transform" />
+                                                                </SelectTrigger>
+                                                                <SelectContent>
+                                                                    {TRANSFORM_SELECT_OPTIONS.map(t => (
+                                                                        <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                                                                    ))}
+                                                                </SelectContent>
+                                                            </Select>
+                                                            {getTransformDescription(mappingForm.transformType) && (
+                                                                <p className="text-[11px] text-slate-500 leading-snug">
+                                                                    {getTransformDescription(mappingForm.transformType)}
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </>
+                                            );
+                                        })()}
+
                                         {/* Payload Subtype — RA only. Controls which RegistrySourcePayload subtype the path resolves against. */}
                                         {SOURCE_OPTIONS.find(o => o.value === mappingForm.sourceType)?.sourceType === 'REGISTRATION_AUTHORITY' && (
                                             <div className="grid gap-2">
@@ -759,8 +791,14 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                                                 currentFieldNo={field.fieldNo}
                                                 readOnly={false}
                                                 resolvedDefaults={resolvedDefaults}
-                                                onSelectPath={(path) => {
-                                                    setMappingForm(f => ({ ...f, sourcePath: path }));
+                                                onSelectPath={(path, subtype, transformType, transformConfig) => {
+                                                    setMappingForm(f => ({
+                                                        ...f,
+                                                        sourcePath: path,
+                                                        payloadSubtype: subtype || f.payloadSubtype,
+                                                        transformType: transformType || f.transformType,
+                                                        transformConfig: transformConfig || null
+                                                    }));
                                                     setIsBrowserOpen(false);
                                                 }}
                                             />
