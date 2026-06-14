@@ -15,6 +15,10 @@ import { isPersonOrContactValue } from '@/lib/master-data/person-or-contact-valu
 
 describe('inspect valueJson types in query lifecycles', () => {
   it('logs and prints data types', async () => {
+    if (!process.env.DATABASE_URL) {
+      console.log('[Diagnostic] Skipping diagnostic test: DATABASE_URL environment variable is missing.');
+      return;
+    }
     const claims = await prisma.fieldClaim.findMany({
       where: { fieldNo: 63 },
     });
