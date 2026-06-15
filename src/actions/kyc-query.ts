@@ -399,7 +399,7 @@ export interface FieldDetailData {
         isAuthoritative: boolean;
         status: string;
     }[];
-    rows?: { id: string; value: any; source: string; timestamp: Date; instanceId?: string; collectionId?: string; data?: any; label?: string; sourceReference?: string }[];
+    rows?: { id: string; value: any; source: string; timestamp: Date; instanceId?: string; collectionId?: string; data?: any; label?: string; sourceReference?: string; isPromotedToCCC?: boolean }[];
     /**
      * For repeating/collection fields only.
      * True if the user has made any add or remove action on this collection
@@ -656,7 +656,7 @@ export async function getFieldDetail(
     const derived = await KycStateService.getAuthoritativeValue({ subjectLeId }, fieldNo, ownerScopeId);
 
     // 2. Load Rows if repeating
-    let rows: { id: string; value: any; source: string; timestamp: Date; instanceId?: string; collectionId?: string; data?: any; label?: string; sourceReference?: string }[] | undefined = undefined;
+    let rows: { id: string; value: any; source: string; timestamp: Date; instanceId?: string; collectionId?: string; data?: any; label?: string; sourceReference?: string; isPromotedToCCC?: boolean }[] | undefined = undefined;
 
     // Check for Graph Binding
     const bindings = await prisma.masterFieldGraphBinding.findMany({
@@ -720,6 +720,15 @@ export async function getFieldDetail(
                 collection = collection.filter(c => isRenderableActiveDirectorParty(c.value));
             }
 
+            let promotedClaimIds = new Set<string>();
+            if (def && (def.appDataType === 'PARTY' || def.appDataType === 'PERSON_OR_CONTACT') && entityType === 'CLIENT_LE') {
+                const promotedParties = await prisma.cCParty.findMany({
+                    where: { clientLEId: entityId, createdFromClaimId: { not: null } },
+                    select: { createdFromClaimId: true }
+                });
+                promotedClaimIds = new Set(promotedParties.map((p: any) => p.createdFromClaimId as string));
+            }
+
             rows = collection.map((c: any) => {
                 return {
                     id: c.claimId,
@@ -730,7 +739,8 @@ export async function getFieldDetail(
                     instanceId: c.instanceId,
                     collectionId: c.collectionId,
                     data: undefined,
-                    label: typeof c.value === 'string' ? c.value : undefined
+                    label: typeof c.value === 'string' ? c.value : undefined,
+                    isPromotedToCCC: promotedClaimIds.has(c.claimId)
                 };
             });
         }

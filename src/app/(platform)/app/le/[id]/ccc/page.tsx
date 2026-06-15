@@ -45,7 +45,10 @@ export default async function CCCPage({ params }: CCCPageProps) {
             </div>
 
             {/* Curated Parties Manager */}
-            <CCPartyManager clientLEId={id} initialParties={curatedParties} />
+            <CCPartyManager 
+                clientLEId={id} 
+                initialParties={curatedParties} 
+            />
         </div>
     );
 }

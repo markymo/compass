@@ -13,6 +13,7 @@ import { Loader2, History, Database, Edit, CheckCircle, CheckCircle2, AlertTrian
 import { getFieldDetail, FieldDetailData } from "@/actions/kyc-query";
 // FIELD_DEFINITIONS removed
 import { updateFieldManually, applyCandidate, updateCustomFieldManually, addMultiValueEntry, removeMultiValueEntry, applyBulkOverride, promoteClaim } from "@/actions/kyc-manual-update";
+import { promoteClaimToCCParty } from "@/actions/cc-party-actions";
 import { getMasterFieldDocuments, setMasterFieldAssignment } from "@/actions/standing-data";
 import { renameCustomField } from "@/actions/master-data-governance";
 import { saveMasterFieldNote } from "@/actions/master-data-notes";
@@ -296,6 +297,24 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
         } catch (e) {
             console.error("Promote error:", e);
             toast.error("Promote failed");
+        } finally {
+            setIsPromoting(null);
+        }
+    };
+
+    const handlePromoteToCCC = async (claimId: string) => {
+        setIsPromoting(claimId);
+        try {
+            const res = await promoteClaimToCCParty(claimId, legalEntityId);
+            if (res.success) {
+                toast.success("Promoted to Curated Party");
+                loadData(); // Reload rows to update isPromotedToCCC flag
+            } else {
+                toast.error((res as any).message || "Failed to promote claim");
+            }
+        } catch (e: any) {
+            console.error("Promote to CCC error:", e);
+            toast.error(e.message || "Promote failed");
         } finally {
             setIsPromoting(null);
         }
@@ -1022,6 +1041,25 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                     </div>
                                                                     {!isLocked && (
                                                                         <div className="flex items-center gap-0.5 shrink-0">
+                                                                            {isPartyField && (
+                                                                                row.isPromotedToCCC ? (
+                                                                                    <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 border-emerald-200 mr-2 hover:bg-emerald-50 font-medium h-6">
+                                                                                        <CheckCircle2 className="w-3 h-3 mr-1" />
+                                                                                        Already curated
+                                                                                    </Badge>
+                                                                                ) : (
+                                                                                    <Button
+                                                                                        variant="ghost"
+                                                                                        size="sm"
+                                                                                        className="h-7 text-xs text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 mr-2"
+                                                                                        onClick={() => handlePromoteToCCC(row.id)}
+                                                                                        disabled={isPromoting === row.id}
+                                                                                    >
+                                                                                        {isPromoting === row.id ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Database className="h-3 w-3 mr-1" />}
+                                                                                        Promote to Curated Party
+                                                                                    </Button>
+                                                                                )
+                                                                            )}
                                                                             <button
                                                                                 className="p-1.5 rounded text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
                                                                                 onClick={() => {

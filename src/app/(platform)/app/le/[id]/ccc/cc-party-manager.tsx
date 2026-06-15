@@ -23,7 +23,7 @@ import { Badge } from "@/components/ui/badge";
 import { PersonOrContactValueEditor } from "@/components/client/fields/PersonOrContactValueEditor";
 import { PartyValue, getPartySummary } from "@/lib/master-data/party-value";
 import { upsertCCParty, deleteCCParty } from "@/actions/cc-party-actions";
-import { Plus, Edit, Trash2, Loader2, Layers, AlertTriangle } from "lucide-react";
+import { Plus, Edit, Trash2, Loader2, Layers, AlertTriangle, ArrowUpRight, CheckCircle2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
@@ -34,6 +34,12 @@ interface CCPartyRecord {
     visibility: string;
     createdAt: Date;
     updatedAt: Date;
+    originType?: "MANUAL" | "PROMOTED";
+    originLabel?: string;
+    originFieldNo?: number;
+    originFieldName?: string;
+    originSourceLabel?: string;
+    originClaimId?: string;
 }
 
 interface CCPartyManagerProps {
@@ -184,6 +190,12 @@ export function CCPartyManager({ clientLEId, initialParties }: CCPartyManagerPro
                                             Status
                                         </TableHead>
                                         <TableHead className="text-xs font-bold text-slate-500 uppercase py-3 px-5 tracking-wider">
+                                            Origin
+                                        </TableHead>
+                                        <TableHead className="text-xs font-bold text-slate-500 uppercase py-3 px-5 tracking-wider">
+                                            Usage
+                                        </TableHead>
+                                        <TableHead className="text-xs font-bold text-slate-500 uppercase py-3 px-5 tracking-wider">
                                             Scope
                                         </TableHead>
                                         <TableHead className="text-xs font-bold text-slate-500 uppercase py-3 px-5 tracking-wider text-right">
@@ -222,6 +234,27 @@ export function CCPartyManager({ clientLEId, initialParties }: CCPartyManagerPro
                                                         {isActive ? "Active" : "Inactive"}
                                                     </Badge>
                                                 </TableCell>
+                                                <TableCell className="py-3 px-5 text-sm">
+                                                    <div className="flex flex-col gap-0.5 max-w-[200px]">
+                                                        {party.originType === 'PROMOTED' ? (
+                                                            <>
+                                                                <span className="font-semibold text-xs text-indigo-600 truncate" title={party.originLabel}>
+                                                                    {party.originLabel}
+                                                                </span>
+                                                                <span className="text-[10px] text-slate-400 font-medium">
+                                                                    Source: {party.originSourceLabel || 'Unknown'}
+                                                                </span>
+                                                            </>
+                                                        ) : (
+                                                            <span className="font-semibold text-xs text-slate-600 truncate">
+                                                                {party.originLabel || 'Manual'}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell className="py-3 px-5 text-sm">
+                                                    <span className="text-xs text-slate-400 italic">No references yet</span>
+                                                </TableCell>
                                                 <TableCell className="py-3 px-5 text-xs font-semibold text-slate-400 font-mono">
                                                     {party.visibility}
                                                 </TableCell>
@@ -257,6 +290,7 @@ export function CCPartyManager({ clientLEId, initialParties }: CCPartyManagerPro
                 </CardContent>
             </Card>
 
+
             {/* Create / Edit Dialog */}
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
                 <DialogContent className="max-w-4xl h-[85vh] md:h-[80vh] flex flex-col p-0 overflow-hidden border border-slate-100 shadow-xl rounded-xl">
@@ -269,12 +303,44 @@ export function CCPartyManager({ clientLEId, initialParties }: CCPartyManagerPro
                         </DialogDescription>
                     </DialogHeader>
 
-                    <div className="flex-1 overflow-y-auto p-6 space-y-6 min-h-0">
-                        <PersonOrContactValueEditor
-                            value={editorValue}
-                            onChange={setEditorValue}
-                            disabled={isPending}
-                        />
+                    <div className="flex-1 overflow-y-auto p-6 space-y-6 min-h-0 bg-slate-50/30">
+                        {/* Metadata Panel */}
+                        <div className="bg-white border border-slate-200 rounded-lg p-4 grid grid-cols-1 md:grid-cols-3 gap-4 shadow-sm">
+                            <div className="space-y-1">
+                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Visibility</label>
+                                <div className="text-xs font-medium text-slate-800 flex items-center gap-1.5">
+                                    <div className="h-1.5 w-1.5 rounded-full bg-indigo-500"></div>
+                                    {selectedParty?.visibility || "CLIENT_LE"}
+                                </div>
+                            </div>
+                            <div className="space-y-1 md:col-span-2">
+                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Origin & Usage</label>
+                                <div className="text-xs text-slate-600 flex flex-col gap-1">
+                                    <div className="flex items-start gap-1.5">
+                                        <span className="font-semibold text-slate-700 min-w-[50px]">Origin:</span>
+                                        <span>
+                                            {selectedParty ? (
+                                                selectedParty.originType === 'PROMOTED' 
+                                                    ? `${selectedParty.originLabel}${selectedParty.originSourceLabel ? ` (${selectedParty.originSourceLabel})` : ''}`
+                                                    : selectedParty.originLabel || "Manual"
+                                            ) : "Manual creation"}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-start gap-1.5">
+                                        <span className="font-semibold text-slate-700 min-w-[50px]">Usage:</span>
+                                        <span className="text-slate-500 italic">No references yet</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-sm">
+                            <PersonOrContactValueEditor
+                                value={editorValue}
+                                onChange={setEditorValue}
+                                disabled={isPending}
+                            />
+                        </div>
                     </div>
 
                     <DialogFooter className="p-5 border-t border-slate-100 bg-slate-50/50 flex items-center justify-end gap-3 rounded-b-xl">

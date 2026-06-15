@@ -14,6 +14,7 @@ const mockCCPartyFindMany = vi.fn();
 const mockCCPartyCreate = vi.fn();
 const mockCCPartyUpdate = vi.fn();
 const mockCCPartyDelete = vi.fn();
+const mockFieldClaimFindMany = vi.fn();
 
 vi.mock("@/lib/prisma", () => ({
     default: {
@@ -23,7 +24,15 @@ vi.mock("@/lib/prisma", () => ({
             update: (...args: any[]) => mockCCPartyUpdate(...args),
             delete: (...args: any[]) => mockCCPartyDelete(...args),
         },
+        fieldClaim: {
+            findMany: (...args: any[]) => mockFieldClaimFindMany(...args),
+        }
     },
+}));
+
+const mockGetMasterFieldDefinition = vi.fn();
+vi.mock("@/services/masterData/definitionService", () => ({
+    getMasterFieldDefinition: (...args: any[]) => mockGetMasterFieldDefinition(...args),
 }));
 
 import { getCCParties, upsertCCParty, deleteCCParty } from "../cc-party-actions";
@@ -57,16 +66,46 @@ describe("cc-party-actions", () => {
     describe("getCCParties", () => {
         it("returns all curated parties for a client LE", async () => {
             const mockParties = [
-                { id: "party-1", clientLEId: "le-123", data: validParty, createdAt: new Date() }
+                { id: "party-1", clientLEId: "le-123", data: validParty, createdAt: new Date(), createdFromClaimId: null }
             ];
             mockCCPartyFindMany.mockResolvedValue(mockParties);
 
             const result = await getCCParties("le-123");
-            expect(result).toEqual(mockParties);
+            expect(result).toEqual([{
+                ...mockParties[0],
+                originType: "MANUAL",
+                originLabel: "Created manually in CCC"
+            }]);
             expect(mockCCPartyFindMany).toHaveBeenCalledWith({
                 where: { clientLEId: "le-123" },
                 orderBy: { createdAt: "desc" }
             });
+        });
+
+        it("returns promoted metadata for promoted parties", async () => {
+            const mockParties = [
+                { id: "party-2", clientLEId: "le-123", data: validParty, createdAt: new Date(), createdFromClaimId: "claim-1" }
+            ];
+            mockCCPartyFindMany.mockResolvedValue(mockParties);
+            
+            mockFieldClaimFindMany.mockResolvedValue([
+                { id: "claim-1", fieldNo: 63, sourceType: "COMPANY_REGISTRY" }
+            ]);
+
+            mockGetMasterFieldDefinition.mockResolvedValue({
+                fieldName: "List of company directors"
+            });
+
+            const result = await getCCParties("le-123");
+            expect(result).toEqual([{
+                ...mockParties[0],
+                originType: "PROMOTED",
+                originLabel: "Promoted from Field 63 — List of company directors",
+                originFieldNo: 63,
+                originFieldName: "List of company directors",
+                originSourceLabel: "Companies House",
+                originClaimId: "claim-1"
+            }]);
         });
     });
 

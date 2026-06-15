@@ -1270,11 +1270,12 @@ model CCParty {
   id              String   @id @default(uuid())
   clientLEId      String
   data            Json
-  visibility      String   @default("CLIENT_LE")
-  createdByUserId String?
-  updatedByUserId String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  visibility         String   @default("CLIENT_LE")
+  createdFromClaimId String?
+  createdByUserId    String?
+  updatedByUserId    String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   clientLE        ClientLE @relation(fields: [clientLEId], references: [id], onDelete: Cascade)
 
