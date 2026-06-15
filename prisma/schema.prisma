@@ -204,6 +204,7 @@ model ClientLE {
   enrichmentRuns           EnrichmentRun[]
   registrySourcePayloads   RegistrySourcePayload[]
   registryBaselineExtracts RegistryBaselineExtract[]
+  ccParties                CCParty[]
 
   @@index([legalEntityId])
 }
@@ -1264,3 +1265,19 @@ model AdminMomentumObservation {
   @@index([createdAt])
   @@map("admin_momentum_observations")
 }
+
+model CCParty {
+  id              String   @id @default(uuid())
+  clientLEId      String
+  data            Json
+  visibility      String   @default("CLIENT_LE")
+  createdByUserId String?
+  updatedByUserId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  clientLE        ClientLE @relation(fields: [clientLEId], references: [id], onDelete: Cascade)
+
+  @@map("cc_parties")
+}
+
