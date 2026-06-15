@@ -1074,6 +1074,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                 <Button
                                                                     variant="outline"
                                                                     onClick={() => {
+                                                                        const shouldSeedDirectorRole = Number(fieldNo) === 63;
                                                                         setIsAddingPerson(true);
                                                                         setNewPersonData({
                                                                             contactType: "PERSON",
@@ -1086,7 +1087,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                             countryOfResidence: null,
                                                                             dateOfBirth: null,
                                                                             placeOfBirth: null,
-                                                                            roles: [
+                                                                            roles: shouldSeedDirectorRole ? [
                                                                                 {
                                                                                     roleType: "director",
                                                                                     roleTitle: "director",
@@ -1101,7 +1102,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                                     resignedOn: null,
                                                                                     natureOfControl: []
                                                                                 }
-                                                                            ],
+                                                                            ] : [],
                                                                             sourceIdentifiers: [],
                                                                             isActivePersonOrContact: null,
                                                                             visibility: { scope: "CLIENT_LE" }
