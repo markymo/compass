@@ -27,7 +27,7 @@ import { cn } from "@/lib/utils";
 import { CollectionRowDisplay } from "@/lib/master-data/structured-collection-renderers";
 import { CodeListField } from "@/components/client/fields/CodeListField";
 import { AddressValueViewer, isAddressValue } from "../fields/AddressValueViewer";
-import { isPersonOrContactValue, getPersonOrContactSummary } from "@/lib/master-data/person-or-contact-value";
+import { isPersonOrContactValue, getPersonOrContactSummary, isValidPartyValue } from "@/lib/master-data/person-or-contact-value";
 import { PersonOrContactValueViewer } from "../fields/PersonOrContactValueViewer";
 import { PersonOrContactValueEditor } from "../fields/PersonOrContactValueEditor";
 
@@ -936,6 +936,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                                 value={editingRowValue || { contactType: 'PERSON', roles: [] } as any}
                                                                                 onChange={setEditingRowValue}
                                                                                 disabled={isSaving}
+                                                                                fieldNo={fieldNo}
                                                                             />
                                                                         </div>
                                                                     ) : (
@@ -977,7 +978,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                             size="icon"
                                                                             className="h-7 w-7 text-green-600 hover:bg-green-50"
                                                                             onClick={() => handleInlineEditSave(row)}
-                                                                            disabled={isSaving || (typeof editingRowValue === 'string' ? !editingRowValue.trim() : !(editingRowValue?.forenames?.trim() || editingRowValue?.surname?.trim()))}
+                                                                            disabled={isSaving || (typeof editingRowValue === 'string' ? !editingRowValue.trim() : !isValidPartyValue(editingRowValue))}
                                                                         >
                                                                             {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
                                                                         </Button>
@@ -1111,7 +1112,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                     className="w-full justify-center bg-indigo-50/50 hover:bg-indigo-50 border-indigo-200 text-indigo-700 border-dashed"
                                                                 >
                                                                     <Plus className="h-4 w-4 mr-2" />
-                                                                    Add Person / Contact
+                                                                    {fieldNo === 63 ? 'Add Director' : (newPersonData?.partyType === 'ORGANISATION' ? 'Add Organisation' : (newPersonData?.partyType === 'INDIVIDUAL' ? 'Add Individual' : 'Add Party'))} / Contact
                                                                 </Button>
                                                             ) : (
                                                                 <div className="space-y-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
@@ -1119,16 +1120,17 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                         value={newPersonData || { contactType: 'PERSON', roles: [] } as any}
                                                                         onChange={setNewPersonData}
                                                                         disabled={isAddingSaving}
+                                                                        fieldNo={fieldNo}
                                                                     />
                                                                     <div className="flex items-center gap-2 mt-2">
                                                                         <Button
                                                                             size="sm"
                                                                             className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700"
                                                                             onClick={() => handleAddNewEntry(newPersonData)}
-                                                                            disabled={isAddingSaving || !(newPersonData?.forenames?.trim() || newPersonData?.surname?.trim())}
+                                                                            disabled={isAddingSaving || !isValidPartyValue(newPersonData)}
                                                                         >
                                                                             {isAddingSaving ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Check className="h-3 w-3 mr-1" />}
-                                                                            Add Person
+                                                                            {fieldNo === 63 ? 'Add Director' : (newPersonData?.partyType === 'ORGANISATION' ? 'Add Organisation' : (newPersonData?.partyType === 'INDIVIDUAL' ? 'Add Individual' : 'Add Party'))}
                                                                         </Button>
                                                                         <Button
                                                                             variant="ghost"
@@ -1308,7 +1310,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                             className="bg-indigo-50/50 hover:bg-indigo-50 border-indigo-200 text-indigo-700 border-dashed shadow-sm shrink-0"
                                                                         >
                                                                             <Plus className="h-4 w-4 mr-2" />
-                                                                            Add Person or Contact
+                                                                            {fieldNo === 63 ? 'Add Director' : (newPersonData?.partyType === 'ORGANISATION' ? 'Add Organisation' : (newPersonData?.partyType === 'INDIVIDUAL' ? 'Add Individual' : 'Add Party'))} or Contact
                                                                         </Button>
                                                                     )}
                                                                 </div>
@@ -1380,6 +1382,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                                     value={typeof manualValue === 'object' && manualValue ? manualValue : { contactType: 'PERSON', roles: [] } as any}
                                                                                     onChange={(val) => setManualValue(val as any)}
                                                                                     disabled={isSaving}
+                                                                                    fieldNo={fieldNo}
                                                                                 />
                                                                                 <div className="flex items-center gap-2">
                                                                                     <Button
@@ -1389,7 +1392,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                                             setIsEditing(true);
                                                                                             handleManualSave();
                                                                                         }}
-                                                                                        disabled={isSaving || !(manualValue?.forenames?.trim() || manualValue?.surname?.trim())}
+                                                                                        disabled={isSaving || !isValidPartyValue(manualValue)}
                                                                                     >
                                                                                         {isSaving ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Check className="h-3 w-3 mr-1" />}
                                                                                         Save
@@ -1505,6 +1508,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                         value={typeof manualValue === 'object' && manualValue ? manualValue : { contactType: 'PERSON', roles: [] } as any}
                                                         onChange={(val) => setManualValue(val as any)}
                                                         disabled={isSaving}
+                                                         fieldNo={fieldNo}
                                                     />
                                                 ) : data?.options && data.options.length > 0 ? (
                                                     <Select value={manualValue} onValueChange={setManualValue}>
@@ -1607,7 +1611,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                         <Button
                                             size="sm"
                                             onClick={handleManualSave}
-                                            disabled={isSaving || (isPersonOrContactField && !(manualValue?.forenames?.trim() || manualValue?.surname?.trim()))}
+                                            disabled={isSaving || (isPersonOrContactField && !isValidPartyValue(manualValue))}
                                         >
                                             {isSaving ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : <CheckCircle className="h-3 w-3 mr-2" />}
                                             Save Override

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { applyTransform, buildPersonOrContactRowKey } from '../transforms';
-import { isPartyValue, isValidPartyValue, isRenderableActiveDirectorParty } from '../../../../lib/master-data/party-value';
+import { isPartyValue, isValidPartyValue, isRenderableActiveDirectorParty, getPartySummary } from '../../../../lib/master-data/party-value';
 
 // ── Shared CH officer fixture ─────────────────────────────────────────────────
 const CH_DIRECTOR_ACTIVE = {
@@ -420,5 +420,155 @@ describe('TO_PARTY_VALUE transform guard for empty/anonymous values', () => {
         const result = applyTransform({ name: '' }, 'TO_PARTY_VALUE', BASE_CONFIG);
         expect(result.value).toBeNull();
         expect(result.confidencePenalty).toBe(1);
+    });
+});
+
+describe('Phase 1B: Datatype Compatibility & Normalisation', () => {
+    it('COMPAT-1: normalises legacy PERSON values to INDIVIDUAL / PERSON', () => {
+        const legacyVal = {
+            contactType: 'PERSON',
+            forenames: 'John',
+            surname: 'Smith',
+            roles: []
+        };
+        const valid = isPartyValue(legacyVal);
+        expect(valid).toBe(true);
+        expect((legacyVal as any).partyType).toBe('INDIVIDUAL');
+        expect((legacyVal as any).partySubType).toBe('PERSON');
+    });
+
+    it('COMPAT-2: normalises legacy CONTACT values to INDIVIDUAL / CONTACT', () => {
+        const legacyVal = {
+            contactType: 'CONTACT',
+            forenames: 'Compliance Group',
+            roles: []
+        };
+        const valid = isPartyValue(legacyVal);
+        expect(valid).toBe(true);
+        expect((legacyVal as any).partyType).toBe('INDIVIDUAL');
+        expect((legacyVal as any).partySubType).toBe('CONTACT');
+    });
+});
+
+describe('Phase 1B: New Party Types & Validation', () => {
+    it('TYPE-1: validates individual types', () => {
+        const individual = {
+            partyType: 'INDIVIDUAL',
+            partySubType: 'PERSON',
+            forenames: 'Alice',
+            surname: 'Wonderland'
+        };
+        expect(isValidPartyValue(individual)).toBe(true);
+    });
+
+    it('TYPE-2: validates organisation types', () => {
+        const org = {
+            partyType: 'ORGANISATION',
+            partySubType: 'COMPANY',
+            organisationName: 'Company Ltd'
+        };
+        expect(isValidPartyValue(org)).toBe(true);
+
+        const orgWithDisplay = {
+            partyType: 'ORGANISATION',
+            partySubType: 'TRUST',
+            displayName: 'My Family Trust'
+        };
+        expect(isValidPartyValue(orgWithDisplay)).toBe(true);
+
+        const invalidOrg = {
+            partyType: 'ORGANISATION',
+            partySubType: 'COMPANY',
+            forenames: 'Not',
+            surname: 'AnOrg'
+        };
+        expect(isValidPartyValue(invalidOrg)).toBe(false);
+    });
+
+    it('TYPE-3: validates unknown type with any name', () => {
+        const unknownIndividual = {
+            partyType: 'UNKNOWN',
+            partySubType: 'OTHER',
+            surname: 'IndividualName'
+        };
+        expect(isValidPartyValue(unknownIndividual)).toBe(true);
+
+        const unknownOrg = {
+            partyType: 'UNKNOWN',
+            partySubType: 'OTHER',
+            organisationName: 'OrgName'
+        };
+        expect(isValidPartyValue(unknownOrg)).toBe(true);
+
+        const emptyUnknown = {
+            partyType: 'UNKNOWN',
+            partySubType: 'OTHER'
+        };
+        expect(isValidPartyValue(emptyUnknown)).toBe(false);
+    });
+});
+
+describe('Phase 1B: Summary Rendering', () => {
+    it('RENDER-1: renders individual summaries', () => {
+        const individual = {
+            partyType: 'INDIVIDUAL',
+            partySubType: 'PERSON',
+            forenames: 'Alice',
+            surname: 'Wonderland',
+            roles: []
+        } as any;
+        expect(getPartySummary(individual)).toBe('Alice Wonderland');
+    });
+
+    it('RENDER-2: renders organisation summaries', () => {
+        const org = {
+            partyType: 'ORGANISATION',
+            partySubType: 'COMPANY',
+            organisationName: 'Company Ltd',
+            roles: []
+        } as any;
+        expect(getPartySummary(org)).toBe('Company Ltd');
+
+        const trust = {
+            partyType: 'ORGANISATION',
+            partySubType: 'TRUST',
+            displayName: 'My Family Trust',
+            roles: []
+        } as any;
+        expect(getPartySummary(trust)).toBe('My Family Trust');
+    });
+});
+
+describe('Phase 1B: Regression checks for active directors (Field 63)', () => {
+    it('REG-1: verifies Field 63 active director selection', () => {
+        const activeDirector = {
+            partyType: 'INDIVIDUAL',
+            partySubType: 'PERSON',
+            forenames: 'John',
+            surname: 'Smith',
+            roles: [{
+                roleType: 'director',
+                roleTitle: 'Director',
+                isActiveRole: true,
+                appointedOn: '2020-01-01',
+                resignedOn: null
+            }]
+        };
+        expect(isRenderableActiveDirectorParty(activeDirector)).toBe(true);
+
+        const resignedDirector = {
+            partyType: 'INDIVIDUAL',
+            partySubType: 'PERSON',
+            forenames: 'John',
+            surname: 'Smith',
+            roles: [{
+                roleType: 'director',
+                roleTitle: 'Director',
+                isActiveRole: false,
+                appointedOn: '2020-01-01',
+                resignedOn: '2022-01-01'
+            }]
+        };
+        expect(isRenderableActiveDirectorParty(resignedDirector)).toBe(false);
     });
 });

@@ -23,6 +23,11 @@ export interface PartyValue {
      */
     contactType: 'PERSON' | 'CONTACT';
 
+    partyType?: 'INDIVIDUAL' | 'ORGANISATION' | 'UNKNOWN' | null;
+    partySubType?: 'PERSON' | 'CONTACT' | 'COMPANY' | 'TRUST' | 'FUND' | 'PARTNERSHIP' | 'GOVERNMENT_BODY' | 'TEAM' | 'DISTRIBUTION_LIST' | 'OTHER' | null;
+    organisationName?: string | null;
+    displayName?: string | null;
+
     // ── Identity ────────────────────────────────────────────────────────────────
     /** Honorific prefix (e.g. "Mr", "Dr", "Mrs"). From source or user input. */
     title:       string | null;
@@ -153,7 +158,7 @@ export function isPartyValue(value: any): value is PartyValue {
     let matches = false;
     if ('contactType' in value && VALID_TYPES.has(value.contactType)) {
         matches = true;
-    } else if ('forenames' in value || 'surname' in value || 'roles' in value || 'firstName' in value || 'lastName' in value) {
+    } else if ('forenames' in value || 'surname' in value || 'roles' in value || 'firstName' in value || 'lastName' in value || 'organisationName' in value || 'displayName' in value || 'partyType' in value) {
         // Automatically inject the missing discriminant so the editor works
         if (!('contactType' in value)) value.contactType = 'PERSON';
         matches = true;
@@ -166,6 +171,17 @@ export function isPartyValue(value: any): value is PartyValue {
             : (value.isActivePersonOrContact !== undefined && value.isActivePersonOrContact !== null ? value.isActivePersonOrContact : null);
         value.isActiveParty = active;
         value.isActivePersonOrContact = active;
+
+        // Backward compatibility mappings
+        if (!value.partyType) {
+            if (value.contactType === 'PERSON') {
+                value.partyType = 'INDIVIDUAL';
+                value.partySubType = 'PERSON';
+            } else if (value.contactType === 'CONTACT') {
+                value.partyType = 'INDIVIDUAL';
+                value.partySubType = 'CONTACT';
+            }
+        }
         return true;
     }
 
@@ -179,8 +195,17 @@ export function isPartyValue(value: any): value is PartyValue {
  * Falls back gracefully through forenames+surname → contactType.
  */
 export function getPartySummary(v: PartyValue): string {
-    const name = [v.forenames || (v as any).firstName, v.surname || (v as any).lastName].filter(Boolean).join(' ') || 
-        v.contactType || 'Unknown Party';
+    const isOrg = v.partyType === 'ORGANISATION';
+    const isUnknown = v.partyType === 'UNKNOWN';
+
+    let name = '';
+    if (isOrg) {
+        name = v.organisationName || v.displayName || [v.forenames || (v as any).firstName, v.surname || (v as any).lastName].filter(Boolean).join(' ') || 'Unnamed Organisation';
+    } else if (isUnknown) {
+        name = v.organisationName || v.displayName || [v.forenames || (v as any).firstName, v.surname || (v as any).lastName].filter(Boolean).join(' ') || 'Unknown Party';
+    } else {
+        name = [v.forenames || (v as any).firstName, v.surname || (v as any).lastName].filter(Boolean).join(' ') || v.displayName || v.organisationName || v.contactType || 'Unnamed Individual';
+    }
 
     const rolesList = v.roles || [];
     const activeRole = rolesList.find(r => r.isActiveRole !== false);
@@ -195,16 +220,34 @@ export function getPartySummary(v: PartyValue): string {
 export function isValidPartyValue(value: any): boolean {
     if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
 
+    // Normalise/resolve actual partyType for validation check
+    const actualPartyType = value.partyType ?? (value.contactType === 'PERSON' ? 'INDIVIDUAL' : (value.contactType === 'CONTACT' ? 'INDIVIDUAL' : null));
+
     const hasForenames = typeof value.forenames === 'string' && value.forenames.trim().length > 0;
     const hasSurname = typeof value.surname === 'string' && value.surname.trim().length > 0;
     const hasFullName = typeof (value as any).fullName === 'string' && (value as any).fullName.trim().length > 0;
     const hasName = typeof (value as any).name === 'string' && (value as any).name.trim().length > 0;
     const hasTitle = typeof value.title === 'string' && value.title.trim().length > 0;
+    const hasIndividualName = hasForenames || hasSurname || hasFullName || hasName || hasTitle;
 
-    const hasUsableName = hasForenames || hasSurname || hasFullName || hasName || hasTitle;
+    const hasOrgName = typeof value.organisationName === 'string' && value.organisationName.trim().length > 0;
+    const hasDisplayName = typeof value.displayName === 'string' && value.displayName.trim().length > 0;
+    const hasOrganisationName = hasOrgName || hasDisplayName;
+
     const hasIdentifier = Array.isArray(value.sourceIdentifiers) && value.sourceIdentifiers.length > 0;
 
-    return !!(hasUsableName || hasIdentifier);
+    if (hasIdentifier) return true;
+
+    if (actualPartyType === 'ORGANISATION') {
+        return hasOrganisationName;
+    } else if (actualPartyType === 'INDIVIDUAL') {
+        return hasIndividualName;
+    } else if (actualPartyType === 'UNKNOWN') {
+        return hasIndividualName || hasOrganisationName;
+    } else {
+        // Fallback for legacy/unspecified
+        return !!(hasIndividualName || hasOrganisationName);
+    }
 }
 
 /**
