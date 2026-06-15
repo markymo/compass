@@ -74,6 +74,7 @@ export async function updateFieldManually(
             case 'DOCUMENT_REF': claimInput.valueText = value; break; // Manual edits store as text; valueDocId requires valid FK
             case 'JSONB':
             case 'ADDRESS':
+            case 'PARTY':
             case 'PERSON_OR_CONTACT':
                 claimInput.valueJson = value; break;
         }

@@ -223,13 +223,13 @@ export function DataInspectorPanel({
             : "Enter Company Number (e.g. 07640868)...";
 
     const targetFieldDef = fieldDefinitions?.find(f => f.fieldNo === (currentFieldNo || initialTargetFieldNo));
-    const isPersonOrContactContext = targetFieldDef?.appDataType === "PERSON_OR_CONTACT" || payloadSubtype === "OFFICERS" || payloadSubtype === "PSC";
+    const isPersonOrContactContext = targetFieldDef?.appDataType === "PARTY" || targetFieldDef?.appDataType === "PERSON_OR_CONTACT" || payloadSubtype === "OFFICERS" || payloadSubtype === "PSC";
 
     const handleMapPersonOrContact = (path: string, isList: boolean) => {
         onSelectPath(
             path,
             payloadSubtype,
-            isList ? "TO_PERSON_OR_CONTACT_LIST" : "TO_PERSON_OR_CONTACT_VALUE",
+            isList ? "TO_PARTY_VALUE_LIST" : "TO_PARTY_VALUE",
             {
                 fullNamePath: "name",
                 roleTitlePath: "officer_role",

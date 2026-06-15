@@ -43,11 +43,10 @@ export const APP_DATA_TYPES = {
     // Address — stored as embedded JSON in production (new)
     ADDRESS:      'ADDRESS',
 
-    // Person or Contact — Phase 1: stored as embedded JSON in FieldClaim.valueJson.
-    // The enrichment pipeline does not create Person/LE graph nodes for this type.
-    // Future: KG promotion (PERSON_REF linkage, director/signatory edges) is in scope
-    // and is not constrained by this registration.
-    PERSON_OR_CONTACT: 'PERSON_OR_CONTACT',
+    // Party — Phase 1A: stored as embedded JSON in FieldClaim.valueJson.
+    // The legacy name PERSON_OR_CONTACT is kept as an alias resolving to PARTY.
+    PARTY:             'PARTY',
+    PERSON_OR_CONTACT: 'PARTY', // Compatibility alias
 
     // Reference types — require MasterFieldGraphBinding to be configured.
     // PERSON_REF: links to a Person graph node (strictly individuals)
@@ -77,7 +76,7 @@ export const SCALAR_TYPES = new Set<AppDataType>([
     APP_DATA_TYPES.JSONB,
     APP_DATA_TYPES.SELECT,
     APP_DATA_TYPES.ADDRESS,
-    APP_DATA_TYPES.PERSON_OR_CONTACT,
+    APP_DATA_TYPES.PARTY,
 ]);
 
 /** Types that materialise relational rows (Person, Address, LegalEntity) */
@@ -96,7 +95,7 @@ export const ALL_KNOWN_TYPES = new Set<string>(Object.values(APP_DATA_TYPES));
 
 /** Returns true if the value is a recognised appDataType. */
 export function isKnownAppDataType(value: string): value is AppDataType {
-    return ALL_KNOWN_TYPES.has(value);
+    return ALL_KNOWN_TYPES.has(value) || value === 'PERSON_OR_CONTACT';
 }
 
 /** Returns true for types that produce a relational reference (not a raw scalar). */
@@ -106,7 +105,7 @@ export function isReferenceType(value: string): boolean {
 
 /** Returns true for simple scalar types. */
 export function isScalarType(value: string): boolean {
-    return SCALAR_TYPES.has(value as AppDataType);
+    return SCALAR_TYPES.has(value as AppDataType) || value === 'PERSON_OR_CONTACT';
 }
 
 // ── Admin UI option lists ────────────────────────────────────────────────────
@@ -126,7 +125,7 @@ export const SCALAR_UI_OPTIONS: AppDataTypeOption[] = [
     { value: APP_DATA_TYPES.JSONB,             label: 'JSON' },
     { value: APP_DATA_TYPES.SELECT,            label: 'Dropdown Selection' },
     { value: APP_DATA_TYPES.ADDRESS,           label: 'Address (Structured Embedded)' },
-    { value: APP_DATA_TYPES.PERSON_OR_CONTACT, label: 'Person or Contact (Structured Embedded)' },
+    { value: APP_DATA_TYPES.PARTY,             label: 'Party (Structured Embedded)' },
 ];
 
 /** Reference types — require additional graph binding configuration. */

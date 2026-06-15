@@ -15,6 +15,7 @@ import { createOpenAI } from '@ai-sdk/openai';
 import { KycStateService } from "@/lib/kyc/KycStateService";
 import { FieldClaimService } from "@/lib/kyc/FieldClaimService";
 import { getComplexFieldConfig } from "@/lib/master-data/complex-field-config";
+import { isRenderableActiveDirectorParty } from "@/lib/master-data/party-value";
 import { ensureNotReferenceSnapshot } from "./questionnaire";
 async function ensureAuthorization(action: Action, context: { partyId?: string, clientLEId?: string, engagementId?: string }) {
     const identity = await getIdentity();
@@ -310,6 +311,8 @@ export async function updateStandingDataProperty(clientLEId: string, propertyKey
                     }
                 }
                 break;
+            case 'PARTY':
+            case 'PERSON_OR_CONTACT':
             case 'JSONB': claimInput.valueJson = payload.value; break;
         }
 
@@ -618,10 +621,14 @@ export async function getFullMasterData(clientLEId: string) {
 
             if (val !== null && val !== undefined) {
                 if (Array.isArray(val)) {
-                    if (val.length > 0) {
-                        valueToSet = val.map(c => c.value);
-                        sourceToSet = val[0].isScoped ? 'USER_INPUT' : (val[0].evidenceProvider || val[0].sourceType || 'MASTER_RECORD');
-                        sourceRefToSet = val[0].sourceReference ?? undefined;
+                    let filteredVal = val;
+                    if (def.fieldNo === 63) {
+                        filteredVal = val.filter(c => isRenderableActiveDirectorParty(c.value));
+                    }
+                    if (filteredVal.length > 0) {
+                        valueToSet = filteredVal.map(c => c.value);
+                        sourceToSet = filteredVal[0].isScoped ? 'USER_INPUT' : (filteredVal[0].evidenceProvider || filteredVal[0].sourceType || 'MASTER_RECORD');
+                        sourceRefToSet = filteredVal[0].sourceReference ?? undefined;
                     }
                 } else {
                     valueToSet = val.value;

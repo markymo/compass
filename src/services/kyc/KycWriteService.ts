@@ -35,9 +35,9 @@ export class KycWriteService {
     ): Promise<boolean> {
         const fieldDef = await getMasterFieldDefinition(candidate.fieldNo);
 
-        // Pre-fetch ClientLE context for PERSON_OR_CONTACT to inject into roles[0].company
+        // Pre-fetch ClientLE context for PARTY to inject into roles[0].company
         let clientLEContext: any = null;
-        if (entityType === 'CLIENT_LE' && fieldDef?.appDataType === 'PERSON_OR_CONTACT') {
+        if (entityType === 'CLIENT_LE' && fieldDef?.appDataType === APP_DATA_TYPES.PARTY) {
             clientLEContext = await prisma.clientLE.findUnique({
                 where: { id: entityId },
                 select: { 
@@ -82,9 +82,9 @@ export class KycWriteService {
                 processedRowIds.add(rowId);
 
                 // Extract temporal metadata from the item DTO if present.
-                // TO_PARTY_LIST sets appointedOn / resignedOn on each item.
+                // TO_PARTY_VALUE_LIST / TO_PARTY_LIST sets appointedOn / resignedOn on each item.
                 // TO_NAME_HISTORY_LIST sets effectiveFrom / effectiveTo directly.
-                // PERSON_OR_CONTACT has dates inside roles[0].
+                // PARTY has dates inside roles[0].
                 const effectiveFrom: Date | undefined =
                     (item?.effectiveFrom ? new Date(item.effectiveFrom) : undefined) ??
                     (item?.appointedOn  ? new Date(item.appointedOn)   : undefined) ??
@@ -95,7 +95,7 @@ export class KycWriteService {
                     (item?.resignedOn  ? new Date(item.resignedOn)  : undefined) ??
                     (item?.roles?.[0]?.resignedOn ? new Date(item.roles[0].resignedOn) : undefined);
 
-                // Inject ClientLE context into PERSON_OR_CONTACT roles[0].company before saving
+                // Inject ClientLE context into PARTY roles[0].company before saving
                 if (clientLEContext && item?.roles?.[0]?.company) {
                     item.roles[0].company.coparityCompanyId = clientLEContext.id;
                     item.roles[0].company.name = clientLEContext.legalEntity?.name || null;
@@ -127,7 +127,7 @@ export class KycWriteService {
                         item.roles[0].company.externalIdScheme = externalIdScheme;
                         item.roles[0].company.externalId = externalId;
 
-                        console.log(`[KycWriteService] Injected PERSON_OR_CONTACT company pointer: ${JSON.stringify(item.roles[0].company)}`);
+                        console.log(`[KycWriteService] Injected PARTY company pointer: ${JSON.stringify(item.roles[0].company)}`);
                     }
                 }
 
@@ -509,7 +509,7 @@ export class KycWriteService {
                 valueAddressId = await materializeNestedAddress(value, { subjectLeId: resolvedEntityId });
                 await ensureGraphNode('ADDRESS', { addressId: valueAddressId });
                 finalJsonValue = undefined; // Drop json copy since we mapped relationally
-            } else if (def.appDataType === APP_DATA_TYPES.PERSON_OR_CONTACT) {
+            } else if (def.appDataType === APP_DATA_TYPES.PARTY) {
                 // ── Phase 1: Enrichment pipeline — embedded JSON storage only ─────────
                 //
                 // The value is stored as-is in FieldClaim.valueJson.
@@ -633,13 +633,13 @@ export class KycWriteService {
         }
 
         // 6. Graph Edge Write-back
-        // Phase 1: PERSON_OR_CONTACT skips automatic edge writeback.
+        // Phase 1: PARTY skips automatic edge writeback.
         // valuePersonId / valueLeId / valueAddressId are all undefined for this type,
         // so the call would be a no-op — but we skip it explicitly for clarity and to
         // avoid a fragile implicit dependency on undefined-check logic inside
         // performEdgeWriteback. Future KG promotion workflows should call
         // performEdgeWriteback() directly after resolving a Person node ID.
-        if (clientLEId && def.appDataType !== APP_DATA_TYPES.PERSON_OR_CONTACT) {
+        if (clientLEId && def.appDataType !== APP_DATA_TYPES.PARTY) {
             await this.performEdgeWriteback(
                 fieldNo,
                 clientLEId,

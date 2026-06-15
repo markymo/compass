@@ -253,7 +253,7 @@ export const COMPLEX_FIELD_CONFIG = {
             'Current director records for this legal entity. ' +
             'Derived from Companies House officer records and stored as embedded JSON values.',
         collectionId: 'DIRECTORS',
-        appDataType: 'PERSON_OR_CONTACT',
+        appDataType: 'PARTY',
         isMultiValue: true,
         itemType: 'STRUCTURED_VALUE',
         fields: [

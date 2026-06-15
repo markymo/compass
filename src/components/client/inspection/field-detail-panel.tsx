@@ -87,10 +87,11 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                     || data?.dataType === 'PERSON_REF'
                     || data?.dataType === 'ORG_REF';
     const isAddressRef = data?.dataType === 'ADDRESS_REF';
-    const isPersonOrContactField = data?.dataType === 'PERSON_OR_CONTACT';
+    const isPartyField = data?.dataType === 'PARTY' || data?.dataType === 'PERSON_OR_CONTACT';
+    const isPersonOrContactField = isPartyField;
 
     let isObjectRef = isPartyRef || isAddressRef;
-    if (isPersonOrContactField) {
+    if (isPartyField) {
         isObjectRef = false;
     }
     // Controlled-vocabulary collection: uses CodeListField UX instead of free-text

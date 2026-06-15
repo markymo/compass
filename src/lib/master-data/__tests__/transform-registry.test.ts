@@ -33,6 +33,8 @@ const EXPECTED_KEYS = [
     'RA_CODE_TO_NAME',
     'TO_PERSON_OR_CONTACT_VALUE',
     'TO_PERSON_OR_CONTACT_LIST',
+    'TO_PARTY_VALUE',
+    'TO_PARTY_VALUE_LIST',
 ];
 
 // ── Tests ─────────────────────────────────────────────────────────────────────

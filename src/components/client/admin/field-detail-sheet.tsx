@@ -637,7 +637,7 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                                                 const isGleif = opt?.sourceType === 'GLEIF';
                                                 const defaultSubtype = isGleif 
                                                     ? 'NONE' 
-                                                    : (field.appDataType === 'PERSON_OR_CONTACT' ? 'OFFICERS' : 'COMPANY_PROFILE');
+                                                    : ((field.appDataType === 'PARTY' || field.appDataType === 'PERSON_OR_CONTACT') ? 'OFFICERS' : 'COMPANY_PROFILE');
                                                 setMappingForm({
                                                     ...mappingForm,
                                                     sourceType: val,
@@ -660,8 +660,11 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
 
                                         {(() => {
                                             const isPersonOrContactMapping =
+                                                mappingForm.transformType === "TO_PARTY_VALUE_LIST" ||
+                                                mappingForm.transformType === "TO_PARTY_VALUE" ||
                                                 mappingForm.transformType === "TO_PERSON_OR_CONTACT_LIST" ||
                                                 mappingForm.transformType === "TO_PERSON_OR_CONTACT_VALUE" ||
+                                                field?.appDataType === "PARTY" ||
                                                 field?.appDataType === "PERSON_OR_CONTACT";
 
                                             return (

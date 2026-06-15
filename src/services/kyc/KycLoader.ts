@@ -3,6 +3,7 @@ import { getFieldDefinition } from '@/domain/kyc/FieldDefinitions';
 import { getMasterFieldGroup } from '@/services/masterData/definitionService';
 import { ProvenanceSource } from '@/domain/kyc/types/ProvenanceTypes';
 import { KycStateService } from '@/lib/kyc/KycStateService';
+import { isRenderableActiveDirectorParty } from '@/lib/master-data/party-value';
 
 export type LoadedField = {
     value: any;
@@ -41,11 +42,15 @@ export class KycLoader {
 
         // 2. Fetch authoritative via Service
         if (def.isMultiValue || def.isRepeating) {
-            const collection = await KycStateService.getAuthoritativeCollection(
+            let collection = await KycStateService.getAuthoritativeCollection(
                 { subjectLeId },
                 fieldNo,
                 ownerScopeId || undefined
             );
+
+            if (fieldNo === 63) {
+                collection = collection.filter((c: any) => isRenderableActiveDirectorParty(c.value));
+            }
 
             if (collection.length === 0) return null;
 

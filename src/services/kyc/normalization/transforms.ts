@@ -7,6 +7,7 @@
  */
 
 import { SicCodeMapper } from '@/domain/registry/utils/SicCodeMapper';
+import { isValidPartyValue } from '@/lib/master-data/party-value';
 
 // ISO 3166-1 alpha-2 → English name (common subset)
 const COUNTRY_CODES: Record<string, string> = {
@@ -98,16 +99,10 @@ type TransformType =
      * transformConfig: ToPersonOrContactValueConfig — field path mappings.
      * Confidence penalty 0.05 applied when fullNamePath triggers the name parser.
      */
-    | 'TO_PERSON_OR_CONTACT_VALUE'
-    /**
-     * Converts an array of source objects into PersonOrContactValue[].
-     * Returns { value: PersonOrContactValue[], rowKeys: string[] }.
-     *
-     * Each array item becomes a SEPARATE FieldClaim via applyFieldCandidate fan-out.
-     * The array is the TOP-LEVEL value — never embedded inside a single valueJson.
-     * Mirrors the TO_PARTY_LIST / applyFieldCandidate contract exactly.
-     */
-    | 'TO_PERSON_OR_CONTACT_LIST';
+    | 'TO_PARTY_VALUE'
+    | 'TO_PARTY_VALUE_LIST'
+    | 'TO_PERSON_OR_CONTACT_VALUE' // Legacy compatibility alias
+    | 'TO_PERSON_OR_CONTACT_LIST'; // Legacy compatibility alias
 
 /**
  * Builds a deterministic row key for a PERSON_OR_CONTACT claim.
@@ -645,9 +640,10 @@ export function applyTransform(
             return { value: code, confidencePenalty: 0.1 };
         }
 
+        case 'TO_PARTY_VALUE':
         case 'TO_PERSON_OR_CONTACT_VALUE': {
-            // ── Single PERSON_OR_CONTACT object ───────────────────────────────────
-            // Converts one source object → PersonOrContactValue (PERSON_OR_CONTACT appDataType).
+            // ── Single PARTY object ──────────────────────────────────────────────
+            // Converts one source object → PartyValue (PARTY appDataType).
             // Stored in FieldClaim.valueJson. No graph node or edge is created.
             //
             // Uses an inline dot-path resolver (matching TO_ADDRESS_VALUE pattern)
@@ -857,19 +853,25 @@ export function applyTransform(
                 placeOfBirth,
                 roles,
                 sourceIdentifiers,
+                isActiveParty:           null,
                 isActivePersonOrContact: null,   // INVARIANT — never derived from role status
                 visibility:              { scope: 'CLIENT_LE' as const },
             };
 
+            if (!isValidPartyValue(poc)) {
+                return { value: null, confidencePenalty: 1 };
+            }
+
             return { value: poc, confidencePenalty };
         }
 
+        case 'TO_PARTY_VALUE_LIST':
         case 'TO_PERSON_OR_CONTACT_LIST': {
-            // ── Array fan-out → multiple PERSON_OR_CONTACT claims ─────────────
+            // ── Array fan-out → multiple PARTY claims ────────────────────────────
             // Mirrors TO_PARTY_LIST / applyFieldCandidate contract exactly.
             //
             // CONTRACT:
-            //   Returns { value: PersonOrContactValue[], rowKeys: string[] }
+            //   Returns { value: PartyValue[], rowKeys: string[] }
             //   The array IS the top-level value — NEVER embedded inside valueJson.
             //   Each item becomes a SEPARATE FieldClaim via applyFieldCandidate fan-out.
             //   No changes to RegistryMappingEngine or applyFieldCandidate() needed.
@@ -895,7 +897,7 @@ export function applyTransform(
             const rowKeys: string[] = [];
             const list = value
                 .map((item: any) => {
-                    const res = applyTransform(item, 'TO_PERSON_OR_CONTACT_VALUE', transformConfig);
+                    const res = applyTransform(item, 'TO_PARTY_VALUE', transformConfig);
                     if (res.value == null) { rowKeys.push(''); return null; }
 
                     // Resolve temporal metadata per item for FieldClaim.effectiveFrom/effectiveTo
