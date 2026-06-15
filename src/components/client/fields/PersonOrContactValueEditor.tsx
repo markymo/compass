@@ -32,20 +32,26 @@ export function PersonOrContactValueEditor({ value, onChange, disabled }: Person
 
     const updateDob = (field: 'year' | 'month' | 'day', val: string) => {
         const numVal = val ? parseInt(val, 10) : null;
+        const newDob = {
+            year: safeValue.dateOfBirth?.year ?? null,
+            month: safeValue.dateOfBirth?.month ?? null,
+            day: safeValue.dateOfBirth?.day ?? null,
+            [field]: numVal
+        };
+        const hasValues = newDob.year !== null || newDob.month !== null || newDob.day !== null;
         onChange({
             ...safeValue,
-            dateOfBirth: {
-                year: safeValue.dateOfBirth?.year ?? null,
-                month: safeValue.dateOfBirth?.month ?? null,
-                day: safeValue.dateOfBirth?.day ?? null,
-                [field]: numVal
-            }
+            dateOfBirth: hasValues ? newDob : null
         });
     };
 
     const updateRole = (index: number, field: keyof PersonOrContactRole, val: any) => {
         const newRoles = [...(safeValue.roles || [])];
-        newRoles[index] = { ...newRoles[index], [field]: val };
+        let cleanedVal = val;
+        if ((field === 'appointedOn' || field === 'resignedOn') && val === '') {
+            cleanedVal = null;
+        }
+        newRoles[index] = { ...newRoles[index], [field]: cleanedVal };
         onChange({ ...value, roles: newRoles });
     };
 

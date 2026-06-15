@@ -64,7 +64,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
     const [isEditing, setIsEditing] = useState(false);
 
     // Manual Edit State
-    const [manualValue, setManualValue] = useState("");
+    const [manualValue, setManualValue] = useState<any>("");
     const [manualReason, setManualReason] = useState("");
     const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
     const [relatedValues, setRelatedValues] = useState<Record<string, any>>({});
@@ -1209,214 +1209,262 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                     ) : (
                                         <div>
                                             {/* Value Display / Inline Edit for Empty */}
-                                            {!isEditing ? (
-                                                <>
-                                                    {data?.current?.value != null && data.current.value !== '' ? (
-                                                        <div>
-                                                            <div className="flex items-start gap-3">
-                                                                <div className="flex-1 mt-0.5">
-                                                                    <div className="text-base font-medium text-slate-900 break-all leading-relaxed">
-                                                                        {isAddressValue(data.current.value) ? (
-                                                                            <AddressValueViewer value={data.current.value} layout="detailed" />
-                                                                        ) : isPersonOrContactValue(data.current.value) ? (
-                                                                            <PersonOrContactValueViewer value={data.current.value} layout="detailed" />
-                                                                        ) : Array.isArray(data.current.value) ? (
-                                                                            <div className="flex flex-wrap gap-1.5 mt-1">
-                                                                                {data.current.value.map((v: any, idx: number) => (
-                                                                                    <Badge key={idx} variant="outline" className="bg-white border-slate-300 text-slate-800 py-1 px-2.5 text-sm shadow-sm ring-1 ring-slate-100/50">
-                                                                                        {renderRowValue(v)}
-                                                                                    </Badge>
-                                                                                ))}
-                                                                            </div>
-                                                                        ) : (
-                                                                            // Use renderRowValue to handle JSONB objects (e.g. {code, label} SIC codes)
-                                                                            // instead of String() which produces [object Object]
-                                                                            renderRowValue(data.current.value)
-                                                                        )}
-                                                                    </div>
-                                                                    <div className="mt-2 flex items-center gap-2">
-                                                                        <SourceBadge source={data.current.source || 'UNKNOWN'} sourceReference={data.current.sourceReference} registrationAuthorityId={registrationAuthorityId} />
-                                                                        <span className="text-[10px] text-slate-400">
-                                                                            Updated: {data.current.timestamp ? new Date(data.current.timestamp).toLocaleString() : 'Never'}
-                                                                        </span>
-                                                                    </div>
+                                            {data?.current?.value != null && data.current.value !== '' ? (
+                                                !isEditing ? (
+                                                    <div>
+                                                        <div className="flex items-start gap-3">
+                                                            <div className="flex-1 mt-0.5">
+                                                                <div className="text-base font-medium text-slate-900 break-all leading-relaxed">
+                                                                    {isAddressValue(data.current.value) ? (
+                                                                        <AddressValueViewer value={data.current.value} layout="detailed" />
+                                                                    ) : isPersonOrContactValue(data.current.value) ? (
+                                                                        <PersonOrContactValueViewer value={data.current.value} layout="detailed" />
+                                                                    ) : Array.isArray(data.current.value) ? (
+                                                                        <div className="flex flex-wrap gap-1.5 mt-1">
+                                                                            {data.current.value.map((v: any, idx: number) => (
+                                                                                <Badge key={idx} variant="outline" className="bg-white border-slate-300 text-slate-800 py-1 px-2.5 text-sm shadow-sm ring-1 ring-slate-100/50">
+                                                                                    {renderRowValue(v)}
+                                                                                </Badge>
+                                                                            ))}
+                                                                        </div>
+                                                                    ) : (
+                                                                        // Use renderRowValue to handle JSONB objects (e.g. {code, label} SIC codes)
+                                                                        // instead of String() which produces [object Object]
+                                                                        renderRowValue(data.current.value)
+                                                                    )}
                                                                 </div>
-                                                                {!isLocked && (
-                                                                    <button
-                                                                        className="p-1.5 rounded text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors shrink-0"
-                                                                        onClick={() => {
-                                                                            setManualValue(isPersonOrContactField ? (data?.current?.value || "") : String(data?.current?.value || ""));
-                                                                            setIsEditing(true);
-                                                                            setRelatedValues({});
-                                                                        }}
-                                                                        title="Edit value"
-                                                                    >
-                                                                        <Pencil className="h-3.5 w-3.5" />
-                                                                    </button>
-                                                                )}
+                                                                <div className="mt-2 flex items-center gap-2">
+                                                                    <SourceBadge source={data.current.source || 'UNKNOWN'} sourceReference={data.current.sourceReference} registrationAuthorityId={registrationAuthorityId} />
+                                                                    <span className="text-[10px] text-slate-400">
+                                                                        Updated: {data.current.timestamp ? new Date(data.current.timestamp).toLocaleString() : 'Never'}
+                                                                    </span>
+                                                                </div>
                                                             </div>
+                                                            {!isLocked && (
+                                                                <button
+                                                                    className="p-1.5 rounded text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors shrink-0"
+                                                                    onClick={() => {
+                                                                        setManualValue(isPersonOrContactField ? (data?.current?.value || {
+                                                                            contactType: "PERSON",
+                                                                            title: null,
+                                                                            forenames: null,
+                                                                            surname: null,
+                                                                            email: null,
+                                                                            phones: [],
+                                                                            nationality: [],
+                                                                            countryOfResidence: null,
+                                                                            dateOfBirth: null,
+                                                                            placeOfBirth: null,
+                                                                            roles: [],
+                                                                            sourceIdentifiers: [],
+                                                                            isActivePersonOrContact: null,
+                                                                            visibility: { scope: "CLIENT_LE" }
+                                                                        } as any) : String(data?.current?.value || ""));
+                                                                        setIsEditing(true);
+                                                                        setRelatedValues({});
+                                                                    }}
+                                                                    title="Edit value"
+                                                                >
+                                                                    <Pencil className="h-3.5 w-3.5" />
+                                                                </button>
+                                                            )}
                                                         </div>
-                                                    ) : (
-                                                        /* Empty state — show state-aware display first, then inline input */
-                                                        <div className="flex items-start gap-3 mt-2">
-                                                            <div className="flex-1 space-y-2">
-                                                                {!isEditing ? (
-                                                                    <div className="flex items-start justify-between">
-                                                                        <div className="mt-0.5">
-                                                                            <div className="text-sm text-slate-500 italic mb-2">
-                                                                                {data?.displayState === 'MAPPED_NOT_CHECKED' && 'Source not checked yet'}
-                                                                                {data?.displayState === 'CHECKED_NO_DATA' && 'No data in source record'}
-                                                                                {data?.displayState === 'DEFAULT_RESPONSE' && (
-                                                                                    <span className="flex items-center gap-2 not-italic text-slate-800">
-                                                                                        <span>{data.defaultResponse}</span>
-                                                                                        <Badge variant="outline" className="text-[9px] uppercase tracking-wider text-slate-500 bg-slate-50 border-slate-200">Field Default</Badge>
-                                                                                    </span>
-                                                                                )}
-                                                                                {(!data?.displayState || data?.displayState === 'UNMAPPED_NO_RESPONSE') && 'No response recorded'}
-                                                                            </div>
-                                                                            {(data?.displayState === 'MAPPED_NOT_CHECKED' || data?.displayState === 'CHECKED_NO_DATA') && data?.current?.source && (
-                                                                                <div className="mt-2 flex items-center gap-2">
-                                                                                    <SourceBadge source={data.current.source} registrationAuthorityId={registrationAuthorityId} />
-                                                                                </div>
+                                                    </div>
+                                                ) : null
+                                            ) : (
+                                                /* Empty state — show state-aware display first, then inline input */
+                                                <div className="flex items-start gap-3 mt-2">
+                                                    <div className="flex-1 space-y-2">
+                                                        {!isEditing ? (
+                                                            isPersonOrContactField ? (
+                                                                <div className="flex flex-col items-center justify-center py-6 border border-dashed border-slate-200 rounded-lg bg-slate-50/50 p-4 space-y-3">
+                                                                    <div className="text-sm text-slate-500 italic">
+                                                                        No person/contact recorded
+                                                                    </div>
+                                                                    {!isLocked && (
+                                                                        <Button
+                                                                            variant="outline"
+                                                                            onClick={() => {
+                                                                                setManualValue({
+                                                                                    contactType: "PERSON",
+                                                                                    title: null,
+                                                                                    forenames: null,
+                                                                                    surname: null,
+                                                                                    email: null,
+                                                                                    phones: [],
+                                                                                    nationality: [],
+                                                                                    countryOfResidence: null,
+                                                                                    dateOfBirth: null,
+                                                                                    placeOfBirth: null,
+                                                                                    roles: [],
+                                                                                    sourceIdentifiers: [],
+                                                                                    isActivePersonOrContact: null,
+                                                                                    visibility: { scope: "CLIENT_LE" }
+                                                                                } as any);
+                                                                                setIsEditing(true);
+                                                                            }}
+                                                                            className="bg-indigo-50/50 hover:bg-indigo-50 border-indigo-200 text-indigo-700 border-dashed shadow-sm shrink-0"
+                                                                        >
+                                                                            <Plus className="h-4 w-4 mr-2" />
+                                                                            Add Person or Contact
+                                                                        </Button>
+                                                                    )}
+                                                                </div>
+                                                            ) : (
+                                                                <div className="flex items-start justify-between">
+                                                                    <div className="mt-0.5">
+                                                                        <div className="text-sm text-slate-500 italic mb-2">
+                                                                            {data?.displayState === 'MAPPED_NOT_CHECKED' && 'Source not checked yet'}
+                                                                            {data?.displayState === 'CHECKED_NO_DATA' && 'No data in source record'}
+                                                                            {data?.displayState === 'DEFAULT_RESPONSE' && (
+                                                                                <span className="flex items-center gap-2 not-italic text-slate-800">
+                                                                                    <span>{data.defaultResponse}</span>
+                                                                                    <Badge variant="outline" className="text-[9px] uppercase tracking-wider text-slate-500 bg-slate-50 border-slate-200">Field Default</Badge>
+                                                                                </span>
                                                                             )}
+                                                                            {(!data?.displayState || data?.displayState === 'UNMAPPED_NO_RESPONSE') && 'No response recorded'}
                                                                         </div>
-                                                                        {!isLocked && (
-                                                                            <button
-                                                                                className="p-1.5 rounded text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors shrink-0"
-                                                                                onClick={() => setIsEditing(true)}
-                                                                                title="Add value"
-                                                                            >
-                                                                                <Plus className="h-4 w-4" />
-                                                                            </button>
+                                                                        {(data?.displayState === 'MAPPED_NOT_CHECKED' || data?.displayState === 'CHECKED_NO_DATA') && data?.current?.source && (
+                                                                            <div className="mt-2 flex items-center gap-2">
+                                                                                <SourceBadge source={data.current.source} registrationAuthorityId={registrationAuthorityId} />
+                                                                            </div>
                                                                         )}
                                                                     </div>
-                                                                ) : !isLocked ? (
-                                                                    <div className="space-y-4">
-                                                                        <div className="flex items-center justify-between">
-                                                                            <span className="text-xs font-semibold text-slate-600 uppercase tracking-tight">Add Value</span>
-                                                                            <Button
-                                                                                variant="ghost"
-                                                                                size="sm"
-                                                                                className="h-auto p-0 text-[10px] text-slate-500 hover:bg-transparent hover:underline"
-                                                                                onClick={() => setIsEditing(false)}
-                                                                            >
-                                                                                Cancel
-                                                                            </Button>
-                                                                        </div>
-                                                                        {isObjectRef ? (
-                                                                            <GraphNodePicker
-                                                                                clientLEId={legalEntityId}
-                                                                                graphNodeType={graphBindings.find(b => b.isActive)?.graphNodeType || (isPartyRef ? "PERSON" : "ADDRESS")}
-                                                                                filterEdgeType={graphBindings.find(b => b.isActive)?.filterEdgeType}
-                                                                                filterActiveOnly={graphBindings.find(b => b.isActive)?.filterActiveOnly ?? true}
-                                                                                allowCreate={graphBindings.find(b => b.isActive)?.allowCreate ?? true}
-                                                                                pickerLabel={graphBindings.find(b => b.isActive)?.pickerLabel || (isPartyRef ? "Select Party" : "Select Address")}
-                                                                                pickerConfig={graphBindings.find(b => b.isActive)?.pickerConfig ?? null}
-                                                                                isMultiValue={false}
-                                                                                selectedNodeIds={currentSelectionIds}
-                                                                                disabled={isAddingSaving || isLoadingBindings}
-                                                                                className="border-slate-300 bg-slate-50/50"
-                                                                                onSelect={handleGraphNodeSelect}
-                                                                                onCreateNew={() => handleCreateNewNode(graphBindings.find(b => b.isActive)?.graphNodeType || (isPartyRef ? "PERSON" : "ADDRESS"))}
-                                                                            />
+                                                                    {!isLocked && (
+                                                                        <button
+                                                                            className="p-1.5 rounded text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors shrink-0"
+                                                                            onClick={() => setIsEditing(true)}
+                                                                            title="Add value"
+                                                                        >
+                                                                            <Plus className="h-4 w-4" />
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                            )
+                                                        ) : !isLocked ? (
+                                                            <div className="space-y-4">
+                                                                <div className="flex items-center justify-between">
+                                                                    <span className="text-xs font-semibold text-slate-600 uppercase tracking-tight">Add Value</span>
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="sm"
+                                                                        className="h-auto p-0 text-[10px] text-slate-500 hover:bg-transparent hover:underline"
+                                                                        onClick={() => setIsEditing(false)}
+                                                                    >
+                                                                        Cancel
+                                                                    </Button>
+                                                                </div>
+                                                                {isObjectRef ? (
+                                                                    <GraphNodePicker
+                                                                        clientLEId={legalEntityId}
+                                                                        graphNodeType={graphBindings.find(b => b.isActive)?.graphNodeType || (isPartyRef ? "PERSON" : "ADDRESS")}
+                                                                        filterEdgeType={graphBindings.find(b => b.isActive)?.filterEdgeType}
+                                                                        filterActiveOnly={graphBindings.find(b => b.isActive)?.filterActiveOnly ?? true}
+                                                                        allowCreate={graphBindings.find(b => b.isActive)?.allowCreate ?? true}
+                                                                        pickerLabel={graphBindings.find(b => b.isActive)?.pickerLabel || (isPartyRef ? "Select Party" : "Select Address")}
+                                                                        pickerConfig={graphBindings.find(b => b.isActive)?.pickerConfig ?? null}
+                                                                        isMultiValue={false}
+                                                                        selectedNodeIds={currentSelectionIds}
+                                                                        disabled={isAddingSaving || isLoadingBindings}
+                                                                        className="border-slate-300 bg-slate-50/50"
+                                                                        onSelect={handleGraphNodeSelect}
+                                                                        onCreateNew={() => handleCreateNewNode(graphBindings.find(b => b.isActive)?.graphNodeType || (isPartyRef ? "PERSON" : "ADDRESS"))}
+                                                                    />
+                                                                ) : (
+                                                                    <>
+                                                                        {isPersonOrContactField ? (
+                                                                            <div className="space-y-3">
+                                                                                <PersonOrContactValueEditor
+                                                                                    value={typeof manualValue === 'object' && manualValue ? manualValue : { contactType: 'PERSON', roles: [] } as any}
+                                                                                    onChange={(val) => setManualValue(val as any)}
+                                                                                    disabled={isSaving}
+                                                                                />
+                                                                                <div className="flex items-center gap-2">
+                                                                                    <Button
+                                                                                        size="sm"
+                                                                                        className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700"
+                                                                                        onClick={() => {
+                                                                                            setIsEditing(true);
+                                                                                            handleManualSave();
+                                                                                        }}
+                                                                                        disabled={isSaving || !(manualValue?.forenames?.trim() || manualValue?.surname?.trim())}
+                                                                                    >
+                                                                                        {isSaving ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Check className="h-3 w-3 mr-1" />}
+                                                                                        Save
+                                                                                    </Button>
+                                                                                </div>
+                                                                            </div>
+                                                                        ) : data?.options && data.options.length > 0 ? (
+                                                                            <div className="space-y-2">
+                                                                                <Select value={manualValue} onValueChange={(v) => setManualValue(v)}>
+                                                                                    <SelectTrigger className="bg-white border-slate-200 focus:border-indigo-300">
+                                                                                        <SelectValue placeholder={`Select ${fieldName}...`} />
+                                                                                    </SelectTrigger>
+                                                                                    <SelectContent position="item-aligned">
+                                                                                        {data.options.map((opt) => {
+                                                                                            const v = typeof opt === 'object' ? opt.value : opt;
+                                                                                            const l = typeof opt === 'object' ? opt.label : opt;
+                                                                                            return <SelectItem key={v} value={v}>{l}</SelectItem>;
+                                                                                        })}
+                                                                                    </SelectContent>
+                                                                                </Select>
+                                                                                {manualValue && (
+                                                                                    <div className="flex items-center gap-2">
+                                                                                        <Button
+                                                                                            size="sm"
+                                                                                            className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700"
+                                                                                            onClick={() => { setIsEditing(true); handleManualSave(); }}
+                                                                                            disabled={isSaving}
+                                                                                        >
+                                                                                            {isSaving ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Check className="h-3 w-3 mr-1" />}
+                                                                                            Save
+                                                                                        </Button>
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
                                                                         ) : (
                                                                             <>
-                                                                                {isPersonOrContactField ? (
-                                                                                    <div className="space-y-3">
-                                                                                        <PersonOrContactValueEditor
-                                                                                            value={typeof manualValue === 'object' && manualValue ? manualValue : { contactType: 'PERSON', roles: [] } as any}
-                                                                                            onChange={(val) => setManualValue(val as any)}
-                                                                                            disabled={isSaving}
-                                                                                        />
-                                                                                        <div className="flex items-center gap-2">
-                                                                                            <Button
-                                                                                                size="sm"
-                                                                                                className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700"
-                                                                                                onClick={() => {
-                                                                                                    setIsEditing(true);
-                                                                                                    handleManualSave();
-                                                                                                }}
-                                                                                                disabled={isSaving}
-                                                                                            >
-                                                                                                {isSaving ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Check className="h-3 w-3 mr-1" />}
-                                                                                                Save
-                                                                                            </Button>
-                                                                                        </div>
-                                                                                    </div>
-                                                                                ) : data?.options && data.options.length > 0 ? (
-                                                                                    <div className="space-y-2">
-                                                                                        <Select value={manualValue} onValueChange={(v) => setManualValue(v)}>
-                                                                                            <SelectTrigger className="bg-white border-slate-200 focus:border-indigo-300">
-                                                                                                <SelectValue placeholder={`Select ${fieldName}...`} />
-                                                                                            </SelectTrigger>
-                                                                                            <SelectContent position="item-aligned">
-                                                                                                {data.options.map((opt) => {
-                                                                                                    const v = typeof opt === 'object' ? opt.value : opt;
-                                                                                                    const l = typeof opt === 'object' ? opt.label : opt;
-                                                                                                    return <SelectItem key={v} value={v}>{l}</SelectItem>;
-                                                                                                })}
-                                                                                            </SelectContent>
-                                                                                        </Select>
-                                                                                        {manualValue && (
-                                                                                            <div className="flex items-center gap-2">
-                                                                                                <Button
-                                                                                                    size="sm"
-                                                                                                    className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700"
-                                                                                                    onClick={() => { setIsEditing(true); handleManualSave(); }}
-                                                                                                    disabled={isSaving}
-                                                                                                >
-                                                                                                    {isSaving ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Check className="h-3 w-3 mr-1" />}
-                                                                                                    Save
-                                                                                                </Button>
-                                                                                            </div>
-                                                                                        )}
-                                                                                    </div>
-                                                                                ) : (
-                                                                                    <>
-                                                                                        <Input
-                                                                                            type={isDateType ? 'date' : 'text'}
-                                                                                            value={isDateType ? formatDateForInput(manualValue) : manualValue}
-                                                                                            onChange={(e) => setManualValue(isDateType ? parseDateFromInput(e.target.value) : e.target.value)}
-                                                                                            onKeyDown={(e) => {
-                                                                                                if (e.key === 'Enter' && manualValue) {
-                                                                                                    setIsEditing(true);
-                                                                                                    handleManualSave();
-                                                                                                }
+                                                                                <Input
+                                                                                    type={isDateType ? 'date' : 'text'}
+                                                                                    value={isDateType ? formatDateForInput(manualValue) : manualValue}
+                                                                                    onChange={(e) => setManualValue(isDateType ? parseDateFromInput(e.target.value) : e.target.value)}
+                                                                                    onKeyDown={(e) => {
+                                                                                        if (e.key === 'Enter' && manualValue) {
+                                                                                            setIsEditing(true);
+                                                                                            handleManualSave();
+                                                                                        }
+                                                                                    }}
+                                                                                    placeholder={isDateType ? '' : 'Type a value and press Enter...'}
+                                                                                    className="bg-white border-slate-200 focus:border-indigo-300 focus:ring-indigo-200"
+                                                                                />
+                                                                                {manualValue && (
+                                                                                    <div className="flex items-center gap-2">
+                                                                                        <Button
+                                                                                            size="sm"
+                                                                                            className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700"
+                                                                                            onClick={() => {
+                                                                                                setIsEditing(true);
+                                                                                                handleManualSave();
                                                                                             }}
-                                                                                            placeholder={isDateType ? '' : 'Type a value and press Enter...'}
-                                                                                            className="bg-white border-slate-200 focus:border-indigo-300 focus:ring-indigo-200"
-                                                                                        />
-                                                                                        {manualValue && (
-                                                                                            <div className="flex items-center gap-2">
-                                                                                                <Button
-                                                                                                    size="sm"
-                                                                                                    className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700"
-                                                                                                    onClick={() => {
-                                                                                                        setIsEditing(true);
-                                                                                                        handleManualSave();
-                                                                                                    }}
-                                                                                                    disabled={isSaving}
-                                                                                                >
-                                                                                                    {isSaving ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Check className="h-3 w-3 mr-1" />}
-                                                                                                    Save
-                                                                                                </Button>
-                                                                                                <span className="text-[10px] text-slate-400">or press Enter</span>
-                                                                                            </div>
-                                                                                        )}
-                                                                                    </>
+                                                                                            disabled={isSaving}
+                                                                                        >
+                                                                                            {isSaving ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Check className="h-3 w-3 mr-1" />}
+                                                                                            Save
+                                                                                        </Button>
+                                                                                        <span className="text-[10px] text-slate-400">or press Enter</span>
+                                                                                    </div>
                                                                                 )}
                                                                             </>
                                                                         )}
-                                                                        </div>
-                                                                ) : (
-                                                                    <div className="text-[13px] text-slate-400 italic mt-2">No value provided.</div>
+                                                                    </>
                                                                 )}
                                                             </div>
-                                                        </div>
-                                                    )}
-                                                </>
-                                            ) : null}
-
+                                                        ) : (
+                                                            <div className="text-[13px] text-slate-400 italic mt-2">No value provided.</div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                     )}
                                 </div>
@@ -1450,7 +1498,13 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                 <label className="text-xs font-semibold text-slate-600 uppercase tracking-tight">
                                                     {fieldName} (Primary Value)
                                                 </label>
-                                                {data?.options && data.options.length > 0 ? (
+                                                {isPersonOrContactField ? (
+                                                    <PersonOrContactValueEditor
+                                                        value={typeof manualValue === 'object' && manualValue ? manualValue : { contactType: 'PERSON', roles: [] } as any}
+                                                        onChange={(val) => setManualValue(val as any)}
+                                                        disabled={isSaving}
+                                                    />
+                                                ) : data?.options && data.options.length > 0 ? (
                                                     <Select value={manualValue} onValueChange={setManualValue}>
                                                         <SelectTrigger className="w-full bg-white border-slate-300">
                                                             <SelectValue placeholder={`Select ${fieldName}...`} />
@@ -1548,7 +1602,11 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
 
                                     <div className="flex gap-2 justify-end">
                                         <Button variant="ghost" size="sm" onClick={() => setIsEditing(false)}>Cancel</Button>
-                                        <Button size="sm" onClick={handleManualSave} disabled={isSaving}>
+                                        <Button
+                                            size="sm"
+                                            onClick={handleManualSave}
+                                            disabled={isSaving || (isPersonOrContactField && !(manualValue?.forenames?.trim() || manualValue?.surname?.trim()))}
+                                        >
                                             {isSaving ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : <CheckCircle className="h-3 w-3 mr-2" />}
                                             Save Override
                                         </Button>
