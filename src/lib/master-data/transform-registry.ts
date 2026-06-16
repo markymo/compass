@@ -104,16 +104,16 @@ export const TRANSFORM_DEFINITIONS: TransformDefinition[] = [
             'Converts a GLEIF Registration Authority code (e.g. RA000192) into the authority name stored in the Registry Authorities table (e.g. Registre du Commerce et des Sociétés).',
     },
     {
-        key: 'TO_PERSON_OR_CONTACT_VALUE',
-        label: 'To Person or Contact',
+        key: 'TO_PARTY_VALUE',
+        label: 'To Party',
         description:
-            'Maps a single source object (e.g. one Companies House officer or PSC) into a structured PersonOrContactValue stored in FieldClaim.valueJson. No graph node or edge is created. Supports comma-split name parsing (CH format "SMITH, John"), partial DOB, roles, and source identifiers.',
+            'Maps a single source object (e.g. one Companies House officer or PSC) into a structured PartyValue stored in FieldClaim.valueJson. No graph node or edge is created. Supports comma-split name parsing (CH format "SMITH, John"), partial DOB, roles, and source identifiers.',
     },
     {
-        key: 'TO_PERSON_OR_CONTACT_LIST',
-        label: 'To Person or Contact List',
+        key: 'TO_PARTY_VALUE_LIST',
+        label: 'To Party List',
         description:
-            'Maps an array of source objects (e.g. CH officers array, PSC array) into multiple PersonOrContactValue claims — one FieldClaim per item, each with its own instanceId, effectiveFrom, effectiveTo, and valueJson. Mirrors the TO_PARTY_LIST fan-out contract.',
+            'Maps an array of source objects (e.g. CH officers array, PSC array) into multiple PartyValue claims — one FieldClaim per item, each with its own instanceId, effectiveFrom, effectiveTo, and valueJson. Mirrors the TO_PARTY_LIST fan-out contract.',
     },
 ];
 
@@ -121,8 +121,11 @@ export const TRANSFORM_DEFINITIONS: TransformDefinition[] = [
  * Lookup map from transform key to definition (O(1) access).
  * Populated once at module load.
  */
-export const TRANSFORM_DEFINITION_MAP: Record<string, TransformDefinition> =
-    Object.fromEntries(TRANSFORM_DEFINITIONS.map((d) => [d.key, d]));
+const rawMap = Object.fromEntries(TRANSFORM_DEFINITIONS.map((d) => [d.key, d]));
+rawMap['TO_PERSON_OR_CONTACT_VALUE'] = rawMap['TO_PARTY_VALUE'];
+rawMap['TO_PERSON_OR_CONTACT_LIST'] = rawMap['TO_PARTY_VALUE_LIST'];
+
+export const TRANSFORM_DEFINITION_MAP: Record<string, TransformDefinition> = rawMap;
 
 /**
  * Array of { value, label } suitable for <Select> / <SelectItem> use in React.

@@ -329,7 +329,8 @@ export class FieldClaimService {
             'DOCUMENT_REF': ['valueDocId'],
             'JSONB':             ['valueJson'],
             'ADDRESS':           ['valueJson'],
-            'PERSON_OR_CONTACT': ['valueJson']
+            'PERSON_OR_CONTACT': ['valueJson'],
+            'PARTY':             ['valueJson']
         };
 
         const allowedSlots = typeMap[fieldDef.appDataType] || [];

@@ -222,8 +222,11 @@ export function MappingFormDialog({ open, onOpenChange, selectedOption, fieldDef
     }, [transformType, targetField]);
 
     const isPersonOrContactMapping = useMemo(() => {
-        return transformType === "TO_PERSON_OR_CONTACT_LIST" || 
+        return transformType === "TO_PARTY_VALUE_LIST" ||
+               transformType === "TO_PARTY_VALUE" ||
+               transformType === "TO_PERSON_OR_CONTACT_LIST" || 
                transformType === "TO_PERSON_OR_CONTACT_VALUE" || 
+               targetField?.appDataType === "PARTY" ||
                targetField?.appDataType === "PERSON_OR_CONTACT";
     }, [transformType, targetField]);
 
@@ -237,7 +240,7 @@ export function MappingFormDialog({ open, onOpenChange, selectedOption, fieldDef
 
         const targetFieldId = existingMapping?.targetFieldNo?.toString() ?? "";
         const field = fieldDefs.find((f: any) => String(f.fieldNo) === targetFieldId);
-        const defaultSubtype = isGleif ? "NONE" : (field?.appDataType === "PERSON_OR_CONTACT" ? "OFFICERS" : RA_SUBTYPE_DEFAULT);
+        const defaultSubtype = isGleif ? "NONE" : ((field?.appDataType === "PARTY" || field?.appDataType === "PERSON_OR_CONTACT") ? "OFFICERS" : RA_SUBTYPE_DEFAULT);
         setPayloadSubtype(existingMapping?.payloadSubtype ?? initialPayloadSubtype ?? defaultSubtype);
 
         setTransformType(existingMapping?.transformType ?? initialTransformType ?? "DIRECT");
@@ -381,7 +384,7 @@ export function MappingFormDialog({ open, onOpenChange, selectedOption, fieldDef
                     <TargetFieldPicker fieldDefs={fieldDefs} value={targetFieldNo} onChange={(val) => {
                         setTargetFieldNo(val);
                         const field = fieldDefs.find((f: any) => String(f.fieldNo) === val);
-                        if (!isGleif && field?.appDataType === "PERSON_OR_CONTACT") {
+                        if (!isGleif && (field?.appDataType === "PARTY" || field?.appDataType === "PERSON_OR_CONTACT")) {
                             setPayloadSubtype("OFFICERS");
                         }
                     }} />

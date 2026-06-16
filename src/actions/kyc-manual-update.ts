@@ -6,6 +6,7 @@ import { getIdentity } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { getMasterFieldDefinition, listAllMasterFields } from "@/services/masterData/definitionService";
+import { getComplexFieldConfig } from "@/lib/master-data/complex-field-config";
 import { SourceType } from "@prisma/client";
 
 // KycWriteService is deprecated in favor of FieldClaimService
@@ -21,7 +22,7 @@ export async function updateFieldManually(
     reason: string,
     rowId?: string,
     entityType: 'LEGAL_ENTITY' | 'CLIENT_LE' = 'CLIENT_LE'
-): Promise<{ success: boolean; message?: string }> {
+): Promise<{ success: boolean; message?: string; claimId?: string }> {
     try {
         const identity = await getIdentity();
         const userId = identity?.userId;
@@ -44,13 +45,18 @@ export async function updateFieldManually(
 
         // 2. Map value to correct slot based on FieldDefinition
         const def = await getMasterFieldDefinition(fieldNo);
+        const complexCfg = getComplexFieldConfig(fieldNo);
+        const collectionId = def.isMultiValue
+            ? (complexCfg?.collectionId || def.categoryId || 'GENERAL')
+            : undefined;
+
         const claimInput: any = {
             fieldNo,
             subjectLeId,
             ownerScopeId,
             sourceType: SourceType.USER_INPUT,
             sourceReference: reason,
-            collectionId: def.isMultiValue ? (def.categoryId || 'GENERAL') : undefined,
+            collectionId,
             instanceId: rowId // For multi-value, rowId is the stable instance key
         };
 
@@ -65,15 +71,11 @@ export async function updateFieldManually(
             case 'PERSON_REF': claimInput.valuePersonId = value; break;
             case 'ORG_REF': claimInput.valueLeId = value; break;
             case 'ADDRESS_REF': claimInput.valueAddressId = value; break;
-            case 'PARTY_REF': 
-                // In Phase 2, we assume PARTY_REF values are Person IDs unless otherwise specified.
-                // If it's a UUID, we'll try to find if it's a person or org, but for now 
-                // we default to valuePersonId for standard person-based parties.
-                claimInput.valuePersonId = value; 
-                break;
             case 'DOCUMENT_REF': claimInput.valueText = value; break; // Manual edits store as text; valueDocId requires valid FK
+            case 'PARTY_REF':
             case 'JSONB':
             case 'ADDRESS':
+            case 'PARTY':
             case 'PERSON_OR_CONTACT':
                 claimInput.valueJson = value; break;
         }
@@ -86,8 +88,8 @@ export async function updateFieldManually(
         });
 
         if (claim) {
-            revalidatePath(`/app/le/${clientLEId}`);
-            return { success: true };
+            revalidatePath(`/app/le/${clientLEId}`, 'layout');
+            return { success: true, claimId: claim.id };
         } else {
             return { success: false, message: "Update failed." };
         }
@@ -238,7 +240,7 @@ export async function updateCustomFieldManually(
             data: { customData: newData }
         });
 
-        revalidatePath(`/app/le/${clientLEId}`);
+        revalidatePath(`/app/le/${clientLEId}`, 'layout');
         return { success: true };
 
     } catch (e: any) {
@@ -338,7 +340,7 @@ export async function removeMultiValueEntry(
                     ownerScopeId
                 );
 
-                revalidatePath(`/app/le/${clientLEId}`);
+                revalidatePath(`/app/le/${clientLEId}`, 'layout');
                 return { success: true };
             }
         }
@@ -368,7 +370,7 @@ export async function removeMultiValueEntry(
         // Auto-verify user deletions for immediate effect
         await FieldClaimService.verifyClaim(tombstone.id, userId);
 
-        revalidatePath(`/app/le/${clientLEId}`);
+        revalidatePath(`/app/le/${clientLEId}`, 'layout');
         return { success: true };
     } catch (e: any) {
         console.error("removeMultiValueEntry error:", e);
@@ -399,7 +401,7 @@ export async function applyBulkOverride(
             }
         }
 
-        revalidatePath(`/app/le/${clientLEId}`);
+        revalidatePath(`/app/le/${clientLEId}`, 'layout');
         return { success: true };
     } catch (error: any) {
         console.error("applyBulkOverride error:", error);
@@ -486,4 +488,191 @@ export async function addCodeListEntry(
         return { success: true, instanceId };
     }
     return result;
+}
+
+export async function addExistingCCPartyReferenceToField(
+    clientLEId: string,
+    fieldNo: number,
+    ccPartyId: string,
+    rowId?: string
+): Promise<{ success: boolean; message?: string }> {
+    try {
+        const { getMasterFieldDefinition } = await import('@/services/masterData/definitionService');
+        const def = await getMasterFieldDefinition(fieldNo);
+
+        const { PrismaClient } = await import('@prisma/client');
+        const prisma = new PrismaClient();
+
+        if (fieldNo === 63) {
+            const clientLE = await prisma.clientLE.findUnique({
+                where: { id: clientLEId },
+                include: { legalEntity: true }
+            });
+            if (!clientLE) {
+                return { success: false, message: "ClientLE not found" };
+            }
+
+            const existingParty = await prisma.cCParty.findUnique({
+                where: { id: ccPartyId }
+            });
+            if (existingParty) {
+                const partyData = existingParty.data as any || {};
+                const enrichedData = enrichCCPartyRolesForField63(clientLE, partyData);
+                
+                if (JSON.stringify(partyData) !== JSON.stringify(enrichedData)) {
+                    await prisma.cCParty.update({
+                        where: { id: ccPartyId },
+                        data: { data: enrichedData }
+                    });
+                }
+            }
+        }
+
+        const actualRowId = def.isMultiValue ? (rowId || `ccparty_${ccPartyId}`) : undefined;
+
+        const claimResult = await updateFieldManually(
+            clientLEId,
+            fieldNo,
+            { ccPartyId },
+            `Added existing party via Field ${fieldNo} — ${def.fieldName}`,
+            actualRowId,
+            'CLIENT_LE'
+        );
+
+        if (!claimResult.success) {
+            return claimResult;
+        }
+
+        const { revalidatePath } = await import('next/cache');
+        revalidatePath(`/app/le/${clientLEId}`, 'layout');
+        return { success: true };
+    } catch (error: any) {
+        console.error("addExistingCCPartyReferenceToField error:", error);
+        return { success: false, message: error.message };
+    }
+}
+
+export async function createCCPartyAndReferenceField(
+    clientLEId: string,
+    fieldNo: number,
+    partyValueData: any,
+    rowId?: string
+): Promise<{ success: boolean; message?: string }> {
+    try {
+        const { getMasterFieldDefinition } = await import('@/services/masterData/definitionService');
+        const def = await getMasterFieldDefinition(fieldNo);
+        const originLabel = `Created manually from Field ${fieldNo} — ${def.fieldName}`;
+
+        const { getIdentity } = await import('@/lib/auth');
+        const identity = await getIdentity();
+        if (!identity?.userId) {
+            return { success: false, message: "Unauthorized" };
+        }
+
+        const { PrismaClient } = await import('@prisma/client');
+        const prisma = new PrismaClient();
+
+        const clientLE = await prisma.clientLE.findUnique({
+            where: { id: clientLEId },
+            include: { legalEntity: true }
+        });
+        if (!clientLE) {
+            return { success: false, message: "ClientLE not found" };
+        }
+
+        let enrichedPartyData = partyValueData;
+        if (fieldNo === 63) {
+            enrichedPartyData = enrichCCPartyRolesForField63(clientLE, partyValueData);
+        }
+
+        const newParty = await prisma.$transaction(async (tx: any) => {
+            const party = await tx.cCParty.create({
+                data: {
+                    clientLEId,
+                    data: enrichedPartyData,
+                    visibility: "CLIENT_LE",
+                    createdByUserId: identity.userId,
+                    updatedByUserId: identity.userId
+                }
+            });
+            return party;
+        });
+
+        const actualRowId = def.isMultiValue ? (rowId || `ccparty_${newParty.id}`) : undefined;
+
+        const claimResult = await updateFieldManually(
+            clientLEId,
+            fieldNo,
+            { ccPartyId: newParty.id },
+            originLabel,
+            actualRowId,
+            'CLIENT_LE'
+        );
+
+        if (!claimResult.success) {
+            await prisma.cCParty.delete({ where: { id: newParty.id } });
+            return { success: false, message: claimResult.message || "Failed to link new party to field" };
+        }
+
+        await prisma.cCParty.update({
+            where: { id: newParty.id },
+            data: { createdFromClaimId: claimResult.claimId }
+        });
+
+        const { revalidatePath } = await import('next/cache');
+        revalidatePath(`/app/le/${clientLEId}`, 'layout');
+        return { success: true };
+
+    } catch (error: any) {
+        console.error("createCCPartyAndReferenceField error:", error);
+        return { success: false, message: error.message };
+    }
+}
+
+function enrichCCPartyRolesForField63(clientLE: any, partyData: any): any {
+    const data = partyData || {};
+    const roles = Array.isArray(data.roles) ? data.roles : [];
+
+    const hasActiveDirectorRole = roles.some((role: any) =>
+        role.roleType === "director" &&
+        role.company?.coparityCompanyId === clientLE.id &&
+        role.isActiveRole !== false
+    );
+
+    if (hasActiveDirectorRole) {
+        return data;
+    }
+
+    const companyName = clientLE.name;
+    const coparityCompanyId = clientLE.id;
+    let externalId = null;
+    let externalIdScheme = null;
+
+    if (clientLE.lei) {
+        externalId = clientLE.lei;
+        externalIdScheme = "LEI";
+    } else if (clientLE.legalEntity?.localRegistrationNumber) {
+        externalId = clientLE.legalEntity.localRegistrationNumber;
+        externalIdScheme = "LOCAL_REGISTRATION_NUMBER";
+    }
+
+    const newRole = {
+        roleType: "director",
+        roleTitle: "Director",
+        isActiveRole: true,
+        appointedOn: null,
+        resignedOn: null,
+        natureOfControl: [],
+        company: {
+            name: companyName,
+            coparityCompanyId: coparityCompanyId,
+            externalId,
+            externalIdScheme
+        }
+    };
+
+    return {
+        ...data,
+        roles: [...roles, newRole]
+    };
 }

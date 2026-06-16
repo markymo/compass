@@ -6,6 +6,7 @@ import { ProvenanceSource } from "@/domain/kyc/types/ProvenanceTypes";
 import prisma from "@/lib/prisma";
 import { getComplexFieldConfig } from "@/lib/master-data/complex-field-config";
 import { FieldClaim } from "@prisma/client";
+import { isRenderableActiveDirectorParty, getPartySummary } from "@/lib/master-data/party-value";
 
 // KycLoader is deprecated in favor of KycStateService
 
@@ -51,11 +52,14 @@ export async function resolveMasterData(
                         const fieldNo = item.fieldNo;
                         const def = await getMasterFieldDefinition(fieldNo);
                         if (def.isMultiValue) {
-                            const collection = await KycStateService.getAuthoritativeCollection(
+                            let collection = await KycStateService.getAuthoritativeCollection(
                                 { subjectLeId },
                                 fieldNo,
                                 ownerScopeId || undefined
                             );
+                            if (fieldNo === 63) {
+                                collection = collection.filter((c: any) => isRenderableActiveDirectorParty(c.value));
+                            }
                             if (collection.length > 0) {
                                 const maxUpdatedAt = collection.reduce(
                                     (max: Date, c: any) => (c.assertedAt > max ? c.assertedAt : max),
@@ -96,11 +100,14 @@ export async function resolveMasterData(
         else if (q.masterFieldNo && subjectLeId) {
             const def = await getMasterFieldDefinition(q.masterFieldNo);
             if (def.isMultiValue) {
-                const collection = await KycStateService.getAuthoritativeCollection(
+                let collection = await KycStateService.getAuthoritativeCollection(
                     { subjectLeId },
                     q.masterFieldNo,
                     ownerScopeId || undefined
                 );
+                if (q.masterFieldNo === 63) {
+                    collection = collection.filter((c: any) => isRenderableActiveDirectorParty(c.value));
+                }
                 if (collection.length > 0) {
                     const vals = collection.map((c: any) => c.value);
                     console.log(`[resolveMasterData] Field ${q.masterFieldNo} is multi-value. Values:`, vals);
@@ -241,9 +248,11 @@ function resolveField(
             const winner = KycStateService.pickWinner(group, ownerScopeId ?? undefined, priorityMap);
             if (winner && !KycStateService.isTombstone(winner)) {
                 const derived = KycStateService.mapToDerivedValue(winner, ownerScopeId ?? undefined);
-                values.push(derived.value);
-                if (!firstDerived) firstDerived = derived;
-                if (!maxAssertedAt || derived.assertedAt > maxAssertedAt) maxAssertedAt = derived.assertedAt;
+                if (fieldNo !== 63 || isRenderableActiveDirectorParty(derived.value)) {
+                    values.push(derived.value);
+                    if (!firstDerived) firstDerived = derived;
+                    if (!maxAssertedAt || derived.assertedAt > maxAssertedAt) maxAssertedAt = derived.assertedAt;
+                }
             }
         }
 
@@ -390,7 +399,7 @@ export interface FieldDetailData {
         isAuthoritative: boolean;
         status: string;
     }[];
-    rows?: { id: string; value: any; source: string; timestamp: Date; instanceId?: string; collectionId?: string; data?: any; label?: string; sourceReference?: string }[];
+    rows?: { id: string; value: any; source: string; timestamp: Date; instanceId?: string; collectionId?: string; data?: any; label?: string; sourceReference?: string; isPromotedToCCC?: boolean }[];
     /**
      * For repeating/collection fields only.
      * True if the user has made any add or remove action on this collection
@@ -647,7 +656,7 @@ export async function getFieldDetail(
     const derived = await KycStateService.getAuthoritativeValue({ subjectLeId }, fieldNo, ownerScopeId);
 
     // 2. Load Rows if repeating
-    let rows: { id: string; value: any; source: string; timestamp: Date; instanceId?: string; collectionId?: string; data?: any; label?: string; sourceReference?: string }[] | undefined = undefined;
+    let rows: { id: string; value: any; source: string; timestamp: Date; instanceId?: string; collectionId?: string; data?: any; label?: string; sourceReference?: string; isPromotedToCCC?: boolean }[] | undefined = undefined;
 
     // Check for Graph Binding
     const bindings = await prisma.masterFieldGraphBinding.findMany({
@@ -655,8 +664,10 @@ export async function getFieldDetail(
     });
     const graphBinding = bindings.find((b: any) => b.filterEdgeType);
 
+    const isPartyField = def?.appDataType === 'PARTY' || def?.appDataType === 'PERSON_OR_CONTACT' || def?.appDataType === 'PARTY_REF';
+
     if (def?.isMultiValue) {
-        if (graphBinding && entityType === 'CLIENT_LE') {
+        if (graphBinding && entityType === 'CLIENT_LE' && !isPartyField) {
             // Source rows from Graph Edges to avoid duplication and show real graph state
             const edges = await prisma.clientLEGraphEdge.findMany({
                 where: {
@@ -703,9 +714,22 @@ export async function getFieldDetail(
                 ? complexCfg.collectionId
                 : undefined;
 
-            const collection = await KycStateService.getAuthoritativeCollection(
+            let collection = await KycStateService.getAuthoritativeCollection(
                 { subjectLeId }, fieldNo, ownerScopeId, undefined, filterCollectionId
             );
+
+            if (fieldNo === 63) {
+                collection = collection.filter(c => isRenderableActiveDirectorParty(c.value));
+            }
+
+            let promotedClaimIds = new Set<string>();
+            if (def && (def.appDataType === 'PARTY' || def.appDataType === 'PERSON_OR_CONTACT') && entityType === 'CLIENT_LE') {
+                const promotedParties = await prisma.cCParty.findMany({
+                    where: { clientLEId: entityId, createdFromClaimId: { not: null } },
+                    select: { createdFromClaimId: true }
+                });
+                promotedClaimIds = new Set(promotedParties.map((p: any) => p.createdFromClaimId as string));
+            }
 
             rows = collection.map((c: any) => {
                 return {
@@ -717,9 +741,36 @@ export async function getFieldDetail(
                     instanceId: c.instanceId,
                     collectionId: c.collectionId,
                     data: undefined,
-                    label: typeof c.value === 'string' ? c.value : undefined
+                    label: typeof c.value === 'string' ? c.value : undefined,
+                    isPromotedToCCC: promotedClaimIds.has(c.claimId)
                 };
             });
+
+            // Phase 3: Bulk-resolve PARTY_REF values for display
+            // In Phase 3B we resolve *any* claim containing a ccPartyId, regardless of field appDataType.
+            if (rows && rows.length > 0) {
+                const ccPartyIds = Array.from(new Set(rows.map(r => r.value?.ccPartyId).filter(Boolean)));
+                if (ccPartyIds.length > 0) {
+                    const parties = await prisma.cCParty.findMany({
+                        where: { id: { in: ccPartyIds as string[] } }
+                    });
+                    const partyMap = new Map(parties.map((p: any) => [p.id, p]));
+                    for (const r of rows) {
+                        if (r.value?.ccPartyId) {
+                            const party = partyMap.get(r.value.ccPartyId);
+                            if (party) {
+                                r.data = {
+                                    ccParty: party,
+                                    resolvedSummary: getPartySummary((party as any).data),
+                                    resolvedType: (party as any).data?.partySubType || (party as any).data?.partyType
+                                };
+                            } else {
+                                r.data = { isDeleted: true };
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -863,7 +914,7 @@ export async function getFieldDetail(
 
     let finalSourceBadgeForEmpty = (!hasValue && (displayState === 'MAPPED_NOT_CHECKED' || displayState === 'CHECKED_NO_DATA')) ? evaluatedSourceBadge : undefined;
 
-    return {
+    const result = {
         fieldNo,
         fieldName: def?.fieldName,
         isRepeating: def?.isMultiValue || false,
@@ -920,6 +971,51 @@ export async function getFieldDetail(
             return undefined;
         })(),
     };
+
+    // Phase 3B: Bulk-resolve PARTY_REF for `current.value` if it's a non-repeating field or array of values,
+    // regardless of appDataType.
+    if (result.current?.value) {
+        let ccPartyIds: string[] = [];
+        if (Array.isArray(result.current.value)) {
+            ccPartyIds = result.current.value.map((v: any) => v?.ccPartyId).filter(Boolean);
+        } else if (result.current.value?.ccPartyId) {
+            ccPartyIds = [result.current.value.ccPartyId];
+        }
+
+        if (ccPartyIds.length > 0) {
+            const parties = await prisma.cCParty.findMany({
+                where: { id: { in: ccPartyIds } }
+            });
+            const partyMap = new Map(parties.map((p: any) => [p.id, p]));
+            
+            const enrichValue = (val: any) => {
+                if (val?.ccPartyId) {
+                    const party = partyMap.get(val.ccPartyId);
+                    if (party) {
+                        return {
+                            ...val,
+                            _resolvedData: {
+                                ccParty: party,
+                                resolvedSummary: getPartySummary((party as any).data),
+                                resolvedType: (party as any).data?.partySubType || (party as any).data?.partyType
+                            }
+                        };
+                    } else {
+                        return { ...val, _resolvedData: { isDeleted: true } };
+                    }
+                }
+                return val;
+            };
+
+            if (Array.isArray(result.current.value)) {
+                result.current.value = result.current.value.map(enrichValue);
+            } else {
+                result.current.value = enrichValue(result.current.value);
+            }
+        }
+    }
+
+    return result;
 
 }
 

@@ -2,7 +2,7 @@
  * seed-field-63-migration.ts
  *
  * Idempotent script to migrate Field 63 (List of company directors) configuration:
- * 1. Update MasterFieldDefinition for fieldNo 63 to appDataType 'PERSON_OR_CONTACT'.
+ * 1. Update MasterFieldDefinition for fieldNo 63 to appDataType 'PARTY'.
  * 2. Deactivate the MasterFieldGraphBinding for fieldNo 63 (isActive = false).
  * 3. Deactivate the legacy BASELINE SourceFieldMapping for field 63.
  * 4. Create/update RAW_PAYLOAD SourceFieldMapping for Companies House (COMPANIES_HOUSE and RA000586).
@@ -18,12 +18,12 @@ const prisma = new PrismaClient();
 async function main() {
     console.log('[seed-field-63-migration] Starting field 63 database configuration migration...\n');
 
-    // 1. Update MasterFieldDefinition appDataType to PERSON_OR_CONTACT
+    // 1. Update MasterFieldDefinition appDataType to PARTY
     const fieldDefUpdate = await (prisma as any).masterFieldDefinition.updateMany({
         where: { fieldNo: 63 },
         data: {
-            appDataType: 'PERSON_OR_CONTACT',
-            notes: 'List of company directors stored as embedded PersonOrContact structures with roles[].'
+            appDataType: 'PARTY',
+            notes: 'List of company directors stored as embedded PartyValue structures with roles[].'
         }
     });
     console.log(`[MasterFieldDefinition] Updated ${fieldDefUpdate.count} definition(s) for Field 63.`);
@@ -42,7 +42,7 @@ async function main() {
             mappingScope: MappingScope.BASELINE,
             isActive: true
         },
-        data: { isActive: false, notes: 'Deactivated in favor of RAW_PAYLOAD PERSON_OR_CONTACT mapping.' }
+        data: { isActive: false, notes: 'Deactivated in favor of RAW_PAYLOAD PARTY mapping.' }
     });
     console.log(`[SourceFieldMapping] Deactivated ${legacyMappingUpdate.count} legacy BASELINE mapping(s) for Field 63.`);
 
@@ -90,11 +90,11 @@ async function main() {
             where: whereKey,
             update: {
                 isActive: true,
-                transformType: 'TO_PERSON_OR_CONTACT_LIST',
+                transformType: 'TO_PARTY_VALUE_LIST',
                 transformConfig: transformConfig,
                 syncMode: 'SNAPSHOT_SYNC',
                 filterConfig: includeRolesFilter,
-                notes: `CH Officers to Field 63 (PERSON_OR_CONTACT). Migrated 2026-06-14.`
+                notes: `CH Officers to Field 63 (PARTY). Migrated 2026-06-14.`
             },
             create: {
                 sourceType: SourceType.REGISTRATION_AUTHORITY,
@@ -104,12 +104,12 @@ async function main() {
                 sourcePath: '$',
                 targetFieldNo: 63,
                 isActive: true,
-                transformType: 'TO_PERSON_OR_CONTACT_LIST',
+                transformType: 'TO_PARTY_VALUE_LIST',
                 transformConfig: transformConfig,
                 syncMode: 'SNAPSHOT_SYNC',
                 filterConfig: includeRolesFilter,
                 priority: 10,
-                notes: `CH Officers to Field 63 (PERSON_OR_CONTACT). Migrated 2026-06-14.`
+                notes: `CH Officers to Field 63 (PARTY). Migrated 2026-06-14.`
             }
         });
 

@@ -404,7 +404,7 @@ export default function MasterDataManager({ initialData, rawFields, initialUserC
             accessorKey: "appDataType",
             header: "Data Type",
             size: 100,
-            cell: ({ row }) => <EditableSelectCell key={row.original.fieldNo} row={row} fieldKey="appDataType" options={["TEXT", "NUMBER", "BOOLEAN", "DATE", "JSON", "SELECT"]} router={router} />,
+            cell: ({ row }) => <EditableSelectCell key={row.original.fieldNo} row={row} fieldKey="appDataType" options={["TEXT", "NUMBER", "BOOLEAN", "DATE", "JSON", "SELECT", "PARTY_REF"]} router={router} />,
         },
         {
             id: "sources",
