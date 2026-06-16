@@ -528,7 +528,7 @@ export async function addExistingCCPartyReferenceToField(
             }
         }
 
-        const actualRowId = rowId || `ccparty_${ccPartyId}`;
+        const actualRowId = def.isMultiValue ? (rowId || `ccparty_${ccPartyId}`) : undefined;
 
         const claimResult = await updateFieldManually(
             clientLEId,
@@ -598,7 +598,7 @@ export async function createCCPartyAndReferenceField(
             return party;
         });
 
-        const actualRowId = rowId || `ccparty_${newParty.id}`;
+        const actualRowId = def.isMultiValue ? (rowId || `ccparty_${newParty.id}`) : undefined;
 
         const claimResult = await updateFieldManually(
             clientLEId,

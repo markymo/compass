@@ -73,6 +73,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
     const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
     const [relatedValues, setRelatedValues] = useState<Record<string, any>>({});
     const [isSaving, setIsSaving] = useState(false);
+    const [isClearingSingleValue, setIsClearingSingleValue] = useState(false);
 
     // Multi-value inline management state
     const [editingRowId, setEditingRowId] = useState<string | null>(null);
@@ -234,6 +235,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
         setSelectedRowId(null);
         setRelatedValues({});
         setIsSaving(false);
+        setIsClearingSingleValue(false);
         setNoteText("");
         setInitialNodeData(null);
         setEditingEntityId(null);
@@ -642,21 +644,34 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                     toast.error("Data not loaded");
                     return;
                 }
-                // Determine if we need bulk update
-                const row = data.rows?.find((r: any) => r.id === selectedRowId);
-                const model = data.category;
+                const parsedVal = typeof data?.current?.value === 'string' && (data.current.value.startsWith('{') || data.current.value.startsWith('['))
+                    ? (() => { try { return JSON.parse(data.current.value); } catch { return data.current.value; } })()
+                    : data?.current?.value;
+                const inferredKind = parsedVal ? inferClaimValueKind({ valueJson: parsedVal }) : null;
 
-                if (row && model && Object.keys(relatedValues).length > 0) {
-                    const fieldNameInModel = data.modelField!;
-                    const updates = {
-                        [fieldNameInModel]: manualValue,
-                        ...relatedValues
-                    };
-                    result = await applyBulkOverride(legalEntityId, model, updates, manualReason, selectedRowId!, 'CLIENT_LE');
+                if ((isPersonOrContactField || isCuratedPartyRef) && inferredKind === 'PARTY_REF' && parsedVal?.ccPartyId) {
+                    const { upsertCCParty } = await import("@/actions/cc-party-actions");
+                    result = await upsertCCParty({
+                        id: parsedVal.ccPartyId,
+                        clientLEId: legalEntityId,
+                        data: manualValue
+                    });
                 } else {
-                    result = await updateFieldManually(legalEntityId, fieldNo, manualValue, manualReason, selectedRowId || undefined);
-                }
+                    // Determine if we need bulk update
+                    const row = data.rows?.find((r: any) => r.id === selectedRowId);
+                    const model = data.category;
 
+                    if (row && model && Object.keys(relatedValues).length > 0) {
+                        const fieldNameInModel = data.modelField!;
+                        const updates = {
+                            [fieldNameInModel]: manualValue,
+                            ...relatedValues
+                        };
+                        result = await applyBulkOverride(legalEntityId, model, updates, manualReason, selectedRowId!, 'CLIENT_LE');
+                    } else {
+                        result = await updateFieldManually(legalEntityId, fieldNo, manualValue, manualReason, selectedRowId || undefined);
+                    }
+                }
             }
 
             if (result.success) {
@@ -670,7 +685,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                     onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
                 }
             } else {
-                toast.error(result.message || "Update failed");
+                toast.error((result as any).message || "Update failed");
             }
         } catch (error) {
             console.error("Save error:", error);
@@ -1379,9 +1394,9 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                             <div className="flex-1 mt-0.5">
                                                                 <div className="text-base font-medium text-slate-900 break-all leading-relaxed">
                                                                     {isAddressValue(data.current.value) ? (
-                                                                        <AddressValueViewer value={data.current.value} layout="detailed" />
-                                                                    ) : isPersonOrContactValue(data.current.value) ? (
-                                                                        <PersonOrContactValueViewer value={data.current.value} layout="detailed" />
+                                                                         <AddressValueViewer value={data.current.value} layout="detailed" />
+                                                                     ) : (isPersonOrContactValue(data.current.value) || (data.current.value && typeof data.current.value === 'object' && 'ccPartyId' in data.current.value)) ? (
+                                                                         <PersonOrContactValueViewer value={data.current.value?._resolvedData?.ccParty?.data || data.current.value} layout="detailed" />
                                                                     ) : Array.isArray(data.current.value) ? (
                                                                         <div className="flex flex-wrap gap-1.5 mt-1">
                                                                             {data.current.value.map((v: any, idx: number) => (
@@ -1403,96 +1418,143 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                     </span>
                                                                 </div>
                                                             </div>
-                                                            {!isLocked && (
-                                                                <button
-                                                                    className="p-1.5 rounded text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors shrink-0"
-                                                                    onClick={() => {
-                                                                        setManualValue(isCuratedPartyRef ? (data?.current?.value || null) : isPersonOrContactField ? (data?.current?.value || {
-                                                                            contactType: "PERSON",
-                                                                            title: null,
-                                                                            forenames: null,
-                                                                            surname: null,
-                                                                            email: null,
-                                                                            phones: [],
-                                                                            nationality: [],
-                                                                            countryOfResidence: null,
-                                                                            dateOfBirth: null,
-                                                                            placeOfBirth: null,
-                                                                            roles: [],
-                                                                            sourceIdentifiers: [],
-                                                                            isActivePersonOrContact: null,
-                                                                            visibility: { scope: "CLIENT_LE" }
-                                                                        } as any) : String(data?.current?.value || ""));
-                                                                        setIsEditing(true);
-                                                                        setRelatedValues({});
-                                                                    }}
-                                                                    title="Edit value"
-                                                                >
-                                                                    <Pencil className="h-3.5 w-3.5" />
-                                                                </button>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                ) : null
+                                                             {!isLocked && (
+                                                                 isPersonOrContactField || isCuratedPartyRef ? (
+                                                                     <div className="flex items-center gap-1.5 shrink-0">
+                                                                         <button
+                                                                             className="p-1.5 rounded text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors shrink-0"
+                                                                             onClick={() => {
+                                                                                 setManualValue(data?.current?.value?._resolvedData?.ccParty?.data || data?.current?.value || {
+                                                                                     contactType: "PERSON",
+                                                                                     title: null,
+                                                                                     forenames: null,
+                                                                                     surname: null,
+                                                                                     email: null,
+                                                                                     phones: [],
+                                                                                     nationality: [],
+                                                                                     countryOfResidence: null,
+                                                                                     dateOfBirth: null,
+                                                                                     placeOfBirth: null,
+                                                                                     roles: [],
+                                                                                     sourceIdentifiers: [],
+                                                                                     isActivePersonOrContact: null,
+                                                                                     visibility: { scope: "CLIENT_LE" }
+                                                                                 } as any);
+                                                                                 setIsEditing(true);
+                                                                                 setRelatedValues({});
+                                                                             }}
+                                                                             title="Edit curated party"
+                                                                         >
+                                                                             <Pencil className="h-3.5 w-3.5" />
+                                                                         </button>
+                                                                         {data?.current?.source === 'USER_INPUT' && (
+                                                                             <button
+                                                                                 className="p-1.5 rounded text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors shrink-0"
+                                                                                 onClick={() => setIsClearingSingleValue(true)}
+                                                                                 title="Break link to party reference"
+                                                                             >
+                                                                                 <Link2Off className="h-3.5 w-3.5" />
+                                                                             </button>
+                                                                         )}
+                                                                     </div>
+                                                                 ) : (
+                                                                     <button
+                                                                         className="p-1.5 rounded text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors shrink-0"
+                                                                         onClick={() => {
+                                                                             setManualValue(String(data?.current?.value || ""));
+                                                                             setIsEditing(true);
+                                                                             setRelatedValues({});
+                                                                         }}
+                                                                         title="Edit value"
+                                                                     >
+                                                                         <Pencil className="h-3.5 w-3.5" />
+                                                                     </button>
+                                                                 )
+                                                             )}
+                                                         </div>
+                                                         {isClearingSingleValue && (
+                                                             <div className="mt-4 flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg bg-red-50 border border-red-200 animate-in fade-in duration-150">
+                                                                 <span className="text-xs text-red-700 font-medium truncate flex-1">
+                                                                     Break link to party reference?
+                                                                 </span>
+                                                                 <div className="flex items-center gap-1.5 shrink-0">
+                                                                     <Button
+                                                                         variant="ghost"
+                                                                         size="sm"
+                                                                         className="h-6 px-2 text-[11px] text-red-700 hover:bg-red-100 hover:text-red-800"
+                                                                         onClick={async () => {
+                                                                             setIsSaving(true);
+                                                                             try {
+                                                                                 const result = await updateFieldManually(legalEntityId, fieldNo, null, "Break party link", undefined, 'CLIENT_LE');
+                                                                                 if (result.success) {
+                                                                                     toast.success("Party link broken");
+                                                                                     setIsClearingSingleValue(false);
+                                                                                     const refreshed = await getFieldDetail(legalEntityId, fieldNo, 'CLIENT_LE', customFieldId);
+                                                                                     setData(refreshed);
+                                                                                     if (onUpdate && refreshed?.current) {
+                                                                                         onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
+                                                                                     }
+                                                                                 } else {
+                                                                                     toast.error("Failed to break link");
+                                                                                 }
+                                                                             } catch (err) {
+                                                                                 toast.error("An error occurred");
+                                                                             } finally {
+                                                                                 setIsSaving(false);
+                                                                             }
+                                                                         }}
+                                                                         disabled={isSaving}
+                                                                     >
+                                                                         {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Yes, break link'}
+                                                                     </Button>
+                                                                     <Button
+                                                                         variant="ghost"
+                                                                         size="sm"
+                                                                         className="h-6 px-2 text-[11px] text-slate-500 hover:bg-slate-100"
+                                                                         onClick={() => setIsClearingSingleValue(false)}
+                                                                         disabled={isSaving}
+                                                                     >
+                                                                         Cancel
+                                                                     </Button>
+                                                                 </div>
+                                                             </div>
+                                                         )}
+                                                     </div>
+                                                 ) : null
                                             ) : (
                                                 /* Empty state — show state-aware display first, then inline input */
                                                 <div className="flex items-start gap-3 mt-2">
                                                     <div className="flex-1 space-y-2">
-                                                        {!isEditing ? (
-                                                            isCuratedPartyRef ? (
-                                                                <div className="flex flex-col items-center justify-center py-6 border border-dashed border-slate-200 rounded-lg bg-slate-50/50 p-4 space-y-3">
-                                                                    <div className="text-sm text-slate-500 italic">
-                                                                        No curated party assigned
-                                                                    </div>
-                                                                    {!isLocked && (
-                                                                        <Button
-                                                                            variant="outline"
-                                                                            onClick={() => {
-                                                                                setManualValue(null);
-                                                                                setIsEditing(true);
-                                                                            }}
-                                                                            className="bg-indigo-50/50 hover:bg-indigo-50 border-indigo-200 text-indigo-700 border-dashed shadow-sm shrink-0"
-                                                                        >
-                                                                            <Plus className="h-4 w-4 mr-2" />
-                                                                            Select Curated Party
-                                                                        </Button>
-                                                                    )}
-                                                                </div>
-                                                            ) : isPersonOrContactField ? (
-                                                                <div className="flex flex-col items-center justify-center py-6 border border-dashed border-slate-200 rounded-lg bg-slate-50/50 p-4 space-y-3">
-                                                                    <div className="text-sm text-slate-500 italic">
-                                                                        No person/contact recorded
-                                                                    </div>
-                                                                    {!isLocked && (
-                                                                        <Button
-                                                                            variant="outline"
-                                                                            onClick={() => {
-                                                                                setManualValue({
-                                                                                    contactType: "PERSON",
-                                                                                    title: null,
-                                                                                    forenames: null,
-                                                                                    surname: null,
-                                                                                    email: null,
-                                                                                    phones: [],
-                                                                                    nationality: [],
-                                                                                    countryOfResidence: null,
-                                                                                    dateOfBirth: null,
-                                                                                    placeOfBirth: null,
-                                                                                    roles: [],
-                                                                                    sourceIdentifiers: [],
-                                                                                    isActivePersonOrContact: null,
-                                                                                    visibility: { scope: "CLIENT_LE" }
-                                                                                } as any);
-                                                                                setIsEditing(true);
-                                                                            }}
-                                                                            className="bg-indigo-50/50 hover:bg-indigo-50 border-indigo-200 text-indigo-700 border-dashed shadow-sm shrink-0"
-                                                                        >
-                                                                            <Plus className="h-4 w-4 mr-2" />
-                                                                            {fieldNo === 63 ? 'Add Director' : (newPersonData?.partyType === 'ORGANISATION' ? 'Add Organisation' : (newPersonData?.partyType === 'INDIVIDUAL' ? 'Add Individual' : 'Add Party'))} or Contact
-                                                                        </Button>
-                                                                    )}
-                                                                </div>
-                                                            ) : (
+                                                         {!isEditing ? (
+                                                             isCuratedPartyRef || isPersonOrContactField ? (
+                                                                 <div className="flex flex-col items-center justify-center py-6 border border-dashed border-slate-200 rounded-lg bg-slate-50/50 p-4 space-y-3">
+                                                                     <div className="text-sm text-slate-500 italic">
+                                                                         {isCuratedPartyRef ? "No curated party assigned" : "No person/contact recorded"}
+                                                                     </div>
+                                                                     {!isLocked && (
+                                                                         <UnifiedPartyPicker
+                                                                             clientLEId={legalEntityId}
+                                                                             fieldNo={fieldNo}
+                                                                             onSuccess={async () => {
+                                                                                 const refreshed = await getFieldDetail(legalEntityId, fieldNo, 'CLIENT_LE', customFieldId);
+                                                                                 setData(refreshed);
+                                                                                 if (onUpdate && refreshed?.current) {
+                                                                                     onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
+                                                                                 }
+                                                                             }}
+                                                                             trigger={
+                                                                                 <Button
+                                                                                     variant="outline"
+                                                                                     className="bg-indigo-50/50 hover:bg-indigo-50 border-indigo-200 text-indigo-700 border-dashed shadow-sm shrink-0"
+                                                                                 >
+                                                                                     <Plus className="h-4 w-4 mr-2" />
+                                                                                     {isCuratedPartyRef ? "Select Curated Party" : (fieldNo === 63 ? 'Add Director' : 'Select Party / Contact')}
+                                                                                 </Button>
+                                                                             }
+                                                                         />
+                                                                     )}
+                                                                 </div>
+                                                             ) : (
                                                                 <div className="flex items-start justify-between">
                                                                     <div className="mt-0.5">
                                                                         <div className="text-sm text-slate-500 italic mb-2">
@@ -1554,23 +1616,14 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                     />
                                                                 ) : (
                                                                     <>
-                                                                        {isCuratedPartyRef ? (
-                                                                            <div className="mt-4 bg-slate-50 p-2 rounded border border-slate-200">
-                                                                                <PartyRefValueEditor
-                                                                                    value={manualValue}
-                                                                                    onChange={setManualValue}
-                                                                                    clientLEId={legalEntityId}
-                                                                                    disabled={isSaving}
-                                                                                />
-                                                                            </div>
-                                                                        ) : isPersonOrContactField ? (
-                                                                            <div className="mt-4 bg-slate-50 p-2 rounded border border-slate-200">
-                                                                                <PersonOrContactValueEditor
-                                                                                    value={typeof manualValue === 'object' && manualValue ? manualValue : { contactType: 'PERSON', roles: [] } as any}
-                                                                                    onChange={(val) => setManualValue(val as any)}
-                                                                                    disabled={isSaving}
-                                                                                    fieldNo={fieldNo}
-                                                                                />
+                                                                        {isCuratedPartyRef || isPersonOrContactField ? (
+                                                                             <div className="mt-4 bg-slate-50 p-2 rounded border border-slate-200">
+                                                                                 <PersonOrContactValueEditor
+                                                                                     value={typeof manualValue === 'object' && manualValue ? manualValue : { contactType: 'PERSON', roles: [] } as any}
+                                                                                     onChange={(val) => setManualValue(val as any)}
+                                                                                     disabled={isSaving}
+                                                                                     fieldNo={fieldNo}
+                                                                                 />
                                                                                 <div className="flex items-center gap-2 mt-2">
                                                                                     <Button
                                                                                         size="sm"
@@ -1690,24 +1743,15 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                 <label className="text-xs font-semibold text-slate-600 uppercase tracking-tight">
                                                     {fieldName} (Primary Value)
                                                 </label>
-                                                {isCuratedPartyRef ? (
-                                                    <div className="mt-4 bg-slate-50 p-3 rounded-lg border border-slate-200">
-                                                        <PartyRefValueEditor
-                                                            value={manualValue}
-                                                            onChange={setManualValue}
-                                                            clientLEId={legalEntityId}
-                                                            disabled={isSaving}
-                                                        />
-                                                    </div>
-                                                ) : isPersonOrContactField ? (
-                                                    <div className="mt-4 bg-slate-50 p-3 rounded-lg border border-slate-200">
-                                                        <PersonOrContactValueEditor
-                                                            value={typeof manualValue === 'object' && manualValue ? manualValue : { contactType: 'PERSON', roles: [] } as any}
-                                                            onChange={(val) => setManualValue(val as any)}
-                                                            disabled={isSaving}
-                                                            fieldNo={fieldNo}
-                                                        />
-                                                    </div>
+                                                 {isCuratedPartyRef || isPersonOrContactField ? (
+                                                     <div className="mt-4 bg-slate-50 p-3 rounded-lg border border-slate-200">
+                                                         <PersonOrContactValueEditor
+                                                             value={typeof manualValue === 'object' && manualValue ? manualValue : { contactType: 'PERSON', roles: [] } as any}
+                                                             onChange={(val) => setManualValue(val as any)}
+                                                             disabled={isSaving}
+                                                             fieldNo={fieldNo}
+                                                         />
+                                                     </div>
                                                 ) : data?.options && data.options.length > 0 ? (
                                                     <Select value={manualValue} onValueChange={setManualValue}>
                                                         <SelectTrigger className="w-full bg-white border-slate-300">
@@ -1806,11 +1850,11 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
 
                                     <div className="flex gap-2 justify-end">
                                         <Button variant="ghost" size="sm" onClick={() => setIsEditing(false)}>Cancel</Button>
-                                        <Button
-                                            size="sm"
-                                            onClick={handleManualSave}
-                                            disabled={isSaving || (isPersonOrContactField && !isValidPartyValue(manualValue))}
-                                        >
+                                         <Button
+                                             size="sm"
+                                             onClick={handleManualSave}
+                                             disabled={isSaving || ((isPersonOrContactField || isCuratedPartyRef) && !isValidPartyValue(manualValue))}
+                                         >
                                             {isSaving ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : <CheckCircle className="h-3 w-3 mr-2" />}
                                             Save Override
                                         </Button>
