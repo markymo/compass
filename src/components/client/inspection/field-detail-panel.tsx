@@ -32,6 +32,7 @@ import { isPersonOrContactValue, getPersonOrContactSummary, isValidPartyValue } 
 import { PersonOrContactValueViewer } from "../fields/PersonOrContactValueViewer";
 import { PersonOrContactValueEditor } from "../fields/PersonOrContactValueEditor";
 import { PartyRefValueEditor } from "../fields/PartyRefValueEditor";
+import { inferClaimValueKind, ClaimValueKind } from "@/lib/master-data/claim-value-resolver";
 
 import {
     DropdownMenu,
@@ -926,7 +927,22 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                             {/* Value rows */}
                                             {data.rows && data.rows.length > 0 ? (
                                                 <div className="space-y-1.5 max-h-[400px] overflow-y-auto pr-2">
-                                                    {data.rows.map((row: any, i: any) => (
+                                                    {data.rows.map((row: any, i: any) => {
+                                                        const parsedRowValue = typeof row.value === 'string' && (row.value.startsWith('{') || row.value.startsWith('['))
+                                                            ? (() => { try { return JSON.parse(row.value); } catch { return row.value; } })()
+                                                            : row.value;
+
+                                                        const inferredKind = inferClaimValueKind({ valueJson: parsedRowValue });
+                                                        const isSourceEmbParty = inferredKind === 'EMBEDDED_PARTY' && row.source !== 'USER_INPUT';
+                                                        const isUserEmbParty = inferredKind === 'EMBEDDED_PARTY' && row.source === 'USER_INPUT';
+                                                        const isUserPartyRef = inferredKind === 'PARTY_REF' && row.source === 'USER_INPUT';
+                                                        
+                                                        const showPromote = inferredKind === 'EMBEDDED_PARTY';
+                                                        const isReadOnlySource = row.source !== 'USER_INPUT';
+                                                        const canEdit = !isReadOnlySource;
+                                                        const canRemove = !isReadOnlySource;
+
+                                                        return (
                                                         <div key={row.id}>
                                                             {/* Delete confirmation mode */}
                                                             {deletingRowId === row.id ? (
@@ -974,7 +990,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                                 onCreateNew={() => handleCreateNewNode(graphBindings.find(b => b.isActive)?.graphNodeType || (isPartyRef ? "PERSON" : "ADDRESS"))}
                                                                             />
                                                                         </div>
-                                                                    ) : isCuratedPartyRef ? (
+                                                                    ) : inferredKind === 'PARTY_REF' ? (
                                                                         <div className="flex-1 min-w-0 bg-slate-50 p-2 rounded border border-slate-200">
                                                                             <PartyRefValueEditor
                                                                                 value={editingRowValue}
@@ -983,7 +999,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                                 disabled={isSaving}
                                                                             />
                                                                         </div>
-                                                                    ) : isPersonOrContactField ? (
+                                                                    ) : inferredKind === 'EMBEDDED_PARTY' ? (
                                                                         <div className="flex-1 min-w-0 bg-slate-50 p-2 rounded border border-slate-200">
                                                                             <PersonOrContactValueEditor
                                                                                 value={editingRowValue || { contactType: 'PERSON', roles: [] } as any}
@@ -1031,7 +1047,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                             size="icon"
                                                                             className="h-7 w-7 text-green-600 hover:bg-green-50"
                                                                             onClick={() => handleInlineEditSave(row)}
-                                                                            disabled={isSaving || (typeof editingRowValue === 'string' ? !editingRowValue.trim() : !isValidPartyValue(editingRowValue))}
+                                                                            disabled={isSaving || (typeof editingRowValue === 'string' ? !editingRowValue.trim() : (inferredKind === 'EMBEDDED_PARTY' && !isValidPartyValue(editingRowValue)))}
                                                                         >
                                                                             {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
                                                                         </Button>
@@ -1051,14 +1067,8 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                     <div className="flex-1 min-w-0">
                                                                         {/* Structured collection row (e.g. Field 5 Previous Names) */}
                                                                         {(() => {
-                                                                            let displayRow = row.value;
-                                                                            if (typeof row.value === 'string' && (row.value.startsWith('{') || row.value.startsWith('['))) {
-                                                                                try {
-                                                                                    displayRow = JSON.parse(row.value);
-                                                                                } catch (e) {}
-                                                                            }
-                                                                            if (displayRow && typeof displayRow === 'object' && (displayRow.name || isPersonOrContactValue(displayRow))) {
-                                                                                return <CollectionRowDisplay fieldNo={fieldNo} row={displayRow} />;
+                                                                            if (parsedRowValue && typeof parsedRowValue === 'object' && (parsedRowValue.name || isPersonOrContactValue(parsedRowValue))) {
+                                                                                return <CollectionRowDisplay fieldNo={fieldNo} row={parsedRowValue} />;
                                                                             }
                                                                             return (
                                                                                 <div className="text-sm font-medium text-slate-900 truncate">
@@ -1075,7 +1085,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                     </div>
                                                                     {!isLocked && (
                                                                         <div className="flex items-center gap-0.5 shrink-0">
-                                                                            {isPartyField && (
+                                                                            {showPromote && (
                                                                                 row.isPromotedToCCC ? (
                                                                                     <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 border-emerald-200 mr-2 hover:bg-emerald-50 font-medium h-6">
                                                                                         <CheckCircle2 className="w-3 h-3 mr-1" />
@@ -1094,33 +1104,38 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                                     </Button>
                                                                                 )
                                                                             )}
-                                                                            <button
-                                                                                className="p-1.5 rounded text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
-                                                                                onClick={() => {
-                                                                                    if (isObjectRef) {
-                                                                                        handleEditNode(row);
-                                                                                    } else {
-                                                                                        setEditingRowId(row.id);
-                                                                                        setEditingRowValue(isPersonOrContactField ? row.value : String(row.value));
-                                                                                    }
-                                                                                }}
-                                                                                title="Edit value"
-                                                                            >
-                                                                                <Pencil className="h-3 w-3" />
-                                                                            </button>
-                                                                            <button
-                                                                                className="p-1.5 rounded text-slate-400 hover:bg-red-50 hover:text-red-500 transition-colors"
-                                                                                onClick={() => setDeletingRowId(row.id)}
-                                                                                title="Remove value"
-                                                                            >
-                                                                                <Trash2 className="h-3 w-3" />
-                                                                            </button>
+                                                                            {canEdit && (
+                                                                                <button
+                                                                                    className="p-1.5 rounded text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
+                                                                                    onClick={() => {
+                                                                                        if (isObjectRef) {
+                                                                                            handleEditNode(row);
+                                                                                        } else {
+                                                                                            setEditingRowId(row.id);
+                                                                                            setEditingRowValue(parsedRowValue);
+                                                                                        }
+                                                                                    }}
+                                                                                    title="Edit value"
+                                                                                >
+                                                                                    <Pencil className="h-3 w-3" />
+                                                                                </button>
+                                                                            )}
+                                                                            {canRemove && (
+                                                                                <button
+                                                                                    className="p-1.5 rounded text-slate-400 hover:bg-red-50 hover:text-red-500 transition-colors"
+                                                                                    onClick={() => setDeletingRowId(row.id)}
+                                                                                    title="Remove value"
+                                                                                >
+                                                                                    <Trash2 className="h-3 w-3" />
+                                                                                </button>
+                                                                            )}
                                                                         </div>
                                                                     )}
                                                                 </div>
                                                             )}
                                                         </div>
-                                                    ))}
+                                                        );
+                                                    })}
                                                 </div>
                                             ) : (
                                                 /* Empty state */
@@ -1176,80 +1191,9 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                             )}
                                                         </div>
                                                     ) : isPersonOrContactField ? (
-                                                        <div>
-                                                            {!isAddingPerson ? (
-                                                                <Button
-                                                                    variant="outline"
-                                                                    onClick={() => {
-                                                                        const shouldSeedDirectorRole = Number(fieldNo) === 63;
-                                                                        setIsAddingPerson(true);
-                                                                        setNewPersonData({
-                                                                            contactType: "PERSON",
-                                                                            title: null,
-                                                                            forenames: "",
-                                                                            surname: "",
-                                                                            email: null,
-                                                                            phones: [],
-                                                                            nationality: [],
-                                                                            countryOfResidence: null,
-                                                                            dateOfBirth: null,
-                                                                            placeOfBirth: null,
-                                                                            roles: shouldSeedDirectorRole ? [
-                                                                                {
-                                                                                    roleType: "director",
-                                                                                    roleTitle: "director",
-                                                                                    company: {
-                                                                                        coparityCompanyId: null,
-                                                                                        externalId: null,
-                                                                                        externalIdScheme: null,
-                                                                                        name: null
-                                                                                    },
-                                                                                    isActiveRole: true,
-                                                                                    appointedOn: null,
-                                                                                    resignedOn: null,
-                                                                                    natureOfControl: []
-                                                                                }
-                                                                            ] : [],
-                                                                            sourceIdentifiers: [],
-                                                                            isActivePersonOrContact: null,
-                                                                            visibility: { scope: "CLIENT_LE" }
-                                                                        } as any);
-                                                                    }}
-                                                                    className="w-full justify-center bg-indigo-50/50 hover:bg-indigo-50 border-indigo-200 text-indigo-700 border-dashed"
-                                                                >
-                                                                    <Plus className="h-4 w-4 mr-2" />
-                                                                    {fieldNo === 63 ? 'Add Director' : (newPersonData?.partyType === 'ORGANISATION' ? 'Add Organisation' : (newPersonData?.partyType === 'INDIVIDUAL' ? 'Add Individual' : 'Add Party'))} / Contact
-                                                                </Button>
-                                                            ) : (
-                                                                <div className="space-y-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
-                                                                    <PersonOrContactValueEditor
-                                                                        value={newPersonData || { contactType: 'PERSON', roles: [] } as any}
-                                                                        onChange={setNewPersonData}
-                                                                        disabled={isAddingSaving}
-                                                                        fieldNo={fieldNo}
-                                                                    />
-                                                                    <div className="flex items-center gap-2 mt-2">
-                                                                        <Button
-                                                                            size="sm"
-                                                                            className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700"
-                                                                            onClick={() => handleAddNewEntry(newPersonData)}
-                                                                            disabled={isAddingSaving || !isValidPartyValue(newPersonData)}
-                                                                        >
-                                                                            {isAddingSaving ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Check className="h-3 w-3 mr-1" />}
-                                                                            {fieldNo === 63 ? 'Add Director' : (newPersonData?.partyType === 'ORGANISATION' ? 'Add Organisation' : (newPersonData?.partyType === 'INDIVIDUAL' ? 'Add Individual' : 'Add Party'))}
-                                                                        </Button>
-                                                                        <Button
-                                                                            variant="ghost"
-                                                                            size="sm"
-                                                                            className="h-7 text-xs text-slate-500 hover:bg-slate-100"
-                                                                            onClick={() => setIsAddingPerson(false)}
-                                                                            disabled={isAddingSaving}
-                                                                        >
-                                                                            Cancel
-                                                                        </Button>
-                                                                    </div>
-                                                                </div>
-                                                            )}
+                                                        <div className="flex flex-col items-center justify-center p-6 border border-slate-200 border-dashed rounded-lg bg-slate-50/50">
+                                                            <div className="text-sm text-slate-500 mb-1">Inline party creation is currently disabled.</div>
+                                                            <div className="text-xs text-slate-400">Please wait for the unified party picker.</div>
                                                         </div>
                                                     ) : (
                                                         <div className="flex items-center gap-1.5">
@@ -1275,7 +1219,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                         variant="ghost"
                                                                         size="sm"
                                                                         className="h-8 px-3 text-xs text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 shrink-0"
-                                                                        onClick={handleAddNewEntry}
+                                                                        onClick={() => handleAddNewEntry()}
                                                                         disabled={isAddingSaving || !newEntryValue.trim()}
                                                                     >
                                                                         {isAddingSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Add'}
@@ -1302,7 +1246,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                         variant="ghost"
                                                                         size="sm"
                                                                         className="h-8 px-3 text-xs text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 shrink-0"
-                                                                        onClick={handleAddNewEntry}
+                                                                        onClick={() => handleAddNewEntry()}
                                                                         disabled={isAddingSaving || !newEntryValue.trim()}
                                                                     >
                                                                         {isAddingSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Add'}

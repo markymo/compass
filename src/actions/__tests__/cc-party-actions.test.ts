@@ -73,12 +73,14 @@ describe("cc-party-actions", () => {
                 { id: "party-1", clientLEId: "le-123", data: validParty, createdAt: new Date(), createdFromClaimId: null }
             ];
             mockCCPartyFindMany.mockResolvedValue(mockParties);
+            mockFieldClaimFindMany.mockResolvedValue([]);
 
             const result = await getCCParties("le-123");
             expect(result).toEqual([{
                 ...mockParties[0],
                 originType: "MANUAL",
-                originLabel: "Created manually in CCC"
+                originLabel: "Created manually in CCC",
+                usage: []
             }]);
             expect(mockCCPartyFindMany).toHaveBeenCalledWith({
                 where: { clientLEId: "le-123" },
@@ -108,7 +110,8 @@ describe("cc-party-actions", () => {
                 originFieldNo: 63,
                 originFieldName: "List of company directors",
                 originSourceLabel: "Companies House",
-                originClaimId: "claim-1"
+                originClaimId: "claim-1",
+                usage: []
             }]);
         });
     });
@@ -179,6 +182,7 @@ describe("cc-party-actions", () => {
     describe("deleteCCParty", () => {
         it("deletes party and returns success", async () => {
             mockMasterFieldDefinitionFindMany.mockResolvedValue([]);
+            mockFieldClaimFindMany.mockResolvedValue([]);
             mockCCPartyDelete.mockResolvedValue({});
 
             const result = await deleteCCParty("party-123", "le-123");

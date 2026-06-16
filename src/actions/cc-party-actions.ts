@@ -164,29 +164,14 @@ export async function getCCPartyUsage(clientLEId: string) {
     }
 
     try {
-        const refDefs = await prisma.masterFieldDefinition.findMany({
-            where: { appDataType: 'PARTY_REF' },
-            select: { fieldNo: true, fieldName: true }
+        // Fetch all claims with JSON payloads (not constrained to appDataType)
+        const claims = await prisma.fieldClaim.findMany({
+            where: { valueJson: { not: Prisma.AnyNull } },
+            select: { fieldNo: true, valueJson: true }
         });
 
         const usageMap: Record<string, { fieldNo: number; fieldName: string }[]> = {};
-
-        if (refDefs.length === 0) {
-            return usageMap;
-        }
-
-        const refFieldNos = refDefs.map((d: any) => d.fieldNo);
-        const defMap = new Map<number, string>(refDefs.map((d: any) => [d.fieldNo, d.fieldName]));
-
-        // Fetch all claims for these fields (ideally scoped to clientLEId, but we fetch all for safety
-        // since we are just counting usage of parties).
-        // Since FieldClaims can be large, we use raw SQL to find matching ccPartyIds efficiently.
-        // But for Prisma, we can do an in-memory filter if we scope by subjectLeId, but we want all usages.
-        // Let's use Prisma to fetch all valueJsons for these fieldNos.
-        const claims = await prisma.fieldClaim.findMany({
-            where: { fieldNo: { in: refFieldNos } },
-            select: { fieldNo: true, valueJson: true }
-        });
+        const defMap = new Map<number, string>();
 
         for (const claim of claims) {
             const value = claim.valueJson as any;
@@ -197,9 +182,18 @@ export async function getCCPartyUsage(clientLEId: string) {
                 }
                 // Avoid duplicates if multiple claims for the same field point to the same party
                 if (!usageMap[partyId].some(u => u.fieldNo === claim.fieldNo)) {
+                    // Lazy load field definitions only for fields that actually have usage
+                    if (!defMap.has(claim.fieldNo)) {
+                        try {
+                            const def = await getMasterFieldDefinition(claim.fieldNo);
+                            defMap.set(claim.fieldNo, def.fieldName);
+                        } catch (e) {
+                            defMap.set(claim.fieldNo, `Field ${claim.fieldNo}`);
+                        }
+                    }
                     usageMap[partyId].push({
                         fieldNo: claim.fieldNo,
-                        fieldName: (defMap.get(claim.fieldNo) as string) || `Field ${claim.fieldNo}`
+                        fieldName: defMap.get(claim.fieldNo) as string
                     });
                 }
             }
@@ -223,26 +217,18 @@ export async function deleteCCParty(id: string, clientLEId: string) {
     }
 
     try {
-        const refDefs = await prisma.masterFieldDefinition.findMany({
-            where: { appDataType: 'PARTY_REF' },
-            select: { fieldNo: true }
+        const claims = await prisma.fieldClaim.findMany({
+            where: { valueJson: { not: Prisma.AnyNull } },
+            select: { valueJson: true }
         });
 
-        if (refDefs.length > 0) {
-            const refFieldNos = refDefs.map((d: any) => d.fieldNo);
-            const claims = await prisma.fieldClaim.findMany({
-                where: { fieldNo: { in: refFieldNos } },
-                select: { valueJson: true }
-            });
+        const isUsed = claims.some((c: any) => {
+            const val = c.valueJson as any;
+            return val && val.ccPartyId === id;
+        });
 
-            const isUsed = claims.some((c: any) => {
-                const val = c.valueJson as any;
-                return val && val.ccPartyId === id;
-            });
-
-            if (isUsed) {
-                throw new Error("This curated party is used by one or more fields. Remove those references before deleting.");
-            }
+        if (isUsed) {
+            throw new Error("This curated party is used by one or more fields. Remove those references before deleting.");
         }
 
         await prisma.cCParty.delete({

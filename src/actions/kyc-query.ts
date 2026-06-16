@@ -664,8 +664,10 @@ export async function getFieldDetail(
     });
     const graphBinding = bindings.find((b: any) => b.filterEdgeType);
 
+    const isPartyField = def?.appDataType === 'PARTY' || def?.appDataType === 'PERSON_OR_CONTACT' || def?.appDataType === 'PARTY_REF';
+
     if (def?.isMultiValue) {
-        if (graphBinding && entityType === 'CLIENT_LE') {
+        if (graphBinding && entityType === 'CLIENT_LE' && !isPartyField) {
             // Source rows from Graph Edges to avoid duplication and show real graph state
             const edges = await prisma.clientLEGraphEdge.findMany({
                 where: {
@@ -745,7 +747,8 @@ export async function getFieldDetail(
             });
 
             // Phase 3: Bulk-resolve PARTY_REF values for display
-            if (def?.appDataType === 'PARTY_REF' && rows && rows.length > 0) {
+            // In Phase 3B we resolve *any* claim containing a ccPartyId, regardless of field appDataType.
+            if (rows && rows.length > 0) {
                 const ccPartyIds = Array.from(new Set(rows.map(r => r.value?.ccPartyId).filter(Boolean)));
                 if (ccPartyIds.length > 0) {
                     const parties = await prisma.cCParty.findMany({
@@ -969,8 +972,9 @@ export async function getFieldDetail(
         })(),
     };
 
-    // Phase 3: Bulk-resolve PARTY_REF for `current.value` if it's a non-repeating field or array of values
-    if (def?.appDataType === 'PARTY_REF' && result.current?.value) {
+    // Phase 3B: Bulk-resolve PARTY_REF for `current.value` if it's a non-repeating field or array of values,
+    // regardless of appDataType.
+    if (result.current?.value) {
         let ccPartyIds: string[] = [];
         if (Array.isArray(result.current.value)) {
             ccPartyIds = result.current.value.map((v: any) => v?.ccPartyId).filter(Boolean);
