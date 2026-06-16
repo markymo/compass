@@ -23,7 +23,7 @@ import { Badge } from "@/components/ui/badge";
 import { PersonOrContactValueEditor } from "@/components/client/fields/PersonOrContactValueEditor";
 import { PartyValue, getPartySummary } from "@/lib/master-data/party-value";
 import { upsertCCParty, deleteCCParty } from "@/actions/cc-party-actions";
-import { Plus, Edit, Trash2, Loader2, Layers, AlertTriangle, ArrowUpRight, CheckCircle2 } from "lucide-react";
+import { Plus, Edit, Trash2, Loader2, Layers, AlertTriangle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
@@ -195,7 +195,7 @@ export function CCPartyManager({ clientLEId, initialParties }: CCPartyManagerPro
                                         <TableHead className="text-xs font-bold text-slate-500 uppercase py-3 px-5 tracking-wider">
                                             Usage
                                         </TableHead>
-                                        <TableHead className="text-xs font-bold text-slate-500 uppercase py-3 px-5 tracking-wider">
+                                        <TableHead className="text-xs font-bold text-slate-500 uppercase py-3 px-5 tracking-wider font-mono">
                                             Scope
                                         </TableHead>
                                         <TableHead className="text-xs font-bold text-slate-500 uppercase py-3 px-5 tracking-wider text-right">
