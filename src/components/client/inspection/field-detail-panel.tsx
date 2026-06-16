@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
-import { Loader2, History, Database, Edit, CheckCircle, CheckCircle2, AlertTriangle, Paperclip, FileText, Download, X, User as UserIcon, Pencil, Check, Trash2, Plus, Lock, Save } from "lucide-react";
+import { Loader2, History, Database, Edit, CheckCircle, CheckCircle2, AlertTriangle, Paperclip, FileText, Download, X, User as UserIcon, Pencil, Check, Trash2, Plus, Lock, Save, Link2Off } from "lucide-react";
 import { getFieldDetail, FieldDetailData } from "@/actions/kyc-query";
 // FIELD_DEFINITIONS removed
 import { updateFieldManually, applyCandidate, updateCustomFieldManually, addMultiValueEntry, removeMultiValueEntry, applyBulkOverride, promoteClaim } from "@/actions/kyc-manual-update";
@@ -32,6 +32,7 @@ import { isPersonOrContactValue, getPersonOrContactSummary, isValidPartyValue } 
 import { PersonOrContactValueViewer } from "../fields/PersonOrContactValueViewer";
 import { PersonOrContactValueEditor } from "../fields/PersonOrContactValueEditor";
 import { PartyRefValueEditor } from "../fields/PartyRefValueEditor";
+import { UnifiedPartyPicker } from "../fields/UnifiedPartyPicker";
 import { inferClaimValueKind, ClaimValueKind } from "@/lib/master-data/claim-value-resolver";
 
 import {
@@ -550,31 +551,63 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
 
     const handleInlineEditSave = async (row: any) => {
         if (editingRowValue == null) return;
-        const isString = typeof editingRowValue === 'string';
-        if (isString && !editingRowValue.trim()) return;
         setIsSaving(true);
         try {
-            const result = await updateFieldManually(
-                legalEntityId,
-                fieldNo,
-                isString ? editingRowValue.trim() : editingRowValue,
-                "Inline edit",
-                row.instanceId,
-                'CLIENT_LE'
-            );
-            if (result.success) {
-                toast.success("Value updated");
-                setEditingRowId(null);
-                setEditingRowValue("");
-                const refreshed = await getFieldDetail(legalEntityId, fieldNo, 'CLIENT_LE', customFieldId);
-                setData(refreshed);
-                if (onUpdate && refreshed?.current) {
-                    onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
+            // Check if this is a PARTY_REF claim that resolves to a CCParty
+            const parsedVal = typeof row.value === 'string' && (row.value.startsWith('{') || row.value.startsWith('['))
+                ? (() => { try { return JSON.parse(row.value); } catch { return row.value; } })()
+                : row.value;
+            const inferredKind = inferClaimValueKind({ valueJson: parsedVal });
+
+            if (inferredKind === 'PARTY_REF' && parsedVal?.ccPartyId) {
+                const { upsertCCParty } = await import("@/actions/cc-party-actions");
+                const result = await upsertCCParty({
+                    id: parsedVal.ccPartyId,
+                    clientLEId: legalEntityId,
+                    data: editingRowValue
+                });
+
+                if (result.success) {
+                    toast.success("Curated party updated");
+                    setEditingRowId(null);
+                    setEditingRowValue("");
+                    const refreshed = await getFieldDetail(legalEntityId, fieldNo, 'CLIENT_LE', customFieldId);
+                    setData(refreshed);
+                    if (onUpdate && refreshed?.current) {
+                        onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
+                    }
+                } else {
+                    toast.error("Failed to update curated party");
                 }
             } else {
-                toast.error(result.message || "Update failed");
+                const isString = typeof editingRowValue === 'string';
+                if (isString && !editingRowValue.trim()) {
+                    setIsSaving(false);
+                    return;
+                }
+                const result = await updateFieldManually(
+                    legalEntityId,
+                    fieldNo,
+                    isString ? editingRowValue.trim() : editingRowValue,
+                    "Inline edit",
+                    row.instanceId,
+                    'CLIENT_LE'
+                );
+                if (result.success) {
+                    toast.success("Value updated");
+                    setEditingRowId(null);
+                    setEditingRowValue("");
+                    const refreshed = await getFieldDetail(legalEntityId, fieldNo, 'CLIENT_LE', customFieldId);
+                    setData(refreshed);
+                    if (onUpdate && refreshed?.current) {
+                        onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
+                    }
+                } else {
+                    toast.error(result.message || "Update failed");
+                }
             }
         } catch (e) {
+            console.error("Inline edit save error:", e);
             toast.error("An error occurred");
         } finally {
             setIsSaving(false);
@@ -936,6 +969,8 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                         const isSourceEmbParty = inferredKind === 'EMBEDDED_PARTY' && row.source !== 'USER_INPUT';
                                                         const isUserEmbParty = inferredKind === 'EMBEDDED_PARTY' && row.source === 'USER_INPUT';
                                                         const isUserPartyRef = inferredKind === 'PARTY_REF' && row.source === 'USER_INPUT';
+                                                        const isPartyRefValue = inferredKind === 'PARTY_REF';
+                                                        const isComplexEditor = inferredKind === 'PARTY_REF' || inferredKind === 'EMBEDDED_PARTY';
                                                         
                                                         const showPromote = inferredKind === 'EMBEDDED_PARTY';
                                                         const isReadOnlySource = row.source !== 'USER_INPUT';
@@ -947,8 +982,14 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                             {/* Delete confirmation mode */}
                                                             {deletingRowId === row.id ? (
                                                                 <div className="flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg bg-red-50 border border-red-200 animate-in fade-in duration-150">
-                                                                    <span className="text-xs text-red-700 font-medium truncate flex-1">
-                                                                        Remove "{renderRowValue(row.value)}"?
+                                                                    <span className="text-xs text-red-700 font-medium truncate flex-1 flex items-center gap-1">
+                                                                        {isPartyRefValue ? (
+                                                                            <span>Break link to "{row.data?.resolvedSummary || (typeof row.value === 'object' && row.value?.ccPartyId) || 'Curated Party'}"?</span>
+                                                                        ) : (
+                                                                            <>
+                                                                                Remove "{renderRowValue(row.value, row)}"?
+                                                                            </>
+                                                                        )}
                                                                     </span>
                                                                     <div className="flex items-center gap-1.5 shrink-0">
                                                                         <Button
@@ -958,7 +999,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                             onClick={() => handleRemoveEntry(row.id)}
                                                                             disabled={isSaving}
                                                                         >
-                                                                            {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Yes, remove'}
+                                                                            {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : isPartyRefValue ? 'Yes, break link' : 'Yes, remove'}
                                                                         </Button>
                                                                         <Button
                                                                             variant="ghost"
@@ -972,7 +1013,10 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                 </div>
                                                             ) : editingRowId === row.id ? (
                                                                 /* Inline edit mode */
-                                                                <div className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-indigo-50 border border-indigo-200 animate-in fade-in duration-150">
+                                                                <div className={cn(
+                                                                    "px-3 py-2 rounded-lg bg-indigo-50 border border-indigo-200 animate-in fade-in duration-150",
+                                                                    isComplexEditor ? "flex flex-col gap-3 flex-1" : "flex items-center gap-1.5"
+                                                                )}>
                                                                     {isObjectRef ? (
                                                                         <div className="flex-1">
                                                                             <GraphNodePicker
@@ -991,22 +1035,62 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                             />
                                                                         </div>
                                                                     ) : inferredKind === 'PARTY_REF' ? (
-                                                                        <div className="flex-1 min-w-0 bg-slate-50 p-2 rounded border border-slate-200">
-                                                                            <PartyRefValueEditor
-                                                                                value={editingRowValue}
-                                                                                onChange={setEditingRowValue}
-                                                                                clientLEId={legalEntityId}
-                                                                                disabled={isSaving}
-                                                                            />
-                                                                        </div>
-                                                                    ) : inferredKind === 'EMBEDDED_PARTY' ? (
-                                                                        <div className="flex-1 min-w-0 bg-slate-50 p-2 rounded border border-slate-200">
+                                                                        <div className="flex-1 min-w-0 bg-slate-50 p-3 rounded border border-slate-200 space-y-3">
                                                                             <PersonOrContactValueEditor
                                                                                 value={editingRowValue || { contactType: 'PERSON', roles: [] } as any}
                                                                                 onChange={setEditingRowValue}
                                                                                 disabled={isSaving}
                                                                                 fieldNo={fieldNo}
                                                                             />
+                                                                            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200/60 bg-slate-50/50">
+                                                                                <Button
+                                                                                    size="sm"
+                                                                                    variant="outline"
+                                                                                    className="h-8 text-xs bg-white text-slate-700 border-slate-200"
+                                                                                    onClick={() => { setEditingRowId(null); setEditingRowValue(""); }}
+                                                                                    disabled={isSaving}
+                                                                                >
+                                                                                    Cancel
+                                                                                </Button>
+                                                                                <Button
+                                                                                    size="sm"
+                                                                                    className="h-8 text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-medium"
+                                                                                    onClick={() => handleInlineEditSave(row)}
+                                                                                    disabled={isSaving || !isValidPartyValue(editingRowValue)}
+                                                                                >
+                                                                                    {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : null}
+                                                                                    Save
+                                                                                </Button>
+                                                                            </div>
+                                                                        </div>
+                                                                    ) : inferredKind === 'EMBEDDED_PARTY' ? (
+                                                                        <div className="flex-1 min-w-0 bg-slate-50 p-3 rounded border border-slate-200 space-y-3">
+                                                                            <PersonOrContactValueEditor
+                                                                                value={editingRowValue || { contactType: 'PERSON', roles: [] } as any}
+                                                                                onChange={setEditingRowValue}
+                                                                                disabled={isSaving}
+                                                                                fieldNo={fieldNo}
+                                                                            />
+                                                                            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200/60 bg-slate-50/50">
+                                                                                <Button
+                                                                                    size="sm"
+                                                                                    variant="outline"
+                                                                                    className="h-8 text-xs bg-white text-slate-700 border-slate-200"
+                                                                                    onClick={() => { setEditingRowId(null); setEditingRowValue(""); }}
+                                                                                    disabled={isSaving}
+                                                                                >
+                                                                                    Cancel
+                                                                                </Button>
+                                                                                <Button
+                                                                                    size="sm"
+                                                                                    className="h-8 text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-medium"
+                                                                                    onClick={() => handleInlineEditSave(row)}
+                                                                                    disabled={isSaving || !isValidPartyValue(editingRowValue)}
+                                                                                >
+                                                                                    {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : null}
+                                                                                    Save
+                                                                                </Button>
+                                                                            </div>
                                                                         </div>
                                                                     ) : (
                                                                         data?.options && data.options.length > 0 ? (
@@ -1041,25 +1125,27 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                             />
                                                                         )
                                                                     )}
-                                                                    {!isObjectRef && (
+                                                                    {!isObjectRef && !isComplexEditor && (
                                                                         <Button
                                                                             variant="ghost"
                                                                             size="icon"
                                                                             className="h-7 w-7 text-green-600 hover:bg-green-50"
                                                                             onClick={() => handleInlineEditSave(row)}
-                                                                            disabled={isSaving || (typeof editingRowValue === 'string' ? !editingRowValue.trim() : (inferredKind === 'EMBEDDED_PARTY' && !isValidPartyValue(editingRowValue)))}
+                                                                            disabled={isSaving || (typeof editingRowValue === 'string' ? !editingRowValue.trim() : ((inferredKind as any) === 'EMBEDDED_PARTY' && !isValidPartyValue(editingRowValue)))}
                                                                         >
                                                                             {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
                                                                         </Button>
                                                                     )}
-                                                                    <Button
-                                                                        variant="ghost"
-                                                                        size="icon"
-                                                                        className="h-7 w-7 text-slate-400 hover:bg-slate-100"
-                                                                        onClick={() => { setEditingRowId(null); setEditingRowValue(""); }}
-                                                                    >
-                                                                        <X className="h-3.5 w-3.5" />
-                                                                    </Button>
+                                                                    {!isComplexEditor && (
+                                                                        <Button
+                                                                            variant="ghost"
+                                                                            size="icon"
+                                                                            className="h-7 w-7 text-slate-400 hover:bg-slate-100"
+                                                                            onClick={() => { setEditingRowId(null); setEditingRowValue(""); }}
+                                                                        >
+                                                                            <X className="h-3.5 w-3.5" />
+                                                                        </Button>
+                                                                    )}
                                                                 </div>
                                                             ) : (
                                                                 /* Normal display row */
@@ -1112,7 +1198,11 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                                             handleEditNode(row);
                                                                                         } else {
                                                                                             setEditingRowId(row.id);
-                                                                                            setEditingRowValue(parsedRowValue);
+                                                                                            if (inferredKind === 'PARTY_REF') {
+                                                                                                setEditingRowValue(row.data?.ccParty?.data || parsedRowValue);
+                                                                                            } else {
+                                                                                                setEditingRowValue(parsedRowValue);
+                                                                                            }
                                                                                         }
                                                                                     }}
                                                                                     title="Edit value"
@@ -1122,11 +1212,20 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                             )}
                                                                             {canRemove && (
                                                                                 <button
-                                                                                    className="p-1.5 rounded text-slate-400 hover:bg-red-50 hover:text-red-500 transition-colors"
+                                                                                    className={cn(
+                                                                                        "p-1.5 rounded text-slate-400 transition-colors",
+                                                                                        isPartyRefValue 
+                                                                                            ? "hover:bg-indigo-50 hover:text-indigo-600" 
+                                                                                            : "hover:bg-red-50 hover:text-red-500"
+                                                                                    )}
                                                                                     onClick={() => setDeletingRowId(row.id)}
-                                                                                    title="Remove value"
+                                                                                    title={isPartyRefValue ? "Break link to curated party" : "Remove value"}
                                                                                 >
-                                                                                    <Trash2 className="h-3 w-3" />
+                                                                                    {isPartyRefValue ? (
+                                                                                        <Link2Off className="h-3.5 w-3.5" />
+                                                                                    ) : (
+                                                                                        <Trash2 className="h-3 w-3" />
+                                                                                    )}
                                                                                 </button>
                                                                             )}
                                                                         </div>
@@ -1191,9 +1290,19 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                             )}
                                                         </div>
                                                     ) : isPersonOrContactField ? (
-                                                        <div className="flex flex-col items-center justify-center p-6 border border-slate-200 border-dashed rounded-lg bg-slate-50/50">
-                                                            <div className="text-sm text-slate-500 mb-1">Inline party creation is currently disabled.</div>
-                                                            <div className="text-xs text-slate-400">Please wait for the unified party picker.</div>
+                                                        <div className="pt-2">
+                                                            <UnifiedPartyPicker
+                                                                clientLEId={legalEntityId}
+                                                                fieldNo={fieldNo}
+                                                                onSuccess={async () => {
+                                                                    setNewEntryValue("");
+                                                                    const refreshed = await getFieldDetail(legalEntityId, fieldNo, 'CLIENT_LE', customFieldId);
+                                                                    setData(refreshed);
+                                                                    if (onUpdate && refreshed?.current) {
+                                                                        onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
+                                                                    }
+                                                                }}
+                                                            />
                                                         </div>
                                                     ) : (
                                                         <div className="flex items-center gap-1.5">

@@ -117,7 +117,23 @@ export function BreadcrumbProvider({ children }: { children: React.ReactNode }) 
 export function useBreadcrumbs() {
     const context = useContext(BreadcrumbContext);
     if (!context) {
-        throw new Error("useBreadcrumbs must be used within a BreadcrumbProvider");
+        if (typeof window !== 'undefined') {
+            console.warn("useBreadcrumbs was called outside of a BreadcrumbProvider. Using fallback empty state.");
+        }
+        return {
+            extraBreadcrumbs: [],
+            setExtraBreadcrumbs: () => {},
+            clearExtraBreadcrumbs: () => {},
+            currentBreadcrumbs: [],
+            pageTitle: undefined,
+            setPageTitle: () => {},
+            pageTypeLabel: undefined,
+            setPageTypeLabel: () => {},
+            secondaryNav: undefined,
+            setSecondaryNav: () => {},
+            isWide: false,
+            setIsWide: () => {}
+        };
     }
     return context;
 }

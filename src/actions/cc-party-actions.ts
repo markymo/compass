@@ -66,14 +66,25 @@ export async function getCCParties(clientLEId: string) {
             let originMetadata;
             if (claimId && claim) {
                 const fieldName = fieldDefsMap.get(claim.fieldNo) || `Field ${claim.fieldNo}`;
-                originMetadata = {
-                    originType: "PROMOTED",
-                    originLabel: `Promoted from Field ${claim.fieldNo} — ${fieldName}`,
-                    originFieldNo: claim.fieldNo,
-                    originFieldName: fieldName,
-                    originSourceLabel: formatSourceLabel(claim.sourceType),
-                    originClaimId: claimId
-                };
+                if (claim.sourceType === 'USER_INPUT') {
+                    originMetadata = {
+                        originType: "MANUAL",
+                        originLabel: `Created manually via Field ${claim.fieldNo} — ${fieldName}`,
+                        originFieldNo: claim.fieldNo,
+                        originFieldName: fieldName,
+                        originSourceLabel: formatSourceLabel(claim.sourceType),
+                        originClaimId: claimId
+                    };
+                } else {
+                    originMetadata = {
+                        originType: "PROMOTED",
+                        originLabel: `Promoted from Field ${claim.fieldNo} — ${fieldName}`,
+                        originFieldNo: claim.fieldNo,
+                        originFieldName: fieldName,
+                        originSourceLabel: formatSourceLabel(claim.sourceType),
+                        originClaimId: claimId
+                    };
+                }
             } else if (claimId && !claim) {
                 originMetadata = {
                     originType: "PROMOTED",
@@ -204,6 +215,52 @@ export async function getCCPartyUsage(clientLEId: string) {
     } catch (error) {
         console.error("Failed to fetch CC party usage:", error);
         throw new Error("Failed to fetch curated party usage");
+    }
+}
+
+/**
+ * Search curated parties for a client LE (used by UnifiedPartyPicker)
+ */
+export async function searchCCParties(clientLEId: string, query: string) {
+    const identity = await getIdentity();
+    if (!identity?.userId) {
+        throw new Error("Unauthorized");
+    }
+
+    try {
+        const parties = await prisma.cCParty.findMany({
+            where: {
+                clientLEId,
+                // Prisma doesn't support deep JSON filtering well without raw SQL,
+                // so we fetch all and filter in memory since CCC sizes per client are small (<100 usually).
+            },
+            orderBy: { createdAt: "desc" }
+        });
+
+        const queryLower = query.toLowerCase();
+        
+        const filtered = parties.filter((p: any) => {
+            const data = p.data as any;
+            if (!data) return false;
+            
+            const matchesName = 
+                (data.partyType === 'ORGANISATION' && data.name?.toLowerCase().includes(queryLower)) ||
+                (data.partyType === 'INDIVIDUAL' && 
+                 ((data.forenames || '') + ' ' + (data.surname || '')).toLowerCase().includes(queryLower)) ||
+                // Legacy PERSON structure
+                (data.contactType === 'PERSON' && 
+                 ((data.forenames || '') + ' ' + (data.surname || '')).toLowerCase().includes(queryLower));
+
+            return matchesName;
+        });
+
+        return filtered.map((p: any) => ({
+            ...p,
+            data: p.data as unknown as PartyValue
+        }));
+    } catch (error) {
+        console.error("Failed to search CC parties:", error);
+        throw new Error("Failed to search curated parties");
     }
 }
 

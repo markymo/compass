@@ -613,6 +613,33 @@ export async function getFullMasterData(clientLEId: string) {
             ownerScopeId || undefined
         );
 
+        const ccPartyIds = new Set<string>();
+        for (const val of Array.from(resolved.values())) {
+            if (!val) continue;
+            const claims = Array.isArray(val) ? val : [val];
+            for (const c of claims) {
+                if (c.value?.ccPartyId) ccPartyIds.add(c.value.ccPartyId);
+            }
+        }
+
+        const partyMap = new Map<string, any>();
+        if (ccPartyIds.size > 0) {
+            const parties = await prisma.cCParty.findMany({
+                where: { id: { in: Array.from(ccPartyIds) } }
+            });
+            for (const p of parties) {
+                partyMap.set(p.id, p);
+            }
+        }
+
+        const resolvePartyRef = (v: any) => {
+            if (v?.ccPartyId) {
+                const party = partyMap.get(v.ccPartyId);
+                if (party?.data) return party.data;
+            }
+            return v;
+        };
+
         for (const def of allFields) {
             const val = resolved.get(def.fieldNo);
             let valueToSet: any = null;
@@ -626,12 +653,12 @@ export async function getFullMasterData(clientLEId: string) {
                         filteredVal = val.filter(c => isRenderableActiveDirectorParty(c.value));
                     }
                     if (filteredVal.length > 0) {
-                        valueToSet = filteredVal.map(c => c.value);
+                        valueToSet = filteredVal.map(c => resolvePartyRef(c.value));
                         sourceToSet = filteredVal[0].isScoped ? 'USER_INPUT' : (filteredVal[0].evidenceProvider || filteredVal[0].sourceType || 'MASTER_RECORD');
                         sourceRefToSet = filteredVal[0].sourceReference ?? undefined;
                     }
                 } else {
-                    valueToSet = val.value;
+                    valueToSet = resolvePartyRef(val.value);
                     sourceToSet = val.isScoped ? 'USER_INPUT' : (val.evidenceProvider || val.sourceType || 'MASTER_RECORD');
                     sourceRefToSet = val.sourceReference ?? undefined;
                 }

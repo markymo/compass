@@ -40,7 +40,7 @@ export default async function CCCPage({ params }: CCCPageProps) {
                     <h2 className="text-xl font-semibold tracking-tight">CoParity Curated Content</h2>
                 </div>
                 <p className="text-sm text-slate-500 max-w-2xl leading-relaxed">
-                    Manage entity-level curated reference records, such as promoted parties, claims, and verified entity relationships.
+                    List of all Party Records that are currently shared across this ClientLE. These can be Individual (Person, Contact), Organisation (Company, Trust, Fund, Partnership, Government Body, Team, Distribution List, Other), or Unknown (Other). Please note this page is shown as is during development but may eventually be hidden in the final implementation with entities edited directly from the Master Data Fields.
                 </p>
             </div>
 

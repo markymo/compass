@@ -265,6 +265,11 @@ export function isValidPartyValue(value: any): boolean {
  * Apply this predicate to filter out resigned, inactive, secretary or anonymous/invalid directors.
  */
 export function isRenderableActiveDirectorParty(value: any): boolean {
+    // If this is a PARTY_REF (lazy canonicalisation pointer), we trust the explicit link.
+    if (value && typeof value === 'object' && typeof value.ccPartyId === 'string' && value.ccPartyId.trim() !== '') {
+        return true;
+    }
+
     if (!isValidPartyValue(value)) return false;
 
     const roles = Array.isArray(value.roles) ? value.roles : [];
