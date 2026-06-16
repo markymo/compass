@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { Globe, BookOpen, Lock, Archive, Building2 } from "lucide-react";
+import { Globe, BookOpen, Lock, Archive, Building2, Layers } from "lucide-react";
 
 interface SourcesSubNavProps {
     leId: string;
@@ -34,6 +34,12 @@ export function SourcesSubNav({ leId, jurisdiction, registryName }: SourcesSubNa
             href: `${baseUrl}/registry`,
             icon: Building2,
             isActive: (path: string) => path.startsWith(`${baseUrl}/registry`)
+        },
+        {
+            label: "CoParity Curated Content",
+            href: `${baseUrl}/ccc`,
+            icon: Layers,
+            isActive: (path: string) => path.startsWith(`${baseUrl}/ccc`)
         },
         {
             label: "Knowledge Base",

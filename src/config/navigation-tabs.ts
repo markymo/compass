@@ -41,12 +41,6 @@ export const getLegalEntityTabs = (leId: string): NavItem[] => {
             isActive: (path) => matchesPath(path, `${baseUrl}/sources`)
         },
         {
-            label: "CCC",
-            href: `${baseUrl}/ccc`,
-            icon: Layers,
-            isActive: (path) => matchesPath(path, `${baseUrl}/ccc`)
-        },
-        {
             label: "Knowledge Graph",
             href: `${baseUrl}/graph`,
             icon: Network,
