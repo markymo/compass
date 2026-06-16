@@ -65,13 +65,8 @@ export async function updateFieldManually(
             case 'PERSON_REF': claimInput.valuePersonId = value; break;
             case 'ORG_REF': claimInput.valueLeId = value; break;
             case 'ADDRESS_REF': claimInput.valueAddressId = value; break;
-            case 'PARTY_REF': 
-                // In Phase 2, we assume PARTY_REF values are Person IDs unless otherwise specified.
-                // If it's a UUID, we'll try to find if it's a person or org, but for now 
-                // we default to valuePersonId for standard person-based parties.
-                claimInput.valuePersonId = value; 
-                break;
             case 'DOCUMENT_REF': claimInput.valueText = value; break; // Manual edits store as text; valueDocId requires valid FK
+            case 'PARTY_REF':
             case 'JSONB':
             case 'ADDRESS':
             case 'PARTY':
@@ -87,7 +82,7 @@ export async function updateFieldManually(
         });
 
         if (claim) {
-            revalidatePath(`/app/le/${clientLEId}`);
+            revalidatePath(`/app/le/${clientLEId}`, 'layout');
             return { success: true };
         } else {
             return { success: false, message: "Update failed." };
@@ -239,7 +234,7 @@ export async function updateCustomFieldManually(
             data: { customData: newData }
         });
 
-        revalidatePath(`/app/le/${clientLEId}`);
+        revalidatePath(`/app/le/${clientLEId}`, 'layout');
         return { success: true };
 
     } catch (e: any) {
@@ -339,7 +334,7 @@ export async function removeMultiValueEntry(
                     ownerScopeId
                 );
 
-                revalidatePath(`/app/le/${clientLEId}`);
+                revalidatePath(`/app/le/${clientLEId}`, 'layout');
                 return { success: true };
             }
         }
@@ -369,7 +364,7 @@ export async function removeMultiValueEntry(
         // Auto-verify user deletions for immediate effect
         await FieldClaimService.verifyClaim(tombstone.id, userId);
 
-        revalidatePath(`/app/le/${clientLEId}`);
+        revalidatePath(`/app/le/${clientLEId}`, 'layout');
         return { success: true };
     } catch (e: any) {
         console.error("removeMultiValueEntry error:", e);
@@ -400,7 +395,7 @@ export async function applyBulkOverride(
             }
         }
 
-        revalidatePath(`/app/le/${clientLEId}`);
+        revalidatePath(`/app/le/${clientLEId}`, 'layout');
         return { success: true };
     } catch (error: any) {
         console.error("applyBulkOverride error:", error);

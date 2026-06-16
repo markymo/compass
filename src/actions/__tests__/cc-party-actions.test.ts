@@ -14,21 +14,25 @@ const mockCCPartyFindMany = vi.fn();
 const mockCCPartyCreate = vi.fn();
 const mockCCPartyUpdate = vi.fn();
 const mockCCPartyDelete = vi.fn();
-const mockFieldClaimFindMany = vi.fn();
+    const mockFieldClaimFindMany = vi.fn();
+    const mockMasterFieldDefinitionFindMany = vi.fn();
 
-vi.mock("@/lib/prisma", () => ({
-    default: {
-        cCParty: {
-            findMany: (...args: any[]) => mockCCPartyFindMany(...args),
-            create: (...args: any[]) => mockCCPartyCreate(...args),
-            update: (...args: any[]) => mockCCPartyUpdate(...args),
-            delete: (...args: any[]) => mockCCPartyDelete(...args),
+    vi.mock("@/lib/prisma", () => ({
+        default: {
+            cCParty: {
+                findMany: (...args: any[]) => mockCCPartyFindMany(...args),
+                create: (...args: any[]) => mockCCPartyCreate(...args),
+                update: (...args: any[]) => mockCCPartyUpdate(...args),
+                delete: (...args: any[]) => mockCCPartyDelete(...args),
+            },
+            fieldClaim: {
+                findMany: (...args: any[]) => mockFieldClaimFindMany(...args),
+            },
+            masterFieldDefinition: {
+                findMany: (...args: any[]) => mockMasterFieldDefinitionFindMany(...args),
+            }
         },
-        fieldClaim: {
-            findMany: (...args: any[]) => mockFieldClaimFindMany(...args),
-        }
-    },
-}));
+    }));
 
 const mockGetMasterFieldDefinition = vi.fn();
 vi.mock("@/services/masterData/definitionService", () => ({
@@ -174,6 +178,7 @@ describe("cc-party-actions", () => {
 
     describe("deleteCCParty", () => {
         it("deletes party and returns success", async () => {
+            mockMasterFieldDefinitionFindMany.mockResolvedValue([]);
             mockCCPartyDelete.mockResolvedValue({});
 
             const result = await deleteCCParty("party-123", "le-123");

@@ -55,6 +55,9 @@ export async function getCCParties(clientLEId: string) {
             }
         };
 
+        // Fetch usage data
+        const usageMap = await getCCPartyUsage(clientLEId);
+
         // Cast prisma JSON to PartyValue and attach metadata
         return parties.map((p: any) => {
             const claimId = p.createdFromClaimId;
@@ -87,7 +90,8 @@ export async function getCCParties(clientLEId: string) {
             return {
                 ...p,
                 data: p.data as unknown as PartyValue,
-                ...originMetadata
+                ...originMetadata,
+                usage: usageMap[p.id] || []
             };
         });
     } catch (error) {
@@ -150,6 +154,66 @@ export async function upsertCCParty(params: {
 }
 
 /**
+ * Get usage of curated parties across PARTY_REF fields
+ * Returns a map of ccPartyId -> Array of { fieldNo, fieldName }
+ */
+export async function getCCPartyUsage(clientLEId: string) {
+    const identity = await getIdentity();
+    if (!identity?.userId) {
+        throw new Error("Unauthorized");
+    }
+
+    try {
+        const refDefs = await prisma.masterFieldDefinition.findMany({
+            where: { appDataType: 'PARTY_REF' },
+            select: { fieldNo: true, fieldName: true }
+        });
+
+        const usageMap: Record<string, { fieldNo: number; fieldName: string }[]> = {};
+
+        if (refDefs.length === 0) {
+            return usageMap;
+        }
+
+        const refFieldNos = refDefs.map((d: any) => d.fieldNo);
+        const defMap = new Map<number, string>(refDefs.map((d: any) => [d.fieldNo, d.fieldName]));
+
+        // Fetch all claims for these fields (ideally scoped to clientLEId, but we fetch all for safety
+        // since we are just counting usage of parties).
+        // Since FieldClaims can be large, we use raw SQL to find matching ccPartyIds efficiently.
+        // But for Prisma, we can do an in-memory filter if we scope by subjectLeId, but we want all usages.
+        // Let's use Prisma to fetch all valueJsons for these fieldNos.
+        const claims = await prisma.fieldClaim.findMany({
+            where: { fieldNo: { in: refFieldNos } },
+            select: { fieldNo: true, valueJson: true }
+        });
+
+        for (const claim of claims) {
+            const value = claim.valueJson as any;
+            if (value && typeof value === 'object' && typeof value.ccPartyId === 'string') {
+                const partyId = value.ccPartyId;
+                if (!usageMap[partyId]) {
+                    usageMap[partyId] = [];
+                }
+                // Avoid duplicates if multiple claims for the same field point to the same party
+                if (!usageMap[partyId].some(u => u.fieldNo === claim.fieldNo)) {
+                    usageMap[partyId].push({
+                        fieldNo: claim.fieldNo,
+                        fieldName: (defMap.get(claim.fieldNo) as string) || `Field ${claim.fieldNo}`
+                    });
+                }
+            }
+        }
+
+        console.log("[getCCPartyUsage] Returning usage map:", JSON.stringify(usageMap, null, 2));
+        return usageMap;
+    } catch (error) {
+        console.error("Failed to fetch CC party usage:", error);
+        throw new Error("Failed to fetch curated party usage");
+    }
+}
+
+/**
  * Delete a curated party
  */
 export async function deleteCCParty(id: string, clientLEId: string) {
@@ -159,15 +223,37 @@ export async function deleteCCParty(id: string, clientLEId: string) {
     }
 
     try {
+        const refDefs = await prisma.masterFieldDefinition.findMany({
+            where: { appDataType: 'PARTY_REF' },
+            select: { fieldNo: true }
+        });
+
+        if (refDefs.length > 0) {
+            const refFieldNos = refDefs.map((d: any) => d.fieldNo);
+            const claims = await prisma.fieldClaim.findMany({
+                where: { fieldNo: { in: refFieldNos } },
+                select: { valueJson: true }
+            });
+
+            const isUsed = claims.some((c: any) => {
+                const val = c.valueJson as any;
+                return val && val.ccPartyId === id;
+            });
+
+            if (isUsed) {
+                throw new Error("This curated party is used by one or more fields. Remove those references before deleting.");
+            }
+        }
+
         await prisma.cCParty.delete({
             where: { id }
         });
 
         revalidatePath(`/app/le/${clientLEId}/ccc`);
         return { success: true };
-    } catch (error) {
+    } catch (error: any) {
         console.error("Failed to delete CC party:", error);
-        throw new Error("Failed to delete curated party");
+        throw new Error(error.message || "Failed to delete curated party");
     }
 }
 

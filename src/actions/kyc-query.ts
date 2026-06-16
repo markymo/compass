@@ -6,7 +6,7 @@ import { ProvenanceSource } from "@/domain/kyc/types/ProvenanceTypes";
 import prisma from "@/lib/prisma";
 import { getComplexFieldConfig } from "@/lib/master-data/complex-field-config";
 import { FieldClaim } from "@prisma/client";
-import { isRenderableActiveDirectorParty } from "@/lib/master-data/party-value";
+import { isRenderableActiveDirectorParty, getPartySummary } from "@/lib/master-data/party-value";
 
 // KycLoader is deprecated in favor of KycStateService
 
@@ -743,6 +743,31 @@ export async function getFieldDetail(
                     isPromotedToCCC: promotedClaimIds.has(c.claimId)
                 };
             });
+
+            // Phase 3: Bulk-resolve PARTY_REF values for display
+            if (def?.appDataType === 'PARTY_REF' && rows && rows.length > 0) {
+                const ccPartyIds = Array.from(new Set(rows.map(r => r.value?.ccPartyId).filter(Boolean)));
+                if (ccPartyIds.length > 0) {
+                    const parties = await prisma.cCParty.findMany({
+                        where: { id: { in: ccPartyIds as string[] } }
+                    });
+                    const partyMap = new Map(parties.map((p: any) => [p.id, p]));
+                    for (const r of rows) {
+                        if (r.value?.ccPartyId) {
+                            const party = partyMap.get(r.value.ccPartyId);
+                            if (party) {
+                                r.data = {
+                                    ccParty: party,
+                                    resolvedSummary: getPartySummary((party as any).data),
+                                    resolvedType: (party as any).data?.partySubType || (party as any).data?.partyType
+                                };
+                            } else {
+                                r.data = { isDeleted: true };
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -886,7 +911,7 @@ export async function getFieldDetail(
 
     let finalSourceBadgeForEmpty = (!hasValue && (displayState === 'MAPPED_NOT_CHECKED' || displayState === 'CHECKED_NO_DATA')) ? evaluatedSourceBadge : undefined;
 
-    return {
+    const result = {
         fieldNo,
         fieldName: def?.fieldName,
         isRepeating: def?.isMultiValue || false,
@@ -943,6 +968,50 @@ export async function getFieldDetail(
             return undefined;
         })(),
     };
+
+    // Phase 3: Bulk-resolve PARTY_REF for `current.value` if it's a non-repeating field or array of values
+    if (def?.appDataType === 'PARTY_REF' && result.current?.value) {
+        let ccPartyIds: string[] = [];
+        if (Array.isArray(result.current.value)) {
+            ccPartyIds = result.current.value.map((v: any) => v?.ccPartyId).filter(Boolean);
+        } else if (result.current.value?.ccPartyId) {
+            ccPartyIds = [result.current.value.ccPartyId];
+        }
+
+        if (ccPartyIds.length > 0) {
+            const parties = await prisma.cCParty.findMany({
+                where: { id: { in: ccPartyIds } }
+            });
+            const partyMap = new Map(parties.map((p: any) => [p.id, p]));
+            
+            const enrichValue = (val: any) => {
+                if (val?.ccPartyId) {
+                    const party = partyMap.get(val.ccPartyId);
+                    if (party) {
+                        return {
+                            ...val,
+                            _resolvedData: {
+                                ccParty: party,
+                                resolvedSummary: getPartySummary((party as any).data),
+                                resolvedType: (party as any).data?.partySubType || (party as any).data?.partyType
+                            }
+                        };
+                    } else {
+                        return { ...val, _resolvedData: { isDeleted: true } };
+                    }
+                }
+                return val;
+            };
+
+            if (Array.isArray(result.current.value)) {
+                result.current.value = result.current.value.map(enrichValue);
+            } else {
+                result.current.value = enrichValue(result.current.value);
+            }
+        }
+    }
+
+    return result;
 
 }
 

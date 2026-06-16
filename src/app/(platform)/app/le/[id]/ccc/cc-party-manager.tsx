@@ -208,6 +208,7 @@ export function CCPartyManager({ clientLEId, initialParties }: CCPartyManagerPro
                                         const summary = getPartySummary(party.data);
                                         const isActive = party.data.isActiveParty !== false;
                                         const partySub = party.data.partySubType || party.data.contactType;
+                                        const usage = (party as any).usage;
                                         return (
                                             <TableRow key={party.id} className="hover:bg-slate-50/40 border-b border-slate-100 last:border-0 transition-colors duration-150">
                                                 <TableCell className="py-3 px-5 font-semibold text-slate-800 text-sm">
@@ -253,7 +254,23 @@ export function CCPartyManager({ clientLEId, initialParties }: CCPartyManagerPro
                                                     </div>
                                                 </TableCell>
                                                 <TableCell className="py-3 px-5 text-sm">
-                                                    <span className="text-xs text-slate-400 italic">No references yet</span>
+                                                    {usage && usage.length > 0 ? (
+                                                        <div className="flex flex-col gap-1">
+                                                            <span className="font-semibold text-xs text-slate-700">Used in {usage.length} field{usage.length !== 1 ? 's' : ''}</span>
+                                                            <div className="flex flex-col gap-0.5 mt-0.5">
+                                                                {usage.slice(0, 3).map((u: any) => (
+                                                                    <span key={u.fieldNo} className="text-[10px] text-slate-500 max-w-[180px] truncate" title={`Field ${u.fieldNo} — ${u.fieldName}`}>
+                                                                        Field {u.fieldNo} — {u.fieldName}
+                                                                    </span>
+                                                                ))}
+                                                                {usage.length > 3 && (
+                                                                    <span className="text-[10px] text-slate-400 italic">+{usage.length - 3} more...</span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <span className="text-xs text-slate-400 italic">No references yet</span>
+                                                    )}
                                                 </TableCell>
                                                 <TableCell className="py-3 px-5 text-xs font-semibold text-slate-400 font-mono">
                                                     {party.visibility}
@@ -328,7 +345,20 @@ export function CCPartyManager({ clientLEId, initialParties }: CCPartyManagerPro
                                     </div>
                                     <div className="flex items-start gap-1.5">
                                         <span className="font-semibold text-slate-700 min-w-[50px]">Usage:</span>
-                                        <span className="text-slate-500 italic">No references yet</span>
+                                        {selectedParty && (selectedParty as any).usage && (selectedParty as any).usage.length > 0 ? (
+                                            <div className="flex flex-col gap-0.5">
+                                                <span className="text-xs font-semibold text-indigo-600">
+                                                    Used in {(selectedParty as any).usage.length} field{(selectedParty as any).usage.length !== 1 ? 's' : ''}
+                                                </span>
+                                                {(selectedParty as any).usage.map((u: any) => (
+                                                    <span key={u.fieldNo} className="text-[10px] text-slate-500 max-w-[200px] truncate" title={`Field ${u.fieldNo} — ${u.fieldName}`}>
+                                                        Field {u.fieldNo} — {u.fieldName}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <span className="text-slate-500 italic">No references yet</span>
+                                        )}
                                     </div>
                                 </div>
                             </div>

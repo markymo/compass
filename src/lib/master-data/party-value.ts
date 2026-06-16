@@ -15,6 +15,16 @@
 
 // ── Core value object ──────────────────────────────────────────────────────────
 
+export interface PartyRefValue {
+    ccPartyId: string;
+}
+
+export function isPartyRefValue(value: any): value is PartyRefValue {
+    return value && typeof value === 'object' && typeof value.ccPartyId === 'string';
+}
+
+
+
 export interface PartyValue {
     /**
      * Discriminant. Required.

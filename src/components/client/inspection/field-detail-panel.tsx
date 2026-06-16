@@ -31,6 +31,7 @@ import { AddressValueViewer, isAddressValue } from "../fields/AddressValueViewer
 import { isPersonOrContactValue, getPersonOrContactSummary, isValidPartyValue } from "@/lib/master-data/person-or-contact-value";
 import { PersonOrContactValueViewer } from "../fields/PersonOrContactValueViewer";
 import { PersonOrContactValueEditor } from "../fields/PersonOrContactValueEditor";
+import { PartyRefValueEditor } from "../fields/PartyRefValueEditor";
 
 import {
     DropdownMenu,
@@ -84,21 +85,21 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
 
     // Date & value formatting helpers
     const isDateType = data?.dataType === 'DATE' || data?.dataType === 'DATETIME';
-    const isPartyRef = data?.dataType === 'PARTY_REF'
-                    || data?.dataType === 'PERSON_REF'
-                    || data?.dataType === 'ORG_REF';
+    const isCuratedPartyRef = data?.dataType === 'PARTY_REF';
+    const isGraphRef = data?.dataType === 'PERSON_REF' || data?.dataType === 'ORG_REF' || data?.dataType === 'ADDRESS_REF';
+    const isPartyRef = data?.dataType === 'PERSON_REF' || data?.dataType === 'ORG_REF';
     const isAddressRef = data?.dataType === 'ADDRESS_REF';
     const isPartyField = data?.dataType === 'PARTY' || data?.dataType === 'PERSON_OR_CONTACT';
     const isPersonOrContactField = isPartyField;
 
-    let isObjectRef = isPartyRef || isAddressRef;
+    let isObjectRef = isGraphRef;
     if (isPartyField) {
         isObjectRef = false;
     }
     // Controlled-vocabulary collection: uses CodeListField UX instead of free-text
     const isCodeList = !!data?.codeSystem;
     
-    const renderRowValue = (val: any) => {
+    const renderRowValue = (val: any, rowData?: any) => {
         if (!val) return <span className="text-slate-400 italic">No value provided</span>;
         
         let parsedVal = val;
@@ -106,6 +107,26 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
             try {
                 parsedVal = JSON.parse(val);
             } catch (e) {}
+        }
+
+        if (rowData?.data?.resolvedSummary || val?._resolvedData?.resolvedSummary) {
+            const resolvedSummary = rowData?.data?.resolvedSummary || val?._resolvedData?.resolvedSummary;
+            const resolvedType = rowData?.data?.resolvedType || val?._resolvedData?.resolvedType;
+            return (
+                <div className="flex items-center gap-2">
+                    <span className="font-medium text-slate-800 dark:text-slate-200">{resolvedSummary}</span>
+                    {resolvedType && (
+                        <Badge variant="outline" className="text-[10px] uppercase font-mono px-1 py-0 h-4 leading-none tracking-wider text-slate-500">
+                            {resolvedType}
+                        </Badge>
+                    )}
+                    <Badge variant="secondary" className="text-[10px] bg-indigo-50 text-indigo-600 border-indigo-200">Ref</Badge>
+                </div>
+            );
+        }
+
+        if (rowData?.data?.isDeleted || val?._resolvedData?.isDeleted) {
+            return <span className="text-red-400 italic">Deleted Curated Party</span>;
         }
 
         if (typeof parsedVal === 'object') {
@@ -120,6 +141,10 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
             if (parsedVal.line1) return `${parsedVal.line1}${parsedVal.city ? ', ' + parsedVal.city : ''}`;
             // Code-list items: { code, label } — e.g. SIC codes
             if (parsedVal.code !== undefined) return parsedVal.label ? `${parsedVal.code} — ${parsedVal.label}` : String(parsedVal.code);
+            
+            // If it is an unresolved reference
+            if (parsedVal.ccPartyId) return <span className="text-slate-400 font-mono text-xs">{parsedVal.ccPartyId}</span>;
+
             return JSON.stringify(parsedVal);
         }
         return String(val);
@@ -949,6 +974,15 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                                 onCreateNew={() => handleCreateNewNode(graphBindings.find(b => b.isActive)?.graphNodeType || (isPartyRef ? "PERSON" : "ADDRESS"))}
                                                                             />
                                                                         </div>
+                                                                    ) : isCuratedPartyRef ? (
+                                                                        <div className="flex-1 min-w-0 bg-slate-50 p-2 rounded border border-slate-200">
+                                                                            <PartyRefValueEditor
+                                                                                value={editingRowValue}
+                                                                                onChange={setEditingRowValue}
+                                                                                clientLEId={legalEntityId}
+                                                                                disabled={isSaving}
+                                                                            />
+                                                                        </div>
                                                                     ) : isPersonOrContactField ? (
                                                                         <div className="flex-1 min-w-0 bg-slate-50 p-2 rounded border border-slate-200">
                                                                             <PersonOrContactValueEditor
@@ -1028,7 +1062,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                             }
                                                                             return (
                                                                                 <div className="text-sm font-medium text-slate-900 truncate">
-                                                                                    {renderRowValue(row.value)}
+                                                                                    {renderRowValue(row.value, row)}
                                                                                 </div>
                                                                             );
                                                                         })()}
@@ -1107,6 +1141,40 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                             <Plus className="h-4 w-4 mr-2" />
                                                             Add {graphBindings.find(b => b.isActive)?.pickerLabel?.replace('Select ', '') || (isPartyRef ? "Party" : "Address")}
                                                         </Button>
+                                                    ) : isCuratedPartyRef ? (
+                                                        <div>
+                                                            {!isAddingPerson ? (
+                                                                <Button
+                                                                    variant="outline"
+                                                                    onClick={() => {
+                                                                        setIsAddingPerson(true);
+                                                                        setNewPersonData(null);
+                                                                    }}
+                                                                    className="w-full justify-center bg-indigo-50/50 hover:bg-indigo-50 border-indigo-200 text-indigo-700 border-dashed"
+                                                                >
+                                                                    <Plus className="h-4 w-4 mr-2" />
+                                                                    Add Curated Party
+                                                                </Button>
+                                                            ) : (
+                                                                <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-3">
+                                                                    <PartyRefValueEditor
+                                                                        value={newPersonData}
+                                                                        onChange={setNewPersonData}
+                                                                        clientLEId={legalEntityId}
+                                                                        disabled={isAddingSaving}
+                                                                    />
+                                                                    <div className="flex items-center gap-2 pt-2">
+                                                                        <Button size="sm" onClick={() => handleAddNewEntry(newPersonData)} disabled={isAddingSaving || !newPersonData?.ccPartyId}>
+                                                                            {isAddingSaving ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Save className="w-4 h-4 mr-1" />}
+                                                                            Save
+                                                                        </Button>
+                                                                        <Button size="sm" variant="outline" onClick={() => { setIsAddingPerson(false); setNewPersonData(null); }} disabled={isAddingSaving}>
+                                                                            Cancel
+                                                                        </Button>
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                     ) : isPersonOrContactField ? (
                                                         <div>
                                                             {!isAddingPerson ? (
@@ -1286,7 +1354,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                 <button
                                                                     className="p-1.5 rounded text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors shrink-0"
                                                                     onClick={() => {
-                                                                        setManualValue(isPersonOrContactField ? (data?.current?.value || {
+                                                                        setManualValue(isCuratedPartyRef ? (data?.current?.value || null) : isPersonOrContactField ? (data?.current?.value || {
                                                                             contactType: "PERSON",
                                                                             title: null,
                                                                             forenames: null,
@@ -1318,7 +1386,26 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                 <div className="flex items-start gap-3 mt-2">
                                                     <div className="flex-1 space-y-2">
                                                         {!isEditing ? (
-                                                            isPersonOrContactField ? (
+                                                            isCuratedPartyRef ? (
+                                                                <div className="flex flex-col items-center justify-center py-6 border border-dashed border-slate-200 rounded-lg bg-slate-50/50 p-4 space-y-3">
+                                                                    <div className="text-sm text-slate-500 italic">
+                                                                        No curated party assigned
+                                                                    </div>
+                                                                    {!isLocked && (
+                                                                        <Button
+                                                                            variant="outline"
+                                                                            onClick={() => {
+                                                                                setManualValue(null);
+                                                                                setIsEditing(true);
+                                                                            }}
+                                                                            className="bg-indigo-50/50 hover:bg-indigo-50 border-indigo-200 text-indigo-700 border-dashed shadow-sm shrink-0"
+                                                                        >
+                                                                            <Plus className="h-4 w-4 mr-2" />
+                                                                            Select Curated Party
+                                                                        </Button>
+                                                                    )}
+                                                                </div>
+                                                            ) : isPersonOrContactField ? (
                                                                 <div className="flex flex-col items-center justify-center py-6 border border-dashed border-slate-200 rounded-lg bg-slate-50/50 p-4 space-y-3">
                                                                     <div className="text-sm text-slate-500 italic">
                                                                         No person/contact recorded
@@ -1414,15 +1501,24 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                     />
                                                                 ) : (
                                                                     <>
-                                                                        {isPersonOrContactField ? (
-                                                                            <div className="space-y-3">
+                                                                        {isCuratedPartyRef ? (
+                                                                            <div className="mt-4 bg-slate-50 p-2 rounded border border-slate-200">
+                                                                                <PartyRefValueEditor
+                                                                                    value={manualValue}
+                                                                                    onChange={setManualValue}
+                                                                                    clientLEId={legalEntityId}
+                                                                                    disabled={isSaving}
+                                                                                />
+                                                                            </div>
+                                                                        ) : isPersonOrContactField ? (
+                                                                            <div className="mt-4 bg-slate-50 p-2 rounded border border-slate-200">
                                                                                 <PersonOrContactValueEditor
                                                                                     value={typeof manualValue === 'object' && manualValue ? manualValue : { contactType: 'PERSON', roles: [] } as any}
                                                                                     onChange={(val) => setManualValue(val as any)}
                                                                                     disabled={isSaving}
                                                                                     fieldNo={fieldNo}
                                                                                 />
-                                                                                <div className="flex items-center gap-2">
+                                                                                <div className="flex items-center gap-2 mt-2">
                                                                                     <Button
                                                                                         size="sm"
                                                                                         className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700"
@@ -1541,13 +1637,24 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                 <label className="text-xs font-semibold text-slate-600 uppercase tracking-tight">
                                                     {fieldName} (Primary Value)
                                                 </label>
-                                                {isPersonOrContactField ? (
-                                                    <PersonOrContactValueEditor
-                                                        value={typeof manualValue === 'object' && manualValue ? manualValue : { contactType: 'PERSON', roles: [] } as any}
-                                                        onChange={(val) => setManualValue(val as any)}
-                                                        disabled={isSaving}
-                                                         fieldNo={fieldNo}
-                                                    />
+                                                {isCuratedPartyRef ? (
+                                                    <div className="mt-4 bg-slate-50 p-3 rounded-lg border border-slate-200">
+                                                        <PartyRefValueEditor
+                                                            value={manualValue}
+                                                            onChange={setManualValue}
+                                                            clientLEId={legalEntityId}
+                                                            disabled={isSaving}
+                                                        />
+                                                    </div>
+                                                ) : isPersonOrContactField ? (
+                                                    <div className="mt-4 bg-slate-50 p-3 rounded-lg border border-slate-200">
+                                                        <PersonOrContactValueEditor
+                                                            value={typeof manualValue === 'object' && manualValue ? manualValue : { contactType: 'PERSON', roles: [] } as any}
+                                                            onChange={(val) => setManualValue(val as any)}
+                                                            disabled={isSaving}
+                                                            fieldNo={fieldNo}
+                                                        />
+                                                    </div>
                                                 ) : data?.options && data.options.length > 0 ? (
                                                     <Select value={manualValue} onValueChange={setManualValue}>
                                                         <SelectTrigger className="w-full bg-white border-slate-300">
