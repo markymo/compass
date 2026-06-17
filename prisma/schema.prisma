@@ -84,14 +84,14 @@ model User {
 }
 
 model Organization {
-  id                     String                  @id @default(uuid())
+  id                     String                         @id @default(uuid())
   name                   String
-  shortCode              String?                 @unique
+  shortCode              String?                        @unique
   types                  OrgType[]
   domain                 String?
   logoUrl                String?
   description            String?
-  status                 String                  @default("ACTIVE")
+  status                 String                         @default("ACTIVE")
   metadata               Json?
   ownedLEs               ClientLEOwner[]
   customFieldDefinitions CustomFieldDefinition[]
@@ -100,10 +100,10 @@ model Organization {
   invitations            Invitation[]
   memberships            Membership[]
   questionnaires         Questionnaire[]
-  ownedQuestionnaires    Questionnaire[]                    @relation("OwnedQuestionnaires")
-  ownedClaims            FieldClaim[]                       @relation("OrganizationOwnerScope")
-  claims                 FieldClaim[]                       @relation("OrganizationSubject")
-  referencedInClaims     FieldClaim[]                       @relation("OrganizationValue")
+  ownedQuestionnaires    Questionnaire[]                @relation("OwnedQuestionnaires")
+  ownedClaims            FieldClaim[]                   @relation("OrganizationOwnerScope")
+  claims                 FieldClaim[]                   @relation("OrganizationSubject")
+  referencedInClaims     FieldClaim[]                   @relation("OrganizationValue")
   visibilityGrants       QuestionnaireVisibilityGrant[]
 }
 
@@ -205,6 +205,7 @@ model ClientLE {
   registrySourcePayloads   RegistrySourcePayload[]
   registryBaselineExtracts RegistryBaselineExtract[]
   ccParties                CCParty[]
+  ccAddresses              CCAddress[]
 
   @@index([legalEntityId])
 }
@@ -303,45 +304,45 @@ model Query {
 }
 
 model Questionnaire {
-  id               String                 @id @default(uuid())
+  id               String                         @id @default(uuid())
   fiOrgId          String
   name             String
-  status           String                 @default("DRAFT")
-  isDeleted        Boolean                @default(false)
+  status           String                         @default("DRAFT")
+  isDeleted        Boolean                        @default(false)
   fileName         String?
   fileType         String?
   fileContent      Bytes?
   mappings         Json?
-  createdAt        DateTime               @default(now())
-  updatedAt        DateTime               @updatedAt
+  createdAt        DateTime                       @default(now())
+  updatedAt        DateTime                       @updatedAt
   extractedContent Json?
   rawText          String?
   processingLogs   Json?
   fiEngagementId   String?
   ownerOrgId       String?
-  isGlobal         Boolean                @default(false)
+  isGlobal         Boolean                        @default(false)
   dueDate          DateTime?
   lockedAt         DateTime?
   kind             QuestionnaireKind?
   functionalCode   String?
   referenceCode    String?
   fileUrl          String?
-  isTemplate       Boolean                @default(false)
+  isTemplate       Boolean                        @default(false)
   /// Lineage: the questionnaire this record was directly derived from (clone, assign, promote, lateral share).
   /// Null for original / uploaded / manually-created questionnaires.
   /// ancestry only — no inheritance, sync, or merge semantics.
   sourceId         String?
   /// Visibility: controls who can discover/reference this Reference Snapshot.
   /// Only meaningful for kind = REFERENCE_SNAPSHOT. Working Copies and Engagement Questionnaires are always private.
-  visibility       QuestionnaireVisibility @default(PRIVATE)
+  visibility       QuestionnaireVisibility        @default(PRIVATE)
   questions        Question[]
-  fiEngagement     FIEngagement?          @relation("QuestionnaireInstance", fields: [fiEngagementId], references: [id], onDelete: Cascade)
-  fiOrg            Organization           @relation(fields: [fiOrgId], references: [id])
-  ownerOrg         Organization?          @relation("OwnedQuestionnaires", fields: [ownerOrgId], references: [id])
-  source           Questionnaire?         @relation("QuestionnaireLineage", fields: [sourceId], references: [id], onDelete: SetNull)
-  derivedVersions  Questionnaire[]        @relation("QuestionnaireLineage")
+  fiEngagement     FIEngagement?                  @relation("QuestionnaireInstance", fields: [fiEngagementId], references: [id], onDelete: Cascade)
+  fiOrg            Organization                   @relation(fields: [fiOrgId], references: [id])
+  ownerOrg         Organization?                  @relation("OwnedQuestionnaires", fields: [ownerOrgId], references: [id])
+  source           Questionnaire?                 @relation("QuestionnaireLineage", fields: [sourceId], references: [id], onDelete: SetNull)
+  derivedVersions  Questionnaire[]                @relation("QuestionnaireLineage")
   versions         QuestionnaireVersion[]
-  engagements      FIEngagement[]         @relation("FIEngagementToQuestionnaire")
+  engagements      FIEngagement[]                 @relation("FIEngagementToQuestionnaire")
   visibilityGrants QuestionnaireVisibilityGrant[]
 
   @@index([referenceCode])
@@ -378,6 +379,7 @@ model Question {
   supplierNote                String?
   supplierNoteUpdatedAt       DateTime?
   supplierNoteUpdatedByUserId String?
+  masterFieldProjectionPath   String?
   comments                    Comment[]
   prefilledDocuments          Document[]             @relation("PrefilledQuestionDocuments")
   documents                   Document[]             @relation("QuestionDocuments")
@@ -547,10 +549,10 @@ model LegalEntity {
   updatedAt               DateTime            @updatedAt
   localRegistrationNumber String?
   name                    String?
-  jurisdiction            String?             // GLEIF entity.jurisdiction / CH country
-  legalForm               String?             // GLEIF legalForm.id / CH legal_form text
-  entityStatus            String?             // GLEIF entity.status: "ACTIVE" | "INACTIVE" etc
-  countryOfIncorporation  String?             // GLEIF country of incorporation (ISO alpha-2)
+  jurisdiction            String? // GLEIF entity.jurisdiction / CH country
+  legalForm               String? // GLEIF legalForm.id / CH legal_form text
+  entityStatus            String? // GLEIF entity.status: "ACTIVE" | "INACTIVE" etc
+  countryOfIncorporation  String? // GLEIF country of incorporation (ISO alpha-2)
   clientLEs               ClientLE[]
   graphNodes              ClientLEGraphNode[]
   documents               DocumentRegistry[]
@@ -633,7 +635,7 @@ model Address {
 
 model Person {
   id                 String              @id @default(uuid())
-  title              String?             // e.g. "Mr", "Dr" — CH + user input
+  title              String? // e.g. "Mr", "Dr" — CH + user input
   firstName          String?
   middleName         String?
   lastName           String?
@@ -643,8 +645,8 @@ model Person {
   /// Officer role from source system (CH: "director", "secretary", "llp-member" etc).
   /// Stored as raw free-text string — no enum. May later migrate to edge attribute.
   officerRole        String?
-  occupation         String?             // Free-text occupation (CH: "Company Director")
-  countryOfResidence String?             // ISO 3166-1 alpha-2 or country name
+  occupation         String? // Free-text occupation (CH: "Company Director")
+  countryOfResidence String? // ISO 3166-1 alpha-2 or country name
   isPublicFigure     Boolean             @default(false)
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
@@ -1085,13 +1087,13 @@ enum QuestionnaireVisibility {
 /// Grants visibility of a RESTRICTED Reference Snapshot to a specific organisation.
 /// Does not grant create/copy permissions — those are controlled by the Action/Role system.
 model QuestionnaireVisibilityGrant {
-  id              String        @id @default(uuid())
+  id              String   @id @default(uuid())
   questionnaireId String
   organizationId  String
-  createdAt       DateTime      @default(now())
+  createdAt       DateTime @default(now())
 
-  questionnaire   Questionnaire @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
-  organization    Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  questionnaire Questionnaire @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
+  organization  Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@unique([questionnaireId, organizationId])
   @@index([organizationId])
@@ -1267,9 +1269,9 @@ model AdminMomentumObservation {
 }
 
 model CCParty {
-  id              String   @id @default(uuid())
-  clientLEId      String
-  data            Json
+  id                 String   @id @default(uuid())
+  clientLEId         String
+  data               Json
   visibility         String   @default("CLIENT_LE")
   createdFromClaimId String?
   createdByUserId    String?
@@ -1277,8 +1279,23 @@ model CCParty {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
-  clientLE        ClientLE @relation(fields: [clientLEId], references: [id], onDelete: Cascade)
+  clientLE ClientLE @relation(fields: [clientLEId], references: [id], onDelete: Cascade)
 
   @@map("cc_parties")
 }
 
+model CCAddress {
+  id                 String   @id @default(uuid())
+  clientLEId         String
+  data               Json
+  visibility         String   @default("CLIENT_LE")
+  createdFromClaimId String?
+  createdByUserId    String?
+  updatedByUserId    String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  clientLE ClientLE @relation(fields: [clientLEId], references: [id], onDelete: Cascade)
+
+  @@map("cc_addresses")
+}

@@ -4,6 +4,8 @@ import { notFound } from "next/navigation";
 import { Layers } from "lucide-react";
 import { getCCParties } from "@/actions/cc-party-actions";
 import { CCPartyManager } from "@/components/client/ccc/cc-party-manager";
+import { getCCAddresses } from "@/actions/cc-address-actions";
+import { CCAddressManager } from "@/components/client/ccc/cc-address-manager";
 
 interface CCCPageProps {
     params: Promise<{ id: string }>;
@@ -22,8 +24,11 @@ export default async function CCCPage({ params }: CCCPageProps) {
         return notFound();
     }
 
-    // Load curated parties
-    const curatedParties = await getCCParties(id);
+    // Load curated parties and addresses
+    const [curatedParties, curatedAddresses] = await Promise.all([
+        getCCParties(id),
+        getCCAddresses(id)
+    ]);
 
     return (
         <div className="space-y-6 max-w-5xl">
@@ -46,6 +51,12 @@ export default async function CCCPage({ params }: CCCPageProps) {
             <CCPartyManager 
                 clientLEId={id} 
                 initialParties={curatedParties} 
+            />
+
+            {/* Curated Addresses Manager */}
+            <CCAddressManager 
+                clientLEId={id} 
+                initialAddresses={curatedAddresses} 
             />
         </div>
     );

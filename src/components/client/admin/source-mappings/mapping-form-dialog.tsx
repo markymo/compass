@@ -53,49 +53,14 @@ const GLEIF_SCOPE_DEFAULT    = "BASELINE";
 const RA_SCOPE_DEFAULT       = "RAW_PAYLOAD";
 const RA_SUBTYPE_DEFAULT     = "COMPANY_PROFILE";
 
-function SummaryRow({ sourcePath, mappingRootPath, sampleValue, targetLabel }: { sourcePath: string | null | undefined, mappingRootPath: string, sampleValue?: any, targetLabel: string }) {
-    if (!sourcePath) {
-        return (
-            <div className="flex items-center justify-between py-1 border-b border-slate-100/50 last:border-0 dark:border-zinc-800/50">
-                <div className="text-slate-400 italic">Unmapped</div>
-                <div className="text-slate-400 italic">→ {targetLabel}</div>
-            </div>
-        );
-    }
-
-    const parts = sourcePath.split('.');
-    const fieldName = parts[parts.length - 1] || sourcePath;
-    const fullPath = mappingRootPath ? `${mappingRootPath}.${sourcePath}` : sourcePath;
-
-    return (
-        <div className="flex items-start justify-between py-1 border-b border-slate-100/50 last:border-0 dark:border-zinc-800/50">
-            <div className="flex flex-col min-w-0">
-                <span className="font-semibold text-slate-700 dark:text-zinc-200 truncate">{fieldName}</span>
-                <span className="text-[10px] text-slate-400 truncate mt-0.5">{fullPath}</span>
-                {sampleValue !== undefined && sampleValue !== null && (
-                    <span className="text-[10px] text-blue-600 dark:text-blue-400 italic mt-0.5 truncate bg-blue-50/50 dark:bg-blue-950/20 px-1.5 py-0.5 rounded border border-blue-100/30 w-fit">
-                        "{String(sampleValue)}"
-                    </span>
-                )}
-            </div>
-            <div className="flex items-center gap-2 text-slate-500 dark:text-zinc-400 shrink-0 self-center">
-                <span>→</span>
-                <span className="font-medium bg-slate-100 dark:bg-zinc-800 px-2 py-0.5 rounded text-[11px] text-slate-800 dark:text-zinc-200">
-                    {targetLabel}
-                </span>
-            </div>
-        </div>
-    );
-}
-
-function AddressMappingSummary({ config, mappingRootPath, samplePayload }: { config: any, mappingRootPath: string, samplePayload: any }) {
+function AddressMappingEditor({ config, onChangeConfig, mappingRootPath, samplePayload }: { config: any, onChangeConfig: (c: any) => void, mappingRootPath: string, samplePayload: any }) {
     const [rawOpen, setRawOpen] = useState(false);
     
     const addressLines: string[] = Array.isArray(config?.addressLines) ? config.addressLines : [];
-    const locality = config?.locality;
-    const region = config?.region;
-    const postalCode = config?.postalCode;
-    const countryCode = config?.countryCode;
+    const locality = config?.locality || "";
+    const region = config?.region || "";
+    const postalCode = config?.postalCode || "";
+    const countryCode = config?.countryCode || "";
 
     const rawSourceNodeText = useMemo(() => {
         if (!samplePayload || !mappingRootPath) {
@@ -108,24 +73,43 @@ function AddressMappingSummary({ config, mappingRootPath, samplePayload }: { con
         return JSON.stringify(rootValue, null, 2);
     }, [samplePayload, mappingRootPath]);
 
-    const getSampleVal = (relPath: string | null | undefined) => {
-        if (!relPath || !samplePayload || !mappingRootPath) return null;
-        const absPath = `${mappingRootPath}.${relPath}`;
-        return resolvePathString(samplePayload, absPath);
+    const updateField = (field: string, value: any) => {
+        const newConfig = { ...(config || {}) };
+        if (!value || (Array.isArray(value) && value.length === 0)) {
+            delete newConfig[field];
+        } else {
+            newConfig[field] = value;
+        }
+        onChangeConfig(newConfig);
+    };
+
+    const handleUpdateLine = (index: number, value: string) => {
+        const newLines = [...addressLines];
+        newLines[index] = value;
+        updateField("addressLines", newLines);
+    };
+
+    const handleRemoveLine = (index: number) => {
+        const newLines = [...addressLines];
+        newLines.splice(index, 1);
+        updateField("addressLines", newLines);
+    };
+
+    const handleAddLine = () => {
+        updateField("addressLines", [...addressLines, ""]);
     };
 
     return (
-        <div className="grid gap-2">
+        <div className="grid gap-3">
             <div className="flex items-center justify-between text-xs font-semibold text-slate-500 dark:text-zinc-400 uppercase tracking-wider">
                 <button
                     type="button"
                     onClick={() => setRawOpen(!rawOpen)}
-                    className="flex items-center gap-1 hover:text-slate-700 dark:hover:text-zinc-200 transition-colors animate-pulse"
+                    className="flex items-center gap-1 hover:text-slate-700 dark:hover:text-zinc-200 transition-colors"
                 >
                     <span>Source Field (Payload)</span>
-                    <span className="text-[10px] lowercase font-normal text-slate-400">({rawOpen ? "hide raw" : "show raw"})</span>
+                    <span className="text-[10px] lowercase font-normal text-slate-400">({rawOpen ? "hide raw payload" : "show raw payload"})</span>
                 </button>
-                <span>Target Field (Address)</span>
             </div>
 
             {rawOpen && (
@@ -136,25 +120,81 @@ function AddressMappingSummary({ config, mappingRootPath, samplePayload }: { con
                 </div>
             )}
 
-            <div className="space-y-1.5 font-mono text-xs bg-slate-50 dark:bg-zinc-900/50 border border-slate-100 dark:border-zinc-800 rounded-lg p-3 text-slate-700 dark:text-zinc-300">
-                {addressLines.length > 0 ? (
-                    addressLines.map((path, idx) => (
-                        <SummaryRow
-                            key={`line-${idx}`}
-                            sourcePath={path}
-                            mappingRootPath={mappingRootPath}
-                            sampleValue={getSampleVal(path)}
-                            targetLabel={`Address Line ${idx + 1}`}
-                        />
-                    ))
-                ) : (
-                    <SummaryRow sourcePath={null} mappingRootPath={mappingRootPath} targetLabel="Address Lines" />
-                )}
+            <div className="space-y-4 bg-slate-50 dark:bg-zinc-900/50 border border-slate-100 dark:border-zinc-800 rounded-lg p-3">
+                <div className="grid gap-2">
+                    <Label className="text-xs">Address Lines (ordered list of source paths)</Label>
+                    <div className="space-y-2">
+                        {addressLines.map((path, idx) => (
+                            <div key={`line-${idx}`} className="flex items-center gap-2">
+                                <Input 
+                                    className="h-8 text-xs font-mono bg-white dark:bg-zinc-950" 
+                                    placeholder="e.g. premises or address_line_1"
+                                    value={path}
+                                    onChange={(e) => handleUpdateLine(idx, e.target.value)}
+                                />
+                                <Button 
+                                    variant="outline" 
+                                    size="icon" 
+                                    className="h-8 w-8 shrink-0 text-slate-400 hover:text-red-500 bg-white dark:bg-zinc-950" 
+                                    onClick={() => handleRemoveLine(idx)}
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                                </Button>
+                            </div>
+                        ))}
+                    </div>
+                    <Button variant="outline" size="sm" className="h-7 text-[11px] w-fit mt-1 bg-white dark:bg-zinc-950" onClick={handleAddLine}>
+                        + Add Line
+                    </Button>
+                </div>
                 
-                <SummaryRow sourcePath={locality} mappingRootPath={mappingRootPath} sampleValue={getSampleVal(locality)} targetLabel="Locality" />
-                <SummaryRow sourcePath={region} mappingRootPath={mappingRootPath} sampleValue={getSampleVal(region)} targetLabel="Region" />
-                <SummaryRow sourcePath={postalCode} mappingRootPath={mappingRootPath} sampleValue={getSampleVal(postalCode)} targetLabel="Postcode" />
-                <SummaryRow sourcePath={countryCode} mappingRootPath={mappingRootPath} sampleValue={getSampleVal(countryCode)} targetLabel="Country" />
+                <div className="grid grid-cols-2 gap-3">
+                    <div className="grid gap-1.5">
+                        <Label className="text-xs">Locality (City)</Label>
+                        <Input 
+                            className="h-8 text-xs font-mono bg-white dark:bg-zinc-950" 
+                            placeholder="e.g. locality" 
+                            value={locality} 
+                            onChange={(e) => updateField("locality", e.target.value)} 
+                        />
+                    </div>
+                    <div className="grid gap-1.5">
+                        <Label className="text-xs">Region</Label>
+                        <Input 
+                            className="h-8 text-xs font-mono bg-white dark:bg-zinc-950" 
+                            placeholder="e.g. region" 
+                            value={region} 
+                            onChange={(e) => updateField("region", e.target.value)} 
+                        />
+                    </div>
+                    <div className="grid gap-1.5">
+                        <Label className="text-xs">Postal Code</Label>
+                        <Input 
+                            className="h-8 text-xs font-mono bg-white dark:bg-zinc-950" 
+                            placeholder="e.g. postal_code" 
+                            value={postalCode} 
+                            onChange={(e) => updateField("postalCode", e.target.value)} 
+                        />
+                    </div>
+                    <div className="grid gap-1.5">
+                        <Label className="text-xs">Country Code</Label>
+                        <Input 
+                            className="h-8 text-xs font-mono bg-white dark:bg-zinc-950" 
+                            placeholder="e.g. country" 
+                            value={countryCode} 
+                            onChange={(e) => updateField("countryCode", e.target.value)} 
+                        />
+                    </div>
+                </div>
+            </div>
+            
+            <div className="grid gap-1.5 mt-2">
+                <Label className="text-xs font-semibold text-slate-500 dark:text-zinc-400 uppercase tracking-wider">transformConfig JSON Preview</Label>
+                <div className="bg-slate-50 dark:bg-zinc-900/50 p-2.5 rounded-lg border border-slate-100 dark:border-zinc-800">
+                    <pre className="font-mono text-[10px] text-slate-600 dark:text-zinc-400 overflow-auto whitespace-pre-wrap">
+                        {JSON.stringify(config || {}, null, 2)}
+                    </pre>
+                </div>
             </div>
         </div>
     );
@@ -391,8 +431,8 @@ export function MappingFormDialog({ open, onOpenChange, selectedOption, fieldDef
 
                     {isAddressMapping ? (
                         <>
-                            {/* 1. Mapping Summary */}
-                            <AddressMappingSummary config={transformConfig} mappingRootPath={sourcePath} samplePayload={samplePayload} />
+                            {/* 1. Mapping Editor */}
+                            <AddressMappingEditor config={transformConfig} onChangeConfig={setTransformConfig} mappingRootPath={sourcePath} samplePayload={samplePayload} />
 
                             {/* 2. Preview */}
                             <div className="grid gap-1.5">

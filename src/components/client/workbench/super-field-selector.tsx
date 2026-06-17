@@ -7,6 +7,8 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Loader2, Sparkles, Plus, Check, ChevronRight, XCircle, Type, Calendar, Hash, ToggleLeft, FileText, Braces } from "lucide-react";
 import { getAISemanticMatch } from "@/actions/kyc-workbench";
+import { getAddressSummary } from "@/components/client/fields/AddressValueViewer";
+import { applyMasterDataProjection } from "@/lib/kyc/projection";
 
 function getDataTypeIcon(dataType: string | null | undefined) {
     if (!dataType) return null;
@@ -49,32 +51,82 @@ export function SuperFieldSelector({
     const [aiSuggestions, setAiSuggestions] = useState<Array<{ id: string; confidence: number; reasoning: string }>>([]);
 
     // 1. Prepare Local Options
-    const masterOptions = useMemo(() => masterFields.map((f: any) => ({
-        value: `master:${f.fieldNo}`,
-        label: f.label,
-        type: 'master' as const,
-        meta: `Standard Field ${f.fieldNo}`,
-        dataType: f.dataType,
-        currentValue: f.currentValue
-    })), [masterFields]);
+    const masterOptions = useMemo(() => {
+        const options: any[] = [];
+        masterFields.forEach((f: any) => {
+            let previewText = null;
+            if (f.dataType === 'ADDRESS') {
+                previewText = f.currentValue ? getAddressSummary(f.currentValue) : "Structured address";
+            } else if (f.currentValue != null && f.currentValue !== "") {
+                previewText = Array.isArray(f.currentValue) ? f.currentValue.join(", ") : (typeof f.currentValue === 'object' ? "Structured object" : String(f.currentValue));
+            }
 
-    const groupOptions = useMemo(() => masterGroups.map((g: any) => ({
-        value: `group:${g.key}`,
-        label: g.label,
-        type: 'group' as const,
-        meta: 'Composite Group',
-        dataType: g.dataType,
-        currentValue: g.currentValue
-    })), [masterGroups]);
+            options.push({
+                value: `master:${f.fieldNo}`,
+                label: f.label,
+                type: 'master',
+                meta: `Standard Field ${f.fieldNo}`,
+                dataType: f.dataType,
+                currentValue: f.currentValue,
+                previewText
+            });
+            if (f.dataType === 'ADDRESS') {
+                const projections = [
+                    { path: 'locality', label: 'Locality' },
+                    { path: 'region', label: 'Region' },
+                    { path: 'postalCode', label: 'Postal Code' },
+                    { path: 'countryCode', label: 'Country Code' },
+                    { path: 'addressLines[0]', label: 'Address Line 1' },
+                    { path: 'addressLines[1]', label: 'Address Line 2' },
+                ];
+                projections.forEach(proj => {
+                    const extractedValue = applyMasterDataProjection(f.currentValue, proj.path);
+                    options.push({
+                        value: `master:${f.fieldNo}:${proj.path}`,
+                        label: `${f.label} · ${proj.label}`,
+                        type: 'master',
+                        meta: `Standard Field ${f.fieldNo} Projection`,
+                        dataType: 'STRING',
+                        currentValue: null, // Keep null to keep UI simple
+                        previewText: extractedValue ? String(extractedValue) : `Extracts ${proj.path}`
+                    });
+                });
+            }
+        });
+        return options;
+    }, [masterFields]);
 
-    const customOptions = useMemo(() => customFields.map((f: any) => ({
-        value: `custom:${f.id}`,
-        label: f.label,
-        type: 'custom' as const,
-        meta: 'Custom Field',
-        dataType: f.dataType,
-        currentValue: f.currentValue
-    })), [customFields]);
+    const groupOptions = useMemo(() => masterGroups.map((g: any) => {
+        let previewText = null;
+        if (g.currentValue != null && g.currentValue !== "") {
+            previewText = Array.isArray(g.currentValue) ? g.currentValue.join(", ") : (typeof g.currentValue === 'object' ? "Structured group" : String(g.currentValue));
+        }
+        return {
+            value: `group:${g.key}`,
+            label: g.label,
+            type: 'group' as const,
+            meta: 'Composite Group',
+            dataType: g.dataType,
+            currentValue: g.currentValue,
+            previewText
+        };
+    }), [masterGroups]);
+
+    const customOptions = useMemo(() => customFields.map((f: any) => {
+        let previewText = null;
+        if (f.currentValue != null && f.currentValue !== "") {
+            previewText = Array.isArray(f.currentValue) ? f.currentValue.join(", ") : (typeof f.currentValue === 'object' ? "Structured object" : String(f.currentValue));
+        }
+        return {
+            value: `custom:${f.id}`,
+            label: f.label,
+            type: 'custom' as const,
+            meta: 'Custom Field',
+            dataType: f.dataType,
+            currentValue: f.currentValue,
+            previewText
+        };
+    }), [customFields]);
 
     const allOptions = useMemo(() => [...groupOptions, ...masterOptions, ...customOptions], [groupOptions, masterOptions, customOptions]);
     const selectedOption = allOptions.find((o: any) => o.value === value);
@@ -237,13 +289,24 @@ export function SuperFieldSelector({
                                     {filteredOptions.filter((o: any) => o.type === 'group').map((o: any) => (
                                         <CommandItem
                                             key={o.value}
-                                            onSelect={() => { onSelect(o.value.split(':')[1], 'group'); setOpen(false); }}
+                                            onSelect={() => { 
+                                                const val = o.value.substring(o.value.indexOf(':') + 1);
+                                                onSelect(val, 'group'); 
+                                                setOpen(false); 
+                                            }}
                                             className="flex flex-col items-start gap-1 py-2 cursor-pointer"
                                         >
                                             <div className="flex items-center w-full gap-2">
                                                 <Check className={cn("h-4 w-4 text-indigo-600 shrink-0", value === o.value ? "opacity-100" : "opacity-0")} />
                                                 <span className="text-sm font-medium flex-1">{o.label}</span>
                                                 {getDataTypeIcon(o.dataType)}
+                                            </div>
+                                            <div className="pl-6 flex flex-col w-full text-slate-500">
+                                                {o.previewText ? (
+                                                    <span className="text-[11px] font-medium text-slate-600 truncate italic bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100 mt-1">
+                                                        {o.previewText}
+                                                    </span>
+                                                ) : null}
                                             </div>
                                         </CommandItem>
                                     ))}
@@ -255,7 +318,11 @@ export function SuperFieldSelector({
                                     {filteredOptions.filter((o: any) => o.type === 'master').map((o: any) => (
                                         <CommandItem
                                             key={o.value}
-                                            onSelect={() => { onSelect(o.value.split(':')[1], 'master'); setOpen(false); }}
+                                            onSelect={() => { 
+                                                const val = o.value.substring(o.value.indexOf(':') + 1);
+                                                onSelect(val, 'master'); 
+                                                setOpen(false); 
+                                            }}
                                             className="flex flex-col items-start gap-1 py-2 cursor-pointer"
                                         >
                                             <div className="flex items-center w-full gap-2">
@@ -264,9 +331,9 @@ export function SuperFieldSelector({
                                                 {getDataTypeIcon(o.dataType)}
                                             </div>
                                             <div className="pl-6 flex flex-col w-full text-slate-500">
-                                                {o.currentValue != null && o.currentValue !== "" ? (
+                                                {o.previewText ? (
                                                     <span className="text-[11px] font-medium text-slate-600 truncate italic bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100 mt-1">
-                                                        {Array.isArray(o.currentValue) ? o.currentValue.join(", ") : String(o.currentValue)}
+                                                        {o.previewText}
                                                     </span>
                                                 ) : null}
                                             </div>
@@ -280,7 +347,11 @@ export function SuperFieldSelector({
                                     {filteredOptions.filter((o: any) => o.type === 'custom').map((o: any) => (
                                         <CommandItem
                                             key={o.value}
-                                            onSelect={() => { onSelect(o.value.split(':')[1], 'custom'); setOpen(false); }}
+                                            onSelect={() => { 
+                                                const val = o.value.substring(o.value.indexOf(':') + 1);
+                                                onSelect(val, 'custom'); 
+                                                setOpen(false); 
+                                            }}
                                             className="flex flex-col items-start gap-1 py-2 cursor-pointer"
                                         >
                                             <div className="flex items-center w-full gap-2">
@@ -289,9 +360,9 @@ export function SuperFieldSelector({
                                                 {getDataTypeIcon(o.dataType)}
                                             </div>
                                             <div className="pl-6 flex flex-col w-full text-slate-500">
-                                                {o.currentValue != null && o.currentValue !== "" ? (
+                                                {o.previewText ? (
                                                     <span className="text-[11px] font-medium text-slate-600 truncate italic bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100 mt-1">
-                                                        {Array.isArray(o.currentValue) ? o.currentValue.join(", ") : String(o.currentValue)}
+                                                        {o.previewText}
                                                     </span>
                                                 ) : null}
                                             </div>

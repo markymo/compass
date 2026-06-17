@@ -21,6 +21,7 @@ import { ChevronDown, ChevronUp, Database, Eye, EyeOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { resolveSourceLabel, RaNameLookup } from "@/lib/kyc/source-label";
 import { isPartyValue, getPartySummary } from "@/lib/master-data/party-value";
+import { isAddressValue, getAddressSummary } from "../fields/AddressValueViewer";
 import type { HydratedValue } from "@/actions/kyc-query";
 
 // ── Public API ────────────────────────────────────────────────────────────────
@@ -153,6 +154,14 @@ function ProvenanceLine({
 
 /** Renders a single scalar field value */
 function ScalarFieldValue({ value, appDataType }: { value: unknown; appDataType: string }) {
+    if (appDataType === "ADDRESS" || isAddressValue(value)) {
+        return <span className="text-sm text-slate-900 whitespace-pre-line">{getAddressSummary(value as any)}</span>;
+    }
+
+    if (appDataType === "PERSON_OR_CONTACT" || appDataType === "PARTY" || isPartyValue(value)) {
+        return <span className="text-sm text-slate-900">{getPartySummary(value as any)}</span>;
+    }
+
     // JSONB / unsupported — safe fallback
     if (appDataType === "JSONB" || (typeof value === "object" && value !== null && !Array.isArray(value))) {
         try {
@@ -217,15 +226,27 @@ function CodeListValue({ items }: { items: unknown[] }) {
 function ArrayValue({ items }: { items: unknown[] }) {
     return (
         <div className="flex flex-wrap gap-1 mt-0.5">
-            {items.map((item, idx) => (
-                <Badge
-                    key={idx}
-                    variant="outline"
-                    className="text-xs bg-white border-slate-200 text-slate-700 font-normal py-0.5"
-                >
-                    {typeof item === "object" ? JSON.stringify(item) : String(item ?? "")}
-                </Badge>
-            ))}
+            {items.map((item, idx) => {
+                let display = String(item ?? "");
+                if (typeof item === "object" && item !== null) {
+                    if (isAddressValue(item)) {
+                        display = getAddressSummary(item as any);
+                    } else if (isPartyValue(item)) {
+                        display = getPartySummary(item as any);
+                    } else {
+                        display = JSON.stringify(item);
+                    }
+                }
+                return (
+                    <Badge
+                        key={idx}
+                        variant="outline"
+                        className="text-xs bg-white border-slate-200 text-slate-700 font-normal py-0.5"
+                    >
+                        {display}
+                    </Badge>
+                );
+            })}
         </div>
     );
 }

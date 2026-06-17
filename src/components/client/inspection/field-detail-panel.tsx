@@ -28,6 +28,7 @@ import { cn } from "@/lib/utils";
 import { CollectionRowDisplay } from "@/lib/master-data/structured-collection-renderers";
 import { CodeListField } from "@/components/client/fields/CodeListField";
 import { AddressValueViewer, isAddressValue } from "../fields/AddressValueViewer";
+import { AddressValueEditor } from "../fields/AddressValueEditor";
 import { isPersonOrContactValue, getPersonOrContactSummary, isValidPartyValue } from "@/lib/master-data/person-or-contact-value";
 import { PersonOrContactValueViewer } from "../fields/PersonOrContactValueViewer";
 import { PersonOrContactValueEditor } from "../fields/PersonOrContactValueEditor";
@@ -94,9 +95,10 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
     const isAddressRef = data?.dataType === 'ADDRESS_REF';
     const isPartyField = data?.dataType === 'PARTY' || data?.dataType === 'PERSON_OR_CONTACT';
     const isPersonOrContactField = isPartyField;
+    const isAddressField = data?.dataType === 'ADDRESS';
 
     let isObjectRef = isGraphRef;
-    if (isPartyField) {
+    if (isPartyField || isAddressField) {
         isObjectRef = false;
     }
     // Controlled-vocabulary collection: uses CodeListField UX instead of free-text
@@ -1461,7 +1463,11 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                      <button
                                                                          className="p-1.5 rounded text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors shrink-0"
                                                                          onClick={() => {
-                                                                             setManualValue(String(data?.current?.value || ""));
+                                                                             if (isAddressField) {
+                                                                                 setManualValue(data?.current?.value || { addressLines: [] });
+                                                                             } else {
+                                                                                 setManualValue(String(data?.current?.value || ""));
+                                                                             }
                                                                              setIsEditing(true);
                                                                              setRelatedValues({});
                                                                          }}
@@ -1616,7 +1622,29 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                     />
                                                                 ) : (
                                                                     <>
-                                                                        {isCuratedPartyRef || isPersonOrContactField ? (
+                                                                        {isAddressField ? (
+                                                                            <div className="mt-4 bg-slate-50 p-2 rounded border border-slate-200">
+                                                                                <AddressValueEditor
+                                                                                    value={typeof manualValue === 'object' && manualValue ? manualValue : { addressLines: [] } as any}
+                                                                                    onChange={(val) => setManualValue(val as any)}
+                                                                                    disabled={isSaving}
+                                                                                />
+                                                                                <div className="flex items-center gap-2 mt-2">
+                                                                                    <Button
+                                                                                        size="sm"
+                                                                                        className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700"
+                                                                                        onClick={() => {
+                                                                                            setIsEditing(true);
+                                                                                            handleManualSave();
+                                                                                        }}
+                                                                                        disabled={isSaving}
+                                                                                    >
+                                                                                        {isSaving ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Check className="h-3 w-3 mr-1" />}
+                                                                                        Save
+                                                                                    </Button>
+                                                                                </div>
+                                                                            </div>
+                                                                        ) : isCuratedPartyRef || isPersonOrContactField ? (
                                                                              <div className="mt-4 bg-slate-50 p-2 rounded border border-slate-200">
                                                                                  <PersonOrContactValueEditor
                                                                                      value={typeof manualValue === 'object' && manualValue ? manualValue : { contactType: 'PERSON', roles: [] } as any}

@@ -1,6 +1,7 @@
 "use client";
 
 import { isPartyValue, getPartySummary } from "@/lib/master-data/party-value";
+import { isAddressValue, getAddressSummary } from "@/components/client/fields/AddressValueViewer";
 
 import { useState, useMemo, useTransition } from "react";
 import { Workbench4Data, mapQuestionToField, getAIFieldNameSuggestion } from "@/actions/kyc-workbench";
@@ -94,6 +95,7 @@ export function formatPartyLabel(item: unknown): string {
 
         if (obj.resolvedSummary)                               return String(obj.resolvedSummary);
         if (isPartyValue(obj))                                 return getPartySummary(obj);
+        if (isAddressValue(obj))                               return getAddressSummary(obj as any);
 
         // Prefer explicit full name fields
         if (obj.fullName)                                      return String(obj.fullName);
@@ -222,7 +224,7 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
         if (!question) return;
 
         startTransition(async () => {
-            let mapping: { fieldNo?: number | null; customFieldId?: string | null; groupId?: string | null } = {};
+            let mapping: { fieldNo?: number | null; customFieldId?: string | null; groupId?: string | null; projectionPath?: string | null } = {};
 
             if (val === "UNMAP") {
                 mapping = { fieldNo: null, customFieldId: null, groupId: null };
@@ -231,7 +233,8 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
             } else if (val.startsWith("GROUP_")) {
                 mapping = { groupId: val.replace("GROUP_", "") };
             } else {
-                mapping = { fieldNo: parseInt(val) };
+                const parts = val.split(':');
+                mapping = { fieldNo: parseInt(parts[0]), projectionPath: parts[1] || null };
             }
 
             const res = await mapQuestionToField(leId, questionId, mapping);
@@ -246,6 +249,7 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
                                 ...q,
                                 masterFieldNo: mapping.fieldNo ?? null,
                                 masterQuestionGroupId: mapping.groupId ?? null,
+                                masterFieldProjectionPath: mapping.projectionPath ?? null,
                                 customFieldDefinitionId: mapping.customFieldId ?? null,
                                 masterDataValue: (res as any).newValue,
                                 masterDataSource: (res as any).newSource,
@@ -632,7 +636,8 @@ function QuestionCard({
 }) {
     const isMapped = !!(question.masterFieldNo || question.masterQuestionGroupId || (question as any).customFieldDefinitionId);
     const isGroupAnswer = !!(question.masterQuestionGroupId && (question as any).masterDataGroupFields?.length > 0);
-    const isComplexValue = typeof question.masterDataValue === 'object' && question.masterDataValue !== null;
+    const isProjectedValue = !!question.masterFieldProjectionPath;
+    const isComplexValue = typeof question.masterDataValue === 'object' && question.masterDataValue !== null && !isProjectedValue;
     const [isEditing, setIsEditing] = useState(false);
     const [editValue, setEditValue] = useState("");
     const [isSaving, setIsSaving] = useState(false);
@@ -689,6 +694,17 @@ function QuestionCard({
 
     if (question.masterFieldNo) {
         currentMappingLabel = masterFields.find((f: any) => f.fieldNo === question.masterFieldNo)?.label || `Field ${question.masterFieldNo}`;
+        if (question.masterFieldProjectionPath) {
+             const projLabels: Record<string, string> = {
+                 'locality': 'Locality',
+                 'region': 'Region',
+                 'postalCode': 'Postal Code',
+                 'countryCode': 'Country Code',
+                 'addressLines[0]': 'Address Line 1',
+                 'addressLines[1]': 'Address Line 2'
+             };
+             currentMappingLabel += ` · ${projLabels[question.masterFieldProjectionPath] || question.masterFieldProjectionPath}`;
+        }
     } else if (customFieldId) {
         currentMappingLabel = customFields.find((f: any) => f.id === customFieldId)?.label || "Custom Field";
     }
@@ -928,12 +944,12 @@ function QuestionCard({
                                                         <ExternalLink className="h-3.5 w-3.5" />
                                                     </a>
                                                 </>
-                                            ) : isComplexValue ? (
-                                                /* Complex values: prevent inline edit -> Master Data tab */
+                                            ) : isComplexValue || isProjectedValue ? (
+                                                /* Complex/Projected values: prevent inline edit -> Master Data tab */
                                                 <>
                                                     <button
                                                         disabled
-                                                        title="Complex mapped answers must be edited in Master Data"
+                                                        title={isProjectedValue ? "Projected values can't be edited inline — use the Master Data tab" : "Complex mapped answers must be edited in Master Data"}
                                                         className="p-1 rounded text-slate-200 cursor-not-allowed"
                                                     >
                                                         <Pencil className="h-3.5 w-3.5" />
@@ -1029,7 +1045,7 @@ function QuestionCard({
                             <SuperFieldSelector
                                 value={
                                     question.masterFieldNo
-                                        ? `master:${question.masterFieldNo}`
+                                        ? `master:${question.masterFieldNo}${question.masterFieldProjectionPath ? `:${question.masterFieldProjectionPath}` : ''}`
                                         : question.masterQuestionGroupId
                                             ? `group:${question.masterQuestionGroupId}`
                                             : (question as any).customFieldDefinitionId

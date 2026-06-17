@@ -1,6 +1,7 @@
 "use server";
 
 import { KycStateService, SourcePriorityMap, priorityKey } from "@/lib/kyc/KycStateService";
+import { applyMasterDataProjection } from "@/lib/kyc/projection";
 import { getMasterFieldDefinition, getMasterFieldGroup } from "@/services/masterData/definitionService";
 import { ProvenanceSource } from "@/domain/kyc/types/ProvenanceTypes";
 import prisma from "@/lib/prisma";
@@ -14,6 +15,7 @@ export type ResolverRequest = {
     questionId: string;
     masterFieldNo?: number | null;
     masterQuestionGroupId?: string | null;
+    masterFieldProjectionPath?: string | null;
 };
 
 export type HydratedValue = {
@@ -92,8 +94,25 @@ export async function resolveMasterData(
                         }
                     }
                 }
+
             } catch (e) {
                 console.warn(`[resolveMasterData] Group ${q.masterQuestionGroupId} not found or inactive.`);
+            }
+            if (q.masterFieldProjectionPath && response[q.questionId]) {
+                const projected: Record<string, HydratedValue> = {};
+                for (const [fNo, hv] of Object.entries(response[q.questionId])) {
+                    if (hv.value !== null && hv.value !== undefined) {
+                        projected[fNo] = {
+                            ...hv,
+                            value: Array.isArray(hv.value)
+                                ? hv.value.map((v: any) => applyMasterDataProjection(v, q.masterFieldProjectionPath))
+                                : applyMasterDataProjection(hv.value, q.masterFieldProjectionPath)
+                        };
+                    } else {
+                        projected[fNo] = hv;
+                    }
+                }
+                response[q.questionId] = projected;
             }
         }
         // B. Handle Single Field Mapping
@@ -140,11 +159,24 @@ export async function resolveMasterData(
                     };
                 }
             }
+            if (q.masterFieldProjectionPath && response[q.questionId][q.masterFieldNo]) {
+                const hv = response[q.questionId][q.masterFieldNo];
+                if (hv.value !== null && hv.value !== undefined) {
+                    response[q.questionId][q.masterFieldNo] = {
+                        ...hv,
+                        value: Array.isArray(hv.value)
+                            ? hv.value.map((v: any) => applyMasterDataProjection(v, q.masterFieldProjectionPath))
+                            : applyMasterDataProjection(hv.value, q.masterFieldProjectionPath)
+                    };
+                }
+            }
         }
     }
 
     return response;
 }
+
+
 
 // ── resolveMasterDataBatch ────────────────────────────────────────────────────
 //
@@ -384,14 +416,47 @@ export async function resolveMasterDataBatch(input: BatchResolverInput): Promise
 
         if (q.masterQuestionGroupId) {
             // Group — use pre-resolved result (O(1) lookup)
-            response[q.questionId] = resolvedGroups.get(q.masterQuestionGroupId) ?? {};
+            const resolved = resolvedGroups.get(q.masterQuestionGroupId) ?? {};
+            
+            if (q.masterFieldProjectionPath) {
+                const projected: Record<string, HydratedValue> = {};
+                for (const [fNo, hv] of Object.entries(resolved)) {
+                    if (hv.value !== null && hv.value !== undefined) {
+                        projected[fNo] = {
+                            ...hv,
+                            value: Array.isArray(hv.value)
+                                ? hv.value.map((v: any) => applyMasterDataProjection(v, q.masterFieldProjectionPath))
+                                : applyMasterDataProjection(hv.value, q.masterFieldProjectionPath)
+                        };
+                    } else {
+                        projected[fNo] = hv;
+                    }
+                }
+                response[q.questionId] = projected;
+            } else {
+                response[q.questionId] = resolved;
+            }
 
         } else if (q.masterFieldNo) {
             const def = fieldDefMap.get(q.masterFieldNo);
             if (!def) continue;
+            
+            const resolved = resolveField(q.masterFieldNo, def.isMultiValue, claims, ownerScopeId, sourceMappings);
+            if (q.masterFieldProjectionPath) {
+                const hv = resolved[q.masterFieldNo];
+                if (hv && hv.value !== null && hv.value !== undefined) {
+                    resolved[q.masterFieldNo] = {
+                        ...hv,
+                        value: Array.isArray(hv.value)
+                            ? hv.value.map((v: any) => applyMasterDataProjection(v, q.masterFieldProjectionPath))
+                            : applyMasterDataProjection(hv.value, q.masterFieldProjectionPath)
+                    };
+                }
+            }
+            
             Object.assign(
                 response[q.questionId],
-                resolveField(q.masterFieldNo, def.isMultiValue, claims, ownerScopeId, sourceMappings)
+                resolved
             );
         }
         // else: unmapped — leave as empty object {}
@@ -1095,6 +1160,7 @@ export interface ConsoleQuestion {
     text: string;
     category: string;
     masterFieldNo?: number | null;
+    masterFieldProjectionPath?: string | null;
     masterQuestionGroupId?: string | null;
     customFieldDefinitionId?: string | null;
     status: string;
@@ -1163,6 +1229,7 @@ export async function getConsoleQuestions(leId: string, includeLocked: boolean =
                     text: q.text,
                     category: qnaire.name,
                     masterFieldNo: q.masterFieldNo,
+                    masterFieldProjectionPath: q.masterFieldProjectionPath,
                     masterQuestionGroupId: q.masterQuestionGroupId,
                     customFieldDefinitionId: q.customFieldDefinitionId,
                     status: q.status || (q.answer ? "ANSWERED" : "OPEN"),
@@ -1188,6 +1255,7 @@ export async function getConsoleQuestions(leId: string, includeLocked: boolean =
                     text: q.text,
                     category: qnaire.name,
                     masterFieldNo: q.masterFieldNo,
+                    masterFieldProjectionPath: q.masterFieldProjectionPath,
                     masterQuestionGroupId: q.masterQuestionGroupId,
                     customFieldDefinitionId: q.customFieldDefinitionId,
                     status: q.status || (q.answer ? "ANSWERED" : "OPEN"),
