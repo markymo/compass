@@ -676,3 +676,101 @@ function enrichCCPartyRolesForField63(clientLE: any, partyData: any): any {
         roles: [...roles, newRole]
     };
 }
+
+export async function addExistingCCAddressReferenceToField(
+    clientLEId: string,
+    fieldNo: number,
+    ccAddressId: string,
+    rowId?: string
+): Promise<{ success: boolean; message?: string }> {
+    try {
+        const { getMasterFieldDefinition } = await import('@/services/masterData/definitionService');
+        const def = await getMasterFieldDefinition(fieldNo);
+
+        const actualRowId = def.isMultiValue ? (rowId || `ccaddress_${ccAddressId}`) : undefined;
+
+        const claimResult = await updateFieldManually(
+            clientLEId,
+            fieldNo,
+            { ccAddressId },
+            `Added existing curated address via Field ${fieldNo} — ${def.fieldName}`,
+            actualRowId,
+            'CLIENT_LE'
+        );
+
+        if (!claimResult.success) {
+            return claimResult;
+        }
+
+        const { revalidatePath } = await import('next/cache');
+        revalidatePath(`/app/le/${clientLEId}`, 'layout');
+        return { success: true };
+    } catch (error: any) {
+        console.error("addExistingCCAddressReferenceToField error:", error);
+        return { success: false, message: error.message };
+    }
+}
+
+export async function createCCAddressAndReferenceField(
+    clientLEId: string,
+    fieldNo: number,
+    addressValueData: any,
+    rowId?: string
+): Promise<{ success: boolean; message?: string }> {
+    try {
+        const { getMasterFieldDefinition } = await import('@/services/masterData/definitionService');
+        const def = await getMasterFieldDefinition(fieldNo);
+        const originLabel = `Created manually from Field ${fieldNo} — ${def.fieldName}`;
+
+        const { getIdentity } = await import('@/lib/auth');
+        const identity = await getIdentity();
+        if (!identity?.userId) {
+            return { success: false, message: "Unauthorized" };
+        }
+
+        const { PrismaClient } = await import('@prisma/client');
+        const prisma = new PrismaClient();
+
+        const newAddress = await prisma.$transaction(async (tx: any) => {
+            const address = await tx.cCAddress.create({
+                data: {
+                    clientLEId,
+                    data: addressValueData,
+                    visibility: "CLIENT_LE",
+                    createdByUserId: identity.userId,
+                    updatedByUserId: identity.userId
+                }
+            });
+            return address;
+        });
+
+        const actualRowId = def.isMultiValue ? (rowId || `ccaddress_${newAddress.id}`) : undefined;
+
+        const claimResult = await updateFieldManually(
+            clientLEId,
+            fieldNo,
+            { ccAddressId: newAddress.id },
+            originLabel,
+            actualRowId,
+            'CLIENT_LE'
+        );
+
+        if (!claimResult.success) {
+            await prisma.cCAddress.delete({ where: { id: newAddress.id } });
+            return { success: false, message: claimResult.message || "Failed to link new address to field" };
+        }
+
+        await prisma.cCAddress.update({
+            where: { id: newAddress.id },
+            data: { createdFromClaimId: claimResult.claimId }
+        });
+
+        const { revalidatePath } = await import('next/cache');
+        revalidatePath(`/app/le/${clientLEId}`, 'layout');
+        return { success: true };
+
+    } catch (error: any) {
+        console.error("createCCAddressAndReferenceField error:", error);
+        return { success: false, message: error.message };
+    }
+}

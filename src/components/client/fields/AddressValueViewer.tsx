@@ -25,21 +25,30 @@ export function getCountryName(code: string | null | undefined): string {
     return COUNTRY_CODES[cleanCode] || code;
 }
 
-export function getAddressSummary(addr: AddressValue): string {
+export function getAddressSummary(addr: any): string {
     if (!addr) return "";
-    const lines = addr.addressLines || [];
+
+    let resolvedAddr = addr;
+    if (addr.ccAddressId && addr._resolvedData?.ccAddress?.data) {
+        resolvedAddr = addr._resolvedData.ccAddress.data;
+    }
+
+    const lines = resolvedAddr.addressLines || [];
     const parts = [
         ...lines,
-        addr.locality,
-        addr.region,
-        addr.postalCode,
-        addr.countryName || getCountryName(addr.countryCode) || addr.rawCountry || addr.countryCode,
+        resolvedAddr.locality,
+        resolvedAddr.region,
+        resolvedAddr.postalCode,
+        resolvedAddr.countryName || getCountryName(resolvedAddr.countryCode) || resolvedAddr.rawCountry || resolvedAddr.countryCode,
     ].filter(Boolean);
     return parts.join(", ");
 }
 
 export function isAddressValue(value: any): boolean {
     if (!value || typeof value !== "object") return false;
+    
+    if (value.ccAddressId && value._resolvedData?.ccAddress?.data) return true;
+
     // An ADDRESS value is canonical if it contains addressLines.
     // However, do not mistake it for ADDRESS_REF which uses line1, line2, etc.
     return "addressLines" in value && !("line1" in value);

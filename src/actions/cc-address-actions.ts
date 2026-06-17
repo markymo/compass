@@ -252,3 +252,44 @@ export async function deleteCCAddress(id: string, clientLEId: string) {
         throw new Error(error.message || "Failed to delete curated address");
     }
 }
+
+/**
+ * Search curated addresses for a client LE (used by UnifiedAddressPicker)
+ */
+export async function searchCCAddresses(clientLEId: string, query: string) {
+    const identity = await getIdentity();
+    if (!identity?.userId) {
+        throw new Error("Unauthorized");
+    }
+
+    try {
+        const addresses = await prisma.cCAddress.findMany({
+            where: { clientLEId },
+            orderBy: { createdAt: 'desc' }
+        });
+
+        const q = query.toLowerCase().trim();
+
+        if (!q) {
+            return addresses.map((a: any) => ({
+                id: a.id,
+                data: a.data as AddressValue
+            }));
+        }
+
+        // Filter by stringifying the payload
+        const filtered = addresses.filter((a: any) => {
+            if (!a.data) return false;
+            const dataStr = JSON.stringify(a.data).toLowerCase();
+            return dataStr.includes(q);
+        });
+
+        return filtered.map((a: any) => ({
+            id: a.id,
+            data: a.data as AddressValue
+        }));
+    } catch (error) {
+        console.error("Failed to search CC addresses:", error);
+        throw new Error("Failed to search curated addresses");
+    }
+}

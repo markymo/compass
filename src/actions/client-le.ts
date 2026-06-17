@@ -13,6 +13,7 @@ import { calculateEngagementMetrics, calculateQuestionnaireMetrics } from "@/lib
 import { generateText } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
 import { KycStateService } from "@/lib/kyc/KycStateService";
+import { enrichAddressReferences } from "@/actions/kyc-query";
 import { FieldClaimService } from "@/lib/kyc/FieldClaimService";
 import { getComplexFieldConfig } from "@/lib/master-data/complex-field-config";
 import { isRenderableActiveDirectorParty } from "@/lib/master-data/party-value";
@@ -635,10 +636,29 @@ export async function getFullMasterData(clientLEId: string) {
         const resolvePartyRef = (v: any) => {
             if (v?.ccPartyId) {
                 const party = partyMap.get(v.ccPartyId);
-                if (party?.data) return party.data;
+                if (party?.data) {
+                    // Inject _resolvedData so uniform formatting works later if needed
+                    v._resolvedData = v._resolvedData || {};
+                    v._resolvedData.ccParty = party;
+                    return party.data;
+                }
             }
             return v;
         };
+
+        // Enrich addresses into _resolvedData on the .value payload directly
+        const claimValuesFlat: any[] = [];
+        for (const val of Array.from(resolved.values())) {
+            if (!val) continue;
+            if (Array.isArray(val)) {
+                for (const c of val) {
+                    if (c.value) claimValuesFlat.push(c.value);
+                }
+            } else if (val.value) {
+                claimValuesFlat.push(val.value);
+            }
+        }
+        await enrichAddressReferences(claimValuesFlat);
 
         for (const def of allFields) {
             const val = resolved.get(def.fieldNo);
@@ -653,6 +673,7 @@ export async function getFullMasterData(clientLEId: string) {
                         filteredVal = val.filter(c => isRenderableActiveDirectorParty(c.value));
                     }
                     if (filteredVal.length > 0) {
+                        // For ccParty we unwrap to data for legacy UI logic, for Address we keep the wrapper
                         valueToSet = filteredVal.map(c => resolvePartyRef(c.value));
                         sourceToSet = filteredVal[0].isScoped ? 'USER_INPUT' : (filteredVal[0].evidenceProvider || filteredVal[0].sourceType || 'MASTER_RECORD');
                         sourceRefToSet = filteredVal[0].sourceReference ?? undefined;

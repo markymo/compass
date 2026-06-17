@@ -898,7 +898,7 @@ function QuestionCard({
                                                             </Badge>
                                                         ))}
                                                     </div>
-                                                ) : typeof question.masterDataValue === 'object' ? (
+                                                ) : typeof question.masterDataValue === 'object' && !isPartyValue(question.masterDataValue) && !isAddressValue(question.masterDataValue) && !('ccAddressId' in (question.masterDataValue as any)) && !('ccPartyId' in (question.masterDataValue as any)) ? (
                                                     <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]">
                                                         {Object.entries(question.masterDataValue).map(([fNo, val]) => (
                                                             <div key={fNo} className="flex flex-col">

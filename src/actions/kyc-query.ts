@@ -98,22 +98,6 @@ export async function resolveMasterData(
             } catch (e) {
                 console.warn(`[resolveMasterData] Group ${q.masterQuestionGroupId} not found or inactive.`);
             }
-            if (q.masterFieldProjectionPath && response[q.questionId]) {
-                const projected: Record<string, HydratedValue> = {};
-                for (const [fNo, hv] of Object.entries(response[q.questionId])) {
-                    if (hv.value !== null && hv.value !== undefined) {
-                        projected[fNo] = {
-                            ...hv,
-                            value: Array.isArray(hv.value)
-                                ? hv.value.map((v: any) => applyMasterDataProjection(v, q.masterFieldProjectionPath))
-                                : applyMasterDataProjection(hv.value, q.masterFieldProjectionPath)
-                        };
-                    } else {
-                        projected[fNo] = hv;
-                    }
-                }
-                response[q.questionId] = projected;
-            }
         }
         // B. Handle Single Field Mapping
         else if (q.masterFieldNo && subjectLeId) {
@@ -159,16 +143,49 @@ export async function resolveMasterData(
                     };
                 }
             }
-            if (q.masterFieldProjectionPath && response[q.questionId][q.masterFieldNo]) {
-                const hv = response[q.questionId][q.masterFieldNo];
+        }
+    }
+
+    const allValues: any[] = [];
+    for (const res of Object.values(response)) {
+        for (const hv of Object.values(res)) {
+            if (hv && hv.value !== null && hv.value !== undefined) {
+                allValues.push(hv.value);
+            }
+        }
+    }
+    if (allValues.length > 0) {
+        await enrichPartyReferences(allValues);
+        await enrichAddressReferences(allValues);
+    }
+
+    for (const q of questions) {
+        if (!q.masterFieldProjectionPath || !response[q.questionId]) continue;
+
+        if (q.masterQuestionGroupId) {
+            const projected: Record<string, HydratedValue> = {};
+            for (const [fNo, hv] of Object.entries(response[q.questionId])) {
                 if (hv.value !== null && hv.value !== undefined) {
-                    response[q.questionId][q.masterFieldNo] = {
+                    projected[fNo] = {
                         ...hv,
                         value: Array.isArray(hv.value)
-                            ? hv.value.map((v: any) => applyMasterDataProjection(v, q.masterFieldProjectionPath))
-                            : applyMasterDataProjection(hv.value, q.masterFieldProjectionPath)
+                            ? hv.value.map((v: any) => applyMasterDataProjection(v, q.masterFieldProjectionPath!))
+                            : applyMasterDataProjection(hv.value, q.masterFieldProjectionPath!)
                     };
+                } else {
+                    projected[fNo] = hv;
                 }
+            }
+            response[q.questionId] = projected;
+        } else if (q.masterFieldNo && response[q.questionId][q.masterFieldNo]) {
+            const hv = response[q.questionId][q.masterFieldNo];
+            if (hv.value !== null && hv.value !== undefined) {
+                response[q.questionId][q.masterFieldNo] = {
+                    ...hv,
+                    value: Array.isArray(hv.value)
+                        ? hv.value.map((v: any) => applyMasterDataProjection(v, q.masterFieldProjectionPath!))
+                        : applyMasterDataProjection(hv.value, q.masterFieldProjectionPath!)
+                };
             }
         }
     }
@@ -377,6 +394,65 @@ export async function enrichPartyReferences(values: any[]) {
     }
 }
 
+export async function enrichAddressReferences(values: any[]) {
+    const ccAddressIds = new Set<string>();
+
+    for (const v of values) {
+        if (!v) continue;
+        if (Array.isArray(v)) {
+            for (const item of v) {
+                if (item && typeof item === 'object' && item.ccAddressId) {
+                    ccAddressIds.add(item.ccAddressId);
+                }
+            }
+        } else if (typeof v === 'object' && v.ccAddressId) {
+            ccAddressIds.add(v.ccAddressId);
+        }
+    }
+
+    if (ccAddressIds.size === 0) return;
+
+    const addresses = await prisma.cCAddress.findMany({
+        where: { id: { in: Array.from(ccAddressIds) } }
+    });
+    const addressMap = new Map(addresses.map((a: any) => [a.id, a]));
+
+    const getSummary = (data: any) => {
+        if (!data) return "";
+        const parts = [
+            ...(data.addressLines || []),
+            data.locality,
+            data.region,
+            data.postalCode,
+            data.countryName || data.countryCode
+        ].filter(Boolean);
+        return parts.join(", ");
+    };
+
+    for (const v of values) {
+        if (!v) continue;
+        if (Array.isArray(v)) {
+            for (const item of v) {
+                if (item && typeof item === 'object' && item.ccAddressId) {
+                    const address = addressMap.get(item.ccAddressId);
+                    if (address) {
+                        item._resolvedData = item._resolvedData || {};
+                        item._resolvedData.ccAddress = address;
+                        item.resolvedSummary = getSummary((address as any).data);
+                    }
+                }
+            }
+        } else if (typeof v === 'object' && v.ccAddressId) {
+            const address = addressMap.get(v.ccAddressId);
+            if (address) {
+                v._resolvedData = v._resolvedData || {};
+                v._resolvedData.ccAddress = address;
+                v.resolvedSummary = getSummary((address as any).data);
+            }
+        }
+    }
+}
+
 /**
  * Batch/in-memory implementation of resolveMasterData.
  *
@@ -394,7 +470,7 @@ export async function resolveMasterDataBatch(input: BatchResolverInput): Promise
 
     const response: ResolverResponse = {};
 
-    // Pre-resolve each unique group key exactly once
+    // Phase 1: Pre-resolve each unique group key and individual fields
     const resolvedGroups = new Map<string, Record<string, HydratedValue>>();
     const uniqueGroupKeys = new Set(
         questions.map(q => q.masterQuestionGroupId).filter(Boolean) as string[]
@@ -410,12 +486,45 @@ export async function resolveMasterDataBatch(input: BatchResolverInput): Promise
         resolvedGroups.set(groupKey, groupResult);
     }
 
-    // Resolve each question
+    const resolvedFields = new Map<number, Record<string, HydratedValue>>();
+    for (const q of questions) {
+        if (q.masterFieldNo && !q.masterQuestionGroupId) {
+            if (!resolvedFields.has(q.masterFieldNo)) {
+                const def = fieldDefMap.get(q.masterFieldNo);
+                if (def) {
+                    resolvedFields.set(q.masterFieldNo, resolveField(q.masterFieldNo, def.isMultiValue, claims, ownerScopeId, sourceMappings));
+                }
+            }
+        }
+    }
+
+    // Phase 2: Bulk-enrich PARTY_REF and ADDRESS_REF before any projection is applied
+    const allValues: any[] = [];
+    for (const res of resolvedGroups.values()) {
+        for (const hv of Object.values(res)) {
+            if (hv && hv.value !== null && hv.value !== undefined) {
+                allValues.push(hv.value);
+            }
+        }
+    }
+    for (const res of resolvedFields.values()) {
+        for (const hv of Object.values(res)) {
+            if (hv && hv.value !== null && hv.value !== undefined) {
+                allValues.push(hv.value);
+            }
+        }
+    }
+
+    if (allValues.length > 0) {
+        await enrichPartyReferences(allValues);
+        await enrichAddressReferences(allValues);
+    }
+
+    // Phase 3: Build response and apply projection
     for (const q of questions) {
         response[q.questionId] = {};
 
         if (q.masterQuestionGroupId) {
-            // Group — use pre-resolved result (O(1) lookup)
             const resolved = resolvedGroups.get(q.masterQuestionGroupId) ?? {};
             
             if (q.masterFieldProjectionPath) {
@@ -438,14 +547,16 @@ export async function resolveMasterDataBatch(input: BatchResolverInput): Promise
             }
 
         } else if (q.masterFieldNo) {
-            const def = fieldDefMap.get(q.masterFieldNo);
-            if (!def) continue;
+            const resolved = resolvedFields.get(q.masterFieldNo);
+            if (!resolved) continue;
             
-            const resolved = resolveField(q.masterFieldNo, def.isMultiValue, claims, ownerScopeId, sourceMappings);
+            // Deep copy resolved so projection for one question doesn't mutate another question's base value
+            const resolvedCopy = { ...resolved };
+            
             if (q.masterFieldProjectionPath) {
-                const hv = resolved[q.masterFieldNo];
+                const hv = resolvedCopy[q.masterFieldNo];
                 if (hv && hv.value !== null && hv.value !== undefined) {
-                    resolved[q.masterFieldNo] = {
+                    resolvedCopy[q.masterFieldNo] = {
                         ...hv,
                         value: Array.isArray(hv.value)
                             ? hv.value.map((v: any) => applyMasterDataProjection(v, q.masterFieldProjectionPath))
@@ -456,24 +567,10 @@ export async function resolveMasterDataBatch(input: BatchResolverInput): Promise
             
             Object.assign(
                 response[q.questionId],
-                resolved
+                resolvedCopy
             );
         }
         // else: unmapped — leave as empty object {}
-    }
-
-    // Phase: Bulk-resolve PARTY_REF values across all populated answers
-    const allValues: any[] = [];
-    for (const qId of Object.keys(response)) {
-        for (const fieldNo of Object.keys(response[qId])) {
-            const hv = response[qId][fieldNo];
-            if (hv && hv.value !== null && hv.value !== undefined) {
-                allValues.push(hv.value);
-            }
-        }
-    }
-    if (allValues.length > 0) {
-        await enrichPartyReferences(allValues);
     }
 
     return response;
@@ -905,6 +1002,47 @@ export async function getFieldDetail(
                     }
                 }
             }
+
+            // Phase 3C: Bulk-resolve CC_ADDRESS_REF values for display
+            if (rows && rows.length > 0) {
+                const ccAddressIds = Array.from(new Set(rows.map(r => r.value?.ccAddressId).filter(Boolean)));
+                if (ccAddressIds.length > 0) {
+                    const addresses = await prisma.cCAddress.findMany({
+                        where: { id: { in: ccAddressIds as string[] } }
+                    });
+                    const addressMap = new Map(addresses.map((a: any) => [a.id, a]));
+                    
+                    const getSummary = (data: any) => {
+                        if (!data) return "";
+                        const parts = [
+                            ...(data.addressLines || []),
+                            data.locality,
+                            data.region,
+                            data.postalCode,
+                            data.countryName || data.countryCode
+                        ].filter(Boolean);
+                        return parts.join(", ");
+                    };
+
+                    for (const r of rows) {
+                        if (r.value?.ccAddressId) {
+                            const address = addressMap.get(r.value.ccAddressId);
+                            if (address) {
+                                r.data = {
+                                    ...r.data,
+                                    _resolvedData: {
+                                        ...(r.data?._resolvedData || {}),
+                                        ccAddress: address
+                                    },
+                                    resolvedSummary: getSummary((address as any).data)
+                                };
+                            } else {
+                                r.data = { ...r.data, isDeleted: true };
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -1136,6 +1274,60 @@ export async function getFieldDetail(
                         };
                     } else {
                         return { ...val, _resolvedData: { isDeleted: true } };
+                    }
+                }
+                return val;
+            };
+
+            if (Array.isArray(result.current.value)) {
+                result.current.value = result.current.value.map(enrichValue);
+            } else {
+                result.current.value = enrichValue(result.current.value);
+            }
+        }
+    }
+
+    // Phase 3C: Bulk-resolve CC_ADDRESS_REF for `current.value`
+    if (result.current?.value) {
+        let ccAddressIds: string[] = [];
+        if (Array.isArray(result.current.value)) {
+            ccAddressIds = result.current.value.map((v: any) => v?.ccAddressId).filter(Boolean);
+        } else if (result.current.value?.ccAddressId) {
+            ccAddressIds = [result.current.value.ccAddressId];
+        }
+
+        if (ccAddressIds.length > 0) {
+            const addresses = await prisma.cCAddress.findMany({
+                where: { id: { in: ccAddressIds } }
+            });
+            const addressMap = new Map(addresses.map((a: any) => [a.id, a]));
+            
+            const getSummary = (data: any) => {
+                if (!data) return "";
+                const parts = [
+                    ...(data.addressLines || []),
+                    data.locality,
+                    data.region,
+                    data.postalCode,
+                    data.countryName || data.countryCode
+                ].filter(Boolean);
+                return parts.join(", ");
+            };
+
+            const enrichValue = (val: any) => {
+                if (val?.ccAddressId) {
+                    const address = addressMap.get(val.ccAddressId);
+                    if (address) {
+                        return {
+                            ...val,
+                            _resolvedData: {
+                                ...(val._resolvedData || {}),
+                                ccAddress: address
+                            },
+                            resolvedSummary: getSummary((address as any).data)
+                        };
+                    } else {
+                        return { ...val, _resolvedData: { ...(val._resolvedData || {}), isDeleted: true } };
                     }
                 }
                 return val;
