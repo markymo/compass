@@ -1,6 +1,7 @@
 "use client";
 
 import { isPartyValue, getPartySummary } from "@/lib/master-data/party-value";
+import { isAddressValue, getAddressSummary } from "@/components/client/fields/AddressValueViewer";
 
 import { useState, useMemo, useTransition } from "react";
 import { Workbench4Data, mapQuestionToField, getAIFieldNameSuggestion } from "@/actions/kyc-workbench";
@@ -94,6 +95,7 @@ export function formatPartyLabel(item: unknown): string {
 
         if (obj.resolvedSummary)                               return String(obj.resolvedSummary);
         if (isPartyValue(obj))                                 return getPartySummary(obj);
+        if (isAddressValue(obj))                               return getAddressSummary(obj as any);
 
         // Prefer explicit full name fields
         if (obj.fullName)                                      return String(obj.fullName);
