@@ -27,7 +27,9 @@ describe('TO_ADDRESS_VALUE transform', () => {
             locality: 'London',
             region: null,
             postalCode: 'SW1A 1AA',
-            countryCode: 'United Kingdom'
+            countryCode: 'GB',
+            countryName: 'United Kingdom',
+            rawCountry: 'United Kingdom'
         });
         expect(result.confidencePenalty).toBe(0);
     });
@@ -56,7 +58,9 @@ describe('TO_ADDRESS_VALUE transform', () => {
             locality: 'New York',
             region: 'NY',
             postalCode: '10001',
-            countryCode: 'US'
+            countryCode: 'US',
+            countryName: 'United States',
+            rawCountry: 'US'
         });
         expect(result.confidencePenalty).toBe(0);
     });
@@ -87,7 +91,9 @@ describe('TO_ADDRESS_VALUE transform', () => {
             locality: 'Paris',
             region: null,
             postalCode: '75002',
-            countryCode: 'FR'
+            countryCode: 'FR',
+            countryName: 'France',
+            rawCountry: 'FR'
         });
         expect(result.confidencePenalty).toBe(0);
     });

@@ -1,9 +1,15 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AddressValue } from "./AddressValueViewer";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Check, ChevronsUpDown } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { COUNTRY_CODES } from "@/lib/master-data/countries";
 
 interface AddressValueEditorProps {
     value: AddressValue | null | undefined;
@@ -14,6 +20,7 @@ interface AddressValueEditorProps {
 export function AddressValueEditor({ value, onChange, disabled }: AddressValueEditorProps) {
     const addr = value || {};
     const lines = addr.addressLines || [];
+    const [countryOpen, setCountryOpen] = useState(false);
 
     const handleLineChange = (index: number, newText: string) => {
         const newLines = [...lines];
@@ -96,16 +103,45 @@ export function AddressValueEditor({ value, onChange, disabled }: AddressValueEd
                         className="bg-white h-8 text-sm uppercase"
                     />
                 </div>
-                <div className="space-y-1.5">
-                    <Label className="text-[10px] text-slate-500 uppercase font-semibold tracking-wider">Country Code (ISO)</Label>
-                    <Input
-                        value={addr.countryCode || ""}
-                        onChange={(e) => handleChange("countryCode", e.target.value)}
-                        disabled={disabled}
-                        placeholder="e.g. GB, US"
-                        maxLength={2}
-                        className="bg-white h-8 text-sm uppercase"
-                    />
+                <div className="space-y-1.5 flex flex-col">
+                    <Label className="text-[10px] text-slate-500 uppercase font-semibold tracking-wider">Country</Label>
+                    <Popover open={countryOpen} onOpenChange={setCountryOpen}>
+                        <PopoverTrigger asChild>
+                            <Button
+                                variant="outline"
+                                role="combobox"
+                                aria-expanded={countryOpen}
+                                disabled={disabled}
+                                className={cn("w-full justify-between bg-white text-left font-normal h-8 text-sm px-3", !addr.countryCode && "text-slate-500")}
+                            >
+                                {addr.countryName || (addr.countryCode ? COUNTRY_CODES[addr.countryCode.toUpperCase()] || addr.countryCode : "Select country...")}
+                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[300px] p-0" align="start">
+                            <Command>
+                                <CommandInput placeholder="Search country..." />
+                                <CommandList>
+                                    <CommandEmpty>No country found.</CommandEmpty>
+                                    <CommandGroup>
+                                        {Object.entries(COUNTRY_CODES).map(([code, name]) => (
+                                            <CommandItem
+                                                key={code}
+                                                value={name} // CommandItem matches by value
+                                                onSelect={() => {
+                                                    onChange({ ...addr, countryCode: code, countryName: name, rawCountry: null });
+                                                    setCountryOpen(false);
+                                                }}
+                                            >
+                                                <Check className={cn("mr-2 h-4 w-4", addr.countryCode?.toUpperCase() === code ? "opacity-100" : "opacity-0")} />
+                                                {name}
+                                            </CommandItem>
+                                        ))}
+                                    </CommandGroup>
+                                </CommandList>
+                            </Command>
+                        </PopoverContent>
+                    </Popover>
                 </div>
             </div>
         </div>
