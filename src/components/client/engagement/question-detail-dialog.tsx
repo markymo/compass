@@ -23,6 +23,7 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { upload } from "@vercel/blob/client";
+import { isPartyValue, getPartySummary } from "@/lib/master-data/party-value";
 
 interface QuestionDetailDialogProps {
     open: boolean;
@@ -415,20 +416,45 @@ export function QuestionDetailDialog({ open, onOpenChange, task, clientLEId }: Q
                                                                 <div className="text-sm font-medium text-slate-900">
                                                                     {Array.isArray(fieldData.current.value) ? (
                                                                         <div className="flex flex-wrap gap-1 mt-1">
-                                                                            {fieldData.current.value.map((v: any, idx: number) => (
-                                                                                <Badge key={idx} variant="outline" className="bg-white border-slate-300 text-slate-800 py-0.5 px-2 text-xs">
-                                                                                    {String(v)}
-                                                                                </Badge>
-                                                                            ))}
+                                                                            {fieldData.current.value.map((v: any, idx: number) => {
+                                                                                let displayString = "";
+                                                                                if (typeof v === "object" && v !== null) {
+                                                                                    if (v.resolvedSummary) {
+                                                                                        displayString = v.resolvedSummary;
+                                                                                    } else if (isPartyValue(v)) {
+                                                                                        displayString = getPartySummary(v);
+                                                                                    } else {
+                                                                                        displayString = JSON.stringify(v);
+                                                                                    }
+                                                                                } else {
+                                                                                    displayString = String(v);
+                                                                                }
+
+                                                                                return (
+                                                                                    <Badge key={idx} variant="outline" className="bg-white border-slate-300 text-slate-800 py-0.5 px-2 text-xs">
+                                                                                        {displayString}
+                                                                                    </Badge>
+                                                                                );
+                                                                            })}
                                                                         </div>
                                                                     ) : typeof fieldData.current.value === "object" ? (
                                                                         <div className="flex flex-col gap-1 mt-1">
-                                                                            {Object.entries(fieldData.current.value).map(([key, val]) => (
-                                                                                <div key={key} className="text-xs bg-slate-100 text-slate-800 py-1 px-2 rounded-md">
-                                                                                    <span className="font-semibold text-slate-500 mr-2">{key}:</span>
-                                                                                    {String(val)}
+                                                                            {(fieldData.current.value as any).resolvedSummary ? (
+                                                                                <div className="text-xs bg-slate-100 text-slate-800 py-1 px-2 rounded-md">
+                                                                                    {(fieldData.current.value as any).resolvedSummary}
                                                                                 </div>
-                                                                            ))}
+                                                                            ) : isPartyValue(fieldData.current.value) ? (
+                                                                                <div className="text-xs bg-slate-100 text-slate-800 py-1 px-2 rounded-md">
+                                                                                    {getPartySummary(fieldData.current.value)}
+                                                                                </div>
+                                                                            ) : (
+                                                                                Object.entries(fieldData.current.value).map(([key, val]) => (
+                                                                                    <div key={key} className="text-xs bg-slate-100 text-slate-800 py-1 px-2 rounded-md">
+                                                                                        <span className="font-semibold text-slate-500 mr-2">{key}:</span>
+                                                                                        {String(val)}
+                                                                                    </div>
+                                                                                ))
+                                                                            )}
                                                                         </div>
                                                                     ) : (
                                                                         String(fieldData.current.value)

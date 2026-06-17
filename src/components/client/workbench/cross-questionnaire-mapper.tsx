@@ -1,5 +1,7 @@
 "use client";
 
+import { isPartyValue, getPartySummary } from "@/lib/master-data/party-value";
+
 import { useState, useMemo, useTransition } from "react";
 import { Workbench4Data, mapQuestionToField, getAIFieldNameSuggestion } from "@/actions/kyc-workbench";
 import { ConsoleQuestion } from "@/actions/kyc-query";
@@ -89,6 +91,10 @@ export function formatPartyLabel(item: unknown): string {
     if (parsedItem instanceof Date) return parsedItem.toLocaleDateString();
     if (typeof parsedItem === 'object' && parsedItem !== null) {
         const obj = parsedItem as Record<string, any>;
+
+        if (obj.resolvedSummary)                               return String(obj.resolvedSummary);
+        if (isPartyValue(obj))                                 return getPartySummary(obj);
+
         // Prefer explicit full name fields
         if (obj.fullName)                                      return String(obj.fullName);
         if (obj.firstName || obj.lastName)                     return `${obj.firstName ?? ''} ${obj.lastName ?? ''}`.trim();
@@ -626,6 +632,7 @@ function QuestionCard({
 }) {
     const isMapped = !!(question.masterFieldNo || question.masterQuestionGroupId || (question as any).customFieldDefinitionId);
     const isGroupAnswer = !!(question.masterQuestionGroupId && (question as any).masterDataGroupFields?.length > 0);
+    const isComplexValue = typeof question.masterDataValue === 'object' && question.masterDataValue !== null;
     const [isEditing, setIsEditing] = useState(false);
     const [editValue, setEditValue] = useState("");
     const [isSaving, setIsSaving] = useState(false);
@@ -921,8 +928,37 @@ function QuestionCard({
                                                         <ExternalLink className="h-3.5 w-3.5" />
                                                     </a>
                                                 </>
+                                            ) : isComplexValue ? (
+                                                /* Complex values: prevent inline edit -> Master Data tab */
+                                                <>
+                                                    <button
+                                                        disabled
+                                                        title="Complex mapped answers must be edited in Master Data"
+                                                        className="p-1 rounded text-slate-200 cursor-not-allowed"
+                                                    >
+                                                        <Pencil className="h-3.5 w-3.5" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => {
+                                                            const fNo = question.masterFieldNo || 0;
+                                                            const customId = (question as any).customFieldDefinitionId;
+                                                            onInspect(fNo, question.text, customId);
+                                                        }}
+                                                        title="View history & details"
+                                                        className="p-1 rounded text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+                                                    >
+                                                        <PanelLeftOpen className="h-3.5 w-3.5" />
+                                                    </button>
+                                                    <a
+                                                        href={`/app/le/${leId}/master`}
+                                                        title="Complex mapped answers must be edited in Master Data"
+                                                        className="p-1 rounded text-slate-300 hover:text-indigo-500 hover:bg-indigo-50 transition-colors"
+                                                    >
+                                                        <ExternalLink className="h-3.5 w-3.5" />
+                                                    </a>
+                                                </>
                                             ) : (
-                                                /* Single-field answers: existing behaviour unchanged */
+                                                /* Single-field scalar answers: existing behaviour unchanged */
                                                 <>
                                                     <button
                                                         onClick={handleStartEdit}
