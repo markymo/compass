@@ -49,14 +49,40 @@ export function SuperFieldSelector({
     const [aiSuggestions, setAiSuggestions] = useState<Array<{ id: string; confidence: number; reasoning: string }>>([]);
 
     // 1. Prepare Local Options
-    const masterOptions = useMemo(() => masterFields.map((f: any) => ({
-        value: `master:${f.fieldNo}`,
-        label: f.label,
-        type: 'master' as const,
-        meta: `Standard Field ${f.fieldNo}`,
-        dataType: f.dataType,
-        currentValue: f.currentValue
-    })), [masterFields]);
+    const masterOptions = useMemo(() => {
+        const options: any[] = [];
+        masterFields.forEach((f: any) => {
+            options.push({
+                value: `master:${f.fieldNo}`,
+                label: f.label,
+                type: 'master',
+                meta: `Standard Field ${f.fieldNo}`,
+                dataType: f.dataType,
+                currentValue: f.currentValue
+            });
+            if (f.dataType === 'ADDRESS') {
+                const projections = [
+                    { path: 'locality', label: 'Locality' },
+                    { path: 'region', label: 'Region' },
+                    { path: 'postalCode', label: 'Postal Code' },
+                    { path: 'countryCode', label: 'Country Code' },
+                    { path: 'addressLines[0]', label: 'Address Line 1' },
+                    { path: 'addressLines[1]', label: 'Address Line 2' },
+                ];
+                projections.forEach(proj => {
+                    options.push({
+                        value: `master:${f.fieldNo}:${proj.path}`,
+                        label: `${f.label} · ${proj.label}`,
+                        type: 'master',
+                        meta: `Standard Field ${f.fieldNo} Projection`,
+                        dataType: 'STRING',
+                        currentValue: null // Keep null to keep UI simple
+                    });
+                });
+            }
+        });
+        return options;
+    }, [masterFields]);
 
     const groupOptions = useMemo(() => masterGroups.map((g: any) => ({
         value: `group:${g.key}`,
@@ -237,7 +263,11 @@ export function SuperFieldSelector({
                                     {filteredOptions.filter((o: any) => o.type === 'group').map((o: any) => (
                                         <CommandItem
                                             key={o.value}
-                                            onSelect={() => { onSelect(o.value.split(':')[1], 'group'); setOpen(false); }}
+                                            onSelect={() => { 
+                                                const val = o.value.substring(o.value.indexOf(':') + 1);
+                                                onSelect(val, 'group'); 
+                                                setOpen(false); 
+                                            }}
                                             className="flex flex-col items-start gap-1 py-2 cursor-pointer"
                                         >
                                             <div className="flex items-center w-full gap-2">
@@ -255,7 +285,11 @@ export function SuperFieldSelector({
                                     {filteredOptions.filter((o: any) => o.type === 'master').map((o: any) => (
                                         <CommandItem
                                             key={o.value}
-                                            onSelect={() => { onSelect(o.value.split(':')[1], 'master'); setOpen(false); }}
+                                            onSelect={() => { 
+                                                const val = o.value.substring(o.value.indexOf(':') + 1);
+                                                onSelect(val, 'master'); 
+                                                setOpen(false); 
+                                            }}
                                             className="flex flex-col items-start gap-1 py-2 cursor-pointer"
                                         >
                                             <div className="flex items-center w-full gap-2">
@@ -280,7 +314,11 @@ export function SuperFieldSelector({
                                     {filteredOptions.filter((o: any) => o.type === 'custom').map((o: any) => (
                                         <CommandItem
                                             key={o.value}
-                                            onSelect={() => { onSelect(o.value.split(':')[1], 'custom'); setOpen(false); }}
+                                            onSelect={() => { 
+                                                const val = o.value.substring(o.value.indexOf(':') + 1);
+                                                onSelect(val, 'custom'); 
+                                                setOpen(false); 
+                                            }}
                                             className="flex flex-col items-start gap-1 py-2 cursor-pointer"
                                         >
                                             <div className="flex items-center w-full gap-2">

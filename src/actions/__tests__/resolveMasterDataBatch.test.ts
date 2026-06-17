@@ -448,4 +448,116 @@ describe('resolveMasterDataBatch', () => {
         expect(result['q14']['3'].sourceReference).toBeDefined();
     });
 
+    // ── T15: Scalar field projection ──────────────────────────────────────────
+
+    it('T15: Scalar field projection extracts specific property and inherits provenance', async () => {
+        const claim = makeClaim({
+            id: 'c-t15', fieldNo: 3,
+            sourceType: 'REGISTRATION_AUTHORITY', sourceReference: 'RA000585',
+            valueJson: { locality: 'London', region: 'Greater London' },
+            assertedAt: new Date('2026-02-01T00:00:00Z'),
+        });
+        const input: BatchResolverInput = {
+            subjectLeId: SUBJECT_LE_ID,
+            ownerScopeId: null,
+            questions: [{ questionId: 'q15', masterFieldNo: 3, masterFieldProjectionPath: 'locality' }],
+            fieldDefMap: new Map([[3, { ...makeDef(3), appDataType: 'ADDRESS' }]]),
+            groupFieldMap: new Map(),
+            claims: [claim],
+            sourceMappings: [makeMapping(3, 'REGISTRATION_AUTHORITY', 'RA000585', 20)],
+        };
+
+        const result = await resolveMasterDataBatch(input);
+
+        expect(result['q15']['3'].value).toBe('London'); // Extracted 'locality'
+        expect(result['q15']['3'].source).toBe('REGISTRATION_AUTHORITY');
+        expect(result['q15']['3'].sourceReference).toBe('RA000585');
+        expect(result['q15']['3'].isSynced).toBe(true);
+        expect(result['q15']['3'].updatedAt).toEqual(new Date('2026-02-01T00:00:00Z'));
+    });
+
+    // ── T16: Array field projection (indexed) ───────────────────────────────
+
+    it('T16: Array field projection extracts indexed property', async () => {
+        const claim = makeClaim({
+            id: 'c-t16', fieldNo: 3,
+            sourceType: 'GLEIF', sourceReference: null,
+            valueJson: { addressLines: ['Line 1', 'Line 2'] },
+        });
+        const input: BatchResolverInput = {
+            subjectLeId: SUBJECT_LE_ID,
+            ownerScopeId: null,
+            questions: [{ questionId: 'q16', masterFieldNo: 3, masterFieldProjectionPath: 'addressLines[1]' }],
+            fieldDefMap: new Map([[3, { ...makeDef(3), appDataType: 'ADDRESS' }]]),
+            groupFieldMap: new Map(),
+            claims: [claim],
+            sourceMappings: [makeMapping(3, 'GLEIF', null, 10)],
+        };
+
+        const result = await resolveMasterDataBatch(input);
+
+        expect(result['q16']['3'].value).toBe('Line 2');
+    });
+
+    // ── T17: Missing path returns null ──────────────────────────────────────
+
+    it('T17: Missing projection path on resolved value returns null', async () => {
+        const claim = makeClaim({
+            id: 'c-t17', fieldNo: 3,
+            sourceType: 'USER_INPUT',
+            valueJson: { locality: 'London' }, // Missing 'region'
+        });
+        const input: BatchResolverInput = {
+            subjectLeId: SUBJECT_LE_ID,
+            ownerScopeId: null,
+            questions: [{ questionId: 'q17', masterFieldNo: 3, masterFieldProjectionPath: 'region' }],
+            fieldDefMap: new Map([[3, { ...makeDef(3), appDataType: 'ADDRESS' }]]),
+            groupFieldMap: new Map(),
+            claims: [claim],
+            sourceMappings: [makeMapping(3, 'USER_INPUT', null, 30)],
+        };
+
+        const result = await resolveMasterDataBatch(input);
+
+        expect(result['q17']['3'].value).toBeNull();
+        expect(result['q17']['3'].isSynced).toBe(true); // Still "synced" with the master record, just empty property
+    });
+
+    // ── T18: Deep nesting and combinations ─────────────────────────────────
+
+    it('T18: Deep paths with dot notation and array index combinations', async () => {
+        const claim = makeClaim({
+            id: 'c-t18', fieldNo: 3,
+            sourceType: 'USER_INPUT',
+            valueJson: { 
+                address: { locality: 'London', country: { code: 'UK' } },
+                addresses: [{ postalCode: '123' }],
+                dateOfBirth: { year: 1990 }
+            },
+        });
+        
+        // Define common input payload
+        const makeInput = (path: string): BatchResolverInput => ({
+            subjectLeId: SUBJECT_LE_ID,
+            ownerScopeId: null,
+            questions: [{ questionId: 'q18', masterFieldNo: 3, masterFieldProjectionPath: path }],
+            fieldDefMap: new Map([[3, { ...makeDef(3), appDataType: 'JSON' }]]),
+            groupFieldMap: new Map(),
+            claims: [claim],
+            sourceMappings: [makeMapping(3, 'USER_INPUT', null, 30)],
+        });
+
+        const r1 = await resolveMasterDataBatch(makeInput('address.locality'));
+        expect(r1['q18']['3'].value).toBe('London');
+
+        const r2 = await resolveMasterDataBatch(makeInput('address.country.code'));
+        expect(r2['q18']['3'].value).toBe('UK');
+
+        const r3 = await resolveMasterDataBatch(makeInput('addresses[0].postalCode'));
+        expect(r3['q18']['3'].value).toBe('123');
+
+        const r4 = await resolveMasterDataBatch(makeInput('dateOfBirth.year'));
+        expect(r4['q18']['3'].value).toBe(1990);
+    });
+
 });

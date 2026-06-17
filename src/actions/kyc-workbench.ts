@@ -272,7 +272,7 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
 export async function mapQuestionToField(
     leId: string,
     questionId: string,
-    mapping: { fieldNo?: number | null; customFieldId?: string | null; groupId?: string | null }
+    mapping: { fieldNo?: number | null; customFieldId?: string | null; groupId?: string | null; projectionPath?: string | null }
 ) {
     try { await ensureQuestionNotReferenceSnapshot(questionId); } catch(e: any) { return { success: false, error: e.message }; }
     try {
@@ -283,6 +283,7 @@ export async function mapQuestionToField(
             data: {
                 masterFieldNo: mapping.fieldNo ?? null,
                 masterQuestionGroupId: mapping.groupId ?? null,
+                masterFieldProjectionPath: mapping.projectionPath ?? null,
                 customFieldDefinitionId: mapping.customFieldId ?? null,
                 status: targetStatus,
                 approvedAt: null,
@@ -318,7 +319,8 @@ export async function mapQuestionToField(
             const resolved = await resolveMasterData(leId, [{
                 questionId,
                 masterFieldNo: mapping.fieldNo,
-                masterQuestionGroupId: mapping.groupId
+                masterQuestionGroupId: mapping.groupId,
+                masterFieldProjectionPath: mapping.projectionPath
             }]);
             if (resolved[questionId]) {
                 if (mapping.groupId) {

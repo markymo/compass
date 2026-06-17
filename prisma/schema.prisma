@@ -378,6 +378,7 @@ model Question {
   supplierNote                String?
   supplierNoteUpdatedAt       DateTime?
   supplierNoteUpdatedByUserId String?
+  masterFieldProjectionPath   String?
   comments                    Comment[]
   prefilledDocuments          Document[]             @relation("PrefilledQuestionDocuments")
   documents                   Document[]             @relation("QuestionDocuments")
