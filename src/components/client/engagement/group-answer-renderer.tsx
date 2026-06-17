@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { ChevronDown, ChevronUp, Database, Eye, EyeOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { resolveSourceLabel, RaNameLookup } from "@/lib/kyc/source-label";
+import { isPartyValue, getPartySummary } from "@/lib/master-data/party-value";
 import type { HydratedValue } from "@/actions/kyc-query";
 
 // ── Public API ────────────────────────────────────────────────────────────────

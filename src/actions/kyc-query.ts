@@ -291,6 +291,61 @@ function resolveField(
 }
 
 /**
+ * Shared helper to batch-resolve { ccPartyId } objects within generic values arrays.
+ * Mutates the objects in-place to attach `resolvedSummary` and `ccParty` payload,
+ * ensuring generic renderers can display the CCParty name cleanly.
+ */
+export async function enrichPartyReferences(values: any[]) {
+    const ccPartyIds = new Set<string>();
+
+    // 1. Scan for IDs
+    for (const v of values) {
+        if (!v) continue;
+        if (Array.isArray(v)) {
+            for (const item of v) {
+                if (item && typeof item === 'object' && item.ccPartyId) {
+                    ccPartyIds.add(item.ccPartyId);
+                }
+            }
+        } else if (typeof v === 'object' && v.ccPartyId) {
+            ccPartyIds.add(v.ccPartyId);
+        }
+    }
+
+    if (ccPartyIds.size === 0) return;
+
+    // 2. Fetch parties
+    const parties = await prisma.cCParty.findMany({
+        where: { id: { in: Array.from(ccPartyIds) } }
+    });
+    const partyMap = new Map(parties.map((p: any) => [p.id, p]));
+
+    // 3. Mutate original objects
+    for (const v of values) {
+        if (!v) continue;
+        if (Array.isArray(v)) {
+            for (const item of v) {
+                if (item && typeof item === 'object' && item.ccPartyId) {
+                    const party = partyMap.get(item.ccPartyId);
+                    if (party) {
+                        item.ccParty = party;
+                        item.resolvedSummary = getPartySummary((party as any).data);
+                        item.resolvedType = (party as any).data?.partySubType || (party as any).data?.partyType;
+                    }
+                }
+            }
+        } else if (typeof v === 'object' && v.ccPartyId) {
+            const party = partyMap.get(v.ccPartyId);
+            if (party) {
+                v.ccParty = party;
+                v.resolvedSummary = getPartySummary((party as any).data);
+                v.resolvedType = (party as any).data?.partySubType || (party as any).data?.partyType;
+            }
+        }
+    }
+}
+
+/**
  * Batch/in-memory implementation of resolveMasterData.
  *
  * Issues 0 DB queries. The caller must pre-load:
@@ -340,6 +395,20 @@ export async function resolveMasterDataBatch(input: BatchResolverInput): Promise
             );
         }
         // else: unmapped — leave as empty object {}
+    }
+
+    // Phase: Bulk-resolve PARTY_REF values across all populated answers
+    const allValues: any[] = [];
+    for (const qId of Object.keys(response)) {
+        for (const fieldNo of Object.keys(response[qId])) {
+            const hv = response[qId][fieldNo];
+            if (hv && hv.value !== null && hv.value !== undefined) {
+                allValues.push(hv.value);
+            }
+        }
+    }
+    if (allValues.length > 0) {
+        await enrichPartyReferences(allValues);
     }
 
     return response;
