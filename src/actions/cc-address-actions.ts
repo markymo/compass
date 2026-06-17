@@ -3,7 +3,7 @@
 import { getIdentity } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
-import { AddressValue, isAddressValue } from "@/components/client/fields/AddressValueViewer";
+import { AddressValue, isAddressValue } from "@/lib/master-data/address-value";
 import { revalidatePath } from "next/cache";
 import { getMasterFieldDefinition } from "@/services/masterData/definitionService";
 
@@ -75,20 +75,18 @@ export async function getCCAddresses(clientLEId: string) {
                         originSourceLabel: formatSourceLabel(claim.sourceType),
                         originClaimId: claimId
                     };
-                } else {
                     originMetadata = {
                         originType: "PROMOTED",
-                        originLabel: `Promoted from Field ${claim.fieldNo} — ${fieldName}`,
+                        originLabel: `Saved for reuse from Field ${claim.fieldNo} — ${fieldName}`,
                         originFieldNo: claim.fieldNo,
                         originFieldName: fieldName,
                         originSourceLabel: formatSourceLabel(claim.sourceType),
                         originClaimId: claimId
                     };
                 }
-            } else if (claimId && !claim) {
                 originMetadata = {
                     originType: "PROMOTED",
-                    originLabel: "Promoted from a deleted claim",
+                    originLabel: "Saved for reuse from a deleted claim",
                     originClaimId: claimId
                 };
             } else {
@@ -107,7 +105,7 @@ export async function getCCAddresses(clientLEId: string) {
         });
     } catch (error) {
         console.error("Failed to fetch CC addresses:", error);
-        throw new Error("Failed to fetch curated addresses");
+        throw new Error("Failed to fetch saved addresses");
     }
 }
 
@@ -150,7 +148,7 @@ export async function upsertCCAddress(params: {
             });
         }
 
-        revalidatePath(`/app/le/${params.clientLEId}/ccc`);
+        revalidatePath(`/app/le/${params.clientLEId}/sources/ccc`);
         return {
             success: true,
             address: {
@@ -160,7 +158,7 @@ export async function upsertCCAddress(params: {
         };
     } catch (error) {
         console.error("Failed to upsert CC address:", error);
-        throw new Error("Failed to save curated address");
+        throw new Error("Failed to save saved address");
     }
 }
 
@@ -213,7 +211,7 @@ export async function getCCAddressUsage(clientLEId: string) {
         return usageMap;
     } catch (error) {
         console.error("Failed to fetch CC address usage:", error);
-        throw new Error("Failed to fetch curated address usage");
+        throw new Error("Failed to fetch saved address usage");
     }
 }
 
@@ -238,18 +236,18 @@ export async function deleteCCAddress(id: string, clientLEId: string) {
         });
 
         if (isUsed) {
-            throw new Error("This curated address is used by one or more fields. Remove those references before deleting.");
+            throw new Error("This saved address is used by one or more fields. Remove those references before deleting.");
         }
 
         await prisma.cCAddress.delete({
             where: { id }
         });
 
-        revalidatePath(`/app/le/${clientLEId}/ccc`);
+        revalidatePath(`/app/le/${clientLEId}/sources/ccc`);
         return { success: true };
     } catch (error: any) {
         console.error("Failed to delete CC address:", error);
-        throw new Error(error.message || "Failed to delete curated address");
+        throw new Error(error.message || "Failed to delete saved address");
     }
 }
 
@@ -290,6 +288,73 @@ export async function searchCCAddresses(clientLEId: string, query: string) {
         }));
     } catch (error) {
         console.error("Failed to search CC addresses:", error);
-        throw new Error("Failed to search curated addresses");
+        throw new Error("Failed to search saved addresses");
+    }
+}
+/**
+ * Saves a source-created embedded ADDRESS claim as a reusable CCAddress record.
+ * Mirrors the CCParty workflow.
+ */
+export async function saveAddressForReuse(claimId: string, clientLEId: string) {
+    const identity = await getIdentity();
+    if (!identity?.userId) {
+        return { success: false, message: "Unauthorized" };
+    }
+
+    try {
+        const claim = await prisma.fieldClaim.findUnique({
+            where: { id: claimId }
+        });
+
+        if (!claim) {
+            return { success: false, message: "Claim not found" };
+        }
+
+        // Removed incorrect claim.subjectLeId !== clientLEId check
+
+        const valueObj = typeof claim.valueJson === 'string'
+            ? JSON.parse(claim.valueJson)
+            : claim.valueJson;
+
+        if (valueObj && typeof valueObj === 'object' && valueObj.ccAddressId) {
+            return { success: false, message: "Already saved for reuse" };
+        }
+
+        if (!isAddressValue(valueObj)) {
+            return { success: false, message: "Claim does not contain a valid embedded Address" };
+        }
+
+        // Check if already saved
+        const existing = await prisma.cCAddress.findFirst({
+            where: {
+                clientLEId,
+                createdFromClaimId: claimId
+            }
+        });
+
+        if (existing) {
+            return { success: true, ccAddress: existing };
+        }
+
+        // Create new CCAddress
+        const newCCAddress = await prisma.cCAddress.create({
+            data: {
+                clientLEId,
+                visibility: "CLIENT_LE",
+                data: valueObj as any,
+                createdFromClaimId: claimId,
+                createdByUserId: claim.verifiedByUserId || identity.userId,
+                updatedByUserId: claim.verifiedByUserId || identity.userId
+            }
+        });
+
+        revalidatePath(`/app/le/${clientLEId}/sources/ccc`);
+        revalidatePath(`/app/le/${clientLEId}/workbench4`);
+
+        return { success: true, ccAddress: newCCAddress };
+
+    } catch (error) {
+        console.error("Error saving address for reuse:", error);
+        return { success: false, message: "Internal error saving address" };
     }
 }

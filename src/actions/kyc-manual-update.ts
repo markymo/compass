@@ -693,7 +693,7 @@ export async function addExistingCCAddressReferenceToField(
             clientLEId,
             fieldNo,
             { ccAddressId },
-            `Added existing curated address via Field ${fieldNo} — ${def.fieldName}`,
+            `Added existing saved address via Field ${fieldNo} — ${def.fieldName}`,
             actualRowId,
             'CLIENT_LE'
         );

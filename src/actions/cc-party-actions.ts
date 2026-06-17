@@ -78,7 +78,7 @@ export async function getCCParties(clientLEId: string) {
                 } else {
                     originMetadata = {
                         originType: "PROMOTED",
-                        originLabel: `Promoted from Field ${claim.fieldNo} — ${fieldName}`,
+                        originLabel: `Saved for reuse from Field ${claim.fieldNo} — ${fieldName}`,
                         originFieldNo: claim.fieldNo,
                         originFieldName: fieldName,
                         originSourceLabel: formatSourceLabel(claim.sourceType),
@@ -88,7 +88,7 @@ export async function getCCParties(clientLEId: string) {
             } else if (claimId && !claim) {
                 originMetadata = {
                     originType: "PROMOTED",
-                    originLabel: "Promoted from a deleted claim",
+                    originLabel: "Saved for reuse from a deleted claim",
                     originClaimId: claimId
                 };
             } else {
@@ -150,7 +150,7 @@ export async function upsertCCParty(params: {
             });
         }
 
-        revalidatePath(`/app/le/${params.clientLEId}/ccc`);
+        revalidatePath(`/app/le/${params.clientLEId}/sources/ccc`);
         return {
             success: true,
             party: {
@@ -160,7 +160,7 @@ export async function upsertCCParty(params: {
         };
     } catch (error) {
         console.error("Failed to upsert CC party:", error);
-        throw new Error("Failed to save curated party");
+        throw new Error("Failed to save saved party");
     }
 }
 
@@ -214,7 +214,7 @@ export async function getCCPartyUsage(clientLEId: string) {
         return usageMap;
     } catch (error) {
         console.error("Failed to fetch CC party usage:", error);
-        throw new Error("Failed to fetch curated party usage");
+        throw new Error("Failed to fetch saved party usage");
     }
 }
 
@@ -285,18 +285,18 @@ export async function deleteCCParty(id: string, clientLEId: string) {
         });
 
         if (isUsed) {
-            throw new Error("This curated party is used by one or more fields. Remove those references before deleting.");
+            throw new Error("This saved party is used by one or more fields. Remove those references before deleting.");
         }
 
         await prisma.cCParty.delete({
             where: { id }
         });
 
-        revalidatePath(`/app/le/${clientLEId}/ccc`);
+        revalidatePath(`/app/le/${clientLEId}/sources/ccc`);
         return { success: true };
     } catch (error: any) {
         console.error("Failed to delete CC party:", error);
-        throw new Error(error.message || "Failed to delete curated party");
+        throw new Error(error.message || "Failed to delete saved party");
     }
 }
 
@@ -325,7 +325,7 @@ export async function promoteClaimToCCParty(claimId: string, clientLEId: string)
         }
 
         if (!claim.valueJson) {
-            throw new Error("Claim has no valueJson to promote");
+            throw new Error("Claim has no valueJson to save for reuse");
         }
 
         if (!isPartyValue(claim.valueJson)) {
@@ -338,7 +338,7 @@ export async function promoteClaimToCCParty(claimId: string, clientLEId: string)
         });
 
         if (existing) {
-            throw new Error("Claim is already promoted");
+            throw new Error("Claim is already saved for reuse");
         }
 
         // 3. Create CCParty
@@ -353,10 +353,10 @@ export async function promoteClaimToCCParty(claimId: string, clientLEId: string)
             }
         });
 
-        revalidatePath(`/app/le/${clientLEId}/ccc`);
+        revalidatePath(`/app/le/${clientLEId}/sources/ccc`);
         return { success: true, party };
     } catch (error) {
         console.error("Failed to promote claim:", error);
-        throw new Error("Failed to promote claim");
+        throw new Error("Failed to save for reuse");
     }
 }

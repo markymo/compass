@@ -13,7 +13,7 @@ import { FieldProposal, ProvenanceSource } from "@/domain/kyc/types/ProposalType
 import { cn } from "@/lib/utils";
 import { getSourceDisplayName } from "@/lib/source-display";
 import { FieldDetailPanel } from "./inspection/field-detail-panel";
-import { isAddressValue, getAddressSummary } from "./fields/AddressValueViewer";
+import { isAddressValue, getAddressSummary } from "@/lib/master-data/address-value";
 import { isPersonOrContactValue, getPersonOrContactSummary } from "@/lib/master-data/person-or-contact-value";
 import { Input } from "@/components/ui/input";
 import { Search, Filter, AlertCircle, CheckCircle2, Circle } from "lucide-react";
