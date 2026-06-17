@@ -14,6 +14,14 @@ import {
     resolveMasterDataBatch,
     BatchResolverInput,
 } from '../kyc-query';
+import prisma from '@/lib/prisma';
+
+vi.mock('@/lib/prisma', () => ({
+    default: {
+        cCAddress: { findMany: vi.fn() },
+        cCParty: { findMany: vi.fn() },
+    }
+}));
 
 // ── Shared test fixtures ────────────────────────────────────────────────────
 
@@ -558,6 +566,70 @@ describe('resolveMasterDataBatch', () => {
 
         const r4 = await resolveMasterDataBatch(makeInput('dateOfBirth.year'));
         expect(r4['q18']['3'].value).toBe(1990);
+    });
+
+    // ── T19: CCAddress full resolution ───────────────────────────────────────
+
+    it('T19: full { ccAddressId } resolves to resolvedSummary/data', async () => {
+        // Mock the DB call inside enrichAddressReferences
+        vi.mocked(prisma.cCAddress.findMany).mockResolvedValueOnce([
+            { id: 'addr-123', data: { locality: 'London', postalCode: 'W1' } } as any
+        ]);
+
+        const claim = makeClaim({
+            id: 'c-t19', fieldNo: 3,
+            sourceType: 'USER_INPUT',
+            valueJson: { ccAddressId: 'addr-123' },
+        });
+        const input: BatchResolverInput = {
+            subjectLeId: SUBJECT_LE_ID,
+            ownerScopeId: null,
+            questions: [{ questionId: 'q19', masterFieldNo: 3 }],
+            fieldDefMap: new Map([[3, { ...makeDef(3), appDataType: 'ADDRESS' }]]),
+            groupFieldMap: new Map(),
+            claims: [claim],
+            sourceMappings: [],
+        };
+
+        const result = await resolveMasterDataBatch(input);
+
+        expect(result['q19']['3'].value).toMatchObject({
+            ccAddressId: 'addr-123',
+            _resolvedData: {
+                ccAddress: expect.objectContaining({
+                    data: { locality: 'London', postalCode: 'W1' }
+                })
+            },
+            resolvedSummary: expect.any(String)
+        });
+    });
+
+    // ── T20: CCAddress projected resolution ──────────────────────────────────
+
+    it('T20: projection postalCode over ccAddressId returns postcode', async () => {
+        vi.mocked(prisma.cCAddress.findMany).mockResolvedValueOnce([
+            { id: 'addr-123', data: { locality: 'London', postalCode: 'W1' } } as any
+        ]);
+
+        const claim = makeClaim({
+            id: 'c-t20', fieldNo: 3,
+            sourceType: 'USER_INPUT',
+            valueJson: { ccAddressId: 'addr-123' },
+        });
+        const input: BatchResolverInput = {
+            subjectLeId: SUBJECT_LE_ID,
+            ownerScopeId: null,
+            questions: [{ questionId: 'q20', masterFieldNo: 3, masterFieldProjectionPath: 'postalCode' }],
+            fieldDefMap: new Map([[3, { ...makeDef(3), appDataType: 'ADDRESS' }]]),
+            groupFieldMap: new Map(),
+            claims: [claim],
+            sourceMappings: [],
+        };
+
+        const result = await resolveMasterDataBatch(input);
+
+        // Should return the exact projected value (string)
+        expect(result['q20']['3'].value).toBe('W1');
     });
 
 });

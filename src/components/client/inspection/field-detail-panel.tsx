@@ -29,6 +29,7 @@ import { CollectionRowDisplay } from "@/lib/master-data/structured-collection-re
 import { CodeListField } from "@/components/client/fields/CodeListField";
 import { AddressValueViewer, isAddressValue } from "../fields/AddressValueViewer";
 import { AddressValueEditor } from "../fields/AddressValueEditor";
+import { UnifiedAddressPicker } from "../fields/UnifiedAddressPicker";
 import { isPersonOrContactValue, getPersonOrContactSummary, isValidPartyValue } from "@/lib/master-data/person-or-contact-value";
 import { PersonOrContactValueViewer } from "../fields/PersonOrContactValueViewer";
 import { PersonOrContactValueEditor } from "../fields/PersonOrContactValueEditor";
@@ -1321,6 +1322,21 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                 }}
                                                             />
                                                         </div>
+                                                    ) : isAddressField ? (
+                                                        <div className="pt-2">
+                                                            <UnifiedAddressPicker
+                                                                clientLEId={legalEntityId}
+                                                                fieldNo={fieldNo}
+                                                                onSuccess={async () => {
+                                                                    setNewEntryValue("");
+                                                                    const refreshed = await getFieldDetail(legalEntityId, fieldNo, 'CLIENT_LE', customFieldId);
+                                                                    setData(refreshed);
+                                                                    if (onUpdate && refreshed?.current) {
+                                                                        onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
+                                                                    }
+                                                                }}
+                                                            />
+                                                        </div>
                                                     ) : (
                                                         <div className="flex items-center gap-1.5">
                                                             {data?.options && data.options.length > 0 ? (
@@ -1395,8 +1411,8 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                         <div className="flex items-start gap-3">
                                                             <div className="flex-1 mt-0.5">
                                                                 <div className="text-base font-medium text-slate-900 break-all leading-relaxed">
-                                                                    {isAddressValue(data.current.value) ? (
-                                                                         <AddressValueViewer value={data.current.value} layout="detailed" />
+                                                                    {isAddressValue(data.current.value) || (data.current.value && typeof data.current.value === 'object' && 'ccAddressId' in data.current.value) ? (
+                                                                         <AddressValueViewer value={data.current.value?._resolvedData?.ccAddress?.data || data.current.value} layout="detailed" />
                                                                      ) : (isPersonOrContactValue(data.current.value) || (data.current.value && typeof data.current.value === 'object' && 'ccPartyId' in data.current.value)) ? (
                                                                          <PersonOrContactValueViewer value={data.current.value?._resolvedData?.ccParty?.data || data.current.value} layout="detailed" />
                                                                     ) : Array.isArray(data.current.value) ? (
@@ -1464,7 +1480,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                          className="p-1.5 rounded text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors shrink-0"
                                                                          onClick={() => {
                                                                              if (isAddressField) {
-                                                                                 setManualValue(data?.current?.value || { addressLines: [] });
+                                                                                 setManualValue(data?.current?.value?._resolvedData?.ccAddress?.data || data?.current?.value || { addressLines: [] });
                                                                              } else {
                                                                                  setManualValue(String(data?.current?.value || ""));
                                                                              }
@@ -1560,9 +1576,29 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                          />
                                                                      )}
                                                                  </div>
+                                                             ) : isAddressField ? (
+                                                                 <div className="flex flex-col items-center justify-center py-6 border border-dashed border-slate-200 rounded-lg bg-slate-50/50 p-4 space-y-3">
+                                                                     <div className="text-sm text-slate-500 italic">
+                                                                         No address recorded
+                                                                     </div>
+                                                                     {!isLocked && (
+                                                                         <UnifiedAddressPicker
+                                                                             clientLEId={legalEntityId}
+                                                                             fieldNo={fieldNo}
+                                                                             onSuccess={async () => {
+                                                                                 const refreshed = await getFieldDetail(legalEntityId, fieldNo, 'CLIENT_LE', customFieldId);
+                                                                                 setData(refreshed);
+                                                                                 if (onUpdate && refreshed?.current) {
+                                                                                     onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
+                                                                                 }
+                                                                             }}
+                                                                         />
+                                                                     )}
+                                                                 </div>
                                                              ) : (
-                                                                <div className="flex items-start justify-between">
-                                                                    <div className="mt-0.5">
+                                                                <div className="relative">
+                                                                    <div className="flex items-start justify-between">
+                                                                        <div className="mt-0.5">
                                                                         <div className="text-sm text-slate-500 italic mb-2">
                                                                             {data?.displayState === 'MAPPED_NOT_CHECKED' && 'Source not checked yet'}
                                                                             {data?.displayState === 'CHECKED_NO_DATA' && 'No data in source record'}
@@ -1589,6 +1625,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                             <Plus className="h-4 w-4" />
                                                                         </button>
                                                                     )}
+                                                                </div>
                                                                 </div>
                                                             )
                                                         ) : !isLocked ? (
@@ -1623,26 +1660,19 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                 ) : (
                                                                     <>
                                                                         {isAddressField ? (
-                                                                            <div className="mt-4 bg-slate-50 p-2 rounded border border-slate-200">
-                                                                                <AddressValueEditor
-                                                                                    value={typeof manualValue === 'object' && manualValue ? manualValue : { addressLines: [] } as any}
-                                                                                    onChange={(val) => setManualValue(val as any)}
-                                                                                    disabled={isSaving}
+                                                                            <div className="mt-4">
+                                                                                <UnifiedAddressPicker
+                                                                                    clientLEId={legalEntityId}
+                                                                                    fieldNo={fieldNo}
+                                                                                    onSuccess={async () => {
+                                                                                        setIsEditing(false);
+                                                                                        const refreshed = await getFieldDetail(legalEntityId, fieldNo, 'CLIENT_LE', customFieldId);
+                                                                                        setData(refreshed);
+                                                                                        if (onUpdate && refreshed?.current) {
+                                                                                            onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
+                                                                                        }
+                                                                                    }}
                                                                                 />
-                                                                                <div className="flex items-center gap-2 mt-2">
-                                                                                    <Button
-                                                                                        size="sm"
-                                                                                        className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700"
-                                                                                        onClick={() => {
-                                                                                            setIsEditing(true);
-                                                                                            handleManualSave();
-                                                                                        }}
-                                                                                        disabled={isSaving}
-                                                                                    >
-                                                                                        {isSaving ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Check className="h-3 w-3 mr-1" />}
-                                                                                        Save
-                                                                                    </Button>
-                                                                                </div>
                                                                             </div>
                                                                         ) : isCuratedPartyRef || isPersonOrContactField ? (
                                                                              <div className="mt-4 bg-slate-50 p-2 rounded border border-slate-200">
