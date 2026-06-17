@@ -175,7 +175,7 @@ export async function resolveMasterData(
     return response;
 }
 
-export function applyMasterDataProjection(value: any, path: string | null | undefined): any {
+function applyMasterDataProjection(value: any, path: string | null | undefined): any {
     if (!path || value === null || value === undefined) return value;
     
     // Convert array indices like a[0] to a.0
