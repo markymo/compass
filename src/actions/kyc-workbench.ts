@@ -175,6 +175,7 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
                     questionId: q.id,
                     masterFieldNo: q.masterFieldNo,
                     masterQuestionGroupId: q.masterQuestionGroupId,
+                    masterFieldProjectionPath: q.masterFieldProjectionPath,
                 })),
             fieldDefMap,
             groupFieldMap,

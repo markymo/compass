@@ -7,6 +7,8 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Loader2, Sparkles, Plus, Check, ChevronRight, XCircle, Type, Calendar, Hash, ToggleLeft, FileText, Braces } from "lucide-react";
 import { getAISemanticMatch } from "@/actions/kyc-workbench";
+import { getAddressSummary } from "@/components/client/fields/AddressValueViewer";
+import { applyMasterDataProjection } from "@/lib/kyc/projection";
 
 function getDataTypeIcon(dataType: string | null | undefined) {
     if (!dataType) return null;
@@ -52,13 +54,21 @@ export function SuperFieldSelector({
     const masterOptions = useMemo(() => {
         const options: any[] = [];
         masterFields.forEach((f: any) => {
+            let previewText = null;
+            if (f.dataType === 'ADDRESS') {
+                previewText = f.currentValue ? getAddressSummary(f.currentValue) : "Structured address";
+            } else if (f.currentValue != null && f.currentValue !== "") {
+                previewText = Array.isArray(f.currentValue) ? f.currentValue.join(", ") : (typeof f.currentValue === 'object' ? "Structured object" : String(f.currentValue));
+            }
+
             options.push({
                 value: `master:${f.fieldNo}`,
                 label: f.label,
                 type: 'master',
                 meta: `Standard Field ${f.fieldNo}`,
                 dataType: f.dataType,
-                currentValue: f.currentValue
+                currentValue: f.currentValue,
+                previewText
             });
             if (f.dataType === 'ADDRESS') {
                 const projections = [
@@ -70,13 +80,15 @@ export function SuperFieldSelector({
                     { path: 'addressLines[1]', label: 'Address Line 2' },
                 ];
                 projections.forEach(proj => {
+                    const extractedValue = applyMasterDataProjection(f.currentValue, proj.path);
                     options.push({
                         value: `master:${f.fieldNo}:${proj.path}`,
                         label: `${f.label} · ${proj.label}`,
                         type: 'master',
                         meta: `Standard Field ${f.fieldNo} Projection`,
                         dataType: 'STRING',
-                        currentValue: null // Keep null to keep UI simple
+                        currentValue: null, // Keep null to keep UI simple
+                        previewText: extractedValue ? String(extractedValue) : `Extracts ${proj.path}`
                     });
                 });
             }
@@ -84,23 +96,37 @@ export function SuperFieldSelector({
         return options;
     }, [masterFields]);
 
-    const groupOptions = useMemo(() => masterGroups.map((g: any) => ({
-        value: `group:${g.key}`,
-        label: g.label,
-        type: 'group' as const,
-        meta: 'Composite Group',
-        dataType: g.dataType,
-        currentValue: g.currentValue
-    })), [masterGroups]);
+    const groupOptions = useMemo(() => masterGroups.map((g: any) => {
+        let previewText = null;
+        if (g.currentValue != null && g.currentValue !== "") {
+            previewText = Array.isArray(g.currentValue) ? g.currentValue.join(", ") : (typeof g.currentValue === 'object' ? "Structured group" : String(g.currentValue));
+        }
+        return {
+            value: `group:${g.key}`,
+            label: g.label,
+            type: 'group' as const,
+            meta: 'Composite Group',
+            dataType: g.dataType,
+            currentValue: g.currentValue,
+            previewText
+        };
+    }), [masterGroups]);
 
-    const customOptions = useMemo(() => customFields.map((f: any) => ({
-        value: `custom:${f.id}`,
-        label: f.label,
-        type: 'custom' as const,
-        meta: 'Custom Field',
-        dataType: f.dataType,
-        currentValue: f.currentValue
-    })), [customFields]);
+    const customOptions = useMemo(() => customFields.map((f: any) => {
+        let previewText = null;
+        if (f.currentValue != null && f.currentValue !== "") {
+            previewText = Array.isArray(f.currentValue) ? f.currentValue.join(", ") : (typeof f.currentValue === 'object' ? "Structured object" : String(f.currentValue));
+        }
+        return {
+            value: `custom:${f.id}`,
+            label: f.label,
+            type: 'custom' as const,
+            meta: 'Custom Field',
+            dataType: f.dataType,
+            currentValue: f.currentValue,
+            previewText
+        };
+    }), [customFields]);
 
     const allOptions = useMemo(() => [...groupOptions, ...masterOptions, ...customOptions], [groupOptions, masterOptions, customOptions]);
     const selectedOption = allOptions.find((o: any) => o.value === value);
@@ -275,6 +301,13 @@ export function SuperFieldSelector({
                                                 <span className="text-sm font-medium flex-1">{o.label}</span>
                                                 {getDataTypeIcon(o.dataType)}
                                             </div>
+                                            <div className="pl-6 flex flex-col w-full text-slate-500">
+                                                {o.previewText ? (
+                                                    <span className="text-[11px] font-medium text-slate-600 truncate italic bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100 mt-1">
+                                                        {o.previewText}
+                                                    </span>
+                                                ) : null}
+                                            </div>
                                         </CommandItem>
                                     ))}
                                 </CommandGroup>
@@ -298,9 +331,9 @@ export function SuperFieldSelector({
                                                 {getDataTypeIcon(o.dataType)}
                                             </div>
                                             <div className="pl-6 flex flex-col w-full text-slate-500">
-                                                {o.currentValue != null && o.currentValue !== "" ? (
+                                                {o.previewText ? (
                                                     <span className="text-[11px] font-medium text-slate-600 truncate italic bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100 mt-1">
-                                                        {Array.isArray(o.currentValue) ? o.currentValue.join(", ") : String(o.currentValue)}
+                                                        {o.previewText}
                                                     </span>
                                                 ) : null}
                                             </div>
@@ -327,9 +360,9 @@ export function SuperFieldSelector({
                                                 {getDataTypeIcon(o.dataType)}
                                             </div>
                                             <div className="pl-6 flex flex-col w-full text-slate-500">
-                                                {o.currentValue != null && o.currentValue !== "" ? (
+                                                {o.previewText ? (
                                                     <span className="text-[11px] font-medium text-slate-600 truncate italic bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100 mt-1">
-                                                        {Array.isArray(o.currentValue) ? o.currentValue.join(", ") : String(o.currentValue)}
+                                                        {o.previewText}
                                                     </span>
                                                 ) : null}
                                             </div>
