@@ -35,7 +35,7 @@ export function PartyRefValueEditor({ value, onChange, disabled, clientLEId }: P
         return (
             <div className="flex items-center justify-center p-6 text-slate-400">
                 <Loader2 className="w-5 h-5 animate-spin mr-2" />
-                <span className="text-sm">Loading curated parties...</span>
+                <span className="text-sm">Loading saved parties...</span>
             </div>
         );
     }
@@ -43,7 +43,7 @@ export function PartyRefValueEditor({ value, onChange, disabled, clientLEId }: P
     if (parties.length === 0) {
         return (
             <div className="text-sm text-slate-500 italic p-4 bg-slate-50 border border-slate-100 rounded-md text-center">
-                No curated parties found for this client. You can create them in the CCC tab.
+                No saved parties found for this client. You can save parties from existing fields.
             </div>
         );
     }
@@ -51,7 +51,7 @@ export function PartyRefValueEditor({ value, onChange, disabled, clientLEId }: P
     return (
         <div className="space-y-3">
             <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">
-                Select Curated Party
+                Select Saved Party
             </label>
             <div className="grid grid-cols-1 gap-2 max-h-64 overflow-y-auto pr-1">
                 {parties.map((p) => {
@@ -95,7 +95,7 @@ export function PartyRefValueEditor({ value, onChange, disabled, clientLEId }: P
                             <div className="flex items-center gap-2">
                                 {p.originType === "PROMOTED" && (
                                     <Badge variant="outline" className="text-[9px] bg-emerald-50 text-emerald-600 border-emerald-200 uppercase">
-                                        Promoted
+                                        Saved
                                     </Badge>
                                 )}
                                 <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${

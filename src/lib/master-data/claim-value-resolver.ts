@@ -38,6 +38,16 @@ export function inferClaimValueKind(claim: {
         return "PARTY_REF";
     }
 
+    // 1.5. ADDRESS_REF: Must be a non-empty string in `ccAddressId`.
+    if (
+        claim.valueJson &&
+        typeof claim.valueJson === "object" &&
+        typeof claim.valueJson.ccAddressId === "string" &&
+        claim.valueJson.ccAddressId.trim() !== ""
+    ) {
+        return "ADDRESS_REF";
+    }
+
     // 2. EMBEDDED_PARTY: Contains party-specific fields (e.g. contactType, partyType, forenames, etc).
     // isPartyValue performs structural validation for these properties.
     if (claim.valueJson && typeof claim.valueJson === "object" && isPartyValue(claim.valueJson)) {

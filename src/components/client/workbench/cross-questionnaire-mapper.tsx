@@ -1,7 +1,7 @@
 "use client";
 
 import { isPartyValue, getPartySummary } from "@/lib/master-data/party-value";
-import { isAddressValue, getAddressSummary } from "@/components/client/fields/AddressValueViewer";
+import { isAddressValue, getAddressSummary } from "@/lib/master-data/address-value";
 
 import { useState, useMemo, useTransition } from "react";
 import { Workbench4Data, mapQuestionToField, getAIFieldNameSuggestion } from "@/actions/kyc-workbench";

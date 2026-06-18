@@ -6,6 +6,25 @@ function run(cmd) {
     execSync(cmd, { stdio: "inherit" });
 }
 
+function runWithRetry(cmd, maxRetries = 3) {
+    let attempts = 0;
+    while (attempts < maxRetries) {
+        try {
+            console.log(`\n> ${cmd} (Attempt ${attempts + 1}/${maxRetries})`);
+            execSync(cmd, { stdio: "inherit" });
+            return;
+        } catch (e) {
+            attempts++;
+            if (attempts >= maxRetries) {
+                console.error(`\nCommand failed after ${maxRetries} attempts: ${cmd}`);
+                throw e;
+            }
+            console.log(`\nCommand failed. Retrying in 5 seconds to bypass database cold-starts...`);
+            execSync("node -e 'setTimeout(()=>{}, 5000)'"); // cross-platform sleep
+        }
+    }
+}
+
 function mustHave(name) {
     if (!process.env[name]) throw new Error(`Missing env var: ${name}`);
 }
@@ -22,7 +41,7 @@ run("npx prisma generate");
 // Run migrations on Preview automatically
 if (vercelEnv === "preview") {
     console.log("Running Preview migrations (migrate deploy)…");
-    run("npx prisma migrate deploy");
+    runWithRetry("npx prisma migrate deploy", 3);
 
     // Seed automatically for 'dev' branch or if forced
     if (process.env.VERCEL_GIT_COMMIT_REF === "dev" || process.env.SEED_PREVIEW === "true") {
@@ -35,7 +54,7 @@ if (vercelEnv === "preview") {
 if (vercelEnv === "production") {
     if (process.env.ALLOW_PROD_MIGRATIONS === "true") {
         console.log("Running Production migrations (migrate deploy)...");
-        run("npx prisma migrate deploy");
+        runWithRetry("npx prisma migrate deploy", 3);
     } else {
         console.log("Skipping Production migrations (ALLOW_PROD_MIGRATIONS != true).");
     }

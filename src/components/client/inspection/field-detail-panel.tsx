@@ -9,11 +9,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
-import { Loader2, History, Database, Edit, CheckCircle, CheckCircle2, AlertTriangle, Paperclip, FileText, Download, X, User as UserIcon, Pencil, Check, Trash2, Plus, Lock, Save, Link2Off } from "lucide-react";
+import { Loader2, History, Database, Edit, CheckCircle, CheckCircle2, AlertTriangle, Paperclip, FileText, Download, X, User as UserIcon, Pencil, Check, Trash2, Plus, Lock, Save, Link2Off, ArrowRightLeft } from "lucide-react";
 import { getFieldDetail, FieldDetailData } from "@/actions/kyc-query";
 // FIELD_DEFINITIONS removed
 import { updateFieldManually, applyCandidate, updateCustomFieldManually, addMultiValueEntry, removeMultiValueEntry, applyBulkOverride, promoteClaim } from "@/actions/kyc-manual-update";
 import { promoteClaimToCCParty } from "@/actions/cc-party-actions";
+import { saveAddressForReuse } from "@/actions/cc-address-actions";
 import { getMasterFieldDocuments, setMasterFieldAssignment } from "@/actions/standing-data";
 import { renameCustomField } from "@/actions/master-data-governance";
 import { saveMasterFieldNote } from "@/actions/master-data-notes";
@@ -27,7 +28,8 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { CollectionRowDisplay } from "@/lib/master-data/structured-collection-renderers";
 import { CodeListField } from "@/components/client/fields/CodeListField";
-import { AddressValueViewer, isAddressValue } from "../fields/AddressValueViewer";
+import { AddressValueViewer } from "../fields/AddressValueViewer";
+import { isAddressValue } from "@/lib/master-data/address-value";
 import { AddressValueEditor } from "../fields/AddressValueEditor";
 import { UnifiedAddressPicker } from "../fields/UnifiedAddressPicker";
 import { isPersonOrContactValue, getPersonOrContactSummary, isValidPartyValue } from "@/lib/master-data/person-or-contact-value";
@@ -91,6 +93,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
     // Date & value formatting helpers
     const isDateType = data?.dataType === 'DATE' || data?.dataType === 'DATETIME';
     const isCuratedPartyRef = data?.dataType === 'PARTY_REF';
+    const isCuratedAddressRef = data?.dataType === 'ADDRESS_REF';
     const isGraphRef = data?.dataType === 'PERSON_REF' || data?.dataType === 'ORG_REF' || data?.dataType === 'ADDRESS_REF';
     const isPartyRef = data?.dataType === 'PERSON_REF' || data?.dataType === 'ORG_REF';
     const isAddressRef = data?.dataType === 'ADDRESS_REF';
@@ -132,7 +135,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
         }
 
         if (rowData?.data?.isDeleted || val?._resolvedData?.isDeleted) {
-            return <span className="text-red-400 italic">Deleted Curated Party</span>;
+            return <span className="text-red-400 italic">Deleted saved party</span>;
         }
 
         if (typeof parsedVal === 'object') {
@@ -317,36 +320,46 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
         try {
             const res = await promoteClaim(legalEntityId, claimId);
             if (res.success) {
-                toast.success("Suggestion promoted successfully");
+                toast.success("Suggestion saved for reuse successfully");
                 loadData(); // Reload stats and suggestions
                 if (onUpdate) {
                     // Update parent UI with new authoritative value
                     onUpdate(data?.candidates.find(c => c.id === claimId)?.value, "USER_INPUT", new Date());
                 }
             } else {
-                toast.error(res.message || "Failed to promote claim");
+                toast.error(res.message || "Failed to save claim for reuse");
             }
         } catch (e) {
             console.error("Promote error:", e);
-            toast.error("Promote failed");
+            toast.error("Save for reuse failed");
         } finally {
             setIsPromoting(null);
         }
     };
 
-    const handlePromoteToCCC = async (claimId: string) => {
+    const handleSaveForReuse = async (claimId: string, kind: string) => {
         setIsPromoting(claimId);
         try {
-            const res = await promoteClaimToCCParty(claimId, legalEntityId);
-            if (res.success) {
-                toast.success("Promoted to Curated Party");
-                loadData(); // Reload rows to update isPromotedToCCC flag
-            } else {
-                toast.error((res as any).message || "Failed to promote claim");
+            if (kind === 'EMBEDDED_PARTY') {
+                const res = await promoteClaimToCCParty(claimId, legalEntityId);
+                if (res.success) {
+                    toast.success("Saved for reuse");
+                    loadData(); // Reload rows to update isPromotedToCCC flag
+                } else {
+                    toast.error((res as any).message || "Failed to save for reuse");
+                }
+            } else if (kind === 'ADDRESS') {
+                const res = await saveAddressForReuse(claimId, legalEntityId);
+                if (res.success) {
+                    toast.success("Saved for reuse");
+                    loadData(); // Reload rows to update isPromotedToCCC flag
+                } else {
+                    toast.error((res as any).message || "Failed to save for reuse");
+                }
             }
         } catch (e: any) {
-            console.error("Promote to CCC error:", e);
-            toast.error(e.message || "Promote failed");
+            console.error("Save for reuse error:", e);
+            toast.error(e.message || "Failed to save for reuse");
         } finally {
             setIsPromoting(null);
         }
@@ -573,7 +586,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                 });
 
                 if (result.success) {
-                    toast.success("Curated party updated");
+                    toast.success("Saved party updated");
                     setEditingRowId(null);
                     setEditingRowValue("");
                     const refreshed = await getFieldDetail(legalEntityId, fieldNo, 'CLIENT_LE', customFieldId);
@@ -582,7 +595,27 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                         onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
                     }
                 } else {
-                    toast.error("Failed to update curated party");
+                    toast.error("Failed to update saved party");
+                }
+            } else if (inferredKind === 'ADDRESS_REF' && parsedVal?.ccAddressId) {
+                const { upsertCCAddress } = await import("@/actions/cc-address-actions");
+                const result = await upsertCCAddress({
+                    id: parsedVal.ccAddressId,
+                    clientLEId: legalEntityId,
+                    data: editingRowValue
+                });
+
+                if (result.success) {
+                    toast.success("Saved address updated");
+                    setEditingRowId(null);
+                    setEditingRowValue("");
+                    const refreshed = await getFieldDetail(legalEntityId, fieldNo, 'CLIENT_LE', customFieldId);
+                    setData(refreshed);
+                    if (onUpdate && refreshed?.current) {
+                        onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
+                    }
+                } else {
+                    toast.error("Failed to update saved address");
                 }
             } else {
                 const isString = typeof editingRowValue === 'string';
@@ -656,6 +689,13 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                     const { upsertCCParty } = await import("@/actions/cc-party-actions");
                     result = await upsertCCParty({
                         id: parsedVal.ccPartyId,
+                        clientLEId: legalEntityId,
+                        data: manualValue
+                    });
+                } else if ((isAddressField || isCuratedAddressRef) && inferredKind === 'ADDRESS_REF' && parsedVal?.ccAddressId) {
+                    const { upsertCCAddress } = await import("@/actions/cc-address-actions");
+                    result = await upsertCCAddress({
+                        id: parsedVal.ccAddressId,
                         clientLEId: legalEntityId,
                         data: manualValue
                     });
@@ -988,9 +1028,9 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                         const isUserEmbParty = inferredKind === 'EMBEDDED_PARTY' && row.source === 'USER_INPUT';
                                                         const isUserPartyRef = inferredKind === 'PARTY_REF' && row.source === 'USER_INPUT';
                                                         const isPartyRefValue = inferredKind === 'PARTY_REF';
-                                                        const isComplexEditor = inferredKind === 'PARTY_REF' || inferredKind === 'EMBEDDED_PARTY';
+                                                        const isComplexEditor = inferredKind === 'PARTY_REF' || inferredKind === 'EMBEDDED_PARTY' || inferredKind === 'ADDRESS' || inferredKind === 'ADDRESS_REF';
                                                         
-                                                        const showPromote = inferredKind === 'EMBEDDED_PARTY';
+                                                        const showPromote = inferredKind === 'EMBEDDED_PARTY' || inferredKind === 'ADDRESS';
                                                         const isReadOnlySource = row.source !== 'USER_INPUT';
                                                         const canEdit = !isReadOnlySource;
                                                         const canRemove = !isReadOnlySource;
@@ -1002,7 +1042,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                 <div className="flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg bg-red-50 border border-red-200 animate-in fade-in duration-150">
                                                                     <span className="text-xs text-red-700 font-medium truncate flex-1 flex items-center gap-1">
                                                                         {isPartyRefValue ? (
-                                                                            <span>Break link to "{row.data?.resolvedSummary || (typeof row.value === 'object' && row.value?.ccPartyId) || 'Curated Party'}"?</span>
+                                                                            <span>Break link to "{row.data?.resolvedSummary || (typeof row.value === 'object' && row.value?.ccPartyId) || 'saved party'}"?</span>
                                                                         ) : (
                                                                             <>
                                                                                 Remove "{renderRowValue(row.value, row)}"?
@@ -1110,6 +1150,34 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                                 </Button>
                                                                             </div>
                                                                         </div>
+                                                                    ) : inferredKind === 'ADDRESS_REF' || inferredKind === 'ADDRESS' ? (
+                                                                        <div className="flex-1 min-w-0 bg-slate-50 p-3 rounded border border-slate-200 space-y-3">
+                                                                            <AddressValueEditor
+                                                                                value={editingRowValue || {} as any}
+                                                                                onChange={setEditingRowValue}
+                                                                                disabled={isSaving}
+                                                                            />
+                                                                            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200/60 bg-slate-50/50">
+                                                                                <Button
+                                                                                    size="sm"
+                                                                                    variant="outline"
+                                                                                    className="h-8 text-xs bg-white text-slate-700 border-slate-200"
+                                                                                    onClick={() => { setEditingRowId(null); setEditingRowValue(""); }}
+                                                                                    disabled={isSaving}
+                                                                                >
+                                                                                    Cancel
+                                                                                </Button>
+                                                                                <Button
+                                                                                    size="sm"
+                                                                                    className="h-8 text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-medium"
+                                                                                    onClick={() => handleInlineEditSave(row)}
+                                                                                    disabled={isSaving}
+                                                                                >
+                                                                                    {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : null}
+                                                                                    Save
+                                                                                </Button>
+                                                                            </div>
+                                                                        </div>
                                                                     ) : (
                                                                         data?.options && data.options.length > 0 ? (
                                                                             <Select
@@ -1191,20 +1259,21 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                         <div className="flex items-center gap-0.5 shrink-0">
                                                                             {showPromote && (
                                                                                 row.isPromotedToCCC ? (
-                                                                                    <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 border-emerald-200 mr-2 hover:bg-emerald-50 font-medium h-6">
+                                                                                    <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 border-emerald-200 mr-2 hover:bg-emerald-50 font-medium h-6" title="A reusable copy already exists for this item.">
                                                                                         <CheckCircle2 className="w-3 h-3 mr-1" />
-                                                                                        Already curated
+                                                                                        Saved for reuse
                                                                                     </Badge>
                                                                                 ) : (
                                                                                     <Button
                                                                                         variant="ghost"
                                                                                         size="sm"
                                                                                         className="h-7 text-xs text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 mr-2"
-                                                                                        onClick={() => handlePromoteToCCC(row.id)}
+                                                                                        onClick={() => handleSaveForReuse(row.id, inferredKind!)}
                                                                                         disabled={isPromoting === row.id}
+                                                                                        title="Create a reusable copy without changing the source data."
                                                                                     >
                                                                                         {isPromoting === row.id ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Database className="h-3 w-3 mr-1" />}
-                                                                                        Promote to Curated Party
+                                                                                        Save for reuse
                                                                                     </Button>
                                                                                 )
                                                                             )}
@@ -1217,7 +1286,9 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                                         } else {
                                                                                             setEditingRowId(row.id);
                                                                                             if (inferredKind === 'PARTY_REF') {
-                                                                                                setEditingRowValue(row.data?.ccParty?.data || parsedRowValue);
+                                                                                                setEditingRowValue(row.data?.ccParty?.data || row.data?._resolvedData?.ccParty?.data || parsedRowValue);
+                                                                                            } else if (inferredKind === 'ADDRESS_REF') {
+                                                                                                setEditingRowValue(row.data?.ccAddress?.data || row.data?._resolvedData?.ccAddress?.data || parsedRowValue);
                                                                                             } else {
                                                                                                 setEditingRowValue(parsedRowValue);
                                                                                             }
@@ -1237,7 +1308,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                                             : "hover:bg-red-50 hover:text-red-500"
                                                                                     )}
                                                                                     onClick={() => setDeletingRowId(row.id)}
-                                                                                    title={isPartyRefValue ? "Break link to curated party" : "Remove value"}
+                                                                                    title={isPartyRefValue ? "Break link to saved party" : "Remove value"}
                                                                                 >
                                                                                     {isPartyRefValue ? (
                                                                                         <Link2Off className="h-3.5 w-3.5" />
@@ -1285,7 +1356,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                     className="w-full justify-center bg-indigo-50/50 hover:bg-indigo-50 border-indigo-200 text-indigo-700 border-dashed"
                                                                 >
                                                                     <Plus className="h-4 w-4 mr-2" />
-                                                                    Add Curated Party
+                                                                    Add saved party
                                                                 </Button>
                                                             ) : (
                                                                 <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-3">
@@ -1439,32 +1510,53 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                              {!isLocked && (
                                                                  isPersonOrContactField || isCuratedPartyRef ? (
                                                                      <div className="flex items-center gap-1.5 shrink-0">
-                                                                         <button
-                                                                             className="p-1.5 rounded text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors shrink-0"
-                                                                             onClick={() => {
-                                                                                 setManualValue(data?.current?.value?._resolvedData?.ccParty?.data || data?.current?.value || {
-                                                                                     contactType: "PERSON",
-                                                                                     title: null,
-                                                                                     forenames: null,
-                                                                                     surname: null,
-                                                                                     email: null,
-                                                                                     phones: [],
-                                                                                     nationality: [],
-                                                                                     countryOfResidence: null,
-                                                                                     dateOfBirth: null,
-                                                                                     placeOfBirth: null,
-                                                                                     roles: [],
-                                                                                     sourceIdentifiers: [],
-                                                                                     isActivePersonOrContact: null,
-                                                                                     visibility: { scope: "CLIENT_LE" }
-                                                                                 } as any);
-                                                                                 setIsEditing(true);
-                                                                                 setRelatedValues({});
-                                                                             }}
-                                                                             title="Edit curated party"
-                                                                         >
-                                                                             <Pencil className="h-3.5 w-3.5" />
-                                                                         </button>
+                                                                         {isCuratedPartyRef || data?.current?.source === 'USER_INPUT' ? (
+                                                                             <button
+                                                                                 className="p-1.5 rounded text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors shrink-0"
+                                                                                 onClick={() => {
+                                                                                     setManualValue(data?.current?.value?._resolvedData?.ccParty?.data || data?.current?.value || {
+                                                                                         contactType: "PERSON",
+                                                                                         title: null,
+                                                                                         forenames: null,
+                                                                                         surname: null,
+                                                                                         email: null,
+                                                                                         phones: [],
+                                                                                         nationality: [],
+                                                                                         countryOfResidence: null,
+                                                                                         dateOfBirth: null,
+                                                                                         placeOfBirth: null,
+                                                                                         roles: [],
+                                                                                         sourceIdentifiers: [],
+                                                                                         isActivePersonOrContact: null,
+                                                                                         visibility: { scope: "CLIENT_LE" }
+                                                                                     } as any);
+                                                                                     setIsEditing(true);
+                                                                                     setRelatedValues({});
+                                                                                 }}
+                                                                                 title={isCuratedPartyRef ? "Edit saved party" : "Edit value"}
+                                                                             >
+                                                                                 <Pencil className="h-3.5 w-3.5" />
+                                                                             </button>
+                                                                         ) : (
+                                                                             data?.current?.isPromotedToCCC ? (
+                                                                                 <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-50 font-medium h-6" title="A reusable copy already exists for this item.">
+                                                                                     <CheckCircle2 className="w-3 h-3 mr-1" />
+                                                                                     Saved for reuse
+                                                                                 </Badge>
+                                                                             ) : (
+                                                                                 <Button
+                                                                                     variant="ghost"
+                                                                                     size="sm"
+                                                                                     className="h-7 text-xs text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700"
+                                                                                     disabled={isPromoting === data?.current?.claimId}
+                                                                                     onClick={() => data?.current?.claimId && handleSaveForReuse(data.current.claimId, 'EMBEDDED_PARTY')}
+                                                                                     title="Create a reusable copy without changing the source data."
+                                                                                 >
+                                                                                     {isPromoting === data?.current?.claimId ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Database className="h-3 w-3 mr-1" />}
+                                                                                     Save for reuse
+                                                                                 </Button>
+                                                                             )
+                                                                         )}
                                                                          {data?.current?.source === 'USER_INPUT' && (
                                                                              <button
                                                                                  className="p-1.5 rounded text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors shrink-0"
@@ -1474,16 +1566,98 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                                  <Link2Off className="h-3.5 w-3.5" />
                                                                              </button>
                                                                          )}
+                                                                         {isCuratedPartyRef && (
+                                                                             <UnifiedPartyPicker
+                                                                                 clientLEId={legalEntityId}
+                                                                                 fieldNo={fieldNo}
+                                                                                 onSuccess={async () => {
+                                                                                     const refreshed = await getFieldDetail(legalEntityId, fieldNo, 'CLIENT_LE', customFieldId);
+                                                                                     setData(refreshed);
+                                                                                     if (onUpdate && refreshed?.current) {
+                                                                                         onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
+                                                                                     }
+                                                                                 }}
+                                                                                 trigger={
+                                                                                     <button
+                                                                                         className="p-1.5 rounded text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors shrink-0"
+                                                                                         title="Change saved party"
+                                                                                     >
+                                                                                         <ArrowRightLeft className="h-3.5 w-3.5" />
+                                                                                     </button>
+                                                                                 }
+                                                                             />
+                                                                         )}
+                                                                     </div>
+                                                                 ) : isAddressField || isCuratedAddressRef ? (
+                                                                     <div className="flex items-center gap-1.5 shrink-0">
+                                                                         {isCuratedAddressRef || data?.current?.source === 'USER_INPUT' ? (
+                                                                             <button
+                                                                                 className="p-1.5 rounded text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors shrink-0"
+                                                                                 onClick={() => {
+                                                                                     setManualValue(data?.current?.value?._resolvedData?.ccAddress?.data || data?.current?.value || { addressLines: [] });
+                                                                                     setIsEditing(true);
+                                                                                     setRelatedValues({});
+                                                                                 }}
+                                                                                 title={isCuratedAddressRef ? "Edit saved address" : "Edit value"}
+                                                                             >
+                                                                                 <Pencil className="h-3.5 w-3.5" />
+                                                                             </button>
+                                                                         ) : (
+                                                                             data?.current?.isPromotedToCCC ? (
+                                                                                 <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-50 font-medium h-6" title="A reusable copy already exists for this item.">
+                                                                                     <CheckCircle2 className="w-3 h-3 mr-1" />
+                                                                                     Saved for reuse
+                                                                                 </Badge>
+                                                                             ) : (
+                                                                                 <Button
+                                                                                     variant="ghost"
+                                                                                     size="sm"
+                                                                                     className="h-7 text-xs text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700"
+                                                                                     disabled={isPromoting === data?.current?.claimId}
+                                                                                     onClick={() => data?.current?.claimId && handleSaveForReuse(data.current.claimId, 'ADDRESS')}
+                                                                                     title="Create a reusable copy without changing the source data."
+                                                                                 >
+                                                                                     {isPromoting === data?.current?.claimId ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Database className="h-3 w-3 mr-1" />}
+                                                                                     Save for reuse
+                                                                                 </Button>
+                                                                             )
+                                                                         )}
+                                                                         {data?.current?.source === 'USER_INPUT' && (
+                                                                             <button
+                                                                                 className="p-1.5 rounded text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors shrink-0"
+                                                                                 onClick={() => setIsClearingSingleValue(true)}
+                                                                                 title="Break link to address reference"
+                                                                             >
+                                                                                 <Link2Off className="h-3.5 w-3.5" />
+                                                                             </button>
+                                                                         )}
+                                                                         {isCuratedAddressRef && (
+                                                                             <UnifiedAddressPicker
+                                                                                 clientLEId={legalEntityId}
+                                                                                 fieldNo={fieldNo}
+                                                                                 onSuccess={async () => {
+                                                                                     const refreshed = await getFieldDetail(legalEntityId, fieldNo, 'CLIENT_LE', customFieldId);
+                                                                                     setData(refreshed);
+                                                                                     if (onUpdate && refreshed?.current) {
+                                                                                         onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
+                                                                                     }
+                                                                                 }}
+                                                                                 trigger={
+                                                                                     <button
+                                                                                         className="p-1.5 rounded text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors shrink-0"
+                                                                                         title="Change saved address"
+                                                                                     >
+                                                                                         <ArrowRightLeft className="h-3.5 w-3.5" />
+                                                                                     </button>
+                                                                                 }
+                                                                             />
+                                                                         )}
                                                                      </div>
                                                                  ) : (
                                                                      <button
                                                                          className="p-1.5 rounded text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors shrink-0"
                                                                          onClick={() => {
-                                                                             if (isAddressField) {
-                                                                                 setManualValue(data?.current?.value?._resolvedData?.ccAddress?.data || data?.current?.value || { addressLines: [] });
-                                                                             } else {
-                                                                                 setManualValue(String(data?.current?.value || ""));
-                                                                             }
+                                                                             setManualValue(String(data?.current?.value || ""));
                                                                              setIsEditing(true);
                                                                              setRelatedValues({});
                                                                          }}
@@ -1551,7 +1725,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                              isCuratedPartyRef || isPersonOrContactField ? (
                                                                  <div className="flex flex-col items-center justify-center py-6 border border-dashed border-slate-200 rounded-lg bg-slate-50/50 p-4 space-y-3">
                                                                      <div className="text-sm text-slate-500 italic">
-                                                                         {isCuratedPartyRef ? "No curated party assigned" : "No person/contact recorded"}
+                                                                         {isCuratedPartyRef ? "No saved party assigned" : "No person/contact recorded"}
                                                                      </div>
                                                                      {!isLocked && (
                                                                          <UnifiedPartyPicker
@@ -1570,7 +1744,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                                      className="bg-indigo-50/50 hover:bg-indigo-50 border-indigo-200 text-indigo-700 border-dashed shadow-sm shrink-0"
                                                                                  >
                                                                                      <Plus className="h-4 w-4 mr-2" />
-                                                                                     {isCuratedPartyRef ? "Select Curated Party" : (fieldNo === 63 ? 'Add Director' : 'Select Party / Contact')}
+                                                                                     {isCuratedPartyRef ? "Select saved party" : (fieldNo === 63 ? 'Add Director' : 'Select Party / Contact')}
                                                                                  </Button>
                                                                              }
                                                                          />
@@ -1808,6 +1982,14 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                              onChange={(val) => setManualValue(val as any)}
                                                              disabled={isSaving}
                                                              fieldNo={fieldNo}
+                                                         />
+                                                     </div>
+                                                ) : isAddressField || isCuratedAddressRef ? (
+                                                     <div className="mt-4 bg-slate-50 p-3 rounded-lg border border-slate-200">
+                                                         <AddressValueEditor
+                                                             value={typeof manualValue === 'object' && manualValue ? manualValue : { addressLines: [] } as any}
+                                                             onChange={(val) => setManualValue(val as any)}
+                                                             disabled={isSaving}
                                                          />
                                                      </div>
                                                 ) : data?.options && data.options.length > 0 ? (
@@ -2124,7 +2306,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                         disabled={isPromoting !== null}
                                                         onClick={() => handlePromote(candidate.id)}
                                                     >
-                                                        {isPromoting === candidate.id ? <Loader2 className="w-3 h-3 animate-spin" /> : "Promote"}
+                                                        {isPromoting === candidate.id ? <Loader2 className="w-3 h-3 animate-spin" /> : "Save for reuse"}
                                                     </Button>
                                                 )}
                                             </div>

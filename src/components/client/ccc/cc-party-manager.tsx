@@ -106,14 +106,14 @@ export function CCPartyManager({ clientLEId, initialParties }: CCPartyManagerPro
                 if (res.success) {
                     toast.success(
                         selectedParty
-                            ? "Curated party updated successfully"
-                            : "Curated party created successfully"
+                            ? "Saved party updated successfully"
+                            : "Saved party created successfully"
                     );
                     setDialogOpen(false);
                     router.refresh();
                 }
             } catch (err: any) {
-                toast.error(err.message || "Failed to save curated party");
+                toast.error(err.message || "Failed to save saved party");
             }
         });
     };
@@ -125,12 +125,12 @@ export function CCPartyManager({ clientLEId, initialParties }: CCPartyManagerPro
             try {
                 const res = await deleteCCParty(selectedParty.id, clientLEId);
                 if (res.success) {
-                    toast.success("Curated party deleted successfully");
+                    toast.success("Saved party deleted successfully");
                     setConfirmDeleteOpen(false);
                     router.refresh();
                 }
             } catch (err: any) {
-                toast.error(err.message || "Failed to delete curated party");
+                toast.error(err.message || "Failed to delete saved party");
             }
         });
     };
@@ -151,7 +151,7 @@ export function CCPartyManager({ clientLEId, initialParties }: CCPartyManagerPro
                     onClick={handleCreateClick}
                     className="bg-indigo-600 text-white hover:bg-indigo-700 font-semibold text-sm flex items-center gap-1.5 shadow-sm transition-all duration-150 rounded-lg h-9 px-4"
                 >
-                    <Plus className="h-4 w-4" /> Add Curated Party
+                    <Plus className="h-4 w-4" /> Add saved party
                 </Button>
             </div>
 
@@ -282,7 +282,7 @@ export function CCPartyManager({ clientLEId, initialParties }: CCPartyManagerPro
                                                             size="icon"
                                                             onClick={() => handleEditClick(party)}
                                                             className="h-8.5 w-8.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition-all duration-150"
-                                                            title="Edit curated party"
+                                                            title="Edit saved party"
                                                         >
                                                             <Edit className="h-4 w-4" />
                                                         </Button>
@@ -291,7 +291,7 @@ export function CCPartyManager({ clientLEId, initialParties }: CCPartyManagerPro
                                                             size="icon"
                                                             onClick={() => handleDeleteClick(party)}
                                                             className="h-8.5 w-8.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-all duration-150"
-                                                            title="Delete curated party"
+                                                            title="Delete saved party"
                                                         >
                                                             <Trash2 className="h-4 w-4" />
                                                         </Button>
@@ -313,7 +313,7 @@ export function CCPartyManager({ clientLEId, initialParties }: CCPartyManagerPro
                 <DialogContent className="max-w-4xl h-[85vh] md:h-[80vh] flex flex-col p-0 overflow-hidden border border-slate-100 shadow-xl rounded-xl">
                     <DialogHeader className="p-6 border-b border-slate-100/80 bg-white">
                         <DialogTitle className="text-lg font-bold tracking-tight text-slate-900">
-                            {selectedParty ? "Edit Curated Party" : "Add Curated Party"}
+                            {selectedParty ? "Edit saved party" : "Add saved party"}
                         </DialogTitle>
                         <DialogDescription className="text-slate-500 text-sm mt-1">
                             Fill in the fields below to curate this party's representative record.
@@ -405,10 +405,10 @@ export function CCPartyManager({ clientLEId, initialParties }: CCPartyManagerPro
                             <div className="p-2 bg-rose-50 rounded-full border border-rose-100">
                                 <AlertTriangle className="h-5 w-5" />
                             </div>
-                            <DialogTitle className="text-base font-bold">Delete Curated Party</DialogTitle>
+                            <DialogTitle className="text-base font-bold">Delete saved party</DialogTitle>
                         </div>
                         <DialogDescription className="text-slate-600 text-sm leading-relaxed pl-1">
-                            Are you sure you want to delete this curated party record? This action is permanent and cannot be undone.
+                            Are you sure you want to delete this saved party record? This action is permanent and cannot be undone.
                         </DialogDescription>
                     </div>
 

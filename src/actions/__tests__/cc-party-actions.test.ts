@@ -106,7 +106,7 @@ describe("cc-party-actions", () => {
             expect(result).toEqual([{
                 ...mockParties[0],
                 originType: "PROMOTED",
-                originLabel: "Promoted from Field 63 — List of company directors",
+                originLabel: "Saved for reuse from Field 63 — List of company directors",
                 originFieldNo: 63,
                 originFieldName: "List of company directors",
                 originSourceLabel: "Companies House",

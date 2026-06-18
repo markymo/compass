@@ -138,7 +138,7 @@ export function UnifiedAddressPicker({ clientLEId, fieldNo, trigger, onSuccess, 
                         <div className="relative">
                             <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                             <Input
-                                placeholder="Search existing curated addresses..."
+                                placeholder="Search existing saved addresses..."
                                 value={query}
                                 onChange={(e) => setQuery(e.target.value)}
                                 className="pl-9 h-10 bg-slate-50 border-slate-200 focus:bg-white"
@@ -179,7 +179,7 @@ export function UnifiedAddressPicker({ clientLEId, fieldNo, trigger, onSuccess, 
                                         <Search className="h-5 w-5" />
                                     </div>
                                     <p className="text-sm text-slate-500">
-                                        {query ? "No matching addresses found." : "Start typing to search curated addresses."}
+                                        {query ? "No matching addresses found." : "Start typing to search saved addresses."}
                                     </p>
                                 </div>
                             )}

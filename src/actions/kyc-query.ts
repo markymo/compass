@@ -609,6 +609,7 @@ export interface FieldDetailData {
         confidence: number | null;
         sourceReference?: string;
         claimId?: string;
+        isPromotedToCCC?: boolean;
     } | null;
     displayState?: "HAS_VALUE" | "MAPPED_NOT_CHECKED" | "CHECKED_NO_DATA" | "DEFAULT_RESPONSE" | "UNMAPPED_NO_RESPONSE";
     defaultResponse?: string;
@@ -897,6 +898,21 @@ export async function getFieldDetail(
 
     const isPartyField = def?.appDataType === 'PARTY' || def?.appDataType === 'PERSON_OR_CONTACT' || def?.appDataType === 'PARTY_REF';
 
+    let promotedClaimIds = new Set<string>();
+    if (def && (def.appDataType === 'PARTY' || def.appDataType === 'PERSON_OR_CONTACT') && entityType === 'CLIENT_LE') {
+        const promotedParties = await prisma.cCParty.findMany({
+            where: { clientLEId: entityId, createdFromClaimId: { not: null } },
+            select: { createdFromClaimId: true }
+        });
+        promotedClaimIds = new Set(promotedParties.map((p: any) => p.createdFromClaimId as string));
+    } else if (def && def.appDataType === 'ADDRESS' && entityType === 'CLIENT_LE') {
+        const promotedAddresses = await prisma.cCAddress.findMany({
+            where: { clientLEId: entityId, createdFromClaimId: { not: null } },
+            select: { createdFromClaimId: true }
+        });
+        promotedClaimIds = new Set(promotedAddresses.map((a: any) => a.createdFromClaimId as string));
+    }
+
     if (def?.isMultiValue) {
         if (graphBinding && entityType === 'CLIENT_LE' && !isPartyField) {
             // Source rows from Graph Edges to avoid duplication and show real graph state
@@ -951,15 +967,6 @@ export async function getFieldDetail(
 
             if (fieldNo === 63) {
                 collection = collection.filter(c => isRenderableActiveDirectorParty(c.value));
-            }
-
-            let promotedClaimIds = new Set<string>();
-            if (def && (def.appDataType === 'PARTY' || def.appDataType === 'PERSON_OR_CONTACT') && entityType === 'CLIENT_LE') {
-                const promotedParties = await prisma.cCParty.findMany({
-                    where: { clientLEId: entityId, createdFromClaimId: { not: null } },
-                    select: { createdFromClaimId: true }
-                });
-                promotedClaimIds = new Set(promotedParties.map((p: any) => p.createdFromClaimId as string));
             }
 
             rows = collection.map((c: any) => {
@@ -1216,12 +1223,14 @@ export async function getFieldDetail(
             sourceReference: derived.sourceReference || undefined,
             timestamp: derived.assertedAt,
             confidence: derived.confidenceScore || 1.0,
-            claimId: derived.claimId
+            claimId: derived.claimId,
+            isPromotedToCCC: promotedClaimIds.has(derived.claimId)
         } : (finalSourceBadgeForEmpty ? {
             value: null,
             source: finalSourceBadgeForEmpty as ProvenanceSource,
             timestamp: null,
-            confidence: null
+            confidence: null,
+            isPromotedToCCC: false
         } : null),
         displayState,
         defaultResponse: (def as any)?.defaultResponse || undefined,

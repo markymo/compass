@@ -92,14 +92,14 @@ export function CCAddressManager({ clientLEId, initialAddresses }: CCAddressMana
                 if (res.success) {
                     toast.success(
                         selectedAddress
-                            ? "Curated address updated successfully"
-                            : "Curated address created successfully"
+                            ? "Saved address updated successfully"
+                            : "Saved address created successfully"
                     );
                     setDialogOpen(false);
                     router.refresh();
                 }
             } catch (err: any) {
-                toast.error(err.message || "Failed to save curated address");
+                toast.error(err.message || "Failed to save saved address");
             }
         });
     };
@@ -111,12 +111,12 @@ export function CCAddressManager({ clientLEId, initialAddresses }: CCAddressMana
             try {
                 const res = await deleteCCAddress(selectedAddress.id, clientLEId);
                 if (res.success) {
-                    toast.success("Curated address deleted successfully");
+                    toast.success("Saved address deleted successfully");
                     setConfirmDeleteOpen(false);
                     router.refresh();
                 }
             } catch (err: any) {
-                toast.error(err.message || "Failed to delete curated address");
+                toast.error(err.message || "Failed to delete saved address");
             }
         });
     };
@@ -127,7 +127,7 @@ export function CCAddressManager({ clientLEId, initialAddresses }: CCAddressMana
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="space-y-1">
                     <h3 className="text-base font-bold tracking-tight text-slate-800">
-                        Curated Addresses
+                        Saved Addresses
                     </h3>
                     <p className="text-sm text-slate-500">
                         Manage local curated client addresses for this entity.
@@ -137,7 +137,7 @@ export function CCAddressManager({ clientLEId, initialAddresses }: CCAddressMana
                     onClick={handleCreateClick}
                     className="bg-indigo-600 text-white hover:bg-indigo-700 font-semibold text-sm flex items-center gap-1.5 shadow-sm transition-all duration-150 rounded-lg h-9 px-4"
                 >
-                    <Plus className="h-4 w-4" /> Add Curated Address
+                    <Plus className="h-4 w-4" /> Add saved address
                 </Button>
             </div>
 
@@ -149,9 +149,9 @@ export function CCAddressManager({ clientLEId, initialAddresses }: CCAddressMana
                             <div className="p-3 bg-slate-50 rounded-full border border-slate-100 text-slate-400 mb-4">
                                 <Layers className="h-6 w-6" />
                             </div>
-                            <h4 className="text-sm font-semibold text-slate-800">No Curated Addresses</h4>
-                            <p className="text-xs text-slate-500 max-w-sm mt-1">
-                                No curated address records have been created for this legal entity yet.
+                            <h4 className="text-sm font-semibold text-slate-800">No saved addresses</h4>
+                            <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                                No saved address records have been created for this legal entity yet.
                             </p>
                             <Button
                                 variant="outline"
@@ -239,7 +239,7 @@ export function CCAddressManager({ clientLEId, initialAddresses }: CCAddressMana
                                                             size="icon"
                                                             onClick={() => handleEditClick(address)}
                                                             className="h-8.5 w-8.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition-all duration-150"
-                                                            title="Edit curated address"
+                                                            title="Edit saved address"
                                                         >
                                                             <Edit className="h-4 w-4" />
                                                         </Button>
@@ -248,7 +248,7 @@ export function CCAddressManager({ clientLEId, initialAddresses }: CCAddressMana
                                                             size="icon"
                                                             onClick={() => handleDeleteClick(address)}
                                                             className="h-8.5 w-8.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-all duration-150"
-                                                            title="Delete curated address"
+                                                            title="Delete saved address"
                                                         >
                                                             <Trash2 className="h-4 w-4" />
                                                         </Button>
@@ -270,7 +270,7 @@ export function CCAddressManager({ clientLEId, initialAddresses }: CCAddressMana
                 <DialogContent className="max-w-4xl h-[85vh] md:h-[80vh] flex flex-col p-0 overflow-hidden border border-slate-100 shadow-xl rounded-xl">
                     <DialogHeader className="p-6 border-b border-slate-100/80 bg-white">
                         <DialogTitle className="text-lg font-bold tracking-tight text-slate-900">
-                            {selectedAddress ? "Edit Curated Address" : "Add Curated Address"}
+                            {selectedAddress ? "Edit saved address" : "Add saved address"}
                         </DialogTitle>
                         <DialogDescription className="text-slate-500 text-sm mt-1">
                             Fill in the fields below to curate this address record.
@@ -362,10 +362,10 @@ export function CCAddressManager({ clientLEId, initialAddresses }: CCAddressMana
                             <div className="p-2 bg-rose-50 rounded-full border border-rose-100">
                                 <AlertTriangle className="h-5 w-5" />
                             </div>
-                            <DialogTitle className="text-base font-bold">Delete Curated Address</DialogTitle>
+                            <DialogTitle className="text-base font-bold">Delete saved address</DialogTitle>
                         </div>
                         <DialogDescription className="text-slate-600 text-sm leading-relaxed pl-1">
-                            Are you sure you want to delete this curated address record? This action is permanent and cannot be undone.
+                            Are you sure you want to delete this saved address record? This action is permanent and cannot be undone.
                         </DialogDescription>
                     </div>
 
