@@ -455,13 +455,8 @@ export class KycStateService {
                 if (genericPriority !== undefined) return genericPriority;
             }
 
-            // 3. No mapping found — use central fallback table and warn
+            // 3. No mapping found — use central fallback table
             const fallback = getFallbackPriority(claim.sourceType);
-            console.warn(
-                `[KycStateService] No active SourceFieldMapping found for ` +
-                `sourceType=${claim.sourceType}, sourceReference=${claim.sourceReference ?? 'null'}, ` +
-                `fieldNo=${claim.fieldNo}. Using fallback priority=${fallback}.`
-            );
             return fallback;
         };
 
