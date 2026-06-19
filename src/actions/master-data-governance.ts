@@ -77,10 +77,15 @@ export async function updateMasterField(
     }
 ) {
     try {
-        let finalData = { ...data };
+        let finalData: any = { ...data };
         delete finalData.newCategoryName;
 
-        if (data.newCategoryName) {
+        // Sanitize: empty string means "no category", which must be `null` in DB to avoid FK violation
+        if (finalData.categoryId !== undefined) {
+            finalData.categoryId = finalData.categoryId?.trim() || null;
+        }
+
+        if (data.newCategoryName?.trim()) {
             const normalize = (name: string) => name.trim().toLowerCase().replace(/[\s\W]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
             let baseKey = normalize(data.newCategoryName);
             
