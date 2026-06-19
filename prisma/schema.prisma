@@ -675,6 +675,7 @@ model FieldClaim {
   valueDocId       String?
   status           ClaimStatus       @default(ASSERTED)
   ownerScopeId     String?
+  clientLeScopeId  String?
   sourceType       SourceType
   sourceReference  String?
   evidenceId       String?
@@ -703,6 +704,7 @@ model FieldClaim {
   verifiedBy       User?             @relation(fields: [verifiedByUserId], references: [id])
 
   @@index([subjectLeId, fieldNo])
+  @@index([clientLeScopeId])
   @@index([subjectPersonId, fieldNo])
   @@index([subjectOrgId, fieldNo])
   @@index([subjectAddressId, fieldNo])
