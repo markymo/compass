@@ -12,7 +12,7 @@ import { toast } from "sonner";
 import { Loader2, History, Database, Edit, CheckCircle, CheckCircle2, AlertTriangle, Paperclip, FileText, Download, X, User as UserIcon, Pencil, Check, Trash2, Plus, Lock, Save, Link2Off, ArrowRightLeft } from "lucide-react";
 import { getFieldDetail, FieldDetailData } from "@/actions/kyc-query";
 // FIELD_DEFINITIONS removed
-import { updateFieldManually, applyCandidate, updateCustomFieldManually, addMultiValueEntry, removeMultiValueEntry, applyBulkOverride, promoteClaim } from "@/actions/kyc-manual-update";
+import { updateFieldManually, applyCandidate, updateCustomFieldManually, addMultiValueEntry, removeMultiValueEntry, applyBulkOverride, promoteClaim, releaseFieldDefault, releaseFieldAbsence } from "@/actions/kyc-manual-update";
 import { promoteClaimToCCParty } from "@/actions/cc-party-actions";
 import { saveAddressForReuse } from "@/actions/cc-address-actions";
 import { getMasterFieldDocuments, setMasterFieldAssignment } from "@/actions/standing-data";
@@ -116,6 +116,10 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
             try {
                 parsedVal = JSON.parse(val);
             } catch (e) {}
+        }
+
+        if (parsedVal && typeof parsedVal === 'object' && parsedVal.explicitNone) {
+            return <span className="text-slate-800 font-medium">None</span>;
         }
 
         if (rowData?.data?.resolvedSummary || val?._resolvedData?.resolvedSummary) {
@@ -1774,19 +1778,49 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                     <div className="flex items-start justify-between">
                                                                         <div className="mt-0.5">
                                                                         <div className="text-sm text-slate-500 italic mb-2">
-                                                                            {data?.displayState === 'MAPPED_NOT_CHECKED' && 'Source not checked yet'}
-                                                                            {data?.displayState === 'CHECKED_NO_DATA' && 'No data in source record'}
+                                                                            {data?.displayState === 'CHECKED_NO_DATA' && (
+                                                                                <div className="not-italic text-slate-800 font-medium">None</div>
+                                                                            )}
                                                                             {data?.displayState === 'DEFAULT_RESPONSE' && (
-                                                                                <span className="flex items-center gap-2 not-italic text-slate-800">
+                                                                                <span className="flex items-center gap-2 not-italic text-blue-600 font-medium">
                                                                                     <span>{data.defaultResponse}</span>
-                                                                                    <Badge variant="outline" className="text-[9px] uppercase tracking-wider text-slate-500 bg-slate-50 border-slate-200">Field Default</Badge>
+                                                                                    <Badge variant="outline" className="text-[9px] uppercase tracking-wider text-blue-500 bg-blue-50 border-blue-200">Field Default</Badge>
                                                                                 </span>
                                                                             )}
-                                                                            {(!data?.displayState || data?.displayState === 'UNMAPPED_NO_RESPONSE') && 'No response recorded'}
+                                                                            {(!data?.displayState || data?.displayState === 'UNMAPPED_NO_RESPONSE' || data?.displayState === 'MAPPED_NOT_CHECKED') && 'No response recorded'}
                                                                         </div>
-                                                                        {(data?.displayState === 'MAPPED_NOT_CHECKED' || data?.displayState === 'CHECKED_NO_DATA') && data?.current?.source && (
+                                                                        {data?.displayState === 'CHECKED_NO_DATA' && data?.current?.source && (
                                                                             <div className="mt-2 flex items-center gap-2">
                                                                                 <SourceBadge source={data.current.source} registrationAuthorityId={registrationAuthorityId} />
+                                                                                {data?.current?.timestamp && (
+                                                                                    <span className="text-xs text-slate-400">
+                                                                                        (Refreshed {String(new Date(data.current.timestamp).toISOString()).substring(0, 10)})
+                                                                                    </span>
+                                                                                )}
+                                                                            </div>
+                                                                        )}
+                                                                        {!isLocked && (data?.displayState === 'DEFAULT_RESPONSE' || data?.displayState === 'CHECKED_NO_DATA') && (
+                                                                            <div className="mt-3">
+                                                                                <Button 
+                                                                                    variant="outline" 
+                                                                                    size="sm" 
+                                                                                    className="h-7 text-xs bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                                                                                    onClick={async () => {
+                                                                                        if (data?.displayState === 'DEFAULT_RESPONSE' && data.defaultResponse) {
+                                                                                            await releaseFieldDefault(clientLEId, fieldNo, data.defaultResponse);
+                                                                                        } else if (data?.displayState === 'CHECKED_NO_DATA') {
+                                                                                            await releaseFieldAbsence(clientLEId, fieldNo, data.current?.source || 'SYSTEM', data.current?.timestamp ? data.current.timestamp.toISOString() : null);
+                                                                                        }
+                                                                                        const refreshed = await getFieldDetail(clientLEId, fieldNo, 'CLIENT_LE', customFieldId);
+                                                                                        setData(refreshed);
+                                                                                        if (onUpdate && refreshed?.current) {
+                                                                                            onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
+                                                                                        }
+                                                                                    }}
+                                                                                >
+                                                                                    <CheckCircle2 className="w-3.5 h-3.5 mr-1 text-emerald-600" />
+                                                                                    {data.displayState === 'DEFAULT_RESPONSE' ? 'Sign off default' : 'Sign off absence'}
+                                                                                </Button>
                                                                             </div>
                                                                         )}
                                                                     </div>

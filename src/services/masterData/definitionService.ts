@@ -84,9 +84,16 @@ export async function listAllMasterFields(): Promise<MasterFieldDefinition[]> {
         await refreshDefinitionCache();
     }
     // Sort by order then fieldNo — matches the master data manager display order.
-    // Object.values() on a numeric-keyed dict returns insertion order (not sort order),
-    // so an explicit sort is required regardless of the orderBy in refreshDefinitionCache.
-    return Object.values(definitionCache!).sort((a, b) => {
+    return Object.values(definitionCache!).sort((a: any, b: any) => {
+        const catA = a.masterDataCategory || { order: 9999, displayName: "Uncategorized" };
+        const catB = b.masterDataCategory || { order: 9999, displayName: "Uncategorized" };
+
+        const catOrderDiff = (catA.order ?? 9999) - (catB.order ?? 9999);
+        if (catOrderDiff !== 0) return catOrderDiff;
+
+        const catNameDiff = (catA.displayName || "").localeCompare(catB.displayName || "");
+        if (catNameDiff !== 0) return catNameDiff;
+
         const orderDiff = (a.order ?? 0) - (b.order ?? 0);
         return orderDiff !== 0 ? orderDiff : a.fieldNo - b.fieldNo;
     });

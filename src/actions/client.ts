@@ -119,9 +119,10 @@ export async function ensureUserOrg(userId: string, userEmail: string = "") {
                     data: { userId: userId }
                 });
 
-                // 3. Move Comments/Activities/Todos if any (Optional but good practice)
+                // 3. Move Comments/Activities/Todos/Notes if any
                 await tx.comment.updateMany({ where: { userId: existingUserByEmail.id }, data: { userId: userId } });
                 await tx.questionActivity.updateMany({ where: { userId: existingUserByEmail.id }, data: { userId: userId } });
+                await tx.masterFieldNote.updateMany({ where: { createdByUserId: existingUserByEmail.id }, data: { createdByUserId: userId } });
 
                 // 4. Delete Placeholder
                 await tx.user.delete({

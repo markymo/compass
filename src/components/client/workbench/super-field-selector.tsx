@@ -68,7 +68,8 @@ export function SuperFieldSelector({
                 meta: `Standard Field ${f.fieldNo}`,
                 dataType: f.dataType,
                 currentValue: f.currentValue,
-                previewText
+                previewText,
+                category: f.category
             });
             if (f.dataType === 'ADDRESS') {
                 const projections = [
@@ -88,7 +89,8 @@ export function SuperFieldSelector({
                         meta: `Standard Field ${f.fieldNo} Projection`,
                         dataType: 'STRING',
                         currentValue: null, // Keep null to keep UI simple
-                        previewText: extractedValue ? String(extractedValue) : `Extracts ${proj.path}`
+                        previewText: extractedValue ? String(extractedValue) : `Extracts ${proj.path}`,
+                        category: f.category
                     });
                 });
             }
@@ -314,32 +316,46 @@ export function SuperFieldSelector({
 
                                 <CommandSeparator />
 
-                                <CommandGroup heading="Standard Fields">
-                                    {filteredOptions.filter((o: any) => o.type === 'master').map((o: any) => (
-                                        <CommandItem
-                                            key={o.value}
-                                            onSelect={() => { 
-                                                const val = o.value.substring(o.value.indexOf(':') + 1);
-                                                onSelect(val, 'master'); 
-                                                setOpen(false); 
-                                            }}
-                                            className="flex flex-col items-start gap-1 py-2 cursor-pointer"
-                                        >
-                                            <div className="flex items-center w-full gap-2">
-                                                <Check className={cn("h-4 w-4 text-indigo-600 shrink-0", value === o.value ? "opacity-100" : "opacity-0")} />
-                                                <span className="text-sm font-medium flex-1">{o.label}</span>
-                                                {getDataTypeIcon(o.dataType)}
-                                            </div>
-                                            <div className="pl-6 flex flex-col w-full text-slate-500">
-                                                {o.previewText ? (
-                                                    <span className="text-[11px] font-medium text-slate-600 truncate italic bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100 mt-1">
-                                                        {o.previewText}
-                                                    </span>
-                                                ) : null}
-                                            </div>
-                                        </CommandItem>
-                                    ))}
-                                </CommandGroup>
+                                {(() => {
+                                    const masterOptions = filteredOptions.filter((o: any) => o.type === 'master');
+                                    if (masterOptions.length === 0) return null;
+                                    
+                                    const grouped = new Map<string, any[]>();
+                                    masterOptions.forEach((o: any) => {
+                                        const cat = o.category || 'Uncategorized';
+                                        if (!grouped.has(cat)) grouped.set(cat, []);
+                                        grouped.get(cat)!.push(o);
+                                    });
+
+                                    return Array.from(grouped.entries()).map(([cat, opts]) => (
+                                        <CommandGroup key={`cat-${cat}`} heading={cat}>
+                                            {opts.map((o: any) => (
+                                                <CommandItem
+                                                    key={o.value}
+                                                    onSelect={() => { 
+                                                        const val = o.value.substring(o.value.indexOf(':') + 1);
+                                                        onSelect(val, 'master'); 
+                                                        setOpen(false); 
+                                                    }}
+                                                    className="flex flex-col items-start gap-1 py-2 cursor-pointer"
+                                                >
+                                                    <div className="flex items-center w-full gap-2">
+                                                        <Check className={cn("h-4 w-4 text-indigo-600 shrink-0", value === o.value ? "opacity-100" : "opacity-0")} />
+                                                        <span className="text-sm font-medium flex-1">{o.label}</span>
+                                                        {getDataTypeIcon(o.dataType)}
+                                                    </div>
+                                                    <div className="pl-6 flex flex-col w-full text-slate-500">
+                                                        {o.previewText ? (
+                                                            <span className="text-[11px] font-medium text-slate-600 truncate italic bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100 mt-1">
+                                                                {o.previewText}
+                                                            </span>
+                                                        ) : null}
+                                                    </div>
+                                                </CommandItem>
+                                            ))}
+                                        </CommandGroup>
+                                    ));
+                                })()}
 
                                 <CommandSeparator />
 

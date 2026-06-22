@@ -61,7 +61,10 @@ export async function updateFieldManually(
         };
 
         // Assign value to the correct slot
-        switch (def.appDataType) {
+        if (value && typeof value === 'object' && value.explicitNone) {
+            claimInput.valueJson = value;
+        } else {
+            switch (def.appDataType) {
             case 'TEXT':
             case 'SELECT': // Option-set fields store the selected value as text
                 claimInput.valueText = value; break;
@@ -78,6 +81,7 @@ export async function updateFieldManually(
             case 'PARTY':
             case 'PERSON_OR_CONTACT':
                 claimInput.valueJson = value; break;
+            }
         }
 
         const claim = await FieldClaimService.assertClaim({
@@ -772,5 +776,64 @@ export async function createCCAddressAndReferenceField(
     } catch (error: any) {
         console.error("createCCAddressAndReferenceField error:", error);
         return { success: false, message: error.message };
+    }
+}
+
+export async function releaseFieldDefault(
+    clientLEId: string,
+    fieldNo: number,
+    defaultString: string
+) {
+    try {
+        const def = await getMasterFieldDefinition(fieldNo);
+        let parsedValue: any = defaultString;
+        
+        // Basic type casting
+        if (def.appDataType === 'BOOLEAN') {
+            parsedValue = defaultString.toLowerCase() === 'true';
+        } else if (def.appDataType === 'NUMBER') {
+            parsedValue = Number(defaultString);
+        } else if (['JSONB', 'PARTY', 'ADDRESS', 'PERSON_OR_CONTACT'].includes(def.appDataType)) {
+            try { parsedValue = JSON.parse(defaultString); } catch (e) {}
+        }
+        
+        return await updateFieldManually(
+            clientLEId,
+            fieldNo,
+            parsedValue,
+            "Released field default",
+            undefined,
+            'CLIENT_LE'
+        );
+    } catch (e: any) {
+        console.error("releaseFieldDefault error:", e);
+        return { success: false, message: e.message };
+    }
+}
+
+export async function releaseFieldAbsence(
+    clientLEId: string,
+    fieldNo: number,
+    sourceBadge: string,
+    sourceTimestamp: string | null
+) {
+    try {
+        const snapshot = {
+            explicitNone: true,
+            releasedSourceBadge: sourceBadge,
+            releasedSourceTimestamp: sourceTimestamp
+        };
+        
+        return await updateFieldManually(
+            clientLEId,
+            fieldNo,
+            snapshot,
+            "Released explicit absence",
+            undefined,
+            'CLIENT_LE'
+        );
+    } catch (e: any) {
+        console.error("releaseFieldAbsence error:", e);
+        return { success: false, message: e.message };
     }
 }

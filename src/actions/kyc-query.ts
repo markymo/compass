@@ -1136,13 +1136,14 @@ export async function getFieldDetail(
 
     const fieldMappings = await prisma.sourceFieldMapping.findMany({
         where: { targetFieldNo: fieldNo, isActive: true },
-        select: { sourceType: true }
+        select: { sourceType: true, sourceReference: true, priority: true },
+        orderBy: { priority: 'asc' }
     });
-    const mappedSources = fieldMappings.map((m: any) => m.sourceType);
-    const hasMapping = mappedSources.length > 0;
+    const hasMapping = fieldMappings.length > 0;
     
     let hasEvaluationAttempt = false;
     let evaluatedSourceBadge = "";
+    let evaluatedSourceTimestamp: Date | null = null;
     
     if (hasMapping && entityType === 'CLIENT_LE') {
         const clientLE = await prisma.clientLE.findUnique({
@@ -1150,21 +1151,36 @@ export async function getFieldDetail(
             include: { registryReferences: { include: { authority: true } } }
         });
         if (clientLE) {
-            if (mappedSources.includes("GLEIF") && clientLE.gleifFetchedAt) {
-                hasEvaluationAttempt = true;
-                evaluatedSourceBadge = "GLEIF";
-            } else if (mappedSources.includes("REGISTRATION_AUTHORITY") && clientLE.registryReferences?.some((r: any) => r.lastSyncSucceededAt || r.lastSyncStatus)) {
-                hasEvaluationAttempt = true;
-                evaluatedSourceBadge = "REGISTRATION_AUTHORITY";
-            } else if (mappedSources.includes("COMPANIES_HOUSE") && clientLE.registryReferences?.some((r: any) => r.authority?.name?.includes("Companies House"))) {
-                hasEvaluationAttempt = true;
-                evaluatedSourceBadge = "COMPANIES_HOUSE";
-            } else if (clientLE.gleifFetchedAt || clientLE.registryReferences?.length > 0) {
-                hasEvaluationAttempt = true;
+            // Iterate in priority order to find the highest-priority synced source
+            for (const mapping of fieldMappings) {
+                if (mapping.sourceType === "GLEIF" && clientLE.gleifFetchedAt) {
+                    hasEvaluationAttempt = true;
+                    evaluatedSourceBadge = "GLEIF";
+                    evaluatedSourceTimestamp = clientLE.gleifFetchedAt;
+                    break;
+                }
+                if (mapping.sourceType === "REGISTRATION_AUTHORITY" || mapping.sourceType === "COMPANIES_HOUSE") {
+                    const refs = clientLE.registryReferences || [];
+                    // Find a reference that matches this specific mapping
+                    // If sourceReference is null, any RA ref that has been synced counts
+                    const matchingRef = refs.find((r: any) => {
+                        const hasSync = !!(r.lastSyncSucceededAt || r.lastSyncStatus);
+                        if (!hasSync) return false;
+                        if (!mapping.sourceReference) return true; // generic mapping matches any synced RA
+                        // Specific RA match
+                        if (mapping.sourceReference === "COMPANIES_HOUSE" && r.authority?.name?.includes("Companies House")) return true;
+                        if (mapping.sourceReference === r.authority?.registryKey) return true;
+                        return false;
+                    });
+                    
+                    if (matchingRef) {
+                        hasEvaluationAttempt = true;
+                        evaluatedSourceBadge = mapping.sourceReference || mapping.sourceType;
+                        evaluatedSourceTimestamp = matchingRef.lastSyncSucceededAt || matchingRef.createdAt; // Fallback to createdAt if lastSyncSucceededAt is null
+                        break;
+                    }
+                }
             }
-        }
-        if (!evaluatedSourceBadge && mappedSources.length > 0) {
-            evaluatedSourceBadge = mappedSources[0];
         }
     }
 
@@ -1172,7 +1188,11 @@ export async function getFieldDetail(
         if (val === null || val === undefined) return true;
         if (typeof val === 'string' && val.trim() === '') return true;
         if (Array.isArray(val) && val.length === 0) return true;
-        if (typeof val === 'object' && Object.keys(val).length === 0) return true;
+        if (typeof val === 'object') {
+            // Treat explicit none assertion as a VALID value
+            if (val.explicitNone === true) return false;
+            if (Object.keys(val).length === 0) return true;
+        }
         return false;
     };
 
@@ -1183,15 +1203,15 @@ export async function getFieldDetail(
     
     if (hasValue) {
         displayState = "HAS_VALUE";
-    } else if (hasMapping && !hasEvaluationAttempt) {
-        displayState = "MAPPED_NOT_CHECKED";
-    } else if (hasMapping && hasEvaluationAttempt) {
+    } else if (hasEvaluationAttempt) {
         displayState = "CHECKED_NO_DATA";
     } else if ((def as any)?.defaultResponse) {
         displayState = "DEFAULT_RESPONSE";
+    } else if (hasMapping && !hasEvaluationAttempt) {
+        displayState = "MAPPED_NOT_CHECKED";
     }
 
-    let finalSourceBadgeForEmpty = (!hasValue && (displayState === 'MAPPED_NOT_CHECKED' || displayState === 'CHECKED_NO_DATA')) ? evaluatedSourceBadge : undefined;
+    let finalSourceBadgeForEmpty = (!hasValue && (displayState === 'MAPPED_NOT_CHECKED' || displayState === 'CHECKED_NO_DATA') && evaluatedSourceBadge) ? evaluatedSourceBadge : undefined;
 
     const result = {
         fieldNo,
@@ -1228,7 +1248,7 @@ export async function getFieldDetail(
         } : (finalSourceBadgeForEmpty ? {
             value: null,
             source: finalSourceBadgeForEmpty as ProvenanceSource,
-            timestamp: null,
+            timestamp: evaluatedSourceTimestamp,
             confidence: null,
             isPromotedToCCC: false
         } : null),

@@ -108,10 +108,10 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
     const masterFields = allFields.map((def: any) => ({
         fieldNo: def.fieldNo,
         label: def.fieldName,
-        category: def.category,
+        category: def.masterDataCategory?.displayName ?? "Uncategorized",
         dataType: def.appDataType,
         currentValue: currentValues[def.fieldNo]
-    })).sort((a: any, b: any) => a.label.localeCompare(b.label));
+    }));
 
     const masterGroups = allGroups.map((g: any) => ({
         key: g.key,
@@ -119,10 +119,10 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
         category: g.category,
         dataType: 'JSON',
         currentValue: undefined // Groups are complex, skip live preview for now
-    })).sort((a: any, b: any) => a.label.localeCompare(b.label));
+    }));
 
     // 2. Lookups for categories
-    const fieldCategoryMap = new Map(allFields.map((f: any) => [f.fieldNo, f.category]));
+    const fieldCategoryMap = new Map(allFields.map((f: any) => [f.fieldNo, f.masterDataCategory?.displayName]));
     const groupCategoryMap = new Map(allGroups.map((g: any) => [g.key, g.category]));
 
     // Update questions with categories
