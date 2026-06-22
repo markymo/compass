@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { Fingerprint, RefreshCcw, ArrowRight, ShieldCheck, Ban, Info, Building2, FileText, Users, Sparkles, ChevronDown, ChevronUp, Clock } from "lucide-react";
 import { toast } from "sonner";
-import { refreshGleifProposals, acceptProposal } from "@/actions/kyc-proposals";
+import { refreshGleifProposals } from "@/actions/kyc-proposals";
 import { refreshRegistryReferenceAction } from "@/actions/registry";
 import { FieldProposal, ProvenanceSource } from "@/domain/kyc/types/ProposalTypes";
 import { cn } from "@/lib/utils";
@@ -63,11 +63,11 @@ interface DataSchemaTabProps {
 
 export function DataSchemaTab({ leId, masterData, customData = {}, customDefinitions = [], gleifLastSynced, masterFields = [], masterGroups = [], categories = [], uncategorizedFields = [], nationalRegistryData, registrationAuthorityId }: DataSchemaTabProps) {
     const [isRefreshing, setIsRefreshing] = useState(false);
-    const [proposals, setProposals] = useState<FieldProposal[] | null>(null);
+    const [updateNotices, setUpdateNotices] = useState<FieldProposal[] | null>(null);
     const [selectedField, setSelectedField] = useState<{ fieldNo: number; name: string; customFieldId?: string } | null>(null);
     const [lastRefreshed, setLastRefreshed] = useState<Date | undefined>(gleifLastSynced);
     const [isRefreshingRegistry, setIsRefreshingRegistry] = useState(false);
-    const [proposalsExpanded, setProposalsExpanded] = useState(false);
+    const [noticesExpanded, setNoticesExpanded] = useState(false);
     const [autoCollapseProgress, setAutoCollapseProgress] = useState(100); // 100→0 over 6s
     const collapseTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -165,10 +165,10 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
 
     // Auto-collapse timer: when proposals are shown, start a 6s countdown then collapse.
     useEffect(() => {
-        if (!proposals || proposals.filter((p: any) => p.action !== 'NO_CHANGE').length === 0) return;
+        if (!updateNotices || updateNotices.filter((p: any) => p.action !== 'NO_CHANGE').length === 0) return;
 
         // Reset and expand whenever new proposals arrive
-        setProposalsExpanded(true);
+        setNoticesExpanded(true);
         setAutoCollapseProgress(100);
 
         // Clear any existing timer
@@ -185,25 +185,25 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
             if (progress <= 0) {
                 clearInterval(collapseTimerRef.current!);
                 collapseTimerRef.current = null;
-                setProposalsExpanded(false);
+                setNoticesExpanded(false);
             }
         }, TICK_MS);
 
         return () => {
             if (collapseTimerRef.current) clearInterval(collapseTimerRef.current);
         };
-    }, [proposals]);
+    }, [updateNotices]);
 
     const handleRefreshGleif = async () => {
         setIsRefreshing(true);
         try {
             const result = await refreshGleifProposals(leId);
             if (result.success && result.proposals) {
-                setProposals(result.proposals);
+                setUpdateNotices(result.proposals);
                 if (result.proposals.length === 0) {
-                    toast.info("GLEIF data matches current records. No updates proposed.");
+                    toast.info("Source data matches current records. No updates found.");
                 } else {
-                    toast.success(`${result.proposals.filter((p: any) => p.action !== 'NO_CHANGE').length} field update${result.proposals.filter((p: any) => p.action !== 'NO_CHANGE').length === 1 ? '' : 's'} available from external sources.`);
+                    toast.success(`${result.proposals.filter((p: any) => p.action !== 'NO_CHANGE').length} field update${result.proposals.filter((p: any) => p.action !== 'NO_CHANGE').length === 1 ? '' : 's'} processed from external sources.`);
                 }
             } else {
                 toast.error(result.message || "Failed to refresh GLEIF data");
@@ -213,23 +213,6 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
         } finally {
             setIsRefreshing(false);
             setLastRefreshed(new Date());
-        }
-    };
-
-    const handleAccept = async (proposal: FieldProposal) => {
-        if (!proposal.proposed?.evidenceId) return;
-
-        try {
-            const result = await acceptProposal(leId, proposal.fieldNo, proposal.proposed.evidenceId);
-            if (result.success) {
-                toast.success(`Field ${proposal.fieldNo} updated successfully`);
-                setProposals(prev => prev ? prev.filter((p: any) => p.fieldNo !== proposal.fieldNo) : null);
-                // Ideally refresh page here or update local state
-            } else {
-                toast.error(result.message || "Update failed");
-            }
-        } catch (e) {
-            toast.error("An error occurred during acceptance");
         }
     };
 
@@ -326,9 +309,9 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                 </div>
 
                 {/* Proposals Panel — ephemeral flash notification, auto-collapses after 6s */}
-                {proposals && (() => {
-                    const actionable = proposals.filter((p: any) => p.action !== 'NO_CHANGE');
-                    const updateCount = actionable.filter((p: any) => p.action === 'PROPOSE_UPDATE').length;
+                {updateNotices && (() => {
+                    const actionable = updateNotices.filter((p: any) => p.action !== 'NO_CHANGE');
+                    const updateCount = actionable.filter((p: any) => p.action === 'PROPOSE_UPDATE' || p.action === 'AUTO_APPLIED').length;
                     const blockedCount = actionable.filter((p: any) => p.action === 'BLOCKED').length;
 
                     if (actionable.length === 0) return (
@@ -340,7 +323,7 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                     );
 
                     const summaryParts: string[] = [];
-                    if (updateCount > 0) summaryParts.push(`${updateCount} field${updateCount === 1 ? '' : 's'} have updated values`);
+                    if (updateCount > 0) summaryParts.push(`${updateCount} field${updateCount === 1 ? '' : 's'} updated from source`);
                     if (blockedCount > 0) summaryParts.push(`${blockedCount} blocked by priority rules`);
 
                     return (
@@ -354,7 +337,7 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                                         collapseTimerRef.current = null;
                                         setAutoCollapseProgress(0);
                                     }
-                                    setProposalsExpanded(prev => !prev);
+                                    setNoticesExpanded(prev => !prev);
                                 }}
                                 className="w-full flex items-center justify-between gap-3 text-left group"
                             >
@@ -376,7 +359,7 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                                             auto-closing
                                         </span>
                                     )}
-                                    {proposalsExpanded
+                                    {noticesExpanded
                                         ? <ChevronUp className="h-4 w-4 text-slate-400 group-hover:text-slate-600" />
                                         : <ChevronDown className="h-4 w-4 text-slate-400 group-hover:text-slate-600" />
                                     }
@@ -394,21 +377,20 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                             )}
 
                             {/* Row list */}
-                            {proposalsExpanded && (
+                            {noticesExpanded && (
                                 <div className="mt-3 rounded-lg border border-slate-100 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-200">
                                     {/* Column header */}
                                     <div className="grid grid-cols-[2fr_3fr_auto] gap-x-4 px-4 py-2 bg-slate-50 border-b border-slate-100">
                                         <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Field</span>
-                                        <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Current → Proposed</span>
+                                        <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Previous → Updated from source</span>
                                         <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400"></span>
                                     </div>
-                                    {actionable.map((proposal: any, idx: number) => (
-                                        <ProposalRow
-                                            key={proposal.fieldNo}
-                                            proposal={proposal}
+                                    {actionable.map((notice: any, idx: number) => (
+                                        <ChangeNoticeRow
+                                            key={notice.fieldNo}
+                                            notice={notice}
                                             isLast={idx === actionable.length - 1}
-                                            onAccept={() => handleAccept(proposal)}
-                                            onDismiss={() => setProposals(prev => prev ? prev.filter((p: any) => p.fieldNo !== proposal.fieldNo) : null)}
+                                            onDismiss={() => setUpdateNotices(prev => prev ? prev.filter((p: any) => p.fieldNo !== notice.fieldNo) : null)}
                                         />
                                     ))}
                                 </div>
@@ -802,18 +784,17 @@ function friendlySourceLabel(source?: string): string {
     return getSourceDisplayName(source, null);
 }
 
-function ProposalRow({
-    proposal,
+function ChangeNoticeRow({
+    notice,
     isLast,
-    onAccept,
     onDismiss,
 }: {
-    proposal: FieldProposal;
+    notice: FieldProposal;
     isLast: boolean;
-    onAccept: () => void;
     onDismiss: () => void;
 }) {
-    const isBlocked = proposal.action === 'BLOCKED';
+    const isBlocked = notice.action === 'BLOCKED';
+    const isApplied = notice.action === 'AUTO_APPLIED' || notice.action === 'PROPOSE_UPDATE';
     const fmt = (val: any) => (val !== undefined && val !== null ? formatGraphValue(val) : '—');
 
     return (
@@ -828,21 +809,21 @@ function ProposalRow({
                 {isBlocked
                     ? <Ban className="h-3 w-3 text-red-400 shrink-0" />
                     : <ShieldCheck className="h-3 w-3 text-emerald-500 shrink-0" />}
-                <span className="truncate text-slate-700 font-medium text-xs" title={proposal.fieldName}>
-                    {proposal.fieldName}
+                <span className="truncate text-slate-700 font-medium text-xs" title={notice.fieldName}>
+                    {notice.fieldName}
                 </span>
                 <Badge variant="outline" className="text-[9px] shrink-0 px-1 py-0 h-4 text-slate-400 border-slate-200">
-                    {proposal.fieldNo}
+                    {notice.fieldNo}
                 </Badge>
             </div>
 
-            {/* Current → Proposed */}
+            {/* Current → Proposed/Applied */}
             <div className="flex items-center gap-2 min-w-0">
                 <span
                     className="truncate text-xs text-slate-500 font-mono"
-                    title={fmt(proposal.current?.value)}
+                    title={fmt(notice.current?.value)}
                 >
-                    {fmt(proposal.current?.value)}
+                    {fmt(notice.current?.value)}
                 </span>
                 <ArrowRight className="h-3 w-3 text-slate-300 shrink-0" />
                 <span
@@ -850,29 +831,25 @@ function ProposalRow({
                         "truncate text-xs font-mono font-medium",
                         isBlocked ? "text-red-500 line-through" : "text-emerald-700"
                     )}
-                    title={fmt(proposal.proposed?.value)}
+                    title={fmt(notice.proposed?.value)}
                 >
-                    {fmt(proposal.proposed?.value)}
+                    {fmt(notice.proposed?.value)}
                 </span>
                 <span className="text-[9px] text-slate-400 shrink-0">
-                    via {friendlySourceLabel(proposal.proposed?.source)}
+                    via {friendlySourceLabel(notice.proposed?.source)}
                 </span>
             </div>
 
-            {/* Actions */}
+            {/* Actions / Info */}
             <div className="flex items-center gap-1 justify-end">
-                {!isBlocked && (
-                    <Button
-                        size="sm"
-                        className="h-6 px-2 text-[11px] bg-emerald-600 hover:bg-emerald-700"
-                        onClick={onAccept}
-                    >
-                        Accept
-                    </Button>
+                {isApplied && (
+                    <span className="text-[10px] text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100 truncate max-w-[120px]">
+                        Applied
+                    </span>
                 )}
                 {isBlocked && (
-                    <span className="text-[10px] text-red-400 italic truncate max-w-[120px]" title={proposal.reason}>
-                        {proposal.reason}
+                    <span className="text-[10px] text-red-400 italic truncate max-w-[120px]" title={notice.reason}>
+                        Blocked: {notice.reason}
                     </span>
                 )}
                 <Button

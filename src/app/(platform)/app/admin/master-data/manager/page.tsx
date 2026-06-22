@@ -3,6 +3,8 @@ import MasterDataManager from "@/components/client/admin/master-data-manager";
 import { getCategoriesWithFields } from "@/actions/master-data-sort";
 import { getUserPreferences } from "@/actions/user-preferences";
 
+export const dynamic = "force-dynamic";
+
 export default async function MasterDataManagerPage() {
     // 2. Fetch all fields for the flat 'glossary' view AND the 'sort' capabilities
     // The sort-builder provides categories and uncategorized fields. We just need the raw categories with their full fields

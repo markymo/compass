@@ -170,6 +170,14 @@ export async function refreshGleifProposals(legalEntityId: string): Promise<{ su
 
             // Pass 'CLIENT_LE' because legalEntityId here is a ClientLE.id
             const evaluation = await kycWriteService.evaluateFieldCandidate(legalEntityId, candidate, 'CLIENT_LE');
+            
+            let finalAction = evaluation.action;
+            if (finalAction === 'PROPOSE_UPDATE') {
+                const identity = await getIdentity();
+                const userId = identity?.userId || undefined;
+                await kycWriteService.applyFieldCandidate(legalEntityId, candidate, userId, 'CLIENT_LE');
+                finalAction = 'AUTO_APPLIED';
+            }
 
             proposals.push({
                 fieldNo: candidate.fieldNo,
@@ -186,7 +194,7 @@ export async function refreshGleifProposals(legalEntityId: string): Promise<{ su
                     evidenceId: candidate.evidenceId || undefined,
                     timestamp: new Date().toISOString()
                 },
-                action: evaluation.action,
+                action: finalAction,
                 reason: evaluation.reason
             });
         }
@@ -253,6 +261,14 @@ export async function getGleifProposalsFromCache(legalEntityId: string): Promise
 
             const evaluation = await kycWriteService.evaluateFieldCandidate(legalEntityId, candidate, 'CLIENT_LE');
 
+            let finalAction = evaluation.action;
+            if (finalAction === 'PROPOSE_UPDATE') {
+                const identity = await getIdentity();
+                const userId = identity?.userId || undefined;
+                await kycWriteService.applyFieldCandidate(legalEntityId, candidate, userId, 'CLIENT_LE');
+                finalAction = 'AUTO_APPLIED';
+            }
+
             proposals.push({
                 fieldNo: candidate.fieldNo,
                 fieldName: def.fieldName,
@@ -268,7 +284,7 @@ export async function getGleifProposalsFromCache(legalEntityId: string): Promise
                     evidenceId: candidate.evidenceId || undefined,
                     timestamp: new Date().toISOString()
                 },
-                action: evaluation.action,
+                action: finalAction,
                 reason: evaluation.reason
             });
         }

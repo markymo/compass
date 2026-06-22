@@ -1,24 +1,23 @@
 /**
  * refreshGleifProposals — regression tests
- *
- * Key scenarios:
- *  T1: Field 134 exists in DB (dynamically created). GLEIF candidate maps to
- *      fieldNo 134. refreshGleifProposals must NOT throw and must include a
- *      proposal for field 134 with the correct fieldName from the DB.
- *
- *  T2: Candidate for a field that is unknown even in the DB (e.g. 999) is
- *      silently skipped — the rest of the proposals still return and the
- *      action does NOT return success:false.
- *
- *  T3: Mixed candidates: one known static field (fieldNo 3) and one
- *      dynamically created field (fieldNo 134). Both appear in proposals.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // ─── Module-scope spies ───────────────────────────────────────────────────────
-const _normalizeEvidenceMock = vi.fn().mockResolvedValue('evidence-gleif-001');
-const _getMasterFieldDefinitionMock = vi.fn();
+const mocks = vi.hoisted(() => {
+    return {
+        _normalizeEvidenceMock: vi.fn().mockResolvedValue('evidence-gleif-001'),
+        _getMasterFieldDefinitionMock: vi.fn(),
+        _applyFieldCandidateMock: vi.fn().mockResolvedValue(true),
+        _evaluateFieldCandidateMock: vi.fn().mockResolvedValue({
+            action: 'PROPOSE_UPDATE',
+            currentValue: null,
+            currentSource: undefined,
+            reason: 'No existing record',
+        })
+    };
+});
 
 // ─── vi.mock declarations ─────────────────────────────────────────────────────
 
@@ -35,14 +34,14 @@ vi.mock('@/lib/prisma', () => ({
 }));
 
 vi.mock('@/services/masterData/definitionService', () => ({
-    getMasterFieldDefinition: (...args: any[]) => _getMasterFieldDefinitionMock(...args),
+    getMasterFieldDefinition: (...args: any[]) => mocks._getMasterFieldDefinitionMock(...args),
     listAllMasterGroupsWithItems: vi.fn().mockResolvedValue([]),
     refreshDefinitionCache: vi.fn(),
 }));
 
 vi.mock('@/services/kyc/EvidenceService', () => ({
     EvidenceService: class {
-        async normalizeEvidence(...args: any[]) { return _normalizeEvidenceMock(...args); }
+        async normalizeEvidence(...args: any[]) { return mocks._normalizeEvidenceMock(...args); }
     },
 }));
 
@@ -52,12 +51,8 @@ vi.mock('@/services/kyc/normalization/GleifNormalizer', () => ({
 
 vi.mock('@/services/kyc/KycWriteService', () => ({
     KycWriteService: class {
-        evaluateFieldCandidate = vi.fn().mockResolvedValue({
-            action: 'PROPOSE_UPDATE',
-            currentValue: null,
-            currentSource: undefined,
-            reason: 'No existing record',
-        });
+        evaluateFieldCandidate = mocks._evaluateFieldCandidateMock;
+        applyFieldCandidate = mocks._applyFieldCandidateMock;
     },
 }));
 
@@ -93,7 +88,6 @@ const gleifNormalizerMock = mapGleifPayloadToFieldCandidates as ReturnType<typeo
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-/** Fake MasterFieldDefinition row as returned by Prisma (with category join). */
 function makeDbField(fieldNo: number, fieldName: string, category = 'Identity') {
     return {
         fieldNo,
@@ -108,41 +102,86 @@ function makeDbField(fieldNo: number, fieldName: string, category = 'Identity') 
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
-describe('refreshGleifProposals — dynamic field support', () => {
+describe('refreshGleifProposals — auto-apply and notify flow', () => {
     beforeEach(() => {
         vi.clearAllMocks();
-        _normalizeEvidenceMock.mockResolvedValue('evidence-gleif-001');
+        mocks._normalizeEvidenceMock.mockResolvedValue('evidence-gleif-001');
+        mocks._evaluateFieldCandidateMock.mockResolvedValue({
+            action: 'PROPOSE_UPDATE',
+            currentValue: null,
+            currentSource: undefined,
+            reason: 'No existing record',
+        });
     });
 
-    it('T1: field 134 in DB — GLEIF candidate maps correctly, no throw', async () => {
-        // GLEIF normalizer returns one candidate for fieldNo 134
+    it('T1: winning trusted source update auto-applies', async () => {
         gleifNormalizerMock.mockResolvedValue([
-            { fieldNo: 134, value: 'Test Value 134', source: 'GLEIF', evidenceId: 'evidence-gleif-001', confidence: 0.95 },
+            { fieldNo: 3, value: 'ZZOOMM PLC', source: 'GLEIF', evidenceId: 'ev-001', confidence: 1.0 },
         ]);
 
-        // DB knows about field 134
-        _getMasterFieldDefinitionMock.mockImplementation(async (n: number) => {
-            if (n === 134) return makeDbField(134, 'New Dynamic Field', 'Compliance');
-            throw new Error(`Unknown or Inactive Field No: ${n}`);
+        mocks._getMasterFieldDefinitionMock.mockImplementation(async (n: number) => makeDbField(3, 'Legal name'));
+
+        const result = await refreshGleifProposals('client-le-001');
+
+        expect(result.success).toBe(true);
+        expect(result.proposals).toHaveLength(1);
+        expect(result.proposals![0].action).toBe('AUTO_APPLIED');
+        expect(mocks._applyFieldCandidateMock).toHaveBeenCalledTimes(1);
+        expect(mocks._applyFieldCandidateMock).toHaveBeenCalledWith('client-le-001', expect.anything(), 'user-001', 'CLIENT_LE');
+    });
+
+    it('T2: trusted source update blocked by USER_INPUT', async () => {
+        gleifNormalizerMock.mockResolvedValue([
+            { fieldNo: 3, value: 'ZZOOMM PLC', source: 'GLEIF', evidenceId: 'ev-001', confidence: 1.0 },
+        ]);
+
+        mocks._getMasterFieldDefinitionMock.mockImplementation(async (n: number) => makeDbField(3, 'Legal name'));
+
+        mocks._evaluateFieldCandidateMock.mockResolvedValue({
+            action: 'BLOCKED',
+            currentValue: 'ZZOOMM LIMITED',
+            currentSource: 'USER_INPUT',
+            reason: 'User manual override is protected from GLEIF updates',
         });
 
         const result = await refreshGleifProposals('client-le-001');
 
         expect(result.success).toBe(true);
         expect(result.proposals).toHaveLength(1);
-        expect(result.proposals![0].fieldNo).toBe(134);
-        expect(result.proposals![0].fieldName).toBe('New Dynamic Field');
-        expect(result.proposals![0].table).toBe('Compliance');
-        expect(result.proposals![0].action).toBe('PROPOSE_UPDATE');
+        expect(result.proposals![0].action).toBe('BLOCKED');
+        expect(mocks._applyFieldCandidateMock).not.toHaveBeenCalled();
+        expect(result.proposals![0].reason).toContain('User manual override');
     });
 
-    it('T2: truly unknown field (999, not in DB) is skipped — other proposals still returned', async () => {
+    it('T3: no-change refresh produces no misleading update', async () => {
+        gleifNormalizerMock.mockResolvedValue([
+            { fieldNo: 3, value: 'ZZOOMM PLC', source: 'GLEIF', evidenceId: 'ev-001', confidence: 1.0 },
+        ]);
+
+        mocks._getMasterFieldDefinitionMock.mockImplementation(async (n: number) => makeDbField(3, 'Legal name'));
+
+        mocks._evaluateFieldCandidateMock.mockResolvedValue({
+            action: 'NO_CHANGE',
+            currentValue: 'ZZOOMM PLC',
+            currentSource: 'GLEIF',
+            reason: 'Values are identical',
+        });
+
+        const result = await refreshGleifProposals('client-le-001');
+
+        expect(result.success).toBe(true);
+        expect(result.proposals).toHaveLength(1);
+        expect(result.proposals![0].action).toBe('NO_CHANGE');
+        expect(mocks._applyFieldCandidateMock).not.toHaveBeenCalled();
+    });
+
+    it('T4: truly unknown field (999, not in DB) is skipped', async () => {
         gleifNormalizerMock.mockResolvedValue([
             { fieldNo: 3, value: 'ZZOOMM PLC', source: 'GLEIF', evidenceId: 'ev-001', confidence: 1.0 },
             { fieldNo: 999, value: 'Ghost', source: 'GLEIF', evidenceId: 'ev-001', confidence: 0.5 },
         ]);
 
-        _getMasterFieldDefinitionMock.mockImplementation(async (n: number) => {
+        mocks._getMasterFieldDefinitionMock.mockImplementation(async (n: number) => {
             if (n === 3) return makeDbField(3, 'Legal name', 'Identity');
             throw new Error(`Unknown or Inactive Field No: ${n}`);
         });
@@ -155,34 +194,10 @@ describe('refreshGleifProposals — dynamic field support', () => {
         // Only fieldNo 3 survives; 999 is skipped
         expect(result.proposals).toHaveLength(1);
         expect(result.proposals![0].fieldNo).toBe(3);
+        expect(result.proposals![0].action).toBe('AUTO_APPLIED');
         // Warned about the skip
         expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('999'));
 
         warnSpy.mockRestore();
-    });
-
-    it('T3: mixed known static field + dynamic field 134 — both in proposals', async () => {
-        gleifNormalizerMock.mockResolvedValue([
-            { fieldNo: 3,   value: 'ZZOOMM PLC',        source: 'GLEIF', evidenceId: 'ev-001', confidence: 1.0 },
-            { fieldNo: 134, value: 'GLEIF Dynamic Val',  source: 'GLEIF', evidenceId: 'ev-001', confidence: 0.9 },
-        ]);
-
-        _getMasterFieldDefinitionMock.mockImplementation(async (n: number) => {
-            if (n === 3)   return makeDbField(3,   'Legal name',       'Identity');
-            if (n === 134) return makeDbField(134, 'New Dynamic Field', 'Compliance');
-            throw new Error(`Unknown or Inactive Field No: ${n}`);
-        });
-
-        const result = await refreshGleifProposals('client-le-001');
-
-        expect(result.success).toBe(true);
-        expect(result.proposals).toHaveLength(2);
-
-        const f3   = result.proposals!.find(p => p.fieldNo === 3);
-        const f134 = result.proposals!.find(p => p.fieldNo === 134);
-
-        expect(f3?.fieldName).toBe('Legal name');
-        expect(f134?.fieldName).toBe('New Dynamic Field');
-        expect(f134?.table).toBe('Compliance');
     });
 });
