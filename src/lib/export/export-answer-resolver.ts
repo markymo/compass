@@ -1,5 +1,6 @@
 import { KycStateService } from "@/lib/kyc/KycStateService";
 import { getFieldDetail, enrichPartyReferences, enrichAddressReferences } from "@/actions/kyc-query";
+import { getSourceDisplayName } from "@/lib/source-display";
 import prisma from "@/lib/prisma";
 
 export interface ExportAnswerResult {
@@ -10,6 +11,7 @@ export interface ExportAnswerResult {
     sourceTimestamp?: Date | string | null;
     sourceUserName?: string | null;
     provenanceSummary?: string;
+    sourceCategory?: 'REGISTRY' | 'USER' | 'DEFAULT' | 'NO_RESPONSE' | 'SYSTEM';
 }
 
 export async function formatExportValue(rawValue: any): Promise<string> {
@@ -96,6 +98,7 @@ export async function resolveExportAnswer(
             let sourceUserName: string | null = null;
             let sourceTimestamp = derived.assertedAt;
 
+            let sourceCategory: 'REGISTRY' | 'USER' | 'DEFAULT' | 'SYSTEM' = 'REGISTRY';
             if (derived.sourceType === 'USER_INPUT') {
                 const claim = await prisma.fieldClaim.findUnique({
                     where: { id: derived.claimId },
@@ -103,12 +106,23 @@ export async function resolveExportAnswer(
                 });
                 sourceUserName = claim?.verifiedBy?.name || claim?.verifiedBy?.email || null;
                 sourceLabel = sourceUserName ? `User input — ${sourceUserName}` : "User input";
-            } else if (derived.sourceReference === 'COMPANIES_HOUSE') {
-                sourceLabel = "Companies House";
+                sourceCategory = 'USER';
+            } else if (derived.sourceReference === 'COMPANIES_HOUSE' || derived.sourceType === 'COMPANIES_HOUSE') {
+                sourceCategory = 'REGISTRY';
             } else if (derived.sourceType === 'GLEIF') {
-                sourceLabel = "GLEIF";
+                sourceCategory = 'REGISTRY';
+            } else if (derived.sourceType === 'REGISTRATION_AUTHORITY' || derived.sourceType === 'NATIONAL_REGISTRY') {
+                sourceCategory = 'REGISTRY';
+            } else if (derived.sourceType === 'SYSTEM_DERIVED' || derived.sourceType === 'AI_EXTRACTION') {
+                sourceCategory = 'SYSTEM';
             } else {
-                sourceLabel = derived.sourceReference || derived.sourceType;
+                sourceCategory = 'SYSTEM';
+            }
+
+            // Apply human-readable naming conventions centrally
+            sourceLabel = getSourceDisplayName(derived.sourceType, derived.sourceReference);
+            if (derived.sourceType === 'USER_INPUT' && sourceUserName) {
+                sourceLabel = `User input — ${sourceUserName}`;
             }
 
             return {
@@ -117,15 +131,22 @@ export async function resolveExportAnswer(
                 answerState: derived.value.explicitNone === true ? "EMPTY_CHECKED" : "HAS_VALUE",
                 sourceLabel,
                 sourceTimestamp,
-                sourceUserName
+                sourceUserName,
+                sourceCategory
             };
         } else {
             // Check Master Record empty state logic
             const fieldDetail = await getFieldDetail(entityId, question.masterFieldNo, "CLIENT_LE");
             
             if (fieldDetail.displayState === 'CHECKED_NO_DATA' || fieldDetail.current?.value?.explicitNone === true) {
-                let sourceLabel = fieldDetail.current?.source;
-                if (sourceLabel === 'COMPANIES_HOUSE') sourceLabel = "Companies House";
+                let sourceLabel: string | undefined = fieldDetail.current?.source;
+                let sourceCategory: 'REGISTRY' | 'USER' | 'DEFAULT' = 'REGISTRY';
+                
+                if (fieldDetail.current?.sourceReference === 'COMPANIES_HOUSE') {
+                    sourceLabel = "Companies House";
+                } else if (fieldDetail.current?.source === 'USER_INPUT') {
+                    sourceCategory = 'USER';
+                }
 
                 return {
                     displayValue: "None",
@@ -133,6 +154,7 @@ export async function resolveExportAnswer(
                     answerState: "EMPTY_CHECKED",
                     sourceLabel: sourceLabel || undefined,
                     sourceTimestamp: fieldDetail.current?.timestamp || null,
+                    sourceCategory: isReleased ? 'USER' : sourceCategory
                 };
             } else if (fieldDetail.displayState === 'DEFAULT_RESPONSE' && fieldDetail.defaultResponse) {
                 if (isReleased) {
@@ -142,7 +164,8 @@ export async function resolveExportAnswer(
                         answerState: "EMPTY_DEFAULT",
                         sourceLabel: releasedByName ? `Released by ${releasedByName}` : "Released by user",
                         sourceTimestamp: snapshotDate || null,
-                        sourceUserName: releasedByName
+                        sourceUserName: releasedByName,
+                        sourceCategory: 'USER'
                     };
                 } else {
                     return {
@@ -150,14 +173,16 @@ export async function resolveExportAnswer(
                         rawValue: fieldDetail.defaultResponse,
                         answerState: "EMPTY_DEFAULT",
                         sourceLabel: "Field default",
-                        sourceTimestamp: null
+                        sourceTimestamp: null,
+                        sourceCategory: 'DEFAULT'
                     };
                 }
             } else {
                 return {
                     displayValue: "No response recorded",
                     rawValue: null,
-                    answerState: "NO_RESPONSE"
+                    answerState: "NO_RESPONSE",
+                    sourceCategory: 'NO_RESPONSE'
                 };
             }
         }
@@ -176,7 +201,8 @@ export async function resolveExportAnswer(
                 return {
                     displayValue: "No response recorded",
                     rawValue: parsedAnswer,
-                    answerState: "NO_RESPONSE"
+                    answerState: "NO_RESPONSE",
+                    sourceCategory: 'NO_RESPONSE'
                 };
             }
             
@@ -187,7 +213,8 @@ export async function resolveExportAnswer(
                     answerState: "HAS_VALUE",
                     sourceLabel: releasedByName ? `Released by ${releasedByName}` : "Released by user",
                     sourceTimestamp: snapshotDate || null,
-                    sourceUserName: releasedByName
+                    sourceUserName: releasedByName,
+                    sourceCategory: 'USER'
                 };
             } else {
                 return {
@@ -195,14 +222,16 @@ export async function resolveExportAnswer(
                     rawValue: parsedAnswer,
                     answerState: "HAS_VALUE",
                     sourceLabel: "Questionnaire answer",
-                    sourceTimestamp: question.updatedAt || null
+                    sourceTimestamp: question.updatedAt || null,
+                    sourceCategory: 'USER'
                 };
             }
         } else {
             return {
                 displayValue: "No response recorded",
                 rawValue: null,
-                answerState: "NO_RESPONSE"
+                answerState: "NO_RESPONSE",
+                sourceCategory: 'NO_RESPONSE'
             };
         }
     }

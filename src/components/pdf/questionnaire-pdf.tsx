@@ -1,24 +1,253 @@
 import React from "react";
-import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
+import { Document, Page, Text, View, StyleSheet, Image, Svg, Path } from "@react-pdf/renderer";
 
-// --- PDF Styles ---
+// --- Icons ---
+const LandmarkIcon = () => (
+    <Svg viewBox="0 0 24 24" width={12} height={12} fill="none">
+        <Path d="M3 22h18 M6 18v-7 M10 18v-7 M14 18v-7 M18 18v-7 M12 2l8 5H4z" stroke="#64748b" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+);
+
+const BuildingIcon = () => (
+    <Svg viewBox="0 0 24 24" width={12} height={12} fill="none">
+        <Path d="M4 10h16 M4 14h16 M4 18h16 M4 6h16 M4 2v20 M20 2v20 M8 22v-4 M16 22v-4" stroke="#64748b" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+);
+
+const GlobeIcon = () => (
+    <Svg viewBox="0 0 24 24" width={12} height={12} fill="none">
+        <Path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z M2 12h20 M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" stroke="#64748b" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+);
+
+// --- PDF Styles (CoParity Theme) ---
 const styles = StyleSheet.create({
-    page: { padding: 30, fontSize: 10, fontFamily: 'Helvetica' },
-    title: { fontSize: 18, marginBottom: 10, textAlign: 'center' },
-    subtitle: { fontSize: 12, marginBottom: 20, textAlign: 'center', color: '#666' },
-    questionBlock: { marginBottom: 15, paddingBottom: 10, borderBottom: '1px solid #eee' },
-    status: { fontSize: 8, color: '#999', marginBottom: 2 },
-    question: { fontSize: 12, fontWeight: 'bold', marginBottom: 5 },
-    answer: { fontSize: 10, marginBottom: 5, color: '#333' },
-    commentHeader: { fontSize: 9, fontStyle: 'italic', marginTop: 5, color: '#666' },
-    comment: { fontSize: 9, color: '#666', marginLeft: 10 },
-    metadataBlock: { marginBottom: 20, paddingBottom: 10, borderBottom: '1px solid #ddd' },
-    metaRow: { flexDirection: 'row', marginBottom: 3 },
-    metaLabel: { width: 100, fontSize: 8, fontWeight: 'bold', color: '#555' },
-    metaValue: { flex: 1, fontSize: 8, color: '#333' },
-    evidenceBlock: { marginTop: 5, padding: 5, backgroundColor: '#f9f9f9', borderLeft: '2px solid #ccc' },
-    evidenceLabel: { fontSize: 8, fontStyle: 'italic', color: '#555', marginBottom: 2 },
-    evidencePath: { fontSize: 8, color: '#0066cc' }
+    page: { 
+        padding: 30, 
+        fontSize: 10, 
+        fontFamily: 'Helvetica', 
+        color: '#0f172a',
+        backgroundColor: '#ffffff'
+    },
+    
+    // Top Header Block
+    headerBlock: { 
+        marginBottom: 10,
+    },
+    headerTopRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        marginBottom: 20
+    },
+    headerLeft: {
+        flex: 1,
+        paddingRight: 20
+    },
+    headerRight: {
+        width: 150,
+        alignItems: 'flex-end'
+    },
+    logo: {
+        width: 100,
+        height: 'auto',
+        marginBottom: 10
+    },
+    wordmarkContainer: {
+        flexDirection: 'row',
+        alignItems: 'baseline',
+        marginBottom: 10
+    },
+    brandName: { 
+        fontSize: 22, 
+        fontWeight: 'bold', 
+        color: '#0f172a', 
+        letterSpacing: -0.5
+    },
+    brandDot: {
+        width: 8,
+        height: 8,
+        backgroundColor: '#f59e0b',
+        marginLeft: 2
+    },
+    questionnaireTitle: { 
+        fontSize: 16, 
+        fontWeight: 'bold',
+        color: '#0f172a',
+        marginBottom: 4
+    },
+    coverSubtitle: {
+        fontSize: 11,
+        color: '#64748b'
+    },
+    
+    // Header Right Meta
+    metaText: {
+        fontSize: 8,
+        color: '#64748b',
+        marginBottom: 4
+    },
+
+    // Identity Card
+    identityCard: {
+        backgroundColor: '#f8fafc',
+        padding: 12,
+        borderLeft: '4px solid #f59e0b', // Amber 500 accent
+        marginBottom: 10
+    },
+    coverRow: { 
+        flexDirection: 'row', 
+        marginBottom: 6,
+        alignItems: 'center'
+    },
+    iconContainer: {
+        marginRight: 6
+    },
+    coverLabel: { 
+        width: 100, 
+        fontSize: 9, 
+        color: '#64748b', 
+        fontWeight: 'bold' 
+    },
+    coverValue: { 
+        flex: 1, 
+        fontSize: 10, 
+        color: '#0f172a', 
+        fontWeight: 'bold' 
+    },
+
+    // Summary Card
+    summaryCard: {
+        backgroundColor: '#ffffff',
+        padding: 12,
+        border: '1px solid #e2e8f0',
+        marginBottom: 20,
+        flexDirection: 'row'
+    },
+    summaryColumn: {
+        flex: 1,
+        paddingRight: 10
+    },
+    summaryTitle: {
+        fontSize: 10,
+        fontWeight: 'bold',
+        color: '#0f172a',
+        marginBottom: 8,
+        textTransform: 'uppercase',
+        letterSpacing: 0.5
+    },
+    summaryRow: {
+        flexDirection: 'row',
+        marginBottom: 4,
+        justifyContent: 'space-between'
+    },
+    summaryLabel: {
+        fontSize: 9,
+        color: '#64748b'
+    },
+    summaryValue: {
+        fontSize: 9,
+        color: '#0f172a',
+        fontWeight: 'bold'
+    },
+
+    // Questions
+    questionBlock: { 
+        marginBottom: 20, 
+        paddingBottom: 15, 
+        borderBottom: '1px solid #e2e8f0' 
+    },
+    questionHeaderRow: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        marginBottom: 8
+    },
+    question: { 
+        fontSize: 11, 
+        fontWeight: 'bold', 
+        color: '#0f172a',
+        lineHeight: 1.4,
+        flex: 1
+    },
+    answer: { 
+        fontSize: 10, 
+        marginBottom: 8, 
+        color: '#0f172a',
+        lineHeight: 1.4,
+        paddingLeft: 4
+    },
+    
+    // Provenance / Meta Row
+    provenanceRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: 8,
+        marginTop: 4,
+        paddingLeft: 4
+    },
+    statusBadge: {
+        backgroundColor: '#f1f5f9',
+        paddingVertical: 2,
+        paddingHorizontal: 6,
+        borderRadius: 4,
+        marginRight: 8
+    },
+    statusBadgeText: {
+        fontSize: 8,
+        fontWeight: 'bold',
+        color: '#475569',
+        textTransform: 'uppercase'
+    },
+    provenanceText: {
+        fontSize: 9,
+        color: '#64748b',
+        marginRight: 10
+    },
+    
+    // Notes & Evidence
+    commentHeader: { 
+        fontSize: 9, 
+        fontStyle: 'italic', 
+        marginTop: 8, 
+        color: '#64748b' 
+    },
+    comment: { 
+        fontSize: 9, 
+        color: '#64748b', 
+        marginLeft: 10,
+        marginTop: 2
+    },
+    evidenceBlock: { 
+        marginTop: 8, 
+        padding: 8, 
+        backgroundColor: '#f8fafc', 
+        borderLeft: '2px solid #cbd5e1' 
+    },
+    evidenceLabel: { 
+        fontSize: 8, 
+        fontStyle: 'italic', 
+        color: '#64748b', 
+        marginBottom: 4 
+    },
+    evidencePath: { 
+        fontSize: 8, 
+        color: '#f59e0b', // Amber 500
+        marginBottom: 2
+    },
+    
+    // Footer / Small meta
+    metaFooter: {
+        marginTop: 30,
+        paddingTop: 10,
+        borderTop: '1px solid #e2e8f0',
+        flexDirection: 'row',
+        justifyContent: 'space-between'
+    },
+    metaFooterText: {
+        fontSize: 8,
+        color: '#94a3b8'
+    }
 });
 
 export interface QuestionnairePDFProps {
@@ -27,9 +256,22 @@ export interface QuestionnairePDFProps {
         exportId: string;
         generatedAt: string;
         generatedBy: string;
-        engagementName: string;
+        clientParentName?: string;
+        clientDisplayName?: string;
+        supplierDisplayName?: string;
+        clientLogoUrl?: string;
+        supplierLogoUrl?: string;
+        coparityLogoUrl?: string;
         exportFormatVersion: string;
         applicationVersion: string;
+        summaryStats?: {
+            totalQuestions: number;
+            answered: number;
+            registrySourced: number;
+            userSupplied: number;
+            noResponse: number;
+            dueDate?: string;
+        };
     };
     data: {
         id: string;
@@ -44,50 +286,155 @@ export interface QuestionnairePDFProps {
 }
 
 // --- PDF Component ---
-export const QuestionnairePDF = ({ data, title, exportMetadata }: QuestionnairePDFProps) => (
-    <Document>
-        <Page size="A4" style={styles.page}>
-            <Text style={styles.title}>{title}</Text>
-            <Text style={styles.subtitle}>Questionnaire Export</Text>
-
-            {exportMetadata && (
-                <View style={styles.metadataBlock}>
-                    <View style={styles.metaRow}><Text style={styles.metaLabel}>Engagement:</Text><Text style={styles.metaValue}>{exportMetadata.engagementName}</Text></View>
-                    <View style={styles.metaRow}><Text style={styles.metaLabel}>Export ID:</Text><Text style={styles.metaValue}>{exportMetadata.exportId}</Text></View>
-                    <View style={styles.metaRow}><Text style={styles.metaLabel}>Generated At:</Text><Text style={styles.metaValue}>{exportMetadata.generatedAt}</Text></View>
-                    <View style={styles.metaRow}><Text style={styles.metaLabel}>Generated By:</Text><Text style={styles.metaValue}>{exportMetadata.generatedBy}</Text></View>
-                    <View style={styles.metaRow}><Text style={styles.metaLabel}>Format Version:</Text><Text style={styles.metaValue}>{exportMetadata.exportFormatVersion}</Text></View>
-                    <View style={styles.metaRow}><Text style={styles.metaLabel}>App Version:</Text><Text style={styles.metaValue}>{exportMetadata.applicationVersion}</Text></View>
-                </View>
-            )}
-
-            {data.map((item: any, i: any) => (
-                <View key={i} style={styles.questionBlock}>
-                    <Text style={styles.status}>Status: {item.status}</Text>
-                    <Text style={styles.question}>Q{i + 1}: {item.question}</Text>
-                    <Text style={styles.answer}>Answer: {item.answer || "(No Answer)"}</Text>
-                    {item.sourceLabel && <Text style={styles.status}>Source: {item.sourceLabel}</Text>}
-                    {item.sourceTimestamp && <Text style={styles.status}>Sourced At: {new Date(item.sourceTimestamp).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'})}</Text>}
-                    
-                    {item.evidencePaths && item.evidencePaths.length > 0 && (
-                        <View style={styles.evidenceBlock}>
-                            <Text style={styles.evidenceLabel}>Evidence Attached:</Text>
-                            {item.evidencePaths.map((path: string, j: number) => (
-                                <Text key={j} style={styles.evidencePath}>📄 {path}</Text>
-                            ))}
+export const QuestionnairePDF = ({ data, title, exportMetadata }: QuestionnairePDFProps) => {
+    return (
+        <Document>
+            <Page size="A4" style={styles.page}>
+                {/* Header & Branding */}
+                <View style={styles.headerBlock}>
+                    <View style={styles.headerTopRow}>
+                        <View style={styles.headerLeft}>
+                            {exportMetadata?.coparityLogoUrl ? (
+                                <Image src={exportMetadata.coparityLogoUrl} style={styles.logo} />
+                            ) : (
+                                <View style={styles.wordmarkContainer}>
+                                    <Text style={styles.brandName}>CoParity</Text>
+                                    <View style={styles.brandDot}></View>
+                                </View>
+                            )}
+                            <Text style={styles.questionnaireTitle}>{title}</Text>
+                            <Text style={styles.coverSubtitle}>Supplier Questionnaire Response</Text>
                         </View>
-                    )}
+                        
+                        <View style={styles.headerRight}>
+                            {exportMetadata && (
+                                <>
+                                    {exportMetadata.summaryStats?.dueDate && (
+                                        <Text style={styles.metaText}>Due Date: {new Date(exportMetadata.summaryStats.dueDate).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</Text>
+                                    )}
+                                    <Text style={styles.metaText}>Generated: {new Date(exportMetadata.generatedAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</Text>
+                                    <Text style={styles.metaText}>By: {exportMetadata.generatedBy}</Text>
+                                    <Text style={styles.metaText}>Ref: {exportMetadata.exportId.split('-')[0]}</Text>
+                                </>
+                            )}
+                        </View>
+                    </View>
 
-                    {item.notes && item.notes.length > 0 && (
+                    {exportMetadata && (
+                        <>
+                            <View style={styles.identityCard}>
+                                {exportMetadata.clientParentName ? (
+                                    <View style={styles.coverRow}>
+                                        <View style={styles.iconContainer}><LandmarkIcon /></View>
+                                        <Text style={styles.coverLabel}>Client</Text>
+                                        <Text style={styles.coverValue}>{exportMetadata.clientParentName}</Text>
+                                    </View>
+                                ) : (
+                                    <View style={styles.coverRow}>
+                                        <View style={styles.iconContainer}><LandmarkIcon /></View>
+                                        <Text style={styles.coverLabel}>Client</Text>
+                                        <Text style={styles.coverValue}>—</Text>
+                                    </View>
+                                )}
+                                <View style={styles.coverRow}>
+                                    <View style={styles.iconContainer}><BuildingIcon /></View>
+                                    <Text style={styles.coverLabel}>Client Legal Entity</Text>
+                                    <Text style={styles.coverValue}>{exportMetadata.clientDisplayName || "Unknown"}</Text>
+                                </View>
+                                <View style={styles.coverRow}>
+                                    <View style={styles.iconContainer}><GlobeIcon /></View>
+                                    <Text style={styles.coverLabel}>Supplier</Text>
+                                    <Text style={styles.coverValue}>{exportMetadata.supplierDisplayName || "Unknown"}</Text>
+                                </View>
+                            </View>
+
+                            {exportMetadata.summaryStats && (
+                                <View style={styles.summaryCard}>
+                                    <View style={styles.summaryColumn}>
+                                        <Text style={styles.summaryTitle}>Response Summary</Text>
+                                        <View style={styles.summaryRow}>
+                                            <Text style={styles.summaryLabel}>Total Questions</Text>
+                                            <Text style={styles.summaryValue}>{exportMetadata.summaryStats.totalQuestions}</Text>
+                                        </View>
+                                        <View style={styles.summaryRow}>
+                                            <Text style={styles.summaryLabel}>Answered</Text>
+                                            <Text style={styles.summaryValue}>{exportMetadata.summaryStats.answered}</Text>
+                                        </View>
+                                        <View style={styles.summaryRow}>
+                                            <Text style={styles.summaryLabel}>No Response Recorded</Text>
+                                            <Text style={styles.summaryValue}>{exportMetadata.summaryStats.noResponse}</Text>
+                                        </View>
+                                    </View>
+                                    <View style={styles.summaryColumn}>
+                                        <Text style={styles.summaryTitle}>Data Sources</Text>
+                                        <View style={styles.summaryRow}>
+                                            <Text style={styles.summaryLabel}>Sourced from Registries</Text>
+                                            <Text style={styles.summaryValue}>{exportMetadata.summaryStats.registrySourced}</Text>
+                                        </View>
+                                        <View style={styles.summaryRow}>
+                                            <Text style={styles.summaryLabel}>User Supplied / Released</Text>
+                                            <Text style={styles.summaryValue}>{exportMetadata.summaryStats.userSupplied}</Text>
+                                        </View>
+                                        {exportMetadata.summaryStats.dueDate && (
+                                            <View style={[styles.summaryRow, { marginTop: 8 }]}>
+                                                <Text style={styles.summaryLabel}>Due Date</Text>
+                                                <Text style={styles.summaryValue}>{new Date(exportMetadata.summaryStats.dueDate).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</Text>
+                                            </View>
+                                        )}
+                                    </View>
+                                </View>
+                            )}
+                        </>
+                    )}
+                </View>
+
+                {/* Data */}
+                {data.map((item: any, i: any) => (
+                    <View key={i} style={styles.questionBlock} wrap={false}>
+                        <View style={styles.questionHeaderRow}>
+                            <Text style={styles.question}>Q{i + 1}: {item.question}</Text>
+                        </View>
+                        
+                        <Text style={styles.answer}>Answer: {item.answer || "No response recorded"}</Text>
+                        
+                        <View style={styles.provenanceRow}>
+                            <View style={styles.statusBadge}>
+                                <Text style={styles.statusBadgeText}>{item.status}</Text>
+                            </View>
+                            {item.sourceLabel && <Text style={styles.provenanceText}>Source: {item.sourceLabel}</Text>}
+                            {item.sourceTimestamp && <Text style={styles.provenanceText}>Sourced At: {new Date(item.sourceTimestamp).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'})}</Text>}
+                        </View>
+                        
+                        {item.evidencePaths && item.evidencePaths.length > 0 && (
+                            <View style={styles.evidenceBlock}>
+                                <Text style={styles.evidenceLabel}>Evidence Attached:</Text>
+                                {item.evidencePaths.map((path: string, j: number) => (
+                                    <Text key={j} style={styles.evidencePath}>📄 {path}</Text>
+                                ))}
+                            </View>
+                        )}
+
+                        {item.notes && item.notes.length > 0 && (
+                            <View>
+                                <Text style={styles.commentHeader}>Notes:</Text>
+                                {item.notes.split('\n').map((note: string, j: number) => (
+                                    <Text key={j} style={styles.comment}>• {note}</Text>
+                                ))}
+                            </View>
+                        )}
+                    </View>
+                ))}
+
+                {/* Meta Footer */}
+                {exportMetadata && (
+                    <View style={styles.metaFooter} fixed>
                         <View>
-                            <Text style={styles.commentHeader}>Notes:</Text>
-                            {item.notes.split('\n').map((note: string, j: number) => (
-                                <Text key={j} style={styles.comment}>• {note}</Text>
-                            ))}
+                            <Text style={styles.metaFooterText}>CoParity | Single Source of Truth for Company Data</Text>
                         </View>
-                    )}
-                </View>
-            ))}
-        </Page>
-    </Document>
-);
+                        <Text style={styles.metaFooterText} render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`} />
+                    </View>
+                )}
+            </Page>
+        </Document>
+    );
+};

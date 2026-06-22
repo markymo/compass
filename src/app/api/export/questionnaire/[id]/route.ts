@@ -23,7 +23,21 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
         const questionnaire = await prisma.questionnaire.findUnique({
             where: { id: questionnaireId },
-            include: { fiEngagement: { include: { org: true, clientLE: true } } }
+            include: { 
+                fiEngagement: { 
+                    include: { 
+                        org: true, 
+                        clientLE: {
+                            include: {
+                                owners: {
+                                    where: { endAt: null },
+                                    include: { party: true }
+                                }
+                            }
+                        } 
+                    } 
+                } 
+            }
         });
 
         if (!questionnaire || questionnaire.isDeleted) {
@@ -60,24 +74,59 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
                 answer: resolvedAnswer.displayValue,
                 sourceLabel: resolvedAnswer.sourceLabel,
                 sourceTimestamp: resolvedAnswer.sourceTimestamp ? new Date(resolvedAnswer.sourceTimestamp).toISOString() : null,
+                sourceCategory: resolvedAnswer.sourceCategory,
+                answerState: resolvedAnswer.answerState,
                 notes: question.comments.map((c: any) => `[${c.user?.name || 'User'}]: ${c.text}`).join("\n"),
                 evidencePaths
             };
         }));
 
+        let answered = 0;
+        let registrySourced = 0;
+        let userSupplied = 0;
+        let noResponse = 0;
+
+        for (const ans of exportData) {
+            if (ans.answerState === 'HAS_VALUE' || ans.answerState === 'EMPTY_CHECKED' || ans.answerState === 'EMPTY_DEFAULT') {
+                answered++;
+            }
+            if (ans.sourceCategory === 'REGISTRY') {
+                registrySourced++;
+            } else if (ans.sourceCategory === 'USER') {
+                userSupplied++;
+            } else if (ans.sourceCategory === 'NO_RESPONSE') {
+                noResponse++;
+            }
+        }
+
+        const dueDateObj = questionnaire.dueDate || questionnaire.fiEngagement?.dueDate;
+        const dueDate = dueDateObj ? new Date(dueDateObj).toISOString() : undefined;
+
+        const summaryStats = {
+            totalQuestions: questions.length,
+            answered,
+            registrySourced,
+            userSupplied,
+            noResponse,
+            dueDate
+        };
+
         const exportId = uuidv4();
         const generatedAt = new Date().toISOString();
-        const engagementName = questionnaire.fiEngagement?.org?.name || "Unknown Engagement";
-        
+        const generatedBy = user?.name || user?.email || identity?.userId || "System";
+
         const qPdfElement = React.createElement(QuestionnairePDF, {
             title: questionnaire.name,
             exportMetadata: {
-                exportId,
-                generatedAt,
-                generatedBy: user?.name || user?.email || "Unknown User",
-                engagementName,
+                clientParentName: questionnaire.fiEngagement?.clientLE?.owners?.[0]?.party?.name,
+                clientDisplayName: questionnaire.fiEngagement?.clientLE?.name || "Unknown Client Legal Entity",
+                supplierDisplayName: questionnaire.fiEngagement?.org?.name || "Unknown Supplier",
                 exportFormatVersion: "1.0.0",
-                applicationVersion: "0.1.0"
+                applicationVersion: "0.1.0",
+                generatedBy,
+                generatedAt,
+                exportId,
+                summaryStats
             },
             data: exportData
         });
