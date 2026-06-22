@@ -23,6 +23,8 @@ vi.mock('@/lib/prisma', () => ({
         questionnaire: { findUnique: vi.fn() },
         fieldClaim: { findMany: vi.fn() },
         masterFieldGroupItem: { findMany: vi.fn() },
+        clientLEOwner: { findFirst: vi.fn() },
+        sourceFieldMapping: { findMany: vi.fn() },
     },
 }));
 
@@ -79,6 +81,7 @@ beforeEach(() => {
     vi.clearAllMocks();
     // Stable defaults — no group items needed for single-field tests
     mock.masterFieldGroupItem.findMany.mockResolvedValue([]);
+    mock.sourceFieldMapping.findMany.mockResolvedValue([]);
 });
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
@@ -95,7 +98,7 @@ describe('getActiveClaimsContext — claim status semantics', () => {
         mock.question.findMany.mockResolvedValue([mappedQuestion, unmappedQuestion]);
         mock.fIEngagement.findUnique.mockResolvedValue(engagementWithLE);
         // Simulate DB returning VERIFIED claim (the code now requests VERIFIED + ASSERTED)
-        mock.fieldClaim.findMany.mockResolvedValue([{ fieldNo: 3 }]);
+        mock.fieldClaim.findMany.mockResolvedValue([{ id: 'c1', fieldNo: 3, status: 'VERIFIED', valueText: 'data', assertedAt: new Date(), ownerScopeId: null }]);
 
         const m = await calculateEngagementMetrics(ENGAGEMENT_ID);
 
@@ -116,7 +119,7 @@ describe('getActiveClaimsContext — claim status semantics', () => {
         mock.question.findMany.mockResolvedValue([mappedQuestion, unmappedQuestion]);
         mock.fIEngagement.findUnique.mockResolvedValue(engagementWithLE);
         // ASSERTED claim for fieldNo=3 (DB returns it because the filter includes ASSERTED)
-        mock.fieldClaim.findMany.mockResolvedValue([{ fieldNo: 3 }]);
+        mock.fieldClaim.findMany.mockResolvedValue([{ id: 'c1', fieldNo: 3, status: 'ASSERTED', valueText: 'data', assertedAt: new Date(), ownerScopeId: null }]);
 
         const m = await calculateEngagementMetrics(ENGAGEMENT_ID);
 
@@ -200,7 +203,10 @@ describe('getActiveClaimsContext — claim status semantics', () => {
         mock.fIEngagement.findUnique.mockResolvedValue(engagementWithLE);
 
         // DB returns rows for all ASSERTED + VERIFIED claims (filtered by IN clause)
-        const claimsReturned = [...assertedFieldNos, ...verifiedFieldNos].map(no => ({ fieldNo: no }));
+        const claimsReturned = [
+            ...assertedFieldNos.map((no, i) => ({ id: `c-a-${i}`, fieldNo: no, status: 'ASSERTED', valueText: 'data', assertedAt: new Date(), ownerScopeId: null })),
+            ...verifiedFieldNos.map((no, i) => ({ id: `c-v-${i}`, fieldNo: no, status: 'VERIFIED', valueText: 'data', assertedAt: new Date(), ownerScopeId: null }))
+        ];
         mock.fieldClaim.findMany.mockResolvedValue(claimsReturned);
 
         const m = await calculateEngagementMetrics(ENGAGEMENT_ID);
@@ -227,7 +233,7 @@ describe('getActiveClaimsContext — claim status semantics', () => {
         });
         mock.question.findMany.mockResolvedValue([mappedQuestion]);
         // ASSERTED claim returned by the inclusive filter
-        mock.fieldClaim.findMany.mockResolvedValue([{ fieldNo: 3 }]);
+        mock.fieldClaim.findMany.mockResolvedValue([{ id: 'c1', fieldNo: 3, status: 'ASSERTED', valueText: 'data', assertedAt: new Date(), ownerScopeId: null }]);
 
         const m = await calculateQuestionnaireMetrics(QUESTIONNAIRE_ID);
 
