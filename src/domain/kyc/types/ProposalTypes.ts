@@ -9,7 +9,7 @@ export type FieldValue = {
     timestamp?: string;
 };
 
-export type ProposalAction = 'NO_CHANGE' | 'PROPOSE_UPDATE' | 'BLOCKED';
+export type ProposalAction = 'NO_CHANGE' | 'PROPOSE_UPDATE' | 'BLOCKED' | 'AUTO_APPLIED';
 
 export type FieldProposal = {
     fieldNo: number;

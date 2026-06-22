@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Search, Settings, X, Loader2, MoreVertical, SlidersHorizontal, Plus, ChevronRight, ChevronDown, ChevronUp, GripVertical, Save, Edit, Pencil, ArchiveX } from "lucide-react";
+import { Search, Settings, X, Loader2, MoreVertical, SlidersHorizontal, Plus, ChevronRight, ChevronDown, ChevronUp, GripVertical, Save, Edit, Pencil, ArchiveX, ListOrdered } from "lucide-react";
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -527,8 +527,8 @@ export default function MasterDataManager({ initialData, rawFields, initialUserC
                     {hasActiveFilters && <Button variant="ghost" size="sm" className="h-9 px-2 text-slate-500" onClick={clearFilters}><X className="h-4 w-4 mr-1" /> Clear</Button>}
                 </div>
                 <div className="flex items-center gap-2 mt-2 xl:mt-0 justify-end">
-                    <Button variant="outline" size="sm" onClick={handleSaveCategories} disabled={isSavingOrder} className="h-9 gap-1.5 shadow-sm text-sm"><Save className="w-3.5 h-3.5" /> Save Categories</Button>
-                    <Button variant="outline" size="sm" onClick={handleSaveFields} disabled={isSavingOrder} className="h-9 gap-1.5 shadow-sm text-sm"><Save className="w-3.5 h-3.5" /> Save Fields</Button>
+                    <Button variant="outline" size="sm" onClick={handleSaveCategories} disabled={isSavingOrder} className="h-9 gap-1.5 shadow-sm text-sm" title="Save Categories Order"><ListOrdered className="w-3.5 h-3.5" /> Save Categories Order</Button>
+                    <Button variant="outline" size="sm" onClick={handleSaveFields} disabled={isSavingOrder} className="h-9 gap-1.5 shadow-sm text-sm" title="Save Fields Order"><ListOrdered className="w-3.5 h-3.5" /> Save Fields Order</Button>
 
                     <Button variant="outline" size="sm" onClick={collapseAllCategories} className="h-9 gap-1.5 shadow-sm text-sm" title="Collapse all categories">
                         <ChevronRight className="w-3.5 h-3.5" /> Collapse All

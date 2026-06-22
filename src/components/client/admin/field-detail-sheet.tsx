@@ -292,6 +292,7 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
             const res = await updateMasterField(field.fieldNo, payload);
             if (res.success) {
                 toast.success("Field metadata updated successfully");
+                onOpenChange(false);
                 router.refresh();
             } else {
                 toast.error(res.error || "Failed to update field");
@@ -594,7 +595,7 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                         <div className="flex justify-end pt-2">
                             <Button onClick={handleSave} disabled={loading} size="sm" className="bg-indigo-600 hover:bg-indigo-700">
                                 {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                                Save Metadata Changes
+                                Save & Close
                             </Button>
                         </div>
                     </section>

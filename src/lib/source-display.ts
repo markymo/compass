@@ -61,9 +61,10 @@ export function normalizeSourceRef(sourceReference: string): string {
  * @param sourceReference - canonical mappingSourceKey or any legacy alias
  */
 export function getSourceDisplayName(
-    sourceType: string,
+    sourceType: string | null | undefined,
     sourceReference?: string | null
 ): string {
+    if (!sourceType) return "Unknown";
     if (sourceType === "GLEIF") return "GLEIF";
 
     if (sourceType === "REGISTRATION_AUTHORITY" || sourceType === "COMPANIES_HOUSE") {
@@ -83,6 +84,9 @@ export function getSourceDisplayName(
             if (canonical.match(/^RA\d{6}$/)) return `Registry - ${canonical}`;
             return `Registry (${canonical})`;
         }
+        
+        if (sourceType === "COMPANIES_HOUSE") return "Companies House";
+        
         // Null sourceReference should not occur after migration
         return "Registration Authority (unknown)";
     }
