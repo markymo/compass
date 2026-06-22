@@ -56,7 +56,7 @@ import {
 interface FieldDetailPanelProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    legalEntityId: string;
+    clientLEId: string;
     fieldNo: number;
     fieldName: string;
     customFieldId?: string;
@@ -66,7 +66,7 @@ interface FieldDetailPanelProps {
     registrationAuthorityId?: string;
 }
 
-export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, fieldName, customFieldId, isLocked, onUpdate, registrationAuthorityId }: FieldDetailPanelProps) {
+export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fieldName, customFieldId, isLocked, onUpdate, registrationAuthorityId }: FieldDetailPanelProps) {
     const [data, setData] = useState<FieldDetailData | null>(null);
     const [loading, setLoading] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
@@ -231,7 +231,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
             loadTeam();
             if (fieldNo) loadGraphBindings();
         }
-    }, [open, fieldNo, customFieldId, legalEntityId]);
+    }, [open, fieldNo, customFieldId, clientLEId]);
 
     // Reset edit state when switching to a different field
     useEffect(() => {
@@ -248,7 +248,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
     }, [fieldNo, customFieldId]);
 
     const loadTeam = async () => {
-        const res = await getLETeamMembers(legalEntityId);
+        const res = await getLETeamMembers(clientLEId);
         if (res.success && res.team) {
             setTeam(res.team);
         }
@@ -257,7 +257,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
     const loadData = async () => {
         setLoading(true);
         try {
-            const result = await getFieldDetail(legalEntityId, fieldNo, 'CLIENT_LE', customFieldId);
+            const result = await getFieldDetail(clientLEId, fieldNo, 'CLIENT_LE', customFieldId);
             setData(result);
             setNoteText(result?.userNote || "");
         } catch (error) {
@@ -287,7 +287,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
         if (!fieldKey) return;
         setIsLoadingEvidence(true);
         try {
-            const res = await getMasterFieldDocuments(legalEntityId, fieldKey);
+            const res = await getMasterFieldDocuments(clientLEId, fieldKey);
             setEvidenceDocs(res.documents || []);
         } catch (e) {
             console.error("Evidence load failed:", e);
@@ -300,7 +300,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
         if (!fieldNo) return;
         setIsSavingNote(true);
         try {
-            const res = await saveMasterFieldNote(legalEntityId, fieldNo, noteText);
+            const res = await saveMasterFieldNote(clientLEId, fieldNo, noteText);
             if (res.success) {
                 toast.success("Note saved successfully");
                 if (data) {
@@ -318,7 +318,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
     const handlePromote = async (claimId: string) => {
         setIsPromoting(claimId);
         try {
-            const res = await promoteClaim(legalEntityId, claimId);
+            const res = await promoteClaim(clientLEId, claimId);
             if (res.success) {
                 toast.success("Suggestion saved for reuse successfully");
                 loadData(); // Reload stats and suggestions
@@ -341,7 +341,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
         setIsPromoting(claimId);
         try {
             if (kind === 'EMBEDDED_PARTY') {
-                const res = await promoteClaimToCCParty(claimId, legalEntityId);
+                const res = await promoteClaimToCCParty(claimId, clientLEId);
                 if (res.success) {
                     toast.success("Saved for reuse");
                     loadData(); // Reload rows to update isPromotedToCCC flag
@@ -349,7 +349,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                     toast.error((res as any).message || "Failed to save for reuse");
                 }
             } else if (kind === 'ADDRESS') {
-                const res = await saveAddressForReuse(claimId, legalEntityId);
+                const res = await saveAddressForReuse(claimId, clientLEId);
                 if (res.success) {
                     toast.success("Saved for reuse");
                     loadData(); // Reload rows to update isPromotedToCCC flag
@@ -376,7 +376,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
             // has Turbopack dev compatibility issues.
             const form = new FormData();
             form.append('file', file);
-            form.append('leId', legalEntityId);
+            form.append('leId', clientLEId);
             form.append('fieldKey', fieldKey);
 
             const res = await fetch('/api/upload-evidence', {
@@ -441,12 +441,12 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
         if (typeof val === 'string' && !val.trim()) return;
         setIsAddingSaving(true);
         try {
-            const res = await addMultiValueEntry(legalEntityId, fieldNo, typeof val === 'string' ? val.trim() : val);
+            const res = await addMultiValueEntry(clientLEId, fieldNo, typeof val === 'string' ? val.trim() : val);
             if (res.success) {
                 toast.success("Value added");
                 setNewEntryValue("");
                 setIsAddingPerson(false);
-                const refreshed = await getFieldDetail(legalEntityId, fieldNo, 'CLIENT_LE', customFieldId);
+                const refreshed = await getFieldDetail(clientLEId, fieldNo, 'CLIENT_LE', customFieldId);
                 setData(refreshed);
                 if (onUpdate && refreshed?.current) {
                     onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
@@ -478,18 +478,18 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
             let res;
             if (overrideInstanceId) {
                 // Updating a specific row in a multi-value field
-                res = await updateFieldManually(legalEntityId, fieldNo, payloadValue, `Updated graph linkage: ${item.displayLabel}`, overrideInstanceId, 'CLIENT_LE');
+                res = await updateFieldManually(clientLEId, fieldNo, payloadValue, `Updated graph linkage: ${item.displayLabel}`, overrideInstanceId, 'CLIENT_LE');
             } else if (data?.isRepeating) {
                 // Adding a new row
-                res = await addMultiValueEntry(legalEntityId, fieldNo, payloadValue, `Linked to graph node: ${item.displayLabel}`);
+                res = await addMultiValueEntry(clientLEId, fieldNo, payloadValue, `Linked to graph node: ${item.displayLabel}`);
             } else {
                 // Updating a single-value field
-                res = await updateFieldManually(legalEntityId, fieldNo, payloadValue, `Linked to graph node: ${item.displayLabel}`, undefined, 'CLIENT_LE');
+                res = await updateFieldManually(clientLEId, fieldNo, payloadValue, `Linked to graph node: ${item.displayLabel}`, undefined, 'CLIENT_LE');
             }
 
             if (res.success) {
                 toast.success(overrideInstanceId ? "Row updated" : (data?.isRepeating ? "Value added" : "Value updated"));
-                const refreshed = await getFieldDetail(legalEntityId, fieldNo, 'CLIENT_LE', customFieldId);
+                const refreshed = await getFieldDetail(clientLEId, fieldNo, 'CLIENT_LE', customFieldId);
                 setData(refreshed);
                 setEditingRowId(null);
                 if (onUpdate && refreshed?.current) {
@@ -547,11 +547,11 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
     const handleRemoveEntry = async (claimId: string) => {
         setIsSaving(true);
         try {
-            const res = await removeMultiValueEntry(legalEntityId, fieldNo, claimId);
+            const res = await removeMultiValueEntry(clientLEId, fieldNo, claimId);
             if (res.success) {
                 toast.success("Value removed");
                 setDeletingRowId(null);
-                const refreshed = await getFieldDetail(legalEntityId, fieldNo, 'CLIENT_LE', customFieldId);
+                const refreshed = await getFieldDetail(clientLEId, fieldNo, 'CLIENT_LE', customFieldId);
                 setData(refreshed);
                 if (onUpdate && refreshed?.current) {
                     onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
@@ -581,7 +581,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                 const { upsertCCParty } = await import("@/actions/cc-party-actions");
                 const result = await upsertCCParty({
                     id: parsedVal.ccPartyId,
-                    clientLEId: legalEntityId,
+                    clientLEId: clientLEId,
                     data: editingRowValue
                 });
 
@@ -589,7 +589,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                     toast.success("Saved party updated");
                     setEditingRowId(null);
                     setEditingRowValue("");
-                    const refreshed = await getFieldDetail(legalEntityId, fieldNo, 'CLIENT_LE', customFieldId);
+                    const refreshed = await getFieldDetail(clientLEId, fieldNo, 'CLIENT_LE', customFieldId);
                     setData(refreshed);
                     if (onUpdate && refreshed?.current) {
                         onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
@@ -601,7 +601,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                 const { upsertCCAddress } = await import("@/actions/cc-address-actions");
                 const result = await upsertCCAddress({
                     id: parsedVal.ccAddressId,
-                    clientLEId: legalEntityId,
+                    clientLEId: clientLEId,
                     data: editingRowValue
                 });
 
@@ -609,7 +609,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                     toast.success("Saved address updated");
                     setEditingRowId(null);
                     setEditingRowValue("");
-                    const refreshed = await getFieldDetail(legalEntityId, fieldNo, 'CLIENT_LE', customFieldId);
+                    const refreshed = await getFieldDetail(clientLEId, fieldNo, 'CLIENT_LE', customFieldId);
                     setData(refreshed);
                     if (onUpdate && refreshed?.current) {
                         onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
@@ -624,7 +624,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                     return;
                 }
                 const result = await updateFieldManually(
-                    legalEntityId,
+                    clientLEId,
                     fieldNo,
                     isString ? editingRowValue.trim() : editingRowValue,
                     "Inline edit",
@@ -635,7 +635,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                     toast.success("Value updated");
                     setEditingRowId(null);
                     setEditingRowValue("");
-                    const refreshed = await getFieldDetail(legalEntityId, fieldNo, 'CLIENT_LE', customFieldId);
+                    const refreshed = await getFieldDetail(clientLEId, fieldNo, 'CLIENT_LE', customFieldId);
                     setData(refreshed);
                     if (onUpdate && refreshed?.current) {
                         onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
@@ -674,7 +674,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
         try {
             let result;
             if (customFieldId) {
-                result = await updateCustomFieldManually(legalEntityId, customFieldId, manualValue, manualReason);
+                result = await updateCustomFieldManually(clientLEId, customFieldId, manualValue, manualReason);
             } else {
                 if (!data) {
                     toast.error("Data not loaded");
@@ -689,14 +689,14 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                     const { upsertCCParty } = await import("@/actions/cc-party-actions");
                     result = await upsertCCParty({
                         id: parsedVal.ccPartyId,
-                        clientLEId: legalEntityId,
+                        clientLEId: clientLEId,
                         data: manualValue
                     });
                 } else if ((isAddressField || isCuratedAddressRef) && inferredKind === 'ADDRESS_REF' && parsedVal?.ccAddressId) {
                     const { upsertCCAddress } = await import("@/actions/cc-address-actions");
                     result = await upsertCCAddress({
                         id: parsedVal.ccAddressId,
-                        clientLEId: legalEntityId,
+                        clientLEId: clientLEId,
                         data: manualValue
                     });
                 } else {
@@ -710,9 +710,9 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                             [fieldNameInModel]: manualValue,
                             ...relatedValues
                         };
-                        result = await applyBulkOverride(legalEntityId, model, updates, manualReason, selectedRowId!, 'CLIENT_LE');
+                        result = await applyBulkOverride(clientLEId, model, updates, manualReason, selectedRowId!, 'CLIENT_LE');
                     } else {
-                        result = await updateFieldManually(legalEntityId, fieldNo, manualValue, manualReason, selectedRowId || undefined);
+                        result = await updateFieldManually(clientLEId, fieldNo, manualValue, manualReason, selectedRowId || undefined);
                     }
                 }
             }
@@ -722,7 +722,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                 setIsEditing(false);
                 setManualReason("");
                 setRelatedValues({});
-                const refreshed = await getFieldDetail(legalEntityId, fieldNo, 'CLIENT_LE', customFieldId);
+                const refreshed = await getFieldDetail(clientLEId, fieldNo, 'CLIENT_LE', customFieldId);
                 setData(refreshed);
                 if (onUpdate && refreshed?.current) {
                     onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
@@ -745,10 +745,10 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
         }
         if (confirm(`Are you sure you want to apply this value: ${candidate.value}?`)) {
             try {
-                const result = await applyCandidate(legalEntityId, candidate, selectedRowId || undefined);
+                const result = await applyCandidate(clientLEId, candidate, selectedRowId || undefined);
                 if (result.success) {
                     toast.success("Candidate applied");
-                    const refreshed = await getFieldDetail(legalEntityId, fieldNo, 'CLIENT_LE', customFieldId);
+                    const refreshed = await getFieldDetail(clientLEId, fieldNo, 'CLIENT_LE', customFieldId);
                     setData(refreshed);
                     if (onUpdate && refreshed.current) {
                         onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
@@ -770,7 +770,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
 
         setIsAssigning(true);
         try {
-            const res = await setMasterFieldAssignment(legalEntityId, fieldNo, userId);
+            const res = await setMasterFieldAssignment(clientLEId, fieldNo, userId);
             if (res.success) {
                 toast.success(userId ? "Field assigned successfully" : "Assignment removed");
                 await loadData();
@@ -906,7 +906,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                         toast.success("Field renamed");
                                                         setIsRenamingField(false);
                                                         // Refresh data to pick up new name
-                                                        const refreshed = await getFieldDetail(legalEntityId, fieldNo, 'CLIENT_LE', customFieldId);
+                                                        const refreshed = await getFieldDetail(clientLEId, fieldNo, 'CLIENT_LE', customFieldId);
                                                         setData(refreshed);
                                                     } else {
                                                         toast.error(res.error || "Rename failed");
@@ -931,7 +931,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                 if (res.success) {
                                                     toast.success("Field renamed");
                                                     setIsRenamingField(false);
-                                                    const refreshed = await getFieldDetail(legalEntityId, fieldNo, 'CLIENT_LE', customFieldId);
+                                                    const refreshed = await getFieldDetail(clientLEId, fieldNo, 'CLIENT_LE', customFieldId);
                                                     setData(refreshed);
                                                 } else {
                                                     toast.error(res.error || "Rename failed");
@@ -1005,7 +1005,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                             {/* Code-list fields (controlled vocabulary): delegate entirely to CodeListField */}
                                             {isCodeList ? (
                                                 <CodeListField
-                                                    clientLEId={legalEntityId}
+                                                    clientLEId={clientLEId}
                                                     fieldNo={fieldNo}
                                                     codeSystem={data.codeSystem!}
                                                     rows={data.rows ?? []}
@@ -1078,7 +1078,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                     {isObjectRef ? (
                                                                         <div className="flex-1">
                                                                             <GraphNodePicker
-                                                                                clientLEId={legalEntityId}
+                                                                                clientLEId={clientLEId}
                                                                                 graphNodeType={graphBindings.find(b => b.isActive)?.graphNodeType || (isPartyRef ? "PERSON" : "ADDRESS")}
                                                                                 filterEdgeType={graphBindings.find(b => b.isActive)?.filterEdgeType}
                                                                                 allowCreate={graphBindings.find(b => b.isActive)?.allowCreate ?? true}
@@ -1363,7 +1363,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                     <PartyRefValueEditor
                                                                         value={newPersonData}
                                                                         onChange={setNewPersonData}
-                                                                        clientLEId={legalEntityId}
+                                                                        clientLEId={clientLEId}
                                                                         disabled={isAddingSaving}
                                                                     />
                                                                     <div className="flex items-center gap-2 pt-2">
@@ -1381,11 +1381,11 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                     ) : isPersonOrContactField ? (
                                                         <div className="pt-2">
                                                             <UnifiedPartyPicker
-                                                                clientLEId={legalEntityId}
+                                                                clientLEId={clientLEId}
                                                                 fieldNo={fieldNo}
                                                                 onSuccess={async () => {
                                                                     setNewEntryValue("");
-                                                                    const refreshed = await getFieldDetail(legalEntityId, fieldNo, 'CLIENT_LE', customFieldId);
+                                                                    const refreshed = await getFieldDetail(clientLEId, fieldNo, 'CLIENT_LE', customFieldId);
                                                                     setData(refreshed);
                                                                     if (onUpdate && refreshed?.current) {
                                                                         onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
@@ -1396,11 +1396,11 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                     ) : isAddressField ? (
                                                         <div className="pt-2">
                                                             <UnifiedAddressPicker
-                                                                clientLEId={legalEntityId}
+                                                                clientLEId={clientLEId}
                                                                 fieldNo={fieldNo}
                                                                 onSuccess={async () => {
                                                                     setNewEntryValue("");
-                                                                    const refreshed = await getFieldDetail(legalEntityId, fieldNo, 'CLIENT_LE', customFieldId);
+                                                                    const refreshed = await getFieldDetail(clientLEId, fieldNo, 'CLIENT_LE', customFieldId);
                                                                     setData(refreshed);
                                                                     if (onUpdate && refreshed?.current) {
                                                                         onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
@@ -1568,10 +1568,10 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                          )}
                                                                          {isCuratedPartyRef && (
                                                                              <UnifiedPartyPicker
-                                                                                 clientLEId={legalEntityId}
+                                                                                 clientLEId={clientLEId}
                                                                                  fieldNo={fieldNo}
                                                                                  onSuccess={async () => {
-                                                                                     const refreshed = await getFieldDetail(legalEntityId, fieldNo, 'CLIENT_LE', customFieldId);
+                                                                                     const refreshed = await getFieldDetail(clientLEId, fieldNo, 'CLIENT_LE', customFieldId);
                                                                                      setData(refreshed);
                                                                                      if (onUpdate && refreshed?.current) {
                                                                                          onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
@@ -1633,10 +1633,10 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                          )}
                                                                          {isCuratedAddressRef && (
                                                                              <UnifiedAddressPicker
-                                                                                 clientLEId={legalEntityId}
+                                                                                 clientLEId={clientLEId}
                                                                                  fieldNo={fieldNo}
                                                                                  onSuccess={async () => {
-                                                                                     const refreshed = await getFieldDetail(legalEntityId, fieldNo, 'CLIENT_LE', customFieldId);
+                                                                                     const refreshed = await getFieldDetail(clientLEId, fieldNo, 'CLIENT_LE', customFieldId);
                                                                                      setData(refreshed);
                                                                                      if (onUpdate && refreshed?.current) {
                                                                                          onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
@@ -1681,11 +1681,11 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                          onClick={async () => {
                                                                              setIsSaving(true);
                                                                              try {
-                                                                                 const result = await updateFieldManually(legalEntityId, fieldNo, null, "Break party link", undefined, 'CLIENT_LE');
+                                                                                 const result = await updateFieldManually(clientLEId, fieldNo, null, "Break party link", undefined, 'CLIENT_LE');
                                                                                  if (result.success) {
                                                                                      toast.success("Party link broken");
                                                                                      setIsClearingSingleValue(false);
-                                                                                     const refreshed = await getFieldDetail(legalEntityId, fieldNo, 'CLIENT_LE', customFieldId);
+                                                                                     const refreshed = await getFieldDetail(clientLEId, fieldNo, 'CLIENT_LE', customFieldId);
                                                                                      setData(refreshed);
                                                                                      if (onUpdate && refreshed?.current) {
                                                                                          onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
@@ -1729,10 +1729,10 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                      </div>
                                                                      {!isLocked && (
                                                                          <UnifiedPartyPicker
-                                                                             clientLEId={legalEntityId}
+                                                                             clientLEId={clientLEId}
                                                                              fieldNo={fieldNo}
                                                                              onSuccess={async () => {
-                                                                                 const refreshed = await getFieldDetail(legalEntityId, fieldNo, 'CLIENT_LE', customFieldId);
+                                                                                 const refreshed = await getFieldDetail(clientLEId, fieldNo, 'CLIENT_LE', customFieldId);
                                                                                  setData(refreshed);
                                                                                  if (onUpdate && refreshed?.current) {
                                                                                      onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
@@ -1757,10 +1757,10 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                      </div>
                                                                      {!isLocked && (
                                                                          <UnifiedAddressPicker
-                                                                             clientLEId={legalEntityId}
+                                                                             clientLEId={clientLEId}
                                                                              fieldNo={fieldNo}
                                                                              onSuccess={async () => {
-                                                                                 const refreshed = await getFieldDetail(legalEntityId, fieldNo, 'CLIENT_LE', customFieldId);
+                                                                                 const refreshed = await getFieldDetail(clientLEId, fieldNo, 'CLIENT_LE', customFieldId);
                                                                                  setData(refreshed);
                                                                                  if (onUpdate && refreshed?.current) {
                                                                                      onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
@@ -1817,7 +1817,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                 </div>
                                                                 {isObjectRef ? (
                                                                     <GraphNodePicker
-                                                                        clientLEId={legalEntityId}
+                                                                        clientLEId={clientLEId}
                                                                         graphNodeType={graphBindings.find(b => b.isActive)?.graphNodeType || (isPartyRef ? "PERSON" : "ADDRESS")}
                                                                         filterEdgeType={graphBindings.find(b => b.isActive)?.filterEdgeType}
                                                                         filterActiveOnly={graphBindings.find(b => b.isActive)?.filterActiveOnly ?? true}
@@ -1836,11 +1836,11 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
                                                                         {isAddressField ? (
                                                                             <div className="mt-4">
                                                                                 <UnifiedAddressPicker
-                                                                                    clientLEId={legalEntityId}
+                                                                                    clientLEId={clientLEId}
                                                                                     fieldNo={fieldNo}
                                                                                     onSuccess={async () => {
                                                                                         setIsEditing(false);
-                                                                                        const refreshed = await getFieldDetail(legalEntityId, fieldNo, 'CLIENT_LE', customFieldId);
+                                                                                        const refreshed = await getFieldDetail(clientLEId, fieldNo, 'CLIENT_LE', customFieldId);
                                                                                         setData(refreshed);
                                                                                         if (onUpdate && refreshed?.current) {
                                                                                             onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
@@ -2328,7 +2328,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
             <NodeCreateDialog
                 open={createDialogOpen}
                 onOpenChange={setCreateDialogOpen}
-                clientLEId={legalEntityId}
+                clientLEId={clientLEId}
                 nodeType={createDialogType}
                 initialData={initialNodeData}
                 entityId={editingEntityId}
@@ -2338,7 +2338,7 @@ export function FieldDetailPanel({ open, onOpenChange, legalEntityId, fieldNo, f
             <GraphNodePickerDialog
                 open={addDialogOpen}
                 onOpenChange={setAddDialogOpen}
-                clientLEId={legalEntityId}
+                clientLEId={clientLEId}
                 graphNodeType={graphBindings.find(b => b.isActive)?.graphNodeType || (isPartyRef ? "PERSON" : "ADDRESS")}
                 filterEdgeType={graphBindings.find(b => b.isActive)?.filterEdgeType}
                 filterActiveOnly={graphBindings.find(b => b.isActive)?.filterActiveOnly ?? true}

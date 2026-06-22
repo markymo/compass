@@ -487,7 +487,7 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
             <FieldDetailPanel
                 open={!!selectedInspectionField}
                 onOpenChange={(open) => !open && setSelectedInspectionField(null)}
-                legalEntityId={leId}
+                clientLEId={leId}
                 fieldNo={selectedInspectionField?.fieldNo || 0}
                 fieldName={selectedInspectionField?.name || ""}
                 customFieldId={selectedInspectionField?.customFieldId}

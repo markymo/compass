@@ -310,7 +310,9 @@ export async function saveAddressForReuse(claimId: string, clientLEId: string) {
             return { success: false, message: "Claim not found" };
         }
 
-        // Removed incorrect claim.subjectLeId !== clientLEId check
+        if (claim.clientLeScopeId && claim.clientLeScopeId !== clientLEId) {
+            return { success: false, message: "Claim does not belong to this dossier" };
+        }
 
         const valueObj = typeof claim.valueJson === 'string'
             ? JSON.parse(claim.valueJson)
