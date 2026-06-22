@@ -139,12 +139,10 @@ export async function resolveExportAnswer(
             const fieldDetail = await getFieldDetail(entityId, question.masterFieldNo, "CLIENT_LE");
             
             if (fieldDetail.displayState === 'CHECKED_NO_DATA' || fieldDetail.current?.value?.explicitNone === true) {
-                let sourceLabel: string | undefined = fieldDetail.current?.source;
+                let sourceLabel: string | undefined = fieldDetail.current?.source ? getSourceDisplayName(fieldDetail.current.source, fieldDetail.current.sourceReference) : undefined;
                 let sourceCategory: 'REGISTRY' | 'USER' | 'DEFAULT' = 'REGISTRY';
                 
-                if (fieldDetail.current?.sourceReference === 'COMPANIES_HOUSE') {
-                    sourceLabel = "Companies House";
-                } else if (fieldDetail.current?.source === 'USER_INPUT') {
+                if (fieldDetail.current?.source === 'USER_INPUT') {
                     sourceCategory = 'USER';
                 }
 
