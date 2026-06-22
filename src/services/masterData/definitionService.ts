@@ -84,7 +84,7 @@ export async function listAllMasterFields(): Promise<MasterFieldDefinition[]> {
         await refreshDefinitionCache();
     }
     // Sort by order then fieldNo — matches the master data manager display order.
-    return Object.values(definitionCache!).sort((a, b) => {
+    return Object.values(definitionCache!).sort((a: any, b: any) => {
         const catA = a.masterDataCategory || { order: 9999, displayName: "Uncategorized" };
         const catB = b.masterDataCategory || { order: 9999, displayName: "Uncategorized" };
 
