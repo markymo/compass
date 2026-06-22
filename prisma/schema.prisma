@@ -374,6 +374,7 @@ model Question {
   prefilledValue              String?
   releasedAt                  DateTime?
   releasedByUserId            String?
+  releaseProvenance           Json?
   sharedAt                    DateTime?
   sharedByUserId              String?
   supplierNote                String?

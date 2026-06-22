@@ -200,7 +200,14 @@ export async function getBoardQuestions(engagementId: string) {
         const snapshotDate = isReleased ? (q as any).releasedAt : undefined;
 
         // If mapped to master data, try to resolve the authoritative value
-        if (subjectLeId && q.masterFieldNo) {
+        let sourceLabel: string | undefined = undefined;
+        let sourceTimestamp: string | undefined = undefined;
+        const releaseProvenance = (q as any).releaseProvenance;
+
+        if (isReleased && releaseProvenance) {
+            sourceLabel = releaseProvenance.provenanceDisplay?.source || releaseProvenance.sourceLabel || "System";
+            sourceTimestamp = releaseProvenance.provenanceDisplay?.timestamp || releaseProvenance.sourceCheckedAt || releaseProvenance.valueAssertedAt;
+        } else if (subjectLeId && q.masterFieldNo) {
             const derived = await KycStateService.getAuthoritativeValue(
                 { subjectLeId },
                 q.masterFieldNo,
@@ -213,6 +220,35 @@ export async function getBoardQuestions(engagementId: string) {
                     finalAnswer = JSON.stringify(derived.value);
                 } else {
                     finalAnswer = String(derived.value ?? "");
+                }
+
+                // If not released (or missing provenance), resolve dynamic provenance
+                if (!isReleased || !releaseProvenance) {
+                    const sourceType = derived.sourceType || "MASTER_RECORD";
+                    sourceLabel = sourceType;
+                    let sourceCheckedAt = derived.assertedAt;
+
+                    if (sourceType === "GLEIF") {
+                        const le = await prisma.clientLE.findUnique({ where: { id: subjectLeId }, select: { gleifFetchedAt: true }});
+                        sourceCheckedAt = le?.gleifFetchedAt || derived.assertedAt;
+                        sourceLabel = "GLEIF";
+                    } else if ((sourceType === "REGISTRATION_AUTHORITY" || sourceType === "COMPANIES_HOUSE") && derived.sourceReference) {
+                        const run = await prisma.enrichmentRun.findFirst({
+                            where: {
+                                legalEntityId: subjectLeId,
+                                registrationAuthorityId: derived.sourceReference,
+                                status: "SUCCESS",
+                                completedAt: snapshotDate ? { lte: snapshotDate } : undefined
+                            },
+                            orderBy: { completedAt: 'desc' }
+                        });
+                        sourceCheckedAt = run?.completedAt || derived.assertedAt;
+                        sourceLabel = sourceType === "COMPANIES_HOUSE" ? "Companies House" : "Registration Authority";
+                    } else if (sourceType === "USER_INPUT") {
+                        sourceLabel = "User Input";
+                    }
+                    
+                    sourceTimestamp = sourceCheckedAt?.toISOString();
                 }
             }
         }
@@ -266,7 +302,10 @@ export async function getBoardQuestions(engagementId: string) {
             sharedAt: (q as any).sharedAt,
             supplierNote: (q as any).supplierNote,
             supplierNoteUpdatedAt: (q as any).supplierNoteUpdatedAt?.toLocaleString(),
-            supplierNoteUpdatedBy: (q as any).supplierNoteUpdatedByUser?.name || (q as any).supplierNoteUpdatedByUser?.email || null
+            supplierNoteUpdatedBy: (q as any).supplierNoteUpdatedByUser?.name || (q as any).supplierNoteUpdatedByUser?.email || null,
+            sourceLabel,
+            sourceTimestamp,
+            releaseProvenance
         };
     }));
 
@@ -418,12 +457,114 @@ export async function releaseQuestion(questionId: string) {
     // TODO: Verify LE_ADMIN role
 
     try {
+        const question = await prisma.question.findUnique({
+            where: { id: questionId },
+            include: {
+                questionnaire: {
+                    include: { engagements: true, fiEngagement: true }
+                }
+            }
+        });
+
+        if (!question) return { success: false, error: "Question not found" };
+
+        const engagement = question.questionnaire.fiEngagement || question.questionnaire.engagements[0];
+        const clientLEId = engagement?.clientLEId;
+
+        const user = await prisma.user.findUnique({ where: { id: userId } });
+        const releasedByName = user?.name || user?.email || "Unknown User";
+        const releasedAt = new Date();
+
+        let releaseProvenance: any = null;
+
+        if (clientLEId && question.masterFieldNo) {
+            const derived = await KycStateService.getAuthoritativeValue(
+                { subjectLeId: clientLEId },
+                question.masterFieldNo,
+                undefined,
+                undefined
+            );
+
+            if (derived) {
+                let sourceCheckedAt: Date | null = null;
+                const sourceType = derived.sourceType || "MASTER_RECORD";
+                let sourceLabel = sourceType;
+
+                if (sourceType === "GLEIF") {
+                    const le = await prisma.clientLE.findUnique({ where: { id: clientLEId }, select: { gleifFetchedAt: true }});
+                    sourceCheckedAt = le?.gleifFetchedAt || derived.assertedAt;
+                    sourceLabel = "GLEIF";
+                } else if ((sourceType === "REGISTRATION_AUTHORITY" || sourceType === "COMPANIES_HOUSE") && derived.sourceReference) {
+                    const run = await prisma.enrichmentRun.findFirst({
+                        where: {
+                            legalEntityId: clientLEId,
+                            registrationAuthorityId: derived.sourceReference,
+                            status: "SUCCESS"
+                        },
+                        orderBy: { completedAt: 'desc' }
+                    });
+                    sourceCheckedAt = run?.completedAt || derived.assertedAt;
+                    sourceLabel = sourceType === "COMPANIES_HOUSE" ? "Companies House" : "Registration Authority";
+                } else if (sourceType === "USER_INPUT") {
+                    sourceCheckedAt = derived.assertedAt;
+                    sourceLabel = "User Input";
+                }
+
+                releaseProvenance = {
+                    claimId: derived.claimId,
+                    sourceType,
+                    sourceReference: derived.sourceReference || null,
+                    sourceLabel,
+                    valueAssertedAt: derived.assertedAt?.toISOString() || null,
+                    sourceCheckedAt: sourceCheckedAt?.toISOString() || null,
+                    releasedAt: releasedAt.toISOString(),
+                    releasedByUserId: userId,
+                    releasedByName,
+                    provenanceDisplay: {
+                        source: sourceLabel,
+                        timestamp: sourceCheckedAt?.toISOString() || null,
+                        timestampMeaning: "Source checked"
+                    }
+                };
+            } else {
+                releaseProvenance = {
+                    sourceType: "USER_INPUT",
+                    sourceLabel: releasedByName,
+                    explicitNone: true,
+                    releasedAt: releasedAt.toISOString(),
+                    releasedByUserId: userId,
+                    releasedByName,
+                    provenanceDisplay: {
+                        source: releasedByName,
+                        timestamp: releasedAt.toISOString(),
+                        timestampMeaning: "Released"
+                    }
+                };
+            }
+        } else {
+            releaseProvenance = {
+                sourceType: "DEFAULT_RESPONSE",
+                sourceLabel: releasedByName,
+                sourceCheckedAt: null,
+                valueAssertedAt: null,
+                releasedAt: releasedAt.toISOString(),
+                releasedByUserId: userId,
+                releasedByName,
+                provenanceDisplay: {
+                    source: releasedByName,
+                    timestamp: releasedAt.toISOString(),
+                    timestampMeaning: "Released"
+                }
+            };
+        }
+
         await prisma.question.update({
             where: { id: questionId },
             data: {
                 status: 'RELEASED',
-                releasedAt: new Date(),
+                releasedAt,
                 releasedByUserId: userId,
+                releaseProvenance,
                 isLocked: true
             }
         });
