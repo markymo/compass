@@ -1506,9 +1506,12 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                 </div>
                                                                 <div className="mt-2 flex items-center gap-2">
                                                                     <SourceBadge source={data.current.source || 'UNKNOWN'} sourceReference={data.current.sourceReference} registrationAuthorityId={registrationAuthorityId} />
-                                                                    <span className="text-[10px] text-slate-400">
-                                                                        Updated: {data.current.timestamp ? new Date(data.current.timestamp).toLocaleString() : 'Never'}
-                                                                    </span>
+                                                                    <div className="flex flex-col text-[10px] text-slate-400 border-l border-slate-200 pl-2 leading-tight">
+                                                                        {data.current.sourceCheckedAt && (
+                                                                            <span className="whitespace-nowrap">Source last checked: {new Date(data.current.sourceCheckedAt).toLocaleString()}</span>
+                                                                        )}
+                                                                        <span className="whitespace-nowrap">Value last changed: {data.current.timestamp ? new Date(data.current.timestamp).toLocaleString() : 'Never'}</span>
+                                                                    </div>
                                                                 </div>
                                                             </div>
                                                              {!isLocked && (
