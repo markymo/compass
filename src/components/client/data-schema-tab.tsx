@@ -681,13 +681,13 @@ function MasterFieldDisplay({ label, fieldNo, value, source, sourceReference, re
                 onClick && "group-hover:border-blue-200 group-hover:bg-white group-hover:shadow-sm"
             )}>
                 <div className="font-mono text-sm truncate max-w-[300px]" title={typeof value === 'object' && value ? JSON.stringify(value, null, 2) : String(value)}>
-                    {resolvedState === "HAS_VALUE" && displayValue}
-                    {resolvedState === "MAPPED_NOT_CHECKED" && <span className="text-slate-400 italic">Source not checked yet</span>}
-                    {resolvedState === "CHECKED_NO_DATA" && <span className="text-slate-400 italic">No data in source record</span>}
+                    {resolvedState === "HAS_VALUE" && (value?.explicitNone ? "None" : displayValue)}
+                    {resolvedState === "MAPPED_NOT_CHECKED" && <span className="text-slate-400 italic">No response recorded</span>}
+                    {resolvedState === "CHECKED_NO_DATA" && <span className="text-slate-800 font-medium">None</span>}
                     {resolvedState === "DEFAULT_RESPONSE" && (
-                        <span className="flex items-center gap-2">
+                        <span className="flex items-center gap-2 text-blue-600 font-medium">
                             <span>{defaultResponse}</span>
-                            <Badge variant="outline" className="text-[9px] uppercase tracking-wider text-slate-500 bg-slate-50 border-slate-200">Field Default</Badge>
+                            <Badge variant="outline" className="text-[9px] uppercase tracking-wider text-blue-500 bg-blue-50 border-blue-200">Field Default</Badge>
                         </span>
                     )}
                     {resolvedState === "UNMAPPED_NO_RESPONSE" && <span className="text-slate-400 italic">No response recorded</span>}
