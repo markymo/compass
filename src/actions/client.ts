@@ -690,7 +690,7 @@ export async function getDashboardMetrics(leId: string) {
         // Our new logic puts things in buckets based on status.
         // Let's rely on the buckets for the score to be consistent.
 
-        const eTotal = m.noData + m.mapped;
+        const eTotal = m.total;
         const eAnswered = m.answered;
         const effectiveAnswered = m.answered;
 

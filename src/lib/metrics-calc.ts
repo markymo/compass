@@ -101,11 +101,17 @@ export async function calculateQuestionnaireMetrics(questionnaireId: string): Pr
 
 async function calculateMetricsFromQuestions(questions: any[], legalEntityId?: string | null, customData?: any, clientLeId?: string | null): Promise<DashboardMetric> {
     const m = emptyMetrics();
-    const { activeClaims, activeCustomClaims, groupHasClaim } = await getActiveClaimsContext(legalEntityId, customData);
+    const { activeClaims, activeCustomClaims, groupHasClaim } = await getActiveClaimsContext(legalEntityId, customData, questions, clientLeId);
 
     for (const q of questions) {
         m.total++;
-        let hasAnswer = !!(q.answer && q.answer.trim().length > 0);
+        let hasAnswer = !!(q.answer && q.answer.trim().length > 0 && q.answer !== "null" && q.answer !== '{"explicitNone":true}');
+        
+        // PDF counts 'explicitNone' as answered (EMPTY_CHECKED)
+        if (q.answer && q.answer.includes('"explicitNone":true')) {
+            hasAnswer = true;
+        }
+
         const isMapped = q.masterFieldNo !== null || q.masterQuestionGroupId !== null || q.customFieldDefinitionId !== null;
 
         if (!hasAnswer && isMapped) {
@@ -117,8 +123,8 @@ async function calculateMetricsFromQuestions(questions: any[], legalEntityId?: s
         if (!hasAnswer) m.noData++;
         if (isMapped) {
             m.mapped++;
-            if (hasAnswer) m.answered++;
         }
+        if (hasAnswer) m.answered++;
 
         if (q.status === "APPROVED") m.approved++;
         else if (q.status === "RELEASED") m.released++;
@@ -153,17 +159,38 @@ async function calculateMetricsFromExtractedContent(extractedContent: any, legal
     return m;
 }
 
-async function getActiveClaimsContext(legalEntityId?: string | null, customData?: any) {
+import { KycStateService } from "./kyc/KycStateService";
+
+async function getActiveClaimsContext(legalEntityId?: string | null, customData?: any, questions?: any[], clientLeId?: string | null) {
     const activeClaims = new Set<number>();
     const activeCustomClaims = new Set<string>();
     const groupHasClaim = new Map<string, boolean>();
 
-    if (legalEntityId) {
-        const claims = await prisma.fieldClaim.findMany({
-            where: { subjectLeId: legalEntityId, status: { in: ["VERIFIED", "ASSERTED"] } },
-            select: { fieldNo: true }
-        });
-        claims.forEach((c: any) => activeClaims.add(c.fieldNo));
+    if (legalEntityId && questions && questions.length > 0) {
+        let ownerScopeId: string | null = null;
+        if (clientLeId) {
+            ownerScopeId = await KycStateService.resolveScopeId(clientLeId);
+        }
+
+        const masterFieldNos = Array.from(new Set(questions.filter(q => q.masterFieldNo !== null).map(q => q.masterFieldNo)));
+        
+        if (masterFieldNos.length > 0) {
+            const fieldDefs = masterFieldNos.map((no: number) => ({ fieldNo: no, isMultiValue: true })); // Safe default
+            const resolved = await KycStateService.resolveAllFields({ subjectLeId: legalEntityId }, fieldDefs, ownerScopeId || undefined);
+            console.log("RESOLVED", resolved);
+            
+            for (const [fieldNo, val] of Array.from(resolved.entries())) {
+                // Determine if 'val' has meaningful data. It could be DerivedValue, DerivedValue[], or null.
+                if (val !== null && val !== undefined) {
+                    if (Array.isArray(val) && val.length > 0) {
+                        activeClaims.add(fieldNo);
+                    } else if (!Array.isArray(val) && val.value !== null && val.value !== undefined) {
+                        activeClaims.add(fieldNo);
+                    }
+                }
+            }
+            console.log("ACTIVE CLAIMS", activeClaims);
+        }
 
         if (customData) {
             const data = customData as Record<string, any>;
