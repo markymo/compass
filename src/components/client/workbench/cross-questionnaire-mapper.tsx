@@ -1092,7 +1092,7 @@ function QuestionCard({
                                     <div className="flex items-center gap-2">
                                         {question.status === 'DRAFT' && (
                                             <Button size="sm" variant="default" className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 w-full shadow-sm" onClick={handleApprove} disabled={isActionPending}>
-                                                <Check className="h-3 w-3 mr-1" /> Approve Mapping
+                                                <Check className="h-3 w-3 mr-1" /> Approve Mapped Response
                                             </Button>
                                         )}
                                         {question.status === 'APPROVED' && (
