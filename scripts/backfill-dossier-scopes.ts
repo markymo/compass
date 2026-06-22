@@ -5,10 +5,25 @@ const prisma = new PrismaClient();
 async function main() {
     const args = process.argv.slice(2);
     const isExecute = args.includes('--execute');
+    const isConservative = args.includes('--conservative');
+    const isProdConfirm = args.includes('--confirm-production');
     
+    // Production guard
+    const dbUrl = process.env.DATABASE_URL || '';
+    const isProduction = dbUrl.includes('ep-silent-flower-abi2jpdp');
+
+    if (isExecute && isProduction && !isProdConfirm) {
+        console.error("\n❌ FATAL: Execution on production requires the --confirm-production flag.");
+        console.error("Run with: --execute --confirm-production\n");
+        process.exit(1);
+    }
+
     console.log(`\n======================================================`);
     console.log(`   DOSSIER SCOPE BACKFILL SCRIPT`);
     console.log(`   Mode: ${isExecute ? '⚠️ EXECUTE (MUTATING)' : '🛡️ DRY RUN (READ-ONLY)'}`);
+    if (isConservative) {
+        console.log(`   Flag: 🔒 CONSERVATIVE (active ClientLEs only, skips orphans and ambiguous)`);
+    }
     console.log(`======================================================\n`);
 
     if (isExecute) {
@@ -30,31 +45,37 @@ async function main() {
     });
 
     const allCles = await prisma.clientLE.findMany({
-        select: { id: true, legalEntityId: true, owners: { select: { partyId: true } } }
+        select: { id: true, legalEntityId: true, isDeleted: true, owners: { select: { partyId: true } } }
     });
 
     const leToCles = new Map<string, typeof allCles>();
     for (const cle of allCles) {
         if (!cle.legalEntityId) continue;
+        if (isConservative && cle.isDeleted) continue;
         if (!leToCles.has(cle.legalEntityId)) leToCles.set(cle.legalEntityId, []);
         leToCles.get(cle.legalEntityId)!.push(cle);
     }
 
     const allNodes = await prisma.clientLEGraphNode.findMany({
         where: { personId: { not: null } },
-        select: { clientLEId: true, personId: true }
+        select: { clientLEId: true, personId: true, clientLE: { select: { isDeleted: true } } }
     });
 
     const personToCles = new Map<string, Set<string>>();
     for (const node of allNodes) {
         if (!node.personId) continue;
+        if (isConservative && node.clientLE.isDeleted) continue;
         if (!personToCles.has(node.personId)) personToCles.set(node.personId, new Set());
         personToCles.get(node.personId)!.add(node.clientLEId);
     }
 
+    let alreadyScoped = 0;
     let resolved = 0;
     let ambiguous = 0;
     let orphaned = 0;
+    
+    let skippedPerson = 0;
+    let skippedOrphaned = 0;
 
     let ambiguousDetails: string[] = [];
     
@@ -65,8 +86,14 @@ async function main() {
 
     for (const claim of claims) {
         if (claim.clientLeScopeId) {
-            // Idempotency: skip claims that are already backfilled
+            alreadyScoped++;
             continue;
+        }
+
+        // Subject type skipping in conservative mode
+        if (isConservative && claim.subjectPersonId && !claim.subjectLeId) {
+            skippedPerson++;
+            continue; // skips person claims
         }
 
         let matchingClientLeIds: string[] = [];
@@ -98,28 +125,41 @@ async function main() {
                 ambiguousDetails.push(`Claim ${claim.id} (LE: ${claim.subjectLeId}, Person: ${claim.subjectPersonId}) matched ${matchingClientLeIds.length} dossiers.`);
             }
         } else {
-            orphaned++;
+            if (isConservative) {
+                skippedOrphaned++;
+            } else {
+                orphaned++;
+            }
         }
     }
 
     console.log(`\n=== MAPPING RESULTS ===`);
-    console.log(`Total Claims Analyzed: ${claims.length}`);
-    console.log(`✅ Resolved (1:1 Match): ${resolved}`);
-    console.log(`⚠️ Ambiguous (>1 Match): ${ambiguous}`);
-    console.log(`❌ Orphaned (0 Matches): ${orphaned} (e.g. no valid subject)`);
+    console.log(`Total Claims Fetched: ${claims.length}`);
+    console.log(`Already Scoped: ${alreadyScoped}`);
+    console.log(`✅ Resolved / Updateable (1:1 Match): ${resolved}`);
+    
+    if (isConservative) {
+        console.log(`⚠️ Skipped Ambiguous (>1 Match): ${ambiguous}`);
+        console.log(`⏭️ Skipped by Subject Type (Person): ${skippedPerson}`);
+        console.log(`⏭️ Skipped Detached/Orphaned (0 Matches): ${skippedOrphaned}`);
+    } else {
+        console.log(`⚠️ Ambiguous (>1 Match): ${ambiguous}`);
+        console.log(`❌ Orphaned (0 Matches): ${orphaned}`);
+    }
 
-    if (ambiguous > 0) {
+    // In conservative mode, we skip ambiguous, so we don't abort.
+    if (ambiguous > 0 && !isConservative) {
         console.log(`\nSample Ambiguous Claims (ABORTING DUE TO AMBIGUITY):`);
         ambiguousDetails.forEach(d => console.log(`  - ${d}`));
         if (isExecute) {
-            console.log("\nFATAL: Cannot execute backfill while ambiguous claims exist. Please resolve them manually first.");
+            console.log("\nFATAL: Cannot execute backfill while ambiguous claims exist. Please resolve them manually first or use --conservative mode.");
             process.exit(1);
         }
     }
 
     if (!isExecute) {
         console.log(`\n🛡️ Dry-run complete. ${resolved} claims are ready to be updated.`);
-        console.log(`To apply these changes, run: npx tsx scripts/backfill-dossier-scopes.ts --execute`);
+        console.log(`To apply these changes, run: npx tsx scripts/backfill-dossier-scopes.ts --execute${isConservative ? ' --conservative' : ''}${isProduction ? ' --confirm-production' : ''}`);
         return;
     }
 

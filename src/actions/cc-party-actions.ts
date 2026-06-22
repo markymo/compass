@@ -319,6 +319,10 @@ export async function promoteClaimToCCParty(claimId: string, clientLEId: string)
             throw new Error("Claim not found");
         }
 
+        if (claim.clientLeScopeId && claim.clientLeScopeId !== clientLEId) {
+            throw new Error("Claim does not belong to this dossier");
+        }
+
         const def = await getMasterFieldDefinition(claim.fieldNo);
         if (def.appDataType !== 'PARTY' && def.appDataType !== 'PERSON_OR_CONTACT') {
             throw new Error("Only PARTY claims are promotable");

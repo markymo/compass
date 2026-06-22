@@ -596,7 +596,7 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
             <FieldDetailPanel
                 open={!!selectedField}
                 onOpenChange={(open) => !open && setSelectedField(null)}
-                legalEntityId={leId}
+                clientLEId={leId}
                 fieldNo={selectedField?.fieldNo || 0}
                 fieldName={selectedField?.name || ""}
                 customFieldId={selectedField?.customFieldId}
