@@ -261,7 +261,7 @@ export async function getGleifProposalsFromCache(legalEntityId: string): Promise
 
             const evaluation = await kycWriteService.evaluateFieldCandidate(legalEntityId, candidate, 'CLIENT_LE');
 
-            let finalAction = evaluation.action;
+            let finalAction: ProposalAction = evaluation.action as ProposalAction;
             if (finalAction === 'PROPOSE_UPDATE') {
                 const identity = await getIdentity();
                 const userId = identity?.userId || undefined;
