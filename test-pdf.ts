@@ -10,7 +10,6 @@ async function main() {
                 exportId: "123",
                 generatedAt: new Date().toISOString(),
                 generatedBy: "Mark",
-                engagementName: "Test Eng",
                 clientDisplayName: "Client",
                 supplierDisplayName: "Supplier",
                 exportFormatVersion: "1.0",
