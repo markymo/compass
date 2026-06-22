@@ -1809,7 +1809,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                                         if (data?.displayState === 'DEFAULT_RESPONSE' && data.defaultResponse) {
                                                                                             await releaseFieldDefault(clientLEId, fieldNo, data.defaultResponse);
                                                                                         } else if (data?.displayState === 'CHECKED_NO_DATA') {
-                                                                                            await releaseFieldAbsence(clientLEId, fieldNo, data.current?.source || 'SYSTEM', data.current?.timestamp || null);
+                                                                                            await releaseFieldAbsence(clientLEId, fieldNo, data.current?.source || 'SYSTEM', data.current?.timestamp ? data.current.timestamp.toISOString() : null);
                                                                                         }
                                                                                         const refreshed = await getFieldDetail(clientLEId, fieldNo, 'CLIENT_LE', customFieldId);
                                                                                         setData(refreshed);
