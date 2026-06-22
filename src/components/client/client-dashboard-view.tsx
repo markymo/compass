@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import Link from "next/link";
 import { CreateLEDialog } from "./create-le-dialog";
 import { AccessDebugInfo } from "@/components/dev/AccessDebugInfo";
+import { JurisdictionBadge } from "@/components/ui/jurisdiction-badge";
 
 interface ClientDashboardViewProps {
     org: any;
@@ -63,9 +64,7 @@ export function ClientDashboardView({
                                                     <h3 className={`font-semibold text-base sm:text-lg ${isAccessible ? 'text-slate-900 group-hover:text-indigo-700' : 'text-slate-700'} truncate`}>
                                                         {le.displayName || le.name}
                                                     </h3>
-                                                    <Badge variant="outline" className="text-xs font-normal text-slate-600 bg-slate-50 shrink-0">
-                                                        {le.jurisdiction || 'Unknown'}
-                                                    </Badge>
+                                                    <JurisdictionBadge jurisdiction={le.jurisdiction} />
                                                 </div>
                                                 <p className="text-sm text-slate-500 line-clamp-1 sm:line-clamp-2">
                                                     {le.description || "No description provided."}
