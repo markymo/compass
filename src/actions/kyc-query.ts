@@ -610,6 +610,7 @@ export interface FieldDetailData {
         sourceReference?: string;
         claimId?: string;
         isPromotedToCCC?: boolean;
+        sourceCheckedAt?: Date | null;
     } | null;
     displayState?: "HAS_VALUE" | "MAPPED_NOT_CHECKED" | "CHECKED_NO_DATA" | "DEFAULT_RESPONSE" | "UNMAPPED_NO_RESPONSE";
     defaultResponse?: string;
@@ -1145,22 +1146,25 @@ export async function getFieldDetail(
     let evaluatedSourceBadge = "";
     let evaluatedSourceTimestamp: Date | null = null;
     
-    if (hasMapping && entityType === 'CLIENT_LE') {
-        const clientLE = await prisma.clientLE.findUnique({
+    let clientLEForSource: any = null;
+    if (entityType === 'CLIENT_LE') {
+        clientLEForSource = await prisma.clientLE.findUnique({
             where: { id: entityId },
             include: { registryReferences: { include: { authority: true } } }
         });
-        if (clientLE) {
-            // Iterate in priority order to find the highest-priority synced source
-            for (const mapping of fieldMappings) {
-                if (mapping.sourceType === "GLEIF" && clientLE.gleifFetchedAt) {
-                    hasEvaluationAttempt = true;
-                    evaluatedSourceBadge = "GLEIF";
-                    evaluatedSourceTimestamp = clientLE.gleifFetchedAt;
-                    break;
-                }
-                if (mapping.sourceType === "REGISTRATION_AUTHORITY" || mapping.sourceType === "COMPANIES_HOUSE") {
-                    const refs = clientLE.registryReferences || [];
+    }
+
+    if (hasMapping && clientLEForSource) {
+        // Iterate in priority order to find the highest-priority synced source
+        for (const mapping of fieldMappings) {
+            if (mapping.sourceType === "GLEIF" && clientLEForSource.gleifFetchedAt) {
+                hasEvaluationAttempt = true;
+                evaluatedSourceBadge = "GLEIF";
+                evaluatedSourceTimestamp = clientLEForSource.gleifFetchedAt;
+                break;
+            }
+            if (mapping.sourceType === "REGISTRATION_AUTHORITY" || mapping.sourceType === "COMPANIES_HOUSE") {
+                const refs = clientLEForSource.registryReferences || [];
                     // Find a reference that matches this specific mapping
                     // If sourceReference is null, any RA ref that has been synced counts
                     const matchingRef = refs.find((r: any) => {
@@ -1182,7 +1186,6 @@ export async function getFieldDetail(
                 }
             }
         }
-    }
 
     const isEmptyValue = (val: any) => {
         if (val === null || val === undefined) return true;
@@ -1195,6 +1198,26 @@ export async function getFieldDetail(
         }
         return false;
     };
+
+    let winningSourceCheckedAt: Date | null = null;
+    if (derived && !derived.isScoped && clientLEForSource) {
+        const sourceType = derived.sourceType || derived.evidenceProvider;
+        if (sourceType === "GLEIF" && clientLEForSource.gleifFetchedAt) {
+            winningSourceCheckedAt = clientLEForSource.gleifFetchedAt;
+        } else if ((sourceType === "REGISTRATION_AUTHORITY" || sourceType === "COMPANIES_HOUSE") && derived.sourceReference) {
+            const run = await prisma.enrichmentRun.findFirst({
+                where: {
+                    legalEntityId: clientLEForSource.legalEntityId,
+                    registrationAuthorityId: derived.sourceReference,
+                    status: "SUCCESS"
+                },
+                orderBy: { completedAt: 'desc' }
+            });
+            if (run) {
+                winningSourceCheckedAt = run.completedAt;
+            }
+        }
+    }
 
     let displayState: "HAS_VALUE" | "MAPPED_NOT_CHECKED" | "CHECKED_NO_DATA" | "DEFAULT_RESPONSE" | "UNMAPPED_NO_RESPONSE" = "UNMAPPED_NO_RESPONSE";
     
@@ -1244,13 +1267,15 @@ export async function getFieldDetail(
             timestamp: derived.assertedAt,
             confidence: derived.confidenceScore || 1.0,
             claimId: derived.claimId,
-            isPromotedToCCC: promotedClaimIds.has(derived.claimId)
+            isPromotedToCCC: promotedClaimIds.has(derived.claimId),
+            sourceCheckedAt: winningSourceCheckedAt
         } : (finalSourceBadgeForEmpty ? {
             value: null,
             source: finalSourceBadgeForEmpty as ProvenanceSource,
             timestamp: evaluatedSourceTimestamp,
             confidence: null,
-            isPromotedToCCC: false
+            isPromotedToCCC: false,
+            sourceCheckedAt: evaluatedSourceTimestamp
         } : null),
         displayState,
         defaultResponse: (def as any)?.defaultResponse || undefined,

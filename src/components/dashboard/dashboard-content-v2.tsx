@@ -397,12 +397,31 @@ function ClientOrgCard({ org }: { org: OrgNode }) {
             <Collapsible open={isOpen} onOpenChange={handleOpenChange}>
                 {/* 2-Tier Header Row */}
                 <div className={cn(
-                    "hidden md:grid items-end px-4 pt-3 pb-2 bg-slate-50 border-b border-slate-200",
+                    "hidden md:grid items-end px-4 pt-4 pb-2 bg-slate-50 border-b border-slate-200",
                     DASHBOARD_GRID_V2
                 )}>
                     {/* 1. Entity Col Header */}
-                    <div className="pl-[28px]">
-                         <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Entity & Relationships</span>
+                    <div className="flex flex-col justify-end">
+                        <div className="flex items-center gap-2 mb-3 -ml-1">
+                            {org.orgType === "SUPPLIER" ? (
+                                <Link href={`/app/s/${org.id}`} className="flex items-center gap-2 hover:underline group/org px-1">
+                                    <Building2 className="h-5 w-5 shrink-0 transition-colors" style={{ color: "#0F766E" }} />
+                                    <h2 className="text-[17px] font-bold text-slate-900 truncate group-hover/org:text-[#0F766E] transition-colors tracking-tight">{org.name}</h2>
+                                </Link>
+                            ) : org.orgType === "CLIENT" ? (
+                                <Link href={`/app/clients/${org.id}`} className="flex items-center gap-2 hover:underline group/org px-1">
+                                    <Factory className="h-5 w-5 shrink-0 transition-colors" style={{ color: "#4338CA" }} />
+                                    <h2 className="text-[17px] font-bold text-slate-900 truncate group-hover/org:text-[#4338CA] transition-colors tracking-tight">{org.name}</h2>
+                                </Link>
+                            ) : (
+                                <div className="flex items-center gap-2 px-1">
+                                    <Building2 className="h-5 w-5 shrink-0" style={{ color: "#0F766E" }} />
+                                    <h2 className="text-[17px] font-bold text-slate-900 truncate tracking-tight">{org.name}</h2>
+                                </div>
+                            )}
+                            <RoleBadge role={org.role} />
+                        </div>
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider pl-[28px]">Entity Relationships</span>
                     </div>
 
                     {/* 2. Anchor (Total) */}
@@ -447,23 +466,9 @@ function ClientOrgCard({ org }: { org: OrgNode }) {
                                 {isOpen ? <ChevronDown className="h-4 w-4 text-slate-400" /> : <ChevronRight className="h-4 w-4 text-slate-400" />}
                             </Button>
                         </CollapsibleTrigger>
-                        {org.orgType === "SUPPLIER" ? (
-                            <Link href={`/app/s/${org.id}`} className="flex items-center gap-2 hover:underline group/org">
-                                <Building2 className="h-4 w-4 shrink-0 transition-colors" style={{ color: "#0F766E" }} />
-                                <span className="font-bold text-[15px] text-slate-900 truncate group-hover/org:text-[#0F766E] transition-colors">{org.name}</span>
-                            </Link>
-                        ) : org.orgType === "CLIENT" ? (
-                            <Link href={`/app/clients/${org.id}`} className="flex items-center gap-2 hover:underline group/org">
-                                <Factory className="h-4 w-4 shrink-0 transition-colors" style={{ color: "#4338CA" }} />
-                                <span className="font-bold text-[15px] text-slate-900 truncate group-hover/org:text-[#4338CA] transition-colors">{org.name}</span>
-                            </Link>
-                        ) : (
-                            <div className="flex items-center gap-2">
-                                <Building2 className="h-4 w-4 shrink-0" style={{ color: "#0F766E" }} />
-                                <span className="font-bold text-[15px] text-slate-900 truncate">{org.name}</span>
-                            </div>
-                        )}
-                        <RoleBadge role={org.role} />
+                        <span className="font-semibold text-[13.5px] text-slate-600 truncate cursor-pointer hover:text-slate-900 transition-colors" onClick={() => setIsOpen(!isOpen)}>
+                            Organisation Totals
+                        </span>
                     </div>
 
                     <>

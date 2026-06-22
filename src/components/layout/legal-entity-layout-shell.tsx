@@ -12,7 +12,7 @@ import { EditableHeaderTitle } from "@/components/client/editable-header-title";
 import { HeaderNavList } from "@/components/layout/HeaderNavList";
 import { getLegalEntityTabs } from "@/config/navigation-tabs";
 import { cn } from "@/lib/utils";
-import { Fingerprint, CheckCircle, Pencil } from "lucide-react";
+import { Fingerprint, ExternalLink, Pencil } from "lucide-react";
 
 interface LegalEntityLayoutShellProps {
     children: React.ReactNode;
@@ -58,7 +58,15 @@ function InnerShell({ children, baseBreadcrumbs, leId, leName, isSystemAdmin, le
                                         <h1 className="text-2xl md:text-3xl font-bold tracking-tight truncate text-emerald-700">
                                             {officialName}
                                         </h1>
-                                        <CheckCircle className="h-5 w-5 text-emerald-600 shrink-0" />
+                                        <a 
+                                            href={`https://search.gleif.org/#/record/${leData?.lei}`} 
+                                            target="_blank" 
+                                            rel="noopener noreferrer" 
+                                            className="text-emerald-600 hover:text-emerald-500 transition-colors"
+                                            title="View on GLEIF"
+                                        >
+                                            <ExternalLink className="h-5 w-5 shrink-0" />
+                                        </a>
                                     </div>
                                 ) : canEdit ? (
                                     <EditableHeaderTitle 
