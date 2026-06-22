@@ -4,7 +4,7 @@ import { fetchGLEIFData } from "@/actions/gleif";
 import { EvidenceService } from "@/services/kyc/EvidenceService";
 import { mapGleifPayloadToFieldCandidates } from "@/services/kyc/normalization/GleifNormalizer";
 import { KycWriteService } from "@/services/kyc/KycWriteService";
-import { FieldProposal, ProvenanceSource } from "@/domain/kyc/types/ProposalTypes";
+import { FieldProposal, ProvenanceSource, ProposalAction } from "@/domain/kyc/types/ProposalTypes";
 import { getMasterFieldDefinition } from "@/services/masterData/definitionService";
 import { revalidatePath } from "next/cache";
 import prisma from "@/lib/prisma";
@@ -171,7 +171,7 @@ export async function refreshGleifProposals(legalEntityId: string): Promise<{ su
             // Pass 'CLIENT_LE' because legalEntityId here is a ClientLE.id
             const evaluation = await kycWriteService.evaluateFieldCandidate(legalEntityId, candidate, 'CLIENT_LE');
             
-            let finalAction = evaluation.action;
+            let finalAction: ProposalAction = evaluation.action;
             if (finalAction === 'PROPOSE_UPDATE') {
                 const identity = await getIdentity();
                 const userId = identity?.userId || undefined;
