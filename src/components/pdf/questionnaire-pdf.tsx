@@ -36,6 +36,8 @@ export interface QuestionnairePDFProps {
         status: string;
         question: string;
         answer: string;
+        sourceLabel?: string;
+        sourceTimestamp?: string;
         notes?: string;
         evidencePaths?: string[];
     }[];
@@ -64,6 +66,8 @@ export const QuestionnairePDF = ({ data, title, exportMetadata }: QuestionnaireP
                     <Text style={styles.status}>Status: {item.status}</Text>
                     <Text style={styles.question}>Q{i + 1}: {item.question}</Text>
                     <Text style={styles.answer}>Answer: {item.answer || "(No Answer)"}</Text>
+                    {item.sourceLabel && <Text style={styles.status}>Source: {item.sourceLabel}</Text>}
+                    {item.sourceTimestamp && <Text style={styles.status}>Sourced At: {new Date(item.sourceTimestamp).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'})}</Text>}
                     
                     {item.evidencePaths && item.evidencePaths.length > 0 && (
                         <View style={styles.evidenceBlock}>

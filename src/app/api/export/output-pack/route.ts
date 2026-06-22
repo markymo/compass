@@ -10,6 +10,8 @@ import { renderToStream } from "@react-pdf/renderer";
 import { buildQuestionnairePdfPath, buildEvidencePath, buildOutputPackFilename, buildGeneralEvidencePath } from "@/lib/export/path-builder";
 import { ManifestPDF } from "@/components/pdf/manifest-pdf";
 import { QuestionnairePDF } from "@/components/pdf/questionnaire-pdf";
+import { resolveExportAnswer } from "@/lib/export/export-answer-resolver";
+import { KycStateService } from "@/lib/kyc/KycStateService";
 
 export async function POST(req: NextRequest) {
     try {
@@ -134,6 +136,10 @@ NOTE: This export pack includes Questionnaire PDFs and Original Native Evidence.
         const manifestStream = await renderToStream(manifestElement as any);
         archive.append(manifestStream as any, { name: "Manifest.pdf" });
 
+        const subjectLeId = engagement.clientLE?.legalEntityId;
+        const ownerScopeId = engagement.clientLE?.id ? await KycStateService.resolveScopeId(engagement.clientLE.id) : null;
+        const entityId = engagement.clientLE?.id;
+
         // 4. Questionnaire PDFs (Sequential)
         for (const q of dbQuestionnaires) {
             const questions = await prisma.question.findMany({
@@ -141,17 +147,13 @@ NOTE: This export pack includes Questionnaire PDFs and Original Native Evidence.
                 orderBy: { order: 'asc' },
                 include: {
                     comments: { include: { user: true }, orderBy: { createdAt: 'asc' } },
-                    documents: { where: { id: { in: documentIds }, isDeleted: false } }
+                    documents: { where: { id: { in: documentIds }, isDeleted: false } },
+                    releasedByUser: true
                 }
             });
 
-            const exportData = questions.map((question: any) => {
-                let resolvedAnswer = question.answer || "";
-                if (typeof resolvedAnswer === 'object' && resolvedAnswer !== null) {
-                    resolvedAnswer = JSON.stringify(resolvedAnswer);
-                } else {
-                    resolvedAnswer = String(resolvedAnswer ?? "");
-                }
+            const exportData = await Promise.all(questions.map(async (question: any) => {
+                const resolvedAnswer = await resolveExportAnswer(question, subjectLeId, ownerScopeId || undefined, entityId);
 
                 const evidencePaths = question.documents.map((doc: any) => {
                     return buildEvidencePath(q.name, question.compactText || question.text.substring(0, 15) + "...", doc.name);
@@ -161,11 +163,16 @@ NOTE: This export pack includes Questionnaire PDFs and Original Native Evidence.
                     id: question.id,
                     status: question.status,
                     question: question.text,
-                    answer: resolvedAnswer,
+                    text: question.text,
+                    compactText: question.compactText,
+                    sectionId: question.sourceSectionId,
+                    answer: resolvedAnswer.displayValue,
+                    sourceLabel: resolvedAnswer.sourceLabel,
+                    sourceTimestamp: resolvedAnswer.sourceTimestamp ? new Date(resolvedAnswer.sourceTimestamp).toISOString() : null,
                     notes: question.comments.map((c: any) => `[${c.user?.name || 'User'}]: ${c.text}`).join("\n"),
                     evidencePaths
                 };
-            });
+            }));
 
             const qPdfElement = React.createElement(QuestionnairePDF, {
                 title: q.name,

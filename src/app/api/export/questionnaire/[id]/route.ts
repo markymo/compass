@@ -6,6 +6,8 @@ import { renderToStream } from "@react-pdf/renderer";
 import { QuestionnairePDF } from "@/components/pdf/questionnaire-pdf";
 import { sanitizeFilename } from "@/lib/export/path-builder";
 import { v4 as uuidv4 } from "uuid";
+import { resolveExportAnswer } from "@/lib/export/export-answer-resolver";
+import { KycStateService } from "@/lib/kyc/KycStateService";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> | { id: string } }) {
     try {
@@ -21,7 +23,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
         const questionnaire = await prisma.questionnaire.findUnique({
             where: { id: questionnaireId },
-            include: { fiEngagement: { include: { org: true } } }
+            include: { fiEngagement: { include: { org: true, clientLE: true } } }
         });
 
         if (!questionnaire || questionnaire.isDeleted) {
@@ -33,17 +35,17 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
             orderBy: { order: 'asc' },
             include: {
                 comments: { include: { user: true }, orderBy: { createdAt: 'asc' } },
-                documents: { where: { isDeleted: false } }
+                documents: { where: { isDeleted: false } },
+                releasedByUser: true
             }
         });
 
-        const exportData = questions.map((question: any) => {
-            let resolvedAnswer = question.answer || "";
-            if (typeof resolvedAnswer === 'object' && resolvedAnswer !== null) {
-                resolvedAnswer = JSON.stringify(resolvedAnswer);
-            } else {
-                resolvedAnswer = String(resolvedAnswer ?? "");
-            }
+        const subjectLeId = questionnaire.fiEngagement?.clientLE?.legalEntityId;
+        const ownerScopeId = questionnaire.fiEngagement?.clientLE?.id ? await KycStateService.resolveScopeId(questionnaire.fiEngagement.clientLE.id) : null;
+        const entityId = questionnaire.fiEngagement?.clientLE?.id;
+
+        const exportData = await Promise.all(questions.map(async (question: any) => {
+            const resolvedAnswer = await resolveExportAnswer(question, subjectLeId, ownerScopeId || undefined, entityId);
 
             // For standalone PDF, we just list the document names
             const evidencePaths = question.documents.map((doc: any) => doc.name);
@@ -52,11 +54,16 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
                 id: question.id,
                 status: question.status,
                 question: question.text,
-                answer: resolvedAnswer,
+                text: question.text,
+                compactText: question.compactText,
+                sectionId: question.sourceSectionId,
+                answer: resolvedAnswer.displayValue,
+                sourceLabel: resolvedAnswer.sourceLabel,
+                sourceTimestamp: resolvedAnswer.sourceTimestamp ? new Date(resolvedAnswer.sourceTimestamp).toISOString() : null,
                 notes: question.comments.map((c: any) => `[${c.user?.name || 'User'}]: ${c.text}`).join("\n"),
                 evidencePaths
             };
-        });
+        }));
 
         const exportId = uuidv4();
         const generatedAt = new Date().toISOString();
