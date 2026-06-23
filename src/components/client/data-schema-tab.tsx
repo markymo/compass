@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
-import { Fingerprint, RefreshCcw, ArrowRight, ShieldCheck, Ban, Info, Building2, FileText, Users, Sparkles, ChevronDown, ChevronUp, Clock } from "lucide-react";
+import { Fingerprint, RefreshCcw, ArrowRight, ShieldCheck, Ban, Info, Building2, FileText, Users, Sparkles, ChevronDown, ChevronUp, Clock, ClipboardList } from "lucide-react";
 import { toast } from "sonner";
 import { refreshGleifProposals } from "@/actions/kyc-proposals";
 import { refreshRegistryReferenceAction } from "@/actions/registry";
@@ -41,6 +41,7 @@ interface DataSchemaTabProps {
         sourceReference?: string;
         displayState?: "HAS_VALUE" | "MAPPED_NOT_CHECKED" | "CHECKED_NO_DATA" | "DEFAULT_RESPONSE" | "UNMAPPED_NO_RESPONSE";
         defaultResponse?: string;
+        mappingStats?: { questions: number; questionnaires: number; suppliers: number };
     }>;
     customData?: Record<string, any>;
     customDefinitions?: any[];
@@ -516,6 +517,7 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                                                 groups={fieldGroupMap.get(field.fieldNo)}
                                                 displayState={data?.displayState}
                                                 defaultResponse={data?.defaultResponse}
+                                                mappingStats={data?.mappingStats}
                                                 onClick={() => setSelectedField({ fieldNo: field.fieldNo, name: field.fieldName })}
                                             />
                                         );
@@ -549,6 +551,7 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                                             groups={fieldGroupMap.get(field.fieldNo)}
                                             displayState={data?.displayState}
                                             defaultResponse={data?.defaultResponse}
+                                            mappingStats={data?.mappingStats}
                                             onClick={() => setSelectedField({ fieldNo: field.fieldNo, name: field.fieldName })}
                                         />
                                     );
@@ -588,7 +591,7 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
     );
 }
 
-function MasterFieldDisplay({ label, fieldNo, value, source, sourceReference, registrationAuthorityId, onClick, description, isCustom, groups = [], displayState, defaultResponse }: {
+function MasterFieldDisplay({ label, fieldNo, value, source, sourceReference, registrationAuthorityId, onClick, description, isCustom, groups = [], displayState, defaultResponse, mappingStats }: {
     label: string,
     fieldNo: number,
     value: any,
@@ -601,7 +604,8 @@ function MasterFieldDisplay({ label, fieldNo, value, source, sourceReference, re
     isCustom?: boolean,
     groups?: { id: string; label: string }[],
     displayState?: "HAS_VALUE" | "MAPPED_NOT_CHECKED" | "CHECKED_NO_DATA" | "DEFAULT_RESPONSE" | "UNMAPPED_NO_RESPONSE",
-    defaultResponse?: string
+    defaultResponse?: string,
+    mappingStats?: { questions: number; questionnaires: number; suppliers: number }
 }) {
     const hasValue = value !== null && value !== undefined && value !== "";
     const resolvedState = displayState || (hasValue ? "HAS_VALUE" : (source ? "CHECKED_NO_DATA" : "UNMAPPED_NO_RESPONSE"));
@@ -646,6 +650,28 @@ function MasterFieldDisplay({ label, fieldNo, value, source, sourceReference, re
                                 </Tooltip>
                             ))}
                         </TooltipProvider>
+
+                        {mappingStats && (
+                            <TooltipProvider delayDuration={150}>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Badge variant="outline" className="text-[10px] bg-slate-50 text-slate-500 hover:bg-slate-100 transition-colors cursor-default">
+                                            <ClipboardList className="h-3 w-3 mr-1" />
+                                            {mappingStats.questions}
+                                        </Badge>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top" className="text-xs bg-slate-900 text-white border-slate-800">
+                                        <p className="font-semibold mb-1">Mapped to:</p>
+                                        <ul className="pl-3 list-disc space-y-0.5 opacity-90">
+                                            <li>{mappingStats.questions} question{mappingStats.questions === 1 ? '' : 's'}</li>
+                                            <li>{mappingStats.questionnaires} questionnaire{mappingStats.questionnaires === 1 ? '' : 's'}</li>
+                                            <li>{mappingStats.suppliers} supplier{mappingStats.suppliers === 1 ? '' : 's'}</li>
+                                        </ul>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                        )}
+
                         <Badge variant="outline" className="text-[10px] bg-slate-50 text-slate-500 group-hover:bg-blue-50 group-hover:text-blue-600 group-hover:border-blue-200 transition-colors">
                             Field {fieldNo}
                         </Badge>

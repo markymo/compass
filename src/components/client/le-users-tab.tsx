@@ -166,6 +166,7 @@ export function LEUsersTab({ leId, canManageUsers = false }: LEUsersTabProps) {
                                             onChange={(e) => setInviteEmail(e.target.value)}
                                             required
                                             className="h-9"
+                                            autoComplete="off"
                                         />
                                     </div>
                                     <Select value={inviteRole} onValueChange={setInviteRole}>

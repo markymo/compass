@@ -111,6 +111,7 @@ function RegisterForm() {
                             required
                             disabled={isLoading || !!prefilledEmail} // Lock if pre-filled for security context
                             className={prefilledEmail ? "bg-slate-100 text-slate-500" : ""}
+                            autoComplete="email"
                         />
                     </div>
                     <div className="space-y-2">
@@ -123,6 +124,7 @@ function RegisterForm() {
                             required
                             minLength={8}
                             disabled={isLoading}
+                            autoComplete="new-password"
                         />
                     </div>
                     <Button type="submit" className="w-full h-10" disabled={isLoading}>

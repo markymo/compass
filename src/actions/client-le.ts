@@ -572,7 +572,8 @@ export async function getFullMasterData(clientLEId: string) {
         source?: string, 
         sourceReference?: string,
         displayState: "HAS_VALUE" | "MAPPED_NOT_CHECKED" | "CHECKED_NO_DATA" | "DEFAULT_RESPONSE" | "UNMAPPED_NO_RESPONSE",
-        defaultResponse?: string
+        defaultResponse?: string,
+        mappingStats?: { questions: number, questionnaires: number, suppliers: number }
     }> = {};
 
     const isEmptyValue = (val: any) => {
@@ -596,6 +597,35 @@ export async function getFullMasterData(clientLEId: string) {
 
     if (subjectLeId) {
         const allFields = await listAllMasterFields();
+
+        // Fetch usage stats (Questions, Questionnaires, Suppliers) for this LE's active engagements
+        const stats = await prisma.$queryRaw<{masterFieldNo: number, questions: bigint, questionnaires: bigint, suppliers: bigint}[]>`
+            SELECT 
+                q."masterFieldNo",
+                COUNT(q.id) as questions,
+                COUNT(DISTINCT q."questionnaireId") as questionnaires,
+                COUNT(DISTINCT e."fiOrgId") as suppliers
+            FROM "Question" q
+            JOIN "Questionnaire" qn ON q."questionnaireId" = qn.id
+            JOIN "FIEngagement" e ON qn."fiEngagementId" = e.id
+            WHERE e."clientLEId" = ${clientLEId}
+              AND e."isDeleted" = false
+              AND e."status" != 'ARCHIVED'
+              AND qn."isDeleted" = false
+              AND qn."isTemplate" = false
+              AND qn."kind" = 'ENGAGEMENT_QUESTIONNAIRE'
+              AND q."masterFieldNo" IS NOT NULL
+            GROUP BY q."masterFieldNo"
+        `;
+
+        const mappingStatsMap = new Map<number, { questions: number, questionnaires: number, suppliers: number }>();
+        for (const row of stats) {
+            mappingStatsMap.set(row.masterFieldNo, {
+                questions: Number(row.questions),
+                questionnaires: Number(row.questionnaires),
+                suppliers: Number(row.suppliers)
+            });
+        }
 
         // Batch-resolve all fields in 2 DB queries instead of 2×N sequential round-trips.
         // resolveAllFields: 1× fieldClaim.findMany (all fields) + 1× sourceFieldMapping.findMany
@@ -731,7 +761,8 @@ export async function getFullMasterData(clientLEId: string) {
                 source: sourceToSet,
                 sourceReference: sourceRefToSet,
                 displayState,
-                defaultResponse: def.defaultResponse ?? undefined
+                defaultResponse: def.defaultResponse ?? undefined,
+                mappingStats: mappingStatsMap.get(def.fieldNo) || { questions: 0, questionnaires: 0, suppliers: 0 }
             };
         }
     }

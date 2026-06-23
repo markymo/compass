@@ -9,6 +9,7 @@ import { createClientLE } from "@/actions/client";
 import { useRouter } from "next/navigation";
 import { LEILookup } from "./lei-lookup";
 import { toast } from "sonner";
+import { AlertCircle } from "lucide-react";
 
 export function CreateLEDialog({ orgId }: { orgId?: string }) {
     const router = useRouter();
@@ -20,6 +21,7 @@ export function CreateLEDialog({ orgId }: { orgId?: string }) {
     const [lei, setLei] = useState("");
     const [gleifData, setGleifData] = useState<any>(null);
     const [loading, setLoading] = useState(false);
+    const [actionError, setActionError] = useState<string | null>(null);
 
     useEffect(() => {
         setMounted(true);
@@ -30,6 +32,7 @@ export function CreateLEDialog({ orgId }: { orgId?: string }) {
     async function handleCreate() {
         if (!name || !jurisdiction) return;
         setLoading(true);
+        setActionError(null);
         try {
             const res = await createClientLE({
                 name,
@@ -54,10 +57,10 @@ export function CreateLEDialog({ orgId }: { orgId?: string }) {
 
                 router.refresh();
             } else {
-                toast.error(res.error || "Failed to create entity");
+                setActionError(res.error || "Failed to create entity");
             }
         } catch (error) {
-            toast.error("An unexpected error occurred");
+            setActionError("An unexpected error occurred");
         } finally {
             setLoading(false);
         }
@@ -74,6 +77,15 @@ export function CreateLEDialog({ orgId }: { orgId?: string }) {
                     <DialogDescription>Create a managed entity to start inputting data.</DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
+                    {actionError && (
+                        <div className="bg-red-50 border border-red-200 text-red-800 p-3 rounded-lg flex items-start gap-3 text-sm">
+                            <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+                            <div>
+                                <p className="font-semibold text-red-900 mb-0.5">Unable to add entity</p>
+                                <p>{actionError}</p>
+                            </div>
+                        </div>
+                    )}
                     <LEILookup onDataFetched={(data, summary) => {
                         setName(summary.name);
                         setJurisdiction(summary.jurisdiction);
