@@ -13,7 +13,7 @@ import {
     PackageCheck,
     Settings2,
     Settings,
-    Network
+    Link as LinkIcon
 } from "lucide-react";
 import { NavItem } from "@/components/layout/HeaderNavList";
 
@@ -29,18 +29,11 @@ export const getLegalEntityTabs = (leId: string): NavItem[] => {
     const baseUrl = `/app/le/${leId}`;
     return [
         {
-            label: "Settings",
-            href: baseUrl,
-            icon: Settings,
-            isActive: (path) => matchesPath(path, baseUrl, true)
-        },
-        {
             label: "Sources",
             href: `${baseUrl}/sources`,
             icon: Library,
             isActive: (path) => matchesPath(path, `${baseUrl}/sources`)
         },
-
         {
             label: "Master Record",
             href: `${baseUrl}/master`,
@@ -48,10 +41,23 @@ export const getLegalEntityTabs = (leId: string): NavItem[] => {
             isActive: (path) => matchesPath(path, `${baseUrl}/master`)
         },
         {
-            label: "Questionnaires",
+            label: "Relationships",
+            href: `${baseUrl}/relationships`,
+            icon: LinkIcon,
+            isActive: (path) => matchesPath(path, `${baseUrl}/relationships`)
+        },
+        {
+            label: "Question Bank",
             href: `${baseUrl}/workbench4`,
             icon: Clipboard,
             isActive: (path) => matchesPath(path, `${baseUrl}/workbench4`)
+        },
+        {
+            label: "Team",
+            href: `${baseUrl}/team`,
+            icon: Users,
+            isActive: (path) => matchesPath(path, `${baseUrl}/team`),
+            alignRight: true
         }
     ];
 };

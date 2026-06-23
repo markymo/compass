@@ -11,6 +11,7 @@ export interface NavItem {
     href: string;
     icon?: LucideIcon;
     isActive: (pathname: string) => boolean;
+    alignRight?: boolean;
 }
 
 interface HeaderNavListProps {
@@ -27,7 +28,7 @@ export function HeaderNavList({ items }: HeaderNavListProps) {
     return (
         <div className="relative group/nav overflow-hidden">
             <nav
-                className="flex overflow-x-auto no-scrollbar py-0 space-x-8 mask-fade-right"
+                className="flex w-full overflow-x-auto no-scrollbar py-0 space-x-8 mask-fade-right"
                 aria-label="Secondary Navigation"
             >
                 {items.map((item) => {
@@ -41,7 +42,8 @@ export function HeaderNavList({ items }: HeaderNavListProps) {
                                 "group inline-flex items-center gap-2.5 py-4 border-b-2 font-semibold text-sm transition-all duration-200 ease-in-out whitespace-nowrap shrink-0",
                                 active
                                     ? "border-amber-500 text-blue-600 dark:text-blue-400"
-                                    : "border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300 dark:text-zinc-500 dark:hover:text-zinc-100"
+                                    : "border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300 dark:text-zinc-500 dark:hover:text-zinc-100",
+                                item.alignRight && "ml-auto"
                             )}
                             aria-current={active ? "page" : undefined}
                         >

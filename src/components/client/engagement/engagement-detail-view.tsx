@@ -13,7 +13,6 @@ import { AddQuestionnaireDialog } from "./add-questionnaire-dialog";
 import { KanbanBoard } from "./kanban-board";
 import { EngagementDocumentManager } from "./engagement-document-manager";
 import { OutputPackBuilder } from "./output-pack-builder";
-import { DueDateBadge } from "@/components/client/due-date-badge";
 
 import { ProgressTracker } from "@/components/shared/progress-tracker";
 import { DashboardMetric } from "@/lib/dashboard-metrics";
@@ -153,14 +152,6 @@ export function EngagementDetailView({ le, engagement, questionnaires, sharedDoc
             {/* In-Page Metadata Row (Optional, could also move to secondaryNav metadata slot later) */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 py-2 border-b border-slate-100">
                 <div className="flex items-center gap-4">
-                    <DueDateBadge
-                        id={activeQuestionnaire?.id || engagement.id}
-                        date={activeQuestionnaire?.dueDate || engagement.dueDate}
-                        effectiveDate={activeQuestionnaire?.dueDate || engagement.dueDate || le.dueDate}
-                        source={activeQuestionnaire ? 'QUESTIONNAIRE' : engagement.dueDate ? 'RELATIONSHIP' : 'LE'}
-                        level={activeQuestionnaire ? 'QUESTIONNAIRE' : 'RELATIONSHIP'}
-                        label="Deadline"
-                    />
                     <Button
                         size="sm"
                         variant="outline"
@@ -235,18 +226,7 @@ export function EngagementDetailView({ le, engagement, questionnaires, sharedDoc
                                                                      )}
                                                                  </div>
                                                              </div>
-                                                             <div className="shrink-0">
-                                                                <DueDateBadge
-                                                                    id={q.id}
-                                                                    date={q.dueDate}
-                                                                    effectiveDate={q.dueDate || engagement.dueDate || le.dueDate}
-                                                                    source={q.dueDate ? 'QUESTIONNAIRE' : engagement.dueDate ? 'RELATIONSHIP' : 'LE'}
-                                                                    level="QUESTIONNAIRE"
-                                                                    label="Deadline"
-                                                                />
-                                                             </div>
                                                          </div>
-
                                                          {/* Line 2: Metrics and Actions */}
                                                         <div className="flex items-center gap-6">
                                                             {q.metrics && (

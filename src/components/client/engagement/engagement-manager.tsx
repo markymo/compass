@@ -18,7 +18,6 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { MoreVertical, Trash2 } from "lucide-react";
-import { DueDateBadge } from "@/components/client/due-date-badge";
 import { ProgressTracker } from "@/components/shared/progress-tracker";
 
 interface EngagementManagerProps {
@@ -202,15 +201,6 @@ export function EngagementManager({ leId, initialEngagements, leDueDate }: Engag
                                             {eng.status === 'PREPARATION' ? 'DRAFT' : eng.status}
                                         </Badge>
 
-                                        <span className="text-slate-400 text-xs hidden md:inline">•</span>
-                                        <DueDateBadge
-                                            id={eng.id}
-                                            date={eng.dueDate}
-                                            effectiveDate={eng.dueDate || leDueDate}
-                                            source={eng.dueDate ? 'RELATIONSHIP' : 'LE'}
-                                            level="RELATIONSHIP"
-                                            label="Deadline"
-                                        />
                                     </div>
                                 </div>
                             </div>
@@ -279,14 +269,6 @@ export function EngagementManager({ leId, initialEngagements, leDueDate }: Engag
                                                             </div>
                                                         </div>
                                                         <div className="shrink-0 flex items-center gap-4">
-                                                            <DueDateBadge
-                                                                id={q.id}
-                                                                date={q.dueDate}
-                                                                effectiveDate={q.dueDate || eng.dueDate || leDueDate}
-                                                                source={q.dueDate ? 'QUESTIONNAIRE' : eng.dueDate ? 'RELATIONSHIP' : 'LE'}
-                                                                level="QUESTIONNAIRE"
-                                                                label="Deadline"
-                                                            />
                                                             <div className="h-8 w-8 rounded-full flex items-center justify-center text-slate-400 group-hover/card:text-indigo-600 group-hover/card:bg-indigo-50 transition-colors">
                                                                 <ArrowUpRight className="h-4 w-4" />
                                                             </div>

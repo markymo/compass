@@ -477,6 +477,9 @@ export async function getClientLEData(leId: string) {
             },
             registryReferences: {
                 include: { authority: true }
+            },
+            commonQuestionnaires: {
+                where: { isDeleted: false }
             }
         }
     });
@@ -484,6 +487,13 @@ export async function getClientLEData(leId: string) {
     if (!le) {
         console.error(`[getClientLEData] LE not found in DB: ${leId}`);
         return null;
+    }
+
+    const { calculateCommonQuestionnaireMetrics } = await import("@/lib/metrics-calc");
+    if (le.commonQuestionnaires) {
+        for (const q of le.commonQuestionnaires) {
+            (q as any).metrics = await calculateCommonQuestionnaireMetrics(q.id, le.id);
+        }
     }
 
     for (const eng of le.fiEngagements) {
