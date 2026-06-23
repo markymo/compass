@@ -179,6 +179,7 @@ export function UserPermissionEditor({ profile, userId }: UserPermissionEditorPr
                                         value={newPassword}
                                         onChange={(e) => setNewPassword(e.target.value)}
                                         placeholder="Enter new password"
+                                        autoComplete="new-password"
                                     />
                                 </div>
                             </div>

@@ -121,7 +121,7 @@ export default function AccountSettingsPage() {
                             <CardContent className="space-y-4 pb-6">
                                 <div className="grid gap-2">
                                     <Label htmlFor="email" className="text-muted-foreground">Email Address</Label>
-                                    <Input id="email" value={profile.email} disabled className="bg-slate-50 text-slate-500" />
+                                    <Input id="email" value={profile.email} disabled className="bg-slate-50 text-slate-500" autoComplete="off" />
                                     <p className="text-[13px] text-muted-foreground">Your email address is managed by your identity provider and cannot be changed here.</p>
                                 </div>
                                 <div className="grid gap-2 pt-2">

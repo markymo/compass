@@ -163,6 +163,7 @@ export function InvitationAcceptFlow({ token, sentToEmail, isLoggedIn, userEmail
                                 minLength={8}
                                 disabled={isLoading}
                                 className="bg-white"
+                                autoComplete="new-password"
                             />
                         </div>
                         

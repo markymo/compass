@@ -83,6 +83,7 @@ export function AddUserDialog({ clientId, onSuccess }: AddUserDialogProps) {
                             className="col-span-3"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
+                            autoComplete="off"
                         />
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
