@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 import { MissionControl } from "@/components/client/mission-control";
 import { getRecentLEActivity } from "@/lib/le-activity";
 import { EngagementManager } from "@/components/client/engagement/engagement-manager";
-import { CommonQuestionnaires } from "@/components/client/engagement/common-questionnaires";
 import { SetPageBreadcrumbs } from "@/context/breadcrumb-context";
 
 export default async function LEDashboardPage({ params }: { params: Promise<{ id: string }> }) {
@@ -42,13 +41,6 @@ export default async function LEDashboardPage({ params }: { params: Promise<{ id
                         Metrics unavailable.
                     </div>
                 )}
-            </div>
-
-            <div className="pt-4 border-t border-slate-200">
-                <CommonQuestionnaires 
-                    leId={le.id} 
-                    initialQuestionnaires={(le as any).commonQuestionnaires || []}
-                />
             </div>
 
             <div className="pt-4 border-t border-slate-200">

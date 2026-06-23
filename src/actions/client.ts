@@ -472,6 +472,13 @@ export async function getClientLEData(leId: string) {
                     },
                     questionnaireInstances: {
                         where: { isDeleted: false }
+                    },
+                    _count: {
+                        select: {
+                            sharedDocuments: { where: { isDeleted: false } },
+                            invitations: { where: { revokedAt: null, usedAt: null } },
+                            memberships: true
+                        }
                     }
                 }
             },

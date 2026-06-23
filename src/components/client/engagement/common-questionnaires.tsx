@@ -155,7 +155,7 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
                                     <Link 
                                         href={`/app/le/${leId}/workbench4?rel=Common&q=${encodeURIComponent(q.name)}`}
                                         className="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
-                                        title="Open in Data Workbench"
+                                        title="Review questionnaire"
                                     >
                                         <ArrowUpRight className="h-4 w-4" />
                                     </Link>

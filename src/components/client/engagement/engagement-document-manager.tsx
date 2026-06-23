@@ -122,7 +122,7 @@ export function EngagementDocumentManager({ engagementId, documents, evidenceDoc
                                     </div>
                                     <h3 className="font-medium text-slate-900 mb-1">No evidence documents yet</h3>
                                     <p className="text-slate-500 text-sm max-w-sm mx-auto">
-                                        When you attach files to questions in the Workbench, they will appear here, grouped by question.
+                                        When you attach files to questions during review, they will appear here, grouped by question.
                                     </p>
                                 </div>
                             </CardContent>
