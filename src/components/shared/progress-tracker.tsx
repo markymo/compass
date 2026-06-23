@@ -172,13 +172,13 @@ function V2HeaderVariant({ metrics, className }: { metrics: DashboardMetric, cla
                 <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Sign-Off Status</span>
                 <div className="flex items-center justify-between gap-4">
                     <div className="flex flex-col">
-                        <span className="text-[9px] font-bold text-indigo-500 uppercase leading-none mb-1">APPR</span>
+                        <span className="text-[9px] font-bold text-indigo-500 uppercase leading-none mb-1">Approved</span>
                         <span className={cn("text-base font-bold font-mono leading-none", metrics.approved > 0 ? "text-indigo-600" : "text-slate-300")}>
                             {metrics.approved}
                         </span>
                     </div>
                     <div className="flex flex-col items-end text-right">
-                        <span className="text-[9px] font-bold text-emerald-500 uppercase leading-none mb-1">RLSD</span>
+                        <span className="text-[9px] font-bold text-emerald-500 uppercase leading-none mb-1">Released</span>
                         <span className={cn("text-base font-bold font-mono leading-none", metrics.released > 0 ? "text-emerald-600" : "text-slate-300")}>
                             {metrics.released}
                         </span>

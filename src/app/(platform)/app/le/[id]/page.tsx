@@ -1,9 +1,8 @@
 import { getClientLEData, getDashboardMetrics, getCurrentUserLERole } from "@/actions/client";
 import { notFound } from "next/navigation";
-import { MissionControl, ActivityFeed } from "@/components/client/mission-control";
+import { MissionControl } from "@/components/client/mission-control";
 import { getRecentLEActivity } from "@/lib/le-activity";
 import { EngagementManager } from "@/components/client/engagement/engagement-manager";
-import { LEUsersTab } from "@/components/client/le-users-tab";
 import { SetPageBreadcrumbs } from "@/context/breadcrumb-context";
 
 export default async function LEDashboardPage({ params }: { params: Promise<{ id: string }> }) {
@@ -52,16 +51,6 @@ export default async function LEDashboardPage({ params }: { params: Promise<{ id
                 />
             </div>
 
-            <div className="pt-4 border-t border-slate-200">
-                <LEUsersTab
-                    leId={le.id}
-                    canManageUsers={leRole === "LE_ADMIN" || leRole === "ORG_ADMIN" || leRole === "SYSTEM_ADMIN"}
-                />
-            </div>
-
-            <div className="pt-4 border-t border-slate-200">
-                <ActivityFeed activity={activity} />
-            </div>
         </div>
     );
 }

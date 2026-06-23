@@ -132,7 +132,7 @@ describe.skipIf(!process.env.DATABASE_URL)('kyc-manual-update PARTY_REF Smoke Te
         const currentCollection = await KycStateService.getAuthoritativeCollection({ subjectLeId }, 63);
         expect(currentCollection).toHaveLength(2);
 
-        const instanceIds = currentCollection.map(c => c.instanceId);
+        const instanceIds = currentCollection.map((c: any) => c.instanceId);
         expect(instanceIds).toContain(`ccparty_${ccParty1Id}`);
         expect(instanceIds).toContain(`ccparty_${ccParty2Id}`);
 

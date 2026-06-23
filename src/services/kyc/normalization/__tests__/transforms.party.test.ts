@@ -306,8 +306,8 @@ describe('isPartyValue and PersonOrContact legacy normalization', () => {
         };
         const isValid = isPartyValue(legacyValue);
         expect(isValid).toBe(true);
-        expect(legacyValue.isActiveParty).toBe(true);
-        expect(legacyValue.isActivePersonOrContact).toBe(true);
+        expect((legacyValue as any).isActiveParty).toBe(true);
+        expect((legacyValue as any).isActivePersonOrContact).toBe(true);
     });
 
     it('NORM-2: validates and normalizes active flag from new isActiveParty', () => {
@@ -323,8 +323,8 @@ describe('isPartyValue and PersonOrContact legacy normalization', () => {
         };
         const isValid = isPartyValue(newValue);
         expect(isValid).toBe(true);
-        expect(newValue.isActiveParty).toBe(false);
-        expect(newValue.isActivePersonOrContact).toBe(false);
+        expect((newValue as any).isActiveParty).toBe(false);
+        expect((newValue as any).isActivePersonOrContact).toBe(false);
     });
 });
 

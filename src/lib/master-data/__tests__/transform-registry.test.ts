@@ -48,7 +48,7 @@ describe('transform-registry completeness', () => {
     });
 
     it('TR-2: no extra keys in the registry that are not in the known set', () => {
-        const registryKeys = TRANSFORM_DEFINITIONS.map(d => d.key);
+        const registryKeys = TRANSFORM_DEFINITIONS.map((d: any) => d.key);
         for (const key of registryKeys) {
             expect(EXPECTED_KEYS, `Registry contains unknown transform "${key}"`).toContain(key);
         }
@@ -63,7 +63,7 @@ describe('transform-registry completeness', () => {
 
     it('TR-4: TRANSFORM_SELECT_OPTIONS mirrors TRANSFORM_DEFINITIONS in order', () => {
         expect(TRANSFORM_SELECT_OPTIONS).toHaveLength(TRANSFORM_DEFINITIONS.length);
-        TRANSFORM_SELECT_OPTIONS.forEach((opt, i) => {
+        TRANSFORM_SELECT_OPTIONS.forEach((opt: any, i: any) => {
             expect(opt.value).toBe(TRANSFORM_DEFINITIONS[i].key);
             expect(opt.label).toBe(TRANSFORM_DEFINITIONS[i].label);
         });

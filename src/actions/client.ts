@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import { can, Action, UserWithMemberships } from "@/lib/auth/permissions";
 
 import { cookies } from "next/headers";
-import { emptyMetrics, calculateEngagementMetrics, rollupMetrics, DashboardMetric } from "@/lib/metrics-calc";
+import { emptyMetrics, calculateEngagementMetrics, rollupMetrics, DashboardMetric, calculateQuestionnaireMetrics } from "@/lib/metrics-calc";
 import { LegalEntityEnrichmentService } from "@/domain/registry";
 import { getLEDisplayName } from "@/lib/le-display-name";
 
@@ -472,11 +472,21 @@ export async function getClientLEData(leId: string) {
                     },
                     questionnaireInstances: {
                         where: { isDeleted: false }
+                    },
+                    _count: {
+                        select: {
+                            sharedDocuments: { where: { isDeleted: false } },
+                            invitations: { where: { revokedAt: null, usedAt: null } },
+                            memberships: true
+                        }
                     }
                 }
             },
             registryReferences: {
                 include: { authority: true }
+            },
+            commonQuestionnaires: {
+                where: { isDeleted: false }
             }
         }
     });
@@ -486,16 +496,26 @@ export async function getClientLEData(leId: string) {
         return null;
     }
 
-    le.fiEngagements.forEach((eng: any) => {
+    const { calculateCommonQuestionnaireMetrics } = await import("@/lib/metrics-calc");
+    if (le.commonQuestionnaires) {
+        for (const q of le.commonQuestionnaires) {
+            (q as any).metrics = await calculateCommonQuestionnaireMetrics(q.id, le.id);
+        }
+    }
+
+    for (const eng of le.fiEngagements) {
         // Combine both many-to-many and one-to-many relations for compatibility
         const combined = Array.from(
             new Map(
                 [...(eng.questionnaireInstances || []), ...(eng.questionnaires || [])].map((q: any) => [q.id, q])
             ).values()
         );
+        for (const q of combined) {
+            (q as any).metrics = await calculateQuestionnaireMetrics((q as any).id);
+        }
         eng.questionnaires = combined;
         console.log(`[getClientLEData] Engagement ${eng.org.name} has ${eng.questionnaires.length} ACTIVE questionnaires`);
-    });
+    }
 
     // 2. Get the Active Master Schema
     const activeSchema = await prisma.masterSchema.findFirst({

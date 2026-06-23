@@ -99,6 +99,49 @@ export async function calculateQuestionnaireMetrics(questionnaireId: string): Pr
     return m;
 }
 
+export async function calculateCommonQuestionnaireMetrics(questionnaireId: string, clientLeId: string): Promise<DashboardMetric> {
+    const clientLe = await prisma.clientLE.findUnique({
+        where: { id: clientLeId },
+        select: { id: true, customData: true, legalEntityId: true }
+    });
+
+    const questionnaire = await prisma.questionnaire.findUnique({
+        where: { id: questionnaireId },
+        select: { extractedContent: true }
+    });
+
+    const questions = await prisma.question.findMany({
+        where: { questionnaireId, questionnaire: { isDeleted: false } },
+        select: {
+            id: true,
+            status: true,
+            answer: true,
+            updatedAt: true,
+            masterFieldNo: true,
+            masterQuestionGroupId: true,
+            customFieldDefinitionId: true
+        }
+    });
+
+    const m = await calculateMetricsFromQuestions(
+        questions, 
+        clientLe?.legalEntityId, 
+        clientLe?.customData as any,
+        clientLe?.id
+    );
+
+    if (questions.length === 0 && questionnaire) {
+        const extra = await calculateMetricsFromExtractedContent(
+            questionnaire.extractedContent, 
+            clientLe?.legalEntityId, 
+            clientLe?.customData as any
+        );
+        rollupMetrics(m, extra);
+    }
+
+    return m;
+}
+
 async function calculateMetricsFromQuestions(questions: any[], legalEntityId?: string | null, customData?: any, clientLeId?: string | null): Promise<DashboardMetric> {
     const m = emptyMetrics();
     const { activeClaims, activeCustomClaims, groupHasClaim } = await getActiveClaimsContext(legalEntityId, customData, questions, clientLeId);

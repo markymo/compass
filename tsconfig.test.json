@@ -13,6 +13,7 @@
         "esModuleInterop": true,
         "jsx": "react-jsx"
     },
+    "exclude": [],
     "include": [
         "src/**/*",
         "scripts/**/*"

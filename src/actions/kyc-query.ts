@@ -1458,6 +1458,21 @@ export async function getConsoleQuestions(leId: string, includeLocked: boolean =
         }
     });
 
+    const clientLE = await prisma.clientLE.findUnique({
+        where: { id: leId },
+        select: {
+            commonQuestionnaires: {
+                where: { isDeleted: false },
+                include: {
+                    questions: {
+                        where: includeLocked ? undefined : { isLocked: false },
+                        orderBy: { order: 'asc' }
+                    }
+                }
+            }
+        }
+    });
+
     const consoleQuestions: ConsoleQuestion[] = [];
     const seenQuestionIds = new Set<string>();
 
@@ -1508,6 +1523,36 @@ export async function getConsoleQuestions(leId: string, includeLocked: boolean =
                     questionnaireName: qnaire.name,
                     answer: q.answer,
                     engagementOrgName: eng.org.name,
+                    isLocked: q.isLocked,
+                    approvedAt: q.approvedAt,
+                    releasedAt: q.releasedAt
+                });
+            }
+        }
+    }
+
+    // Process Common Questionnaires
+    if (clientLE?.commonQuestionnaires) {
+        for (const qnaire of clientLE.commonQuestionnaires) {
+            for (const qRaw of qnaire.questions) {
+                const q = qRaw as any;
+                if (seenQuestionIds.has(q.id)) continue;
+                seenQuestionIds.add(q.id);
+
+                consoleQuestions.push({
+                    id: q.id,
+                    text: q.text,
+                    category: qnaire.name,
+                    masterFieldNo: q.masterFieldNo,
+                    masterFieldProjectionPath: q.masterFieldProjectionPath,
+                    masterQuestionGroupId: q.masterQuestionGroupId,
+                    customFieldDefinitionId: q.customFieldDefinitionId,
+                    masterDataValue: undefined,
+                    masterDataSource: undefined,
+                    masterDataUpdatedAt: undefined,
+                    questionnaireName: qnaire.name,
+                    engagementOrgName: "Common",
+                    status: q.status,
                     isLocked: q.isLocked,
                     approvedAt: q.approvedAt,
                     releasedAt: q.releasedAt

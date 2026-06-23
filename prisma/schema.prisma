@@ -206,6 +206,7 @@ model ClientLE {
   registryBaselineExtracts RegistryBaselineExtract[]
   ccParties                CCParty[]
   ccAddresses              CCAddress[]
+  commonQuestionnaires     Questionnaire[]           @relation("ClientCommonQuestionnaires")
 
   @@index([legalEntityId])
 }
@@ -344,6 +345,7 @@ model Questionnaire {
   versions         QuestionnaireVersion[]
   engagements      FIEngagement[]                 @relation("FIEngagementToQuestionnaire")
   visibilityGrants QuestionnaireVisibilityGrant[]
+  commonForClients ClientLE[]                     @relation("ClientCommonQuestionnaires")
 
   @@index([referenceCode])
 }

@@ -909,3 +909,98 @@ export async function updateQuestionnaireDueDate(questionnaireId: string, dueDat
         return { success: false, error: "Database update failed" };
     }
 }
+
+export async function getAvailableCommonQuestionnaires(clientLEId: string) {
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+
+    try {
+        const owner = await prisma.clientLEOwner.findFirst({
+            where: { clientLEId, endAt: null },
+            orderBy: { startAt: 'asc' }
+        });
+        
+        if (!owner) return { success: false, error: "No owner found" };
+
+        const { getDiscoverableReferenceSnapshotsForOrg } = await import("@/actions/questionnaires-v2");
+        const snapshots = await getDiscoverableReferenceSnapshotsForOrg(owner.partyId);
+        return { success: true, snapshots };
+    } catch (error) {
+         console.error("Error fetching available questionnaires:", error);
+         return { success: false, error: "Failed to fetch" };
+    }
+}
+
+export async function getLinkedCommonQuestionnaires(clientLEId: string) {
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+
+    try {
+        const clientLE = await prisma.clientLE.findUnique({
+            where: { id: clientLEId },
+            include: {
+                commonQuestionnaires: {
+                    where: { isDeleted: false },
+                    select: {
+                        id: true,
+                        name: true,
+                        status: true,
+                        visibility: true,
+                        referenceCode: true
+                    }
+                }
+            }
+        });
+
+        if (!clientLE) return { success: false, error: "Client not found" };
+
+        return { success: true, questionnaires: clientLE.commonQuestionnaires };
+    } catch (error) {
+        console.error("Failed to fetch common questionnaires:", error);
+        return { success: false, error: "Database error" };
+    }
+}
+
+export async function addCommonQuestionnaire(clientLEId: string, questionnaireId: string) {
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+
+    try {
+        await prisma.clientLE.update({
+            where: { id: clientLEId },
+            data: {
+                commonQuestionnaires: {
+                    connect: { id: questionnaireId }
+                }
+            }
+        });
+
+        revalidatePath(`/app/le/${clientLEId}`);
+        return { success: true };
+    } catch (error) {
+        console.error("Failed to link common questionnaire:", error);
+        return { success: false, error: "Database error" };
+    }
+}
+
+export async function removeCommonQuestionnaire(clientLEId: string, questionnaireId: string) {
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+
+    try {
+        await prisma.clientLE.update({
+            where: { id: clientLEId },
+            data: {
+                commonQuestionnaires: {
+                    disconnect: { id: questionnaireId }
+                }
+            }
+        });
+
+        revalidatePath(`/app/le/${clientLEId}`);
+        return { success: true };
+    } catch (error) {
+        console.error("Failed to unlink common questionnaire:", error);
+        return { success: false, error: "Database error" };
+    }
+}

@@ -1,6 +1,7 @@
 import { getClientLEData } from "@/actions/client";
 import { notFound } from "next/navigation";
 import { EngagementManager } from "@/components/client/engagement/engagement-manager";
+import { CommonQuestionnaires } from "@/components/client/engagement/common-questionnaires";
 import { SetPageBreadcrumbs } from "@/context/breadcrumb-context";
 
 export default async function RelationshipsPage({ params }: { params: Promise<{ id: string }> }) {
@@ -18,6 +19,11 @@ export default async function RelationshipsPage({ params }: { params: Promise<{ 
                 title="Supplier Relationships"
                 typeLabel="Active Connections"
             />
+            <CommonQuestionnaires 
+                leId={le.id} 
+                initialQuestionnaires={(le as any).commonQuestionnaires || []}
+            />
+
             <EngagementManager
                 leId={le.id}
                 initialEngagements={(le as any).fiEngagements || []}
