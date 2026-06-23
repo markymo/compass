@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ProgressTracker } from "@/components/shared/progress-tracker";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-
+import { usePreferences } from "@/components/providers/user-preferences-provider";
 interface EngagementManagerProps {
     leId: string;
     initialEngagements: any[];
@@ -32,6 +32,22 @@ export function EngagementManager({ leId, initialEngagements, leDueDate }: Engag
     useEffect(() => {
         setEngagements(initialEngagements);
     }, [initialEngagements]);
+
+    const { preferences, isLoading, updatePreference } = usePreferences();
+    const [expandedEngagements, setExpandedEngagements] = useState<string[]>([]);
+    const [isExpandedInit, setIsExpandedInit] = useState(false);
+
+    useEffect(() => {
+        if (!isLoading && !isExpandedInit) {
+            setExpandedEngagements(preferences.relationshipsExpandedEngagements || []);
+            setIsExpandedInit(true);
+        }
+    }, [isLoading, isExpandedInit, preferences.relationshipsExpandedEngagements]);
+
+    const handleAccordionChange = (val: string[]) => {
+        setExpandedEngagements(val);
+        updatePreference('relationshipsExpandedEngagements', val);
+    };
 
     const [isAdding, setIsAdding] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -171,7 +187,8 @@ export function EngagementManager({ leId, initialEngagements, leDueDate }: Engag
             {engagements.length > 0 ? (
                 <Accordion 
                     type="multiple" 
-                    defaultValue={engagements.map((e: any) => e.id)} 
+                    value={expandedEngagements}
+                    onValueChange={handleAccordionChange}
                     className="space-y-4"
                 >
                     {engagements.map((eng: any) => {
@@ -239,7 +256,7 @@ export function EngagementManager({ leId, initialEngagements, leDueDate }: Engag
                                 </div>
 
                                 <AccordionContent className="border-t border-slate-100 bg-slate-50/30 pb-4 pt-4 px-4 md:px-6">
-                                    <Accordion type="multiple" defaultValue={["questionnaires", "documents", "output", "team"]} className="w-full space-y-3">
+                                    <Accordion type="multiple" defaultValue={[]} className="w-full space-y-3">
                                         
                                         {/* Questionnaires Section */}
                                         <AccordionItem value="questionnaires" className="border border-slate-200 rounded-md overflow-hidden bg-white shadow-sm">
