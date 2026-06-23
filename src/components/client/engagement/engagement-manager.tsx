@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Building2, ArrowUpRight, Plus, Search, Check, Loader2, X } from "lucide-react";
+import { Building2, ArrowUpRight, Plus, Search, Check, Loader2, X, FileText } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { MoreVertical, Trash2 } from "lucide-react";
 import { DueDateBadge } from "@/components/client/due-date-badge";
+import { ProgressTracker } from "@/components/shared/progress-tracker";
 
 interface EngagementManagerProps {
     leId: string;
@@ -100,7 +101,6 @@ export function EngagementManager({ leId, initialEngagements, leDueDate }: Engag
             <div className="flex items-center justify-between">
                 <div>
                     <h2 className="text-xl font-semibold text-slate-900">Supplier Relationships</h2>
-                    <p className="text-sm text-slate-500">Manage your connections with connected supply chain partners.</p>
                 </div>
                 {!isAdding && (
                     <Button onClick={() => setIsAdding(true)} className="bg-indigo-600 hover:bg-indigo-700 text-white" size="sm" title="Add Supplier">
@@ -252,24 +252,56 @@ export function EngagementManager({ leId, initialEngagements, leDueDate }: Engag
                             <div className="px-4 md:px-6 pb-4 md:pb-6 pt-0 border-t border-slate-50">
                                 <div className="mt-4 space-y-2">
                                     <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
-                                        <Plus className="h-3 w-3" />
                                         Active Questionnaires
                                     </div>
-                                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                                    <div className="divide-y divide-slate-100 border border-slate-100 rounded-lg overflow-hidden bg-white mt-3 shadow-sm">
                                         {eng.questionnaires.map((q: any) => (
-                                            <div key={q.id} className="group/q flex items-center justify-between p-3 rounded-lg bg-slate-50/50 border border-slate-100 hover:border-indigo-100 hover:bg-white transition-all">
-                                                <div className="min-w-0">
-                                                    <p className="text-xs font-semibold text-slate-700 truncate">{q.name}</p>
-                                                    <p className="text-[10px] text-slate-500 mt-0.5">{q.status || 'In Progress'}</p>
+                                            <Link 
+                                                key={q.id} 
+                                                href={`/app/le/${leId}/workbench4?rel=${encodeURIComponent(typeof eng.org === 'string' ? eng.org : eng.org?.name)}&q=${encodeURIComponent(q.name)}`}
+                                                className="p-5 flex flex-col gap-4 hover:bg-slate-50/80 cursor-pointer transition-colors group/card"
+                                            >
+                                                <div className="flex flex-col gap-4">
+                                                    <div className="flex items-center justify-between gap-4">
+                                                        <div className="flex items-center gap-4">
+                                                            <div className="h-10 w-10 bg-indigo-50 text-indigo-600 rounded flex items-center justify-center shrink-0">
+                                                                <FileText className="h-5 w-5" />
+                                                            </div>
+                                                            <div className="flex flex-col gap-1">
+                                                                <h3 className="font-semibold text-base text-slate-900 group-hover/card:text-indigo-600 transition-colors leading-none">{q.name}</h3>
+                                                                {q.status === 'DIGITIZING' ? (
+                                                                    <Badge variant="outline" className="w-fit text-[10px] h-4 py-0 bg-indigo-50 text-indigo-600 border-indigo-200 animate-pulse">
+                                                                        Digitizing...
+                                                                    </Badge>
+                                                                ) : (
+                                                                    <p className="text-[10px] text-slate-500">{q.status || 'In Progress'}</p>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                        <div className="shrink-0 flex items-center gap-4">
+                                                            <DueDateBadge
+                                                                id={q.id}
+                                                                date={q.dueDate}
+                                                                effectiveDate={q.dueDate || eng.dueDate || leDueDate}
+                                                                source={q.dueDate ? 'QUESTIONNAIRE' : eng.dueDate ? 'RELATIONSHIP' : 'LE'}
+                                                                level="QUESTIONNAIRE"
+                                                                label="Deadline"
+                                                            />
+                                                            <div className="h-8 w-8 rounded-full flex items-center justify-center text-slate-400 group-hover/card:text-indigo-600 group-hover/card:bg-indigo-50 transition-colors">
+                                                                <ArrowUpRight className="h-4 w-4" />
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    {q.metrics && (
+                                                        <div className="flex items-center gap-6 mt-1">
+                                                            <div className="flex-1 min-w-0">
+                                                                <ProgressTracker metrics={q.metrics} variant={"v2" as any} className="w-full bg-slate-50/20" />
+                                                            </div>
+                                                        </div>
+                                                    )}
                                                 </div>
-                                                <Link 
-                                                    href={`/app/le/${leId}/workbench4?rel=${encodeURIComponent(typeof eng.org === 'string' ? eng.org : eng.org?.name)}&q=${encodeURIComponent(q.name)}`}
-                                                    className="p-1.5 rounded-md hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 transition-colors"
-                                                    title="Open"
-                                                >
-                                                    <ArrowUpRight className="h-3.5 w-3.5" />
-                                                </Link>
-                                            </div>
+                                            </Link>
                                         ))}
                                     </div>
                                 </div>
