@@ -75,6 +75,7 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
     const [search, setSearch] = useState("");
     const [catFilter, setCatFilter] = useState("ALL");
     const [popFilter, setPopFilter] = useState("ALL");
+    const [usageFilter, setUsageFilter] = useState("ALL");
 
     const fieldGroupMap = useMemo(() => {
         const map = new Map<number, { id: string; label: string }[]>();
@@ -121,10 +122,12 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                 (def.description && def.description.toLowerCase().includes(search.toLowerCase()));
             const matchesCat = catFilter === "ALL" || catFilter === "CUSTOM";
             const matchesPop = popFilter === "ALL" || (popFilter === "POPULATED" ? hasValue : !hasValue);
+            const questionsCount = val?.mappingStats?.questions || 0;
+            const matchesUsage = usageFilter === "ALL" || (usageFilter === "USED" ? questionsCount > 0 : questionsCount === 0);
 
-            return matchesSearch && matchesCat && matchesPop;
+            return matchesSearch && matchesCat && matchesPop && matchesUsage;
         });
-    }, [customDefinitions, customData, search, catFilter, popFilter]);
+    }, [customDefinitions, customData, search, catFilter, popFilter, usageFilter]);
 
     const filteredCategories = useMemo(() => {
         return categoryList.map((cat: any) => {
@@ -135,8 +138,10 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                 const matchesSearch = f.fieldName.toLowerCase().includes(search.toLowerCase()) ||
                     (f.description && f.description.toLowerCase().includes(search.toLowerCase()));
                 const matchesPop = popFilter === "ALL" || (popFilter === "POPULATED" ? hasValue : !hasValue);
+                const questionsCount = data?.mappingStats?.questions || 0;
+                const matchesUsage = usageFilter === "ALL" || (usageFilter === "USED" ? questionsCount > 0 : questionsCount === 0);
 
-                return matchesSearch && matchesPop;
+                return matchesSearch && matchesPop && matchesUsage;
             });
 
             return { ...cat, fields };
@@ -144,7 +149,7 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
             const matchesCat = catFilter === "ALL" || catFilter === cat.id;
             return matchesCat && cat.fields.length > 0;
         });
-    }, [categoryList, masterData, search, catFilter, popFilter]);
+    }, [categoryList, masterData, search, catFilter, popFilter, usageFilter]);
 
     const filteredUncategorized = useMemo(() => {
         if (catFilter !== "ALL" && catFilter !== "UNCATEGORIZED") return [];
@@ -156,10 +161,12 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
             const matchesSearch = f.fieldName.toLowerCase().includes(search.toLowerCase()) ||
                 (f.description && f.description.toLowerCase().includes(search.toLowerCase()));
             const matchesPop = popFilter === "ALL" || (popFilter === "POPULATED" ? hasValue : !hasValue);
+            const questionsCount = data?.mappingStats?.questions || 0;
+            const matchesUsage = usageFilter === "ALL" || (usageFilter === "USED" ? questionsCount > 0 : questionsCount === 0);
 
-            return matchesSearch && matchesPop;
+            return matchesSearch && matchesPop && matchesUsage;
         });
-    }, [uncategorizedFields, masterData, search, catFilter, popFilter]);
+    }, [uncategorizedFields, masterData, search, catFilter, popFilter, usageFilter]);
 
     const totalVisible = filteredCustomFields.length + filteredCategories.reduce((acc: any, c: any) => acc + c.fields.length, 0) + filteredUncategorized.length;
 
@@ -450,6 +457,20 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                                 <SelectItem value="EMPTY">Missing Data</SelectItem>
                             </SelectContent>
                         </Select>
+
+                        <Select value={usageFilter} onValueChange={setUsageFilter}>
+                            <SelectTrigger className="w-full md:w-[220px] bg-white border-slate-200">
+                                <span className="flex items-center gap-2">
+                                    <ClipboardList className="h-3.5 w-3.5 text-slate-400" />
+                                    <SelectValue placeholder="Usage" />
+                                </span>
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="ALL">All fields</SelectItem>
+                                <SelectItem value="USED">Used in questionnaires</SelectItem>
+                                <SelectItem value="UNUSED">Not used in questionnaires</SelectItem>
+                            </SelectContent>
+                        </Select>
                     </div>
                 </div>
 
@@ -567,7 +588,7 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                             <p className="text-slate-500 mt-1">Try adjusting your filters or search terms.</p>
                             <Button
                                 variant="link"
-                                onClick={() => { setSearch(""); setCatFilter("ALL"); setPopFilter("ALL"); }}
+                                onClick={() => { setSearch(""); setCatFilter("ALL"); setPopFilter("ALL"); setUsageFilter("ALL"); }}
                                 className="text-blue-500 mt-2"
                             >
                                 Clear all filters
@@ -661,7 +682,7 @@ function MasterFieldDisplay({ label, fieldNo, value, source, sourceReference, re
                                         </Badge>
                                     </TooltipTrigger>
                                     <TooltipContent side="top" className="text-xs bg-slate-900 text-white border-slate-800">
-                                        <p className="font-semibold mb-1">Mapped to:</p>
+                                        <p className="font-semibold mb-1">Used by:</p>
                                         <ul className="pl-3 list-disc space-y-0.5 opacity-90">
                                             <li>{mappingStats.questions} question{mappingStats.questions === 1 ? '' : 's'}</li>
                                             <li>{mappingStats.questionnaires} questionnaire{mappingStats.questionnaires === 1 ? '' : 's'}</li>
