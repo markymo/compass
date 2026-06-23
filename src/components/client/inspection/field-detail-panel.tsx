@@ -64,9 +64,10 @@ interface FieldDetailPanelProps {
     onUpdate?: (value: any, source: string, updatedAt: Date) => void;
     /** Entity-specific GLEIF RA code, e.g. RA000585. Shown in SourceBadge for RA sources only. */
     registrationAuthorityId?: string;
+    mappingStats?: { questions: number; questionnaires: number; suppliers: number };
 }
 
-export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fieldName, customFieldId, isLocked, onUpdate, registrationAuthorityId }: FieldDetailPanelProps) {
+export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fieldName, customFieldId, isLocked, onUpdate, registrationAuthorityId, mappingStats }: FieldDetailPanelProps) {
     const [data, setData] = useState<FieldDetailData | null>(null);
     const [loading, setLoading] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
@@ -2211,7 +2212,42 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                         </div>
                     </div> {/* Closes the rounded-xl "Current Value Card" div */}
 
-                    <Tabs defaultValue="history" className="w-full">
+                    {/* ─── Usage Section ─── */}
+                    {!customFieldId && (
+                        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden mt-6 mb-2">
+                            <div className="bg-slate-50 border-b border-slate-100 p-3 px-5">
+                                <span className="text-xs font-semibold text-slate-600 uppercase tracking-wide flex items-center gap-1.5">
+                                    <Database className="w-3.5 h-3.5" /> Usage
+                                </span>
+                            </div>
+                            <div className="p-5 text-sm">
+                                {mappingStats && mappingStats.questions > 0 ? (
+                                    <div className="space-y-3">
+                                        <div className="font-medium text-slate-700 text-xs tracking-wider mb-2">Used by</div>
+                                        <div className="flex justify-between items-center py-1 border-b border-slate-50">
+                                            <span className="text-slate-500">Questions</span>
+                                            <span className="font-medium text-slate-900">{mappingStats.questions}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center py-1 border-b border-slate-50">
+                                            <span className="text-slate-500">Questionnaires</span>
+                                            <span className="font-medium text-slate-900">{mappingStats.questionnaires}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center py-1">
+                                            <span className="text-slate-500">Suppliers</span>
+                                            <span className="font-medium text-slate-900">{mappingStats.suppliers}</span>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-4">
+                                        <p className="text-slate-600 mb-1">Not currently used by any questionnaires.</p>
+                                        <p className="text-xs text-slate-400">This field can still be completed as part of the Master Record.</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    <Tabs defaultValue="history" className="w-full mt-6">
                         <TabsList className="grid w-full grid-cols-2">
                             <TabsTrigger value="history">History Log</TabsTrigger>
                             <TabsTrigger value="note">Notes</TabsTrigger>

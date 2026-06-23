@@ -65,7 +65,7 @@ interface DataSchemaTabProps {
 export function DataSchemaTab({ leId, masterData, customData = {}, customDefinitions = [], gleifLastSynced, masterFields = [], masterGroups = [], categories = [], uncategorizedFields = [], nationalRegistryData, registrationAuthorityId }: DataSchemaTabProps) {
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [updateNotices, setUpdateNotices] = useState<FieldProposal[] | null>(null);
-    const [selectedField, setSelectedField] = useState<{ fieldNo: number; name: string; customFieldId?: string } | null>(null);
+    const [selectedField, setSelectedField] = useState<{ fieldNo: number; name: string; customFieldId?: string; mappingStats?: { questions: number; questionnaires: number; suppliers: number } } | null>(null);
     const [lastRefreshed, setLastRefreshed] = useState<Date | undefined>(gleifLastSynced);
     const [isRefreshingRegistry, setIsRefreshingRegistry] = useState(false);
     const [noticesExpanded, setNoticesExpanded] = useState(false);
@@ -503,7 +503,8 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                                             onClick={() => setSelectedField({
                                                 fieldNo: 0,
                                                 name: def.label,
-                                                customFieldId: def.id
+                                                customFieldId: def.id,
+                                                mappingStats: undefined
                                             })}
                                         />
                                     );
@@ -539,7 +540,7 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                                                 displayState={data?.displayState}
                                                 defaultResponse={data?.defaultResponse}
                                                 mappingStats={data?.mappingStats}
-                                                onClick={() => setSelectedField({ fieldNo: field.fieldNo, name: field.fieldName })}
+                                                onClick={() => setSelectedField({ fieldNo: field.fieldNo, name: field.fieldName, mappingStats: data?.mappingStats })}
                                             />
                                         );
                                     })}
@@ -573,7 +574,7 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                                             displayState={data?.displayState}
                                             defaultResponse={data?.defaultResponse}
                                             mappingStats={data?.mappingStats}
-                                            onClick={() => setSelectedField({ fieldNo: field.fieldNo, name: field.fieldName })}
+                                            onClick={() => setSelectedField({ fieldNo: field.fieldNo, name: field.fieldName, mappingStats: data?.mappingStats })}
                                         />
                                     );
                                 })}
@@ -607,6 +608,7 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                 fieldName={selectedField?.name || ""}
                 customFieldId={selectedField?.customFieldId}
                 registrationAuthorityId={registrationAuthorityId}
+                mappingStats={selectedField?.mappingStats}
             />
         </div>
     );
