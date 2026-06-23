@@ -13,6 +13,7 @@ import { HeaderNavList } from "@/components/layout/HeaderNavList";
 import { getLegalEntityTabs } from "@/config/navigation-tabs";
 import { cn } from "@/lib/utils";
 import { Fingerprint, ExternalLink, Pencil } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface LegalEntityLayoutShellProps {
     children: React.ReactNode;
@@ -58,15 +59,23 @@ function InnerShell({ children, baseBreadcrumbs, leId, leName, isSystemAdmin, le
                                         <h1 className="text-2xl md:text-3xl font-bold tracking-tight truncate text-emerald-700">
                                             {officialName}
                                         </h1>
-                                        <a 
-                                            href={`https://search.gleif.org/#/record/${leData?.lei}`} 
-                                            target="_blank" 
-                                            rel="noopener noreferrer" 
-                                            className="text-emerald-600 hover:text-emerald-500 transition-colors"
-                                            title="View on GLEIF"
-                                        >
-                                            <ExternalLink className="h-5 w-5 shrink-0" />
-                                        </a>
+                                        <TooltipProvider>
+                                            <Tooltip delayDuration={300}>
+                                                <TooltipTrigger asChild>
+                                                    <a 
+                                                        href={`https://search.gleif.org/#/record/${leData?.lei}`} 
+                                                        target="_blank" 
+                                                        rel="noopener noreferrer" 
+                                                        className="text-emerald-600 hover:text-emerald-500 transition-colors"
+                                                    >
+                                                        <ExternalLink className="h-5 w-5 shrink-0" />
+                                                    </a>
+                                                </TooltipTrigger>
+                                                <TooltipContent>
+                                                    <p className="text-[13px] font-medium">Link to GLEIF, opens in new window</p>
+                                                </TooltipContent>
+                                            </Tooltip>
+                                        </TooltipProvider>
                                     </div>
                                 ) : canEdit ? (
                                     <EditableHeaderTitle 
