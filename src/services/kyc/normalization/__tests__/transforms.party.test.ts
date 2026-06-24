@@ -572,3 +572,37 @@ describe('Phase 1B: Regression checks for active directors (Field 63)', () => {
         expect(isRenderableActiveDirectorParty(resignedDirector)).toBe(false);
     });
 });
+
+describe('TO_COMPANIES_HOUSE_ACTIVE_DIRECTOR_PARTY_VALUE_LIST', () => {
+    it('should include only active directors and exclude secretaries and resigned directors', () => {
+        const payload = [
+            CH_DIRECTOR_ACTIVE,
+            CH_DIRECTOR_RESIGNED,
+            { ...CH_DIRECTOR_ACTIVE, officer_role: 'secretary', name: 'SECRETARY, Sam' }
+        ];
+
+        const res = applyTransform(payload, 'TO_COMPANIES_HOUSE_ACTIVE_DIRECTOR_PARTY_VALUE_LIST', BASE_CONFIG);
+        
+        expect(res.confidencePenalty).toBe(0);
+        expect(Array.isArray(res.value)).toBe(true);
+        expect(res.value.length).toBe(1);
+        expect(res.value[0].surname).toBe('Smith');
+        expect(res.value[0].forenames).toBe('John Robert');
+        expect(res.value[0].roles[0].roleTitle).toBe('director');
+    });
+
+    it('should pass through rowKeys matching the active directors', () => {
+        const payload = [
+            { ...CH_DIRECTOR_ACTIVE, officer_role: 'secretary', name: 'SECRETARY, Sam' },
+            CH_DIRECTOR_ACTIVE
+        ];
+
+        const res = applyTransform(payload, 'TO_COMPANIES_HOUSE_ACTIVE_DIRECTOR_PARTY_VALUE_LIST', BASE_CONFIG);
+        expect(res.value.length).toBe(1);
+        expect(res.value[0].surname).toBe('Smith');
+        
+        expect(res.rowKeys.length).toBe(1);
+        const expectedRowKey = buildPersonOrContactRowKey('2020-01-15', res.value[0]);
+        expect(res.rowKeys[0]).toBe(expectedRowKey);
+    });
+});

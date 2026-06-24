@@ -7,7 +7,7 @@ import { ProvenanceSource } from "@/domain/kyc/types/ProvenanceTypes";
 import prisma from "@/lib/prisma";
 import { getComplexFieldConfig } from "@/lib/master-data/complex-field-config";
 import { FieldClaim } from "@prisma/client";
-import { isRenderableActiveDirectorParty, getPartySummary } from "@/lib/master-data/party-value";
+import { getPartySummary } from "@/lib/master-data/party-value";
 
 // KycLoader is deprecated in favor of KycStateService
 
@@ -59,9 +59,7 @@ export async function resolveMasterData(
                                 fieldNo,
                                 ownerScopeId || undefined
                             );
-                            if (fieldNo === 63) {
-                                collection = collection.filter((c: any) => isRenderableActiveDirectorParty(c.value));
-                            }
+
                             if (collection.length > 0) {
                                 const maxUpdatedAt = collection.reduce(
                                     (max: Date, c: any) => (c.assertedAt > max ? c.assertedAt : max),
@@ -108,9 +106,7 @@ export async function resolveMasterData(
                     q.masterFieldNo,
                     ownerScopeId || undefined
                 );
-                if (q.masterFieldNo === 63) {
-                    collection = collection.filter((c: any) => isRenderableActiveDirectorParty(c.value));
-                }
+
                 if (collection.length > 0) {
                     const vals = collection.map((c: any) => c.value);
                     console.log(`[resolveMasterData] Field ${q.masterFieldNo} is multi-value. Values:`, vals);
@@ -297,11 +293,9 @@ function resolveField(
             const winner = KycStateService.pickWinner(group, ownerScopeId ?? undefined, priorityMap);
             if (winner && !KycStateService.isTombstone(winner)) {
                 const derived = KycStateService.mapToDerivedValue(winner, ownerScopeId ?? undefined);
-                if (fieldNo !== 63 || isRenderableActiveDirectorParty(derived.value)) {
-                    values.push(derived.value);
-                    if (!firstDerived) firstDerived = derived;
-                    if (!maxAssertedAt || derived.assertedAt > maxAssertedAt) maxAssertedAt = derived.assertedAt;
-                }
+                values.push(derived.value);
+                if (!firstDerived) firstDerived = derived;
+                if (!maxAssertedAt || derived.assertedAt > maxAssertedAt) maxAssertedAt = derived.assertedAt;
             }
         }
 
@@ -970,9 +964,7 @@ export async function getFieldDetail(
                 { subjectLeId }, fieldNo, ownerScopeId, undefined, filterCollectionId
             );
 
-            if (fieldNo === 63) {
-                collection = collection.filter(c => isRenderableActiveDirectorParty(c.value));
-            }
+
 
             rows = collection.map((c: any) => {
                 return {

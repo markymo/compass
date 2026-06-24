@@ -19,6 +19,14 @@ export interface TransformDefinition {
     label: string;
     /** One-sentence plain-English description shown under the dropdown */
     description: string;
+    /** What payload shape the transform expects to receive */
+    inputExpectation?: string;
+    /** What structural shape the transform produces */
+    outputShape?: string;
+    /** Typical field or domain use-case */
+    typicalUse?: string;
+    /** Operational warnings or specific hardcoded assumptions */
+    caveats?: string;
 }
 
 export const TRANSFORM_DEFINITIONS: TransformDefinition[] = [
@@ -114,6 +122,15 @@ export const TRANSFORM_DEFINITIONS: TransformDefinition[] = [
         label: 'To Party List',
         description:
             'Maps an array of source objects (e.g. CH officers array, PSC array) into multiple PartyValue claims — one FieldClaim per item, each with its own instanceId, effectiveFrom, effectiveTo, and valueJson. Mirrors the TO_PARTY_LIST fan-out contract.',
+    },
+    {
+        key: 'TO_COMPANIES_HOUSE_ACTIVE_DIRECTOR_PARTY_VALUE_LIST',
+        label: 'Companies House Active Directors',
+        description: 'Converts Companies House officer records into embedded PARTY values representing current active directors.',
+        inputExpectation: 'Companies House officers array.',
+        outputShape: 'Multiple embedded PARTY FieldClaims.',
+        typicalUse: 'Field 63 Current Directors.',
+        caveats: 'Excludes resigned directors, secretaries and non-renderable officers. Depends on Companies House officer semantics.',
     },
 ];
 

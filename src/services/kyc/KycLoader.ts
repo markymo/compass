@@ -3,7 +3,7 @@ import { getFieldDefinition } from '@/domain/kyc/FieldDefinitions';
 import { getMasterFieldGroup } from '@/services/masterData/definitionService';
 import { ProvenanceSource } from '@/domain/kyc/types/ProvenanceTypes';
 import { KycStateService } from '@/lib/kyc/KycStateService';
-import { isRenderableActiveDirectorParty } from '@/lib/master-data/party-value';
+
 
 export type LoadedField = {
     value: any;
@@ -47,10 +47,6 @@ export class KycLoader {
                 fieldNo,
                 ownerScopeId || undefined
             );
-
-            if (fieldNo === 63) {
-                collection = collection.filter((c: any) => isRenderableActiveDirectorParty(c.value));
-            }
 
             if (collection.length === 0) return null;
 
