@@ -124,7 +124,7 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
                                     {available.map((snapshot) => (
                                         <CommandItem
                                             key={snapshot.id}
-                                            value={`${snapshot.name} ${snapshot.description || ""}`}
+                                            value={`${snapshot.id} ${snapshot.name} ${snapshot.referenceCode || ""} ${snapshot.functionalCode || ""} ${snapshot.description || ""}`}
                                             onSelect={() => handleAdd(snapshot)}
                                             className="flex flex-col items-start py-3 cursor-pointer"
                                         >
