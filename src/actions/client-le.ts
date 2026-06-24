@@ -966,14 +966,31 @@ export async function addCommonQuestionnaire(clientLEId: string, questionnaireId
     if (!identity?.userId) return { success: false, error: "Unauthorized" };
 
     try {
-        await prisma.clientLE.update({
-            where: { id: clientLEId },
+        const template = await prisma.questionnaire.findUnique({
+            where: { id: questionnaireId }
+        });
+
+        if (!template) return { success: false, error: "Questionnaire not found" };
+
+        const newQuestionnaire = await prisma.questionnaire.create({
             data: {
-                commonQuestionnaires: {
-                    connect: { id: questionnaireId }
+                name: template.name,
+                fiOrgId: template.fiOrgId,
+                status: "ACTIVE",
+                extractedContent: template.extractedContent as any,
+                kind: "WORKING_COPY", 
+                isTemplate: false,
+                isGlobal: false,
+                sourceId: questionnaireId,
+                referenceCode: template.referenceCode,
+                commonForClients: {
+                    connect: { id: clientLEId }
                 }
             }
         });
+
+        const { populateQuestionsFromExtraction } = await import("./kanban-actions");
+        await populateQuestionsFromExtraction(newQuestionnaire.id);
 
         revalidatePath(`/app/le/${clientLEId}`);
         return { success: true };
@@ -997,10 +1014,19 @@ export async function removeCommonQuestionnaire(clientLEId: string, questionnair
             }
         });
 
+        // If it's a local clone (not global), soft-delete it to prevent orphans
+        const q = await prisma.questionnaire.findUnique({ where: { id: questionnaireId } });
+        if (q && !q.isGlobal) {
+            await prisma.questionnaire.update({
+                where: { id: questionnaireId },
+                data: { isDeleted: true }
+            });
+        }
+
         revalidatePath(`/app/le/${clientLEId}`);
         return { success: true };
     } catch (error) {
-        console.error("Failed to unlink common questionnaire:", error);
+        console.error("Failed to remove common questionnaire:", error);
         return { success: false, error: "Database error" };
     }
-}
+};

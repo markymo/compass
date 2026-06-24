@@ -811,6 +811,11 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                     {data?.category || `Field #${fieldNo}`}
                                 </span>
                             )}
+                            {data?.description && (
+                                <p className="text-sm text-slate-600 mt-1.5 leading-relaxed">
+                                    {data.description}
+                                </p>
+                            )}
                         </div>
 
                         {/* Assignment */}

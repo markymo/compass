@@ -496,7 +496,7 @@ export async function getClientLEData(leId: string) {
         return null;
     }
 
-    const { calculateCommonQuestionnaireMetrics } = await import("@/lib/metrics-calc");
+    const { calculateCommonQuestionnaireMetrics, calculateEngagementMetrics, calculateQuestionnaireMetrics } = await import("@/lib/metrics-calc");
     if (le.commonQuestionnaires) {
         for (const q of le.commonQuestionnaires) {
             (q as any).metrics = await calculateCommonQuestionnaireMetrics(q.id, le.id);
@@ -504,6 +504,9 @@ export async function getClientLEData(leId: string) {
     }
 
     for (const eng of le.fiEngagements) {
+        // Compute engagement-level metrics
+        (eng as any).metrics = await calculateEngagementMetrics(eng.id);
+
         // Combine both many-to-many and one-to-many relations for compatibility
         const combined = Array.from(
             new Map(
@@ -513,8 +516,8 @@ export async function getClientLEData(leId: string) {
         for (const q of combined) {
             (q as any).metrics = await calculateQuestionnaireMetrics((q as any).id);
         }
-        eng.questionnaires = combined;
-        console.log(`[getClientLEData] Engagement ${eng.org.name} has ${eng.questionnaires.length} ACTIVE questionnaires`);
+        (eng as any).questionnaires = combined;
+        console.log(`[getClientLEData] Engagement ${eng.org.name} has ${(eng as any).questionnaires.length} ACTIVE questionnaires`);
     }
 
     // 2. Get the Active Master Schema

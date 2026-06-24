@@ -897,6 +897,32 @@ export async function updateQuestionnaireName(id: string, newName: string) {
     return { success: true };
 }
 
+export async function updateQuestionnaireDescription(id: string, newDescription: string | null) {
+    try { await ensureQuestionnaireAccess(id, "WRITE"); } catch(e) {
+        return { success: false, error: "Unauthorized" };
+    }
+    const q = await prisma.questionnaire.findUnique({ where: { id } });
+    if (!q) throw new Error("Questionnaire not found");
+
+    if (q.kind === "REFERENCE_SNAPSHOT" || (q.isGlobal && q.isTemplate && !q.fiEngagementId)) {
+        return { success: false, error: "Cannot edit description of a Reference Snapshot" };
+    }
+
+    const trimmed = newDescription?.trim() || null;
+    if (trimmed && trimmed.length > 160) {
+        return { success: false, error: "Description must be 160 characters or fewer" };
+    }
+
+    await prisma.questionnaire.update({
+        where: { id },
+        data: { description: trimmed }
+    });
+
+    revalidatePath(`/app/admin/questionnaires/${id}`);
+    revalidatePath(`/app/admin/organizations/${q.fiOrgId}`);
+    return { success: true };
+}
+
 export async function updateQuestionnaireFile(id: string, formData: FormData) {
     try { await ensureQuestionnaireAccess(id, "WRITE"); } catch(e) {
         return { success: false, error: "Unauthorized" };

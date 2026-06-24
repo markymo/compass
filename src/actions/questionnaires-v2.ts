@@ -188,6 +188,7 @@ export async function getQuestionnairesV2(): Promise<{
 export interface DiscoverableSnapshot {
     id: string;
     name: string;
+    description: string | null;
     functionalCode: string | null;
     referenceCode: string | null;
     visibility: QuestionnaireVisibility;
@@ -226,6 +227,7 @@ export async function getDiscoverableReferenceSnapshotsForOrg(
         select: {
             id: true,
             name: true,
+            description: true,
             functionalCode: true,
             referenceCode: true,
             visibility: true,
@@ -240,6 +242,7 @@ export async function getDiscoverableReferenceSnapshotsForOrg(
     return rows.map((r: any) => ({
         id: r.id,
         name: r.name,
+        description: r.description,
         functionalCode: r.functionalCode,
         referenceCode: r.referenceCode,
         visibility: r.visibility as QuestionnaireVisibility,
