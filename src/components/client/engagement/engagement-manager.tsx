@@ -20,6 +20,32 @@ import {
 import { ProgressTracker } from "@/components/shared/progress-tracker";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { usePreferences } from "@/components/providers/user-preferences-provider";
+const DASHBOARD_GRID_V2 = "grid-cols-[minmax(350px,1fr)_60px_160px_160px_150px]";
+
+function MicroChart({ value, total, colorClass, emptyClass, numeratorLabel, denominatorLabel }: { value: number, total: number, colorClass: string, emptyClass: string, numeratorLabel: string, denominatorLabel: string }) {
+    if (total === 0) {
+        return <div className="text-[10px] text-slate-300 h-full w-full flex items-center pr-4 italic">No data</div>;
+    }
+    
+    const percent = Math.min(100, Math.max(0, (value / total) * 100));
+    
+    return (
+        <div className="flex flex-col gap-1 w-full pr-4 mt-0.5">
+            <div className="flex justify-between items-baseline leading-none">
+                <span className={cn("text-xs font-bold font-mono", percent > 0 ? colorClass : "text-slate-300")}>
+                    {value}
+                </span>
+                <span className="text-[9px] text-slate-400 font-medium font-mono uppercase tracking-tighter">
+                    {(total - value)} {denominatorLabel}
+                </span>
+            </div>
+            <div className={cn("h-1 w-full rounded-full overflow-hidden flex", emptyClass)}>
+                <div className={cn("h-full transition-all duration-500")} style={{ width: `${percent}%`, backgroundColor: 'currentColor' }} />
+            </div>
+        </div>
+    );
+}
+
 interface EngagementManagerProps {
     leId: string;
     initialEngagements: any[];
@@ -185,12 +211,51 @@ export function EngagementManager({ leId, initialEngagements, leDueDate }: Engag
             )}
 
             {engagements.length > 0 ? (
-                <Accordion 
-                    type="multiple" 
-                    value={expandedEngagements}
-                    onValueChange={handleAccordionChange}
-                    className="space-y-4"
-                >
+                <div className="flex flex-col gap-3">
+                    {/* --- 2-Tier Header Row --- */}
+                    <div className={cn("hidden md:grid items-center px-4 py-2 border-b border-slate-200 bg-slate-50/80 rounded-t-xl border-x border-t", DASHBOARD_GRID_V2)}>
+                        {/* 1. Entity */}
+                        <div className="flex items-center gap-2 pr-4 pl-1">
+                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider pl-[44px]">Supplier Relationships</span>
+                        </div>
+
+                        {/* 2. Anchor (Total) */}
+                        <div className="text-center pb-0.5">
+                            <span className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">Total</span>
+                        </div>
+
+                        {/* 3. Sourcing Group */}
+                        <div className="flex flex-col border-l border-slate-200 pl-4 h-full">
+                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-[2px]">Data Sourcing</span>
+                            <div className="flex justify-between pr-4 items-end">
+                                <span className="text-[10px] font-bold text-sky-600 uppercase">Mapped</span>
+                            </div>
+                        </div>
+
+                        {/* 4. Completion Group */}
+                        <div className="flex flex-col border-l border-slate-200 pl-4 h-full">
+                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-[2px]">Completion</span>
+                            <div className="flex justify-between pr-4 items-end">
+                                <span className="text-[10px] font-bold text-amber-600 uppercase">Answered</span>
+                            </div>
+                        </div>
+
+                        {/* 5. Workflow Group */}
+                        <div className="flex flex-col border-l border-slate-200 pl-4 h-full">
+                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-[2px]">Sign-Off</span>
+                            <div className="flex justify-between pr-[18px] items-end">
+                                <span className="text-[10px] font-bold text-indigo-600 uppercase">Apprv</span>
+                                <span className="text-[10px] font-bold text-emerald-600 uppercase">Relsd</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <Accordion 
+                        type="multiple" 
+                        value={expandedEngagements}
+                        onValueChange={handleAccordionChange}
+                        className="space-y-3"
+                    >
                     {engagements.map((eng: any) => {
                         const orgName = typeof eng.org === 'string' ? eng.org : eng.org?.name;
                         const docCount = eng._count?.sharedDocuments || 0;
@@ -202,36 +267,87 @@ export function EngagementManager({ leId, initialEngagements, leDueDate }: Engag
 
                         return (
                             <AccordionItem key={eng.id} value={eng.id} className="border border-slate-200 rounded-lg bg-white shadow-sm overflow-hidden data-[state=open]:border-indigo-200 transition-colors">
-                                <div className="flex items-center justify-between pr-4 hover:bg-slate-50 transition-colors">
-                                    <AccordionTrigger className="hover:no-underline px-4 py-4 flex-1">
-                                        <div className="flex flex-col md:flex-row md:items-center gap-4 text-left w-full">
-                                            <div className="flex items-center gap-4 min-w-0 flex-1">
-                                                <div className="h-10 w-10 rounded bg-indigo-50 flex items-center justify-center shrink-0">
-                                                    <Building2 className="h-5 w-5 text-indigo-500" />
+                                <div className="flex items-start justify-between pr-3 hover:bg-slate-50 transition-colors">
+                                    <AccordionTrigger className="hover:no-underline px-4 py-3 flex-1">
+                                        <div className={cn("hidden md:grid items-center w-full text-left", DASHBOARD_GRID_V2)}>
+                                            {/* Col 1: Entity */}
+                                            <div className="flex items-center gap-3 overflow-hidden pr-4">
+                                                <div className="h-8 w-8 rounded bg-emerald-50 flex items-center justify-center shrink-0">
+                                                    <Building2 className="h-4 w-4 text-emerald-600" />
                                                 </div>
                                                 <div className="min-w-0 flex-1">
-                                                    <h3 className="font-bold text-lg text-slate-900 truncate">
-                                                        {orgName}
-                                                    </h3>
-                                                    <div className="flex flex-wrap items-center gap-2 mt-1">
+                                                    <div className="flex items-center gap-2">
+                                                        <h3 className="font-bold text-[15px] text-slate-900 truncate">
+                                                            {orgName}
+                                                        </h3>
                                                         <Badge variant="outline" className={cn(
-                                                            "text-[10px] uppercase font-bold px-1.5 py-0",
+                                                            "text-[9px] uppercase font-bold px-1.5 py-0 h-4",
                                                             eng.status === 'INVITED' ? "bg-blue-50 text-blue-700 border-blue-200" :
                                                                 "bg-slate-100 text-slate-600 border-slate-200"
                                                         )}>
                                                             {eng.status === 'PREPARATION' ? 'DRAFT' : eng.status}
                                                         </Badge>
-                                                        {qCount > 0 && (
-                                                            <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
-                                                                {qCount} Questionnaire{qCount !== 1 ? 's' : ''}
-                                                            </span>
-                                                        )}
                                                     </div>
+                                                    <span className="text-xs text-slate-400">Supplier Relationship</span>
+                                                </div>
+                                            </div>
+
+                                            {/* Col 2: Total Items */}
+                                            <div className="text-center font-bold text-slate-700 text-[15px]">
+                                                {eng.metrics?.total || 0}
+                                            </div>
+
+                                            {/* Col 3: Data Sourcing */}
+                                            <div className="border-l border-slate-100 pl-4 flex flex-col justify-center h-full text-sky-500">
+                                                {eng.metrics && <MicroChart value={eng.metrics.mapped} total={eng.metrics.total} colorClass="text-sky-500" emptyClass="bg-slate-100" numeratorLabel="Mapped" denominatorLabel="Unmapped" />}
+                                            </div>
+
+                                            {/* Col 4: Completion */}
+                                            <div className="border-l border-slate-100 pl-4 flex flex-col justify-center h-full text-amber-500">
+                                                {eng.metrics && <MicroChart value={eng.metrics.answered} total={eng.metrics.total} colorClass="text-amber-500" emptyClass="bg-slate-100" numeratorLabel="Answered" denominatorLabel="Blank" />}
+                                            </div>
+
+                                            {/* Col 5: Sign-Off */}
+                                            <div className="border-l border-slate-100 pl-4 pr-1 flex items-center justify-between h-full">
+                                                {eng.metrics && (
+                                                    <>
+                                                        <div className="flex flex-col items-center gap-0.5">
+                                                            <span className={cn("text-[13px] font-bold font-mono", eng.metrics.approved > 0 ? "text-indigo-600" : "text-slate-300")}>{eng.metrics.approved}</span>
+                                                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Apprv</span>
+                                                        </div>
+                                                        <div className="flex flex-col items-center gap-0.5">
+                                                            <span className={cn("text-[13px] font-bold font-mono", eng.metrics.released > 0 ? "text-emerald-600" : "text-slate-300")}>{eng.metrics.released}</span>
+                                                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Relsd</span>
+                                                        </div>
+                                                    </>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* Mobile View */}
+                                        <div className="md:hidden flex flex-col text-left w-full gap-3">
+                                            <div className="flex items-center justify-between min-w-0 pr-2">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="h-8 w-8 rounded bg-emerald-50 flex items-center justify-center shrink-0">
+                                                        <Building2 className="h-4 w-4 text-emerald-600" />
+                                                    </div>
+                                                    <h3 className="font-bold text-base text-slate-900 truncate">
+                                                        {orgName}
+                                                    </h3>
+                                                </div>
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    <Badge variant="outline" className={cn(
+                                                        "text-[10px] uppercase font-bold px-1.5 py-0",
+                                                        eng.status === 'INVITED' ? "bg-blue-50 text-blue-700 border-blue-200" :
+                                                            "bg-slate-100 text-slate-600 border-slate-200"
+                                                    )}>
+                                                        {eng.status === 'PREPARATION' ? 'DRAFT' : eng.status}
+                                                    </Badge>
                                                 </div>
                                             </div>
                                             {eng.metrics && (
-                                                <div className="w-full md:w-48 md:mr-4 shrink-0 mt-3 md:mt-0">
-                                                    <ProgressTracker metrics={eng.metrics} variant={"v2" as any} className="w-full bg-white border border-slate-100 rounded-md p-1.5" />
+                                                <div className="w-full pr-2">
+                                                    <ProgressTracker metrics={eng.metrics} variant={"v2" as any} className="w-full bg-slate-50/50" />
                                                 </div>
                                             )}
                                         </div>
@@ -239,7 +355,7 @@ export function EngagementManager({ leId, initialEngagements, leDueDate }: Engag
                                     
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
-                                            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-slate-400">
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-slate-400 mt-3">
                                                 <MoreVertical className="h-4 w-4" />
                                             </Button>
                                         </DropdownMenuTrigger>
@@ -255,137 +371,163 @@ export function EngagementManager({ leId, initialEngagements, leDueDate }: Engag
                                     </DropdownMenu>
                                 </div>
 
-                                <AccordionContent className="border-t border-slate-100 bg-slate-50/30 pb-4 pt-4 px-4 md:px-6">
-                                    <Accordion type="multiple" defaultValue={[]} className="w-full space-y-3">
-                                        
-                                        {/* Questionnaires Section */}
-                                        <AccordionItem value="questionnaires" className="border border-slate-200 rounded-md overflow-hidden bg-white shadow-sm">
-                                            <AccordionTrigger className="hover:no-underline px-4 py-3 text-sm font-semibold text-slate-700 bg-slate-50/50">
-                                                <div className="flex items-center gap-2">
-                                                    <FileText className="w-4 h-4 text-indigo-500" />
-                                                    Questionnaires
-                                                    <Badge variant="secondary" className="ml-2 bg-indigo-50 text-indigo-700 text-xs px-1.5 py-0">{qCount}</Badge>
-                                                </div>
-                                            </AccordionTrigger>
-                                            <AccordionContent className="p-4 border-t border-slate-100">
-                                                {qCount > 0 ? (
-                                                    <div className="space-y-3">
-                                                        {questionnaires.map((q: any) => (
-                                                            <div key={q.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-md border border-slate-100 bg-slate-50/50 hover:bg-slate-50 transition-colors">
-                                                                <div className="flex-1">
-                                                                    <div className="font-medium text-sm text-slate-900 flex items-center gap-2">
-                                                                        {q.name}
-                                                                        {q.status === 'DIGITIZING' && (
-                                                                            <Badge variant="outline" className="text-[10px] h-4 py-0 bg-indigo-50 text-indigo-600 border-indigo-200 animate-pulse">
-                                                                                Digitizing
-                                                                            </Badge>
+                                <AccordionContent className="border-t border-slate-100 bg-slate-50/30 pb-4 pt-3 px-4">
+                                    <div className="flex flex-col gap-2">
+                                        {/* Questionnaires Section (Expandable) */}
+                                        <Accordion type="multiple" defaultValue={[]} className="w-full">
+                                            <AccordionItem value="questionnaires" className="border border-slate-200 rounded-md overflow-hidden bg-white shadow-sm data-[state=open]:border-indigo-200 transition-colors">
+                                                <AccordionTrigger className="hover:no-underline px-4 py-3 text-sm font-semibold text-slate-700 bg-slate-50/50">
+                                                    <div className="flex items-center justify-between w-full pr-4">
+                                                        <div className="flex items-center gap-2">
+                                                            <FileText className="w-4 h-4 text-indigo-500" />
+                                                            Questionnaires
+                                                            <Badge variant="secondary" className="ml-2 bg-indigo-50 text-indigo-700 text-[10px] font-bold uppercase tracking-wider px-1.5 py-0">{qCount}</Badge>
+                                                        </div>
+                                                    </div>
+                                                </AccordionTrigger>
+                                                <AccordionContent className="border-t border-slate-100 p-0">
+                                                    {qCount > 0 ? (
+                                                        <div className="divide-y divide-slate-100">
+                                                            {questionnaires.map((q: any) => (
+                                                                <div key={q.id} className="p-3 hover:bg-slate-50 transition-colors group/card">
+                                                                    <div className={cn("hidden md:grid items-center gap-2", DASHBOARD_GRID_V2)}>
+                                                                        {/* Col 1: Name */}
+                                                                        <div className="flex items-center gap-3 overflow-hidden pr-4 pl-4">
+                                                                            <FileText className="h-4 w-4 text-slate-400 shrink-0" />
+                                                                            <div className="min-w-0 flex-1">
+                                                                                <div className="flex items-center gap-2">
+                                                                                    <span className="font-medium text-[13.5px] text-slate-800 truncate group-hover/card:text-indigo-600 transition-colors" title={q.name}>{q.name}</span>
+                                                                                    {q.status === 'DIGITIZING' && (
+                                                                                        <Badge variant="outline" className="w-fit text-[9px] h-[16px] py-0 bg-indigo-50 text-indigo-600 border-indigo-200 animate-pulse">
+                                                                                            Digitizing
+                                                                                        </Badge>
+                                                                                    )}
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+
+                                                                        {/* Col 2: Total */}
+                                                                        <div className="text-center font-bold text-slate-600 text-[14px]">
+                                                                            {q.metrics?.total || 0}
+                                                                        </div>
+
+                                                                        {/* Col 3: Data Sourcing */}
+                                                                        <div className="border-l border-slate-100 pl-4 flex flex-col justify-center h-full text-sky-500">
+                                                                            {q.metrics && <MicroChart value={q.metrics.mapped} total={q.metrics.total} colorClass="text-sky-500" emptyClass="bg-slate-100" numeratorLabel="Mapped" denominatorLabel="Unmapped" />}
+                                                                        </div>
+
+                                                                        {/* Col 4: Completion */}
+                                                                        <div className="border-l border-slate-100 pl-4 flex flex-col justify-center h-full text-amber-500">
+                                                                            {q.metrics && <MicroChart value={q.metrics.answered} total={q.metrics.total} colorClass="text-amber-500" emptyClass="bg-slate-100" numeratorLabel="Answered" denominatorLabel="Blank" />}
+                                                                        </div>
+
+                                                                        {/* Col 5: Sign-Off & Action */}
+                                                                        <div className="border-l border-slate-100 pl-4 pr-1 flex items-center justify-between h-full">
+                                                                            {q.metrics && (
+                                                                                <>
+                                                                                    <div className="flex flex-col items-center gap-0.5">
+                                                                                        <span className={cn("text-[13px] font-bold font-mono", q.metrics.approved > 0 ? "text-indigo-600" : "text-slate-300")}>{q.metrics.approved}</span>
+                                                                                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Apprv</span>
+                                                                                    </div>
+                                                                                    <div className="flex flex-col items-center gap-0.5">
+                                                                                        <span className={cn("text-[13px] font-bold font-mono", q.metrics.released > 0 ? "text-emerald-600" : "text-slate-300")}>{q.metrics.released}</span>
+                                                                                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Relsd</span>
+                                                                                    </div>
+                                                                                </>
+                                                                            )}
+                                                                            <div className="pl-4">
+                                                                                <Link 
+                                                                                    href={`/app/le/${leId}/workbench4?rel=${encodeURIComponent(orgName || "Unknown")}&q=${encodeURIComponent(q.name)}`}
+                                                                                    className="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-slate-200 text-slate-400 hover:text-slate-600 transition-colors"
+                                                                                    title="Review questionnaire"
+                                                                                >
+                                                                                    <ArrowUpRight className="h-4 w-4" />
+                                                                                </Link>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                    {/* Mobile View */}
+                                                                    <div className="md:hidden flex flex-col gap-3">
+                                                                        <div className="flex items-center gap-3 pr-4 pl-2">
+                                                                            <FileText className="h-4 w-4 text-slate-400 shrink-0" />
+                                                                            <div className="min-w-0 flex-1">
+                                                                                <div className="flex items-center gap-2">
+                                                                                    <span className="font-medium text-[13.5px] text-slate-800 truncate transition-colors">{q.name}</span>
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                        {q.metrics && (
+                                                                            <ProgressTracker metrics={q.metrics} variant={"v2" as any} className="w-full bg-slate-50/50" />
                                                                         )}
                                                                     </div>
-                                                                    <div className="text-xs text-slate-500 mt-1">{q.status || 'In Progress'}</div>
                                                                 </div>
-                                                                <div className="flex items-center gap-2 sm:shrink-0">
-                                                                    <Link href={`/app/le/${leId}/engagement-new/${eng.id}?tab=manage`}>
-                                                                        <Button variant="outline" size="sm" className="h-8 text-xs bg-white">
-                                                                            Review questionnaire
-                                                                            <ArrowUpRight className="ml-1 w-3 h-3" />
-                                                                        </Button>
-                                                                    </Link>
-                                                                </div>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                ) : (
-                                                    <div className="text-sm text-slate-500 flex flex-col items-center justify-center py-4 bg-slate-50/50 rounded-md border border-slate-100 border-dashed">
-                                                        No questionnaires active.
-                                                    </div>
-                                                )}
-                                            </AccordionContent>
-                                        </AccordionItem>
+                                                            ))}
+                                                        </div>
+                                                    ) : (
+                                                        <div className="text-sm text-slate-500 flex items-center justify-center py-4 bg-slate-50/50">
+                                                            No questionnaires active.
+                                                        </div>
+                                                    )}
+                                                </AccordionContent>
+                                            </AccordionItem>
+                                        </Accordion>
 
-                                        {/* Documents Section */}
-                                        <AccordionItem value="documents" className="border border-slate-200 rounded-md overflow-hidden bg-white shadow-sm">
-                                            <AccordionTrigger className="hover:no-underline px-4 py-3 text-sm font-semibold text-slate-700 bg-slate-50/50">
-                                                <div className="flex items-center gap-2">
+                                        {/* Documents Static Row */}
+                                        <Link href={`/app/le/${leId}/engagement-new/${eng.id}?tab=documents`} className="block">
+                                            <div className="flex items-center justify-between px-4 py-3 bg-white border border-slate-200 rounded-md shadow-sm hover:bg-slate-50 hover:border-emerald-200 transition-colors group">
+                                                <div className="flex items-center gap-3">
                                                     <Folder className="w-4 h-4 text-emerald-500" />
-                                                    Documents
-                                                    {docCount > 0 && <Badge variant="secondary" className="ml-2 bg-emerald-50 text-emerald-700 text-xs px-1.5 py-0">{docCount}</Badge>}
+                                                    <span className="text-sm font-semibold text-slate-700">Documents</span>
+                                                    <Badge variant="secondary" className="ml-2 bg-emerald-50 text-emerald-700 text-[10px] font-bold uppercase tracking-wider px-1.5 py-0">{docCount}</Badge>
                                                 </div>
-                                            </AccordionTrigger>
-                                            <AccordionContent className="p-4 border-t border-slate-100">
-                                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50/50 rounded-md p-3 border border-slate-100">
-                                                    <div className="text-sm text-slate-600">
-                                                        {docCount > 0 ? (
-                                                            <span className="font-medium text-slate-900">{docCount} document{docCount !== 1 ? 's' : ''}</span>
-                                                        ) : (
-                                                            "No documents shared yet."
-                                                        )}
-                                                        {docCount > 0 && " currently uploaded for this relationship."}
-                                                    </div>
-                                                    <Link href={`/app/le/${leId}/engagement-new/${eng.id}?tab=documents`} className="sm:shrink-0">
-                                                        <Button variant="secondary" size="sm" className="h-8 text-xs w-full sm:w-auto bg-white border border-slate-200 shadow-sm">
-                                                            Manage documents
-                                                        </Button>
-                                                    </Link>
+                                                <div className="flex items-center gap-3 text-sm text-slate-500">
+                                                    <span className="hidden sm:inline">Manage documents</span>
+                                                    <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-emerald-500 transition-colors" />
                                                 </div>
-                                            </AccordionContent>
-                                        </AccordionItem>
+                                            </div>
+                                        </Link>
 
-                                        {/* Output Section */}
-                                        <AccordionItem value="output" className="border border-slate-200 rounded-md overflow-hidden bg-white shadow-sm">
-                                            <AccordionTrigger className="hover:no-underline px-4 py-3 text-sm font-semibold text-slate-700 bg-slate-50/50">
-                                                <div className="flex items-center gap-2">
+                                        {/* Output Static Row */}
+                                        <Link href={`/app/le/${leId}/engagement-new/${eng.id}?tab=output`} className="block">
+                                            <div className="flex items-center justify-between px-4 py-3 bg-white border border-slate-200 rounded-md shadow-sm hover:bg-slate-50 hover:border-amber-200 transition-colors group">
+                                                <div className="flex items-center gap-3">
                                                     <Download className="w-4 h-4 text-amber-500" />
-                                                    Output
+                                                    <span className="text-sm font-semibold text-slate-700">Output</span>
+                                                    <Badge variant="outline" className={cn(
+                                                        "ml-2 text-[10px] font-bold uppercase tracking-wider px-1.5 py-0",
+                                                        eng.status === 'PREPARATION' ? "bg-slate-100 text-slate-600 border-slate-200" : "bg-amber-50 text-amber-700 border-amber-200"
+                                                    )}>
+                                                        {eng.status === 'PREPARATION' ? 'Draft' : 'Pending'}
+                                                    </Badge>
                                                 </div>
-                                            </AccordionTrigger>
-                                            <AccordionContent className="p-4 border-t border-slate-100">
-                                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50/50 rounded-md p-3 border border-slate-100">
-                                                    <div className="text-sm text-slate-600">
-                                                        Output pack configuration and exports are managed here.
-                                                    </div>
-                                                    <Link href={`/app/le/${leId}/engagement-new/${eng.id}?tab=output`} className="sm:shrink-0">
-                                                        <Button variant="secondary" size="sm" className="h-8 text-xs w-full sm:w-auto bg-white border border-slate-200 shadow-sm">
-                                                            Prepare output pack
-                                                        </Button>
-                                                    </Link>
+                                                <div className="flex items-center gap-3 text-sm text-slate-500">
+                                                    <span className="hidden sm:inline">Prepare output pack</span>
+                                                    <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-amber-500 transition-colors" />
                                                 </div>
-                                            </AccordionContent>
-                                        </AccordionItem>
+                                            </div>
+                                        </Link>
 
-                                        {/* Team Section */}
-                                        <AccordionItem value="team" className="border border-slate-200 rounded-md overflow-hidden bg-white shadow-sm">
-                                            <AccordionTrigger className="hover:no-underline px-4 py-3 text-sm font-semibold text-slate-700 bg-slate-50/50">
-                                                <div className="flex items-center gap-2">
+                                        {/* Team Static Row */}
+                                        <Link href={`/app/le/${leId}/engagement-new/${eng.id}?tab=team`} className="block">
+                                            <div className="flex items-center justify-between px-4 py-3 bg-white border border-slate-200 rounded-md shadow-sm hover:bg-slate-50 hover:border-blue-200 transition-colors group">
+                                                <div className="flex items-center gap-3">
                                                     <Users className="w-4 h-4 text-blue-500" />
-                                                    Team
-                                                    {teamCount > 0 && <Badge variant="secondary" className="ml-2 bg-blue-50 text-blue-700 text-xs px-1.5 py-0">{teamCount}</Badge>}
+                                                    <span className="text-sm font-semibold text-slate-700">Team</span>
+                                                    <Badge variant="secondary" className="ml-2 bg-blue-50 text-blue-700 text-[10px] font-bold uppercase tracking-wider px-1.5 py-0">{teamCount}</Badge>
                                                 </div>
-                                            </AccordionTrigger>
-                                            <AccordionContent className="p-4 border-t border-slate-100">
-                                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50/50 rounded-md p-3 border border-slate-100">
-                                                    <div className="text-sm text-slate-600">
-                                                        {teamCount > 0 ? (
-                                                            <span className="font-medium text-slate-900">{teamCount} member{teamCount !== 1 ? 's' : ''}</span>
-                                                        ) : (
-                                                            "No team members invited."
-                                                        )}
-                                                        {teamCount > 0 && " with access to this relationship."}
-                                                    </div>
-                                                    <Link href={`/app/le/${leId}/engagement-new/${eng.id}?tab=team`} className="sm:shrink-0">
-                                                        <Button variant="secondary" size="sm" className="h-8 text-xs w-full sm:w-auto bg-white border border-slate-200 shadow-sm">
-                                                            Manage team
-                                                        </Button>
-                                                    </Link>
+                                                <div className="flex items-center gap-3 text-sm text-slate-500">
+                                                    <span className="hidden sm:inline">Manage team</span>
+                                                    <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-blue-500 transition-colors" />
                                                 </div>
-                                            </AccordionContent>
-                                        </AccordionItem>
-
-                                    </Accordion>
+                                            </div>
+                                        </Link>
+                                    </div>
                                 </AccordionContent>
                             </AccordionItem>
                         );
                     })}
-                </Accordion>
+                    </Accordion>
+                </div>
             ) : (
                 !isAdding && (
                     <div className="text-center py-20 bg-slate-50 rounded-xl border-2 border-dashed border-slate-200">

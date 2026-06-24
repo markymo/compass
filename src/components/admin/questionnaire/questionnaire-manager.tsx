@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
-import { updateQuestionnaireFile, toggleQuestionnaireStatus, updateQuestionnaireName, toggleQuestionnaireGlobal } from "@/actions/questionnaire";
+import { updateQuestionnaireFile, toggleQuestionnaireStatus, updateQuestionnaireName, updateQuestionnaireDescription, toggleQuestionnaireGlobal } from "@/actions/questionnaire";
 import { addToReferenceLibrary, createWorkingCopy, previewPublishReferenceSnapshot } from "@/actions/questionnaires-v2";
 import { toast } from "sonner";
 import {
@@ -223,6 +223,16 @@ export function QuestionnaireManager({ questionnaire: initialQ, masterFields, li
         } catch (e) { console.error(e); }
     };
 
+    const handleDescriptionSave = async () => {
+        try {
+            const res = await updateQuestionnaireDescription(questionnaire.id, questionnaire.description || "");
+            if (!res.success) {
+                alert("Failed to update description: " + res.error);
+                fetchQ();
+            }
+        } catch (e) { console.error(e); }
+    };
+
     const handleExtractText = async () => {
         if (extracting) return;
         setExtracting(true);
@@ -430,7 +440,7 @@ export function QuestionnaireManager({ questionnaire: initialQ, masterFields, li
                             <ArrowLeft className="w-4 h-4 text-slate-600" />
                         </Button>
                     </Link>
-                    <div>
+                    <div className="flex flex-col gap-0">
                         <div className="flex items-center gap-4 border border-transparent hover:border-slate-200 rounded-lg p-1 transition-colors">
                             <Input
                                 value={questionnaire.name}
@@ -487,6 +497,34 @@ export function QuestionnaireManager({ questionnaire: initialQ, masterFields, li
                                     Publish to Reference Library
                                 </Button>
                             ) : null /* ENGAGEMENT_QUESTIONNAIRE — no lifecycle toggle needed */}
+                        </div>
+
+                        {/* Short Description */}
+                        <div className="px-3 flex items-center gap-2 mb-1">
+                            <Input
+                                value={questionnaire.description || ""}
+                                onChange={(e) => {
+                                    if (e.target.value.length <= 160 && !isReferenceSnapshot) {
+                                        setQuestionnaire({ ...questionnaire, description: e.target.value })
+                                    }
+                                }}
+                                onBlur={!isReferenceSnapshot ? handleDescriptionSave : undefined}
+                                onKeyDown={(e) => !isReferenceSnapshot && e.key === 'Enter' && e.currentTarget.blur()}
+                                readOnly={isReferenceSnapshot}
+                                className={cn(
+                                    "h-7 w-[500px] text-xs text-slate-500 bg-transparent border-transparent shadow-none px-2 transition-all",
+                                    isReferenceSnapshot
+                                        ? "cursor-default select-text"
+                                        : "hover:border-slate-200 focus:border-indigo-300 focus:ring-1 focus:ring-indigo-100"
+                                )}
+                                placeholder="Add a short description (optional)"
+                                title={isReferenceSnapshot ? "Reference Snapshots cannot be edited" : "Edit Description"}
+                            />
+                            {!isReferenceSnapshot && (
+                                <span className={cn("text-[10px] whitespace-nowrap", (questionnaire.description?.length || 0) > 150 ? "text-amber-500 font-medium" : "text-slate-400")}>
+                                    {(questionnaire.description?.length || 0)} / 160
+                                </span>
+                            )}
                         </div>
                     </div>
                 </div>

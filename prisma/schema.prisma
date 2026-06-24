@@ -308,6 +308,7 @@ model Questionnaire {
   id               String                         @id @default(uuid())
   fiOrgId          String
   name             String
+  description      String?                        @db.VarChar(160)
   status           String                         @default("DRAFT")
   isDeleted        Boolean                        @default(false)
   fileName         String?

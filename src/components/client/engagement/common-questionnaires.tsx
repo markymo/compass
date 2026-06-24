@@ -11,6 +11,33 @@ import { Button } from "@/components/ui/button";
 import { getAvailableCommonQuestionnaires, addCommonQuestionnaire, removeCommonQuestionnaire } from "@/actions/client-le";
 import { toast } from "sonner";
 import { ProgressTracker } from "@/components/shared/progress-tracker";
+import { cn } from "@/lib/utils";
+
+const DASHBOARD_GRID_V2 = "grid-cols-[minmax(350px,1fr)_60px_160px_160px_150px]";
+
+function MicroChart({ value, total, colorClass, emptyClass, numeratorLabel, denominatorLabel }: { value: number, total: number, colorClass: string, emptyClass: string, numeratorLabel: string, denominatorLabel: string }) {
+    if (total === 0) {
+        return <div className="text-[10px] text-slate-300 h-full w-full flex items-center pr-4 italic">No data</div>;
+    }
+    
+    const percent = Math.min(100, Math.max(0, (value / total) * 100));
+    
+    return (
+        <div className="flex flex-col gap-1 w-full pr-4 mt-0.5">
+            <div className="flex justify-between items-baseline leading-none">
+                <span className={cn("text-xs font-bold font-mono", percent > 0 ? colorClass : "text-slate-300")}>
+                    {value}
+                </span>
+                <span className="text-[9px] text-slate-400 font-medium font-mono uppercase tracking-tighter">
+                    {(total - value)} {denominatorLabel}
+                </span>
+            </div>
+            <div className={cn("h-1 w-full rounded-full overflow-hidden flex", emptyClass)}>
+                <div className={cn("h-full transition-all duration-500")} style={{ width: `${percent}%`, backgroundColor: 'currentColor' }} />
+            </div>
+        </div>
+    );
+}
 
 interface CommonQuestionnairesProps {
     leId: string;
@@ -97,7 +124,7 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
                                     {available.map((snapshot) => (
                                         <CommandItem
                                             key={snapshot.id}
-                                            value={snapshot.name}
+                                            value={`${snapshot.name} ${snapshot.description || ""}`}
                                             onSelect={() => handleAdd(snapshot)}
                                             className="flex flex-col items-start py-3 cursor-pointer"
                                         >
@@ -111,6 +138,9 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
                                             {snapshot.referenceCode && (
                                                 <span className="text-xs text-slate-400 mt-1 ml-6">{snapshot.referenceCode}</span>
                                             )}
+                                            {snapshot.description && (
+                                                <span className="text-xs text-slate-500 mt-0.5 ml-6 line-clamp-1">{snapshot.description}</span>
+                                            )}
                                         </CommandItem>
                                     ))}
                                 </CommandGroup>
@@ -121,79 +151,186 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
             </div>
 
             {linked.length > 0 ? (
-                <div className="grid gap-4">
-                    {linked.map((q: any) => (
-                        <Card key={q.id} className="hover:border-indigo-300 transition-colors group border-slate-200 shadow-sm">
-                            <CardContent className="p-4 md:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                                <div className="flex items-start md:items-center gap-4">
-                                    <div className="h-10 w-10 md:h-12 md:w-12 rounded bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
-                                        <FileText className="h-5 w-5 md:h-6 md:w-6" />
+                <div className="flex flex-col gap-3">
+                    {/* --- 2-Tier Header Row --- */}
+                    <div className={cn("hidden md:grid items-center px-4 py-2 border-b border-slate-200 bg-slate-50/80 rounded-t-xl border-x border-t", DASHBOARD_GRID_V2)}>
+                        {/* 1. Entity */}
+                        <div className="flex items-center gap-2 pr-4 pl-1">
+                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider pl-[44px]">Common Questionnaires</span>
+                        </div>
+
+                        {/* 2. Anchor (Total) */}
+                        <div className="text-center pb-0.5">
+                            <span className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">Total</span>
+                        </div>
+
+                        {/* 3. Sourcing Group */}
+                        <div className="flex flex-col border-l border-slate-200 pl-4 h-full">
+                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-[2px]">Data Sourcing</span>
+                            <div className="flex justify-between pr-4 items-end">
+                                <span className="text-[10px] font-bold text-sky-600 uppercase">Mapped</span>
+                            </div>
+                        </div>
+
+                        {/* 4. Completion Group */}
+                        <div className="flex flex-col border-l border-slate-200 pl-4 h-full">
+                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-[2px]">Completion</span>
+                            <div className="flex justify-between pr-4 items-end">
+                                <span className="text-[10px] font-bold text-amber-600 uppercase">Answered</span>
+                            </div>
+                        </div>
+
+                        {/* 5. Workflow Group */}
+                        <div className="flex flex-col border-l border-slate-200 pl-4 h-full">
+                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-[2px]">Sign-Off</span>
+                            <div className="flex justify-between pr-[18px] items-end">
+                                <span className="text-[10px] font-bold text-indigo-600 uppercase">Apprv</span>
+                                <span className="text-[10px] font-bold text-emerald-600 uppercase">Relsd</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="grid gap-3">
+                        {linked.map((q: any) => (
+                            <div key={q.id} className="p-3 rounded-lg border border-slate-200 bg-white shadow-sm hover:border-indigo-300 transition-colors group/card">
+                                <div className={cn("hidden md:grid items-center gap-2", DASHBOARD_GRID_V2)}>
+                                    {/* Col 1: Name and Badges */}
+                                    <div className="flex items-center gap-3 overflow-hidden pr-4 pl-1">
+                                        <div className="h-8 w-8 rounded bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+                                            <FileText className="h-4 w-4" />
+                                        </div>
+                                        <div className="min-w-0 flex-1">
+                                            <div className="flex flex-col gap-0.5 min-w-0">
+                                                <h3 className="font-semibold text-[13.5px] text-slate-900 group-hover/card:text-indigo-600 transition-colors leading-none truncate" title={q.name}>{q.name}</h3>
+                                                <div className="flex flex-wrap items-center gap-2 mt-0.5">
+                                                    <Badge variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-200 text-[9px] uppercase font-bold px-1.5 py-0 h-4 shrink-0">
+                                                        COMMON TEMPLATE
+                                                    </Badge>
+                                                    {q.referenceCode && (
+                                                        <span className="text-[10px] text-slate-500 shrink-0">{q.referenceCode}</span>
+                                                    )}
+                                                </div>
+                                                {q.description && (
+                                                    <span className="text-xs text-slate-500 mt-0.5 truncate">{q.description}</span>
+                                                )}
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div className="min-w-0">
-                                        <h3 className="font-bold text-base md:text-lg text-slate-900 truncate">
-                                            {q.name}
-                                        </h3>
-                                        <div className="flex flex-wrap items-center gap-2 mt-1">
-                                            <Badge variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-200 text-[10px] uppercase font-bold px-1.5 py-0">
-                                                GLOBAL TEMPLATE
-                                            </Badge>
-                                            {q.referenceCode && (
-                                                <span className="text-xs text-slate-500 ml-2">{q.referenceCode}</span>
+
+                                    {/* Col 2: Total */}
+                                    <div className="text-center font-bold text-slate-600 text-[14px]">
+                                        {q.metrics?.total || 0}
+                                    </div>
+
+                                    {/* Col 3: Data Sourcing */}
+                                    <div className="border-l border-slate-100 pl-4 flex flex-col justify-center h-full text-sky-500">
+                                        {q.metrics && <MicroChart value={q.metrics.mapped} total={q.metrics.total} colorClass="text-sky-500" emptyClass="bg-slate-100" numeratorLabel="Mapped" denominatorLabel="Unmapped" />}
+                                    </div>
+
+                                    {/* Col 4: Completion */}
+                                    <div className="border-l border-slate-100 pl-4 flex flex-col justify-center h-full text-amber-500">
+                                        {q.metrics && <MicroChart value={q.metrics.answered} total={q.metrics.total} colorClass="text-amber-500" emptyClass="bg-slate-100" numeratorLabel="Answered" denominatorLabel="Blank" />}
+                                    </div>
+
+                                    {/* Col 5: Sign-Off and Actions */}
+                                    <div className="border-l border-slate-100 pl-4 pr-1 flex items-center justify-between h-full">
+                                        {q.metrics ? (
+                                            <>
+                                                <div className="flex flex-col items-center gap-0.5">
+                                                    <span className={cn("text-[13px] font-bold font-mono", q.metrics.approved > 0 ? "text-indigo-600" : "text-slate-300")}>{q.metrics.approved}</span>
+                                                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Apprv</span>
+                                                </div>
+                                                <div className="flex flex-col items-center gap-0.5">
+                                                    <span className={cn("text-[13px] font-bold font-mono", q.metrics.released > 0 ? "text-emerald-600" : "text-slate-300")}>{q.metrics.released}</span>
+                                                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Relsd</span>
+                                                </div>
+                                            </>
+                                        ) : (
+                                            <div className="text-xs text-slate-500 italic pr-4">No data</div>
+                                        )}
+                                        <div className="shrink-0 flex items-center gap-1 pl-4">
+                                            {confirmRemoveId === q.id ? (
+                                                <div className="flex items-center gap-1 animate-in fade-in zoom-in duration-200">
+                                                    <Button 
+                                                        variant="ghost" 
+                                                        size="sm"
+                                                        onClick={() => { setConfirmRemoveId(null); handleRemove(q.id, q.name); }}
+                                                        className="text-red-600 hover:text-red-700 hover:bg-red-50 h-8 px-2 text-xs"
+                                                    >
+                                                        Yes
+                                                    </Button>
+                                                    <Button 
+                                                        variant="ghost" 
+                                                        size="sm"
+                                                        onClick={() => setConfirmRemoveId(null)}
+                                                        className="text-slate-500 hover:text-slate-700 hover:bg-slate-100 h-8 px-2 text-xs"
+                                                    >
+                                                        No
+                                                    </Button>
+                                                </div>
+                                            ) : (
+                                                <>
+                                                    <Link 
+                                                        href={`/app/le/${leId}/workbench4?rel=Common&q=${encodeURIComponent(q.name)}`}
+                                                        className="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
+                                                        title="Review in Question Bank"
+                                                    >
+                                                        <ArrowUpRight className="h-4 w-4" />
+                                                    </Link>
+                                                    <Button 
+                                                        variant="ghost" 
+                                                        size="icon" 
+                                                        className="h-8 w-8 text-slate-400 hover:text-red-600 hover:bg-red-50"
+                                                        onClick={() => setConfirmRemoveId(q.id)}
+                                                        title="Remove Common Questionnaire"
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                </>
                                             )}
                                         </div>
-                                        {q.metrics && (
-                                            <div className="flex items-center gap-6 mt-1">
-                                                <div className="flex-1 min-w-0">
-                                                    <ProgressTracker metrics={q.metrics} variant={"v2" as any} className="w-full bg-slate-50/20" />
+                                    </div>
+                                </div>
+                                
+                                {/* Mobile View */}
+                                <div className="md:hidden flex flex-col gap-3">
+                                    <div className="flex items-center justify-between gap-3">
+                                        <div className="flex items-center gap-3">
+                                            <div className="h-8 w-8 rounded bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+                                                <FileText className="h-4 w-4" />
+                                            </div>
+                                            <div className="flex flex-col gap-0.5 min-w-0">
+                                                <h3 className="font-semibold text-sm text-slate-900 leading-none truncate">{q.name}</h3>
+                                                <div className="flex flex-wrap items-center gap-2 mt-0.5">
+                                                    <Badge variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-200 text-[10px] uppercase font-bold px-1.5 py-0">
+                                                        COMMON TEMPLATE
+                                                    </Badge>
                                                 </div>
+                                            </div>
+                                        </div>
+                                        {confirmRemoveId === q.id ? (
+                                            <div className="flex items-center gap-1 animate-in fade-in zoom-in duration-200">
+                                                <Button variant="ghost" size="sm" onClick={() => { setConfirmRemoveId(null); handleRemove(q.id, q.name); }} className="text-red-600 h-6 px-2 text-xs">Yes</Button>
+                                                <Button variant="ghost" size="sm" onClick={() => setConfirmRemoveId(null)} className="text-slate-500 h-6 px-2 text-xs">No</Button>
+                                            </div>
+                                        ) : (
+                                            <div className="shrink-0 flex items-center gap-1">
+                                                <Link href={`/app/le/${leId}/workbench4?rel=Common&q=${encodeURIComponent(q.name)}`} className="h-8 w-8 inline-flex items-center justify-center rounded-md text-slate-400">
+                                                    <ArrowUpRight className="h-4 w-4" />
+                                                </Link>
+                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400" onClick={() => setConfirmRemoveId(q.id)}>
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
                                             </div>
                                         )}
                                     </div>
-                                </div>
-
-                                <div className="flex items-center gap-2 w-full md:w-auto pb-1 md:pb-0">
-                                    <Link 
-                                        href={`/app/le/${leId}/workbench4?rel=Common&q=${encodeURIComponent(q.name)}`}
-                                        className="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
-                                        title="Review questionnaire"
-                                    >
-                                        <ArrowUpRight className="h-4 w-4" />
-                                    </Link>
-                                    {confirmRemoveId === q.id ? (
-                                        <div className="flex items-center gap-1 animate-in fade-in zoom-in duration-200">
-                                            <span className="text-xs text-slate-500 mr-1">Sure?</span>
-                                            <Button 
-                                                variant="ghost" 
-                                                size="sm"
-                                                onClick={() => { setConfirmRemoveId(null); handleRemove(q.id, q.name); }}
-                                                className="text-red-600 hover:text-red-700 hover:bg-red-50 h-8 px-2 text-xs"
-                                            >
-                                                Yes
-                                            </Button>
-                                            <Button 
-                                                variant="ghost" 
-                                                size="sm"
-                                                onClick={() => setConfirmRemoveId(null)}
-                                                className="text-slate-500 hover:text-slate-700 hover:bg-slate-100 h-8 px-2 text-xs"
-                                            >
-                                                No
-                                            </Button>
-                                        </div>
-                                    ) : (
-                                        <Button 
-                                            variant="ghost" 
-                                            size="icon"
-                                            onClick={() => setConfirmRemoveId(q.id)}
-                                            className="text-slate-400 hover:text-red-600 hover:bg-red-50 h-8 w-8"
-                                            title="Remove"
-                                        >
-                                            <Trash2 className="h-4 w-4" />
-                                        </Button>
+                                    {q.metrics && (
+                                        <ProgressTracker metrics={q.metrics} variant={"v2" as any} className="w-full bg-slate-50/50" />
                                     )}
                                 </div>
-                            </CardContent>
-                        </Card>
-                    ))}
+                            </div>
+                        ))}
+                    </div>
                 </div>
             ) : (
                  <div className="text-center py-10 bg-slate-50 rounded-xl border-2 border-dashed border-slate-200">
