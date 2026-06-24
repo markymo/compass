@@ -76,6 +76,22 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
     const [catFilter, setCatFilter] = useState("ALL");
     const [popFilter, setPopFilter] = useState("ALL");
     const [usageFilter, setUsageFilter] = useState("ALL");
+    const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
+
+    const toggleCategory = (id: string) => {
+        setCollapsedCategories(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return next;
+        });
+    };
+
+    const expandAll = () => setCollapsedCategories(new Set());
+    const collapseAll = () => {
+        const allIds = ["CUSTOM", "UNCATEGORIZED", ...categoryList.map((c: any) => c.id)];
+        setCollapsedCategories(new Set(allIds));
+    };
 
     const fieldGroupMap = useMemo(() => {
         const map = new Map<number, { id: string; label: string }[]>();
@@ -471,6 +487,10 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                                 <SelectItem value="UNUSED">Not used in questionnaires</SelectItem>
                             </SelectContent>
                         </Select>
+                        <div className="flex items-center gap-1 border-l border-slate-200 pl-3 shrink-0">
+                            <Button variant="ghost" size="sm" onClick={expandAll} className="h-9 px-2 text-[11px] font-medium text-slate-500 hover:text-slate-700">Expand all</Button>
+                            <Button variant="ghost" size="sm" onClick={collapseAll} className="h-9 px-2 text-[11px] font-medium text-slate-500 hover:text-slate-700">Collapse all</Button>
+                        </div>
                     </div>
                 </div>
 
@@ -479,15 +499,29 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                     {/* Custom Fields */}
                     {filteredCustomFields.length > 0 && (
                         <Card className="border-l-4 border-l-purple-500 shadow-sm overflow-hidden animate-in fade-in duration-300">
-                            <CardHeader className="pb-4 border-b border-slate-100 dark:border-slate-800 bg-purple-50/30">
-                                <CardTitle className="flex items-center gap-2 text-lg text-purple-900">
-                                    <Sparkles className="h-5 w-5 text-purple-600" />
-                                    Custom Fields
-                                </CardTitle>
-                                <CardDescription className="text-purple-700/70">
-                                    Organization-specific data points
-                                </CardDescription>
+                            <CardHeader 
+                                className="pb-4 border-b border-slate-100 dark:border-slate-800 bg-purple-50/30 cursor-pointer hover:bg-purple-50/50 transition-colors group/header"
+                                onClick={() => toggleCategory("CUSTOM")}
+                            >
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <CardTitle className="flex items-center gap-2 text-lg text-purple-900">
+                                            <Sparkles className="h-5 w-5 text-purple-600" />
+                                            Custom Fields
+                                        </CardTitle>
+                                        <CardDescription className="text-purple-700/70">
+                                            Organization-specific data points
+                                        </CardDescription>
+                                    </div>
+                                    <div className="flex items-center gap-3 text-purple-600/70">
+                                        <span className="text-sm font-medium hidden sm:inline-block">
+                                            {filteredCustomFields.length}{filteredCustomFields.length !== customDefinitions.length ? ` of ${customDefinitions.length}` : ''} fields
+                                        </span>
+                                        {collapsedCategories.has("CUSTOM") ? <ChevronDown className="h-5 w-5 group-hover/header:text-purple-900 transition-colors" /> : <ChevronUp className="h-5 w-5 group-hover/header:text-purple-900 transition-colors" />}
+                                    </div>
+                                </div>
                             </CardHeader>
+                            {!collapsedCategories.has("CUSTOM") && (
                             <CardContent className="pt-6 space-y-4">
                                 {filteredCustomFields.map((def: any) => {
                                     const value = customData[def.id] || customData[def.key];
@@ -510,6 +544,7 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                                     );
                                 })}
                             </CardContent>
+                            )}
                         </Card>
                     )}
 
@@ -517,12 +552,24 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                         const Icon = group.icon;
                         return (
                             <Card key={group.id} className="border-l-4 border-l-blue-500 shadow-sm overflow-hidden animate-in fade-in duration-300">
-                                <CardHeader className="pb-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50">
-                                    <CardTitle className="flex items-center gap-2 text-lg">
-                                        <Icon className="h-5 w-5 text-blue-600" />
-                                        {group.displayName}
-                                    </CardTitle>
+                                <CardHeader 
+                                    className="pb-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 cursor-pointer hover:bg-slate-100/50 transition-colors group/header"
+                                    onClick={() => toggleCategory(group.id)}
+                                >
+                                    <div className="flex items-center justify-between">
+                                        <CardTitle className="flex items-center gap-2 text-lg">
+                                            <Icon className="h-5 w-5 text-blue-600" />
+                                            {group.displayName}
+                                        </CardTitle>
+                                        <div className="flex items-center gap-3 text-slate-500">
+                                            <span className="text-sm font-medium hidden sm:inline-block">
+                                                {group.fields.length}{group.fields.length !== (categoryList.find((c: any) => c.id === group.id)?.fields.length || 0) ? ` of ${categoryList.find((c: any) => c.id === group.id)?.fields.length || 0}` : ''} fields
+                                            </span>
+                                            {collapsedCategories.has(group.id) ? <ChevronDown className="h-5 w-5 group-hover/header:text-slate-800 transition-colors" /> : <ChevronUp className="h-5 w-5 group-hover/header:text-slate-800 transition-colors" />}
+                                        </div>
+                                    </div>
                                 </CardHeader>
+                                {!collapsedCategories.has(group.id) && (
                                 <CardContent className="pt-6 space-y-4">
                                     {group.fields.map((field: any) => {
                                         const data = masterData[field.fieldNo];
@@ -545,18 +592,31 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                                         );
                                     })}
                                 </CardContent>
+                                )}
                             </Card>
                         );
                     })}
 
                     {filteredUncategorized.length > 0 && (
                         <Card className="border-l-4 border-l-slate-400 shadow-sm overflow-hidden opacity-80 animate-in fade-in duration-300">
-                            <CardHeader className="pb-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50">
-                                <CardTitle className="flex items-center gap-2 text-lg">
-                                    <FileText className="h-5 w-5 text-slate-500" />
-                                    Uncategorized
-                                </CardTitle>
+                            <CardHeader 
+                                className="pb-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 cursor-pointer hover:bg-slate-100/50 transition-colors group/header"
+                                onClick={() => toggleCategory("UNCATEGORIZED")}
+                            >
+                                <div className="flex items-center justify-between">
+                                    <CardTitle className="flex items-center gap-2 text-lg">
+                                        <FileText className="h-5 w-5 text-slate-500" />
+                                        Uncategorized
+                                    </CardTitle>
+                                    <div className="flex items-center gap-3 text-slate-500">
+                                        <span className="text-sm font-medium hidden sm:inline-block">
+                                            {filteredUncategorized.length}{filteredUncategorized.length !== uncategorizedFields.length ? ` of ${uncategorizedFields.length}` : ''} fields
+                                        </span>
+                                        {collapsedCategories.has("UNCATEGORIZED") ? <ChevronDown className="h-5 w-5 group-hover/header:text-slate-800 transition-colors" /> : <ChevronUp className="h-5 w-5 group-hover/header:text-slate-800 transition-colors" />}
+                                    </div>
+                                </div>
                             </CardHeader>
+                            {!collapsedCategories.has("UNCATEGORIZED") && (
                             <CardContent className="pt-6 space-y-4">
                                 {filteredUncategorized.map((field: any) => {
                                     const data = masterData[field.fieldNo];
@@ -579,6 +639,7 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                                     );
                                 })}
                             </CardContent>
+                            )}
                         </Card>
                     )}
 
