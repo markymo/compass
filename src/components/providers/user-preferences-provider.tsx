@@ -8,6 +8,7 @@ import { toast } from "sonner";
 interface UserPreferences {
     whimsyMode?: boolean;
     adminSidebarCollapsed?: boolean;
+    relationshipsExpandedEngagements?: string[];
     homePage?: {
         collapsedTreeNodes?: Record<string, boolean>;
     };
