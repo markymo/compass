@@ -601,6 +601,7 @@ export interface FieldDetailData {
     modelField?: string;
     options?: Array<string | { label: string; value: string }>;
     notes?: string;
+    description?: string;
     userNote?: string | null;
     current: {
         value: any;
@@ -687,7 +688,8 @@ export async function getFieldDetail(
                 assignment: null,
                 history: [],
                 candidates: [],
-                notes: "LegalEntity subject missing. Data cannot be resolved."
+                notes: "LegalEntity subject missing. Data cannot be resolved.",
+                description: undefined
             };
         }
 
@@ -823,7 +825,7 @@ export async function getFieldDetail(
         // Fetch the CustomFieldDefinition to get the label
         const customDef = await prisma.customFieldDefinition.findUnique({
             where: { id: customFieldId },
-            select: { label: true, dataType: true }
+            select: { label: true, dataType: true, description: true }
         });
 
         const data = (le.customData as Record<string, any>) || {};
@@ -844,6 +846,7 @@ export async function getFieldDetail(
             fieldName: customDef?.label || customFieldId,
             isRepeating: false,
             dataType: customDef?.dataType || 'text',
+            description: customDef?.description || undefined,
             current: {
                 value: currentVal,
                 source,
@@ -881,7 +884,8 @@ export async function getFieldDetail(
             assignment: null,
             history: [],
             candidates: [],
-            notes: "LegalEntity subject missing. Data cannot be resolved."
+            notes: "LegalEntity subject missing. Data cannot be resolved.",
+            description: def?.description || undefined
         };
     }
 
@@ -1260,6 +1264,7 @@ export async function getFieldDetail(
             return (def?.options || []).map((s: string) => ({ label: s, value: s }));
         })(),
         notes: def?.notes || undefined,
+        description: def?.description || undefined,
         current: derived ? {
             value: def?.isMultiValue && rows ? rows.map((r: any) => r.value) : derived.value,
             source: (derived.isScoped ? 'USER_INPUT' : (derived.evidenceProvider || derived.sourceType || 'SYSTEM')) as ProvenanceSource,
