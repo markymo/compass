@@ -27,6 +27,24 @@ export interface TransformDefinition {
     typicalUse?: string;
     /** Operational warnings or specific hardcoded assumptions */
     caveats?: string;
+
+    // --- Transform Contract (Validation) ---
+    /** The core appDataType emitted (e.g., 'PARTY', 'TEXT') */
+    outputDataType?: string;
+    /** Whether it emits an embedded payload or a reference (e.g., 'EMBEDDED', 'REFERENCE') */
+    outputStorageMode?: string;
+    /** Whether it emits a single value ('SINGLE') or multiple instances ('MANY') */
+    outputCardinality?: 'SINGLE' | 'MANY';
+    /** For PARTY fields: which partyTypes it emits */
+    outputPartyTypes?: ('INDIVIDUAL' | 'ORGANISATION' | 'UNKNOWN')[];
+    /** For PARTY fields: which specific subtypes it emits */
+    outputPartySubTypes?: string[];
+    /** Which fields are guaranteed or likely to be populated in the output */
+    populatedFields?: string[];
+    /** The specific source shape/type required for this transform to succeed */
+    requiredSourceShape?: string;
+    /** Descriptive semantics of any filtering applied during transform */
+    filterSemantics?: string;
 }
 
 export const TRANSFORM_DEFINITIONS: TransformDefinition[] = [
@@ -131,6 +149,14 @@ export const TRANSFORM_DEFINITIONS: TransformDefinition[] = [
         outputShape: 'Multiple embedded PARTY FieldClaims.',
         typicalUse: 'Field 63 Current Directors.',
         caveats: 'Excludes resigned directors, secretaries and non-renderable officers. Depends on Companies House officer semantics.',
+        outputDataType: 'PARTY',
+        outputStorageMode: 'EMBEDDED',
+        outputCardinality: 'MANY',
+        outputPartyTypes: ['INDIVIDUAL'],
+        outputPartySubTypes: ['PERSON'],
+        populatedFields: ['forenames', 'surname', 'roles', 'dateOfBirth', 'nationality', 'sourceIdentifiers'],
+        requiredSourceShape: 'Companies House officers array',
+        filterSemantics: 'active directors only',
     },
 ];
 

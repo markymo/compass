@@ -13,6 +13,7 @@ import { FieldProposal, ProvenanceSource } from "@/domain/kyc/types/ProposalType
 import { cn } from "@/lib/utils";
 import { getSourceDisplayName } from "@/lib/source-display";
 import { FieldDetailPanel } from "./inspection/field-detail-panel";
+import { PersonOrContactValueViewer } from "./fields/PersonOrContactValueViewer";
 import { isAddressValue, getAddressSummary } from "@/lib/master-data/address-value";
 import { isPersonOrContactValue, getPersonOrContactSummary } from "@/lib/master-data/person-or-contact-value";
 import { Input } from "@/components/ui/input";
@@ -41,6 +42,7 @@ interface DataSchemaTabProps {
         sourceReference?: string;
         displayState?: "HAS_VALUE" | "MAPPED_NOT_CHECKED" | "CHECKED_NO_DATA" | "DEFAULT_RESPONSE" | "UNMAPPED_NO_RESPONSE";
         defaultResponse?: string;
+        formattedDisplayValue?: string;
         mappingStats?: { questions: number; questionnaires: number; suppliers: number };
     }>;
     customData?: Record<string, any>;
@@ -578,7 +580,9 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                                                 key={field.fieldNo}
                                                 label={field.fieldName}
                                                 fieldNo={field.fieldNo}
+                                                fieldDef={field}
                                                 value={data?.value}
+                                                formattedDisplayValue={data?.formattedDisplayValue}
                                                 source={data?.source as any}
                                                 sourceReference={data?.sourceReference}
                                                 description={field.description}
@@ -625,7 +629,9 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                                             key={field.fieldNo}
                                             label={field.fieldName}
                                             fieldNo={field.fieldNo}
+                                            fieldDef={field}
                                             value={data?.value}
+                                            formattedDisplayValue={data?.formattedDisplayValue}
                                             source={data?.source as any}
                                             sourceReference={data?.sourceReference}
                                             description={field.description}
@@ -675,10 +681,11 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
     );
 }
 
-function MasterFieldDisplay({ label, fieldNo, value, source, sourceReference, registrationAuthorityId, onClick, description, isCustom, groups = [], displayState, defaultResponse, mappingStats }: {
+function MasterFieldDisplay({ label, fieldNo, value, formattedDisplayValue, source, sourceReference, registrationAuthorityId, onClick, description, isCustom, groups = [], displayState, defaultResponse, mappingStats, fieldDef }: {
     label: string,
     fieldNo: number,
     value: any,
+    formattedDisplayValue?: string,
     source?: ProvenanceSource,
     sourceReference?: string,
     /** Entity-specific GLEIF RA code — passed to SourceBadge for RA sources only. */
@@ -689,17 +696,20 @@ function MasterFieldDisplay({ label, fieldNo, value, source, sourceReference, re
     groups?: { id: string; label: string }[],
     displayState?: "HAS_VALUE" | "MAPPED_NOT_CHECKED" | "CHECKED_NO_DATA" | "DEFAULT_RESPONSE" | "UNMAPPED_NO_RESPONSE",
     defaultResponse?: string,
-    mappingStats?: { questions: number; questionnaires: number; suppliers: number }
+    mappingStats?: { questions: number; questionnaires: number; suppliers: number },
+    fieldDef?: any
 }) {
     const hasValue = value !== null && value !== undefined && value !== "";
     const resolvedState = displayState || (hasValue ? "HAS_VALUE" : (source ? "CHECKED_NO_DATA" : "UNMAPPED_NO_RESPONSE"));
 
-    // Format Value for Display
     let displayValue = value;
 
     if (hasValue) {
-        displayValue = formatGraphValue(value);
+        displayValue = formattedDisplayValue !== undefined ? formattedDisplayValue : formatGraphValue(value);
     }
+
+    const isRepeatingParty = fieldDef?.appDataType === 'PARTY' && fieldDef?.isMultiValue;
+    const isArrayValue = Array.isArray(value) && value.length > 0;
 
     return (
         <div
@@ -769,31 +779,63 @@ function MasterFieldDisplay({ label, fieldNo, value, source, sourceReference, re
             </div>
 
             <div className={cn(
-                "flex items-center justify-between p-3 bg-slate-50 rounded-md border border-slate-100 transition-all",
+                "flex p-3 bg-slate-50 rounded-md border border-slate-100 transition-all w-full",
+                isRepeatingParty && isArrayValue ? "flex-col gap-3" : "items-center justify-between",
                 onClick && "group-hover:border-blue-200 group-hover:bg-white group-hover:shadow-sm"
             )}>
-                <div className="font-mono text-sm truncate max-w-[300px]" title={typeof value === 'object' && value ? JSON.stringify(value, null, 2) : String(value)}>
-                    {resolvedState === "HAS_VALUE" && (value?.explicitNone ? "None" : displayValue)}
-                    {resolvedState === "MAPPED_NOT_CHECKED" && <span className="text-slate-400 italic">No response recorded</span>}
-                    {resolvedState === "CHECKED_NO_DATA" && <span className="text-slate-800 font-medium">None</span>}
-                    {resolvedState === "DEFAULT_RESPONSE" && (
-                        <span className="flex items-center gap-2 text-blue-600 font-medium">
-                            <span>{defaultResponse}</span>
-                            <Badge variant="outline" className="text-[9px] uppercase tracking-wider text-blue-500 bg-blue-50 border-blue-200">Field Default</Badge>
-                        </span>
-                    )}
-                    {resolvedState === "UNMAPPED_NO_RESPONSE" && <span className="text-slate-400 italic">No response recorded</span>}
-                </div>
-                {(resolvedState === "HAS_VALUE" || resolvedState === "MAPPED_NOT_CHECKED" || resolvedState === "CHECKED_NO_DATA") && source && (
-                    <div className="flex items-center gap-2">
-                        {/* If we had meta timestamp, we'd pass it. For now just source if available. */}
-                        <SourceBadge source={source} sourceReference={sourceReference} registrationAuthorityId={registrationAuthorityId} />
-                    </div>
-                )}
-                {!hasValue && !isCustom && (
-                    <div className="opacity-0 group-hover:opacity-100 text-xs text-blue-500 flex items-center gap-1 transition-opacity">
-                        <Info className="h-3 w-3" /> Inspect
-                    </div>
+                {isRepeatingParty && isArrayValue ? (
+                    <>
+                        <div className="flex justify-between items-start w-full">
+                            <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">{value.length} Items</span>
+                            {(resolvedState === "HAS_VALUE" || resolvedState === "MAPPED_NOT_CHECKED" || resolvedState === "CHECKED_NO_DATA") && source && (
+                                <SourceBadge source={source} sourceReference={sourceReference} registrationAuthorityId={registrationAuthorityId} />
+                            )}
+                        </div>
+                        <div className="flex flex-col gap-2 w-full">
+                            <div className="flex flex-col w-full divide-y divide-slate-100 border border-slate-200 rounded-md bg-white shadow-sm overflow-hidden">
+                                {value.slice(0, 18).map((party: any, idx: number) => {
+                                    let parsed = party;
+                                    if (typeof party === 'string' && (party.startsWith('{') || party.startsWith('['))) { try { parsed = JSON.parse(party); } catch {} }
+                                    const partyVal = parsed.ccParty?.data || parsed._resolvedData?.ccParty?.data || parsed;
+                                    return (
+                                        <div key={idx} className="px-3 py-2 flex items-center min-h-[48px] min-w-0">
+                                            <PersonOrContactValueViewer value={partyVal} layout="row" displayMask={fieldDef?.profileConfig?.displayMask} />
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                            {value.length > 18 && (
+                                <div className="text-[11px] text-slate-500 font-medium mt-1 px-1 flex items-center gap-1 group-hover:text-blue-600 transition-colors">
+                                    + {value.length - 18} more — open drawer to review all <ArrowRight className="h-3 w-3" />
+                                </div>
+                            )}
+                        </div>
+                    </>
+                ) : (
+                    <>
+                        <div className="font-mono text-sm line-clamp-2 break-words flex-1 min-w-0" title={typeof value === 'object' && value ? JSON.stringify(value, null, 2) : String(value)}>
+                            {resolvedState === "HAS_VALUE" && (value?.explicitNone ? "None" : displayValue)}
+                            {resolvedState === "MAPPED_NOT_CHECKED" && <span className="text-slate-400 italic">No response recorded</span>}
+                            {resolvedState === "CHECKED_NO_DATA" && <span className="text-slate-800 font-medium">None</span>}
+                            {resolvedState === "DEFAULT_RESPONSE" && (
+                                <span className="flex items-center gap-2 text-blue-600 font-medium">
+                                    <span>{defaultResponse}</span>
+                                    <Badge variant="outline" className="text-[9px] uppercase tracking-wider text-blue-500 bg-blue-50 border-blue-200">Field Default</Badge>
+                                </span>
+                            )}
+                            {resolvedState === "UNMAPPED_NO_RESPONSE" && <span className="text-slate-400 italic">No response recorded</span>}
+                        </div>
+                        {(resolvedState === "HAS_VALUE" || resolvedState === "MAPPED_NOT_CHECKED" || resolvedState === "CHECKED_NO_DATA") && source && (
+                            <div className="flex items-center gap-2 shrink-0 ml-4">
+                                <SourceBadge source={source} sourceReference={sourceReference} registrationAuthorityId={registrationAuthorityId} />
+                            </div>
+                        )}
+                        {!hasValue && !isCustom && (
+                            <div className="opacity-0 group-hover:opacity-100 text-xs text-blue-500 flex items-center gap-1 transition-opacity shrink-0 ml-4">
+                                <Info className="h-3 w-3" /> Inspect
+                            </div>
+                        )}
+                    </>
                 )}
             </div>
         </div>

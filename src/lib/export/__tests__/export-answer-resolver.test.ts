@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { resolveExportAnswer, formatExportValue } from '../export-answer-resolver';
+import { resolveExportAnswer } from '../export-answer-resolver';
 import { KycStateService } from '@/lib/kyc/KycStateService';
 import { getFieldDetail } from '@/actions/kyc-query';
 import prisma from '@/lib/prisma';
@@ -31,6 +31,11 @@ vi.mock('@/lib/prisma', () => ({
 describe('Export Answer Resolver', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        // Provide a default mock for getFieldDetail to prevent undefined crashes
+        vi.mocked(getFieldDetail).mockResolvedValue({
+            dataType: 'string',
+            profileConfig: {}
+        } as any);
     });
 
     it('1. released mapped answer uses snapshotDate to remain frozen', async () => {
@@ -202,20 +207,6 @@ describe('Export Answer Resolver', () => {
             const res = await resolveExportAnswer(question, "le-1", "scope-1", "entity-1");
             expect(res.sourceLabel).toBeUndefined();
             expect(res.sourceTimestamp).toBeUndefined();
-        });
-    });
-
-    describe('formatExportValue', () => {
-        it('formats CCParty references', async () => {
-            const raw = { ccPartyId: "123" };
-            const formatted = await formatExportValue(raw);
-            expect(formatted).toBe("Mocked Party Name");
-        });
-
-        it('formats primitive text properly', async () => {
-            const raw = "Simple Text";
-            const formatted = await formatExportValue(raw);
-            expect(formatted).toBe("Simple Text");
         });
     });
 });

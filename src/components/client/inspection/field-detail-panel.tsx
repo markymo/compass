@@ -38,6 +38,7 @@ import { PersonOrContactValueEditor } from "../fields/PersonOrContactValueEditor
 import { PartyRefValueEditor } from "../fields/PartyRefValueEditor";
 import { UnifiedPartyPicker } from "../fields/UnifiedPartyPicker";
 import { inferClaimValueKind, ClaimValueKind } from "@/lib/master-data/claim-value-resolver";
+import { ExpandableRowItem } from "./expandable-row-item";
 
 import {
     DropdownMenu,
@@ -148,7 +149,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                 return <AddressValueViewer value={parsedVal} layout="compact" />;
             }
             if (isPersonOrContactValue(parsedVal)) {
-                return <PersonOrContactValueViewer value={parsedVal} layout="compact" />;
+                return <PersonOrContactValueViewer value={parsedVal} layout="compact" displayMask={data?.profileConfig?.displayMask} />;
             }
             if (parsedVal.firstName || parsedVal.lastName) return `${parsedVal.firstName || ''} ${parsedVal.lastName || ''}`.trim() + (parsedVal.metadata_type === 'LEGAL_ENTITY' ? ' (Company)' : '');
             if (parsedVal.name) return parsedVal.name;
@@ -157,7 +158,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
             if (parsedVal.code !== undefined) return parsedVal.label ? `${parsedVal.code} — ${parsedVal.label}` : String(parsedVal.code);
             
             // If it is an unresolved reference
-            if (parsedVal.ccPartyId) return <span className="text-slate-400 font-mono text-xs">{parsedVal.ccPartyId}</span>;
+            if (parsedVal.ccPartyId) return <span className="text-slate-400 italic">Unresolved Party</span>;
 
             return JSON.stringify(parsedVal);
         }
@@ -202,6 +203,9 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
     // Graph Binding State
     const [graphBindings, setGraphBindings] = useState<any[]>([]);
     const [isLoadingBindings, setIsLoadingBindings] = useState(false);
+    
+    // UI State for Expandable List
+    const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
     
     // Node Creation/Editing State
     const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -1245,27 +1249,12 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                 </div>
                                                             ) : (
                                                                 /* Normal display row */
-                                                                <div className="group flex items-center gap-2 px-3 py-2.5 rounded-lg border border-slate-150 bg-white hover:border-slate-300 hover:shadow-sm transition-all">
-                                                                    <div className="flex-1 min-w-0">
-                                                                        {/* Structured collection row (e.g. Field 5 Previous Names) */}
-                                                                        {(() => {
-                                                                            if (parsedRowValue && typeof parsedRowValue === 'object' && (parsedRowValue.name || isPersonOrContactValue(parsedRowValue))) {
-                                                                                return <CollectionRowDisplay fieldNo={fieldNo} row={parsedRowValue} />;
-                                                                            }
-                                                                            return (
-                                                                                <div className="text-sm font-medium text-slate-900 truncate">
-                                                                                    {renderRowValue(row.value, row)}
-                                                                                </div>
-                                                                            );
-                                                                        })()}
-                                                                        <div className="flex items-center gap-2 mt-0.5">
-                                                                            <SourceBadge source={row.source as any} sourceReference={row.sourceReference} registrationAuthorityId={registrationAuthorityId} />
-                                                                            <span className="text-[9px] text-slate-400">
-                                                                                {row.timestamp ? new Date(row.timestamp).toLocaleDateString() : ''}
-                                                                            </span>
-                                                                        </div>
-                                                                    </div>
-                                                                    {!isLocked && (
+                                                                (() => {
+                                                                    const partyValForExpandable = (parsedRowValue && typeof parsedRowValue === 'object' && (isPersonOrContactValue(parsedRowValue) || 'ccPartyId' in parsedRowValue)) 
+                                                                        ? (parsedRowValue.ccParty?.data || parsedRowValue._resolvedData?.ccParty?.data || row?.data?.ccParty?.data || parsedRowValue)
+                                                                        : null;
+
+                                                                    const actionButtons = !isLocked && (
                                                                         <div className="flex items-center gap-0.5 shrink-0">
                                                                             {showPromote && (
                                                                                 row.isPromotedToCCC ? (
@@ -1328,8 +1317,52 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                                 </button>
                                                                             )}
                                                                         </div>
-                                                                    )}
-                                                                </div>
+                                                                    );
+                                                                    
+                                                                    const badges = (
+                                                                        <>
+                                                                            <SourceBadge source={row.source as any} sourceReference={row.sourceReference} registrationAuthorityId={registrationAuthorityId} />
+                                                                            <span className="text-[9px] text-slate-400">
+                                                                                {row.timestamp ? new Date(row.timestamp).toLocaleDateString() : ''}
+                                                                            </span>
+                                                                        </>
+                                                                    );
+
+                                                                    if (partyValForExpandable) {
+                                                                        return (
+                                                                            <ExpandableRowItem
+                                                                                isExpanded={expandedRowId === row.id}
+                                                                                onToggle={() => setExpandedRowId(expandedRowId === row.id ? null : row.id)}
+                                                                                collapsedContent={<PersonOrContactValueViewer value={partyValForExpandable} layout="row" displayMask={data?.profileConfig?.displayMask} />}
+                                                                                expandedContent={<PersonOrContactValueViewer value={partyValForExpandable} layout="detailed" displayMask={data?.profileConfig?.displayMask} />}
+                                                                                actions={actionButtons}
+                                                                                badges={badges}
+                                                                            />
+                                                                        );
+                                                                    }
+
+                                                                    return (
+                                                                        <div className="group flex items-center gap-2 px-3 py-2.5 rounded-lg border border-slate-150 bg-white hover:border-slate-300 hover:shadow-sm transition-all">
+                                                                            <div className="flex-1 min-w-0">
+                                                                                {/* Structured collection row (e.g. Field 5 Previous Names) */}
+                                                                                {(() => {
+                                                                                    if (parsedRowValue && typeof parsedRowValue === 'object' && parsedRowValue.name) {
+                                                                                        return <CollectionRowDisplay fieldNo={fieldNo} row={parsedRowValue} />;
+                                                                                    }
+                                                                                    return (
+                                                                                        <div className="text-sm font-medium text-slate-900 truncate">
+                                                                                            {renderRowValue(row.value, row)}
+                                                                                        </div>
+                                                                                    );
+                                                                                })()}
+                                                                                <div className="flex items-center gap-2 mt-0.5">
+                                                                                    {badges}
+                                                                                </div>
+                                                                            </div>
+                                                                            {actionButtons}
+                                                                        </div>
+                                                                    );
+                                                                })()
                                                             )}
                                                         </div>
                                                         );
@@ -1495,14 +1528,31 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                     {isAddressValue(data.current.value) || (data.current.value && typeof data.current.value === 'object' && 'ccAddressId' in data.current.value) ? (
                                                                          <AddressValueViewer value={data.current.value?._resolvedData?.ccAddress?.data || data.current.value} layout="detailed" />
                                                                      ) : (isPersonOrContactValue(data.current.value) || (data.current.value && typeof data.current.value === 'object' && 'ccPartyId' in data.current.value)) ? (
-                                                                         <PersonOrContactValueViewer value={data.current.value?._resolvedData?.ccParty?.data || data.current.value} layout="detailed" />
-                                                                    ) : Array.isArray(data.current.value) ? (
-                                                                        <div className="flex flex-wrap gap-1.5 mt-1">
-                                                                            {data.current.value.map((v: any, idx: number) => (
-                                                                                <Badge key={idx} variant="outline" className="bg-white border-slate-300 text-slate-800 py-1 px-2.5 text-sm shadow-sm ring-1 ring-slate-100/50">
-                                                                                    {renderRowValue(v)}
-                                                                                </Badge>
-                                                                            ))}
+                                                                            <PersonOrContactValueViewer value={data.current.value?.ccParty?.data || data.current.value?._resolvedData?.ccParty?.data || data.current.value} layout="detailed" displayMask={data?.profileConfig?.displayMask} />
+                                                                        ) : Array.isArray(data.current.value) ? (
+                                                                        <div className="flex flex-col gap-2 mt-1">
+                                                                            {data.current.value.map((v: any, idx: number) => {
+                                                                                let parsed = v;
+                                                                                if (typeof v === 'string' && (v.startsWith('{') || v.startsWith('['))) { try { parsed = JSON.parse(v); } catch {} }
+                                                                                if (isPersonOrContactValue(parsed) || (parsed && typeof parsed === 'object' && 'ccPartyId' in parsed)) {
+                                                                                    const partyVal = parsed.ccParty?.data || parsed._resolvedData?.ccParty?.data || parsed;
+                                                                                    const rowId = `current_auth_${idx}`;
+                                                                                    return (
+                                                                                        <ExpandableRowItem
+                                                                                            key={rowId}
+                                                                                            isExpanded={expandedRowId === rowId}
+                                                                                            onToggle={() => setExpandedRowId(expandedRowId === rowId ? null : rowId)}
+                                                                                            collapsedContent={<PersonOrContactValueViewer value={partyVal} layout="row" displayMask={data?.profileConfig?.displayMask} />}
+                                                                                            expandedContent={<PersonOrContactValueViewer value={partyVal} layout="detailed" displayMask={data?.profileConfig?.displayMask} />}
+                                                                                        />
+                                                                                    );
+                                                                                }
+                                                                                return (
+                                                                                    <Badge key={idx} variant="outline" className="bg-white border-slate-300 text-slate-800 py-1 px-2.5 text-sm shadow-sm ring-1 ring-slate-100/50 inline-flex w-fit">
+                                                                                        {renderRowValue(v)}
+                                                                                    </Badge>
+                                                                                );
+                                                                            })}
                                                                         </div>
                                                                     ) : (
                                                                         // Use renderRowValue to handle JSONB objects (e.g. {code, label} SIC codes)
@@ -2360,7 +2410,15 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                         )}
                                                     </div>
                                                     <div className="text-sm font-semibold text-slate-900 break-all mb-1">
-                                                        {renderRowValue(candidate.value)}
+                                                        {(() => {
+                                                            let parsed = candidate.value;
+                                                            if (typeof parsed === 'string' && (parsed.startsWith('{') || parsed.startsWith('['))) { try { parsed = JSON.parse(parsed); } catch {} }
+                                                            if (isPersonOrContactValue(parsed) || (parsed && typeof parsed === 'object' && 'ccPartyId' in parsed)) {
+                                                                const partyVal = parsed.ccParty?.data || parsed._resolvedData?.ccParty?.data || parsed;
+                                                                return <PersonOrContactValueViewer value={partyVal} layout="detailed" displayMask={data?.profileConfig?.displayMask} />;
+                                                            }
+                                                            return renderRowValue(candidate.value);
+                                                        })()}
                                                     </div>
                                                     <div className="flex items-center gap-3 text-[10px] text-slate-400">
                                                         <span className="flex items-center gap-1">

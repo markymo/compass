@@ -21,6 +21,7 @@ export type FieldDefinition = {
     dbColumn?: string;
     notes?: string;
     options?: string[];
+    profileConfig?: any;
 };
 
 export const FIELD_DEFINITIONS: Record<number, FieldDefinition> = {
@@ -819,6 +820,13 @@ export const FIELD_DEFINITIONS: Record<number, FieldDefinition> = {
         dbColumn: 'role',
         notes: 'List of company directors stored as embedded Party structures with roles[].',
         options: ['DIRECTOR', 'UBO', 'CONTROLLER'],
+        profileConfig: {
+            allowedPartyTypes: ["INDIVIDUAL"],
+            allowedPartySubTypes: ["PERSON"],
+            storageModes: ["EMBEDDED", "REFERENCE"],
+            displayMask: ["forenames", "surname"],
+            editMask: ["forenames", "surname"]
+        }
     },
     64: {
         fieldNo: 64,

@@ -4,6 +4,8 @@ import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { QuestionStatus } from "@prisma/client";
 import { ensureQuestionNotReferenceSnapshot } from "./questionnaire";
+import { getFieldDetail } from "./kyc-query";
+import { formatReleasedValue } from "@/lib/export/formatReleasedValue";
 
 export async function applyMasterToQuestion(
     questionId: string,
@@ -15,14 +17,28 @@ export async function applyMasterToQuestion(
         if (!questionId) throw new Error("Question ID is required");
         await ensureQuestionNotReferenceSnapshot(questionId);
 
-        // 1. Format the value for the answer
-        // If it's a complex object (like a group), stringify it?
-        // For now, assume simple string or simple object that can be stringified.
+        const question = await prisma.question.findUnique({
+            where: { id: questionId },
+            include: {
+                questionnaire: {
+                    include: { engagements: true, fiEngagement: true }
+                }
+            }
+        });
+        if (!question) throw new Error("Question not found");
+
+        const clientLEId = question.questionnaire?.fiEngagement?.clientLEId || question.questionnaire?.engagements?.[0]?.clientLEId;
+        
         let answerText = "";
-        if (typeof masterValue === 'object' && masterValue !== null) {
-            answerText = JSON.stringify(masterValue, null, 2);
+        if (clientLEId && question.masterFieldNo) {
+            const fieldDetail = await getFieldDetail(clientLEId, question.masterFieldNo, "CLIENT_LE");
+            answerText = await formatReleasedValue({
+                value: masterValue,
+                appDataType: fieldDetail.dataType,
+                profileConfig: fieldDetail.profileConfig
+            });
         } else {
-            answerText = String(masterValue);
+            answerText = await formatReleasedValue({ value: masterValue });
         }
 
         // 2. Update the Question

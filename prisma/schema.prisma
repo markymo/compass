@@ -738,6 +738,7 @@ model MasterFieldDefinition {
   domain             String[]                  @default(["Onboarding"])
   fmsbRef            String?                   @db.VarChar(15)
   optionSetId        String?
+  profileConfig      Json?
   masterDataCategory MasterDataCategory?       @relation(fields: [categoryId], references: [id])
   optionSet          MasterDataOptionSet?      @relation(fields: [optionSetId], references: [id])
   graphBindings      MasterFieldGraphBinding[]

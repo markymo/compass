@@ -16,6 +16,7 @@ import { KycStateService } from "@/lib/kyc/KycStateService";
 import { enrichAddressReferences } from "@/actions/kyc-query";
 import { FieldClaimService } from "@/lib/kyc/FieldClaimService";
 import { getComplexFieldConfig } from "@/lib/master-data/complex-field-config";
+import { formatReleasedValue } from "@/lib/export/formatReleasedValue";
 
 import { ensureNotReferenceSnapshot } from "./questionnaire";
 async function ensureAuthorization(action: Action, context: { partyId?: string, clientLEId?: string, engagementId?: string }) {
@@ -569,6 +570,7 @@ export async function getFullMasterData(clientLEId: string) {
 
     const flattened: Record<number, { 
         value: any, 
+        formattedDisplayValue?: string,
         source?: string, 
         sourceReference?: string,
         displayState: "HAS_VALUE" | "MAPPED_NOT_CHECKED" | "CHECKED_NO_DATA" | "DEFAULT_RESPONSE" | "UNMAPPED_NO_RESPONSE",
@@ -636,9 +638,11 @@ export async function getFullMasterData(clientLEId: string) {
                 return {
                     fieldNo: d.fieldNo,
                     isMultiValue: d.isMultiValue,
-                    // Pass collectionId for STRUCTURED_COLLECTION fields so legacy
+                    // Pass collectionId for multi-value fields so legacy
                     // plain-text claims (collectionId=NULL) are excluded from resolution.
-                    collectionId: cfg?.kind === 'STRUCTURED_COLLECTION' ? cfg.collectionId : undefined,
+                    collectionId: d.isMultiValue
+                        ? (cfg?.kind === 'STRUCTURED_COLLECTION' ? cfg.collectionId : `FIELD_${d.fieldNo}`)
+                        : undefined,
                 };
             }),
             ownerScopeId || undefined
@@ -754,6 +758,7 @@ export async function getFullMasterData(clientLEId: string) {
 
             flattened[def.fieldNo] = {
                 value: valueToSet,
+                formattedDisplayValue: await formatReleasedValue({ value: valueToSet, appDataType: def.appDataType, profileConfig: def.profileConfig }),
                 source: sourceToSet,
                 sourceReference: sourceRefToSet,
                 displayState,

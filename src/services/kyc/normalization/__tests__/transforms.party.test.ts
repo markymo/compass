@@ -27,6 +27,17 @@ const CH_PSC = {
     date_of_birth: { month: 11, year: 1968 },
 };
 
+const CH_DIRECTOR_WITH_ADDRESS = {
+    ...CH_DIRECTOR_ACTIVE,
+    address: {
+        premises: "10",
+        address_line_1: "Street Name",
+        locality: "London",
+        country: "England",
+        postal_code: "SW1A 1AA"
+    }
+};
+
 const BASE_CONFIG = {
     fullNamePath: 'name',
     roleTitlePath: 'officer_role',
@@ -182,6 +193,14 @@ describe('TO_PARTY_VALUE and TO_PERSON_OR_CONTACT_VALUE', () => {
                 });
                 expect(result.value.surname).toBe('SMITH');
                 expect(result.value.forenames).toBeNull();
+            });
+
+            it('POC-11: correspondenceAddress is extracted from value.address', () => {
+                const result = applyTransform(CH_DIRECTOR_WITH_ADDRESS, transformType, BASE_CONFIG);
+                expect(result.value.correspondenceAddress).toBeDefined();
+                expect(result.value.correspondenceAddress).not.toBeNull();
+                expect(result.value.correspondenceAddress.addressLines).toBeDefined();
+                expect(result.value.correspondenceAddress.locality).toBe('London');
             });
         });
     });

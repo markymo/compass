@@ -74,6 +74,7 @@ export async function updateMasterField(
         appDataType?: string;
         isMultiValue?: boolean;
         optionSetId?: string | null;
+        profileConfig?: any;
     }
 ) {
     try {

@@ -813,6 +813,26 @@ export function applyTransform(
                 }
             }
 
+            // ── Address ───────────────────────────────────────────────────────
+            let correspondenceAddress: any = null;
+            if (cfg.correspondenceAddressPath) {
+                const rawAddr = resolveP(cfg.correspondenceAddressPath);
+                if (rawAddr) {
+                    const res = applyTransform(rawAddr, 'TO_ADDRESS_VALUE', cfg.correspondenceAddressConfig);
+                    if (res.value) correspondenceAddress = res.value;
+                }
+            } else if (value.address) {
+                // Fallback for raw Companies House officer shape
+                const res = applyTransform(value.address, 'TO_ADDRESS_VALUE', {
+                    addressLines: ['premises', 'address_line_1', 'address_line_2'],
+                    locality: 'locality',
+                    region: 'region',
+                    postalCode: 'postal_code',
+                    countryPath: 'country'
+                });
+                if (res.value) correspondenceAddress = res.value;
+            }
+
             // ── Assemble PersonOrContactValue ─────────────────────────────────
             // INVARIANT: isActivePersonOrContact is ALWAYS null from automated transforms.
             // It must NEVER be derived from role.isActiveRole or any registry status.
@@ -830,6 +850,7 @@ export function applyTransform(
                 placeOfBirth,
                 roles,
                 sourceIdentifiers,
+                correspondenceAddress,
                 isActiveParty:           null,
                 isActivePersonOrContact: null,   // INVARIANT — never derived from role status
                 visibility:              { scope: 'CLIENT_LE' as const },

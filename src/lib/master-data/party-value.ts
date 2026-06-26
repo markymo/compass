@@ -58,6 +58,12 @@ export interface PartyValue {
     countryOfResidence: string | null;
 
     /**
+     * Officer correspondence/service address from registry payload.
+     * Not automatically resolved to a CCAddress graph node.
+     */
+    correspondenceAddress?: import('./address-value').AddressValue | null;
+
+    /**
      * Partial date of birth.
      * Companies House provides month + year only (day is omitted for privacy).
      * day is null when the source does not provide it — never defaulted to 1.
