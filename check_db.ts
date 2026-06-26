@@ -1,13 +1,6 @@
-import { PrismaClient } from '@prisma/client';
-const prisma = new PrismaClient();
+import prisma from './src/lib/prisma';
 async function main() {
-    try {
-        const questions = await prisma.$queryRaw`SELECT column_name FROM information_schema.columns WHERE table_name='Question' AND column_name='masterFieldProjectionPath';`;
-        console.log("Column exists:", (questions as any[]).length > 0);
-    } catch (e) {
-        console.error(e);
-    } finally {
-        await prisma.$disconnect();
-    }
+    const field = await prisma.masterFieldDefinition.findUnique({ where: { fieldNo: 63 } });
+    console.log("Field 63 profileConfig:", JSON.stringify(field?.profileConfig));
 }
-main();
+main().catch(console.error);

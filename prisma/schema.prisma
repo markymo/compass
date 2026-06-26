@@ -738,6 +738,7 @@ model MasterFieldDefinition {
   domain             String[]                  @default(["Onboarding"])
   fmsbRef            String?                   @db.VarChar(15)
   optionSetId        String?
+  profileConfig      Json?
   masterDataCategory MasterDataCategory?       @relation(fields: [categoryId], references: [id])
   optionSet          MasterDataOptionSet?      @relation(fields: [optionSetId], references: [id])
   graphBindings      MasterFieldGraphBinding[]
@@ -1191,6 +1192,7 @@ enum MappingTransformType {
   TO_PERSON_OR_CONTACT_LIST
   TO_PARTY_VALUE
   TO_PARTY_VALUE_LIST
+  TO_COMPANIES_HOUSE_ACTIVE_DIRECTOR_PARTY_VALUE_LIST
   /// Converts a GLEIF Registration Authority code (e.g. RA000192) to the
   /// human-readable name stored in the registry_authorities table.
   /// Lookup is pre-loaded at enrichment time; applyTransform receives it

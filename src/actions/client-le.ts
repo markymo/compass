@@ -16,7 +16,8 @@ import { KycStateService } from "@/lib/kyc/KycStateService";
 import { enrichAddressReferences } from "@/actions/kyc-query";
 import { FieldClaimService } from "@/lib/kyc/FieldClaimService";
 import { getComplexFieldConfig } from "@/lib/master-data/complex-field-config";
-import { isRenderableActiveDirectorParty } from "@/lib/master-data/party-value";
+import { formatReleasedValue } from "@/lib/export/formatReleasedValue";
+
 import { ensureNotReferenceSnapshot } from "./questionnaire";
 async function ensureAuthorization(action: Action, context: { partyId?: string, clientLEId?: string, engagementId?: string }) {
     const identity = await getIdentity();
@@ -569,6 +570,7 @@ export async function getFullMasterData(clientLEId: string) {
 
     const flattened: Record<number, { 
         value: any, 
+        formattedDisplayValue?: string,
         source?: string, 
         sourceReference?: string,
         displayState: "HAS_VALUE" | "MAPPED_NOT_CHECKED" | "CHECKED_NO_DATA" | "DEFAULT_RESPONSE" | "UNMAPPED_NO_RESPONSE",
@@ -636,9 +638,11 @@ export async function getFullMasterData(clientLEId: string) {
                 return {
                     fieldNo: d.fieldNo,
                     isMultiValue: d.isMultiValue,
-                    // Pass collectionId for STRUCTURED_COLLECTION fields so legacy
+                    // Pass collectionId for multi-value fields so legacy
                     // plain-text claims (collectionId=NULL) are excluded from resolution.
-                    collectionId: cfg?.kind === 'STRUCTURED_COLLECTION' ? cfg.collectionId : undefined,
+                    collectionId: d.isMultiValue
+                        ? (cfg?.kind === 'STRUCTURED_COLLECTION' ? cfg.collectionId : `FIELD_${d.fieldNo}`)
+                        : undefined,
                 };
             }),
             ownerScopeId || undefined
@@ -698,15 +702,11 @@ export async function getFullMasterData(clientLEId: string) {
 
             if (val !== null && val !== undefined) {
                 if (Array.isArray(val)) {
-                    let filteredVal = val;
-                    if (def.fieldNo === 63) {
-                        filteredVal = val.filter(c => isRenderableActiveDirectorParty(c.value));
-                    }
-                    if (filteredVal.length > 0) {
+                    if (val.length > 0) {
                         // For ccParty we unwrap to data for legacy UI logic, for Address we keep the wrapper
-                        valueToSet = filteredVal.map(c => resolvePartyRef(c.value));
-                        sourceToSet = filteredVal[0].isScoped ? 'USER_INPUT' : (filteredVal[0].evidenceProvider || filteredVal[0].sourceType || 'MASTER_RECORD');
-                        sourceRefToSet = filteredVal[0].sourceReference ?? undefined;
+                        valueToSet = val.map((c: any) => resolvePartyRef(c.value));
+                        sourceToSet = val[0].isScoped ? 'USER_INPUT' : (val[0].evidenceProvider || val[0].sourceType || 'MASTER_RECORD');
+                        sourceRefToSet = val[0].isScoped ? val[0].sourceReference || undefined : undefined;
                     }
                 } else {
                     valueToSet = resolvePartyRef(val.value);
@@ -758,6 +758,7 @@ export async function getFullMasterData(clientLEId: string) {
 
             flattened[def.fieldNo] = {
                 value: valueToSet,
+                formattedDisplayValue: await formatReleasedValue({ value: valueToSet, appDataType: def.appDataType, profileConfig: def.profileConfig }),
                 source: sourceToSet,
                 sourceReference: sourceRefToSet,
                 displayState,

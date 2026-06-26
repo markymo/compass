@@ -39,11 +39,8 @@ export function QuestionDetailView({ question, totalQuestions, currentIndex, onS
     const formatAnswer = (val: any) => {
         if (!val) return "";
         if (typeof val === 'string') return val;
-        try {
-            return JSON.stringify(val, null, 2);
-        } catch {
-            return String(val);
-        }
+        // Do not dump raw JSON in the UI for legacy objects.
+        return "[Structured value]";
     };
     
     const [answer, setAnswer] = React.useState(formatAnswer(question.answer));

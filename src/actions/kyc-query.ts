@@ -7,7 +7,7 @@ import { ProvenanceSource } from "@/domain/kyc/types/ProvenanceTypes";
 import prisma from "@/lib/prisma";
 import { getComplexFieldConfig } from "@/lib/master-data/complex-field-config";
 import { FieldClaim } from "@prisma/client";
-import { isRenderableActiveDirectorParty, getPartySummary } from "@/lib/master-data/party-value";
+import { getPartySummary } from "@/lib/master-data/party-value";
 
 // KycLoader is deprecated in favor of KycStateService
 
@@ -59,9 +59,7 @@ export async function resolveMasterData(
                                 fieldNo,
                                 ownerScopeId || undefined
                             );
-                            if (fieldNo === 63) {
-                                collection = collection.filter((c: any) => isRenderableActiveDirectorParty(c.value));
-                            }
+
                             if (collection.length > 0) {
                                 const maxUpdatedAt = collection.reduce(
                                     (max: Date, c: any) => (c.assertedAt > max ? c.assertedAt : max),
@@ -108,9 +106,7 @@ export async function resolveMasterData(
                     q.masterFieldNo,
                     ownerScopeId || undefined
                 );
-                if (q.masterFieldNo === 63) {
-                    collection = collection.filter((c: any) => isRenderableActiveDirectorParty(c.value));
-                }
+
                 if (collection.length > 0) {
                     const vals = collection.map((c: any) => c.value);
                     console.log(`[resolveMasterData] Field ${q.masterFieldNo} is multi-value. Values:`, vals);
@@ -297,11 +293,9 @@ function resolveField(
             const winner = KycStateService.pickWinner(group, ownerScopeId ?? undefined, priorityMap);
             if (winner && !KycStateService.isTombstone(winner)) {
                 const derived = KycStateService.mapToDerivedValue(winner, ownerScopeId ?? undefined);
-                if (fieldNo !== 63 || isRenderableActiveDirectorParty(derived.value)) {
-                    values.push(derived.value);
-                    if (!firstDerived) firstDerived = derived;
-                    if (!maxAssertedAt || derived.assertedAt > maxAssertedAt) maxAssertedAt = derived.assertedAt;
-                }
+                values.push(derived.value);
+                if (!firstDerived) firstDerived = derived;
+                if (!maxAssertedAt || derived.assertedAt > maxAssertedAt) maxAssertedAt = derived.assertedAt;
             }
         }
 
@@ -598,6 +592,7 @@ export interface FieldDetailData {
     isRepeating: boolean;
     dataType: string;
     category?: string;
+    profileConfig?: any;
     modelField?: string;
     options?: Array<string | { label: string; value: string }>;
     notes?: string;
@@ -885,7 +880,8 @@ export async function getFieldDetail(
             history: [],
             candidates: [],
             notes: "LegalEntity subject missing. Data cannot be resolved.",
-            description: def?.description || undefined
+            description: def?.description || undefined,
+            profileConfig: (def as any)?.profileConfig || undefined
         };
     }
 
@@ -970,9 +966,7 @@ export async function getFieldDetail(
                 { subjectLeId }, fieldNo, ownerScopeId, undefined, filterCollectionId
             );
 
-            if (fieldNo === 63) {
-                collection = collection.filter(c => isRenderableActiveDirectorParty(c.value));
-            }
+
 
             rows = collection.map((c: any) => {
                 return {
@@ -1118,6 +1112,22 @@ export async function getFieldDetail(
         };
     });
 
+    // 3.5 Enrich PARTY_REF values for non-repeating authoritative value and candidates
+    const valuesToEnrich: any[] = [];
+    if (derived && derived.value) valuesToEnrich.push(derived.value);
+    for (const c of candidates) {
+        if (c.value) valuesToEnrich.push(c.value);
+    }
+    // Also enrich the repeating rows value objects directly so the frontend gets a uniform shape
+    if (rows && rows.length > 0) {
+        for (const r of rows) {
+            if (r.value) valuesToEnrich.push(r.value);
+        }
+    }
+    if (valuesToEnrich.length > 0) {
+        await enrichPartyReferences(valuesToEnrich);
+    }
+
     // 4. Get Current Assignment
     const [assignment, noteRecord] = await Promise.all([
         prisma.masterFieldAssignment.findUnique({
@@ -1246,6 +1256,7 @@ export async function getFieldDetail(
         isRepeating: def?.isMultiValue || false,
         dataType: def?.appDataType || 'string',
         category: (def as any)?.masterDataCategory?.displayName || undefined,
+        profileConfig: (def as any)?.profileConfig || undefined,
         modelField: (def as any).modelField || undefined,
         // Prefer options from the linked MasterDataOptionSet (admin-managed dropdown list).
         // The optionSet.options field is a Json array of {label, value} objects.

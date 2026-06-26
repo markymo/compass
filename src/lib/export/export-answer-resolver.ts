@@ -14,63 +14,7 @@ export interface ExportAnswerResult {
     sourceCategory?: 'REGISTRY' | 'USER' | 'DEFAULT' | 'NO_RESPONSE' | 'SYSTEM';
 }
 
-export async function formatExportValue(rawValue: any): Promise<string> {
-    if (rawValue === null || rawValue === undefined || rawValue === "") {
-        return "";
-    }
-
-    if (Array.isArray(rawValue)) {
-        const formattedItems = await Promise.all(rawValue.map(item => formatExportValue(item)));
-        return formattedItems.filter(Boolean).join("; ");
-    }
-
-    if (typeof rawValue === "object") {
-        const clonedValue = JSON.parse(JSON.stringify(rawValue));
-
-        if (clonedValue.explicitNone === true) {
-            return "None";
-        }
-
-        if (clonedValue.ccPartyId) {
-            const arr = [clonedValue];
-            await enrichPartyReferences(arr);
-            if (arr[0].resolvedSummary) {
-                return arr[0].resolvedSummary;
-            }
-        }
-
-        if (clonedValue.ccAddressId) {
-            const arr = [clonedValue];
-            await enrichAddressReferences(arr);
-            if (arr[0].resolvedSummary) {
-                return arr[0].resolvedSummary;
-            }
-        }
-
-        if (clonedValue.addressLines || clonedValue.locality || clonedValue.postalCode || clonedValue.countryCode) {
-            const parts = [
-                ...(Array.isArray(clonedValue.addressLines) ? clonedValue.addressLines : []),
-                clonedValue.locality,
-                clonedValue.region,
-                clonedValue.postalCode,
-                clonedValue.countryName || clonedValue.countryCode
-            ].filter(Boolean);
-            if (parts.length > 0) {
-                return parts.join(", ");
-            }
-        }
-
-        try {
-            return Object.entries(clonedValue)
-                .map(([k, v]) => `${k}: ${v}`)
-                .join(", ");
-        } catch (e) {
-            return JSON.stringify(rawValue);
-        }
-    }
-
-    return String(rawValue);
-}
+import { formatReleasedValue } from "@/lib/export/formatReleasedValue";
 
 export async function resolveExportAnswer(
     question: any, 
@@ -91,7 +35,13 @@ export async function resolveExportAnswer(
         );
 
         if (derived && derived.value !== null && derived.value !== undefined && derived.value !== "") {
-            const displayValue = await formatExportValue(derived.value);
+            // Fetch field detail for profileConfig
+            const fieldDetail = await getFieldDetail(entityId, question.masterFieldNo, "CLIENT_LE");
+            const displayValue = await formatReleasedValue({
+                value: derived.value,
+                appDataType: fieldDetail.dataType,
+                profileConfig: fieldDetail.profileConfig
+            });
             
             // Resolve provenance
             let sourceLabel = derived.sourceType;
@@ -194,7 +144,7 @@ export async function resolveExportAnswer(
                 } catch (e) { }
             }
 
-            const displayValue = await formatExportValue(parsedAnswer);
+            const displayValue = await formatReleasedValue({ value: parsedAnswer });
             if (displayValue.trim() === "") {
                 return {
                     displayValue: "No response recorded",

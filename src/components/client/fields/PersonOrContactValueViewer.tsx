@@ -7,10 +7,12 @@ import {
     type PersonOrContactValue,
     type PersonOrContactRole,
 } from "@/lib/master-data/person-or-contact-value";
+import { getAddressSummary } from "@/lib/master-data/address-value";
 
 interface PersonOrContactValueViewerProps {
     value: any;
-    layout?: "compact" | "detailed";
+    layout?: "compact" | "detailed" | "row";
+    displayMask?: string[];
 }
 
 // ── Role type badge colour ────────────────────────────────────────────────────
@@ -56,43 +58,52 @@ function Field({ label, value: v }: { label: string; value: React.ReactNode }) {
 }
 
 function formatPartialDob(
-    dob: { year: number | null; month: number | null; day: number | null } | null | undefined
+    dob: { year: number | null; month: number | null; day: number | null } | null | undefined,
+    displayMask?: string[]
 ): string | null {
     if (!dob) return null;
     const parts: string[] = [];
+    const hasMask = Array.isArray(displayMask) && displayMask.length > 0;
     
-    if (dob.day) parts.push(String(dob.day));
+    if (dob.day && (!hasMask || displayMask.includes('dateOfBirth.day'))) parts.push(String(dob.day));
     
-    if (dob.month) {
+    if (dob.month && (!hasMask || displayMask.includes('dateOfBirth.month'))) {
         const date = new Date(2000, dob.month - 1, 1);
         const monthName = date.toLocaleString('default', { month: 'long' });
         parts.push(monthName);
     }
     
-    if (dob.year) parts.push(String(dob.year));
+    if (dob.year && (!hasMask || displayMask.includes('dateOfBirth.year'))) parts.push(String(dob.year));
     
     return parts.length > 0 ? parts.join(' ') : null;
 }
 
-function RoleRow({ role }: { role: PersonOrContactRole }) {
+function RoleRow({ role, displayMask }: { role: PersonOrContactRole, displayMask?: string[] }) {
+    const showRoleField = (key: string) => !displayMask || displayMask.some(p => p === `roles[0].${key}` || p === 'roles');
+
     const dateRange = [
-        role.appointedOn ? `Appointed ${role.appointedOn}` : null,
-        role.resignedOn  ? `Resigned ${role.resignedOn}`   : null,
+        showRoleField('appointedOn') && role.appointedOn ? `Appointed ${role.appointedOn}` : null,
+        showRoleField('resignedOn') && role.resignedOn  ? `Resigned ${role.resignedOn}`   : null,
     ].filter(Boolean).join(' · ');
 
     return (
         <div className="flex flex-col gap-1 py-2 border-b border-slate-100 last:border-0">
             <div className="flex items-center gap-2 flex-wrap">
-                <StatusDot active={role.isActiveRole} />
-                <RoleBadge roleType={role.roleType ?? null} roleTitle={role.roleTitle} />
-                {role.roleTitle && role.roleType && (
+                {showRoleField('isActiveRole') && <StatusDot active={role.isActiveRole} />}
+                {(showRoleField('roleType') || showRoleField('roleTitle')) && (
+                    <RoleBadge 
+                        roleType={showRoleField('roleType') ? (role.roleType ?? null) : null} 
+                        roleTitle={showRoleField('roleTitle') ? role.roleTitle : null} 
+                    />
+                )}
+                {showRoleField('roleTitle') && showRoleField('roleType') && role.roleTitle && role.roleType && (
                     <span className="text-xs text-slate-500">{role.roleTitle}</span>
                 )}
             </div>
             {dateRange && (
                 <span className="text-[11px] text-slate-400 ml-3.5">{dateRange}</span>
             )}
-            {role.natureOfControl.length > 0 && (
+            {showRoleField('natureOfControl') && role.natureOfControl.length > 0 && (
                 <div className="ml-3.5 mt-0.5 flex flex-wrap gap-1">
                     {role.natureOfControl.map((noc, i) => (
                         <span key={i} className="text-[10px] bg-purple-50 text-purple-600 border border-purple-100 rounded px-1.5 py-0.5">
@@ -105,8 +116,11 @@ function RoleRow({ role }: { role: PersonOrContactRole }) {
     );
 }
 
-export function PersonOrContactValueViewer({ value, layout = "compact" }: PersonOrContactValueViewerProps) {
+export function PersonOrContactValueViewer({ value, layout = "compact", displayMask }: PersonOrContactValueViewerProps) {
     if (!isPersonOrContactValue(value)) {
+        if (value && typeof value === 'object' && 'ccPartyId' in value) {
+            return <span className="text-slate-400 italic">Unresolved Party</span>;
+        }
         return <span className="text-slate-400 italic">—</span>;
     }
 
@@ -121,8 +135,66 @@ export function PersonOrContactValueViewer({ value, layout = "compact" }: Person
         );
     }
 
+    const dob = formatPartialDob(poc.dateOfBirth, displayMask);
+    const showField = (key: string) => !displayMask || displayMask.some(p => p === key || p.startsWith(key + '.') || p.startsWith(key + '['));
+
+    if (layout === "row") {
+        // Primary text
+        const titleParts = [];
+        if (showField('forenames') && poc.forenames) titleParts.push(poc.forenames);
+        if (showField('surname') && poc.surname) titleParts.push(poc.surname);
+        const titleString = titleParts.join(' ');
+        
+        let primaryText = "";
+        if (titleString) primaryText = titleString;
+        else if (showField('title') && poc.title) primaryText = poc.title;
+        else primaryText = poc.contactType || "Unknown";
+
+        // Secondary text pieces
+        const secondaryParts = [];
+        if (showField('roles') && poc.roles.length > 0) {
+            const r = poc.roles[0];
+            let roleStr = r.roleTitle || r.roleType;
+            const dates = [];
+            if (r.appointedOn) dates.push(`Appointed ${r.appointedOn}`);
+            if (r.resignedOn) dates.push(`Resigned ${r.resignedOn}`);
+            if (dates.length > 0) roleStr += ` (${dates.join(' · ')})`;
+            if (roleStr) secondaryParts.push(roleStr);
+        }
+        
+        if (showField('dateOfBirth') && dob) {
+            secondaryParts.push(`DOB: ${dob}`);
+        }
+        
+        if (showField('email') && poc.email) {
+            secondaryParts.push(poc.email);
+        }
+
+        let addressStr = "";
+        if (showField('correspondenceAddress') && poc.correspondenceAddress) {
+            addressStr = getAddressSummary(poc.correspondenceAddress);
+        }
+
+        return (
+            <div className="flex flex-col min-w-0">
+                <span className="text-sm font-medium text-slate-900 truncate">
+                    {primaryText}
+                </span>
+                {secondaryParts.length > 0 && (
+                    <span className="text-xs text-slate-500 truncate mt-0.5">
+                        {secondaryParts.join(' · ')}
+                    </span>
+                )}
+                {addressStr && (
+                    <span className="text-[11px] text-slate-400 truncate mt-0.5">
+                        {addressStr}
+                    </span>
+                )}
+            </div>
+        );
+    }
+
     // ── Detailed layout ────────────────────────────────────────────────────────
-    const dob = formatPartialDob(poc.dateOfBirth);
 
     return (
         <div className="grid grid-cols-1 gap-4 bg-slate-50/50 p-4 rounded-xl border border-slate-100 text-sm font-sans mt-2 shadow-inner">
@@ -133,12 +205,26 @@ export function PersonOrContactValueViewer({ value, layout = "compact" }: Person
                     <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-0.5">
                         {poc.contactType}
                     </span>
-                    <span className="text-base font-semibold text-slate-900">
-                        {[poc.forenames, poc.surname].filter(Boolean).join(' ') || <span className="text-slate-400 italic">—</span>}
-                    </span>
-                    {poc.title && (
-                        <span className="ml-2 text-xs text-slate-500">{poc.title}</span>
-                    )}
+                    {(() => {
+                        const titleParts = [];
+                        if (showField('forenames') && poc.forenames) titleParts.push(poc.forenames);
+                        if (showField('surname') && poc.surname) titleParts.push(poc.surname);
+                        const titleString = titleParts.join(' ');
+                        
+                        if (!titleString && !poc.title) {
+                            return <span className="text-base font-semibold text-slate-400 italic">No displayable name</span>;
+                        }
+                        return (
+                            <>
+                                <span className="text-base font-semibold text-slate-900">
+                                    {titleString}
+                                </span>
+                                {poc.title && showField('title') && (
+                                    <span className="ml-2 text-xs text-slate-500">{poc.title}</span>
+                                )}
+                            </>
+                        );
+                    })()}
                 </div>
                 {poc.isActivePersonOrContact !== null && (
                     <span className={`text-[10px] font-semibold rounded-full px-2 py-1 border ${poc.isActivePersonOrContact ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
@@ -148,53 +234,56 @@ export function PersonOrContactValueViewer({ value, layout = "compact" }: Person
             </div>
 
             {/* Name breakdown */}
-            {(poc.forenames || poc.surname) && (
+            {(showField('forenames') || showField('surname')) && (poc.forenames || poc.surname) && (
                 <div className="grid grid-cols-2 gap-4 border-b border-slate-100 pb-3">
-                    <Field label="Forenames" value={poc.forenames} />
-                    <Field label="Surname"   value={poc.surname} />
+                    {showField('forenames') && <Field label="Forenames" value={poc.forenames} />}
+                    {showField('surname') && <Field label="Surname"   value={poc.surname} />}
                 </div>
             )}
 
             {/* Contact info */}
-            {(poc.email || poc.phones.length > 0) && (
+            {(showField('email') || showField('phones')) && (poc.email || poc.phones.length > 0) && (
                 <div className="grid grid-cols-2 gap-4 border-b border-slate-100 pb-3">
-                    {poc.email && <Field label="Email" value={poc.email} />}
-                    {poc.phones.map((p, i) => (
+                    {showField('email') && poc.email && <Field label="Email" value={poc.email} />}
+                    {showField('phones') && poc.phones.map((p, i) => (
                         <Field key={i} label={p.type} value={p.number} />
                     ))}
                 </div>
             )}
 
             {/* Individual attributes */}
-            {(poc.nationality.length > 0 || poc.countryOfResidence || dob || poc.placeOfBirth) && (
+            {(showField('nationality') || showField('countryOfResidence') || showField('dateOfBirth') || showField('placeOfBirth') || showField('correspondenceAddress')) && (poc.nationality.length > 0 || poc.countryOfResidence || dob || poc.placeOfBirth || poc.correspondenceAddress) && (
                 <div className="grid grid-cols-2 gap-4 border-b border-slate-100 pb-3">
-                    {poc.nationality.length > 0 && (
+                    {showField('nationality') && poc.nationality.length > 0 && (
                         <Field label="Nationality" value={poc.nationality.join(', ')} />
                     )}
-                    {poc.countryOfResidence && (
+                    {showField('countryOfResidence') && poc.countryOfResidence && (
                         <Field label="Country of Residence" value={poc.countryOfResidence} />
                     )}
-                    {dob && <Field label="Date of Birth" value={dob} />}
-                    {poc.placeOfBirth && <Field label="Place of Birth" value={poc.placeOfBirth} />}
+                    {showField('dateOfBirth') && dob && <Field label="Date of Birth" value={dob} />}
+                    {showField('placeOfBirth') && poc.placeOfBirth && <Field label="Place of Birth" value={poc.placeOfBirth} />}
+                    {showField('correspondenceAddress') && poc.correspondenceAddress && (
+                        <Field label="Correspondence Address" value={getAddressSummary(poc.correspondenceAddress)} />
+                    )}
                 </div>
             )}
 
             {/* Roles */}
-            {poc.roles.length > 0 && (
+            {showField('roles') && poc.roles.length > 0 && (
                 <div className="border-b border-slate-100 pb-3">
                     <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-2">
                         Roles
                     </span>
                     <div className="divide-y divide-slate-100">
                         {poc.roles.map((role, i) => (
-                            <RoleRow key={i} role={role} />
+                            <RoleRow key={i} role={role} displayMask={displayMask} />
                         ))}
                     </div>
                 </div>
             )}
 
             {/* Source identifiers */}
-            {poc.sourceIdentifiers.length > 0 && (
+            {showField('sourceIdentifiers') && poc.sourceIdentifiers.length > 0 && (
                 <div>
                     <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-2">
                         Source Identifiers

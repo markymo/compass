@@ -35,6 +35,7 @@ type TransformType =
     | 'TO_PARTY_LIST'
     | 'TO_NAME_HISTORY_LIST'
     | 'TO_CODE_LIST'
+    | 'TO_COMPANIES_HOUSE_ACTIVE_DIRECTOR_PARTY_VALUE_LIST'
     /**
      * Converts a GLEIF Registration Authority code (e.g. "RA000192") to the
      * human-readable name stored in the registry_authorities table.
@@ -812,6 +813,26 @@ export function applyTransform(
                 }
             }
 
+            // ── Address ───────────────────────────────────────────────────────
+            let correspondenceAddress: any = null;
+            if (cfg.correspondenceAddressPath) {
+                const rawAddr = resolveP(cfg.correspondenceAddressPath);
+                if (rawAddr) {
+                    const res = applyTransform(rawAddr, 'TO_ADDRESS_VALUE', cfg.correspondenceAddressConfig);
+                    if (res.value) correspondenceAddress = res.value;
+                }
+            } else if (value.address) {
+                // Fallback for raw Companies House officer shape
+                const res = applyTransform(value.address, 'TO_ADDRESS_VALUE', {
+                    addressLines: ['premises', 'address_line_1', 'address_line_2'],
+                    locality: 'locality',
+                    region: 'region',
+                    postalCode: 'postal_code',
+                    countryPath: 'country'
+                });
+                if (res.value) correspondenceAddress = res.value;
+            }
+
             // ── Assemble PersonOrContactValue ─────────────────────────────────
             // INVARIANT: isActivePersonOrContact is ALWAYS null from automated transforms.
             // It must NEVER be derived from role.isActiveRole or any registry status.
@@ -829,6 +850,7 @@ export function applyTransform(
                 placeOfBirth,
                 roles,
                 sourceIdentifiers,
+                correspondenceAddress,
                 isActiveParty:           null,
                 isActivePersonOrContact: null,   // INVARIANT — never derived from role status
                 visibility:              { scope: 'CLIENT_LE' as const },
@@ -898,6 +920,39 @@ export function applyTransform(
                 .filter((v: any) => v !== null);
 
             return { value: list, confidencePenalty: 0, rowKeys };
+        }
+
+        case 'TO_COMPANIES_HOUSE_ACTIVE_DIRECTOR_PARTY_VALUE_LIST': {
+            // First, get all party values from the standard fan-out
+            const res = applyTransform(value, 'TO_PARTY_VALUE_LIST', transformConfig);
+            if (!Array.isArray(res.value)) {
+                return res;
+            }
+
+            // Filter down to only active directors
+            const activeList: any[] = [];
+            const activeRowKeys: string[] = [];
+            
+            res.value.forEach((party, idx) => {
+                if (party && typeof party === 'object') {
+                    const roles = Array.isArray(party.roles) ? party.roles : [];
+                    const hasActiveDirector = roles.some((r: any) => {
+                        const isDirector = String(r.roleType || r.roleTitle || '').toLowerCase().includes('director');
+                        const isActive = r.isActiveRole !== false;
+                        const noResignedDate = !r.resignedOn && !r.ceasedOn;
+                        return isDirector && isActive && noResignedDate;
+                    });
+
+                    if (hasActiveDirector) {
+                        activeList.push(party);
+                        if (res.rowKeys && res.rowKeys[idx] !== undefined) {
+                            activeRowKeys.push(res.rowKeys[idx]);
+                        }
+                    }
+                }
+            });
+
+            return { value: activeList, confidencePenalty: res.confidencePenalty, rowKeys: activeRowKeys };
         }
 
         default:

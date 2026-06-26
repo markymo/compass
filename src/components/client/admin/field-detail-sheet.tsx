@@ -32,7 +32,58 @@ import { type GraphPickerConfig, type ProjectionMode, getDefaultProjectionFields
 import { bindingToBindingForm, bindingFormToPickerConfig, BLANK_BINDING_FORM } from "@/lib/graph/binding-form-helpers";
 import { Checkbox } from "@/components/ui/checkbox";
 
-
+const PARTY_TYPES = ['INDIVIDUAL', 'ORGANISATION', 'UNKNOWN'];
+const PARTY_SUBTYPES = ['PERSON', 'CONTACT', 'COMPANY', 'TRUST', 'FUND', 'PARTNERSHIP', 'GOVERNMENT_BODY', 'TEAM', 'DISTRIBUTION_LIST', 'OTHER'];
+const SCHEMA_GROUPS = [
+    {
+        label: 'Identity',
+        fields: [
+            { path: 'title', label: 'Title' },
+            { path: 'forenames', label: 'Forenames' },
+            { path: 'surname', label: 'Surname' },
+            { path: 'organisationName', label: 'Organisation Name' },
+            { path: 'partyType', label: 'Party Type' },
+            { path: 'partySubType', label: 'Party Subtype' },
+            { path: 'contactType', label: 'Contact Type' },
+            { path: 'fullName', label: 'Full name (derived)', deEmphasise: true }
+        ]
+    },
+    {
+        label: 'Date of Birth',
+        fields: [
+            { path: 'dateOfBirth.year', label: 'Year' },
+            { path: 'dateOfBirth.month', label: 'Month' },
+            { path: 'dateOfBirth.day', label: 'Day' },
+        ]
+    },
+    {
+        label: 'Location / Personal Details',
+        fields: [
+            { path: 'nationality', label: 'Nationality' },
+            { path: 'countryOfResidence', label: 'Country of Residence' },
+            { path: 'placeOfBirth', label: 'Place of Birth' },
+            { path: 'correspondenceAddress', label: 'Correspondence Address' },
+        ]
+    },
+    {
+        label: 'Contact',
+        fields: [
+            { path: 'email', label: 'Email' },
+            { path: 'phones', label: 'Phones' },
+        ]
+    },
+    {
+        label: 'Role Context',
+        fields: [
+            { path: 'roles[0].roleTitle', label: 'Role Title' },
+            { path: 'roles[0].roleType', label: 'Role Type' },
+            { path: 'roles[0].appointedOn', label: 'Appointed On' },
+            { path: 'roles[0].resignedOn', label: 'Resigned On' },
+            { path: 'roles[0].isActiveRole', label: 'Is Active Role' },
+            { path: 'roles[0].natureOfControl', label: 'Nature of Control' },
+        ]
+    }
+];
 
 interface FieldDetailSheetProps {
     field: any;
@@ -82,7 +133,8 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
         defaultResponse: field?.defaultResponse || "",
         isMultiValue: field?.isMultiValue || false,
         optionSetId: field?.optionSetId || "none",
-        appDataType: field?.appDataType || "TEXT"
+        appDataType: field?.appDataType || "TEXT",
+        profileConfig: field?.profileConfig || null
     });
 
     // Only reset the form when the panel opens fresh OR the user switches to a different
@@ -105,6 +157,7 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                 isMultiValue:    field.isMultiValue || false,
                 optionSetId:     field.optionSetId || "none",
                 appDataType:     field.appDataType || "TEXT",
+                profileConfig:   field.profileConfig || null,
             });
         }
 
@@ -276,6 +329,12 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
             if (payload.optionSetId === "none" || payload.appDataType !== APP_DATA_TYPES.SELECT) {
                 payload.optionSetId = null;
             }
+            if (payload.appDataType === 'PARTY') {
+                payload.profileConfig = {
+                    ...(field.profileConfig || {}), // preserve existing like storageModes
+                    ...(formData.profileConfig || {}) // override with edited options
+                };
+            }
             // Strip isMultiValue only for types where a collection makes no semantic sense.
             // TEXT, NUMBER, JSONB, SELECT, and all reference types CAN be multi-value
             // (e.g. trading names, SIC codes, directors). Only BOOLEAN, DATETIME, and
@@ -332,7 +391,7 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                                 <Badge key={d} variant="secondary" className="bg-purple-50 text-purple-700 font-normal">{d}</Badge>
                             ))}
                             {/* For complex fields, show a business-facing label instead of the raw storage type */}
-                            {isComplexForHeader
+                            {isComplexForHeader && field.appDataType !== 'PARTY'
                                 ? <Badge variant="outline" className="text-[11px] font-medium text-indigo-700 border-indigo-200 bg-indigo-50 self-center ml-2">{complexHeaderCfg!.label}</Badge>
                                 : <span className="text-xs text-slate-500 font-mono self-center ml-2">{field.appDataType}</span>
                             }
@@ -346,9 +405,10 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                     {/* ── Field Type Summary ──────────────────────────────── */}
                     {(() => {
                         const complexCfg = getComplexFieldConfig(field?.fieldNo);
-                        const typeLabel  = getFieldTypeLabel(field?.fieldNo, field?.appDataType);
+                        const isParty = field?.appDataType === 'PARTY';
+                        const typeLabel  = (complexCfg && !isParty) ? getFieldTypeLabel(field?.fieldNo, field?.appDataType) : (field?.appDataType || '');
 
-                        if (complexCfg && complexCfg.kind === 'GRAPH_RELATIONSHIP_COLLECTION') {
+                        if (complexCfg && complexCfg.kind === 'GRAPH_RELATIONSHIP_COLLECTION' && !isParty) {
                             const cfg = complexCfg as GraphRelationshipCollectionConfig;
                             return (
                                 <section className="rounded-lg border border-indigo-200 bg-indigo-50/60 p-4 space-y-3">
@@ -388,7 +448,7 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                             );
                         }
 
-                        if (complexCfg && complexCfg.kind === 'STRUCTURED_COLLECTION') {
+                        if (complexCfg && complexCfg.kind === 'STRUCTURED_COLLECTION' && !isParty) {
                             const cfg = complexCfg as StructuredCollectionConfig;
                             return (
                                 <section className="rounded-lg border border-teal-200 bg-teal-50/60 p-4 space-y-3">
@@ -436,6 +496,118 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                         );
                     })()}
 
+                    {/* Party Profile Section */}
+                    {formData.appDataType === 'PARTY' && (
+                        <section className="rounded-lg border border-indigo-200 bg-indigo-50/60 p-4 space-y-4">
+                            <div className="flex items-center gap-2 border-b border-indigo-200 pb-2">
+                                <span className="text-sm font-semibold text-indigo-900">PARTY Field Profile</span>
+                                <Badge className="bg-indigo-100 text-indigo-700 border-indigo-200 text-[10px] font-medium">Schema Constraints</Badge>
+                            </div>
+                            
+                            <div className="space-y-4">
+                                <div>
+                                    <Label className="text-xs font-semibold text-indigo-900 mb-2 block">Allowed Party Types</Label>
+                                    <div className="flex flex-wrap gap-2">
+                                        {PARTY_TYPES.map(type => {
+                                            const isSelected = formData.profileConfig?.allowedPartyTypes?.includes(type);
+                                            return (
+                                                <Badge 
+                                                    key={type} 
+                                                    variant={isSelected ? "default" : "outline"}
+                                                    className={`cursor-pointer ${isSelected ? 'bg-indigo-600 hover:bg-indigo-700 text-white' : 'bg-white text-indigo-700 border-indigo-200 hover:bg-indigo-50'}`}
+                                                    onClick={() => {
+                                                        const current = formData.profileConfig?.allowedPartyTypes || [];
+                                                        const next = isSelected ? current.filter((t: string) => t !== type) : [...current, type];
+                                                        setFormData({
+                                                            ...formData,
+                                                            profileConfig: { ...formData.profileConfig, allowedPartyTypes: next }
+                                                        });
+                                                    }}
+                                                >
+                                                    {type}
+                                                </Badge>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <Label className="text-xs font-semibold text-indigo-900 mb-2 block">Allowed Party Subtypes</Label>
+                                    <div className="flex flex-wrap gap-2">
+                                        {PARTY_SUBTYPES.map(type => {
+                                            const isSelected = formData.profileConfig?.allowedPartySubTypes?.includes(type);
+                                            return (
+                                                <Badge 
+                                                    key={type} 
+                                                    variant={isSelected ? "default" : "outline"}
+                                                    className={`cursor-pointer ${isSelected ? 'bg-indigo-600 hover:bg-indigo-700 text-white' : 'bg-white text-indigo-700 border-indigo-200 hover:bg-indigo-50'}`}
+                                                    onClick={() => {
+                                                        const current = formData.profileConfig?.allowedPartySubTypes || [];
+                                                        const next = isSelected ? current.filter((t: string) => t !== type) : [...current, type];
+                                                        setFormData({
+                                                            ...formData,
+                                                            profileConfig: { ...formData.profileConfig, allowedPartySubTypes: next }
+                                                        });
+                                                    }}
+                                                >
+                                                    {type}
+                                                </Badge>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <Label className="text-xs font-semibold text-indigo-900 mb-2 block">Display Mask</Label>
+                                    <div className="text-[10px] text-indigo-600 mb-2">Order of selection determines display order.</div>
+                                    <div className="flex flex-col gap-4">
+                                        {SCHEMA_GROUPS.map(group => (
+                                            <div key={group.label} className="bg-indigo-50/50 p-2 rounded border border-indigo-100">
+                                                <div className="text-[10px] font-bold text-indigo-800 uppercase tracking-wider mb-2">{group.label}</div>
+                                                <div className="flex flex-wrap gap-2">
+                                                    {group.fields.map(f => {
+                                                        const isSelected = formData.profileConfig?.displayMask?.includes(f.path);
+                                                        return (
+                                                            <Badge 
+                                                                key={f.path} 
+                                                                variant={isSelected ? "default" : "outline"}
+                                                                className={`cursor-pointer ${f.deEmphasise && !isSelected ? 'opacity-60' : ''} ${isSelected ? 'bg-indigo-600 hover:bg-indigo-700 text-white' : 'bg-white text-indigo-700 border-indigo-200 hover:bg-indigo-50'}`}
+                                                                onClick={() => {
+                                                                    const current = formData.profileConfig?.displayMask || [];
+                                                                    const next = isSelected ? current.filter((p: string) => p !== f.path) : [...current, f.path];
+                                                                    setFormData({
+                                                                        ...formData,
+                                                                        profileConfig: { ...formData.profileConfig, displayMask: next }
+                                                                    });
+                                                                }}
+                                                            >
+                                                                {f.label}
+                                                            </Badge>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    {formData.profileConfig?.displayMask && formData.profileConfig.displayMask.length > 0 && (
+                                        <div className="mt-2 p-2 bg-white rounded border border-indigo-100 text-xs font-mono text-indigo-800">
+                                            {formData.profileConfig.displayMask.join(', ')}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {formData.profileConfig?.storageModes && (
+                                    <div>
+                                        <Label className="text-xs font-semibold text-indigo-900 mb-1 block">Storage Modes (Read-only)</Label>
+                                        <div className="text-xs text-indigo-700 font-mono">
+                                            {formData.profileConfig.storageModes.join(', ')}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </section>
+                    )}
+
                     {/* General Metadata Section */}
                     <section className="space-y-4">
                         <h3 className="text-sm font-semibold flex items-center gap-2 text-slate-800 border-b pb-2">
@@ -472,35 +644,44 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                             </div>
                             <div className="grid gap-2">
                                 <Label className="text-xs text-slate-500">Data Type</Label>
-                                {isComplexForHeader ? (
+                                {isComplexForHeader && field.appDataType !== 'PARTY' ? (
                                     // Complex fields: lock the storage type — changing it would break KycWriteService routing.
                                     // The true field type is defined in complex-field-config.ts, not this dropdown.
-                                    <div className="flex items-center gap-2 h-9 px-3 rounded-md border border-slate-200 bg-slate-50">
-                                        <span className="text-xs font-mono text-slate-500">{field.appDataType}</span>
-                                        <span className="text-[10px] text-amber-600 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 ml-auto">
-                                            Managed by registry — do not change
-                                        </span>
+                                    <div className="flex flex-col gap-2">
+                                        <div className="flex items-center gap-2 h-9 px-3 rounded-md border border-slate-200 bg-slate-50">
+                                            <span className="text-xs font-mono text-slate-500">{field.appDataType}</span>
+                                            <span className="text-[10px] text-amber-600 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 ml-auto">
+                                                Collection behaviour is system-configured
+                                            </span>
+                                        </div>
                                     </div>
                                 ) : (
-                                    <Select value={formData.appDataType} onValueChange={(val) => setFormData({ ...formData, appDataType: val })}>
-                                        <SelectTrigger className="w-full bg-white">
-                                            <SelectValue placeholder="Select Data Type" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {SCALAR_UI_OPTIONS.map(opt => (
-                                                <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                                            ))}
-                                            <div className="px-2 py-1.5 text-[10px] font-semibold text-slate-400 uppercase tracking-wider border-t mt-1 pt-2">
-                                                Reference Types
+                                    <div className="flex flex-col gap-2">
+                                        <Select value={formData.appDataType} onValueChange={(val) => setFormData({ ...formData, appDataType: val })}>
+                                            <SelectTrigger className="w-full bg-white">
+                                                <SelectValue placeholder="Select Data Type" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {SCALAR_UI_OPTIONS.map(opt => (
+                                                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                                ))}
+                                                <div className="px-2 py-1.5 text-[10px] font-semibold text-slate-400 uppercase tracking-wider border-t mt-1 pt-2">
+                                                    Reference Types
+                                                </div>
+                                                {REFERENCE_UI_OPTIONS.map(opt => (
+                                                    <SelectItem key={opt.value} value={opt.value}>
+                                                        <span>{opt.label}</span>
+                                                        {opt.description && <span className="text-slate-400 text-[10px] ml-1">— {opt.description}</span>}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        {field.appDataType === 'PARTY' && isComplexForHeader && (
+                                            <div className="text-[11px] text-amber-700 italic bg-amber-50 p-2 rounded-md border border-amber-200">
+                                                Collection behaviour is system-configured ({complexHeaderCfg!.collectionId}). The PARTY profile below controls allowed types and display masks.
                                             </div>
-                                            {REFERENCE_UI_OPTIONS.map(opt => (
-                                                <SelectItem key={opt.value} value={opt.value}>
-                                                    <span>{opt.label}</span>
-                                                    {opt.description && <span className="text-slate-400 text-[10px] ml-1">— {opt.description}</span>}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                        )}
+                                    </div>
                                 )}
                             </div>
                             <div className="grid gap-2">

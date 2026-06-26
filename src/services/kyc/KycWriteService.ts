@@ -161,7 +161,7 @@ export class KycWriteService {
 
                 const complexCfgForIdempotency = getComplexFieldConfig(candidate.fieldNo);
                 const expectedCollectionId = fieldDef?.isMultiValue
-                    ? (complexCfgForIdempotency?.collectionId ?? fieldDef?.categoryId ?? 'GENERAL')
+                    ? (complexCfgForIdempotency?.collectionId ?? `FIELD_${candidate.fieldNo}`)
                     : undefined;
 
                 if (expectedCollectionId) {
@@ -359,7 +359,7 @@ export class KycWriteService {
             // and leave the collection permanently empty after isMultiValue is corrected.
             const complexCfgForIdempotency = getComplexFieldConfig(fieldNo);
             const expectedCollectionId = def.isMultiValue
-                ? (complexCfgForIdempotency?.collectionId ?? def.categoryId ?? 'GENERAL')
+                ? (complexCfgForIdempotency?.collectionId ?? `FIELD_${fieldNo}`)
                 : undefined;
 
             const existingInstance = await prisma.fieldClaim.findFirst({
@@ -616,7 +616,7 @@ export class KycWriteService {
                 collectionId: (() => {
                     if (def.isMultiValue) {
                         const complexCfg = getComplexFieldConfig(fieldNo);
-                        return complexCfg?.collectionId ?? def.categoryId ?? 'GENERAL';
+                        return complexCfg?.collectionId ?? `FIELD_${fieldNo}`;
                     }
                     return undefined;
                 })(),

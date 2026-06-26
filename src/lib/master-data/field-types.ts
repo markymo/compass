@@ -125,7 +125,7 @@ export const SCALAR_UI_OPTIONS: AppDataTypeOption[] = [
     { value: APP_DATA_TYPES.JSONB,             label: 'JSON' },
     { value: APP_DATA_TYPES.SELECT,            label: 'Dropdown Selection' },
     { value: APP_DATA_TYPES.ADDRESS,           label: 'Address (Structured Embedded)' },
-    { value: APP_DATA_TYPES.PARTY,             label: 'Party (Structured Embedded)' },
+    { value: APP_DATA_TYPES.PARTY,             label: 'Party / Person / Organisation' },
 ];
 
 /** Reference types — require additional graph binding configuration. */

@@ -19,6 +19,32 @@ export interface TransformDefinition {
     label: string;
     /** One-sentence plain-English description shown under the dropdown */
     description: string;
+    /** What payload shape the transform expects to receive */
+    inputExpectation?: string;
+    /** What structural shape the transform produces */
+    outputShape?: string;
+    /** Typical field or domain use-case */
+    typicalUse?: string;
+    /** Operational warnings or specific hardcoded assumptions */
+    caveats?: string;
+
+    // --- Transform Contract (Validation) ---
+    /** The core appDataType emitted (e.g., 'PARTY', 'TEXT') */
+    outputDataType?: string;
+    /** Whether it emits an embedded payload or a reference (e.g., 'EMBEDDED', 'REFERENCE') */
+    outputStorageMode?: string;
+    /** Whether it emits a single value ('SINGLE') or multiple instances ('MANY') */
+    outputCardinality?: 'SINGLE' | 'MANY';
+    /** For PARTY fields: which partyTypes it emits */
+    outputPartyTypes?: ('INDIVIDUAL' | 'ORGANISATION' | 'UNKNOWN')[];
+    /** For PARTY fields: which specific subtypes it emits */
+    outputPartySubTypes?: string[];
+    /** Which fields are guaranteed or likely to be populated in the output */
+    populatedFields?: string[];
+    /** The specific source shape/type required for this transform to succeed */
+    requiredSourceShape?: string;
+    /** Descriptive semantics of any filtering applied during transform */
+    filterSemantics?: string;
 }
 
 export const TRANSFORM_DEFINITIONS: TransformDefinition[] = [
@@ -114,6 +140,23 @@ export const TRANSFORM_DEFINITIONS: TransformDefinition[] = [
         label: 'To Party List',
         description:
             'Maps an array of source objects (e.g. CH officers array, PSC array) into multiple PartyValue claims — one FieldClaim per item, each with its own instanceId, effectiveFrom, effectiveTo, and valueJson. Mirrors the TO_PARTY_LIST fan-out contract.',
+    },
+    {
+        key: 'TO_COMPANIES_HOUSE_ACTIVE_DIRECTOR_PARTY_VALUE_LIST',
+        label: 'Companies House Active Directors',
+        description: 'Converts Companies House officer records into embedded PARTY values representing current active directors.',
+        inputExpectation: 'Companies House officers array.',
+        outputShape: 'Multiple embedded PARTY FieldClaims.',
+        typicalUse: 'Field 63 Current Directors.',
+        caveats: 'Excludes resigned directors, secretaries and non-renderable officers. Depends on Companies House officer semantics.',
+        outputDataType: 'PARTY',
+        outputStorageMode: 'EMBEDDED',
+        outputCardinality: 'MANY',
+        outputPartyTypes: ['INDIVIDUAL'],
+        outputPartySubTypes: ['PERSON'],
+        populatedFields: ['forenames', 'surname', 'roles', 'dateOfBirth', 'nationality', 'sourceIdentifiers'],
+        requiredSourceShape: 'Companies House officers array',
+        filterSemantics: 'active directors only',
     },
 ];
 
