@@ -107,6 +107,11 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
     if (isPartyField || isAddressField) {
         isObjectRef = false;
     }
+
+    const partyPopulationPolicy = data?.profileConfig?.partyPopulationPolicy || 
+        (data?.hasActiveSourceMappings ? 'SYSTEM_ONLY' : 'SYSTEM_AND_CURATED');
+    const isSystemOnlyParty = (isPartyField || isPartyRef) && partyPopulationPolicy === 'SYSTEM_ONLY';
+
     // Controlled-vocabulary collection: uses CodeListField UX instead of free-text
     const isCodeList = !!data?.codeSystem;
     
@@ -1376,7 +1381,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                             )}
 
                                             {/* Persistent add input */}
-                                            {!isLocked && (
+                                            {!isLocked && !isSystemOnlyParty && (
                                                 <div className="pt-3 mt-2 border-t border-slate-100">
                                                     {isObjectRef ? (
                                                         <Button
