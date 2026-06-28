@@ -45,6 +45,12 @@ export async function updateFieldManually(
 
         // 2. Map value to correct slot based on FieldDefinition
         const def = await getMasterFieldDefinition(fieldNo);
+
+        if (['PARTY', 'PARTY_REF'].includes(def.appDataType) && (def.profileConfig as any)?.partyPopulationPolicy === 'SYSTEM_ONLY') {
+            // Check if we are merely asserting a none/empty state which might be allowed? No, block all manual claims for this field.
+            return { success: false, message: `Field ${fieldNo} is locked to authoritative sources. Manual curation is disabled.` };
+        }
+
         const complexCfg = getComplexFieldConfig(fieldNo);
         const collectionId = def.isMultiValue
             ? (complexCfg?.collectionId || def.categoryId || 'GENERAL')

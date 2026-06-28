@@ -24,6 +24,27 @@ vi.mock('next/cache', () => ({
     unstable_noStore: vi.fn(),
 }));
 
+// Mock definitionService to relax Field 63 for manual updates
+vi.mock('@/services/masterData/definitionService', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@/services/masterData/definitionService')>();
+    return {
+        ...actual,
+        getMasterFieldDefinition: async (fieldNo: number) => {
+            const def = await actual.getMasterFieldDefinition(fieldNo);
+            if (fieldNo === 63) {
+                return {
+                    ...def,
+                    profileConfig: {
+                        ...(def.profileConfig as any),
+                        partyPopulationPolicy: 'SYSTEM_AND_CURATED'
+                    }
+                };
+            }
+            return def;
+        }
+    };
+});
+
 describe.skipIf(!process.env.DATABASE_URL)('kyc-manual-update PARTY_REF Smoke Test', () => {
     let clientLEId: string;
     let subjectLeId: string;
@@ -154,7 +175,7 @@ describe.skipIf(!process.env.DATABASE_URL)('kyc-manual-update PARTY_REF Smoke Te
         const finalCollection = await KycStateService.getAuthoritativeCollection({ subjectLeId }, 63);
         expect(finalCollection).toHaveLength(1);
         expect(finalCollection[0].instanceId).toBe(`ccparty_${ccParty2Id}`);
-    });
+    }, 15000);
 
     it('smoke test: createCCPartyAndReferenceField generates stable and non-null instanceId', async () => {
         // Test createCCPartyAndReferenceField

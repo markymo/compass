@@ -21,7 +21,15 @@ export type FieldDefinition = {
     dbColumn?: string;
     notes?: string;
     options?: string[];
-    profileConfig?: any;
+    profileConfig?: {
+        allowedPartyTypes?: string[];
+        allowedPartySubTypes?: string[];
+        storageModes?: string[];
+        displayMask?: string[];
+        editMask?: string[];
+        partyPopulationPolicy?: 'SYSTEM_ONLY' | 'CURATED_ONLY' | 'SYSTEM_AND_CURATED';
+        [key: string]: any;
+    };
 };
 
 export const FIELD_DEFINITIONS: Record<number, FieldDefinition> = {
@@ -821,6 +829,7 @@ export const FIELD_DEFINITIONS: Record<number, FieldDefinition> = {
         notes: 'List of company directors stored as embedded Party structures with roles[].',
         options: ['DIRECTOR', 'UBO', 'CONTROLLER'],
         profileConfig: {
+            partyPopulationPolicy: 'SYSTEM_ONLY',
             allowedPartyTypes: ["INDIVIDUAL"],
             allowedPartySubTypes: ["PERSON"],
             storageModes: ["EMBEDDED", "REFERENCE"],

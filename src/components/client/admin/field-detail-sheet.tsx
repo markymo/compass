@@ -506,6 +506,41 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                             
                             <div className="space-y-4">
                                 <div>
+                                    <Label className="text-xs font-semibold text-indigo-900 mb-2 block">Party value source</Label>
+                                    <p className="text-[11px] text-slate-500 mb-2">Where are parties for this field allowed to come from?</p>
+                                    <div className="flex flex-col gap-2">
+                                        {[
+                                            { value: 'SYSTEM_ONLY', label: 'Source only' },
+                                            { value: 'CURATED_ONLY', label: 'Curated only' },
+                                            { value: 'SYSTEM_AND_CURATED', label: 'Source + curated' }
+                                        ].map(policy => {
+                                            const isSelected = (formData.profileConfig?.partyPopulationPolicy || 'SYSTEM_AND_CURATED') === policy.value;
+                                            return (
+                                                <div 
+                                                    key={policy.value}
+                                                    onClick={() => {
+                                                        setFormData({
+                                                            ...formData,
+                                                            profileConfig: { ...formData.profileConfig, partyPopulationPolicy: policy.value }
+                                                        });
+                                                    }}
+                                                    className={`cursor-pointer border rounded-md p-3 flex items-center gap-3 transition-colors ${
+                                                        isSelected 
+                                                            ? 'border-indigo-600 bg-indigo-50 text-indigo-900' 
+                                                            : 'border-slate-200 bg-white hover:border-indigo-300 text-slate-700'
+                                                    }`}
+                                                >
+                                                    <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${isSelected ? 'border-indigo-600' : 'border-slate-300'}`}>
+                                                        {isSelected && <div className="w-2 h-2 rounded-full bg-indigo-600" />}
+                                                    </div>
+                                                    <span className="text-sm font-medium">{policy.label}</span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                <div className="border-t border-indigo-100 pt-4">
                                     <Label className="text-xs font-semibold text-indigo-900 mb-2 block">Allowed Party Types</Label>
                                     <div className="flex flex-wrap gap-2">
                                         {PARTY_TYPES.map(type => {

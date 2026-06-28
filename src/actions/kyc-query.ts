@@ -593,6 +593,7 @@ export interface FieldDetailData {
     dataType: string;
     category?: string;
     profileConfig?: any;
+    hasActiveSourceMappings?: boolean;
     modelField?: string;
     options?: Array<string | { label: string; value: string }>;
     notes?: string;
@@ -1257,6 +1258,7 @@ export async function getFieldDetail(
         dataType: def?.appDataType || 'string',
         category: (def as any)?.masterDataCategory?.displayName || undefined,
         profileConfig: (def as any)?.profileConfig || undefined,
+        hasActiveSourceMappings: hasMapping,
         modelField: (def as any).modelField || undefined,
         // Prefer options from the linked MasterDataOptionSet (admin-managed dropdown list).
         // The optionSet.options field is a Json array of {label, value} objects.

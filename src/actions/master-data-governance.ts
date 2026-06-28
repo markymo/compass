@@ -110,6 +110,15 @@ export async function updateMasterField(
             finalData.categoryId = newCat.id;
         }
 
+        if (finalData.profileConfig?.partyPopulationPolicy === 'CURATED_ONLY') {
+            const activeMappings = await (prisma as any).sourceFieldMapping.count({
+                where: { targetFieldNo: fieldNo, isActive: true }
+            });
+            if (activeMappings > 0) {
+                return { success: false, error: 'Cannot set field to Curated Only while active source mappings exist. Disable them first.' };
+            }
+        }
+
         await (prisma as any).masterFieldDefinition.update({
             where: { fieldNo },
             data: finalData
