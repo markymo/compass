@@ -247,6 +247,14 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
         }
     }, [data]);
 
+    const parsedAuthoritativeValue = useMemo(() => {
+        if (!data?.current?.value) return null;
+        if (typeof data.current.value === 'string' && (data.current.value.startsWith('{') || data.current.value.startsWith('['))) {
+            try { return JSON.parse(data.current.value); } catch { return data.current.value; }
+        }
+        return data.current.value;
+    }, [data?.current?.value]);
+
     useEffect(() => {
         if (open && (fieldNo || customFieldId)) {
             loadData();
@@ -2202,10 +2210,10 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                 </label>
                                                  {isCuratedPartyRef || isPersonOrContactField ? (
                                                      <div className="mt-4 bg-slate-50 p-3 rounded-lg border border-slate-200">
-                                                         {manualValue?.ccPartyId && (
+                                                         {parsedAuthoritativeValue?.ccPartyId && (
                                                              <SharedResourceUsageNotice
                                                                  resourceType="PARTY"
-                                                                 resourceId={manualValue.ccPartyId}
+                                                                 resourceId={parsedAuthoritativeValue.ccPartyId}
                                                                  clientLEId={clientLEId}
                                                                  currentFieldNo={fieldNo}
                                                              />
@@ -2219,10 +2227,10 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                      </div>
                                                 ) : isAddressField || isCuratedAddressRef ? (
                                                      <div className="mt-4 bg-slate-50 p-3 rounded-lg border border-slate-200">
-                                                         {manualValue?.ccAddressId && (
+                                                         {parsedAuthoritativeValue?.ccAddressId && (
                                                              <SharedResourceUsageNotice
                                                                  resourceType="ADDRESS"
-                                                                 resourceId={manualValue.ccAddressId}
+                                                                 resourceId={parsedAuthoritativeValue.ccAddressId}
                                                                  clientLEId={clientLEId}
                                                                  currentFieldNo={fieldNo}
                                                              />
