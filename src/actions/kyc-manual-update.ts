@@ -84,6 +84,7 @@ export async function updateFieldManually(
             case 'PARTY_REF':
             case 'JSONB':
             case 'ADDRESS':
+            case 'BOOLEAN':
             case 'PARTY':
             case 'PERSON_OR_CONTACT':
                 claimInput.valueJson = value; break;

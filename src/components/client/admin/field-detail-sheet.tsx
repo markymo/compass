@@ -799,13 +799,26 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                                     <span>Default Response</span>
                                     <span className="text-[10px] text-slate-400 font-normal">Fallback value</span>
                                 </Label>
-                                <Textarea
-                                    id="defaultResponse"
-                                    placeholder="When no value exists and the field is not mapped to a source, this response will be displayed in the Master Record."
-                                    value={formData.defaultResponse}
-                                    onChange={(e) => setFormData({ ...formData, defaultResponse: e.target.value })}
-                                    className="min-h-[80px] bg-slate-50 border-slate-200 resize-y"
-                                />
+                                {formData.appDataType === 'BOOLEAN' ? (
+                                    <Select value={formData.defaultResponse || ""} onValueChange={(val) => setFormData({ ...formData, defaultResponse: val })}>
+                                        <SelectTrigger className="bg-slate-50 border-slate-200">
+                                            <SelectValue placeholder="No default" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="">No default</SelectItem>
+                                            <SelectItem value="true">Yes</SelectItem>
+                                            <SelectItem value="false">No</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                ) : (
+                                    <Textarea
+                                        id="defaultResponse"
+                                        placeholder="When no value exists and the field is not mapped to a source, this response will be displayed in the Master Record."
+                                        value={formData.defaultResponse}
+                                        onChange={(e) => setFormData({ ...formData, defaultResponse: e.target.value })}
+                                        className="min-h-[80px] bg-slate-50 border-slate-200 resize-y"
+                                    />
+                                )}
                             </div>
                         </div>
                         <div className="flex justify-end pt-2">

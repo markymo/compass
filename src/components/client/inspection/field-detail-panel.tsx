@@ -85,7 +85,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
     const [editingRowId, setEditingRowId] = useState<string | null>(null);
     const [editingRowValue, setEditingRowValue] = useState<any>("");
     const [deletingRowId, setDeletingRowId] = useState<string | null>(null);
-    const [newEntryValue, setNewEntryValue] = useState("");
+    const [newEntryValue, setNewEntryValue] = useState<any>("");
     const [isAddingSaving, setIsAddingSaving] = useState(false);
     const [isAddingPerson, setIsAddingPerson] = useState(false);
     const [newPersonData, setNewPersonData] = useState<any>(null);
@@ -94,6 +94,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
 
     // Date & value formatting helpers
     const isDateType = data?.dataType === 'DATE' || data?.dataType === 'DATETIME';
+    const isBooleanType = data?.dataType === 'BOOLEAN';
     const isCuratedPartyRef = data?.dataType === 'PARTY_REF';
     const isCuratedAddressRef = data?.dataType === 'ADDRESS_REF';
     const isGraphRef = data?.dataType === 'PERSON_REF' || data?.dataType === 'ORG_REF' || data?.dataType === 'ADDRESS_REF';
@@ -128,6 +129,12 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
 
         if (parsedVal && typeof parsedVal === 'object' && parsedVal.explicitNone) {
             return <span className="text-slate-800 font-medium">None</span>;
+        }
+
+        if (isBooleanType) {
+            if (val === true || val === "true") return <span className="text-slate-800 font-medium">Yes</span>;
+            if (val === false || val === "false") return <span className="text-slate-800 font-medium">No</span>;
+            return <span className="text-slate-800 font-medium">{String(val)}</span>;
         }
 
         if (rowData?.data?.resolvedSummary || val?._resolvedData?.resolvedSummary) {
@@ -1216,13 +1223,27 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                                     })}
                                                                                 </SelectContent>
                                                                             </Select>
+                                                                        ) : isBooleanType ? (
+                                                                            <Select
+                                                                                value={String(editingRowValue)}
+                                                                                onValueChange={(val) => setEditingRowValue(val === 'true')}
+                                                                                disabled={isSaving}
+                                                                            >
+                                                                                <SelectTrigger className="h-8 text-sm flex-1 bg-white border-indigo-200 focus:border-indigo-400">
+                                                                                    <SelectValue placeholder="Select Yes/No..." />
+                                                                                </SelectTrigger>
+                                                                                <SelectContent>
+                                                                                    <SelectItem value="true">Yes</SelectItem>
+                                                                                    <SelectItem value="false">No</SelectItem>
+                                                                                </SelectContent>
+                                                                            </Select>
                                                                         ) : (
                                                                             <Input
                                                                                 type={isDateType ? 'date' : 'text'}
                                                                                 value={isDateType ? formatDateForInput(editingRowValue) : editingRowValue}
                                                                                 onChange={(e) => setEditingRowValue(isDateType ? parseDateFromInput(e.target.value) : e.target.value)}
                                                                                 onKeyDown={(e) => {
-                                                                                    if (e.key === 'Enter' && editingRowValue.trim()) handleInlineEditSave(row);
+                                                                                    if (e.key === 'Enter' && (typeof editingRowValue === 'string' ? editingRowValue.trim() : true)) handleInlineEditSave(row);
                                                                                     if (e.key === 'Escape') { setEditingRowId(null); setEditingRowValue(""); }
                                                                                 }}
                                                                                 className="h-8 text-sm flex-1 bg-white border-indigo-200 focus:border-indigo-400"
@@ -1491,25 +1512,41 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                 <>
                                                                     <div className="relative flex-1">
                                                                         <Plus className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-                                                                        <Input
-                                                                            ref={newEntryInputRef}
-                                                                            type={isDateType ? 'date' : 'text'}
-                                                                            value={isDateType ? formatDateForInput(newEntryValue) : newEntryValue}
-                                                                            onChange={(e) => setNewEntryValue(isDateType ? parseDateFromInput(e.target.value) : e.target.value)}
-                                                                            onKeyDown={(e) => {
-                                                                                if (e.key === 'Enter' && newEntryValue.trim()) handleAddNewEntry();
-                                                                            }}
-                                                                            placeholder={isDateType ? '' : 'Add new value...'}
-                                                                            className="h-8 text-sm pl-8 bg-slate-50/50 border-slate-200 focus:bg-white focus:border-indigo-300"
-                                                                            disabled={isAddingSaving}
-                                                                        />
+                                                                        {isBooleanType ? (
+                                                                            <Select
+                                                                                value={String(newEntryValue)}
+                                                                                onValueChange={(val) => setNewEntryValue(val === 'true')}
+                                                                                disabled={isAddingSaving}
+                                                                            >
+                                                                                <SelectTrigger className="h-8 text-sm pl-8 flex-1 bg-slate-50/50 border-slate-200 focus:bg-white focus:border-indigo-300">
+                                                                                    <SelectValue placeholder="Select Yes/No..." />
+                                                                                </SelectTrigger>
+                                                                                <SelectContent>
+                                                                                    <SelectItem value="true">Yes</SelectItem>
+                                                                                    <SelectItem value="false">No</SelectItem>
+                                                                                </SelectContent>
+                                                                            </Select>
+                                                                        ) : (
+                                                                            <Input
+                                                                                ref={newEntryInputRef}
+                                                                                type={isDateType ? 'date' : 'text'}
+                                                                                value={isDateType ? formatDateForInput(newEntryValue) : newEntryValue}
+                                                                                onChange={(e) => setNewEntryValue(isDateType ? parseDateFromInput(e.target.value) : e.target.value)}
+                                                                                onKeyDown={(e) => {
+                                                                                    if (e.key === 'Enter' && (typeof newEntryValue === 'string' ? newEntryValue.trim() : true)) handleAddNewEntry();
+                                                                                }}
+                                                                                placeholder={isDateType ? '' : 'Add new value...'}
+                                                                                className="h-8 text-sm pl-8 bg-slate-50/50 border-slate-200 focus:bg-white focus:border-indigo-300"
+                                                                                disabled={isAddingSaving}
+                                                                            />
+                                                                        )}
                                                                     </div>
                                                                     <Button
                                                                         variant="ghost"
                                                                         size="sm"
                                                                         className="h-8 px-3 text-xs text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 shrink-0"
                                                                         onClick={() => handleAddNewEntry()}
-                                                                        disabled={isAddingSaving || !newEntryValue.trim()}
+                                                                        disabled={isAddingSaving || newEntryValue === "" || (typeof newEntryValue === 'string' && !newEntryValue.trim())}
                                                                     >
                                                                         {isAddingSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Add'}
                                                                     </Button>
@@ -2029,6 +2066,34 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                                     </SelectContent>
                                                                                 </Select>
                                                                                 {manualValue && (
+                                                                                    <div className="flex items-center gap-2">
+                                                                                        <Button
+                                                                                            size="sm"
+                                                                                            className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700"
+                                                                                            onClick={() => { setIsEditing(true); handleManualSave(); }}
+                                                                                            disabled={isSaving}
+                                                                                        >
+                                                                                            {isSaving ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Check className="h-3 w-3 mr-1" />}
+                                                                                            Save
+                                                                                        </Button>
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+                                                                        ) : isBooleanType ? (
+                                                                            <div className="space-y-2">
+                                                                                <Select
+                                                                                    value={String(manualValue || '')}
+                                                                                    onValueChange={(val) => setManualValue(val === 'true')}
+                                                                                >
+                                                                                    <SelectTrigger className="bg-white border-slate-300">
+                                                                                        <SelectValue placeholder="Select Yes/No..." />
+                                                                                    </SelectTrigger>
+                                                                                    <SelectContent>
+                                                                                        <SelectItem value="true">Yes</SelectItem>
+                                                                                        <SelectItem value="false">No</SelectItem>
+                                                                                    </SelectContent>
+                                                                                </Select>
+                                                                                {manualValue !== undefined && manualValue !== null && manualValue !== "" && (
                                                                                     <div className="flex items-center gap-2">
                                                                                         <Button
                                                                                             size="sm"
