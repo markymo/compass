@@ -2307,10 +2307,10 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                         </div>
                     )}
 
-                    <Tabs defaultValue="history" className="w-full mt-6">
+                    <Tabs defaultValue="note" className="w-full mt-6">
                         <TabsList className="grid w-full grid-cols-2">
-                            <TabsTrigger value="history">History Log</TabsTrigger>
                             <TabsTrigger value="note">Notes</TabsTrigger>
+                            <TabsTrigger value="history">History Log</TabsTrigger>
                         </TabsList>
 
                         {/* ─── Notes Tab ─── */}
