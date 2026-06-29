@@ -39,6 +39,7 @@ import { PartyRefValueEditor } from "../fields/PartyRefValueEditor";
 import { UnifiedPartyPicker } from "../fields/UnifiedPartyPicker";
 import { inferClaimValueKind, ClaimValueKind } from "@/lib/master-data/claim-value-resolver";
 import { ExpandableRowItem } from "./expandable-row-item";
+import { SharedResourceUsageNotice } from "./SharedResourceUsageNotice";
 
 import {
     DropdownMenu,
@@ -1121,6 +1122,14 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                         </div>
                                                                     ) : inferredKind === 'PARTY_REF' ? (
                                                                         <div className="flex-1 min-w-0 bg-slate-50 p-3 rounded border border-slate-200 space-y-3">
+                                                                            {parsedRowValue?.ccPartyId && (
+                                                                                <SharedResourceUsageNotice
+                                                                                    resourceType="PARTY"
+                                                                                    resourceId={parsedRowValue.ccPartyId}
+                                                                                    clientLEId={clientLEId}
+                                                                                    currentFieldNo={fieldNo}
+                                                                                />
+                                                                            )}
                                                                             <PersonOrContactValueEditor
                                                                                 value={editingRowValue || { contactType: 'PERSON', roles: [] } as any}
                                                                                 onChange={setEditingRowValue}
@@ -1179,6 +1188,14 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                         </div>
                                                                     ) : inferredKind === 'ADDRESS_REF' || inferredKind === 'ADDRESS' ? (
                                                                         <div className="flex-1 min-w-0 bg-slate-50 p-3 rounded border border-slate-200 space-y-3">
+                                                                            {parsedRowValue?.ccAddressId && (
+                                                                                <SharedResourceUsageNotice
+                                                                                    resourceType="ADDRESS"
+                                                                                    resourceId={parsedRowValue.ccAddressId}
+                                                                                    clientLEId={clientLEId}
+                                                                                    currentFieldNo={fieldNo}
+                                                                                />
+                                                                            )}
                                                                             <AddressValueEditor
                                                                                 value={editingRowValue || {} as any}
                                                                                 onChange={setEditingRowValue}
@@ -2185,6 +2202,14 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                 </label>
                                                  {isCuratedPartyRef || isPersonOrContactField ? (
                                                      <div className="mt-4 bg-slate-50 p-3 rounded-lg border border-slate-200">
+                                                         {manualValue?.ccPartyId && (
+                                                             <SharedResourceUsageNotice
+                                                                 resourceType="PARTY"
+                                                                 resourceId={manualValue.ccPartyId}
+                                                                 clientLEId={clientLEId}
+                                                                 currentFieldNo={fieldNo}
+                                                             />
+                                                         )}
                                                          <PersonOrContactValueEditor
                                                              value={typeof manualValue === 'object' && manualValue ? manualValue : { contactType: 'PERSON', roles: [] } as any}
                                                              onChange={(val) => setManualValue(val as any)}
@@ -2194,6 +2219,14 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                      </div>
                                                 ) : isAddressField || isCuratedAddressRef ? (
                                                      <div className="mt-4 bg-slate-50 p-3 rounded-lg border border-slate-200">
+                                                         {manualValue?.ccAddressId && (
+                                                             <SharedResourceUsageNotice
+                                                                 resourceType="ADDRESS"
+                                                                 resourceId={manualValue.ccAddressId}
+                                                                 clientLEId={clientLEId}
+                                                                 currentFieldNo={fieldNo}
+                                                             />
+                                                         )}
                                                          <AddressValueEditor
                                                              value={typeof manualValue === 'object' && manualValue ? manualValue : { addressLines: [] } as any}
                                                              onChange={(val) => setManualValue(val as any)}

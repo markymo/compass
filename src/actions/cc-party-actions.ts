@@ -364,3 +364,49 @@ export async function promoteClaimToCCParty(claimId: string, clientLEId: string)
         throw new Error("Failed to save for reuse");
     }
 }
+
+/**
+ * Get MVP active usage of a single curated party within a specific dossier
+ */
+export async function getSingleCCPartyUsage(clientLEId: string, partyId: string) {
+    const identity = await getIdentity();
+    if (!identity?.userId) {
+        throw new Error("Unauthorized");
+    }
+
+    try {
+        const claims = await prisma.fieldClaim.findMany({
+            where: {
+                clientLeScopeId: clientLEId,
+                status: 'ASSERTED',
+                valueJson: { not: Prisma.AnyNull }
+            },
+            select: { fieldNo: true, valueJson: true }
+        });
+
+        const usages: { fieldNo: number; fieldName: string }[] = [];
+        const seenFields = new Set<number>();
+
+        for (const claim of claims) {
+            const value = claim.valueJson as any;
+            if (value && typeof value === 'object' && value.ccPartyId === partyId) {
+                if (!seenFields.has(claim.fieldNo)) {
+                    seenFields.add(claim.fieldNo);
+                    let fieldName = `Field ${claim.fieldNo}`;
+                    try {
+                        const def = await getMasterFieldDefinition(claim.fieldNo);
+                        if (def && def.fieldName) fieldName = def.fieldName;
+                    } catch (e) {
+                        // ignore
+                    }
+                    usages.push({ fieldNo: claim.fieldNo, fieldName });
+                }
+            }
+        }
+
+        return usages.sort((a, b) => a.fieldNo - b.fieldNo);
+    } catch (error) {
+        console.error("Failed to fetch specific CC party usage:", error);
+        throw new Error("Failed to fetch party usage");
+    }
+}
