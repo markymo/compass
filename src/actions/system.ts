@@ -133,3 +133,23 @@ export async function saveSourcePriorityDefaults(
         return { success: false, error: "Database error — failed to save" };
     }
 }
+
+/**
+ * Returns a simple map of Registry Authority IDs to their canonical human-readable names.
+ * e.g. { "RA000585": "Companies House" }
+ */
+export async function getRegistryAuthorityNamesMap(): Promise<Record<string, string>> {
+    try {
+        const dbRAs = await prisma.registryAuthority.findMany({
+            select: { id: true, name: true }
+        });
+        const map: Record<string, string> = {};
+        for (const ra of dbRAs) {
+            map[ra.id] = ra.name;
+        }
+        return map;
+    } catch (e) {
+        console.error("[system] Failed to fetch Registry Authority names map:", e);
+        return {};
+    }
+}
