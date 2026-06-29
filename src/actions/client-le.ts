@@ -641,7 +641,7 @@ export async function getFullMasterData(clientLEId: string) {
                     // Pass collectionId for multi-value fields so legacy
                     // plain-text claims (collectionId=NULL) are excluded from resolution.
                     collectionId: d.isMultiValue
-                        ? (cfg?.kind === 'STRUCTURED_COLLECTION' ? cfg.collectionId : `FIELD_${d.fieldNo}`)
+                        ? (cfg?.kind === 'STRUCTURED_COLLECTION' ? cfg.collectionId : undefined)
                         : undefined,
                 };
             }),
