@@ -830,7 +830,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                 </span>
                             )}
                             {data?.description && (
-                                <p className="text-sm text-slate-600 mt-1.5 leading-relaxed">
+                                <p className="text-sm text-slate-600 mt-1.5 leading-relaxed max-h-32 overflow-y-auto pr-2">
                                     {data.description}
                                 </p>
                             )}

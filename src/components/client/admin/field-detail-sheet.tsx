@@ -800,12 +800,12 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                                     <span className="text-[10px] text-slate-400 font-normal">Fallback value</span>
                                 </Label>
                                 {formData.appDataType === 'BOOLEAN' ? (
-                                    <Select value={formData.defaultResponse || ""} onValueChange={(val) => setFormData({ ...formData, defaultResponse: val })}>
+                                    <Select value={formData.defaultResponse || "none"} onValueChange={(val) => setFormData({ ...formData, defaultResponse: val === "none" ? "" : val })}>
                                         <SelectTrigger className="bg-slate-50 border-slate-200">
                                             <SelectValue placeholder="No default" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="">No default</SelectItem>
+                                            <SelectItem value="none">No default</SelectItem>
                                             <SelectItem value="true">Yes</SelectItem>
                                             <SelectItem value="false">No</SelectItem>
                                         </SelectContent>
