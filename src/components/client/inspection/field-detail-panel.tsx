@@ -682,7 +682,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
 
         // 1. Repeating Field Check
         if (data?.isRepeating && !selectedRowId) {
-            toast.error("Please select a specific row to override.");
+            toast.error("Please select a specific row to edit.");
             return;
         }
 
@@ -1723,7 +1723,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                                      trigger={
                                                                                          <button
                                                                                              className="p-1.5 rounded text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors shrink-0"
-                                                                                             title="Override with saved address"
+                                                                                             title="Use saved address"
                                                                                          >
                                                                                              <Pencil className="h-3.5 w-3.5" />
                                                                                          </button>
@@ -2291,7 +2291,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                         <Textarea
                                             value={manualReason}
                                             onChange={(e) => setManualReason(e.target.value)}
-                                            placeholder="Add notes about this override (optional)..."
+                                            placeholder="Add notes about this edit (optional)..."
                                             className="h-24 bg-white border-slate-300 focus:ring-indigo-500 shadow-sm"
                                         />
                                     </div>
@@ -2304,7 +2304,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                              disabled={isSaving || ((isPersonOrContactField || isCuratedPartyRef) && !isValidPartyValue(manualValue))}
                                          >
                                             {isSaving ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : <CheckCircle className="h-3 w-3 mr-2" />}
-                                            Save Override
+                                            Save
                                         </Button>
                                     </div>
                                 </div>
