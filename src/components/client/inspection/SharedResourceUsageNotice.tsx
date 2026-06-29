@@ -2,8 +2,8 @@
 
 import React, { useEffect, useState } from "react";
 import { Database, Loader2 } from "lucide-react";
-import { getSingleCCPartyUsage } from "@/actions/cc-party-actions";
-import { getSingleCCAddressUsage } from "@/actions/cc-address-actions";
+import { getCCPartyUsage } from "@/actions/cc-party-actions";
+import { getCCAddressUsage } from "@/actions/cc-address-actions";
 
 interface UsageItem {
     fieldNo: number;
@@ -38,9 +38,11 @@ export function SharedResourceUsageNotice({
             try {
                 let data: UsageItem[] = [];
                 if (resourceType === "PARTY") {
-                    data = await getSingleCCPartyUsage(clientLEId, resourceId);
+                    const map = await getCCPartyUsage(clientLEId);
+                    data = map[resourceId] || [];
                 } else {
-                    data = await getSingleCCAddressUsage(clientLEId, resourceId);
+                    const map = await getCCAddressUsage(clientLEId);
+                    data = map[resourceId] || [];
                 }
                 if (isMounted) {
                     setUsages(data);

@@ -7,6 +7,35 @@ import { AddressValue, isAddressValue } from "@/lib/master-data/address-value";
 import { revalidatePath } from "next/cache";
 import { getMasterFieldDefinition } from "@/services/masterData/definitionService";
 
+function extractIds(value: any, idKey: string, foundIds: Set<string> = new Set()): Set<string> {
+    if (!value) return foundIds;
+    
+    let parsedValue = value;
+    if (typeof value === 'string') {
+        if (value.startsWith('{') || value.startsWith('[')) {
+            try { parsedValue = JSON.parse(value); } catch (e) { return foundIds; }
+        } else {
+            return foundIds;
+        }
+    }
+    
+    if (typeof parsedValue !== 'object' || parsedValue === null) return foundIds;
+
+    if (Array.isArray(parsedValue)) {
+        for (const v of parsedValue) extractIds(v, idKey, foundIds);
+        return foundIds;
+    }
+    if (typeof parsedValue[idKey] === 'string') {
+        foundIds.add(parsedValue[idKey]);
+    }
+    for (const key of Object.keys(parsedValue)) {
+        if (typeof parsedValue[key] === 'object' && parsedValue[key] !== null) {
+            extractIds(parsedValue[key], idKey, foundIds);
+        }
+    }
+    return foundIds;
+}
+
 /**
  * Fetch all curated addresses for a given clientLEId
  */
@@ -173,7 +202,6 @@ export async function getCCAddressUsage(clientLEId: string) {
     }
 
     try {
-        // Fetch all claims with JSON payloads (not constrained to appDataType)
         const claims = await prisma.fieldClaim.findMany({
             where: { valueJson: { not: Prisma.AnyNull } },
             select: { fieldNo: true, valueJson: true }
@@ -184,8 +212,8 @@ export async function getCCAddressUsage(clientLEId: string) {
 
         for (const claim of claims) {
             const value = claim.valueJson as any;
-            if (value && typeof value === 'object' && typeof value.ccAddressId === 'string') {
-                const addressId = value.ccAddressId;
+            const addressIds = extractIds(value, 'ccAddressId');
+            for (const addressId of addressIds) {
                 if (!usageMap[addressId]) {
                     usageMap[addressId] = [];
                 }
@@ -232,7 +260,7 @@ export async function deleteCCAddress(id: string, clientLEId: string) {
 
         const isUsed = claims.some((c: any) => {
             const val = c.valueJson as any;
-            return val && val.ccAddressId === id;
+            return extractIds(val, 'ccAddressId').has(id);
         });
 
         if (isUsed) {
@@ -361,48 +389,3 @@ export async function saveAddressForReuse(claimId: string, clientLEId: string) {
     }
 }
 
-/**
- * Get MVP active usage of a single curated address within a specific dossier
- */
-export async function getSingleCCAddressUsage(clientLEId: string, addressId: string) {
-    const identity = await getIdentity();
-    if (!identity?.userId) {
-        throw new Error("Unauthorized");
-    }
-
-    try {
-        const claims = await prisma.fieldClaim.findMany({
-            where: {
-                clientLeScopeId: clientLEId,
-                status: 'ASSERTED',
-                valueJson: { not: Prisma.AnyNull }
-            },
-            select: { fieldNo: true, valueJson: true }
-        });
-
-        const usages: { fieldNo: number; fieldName: string }[] = [];
-        const seenFields = new Set<number>();
-
-        for (const claim of claims) {
-            const value = claim.valueJson as any;
-            if (value && typeof value === 'object' && value.ccAddressId === addressId) {
-                if (!seenFields.has(claim.fieldNo)) {
-                    seenFields.add(claim.fieldNo);
-                    let fieldName = `Field ${claim.fieldNo}`;
-                    try {
-                        const def = await getMasterFieldDefinition(claim.fieldNo);
-                        if (def && def.fieldName) fieldName = def.fieldName;
-                    } catch (e) {
-                        // ignore
-                    }
-                    usages.push({ fieldNo: claim.fieldNo, fieldName });
-                }
-            }
-        }
-
-        return usages.sort((a, b) => a.fieldNo - b.fieldNo);
-    } catch (error) {
-        console.error("Failed to fetch specific CC address usage:", error);
-        throw new Error("Failed to fetch address usage");
-    }
-}
