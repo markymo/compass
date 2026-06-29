@@ -8,17 +8,29 @@ import { revalidatePath } from "next/cache";
 import { getMasterFieldDefinition } from "@/services/masterData/definitionService";
 
 function extractIds(value: any, idKey: string, foundIds: Set<string> = new Set()): Set<string> {
-    if (!value || typeof value !== 'object') return foundIds;
-    if (Array.isArray(value)) {
-        for (const v of value) extractIds(v, idKey, foundIds);
+    if (!value) return foundIds;
+    
+    let parsedValue = value;
+    if (typeof value === 'string') {
+        if (value.startsWith('{') || value.startsWith('[')) {
+            try { parsedValue = JSON.parse(value); } catch (e) { return foundIds; }
+        } else {
+            return foundIds;
+        }
+    }
+    
+    if (typeof parsedValue !== 'object' || parsedValue === null) return foundIds;
+
+    if (Array.isArray(parsedValue)) {
+        for (const v of parsedValue) extractIds(v, idKey, foundIds);
         return foundIds;
     }
-    if (typeof value[idKey] === 'string') {
-        foundIds.add(value[idKey]);
+    if (typeof parsedValue[idKey] === 'string') {
+        foundIds.add(parsedValue[idKey]);
     }
-    for (const key of Object.keys(value)) {
-        if (typeof value[key] === 'object') {
-            extractIds(value[key], idKey, foundIds);
+    for (const key of Object.keys(parsedValue)) {
+        if (typeof parsedValue[key] === 'object' && parsedValue[key] !== null) {
+            extractIds(parsedValue[key], idKey, foundIds);
         }
     }
     return foundIds;
@@ -191,11 +203,7 @@ export async function getCCAddressUsage(clientLEId: string) {
 
     try {
         const claims = await prisma.fieldClaim.findMany({
-            where: {
-                clientLeScopeId: clientLEId,
-                status: 'ASSERTED',
-                valueJson: { not: Prisma.AnyNull }
-            },
+            where: { valueJson: { not: Prisma.AnyNull } },
             select: { fieldNo: true, valueJson: true }
         });
 
