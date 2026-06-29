@@ -111,6 +111,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
     const partyPopulationPolicy = data?.profileConfig?.partyPopulationPolicy || 
         (data?.hasActiveSourceMappings ? 'SYSTEM_ONLY' : 'SYSTEM_AND_CURATED');
     const isSystemOnlyParty = (isPartyField || isPartyRef) && partyPopulationPolicy === 'SYSTEM_ONLY';
+    const isSystemOnlyAddress = (isAddressField || isAddressRef) && partyPopulationPolicy === 'SYSTEM_ONLY';
 
     // Controlled-vocabulary collection: uses CodeListField UX instead of free-text
     const isCodeList = !!data?.codeSystem;
@@ -1381,7 +1382,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                             )}
 
                                             {/* Persistent add input */}
-                                            {!isLocked && !isSystemOnlyParty && (
+                                            {!isLocked && !isSystemOnlyParty && !isSystemOnlyAddress && (
                                                 <div className="pt-3 mt-2 border-t border-slate-100">
                                                     {isObjectRef ? (
                                                         <Button
@@ -1658,19 +1659,63 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                      </div>
                                                                  ) : isAddressField || isCuratedAddressRef ? (
                                                                      <div className="flex items-center gap-1.5 shrink-0">
-                                                                         {isCuratedAddressRef || data?.current?.source === 'USER_INPUT' ? (
-                                                                             <button
-                                                                                 className="p-1.5 rounded text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors shrink-0"
-                                                                                 onClick={() => {
-                                                                                     setManualValue(data?.current?.value?._resolvedData?.ccAddress?.data || data?.current?.value || { addressLines: [] });
-                                                                                     setIsEditing(true);
-                                                                                     setRelatedValues({});
+                                                                         {!isSystemOnlyAddress && (
+                                                                             (isCuratedAddressRef || (data?.current?.value && typeof data.current.value === 'object' && 'ccAddressId' in data.current.value)) ? (
+                                                                                 <button
+                                                                                     className="p-1.5 rounded text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors shrink-0"
+                                                                                     onClick={() => {
+                                                                                         setManualValue(data?.current?.value?._resolvedData?.ccAddress?.data || data?.current?.value || { addressLines: [] });
+                                                                                         setIsEditing(true);
+                                                                                         setRelatedValues({});
+                                                                                     }}
+                                                                                     title={isCuratedAddressRef ? "Edit saved address" : "Edit value"}
+                                                                                 >
+                                                                                     <Pencil className="h-3.5 w-3.5" />
+                                                                                 </button>
+                                                                             ) : (
+                                                                                 <UnifiedAddressPicker
+                                                                                     clientLEId={clientLEId}
+                                                                                     fieldNo={fieldNo}
+                                                                                     onSuccess={async () => {
+                                                                                         const refreshed = await getFieldDetail(clientLEId, fieldNo, 'CLIENT_LE', customFieldId);
+                                                                                         setData(refreshed);
+                                                                                         if (onUpdate && refreshed?.current) {
+                                                                                             onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
+                                                                                         }
+                                                                                     }}
+                                                                                     trigger={
+                                                                                         <button
+                                                                                             className="p-1.5 rounded text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors shrink-0"
+                                                                                             title="Override with saved address"
+                                                                                         >
+                                                                                             <Pencil className="h-3.5 w-3.5" />
+                                                                                         </button>
+                                                                                     }
+                                                                                 />
+                                                                             )
+                                                                         )}
+                                                                         {(!isSystemOnlyAddress && isCuratedAddressRef) && (
+                                                                             <UnifiedAddressPicker
+                                                                                 clientLEId={clientLEId}
+                                                                                 fieldNo={fieldNo}
+                                                                                 onSuccess={async () => {
+                                                                                     const refreshed = await getFieldDetail(clientLEId, fieldNo, 'CLIENT_LE', customFieldId);
+                                                                                     setData(refreshed);
+                                                                                     if (onUpdate && refreshed?.current) {
+                                                                                         onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
+                                                                                     }
                                                                                  }}
-                                                                                 title={isCuratedAddressRef ? "Edit saved address" : "Edit value"}
-                                                                             >
-                                                                                 <Pencil className="h-3.5 w-3.5" />
-                                                                             </button>
-                                                                         ) : (
+                                                                                 trigger={
+                                                                                     <button
+                                                                                         className="p-1.5 rounded text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors shrink-0"
+                                                                                         title="Change saved address"
+                                                                                     >
+                                                                                         <ArrowRightLeft className="h-3.5 w-3.5" />
+                                                                                     </button>
+                                                                                 }
+                                                                             />
+                                                                         )}
+                                                                         {data?.current?.source !== 'USER_INPUT' && !isCuratedAddressRef && (
                                                                              data?.current?.isPromotedToCCC ? (
                                                                                  <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-50 font-medium h-6" title="A reusable copy already exists for this item.">
                                                                                      <CheckCircle2 className="w-3 h-3 mr-1" />
@@ -1823,7 +1868,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                      <div className="text-sm text-slate-500 italic">
                                                                          No address recorded
                                                                      </div>
-                                                                     {!isLocked && (
+                                                                     {!isLocked && !isSystemOnlyAddress && (
                                                                          <UnifiedAddressPicker
                                                                              clientLEId={clientLEId}
                                                                              fieldNo={fieldNo}
