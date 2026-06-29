@@ -39,6 +39,7 @@ import { PartyRefValueEditor } from "../fields/PartyRefValueEditor";
 import { UnifiedPartyPicker } from "../fields/UnifiedPartyPicker";
 import { inferClaimValueKind, ClaimValueKind } from "@/lib/master-data/claim-value-resolver";
 import { ExpandableRowItem } from "./expandable-row-item";
+import { SharedResourceUsageNotice } from "./SharedResourceUsageNotice";
 
 import {
     DropdownMenu,
@@ -85,7 +86,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
     const [editingRowId, setEditingRowId] = useState<string | null>(null);
     const [editingRowValue, setEditingRowValue] = useState<any>("");
     const [deletingRowId, setDeletingRowId] = useState<string | null>(null);
-    const [newEntryValue, setNewEntryValue] = useState("");
+    const [newEntryValue, setNewEntryValue] = useState<any>("");
     const [isAddingSaving, setIsAddingSaving] = useState(false);
     const [isAddingPerson, setIsAddingPerson] = useState(false);
     const [newPersonData, setNewPersonData] = useState<any>(null);
@@ -94,6 +95,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
 
     // Date & value formatting helpers
     const isDateType = data?.dataType === 'DATE' || data?.dataType === 'DATETIME';
+    const isBooleanType = data?.dataType === 'BOOLEAN';
     const isCuratedPartyRef = data?.dataType === 'PARTY_REF';
     const isCuratedAddressRef = data?.dataType === 'ADDRESS_REF';
     const isGraphRef = data?.dataType === 'PERSON_REF' || data?.dataType === 'ORG_REF' || data?.dataType === 'ADDRESS_REF';
@@ -111,6 +113,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
     const partyPopulationPolicy = data?.profileConfig?.partyPopulationPolicy || 
         (data?.hasActiveSourceMappings ? 'SYSTEM_ONLY' : 'SYSTEM_AND_CURATED');
     const isSystemOnlyParty = (isPartyField || isPartyRef) && partyPopulationPolicy === 'SYSTEM_ONLY';
+    const isSystemOnlyAddress = (isAddressField || isAddressRef) && partyPopulationPolicy === 'SYSTEM_ONLY';
 
     // Controlled-vocabulary collection: uses CodeListField UX instead of free-text
     const isCodeList = !!data?.codeSystem;
@@ -127,6 +130,12 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
 
         if (parsedVal && typeof parsedVal === 'object' && parsedVal.explicitNone) {
             return <span className="text-slate-800 font-medium">None</span>;
+        }
+
+        if (isBooleanType) {
+            if (val === true || val === "true") return <span className="text-slate-800 font-medium">Yes</span>;
+            if (val === false || val === "false") return <span className="text-slate-800 font-medium">No</span>;
+            return <span className="text-slate-800 font-medium">{String(val)}</span>;
         }
 
         if (rowData?.data?.resolvedSummary || val?._resolvedData?.resolvedSummary) {
@@ -674,7 +683,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
 
         // 1. Repeating Field Check
         if (data?.isRepeating && !selectedRowId) {
-            toast.error("Please select a specific row to override.");
+            toast.error("Please select a specific row to edit.");
             return;
         }
 
@@ -1113,6 +1122,14 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                         </div>
                                                                     ) : inferredKind === 'PARTY_REF' ? (
                                                                         <div className="flex-1 min-w-0 bg-slate-50 p-3 rounded border border-slate-200 space-y-3">
+                                                                            {parsedRowValue?.ccPartyId && (
+                                                                                <SharedResourceUsageNotice
+                                                                                    resourceType="PARTY"
+                                                                                    resourceId={parsedRowValue.ccPartyId}
+                                                                                    clientLEId={clientLEId}
+                                                                                    currentFieldNo={fieldNo}
+                                                                                />
+                                                                            )}
                                                                             <PersonOrContactValueEditor
                                                                                 value={editingRowValue || { contactType: 'PERSON', roles: [] } as any}
                                                                                 onChange={setEditingRowValue}
@@ -1171,6 +1188,14 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                         </div>
                                                                     ) : inferredKind === 'ADDRESS_REF' || inferredKind === 'ADDRESS' ? (
                                                                         <div className="flex-1 min-w-0 bg-slate-50 p-3 rounded border border-slate-200 space-y-3">
+                                                                            {parsedRowValue?.ccAddressId && (
+                                                                                <SharedResourceUsageNotice
+                                                                                    resourceType="ADDRESS"
+                                                                                    resourceId={parsedRowValue.ccAddressId}
+                                                                                    clientLEId={clientLEId}
+                                                                                    currentFieldNo={fieldNo}
+                                                                                />
+                                                                            )}
                                                                             <AddressValueEditor
                                                                                 value={editingRowValue || {} as any}
                                                                                 onChange={setEditingRowValue}
@@ -1215,13 +1240,27 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                                     })}
                                                                                 </SelectContent>
                                                                             </Select>
+                                                                        ) : isBooleanType ? (
+                                                                            <Select
+                                                                                value={String(editingRowValue)}
+                                                                                onValueChange={(val) => setEditingRowValue(val === 'true')}
+                                                                                disabled={isSaving}
+                                                                            >
+                                                                                <SelectTrigger className="h-8 text-sm flex-1 bg-white border-indigo-200 focus:border-indigo-400">
+                                                                                    <SelectValue placeholder="Select Yes/No..." />
+                                                                                </SelectTrigger>
+                                                                                <SelectContent>
+                                                                                    <SelectItem value="true">Yes</SelectItem>
+                                                                                    <SelectItem value="false">No</SelectItem>
+                                                                                </SelectContent>
+                                                                            </Select>
                                                                         ) : (
                                                                             <Input
                                                                                 type={isDateType ? 'date' : 'text'}
                                                                                 value={isDateType ? formatDateForInput(editingRowValue) : editingRowValue}
                                                                                 onChange={(e) => setEditingRowValue(isDateType ? parseDateFromInput(e.target.value) : e.target.value)}
                                                                                 onKeyDown={(e) => {
-                                                                                    if (e.key === 'Enter' && editingRowValue.trim()) handleInlineEditSave(row);
+                                                                                    if (e.key === 'Enter' && (typeof editingRowValue === 'string' ? editingRowValue.trim() : true)) handleInlineEditSave(row);
                                                                                     if (e.key === 'Escape') { setEditingRowId(null); setEditingRowValue(""); }
                                                                                 }}
                                                                                 className="h-8 text-sm flex-1 bg-white border-indigo-200 focus:border-indigo-400"
@@ -1381,7 +1420,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                             )}
 
                                             {/* Persistent add input */}
-                                            {!isLocked && !isSystemOnlyParty && (
+                                            {!isLocked && !isSystemOnlyParty && !isSystemOnlyAddress && (
                                                 <div className="pt-3 mt-2 border-t border-slate-100">
                                                     {isObjectRef ? (
                                                         <Button
@@ -1490,25 +1529,41 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                 <>
                                                                     <div className="relative flex-1">
                                                                         <Plus className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-                                                                        <Input
-                                                                            ref={newEntryInputRef}
-                                                                            type={isDateType ? 'date' : 'text'}
-                                                                            value={isDateType ? formatDateForInput(newEntryValue) : newEntryValue}
-                                                                            onChange={(e) => setNewEntryValue(isDateType ? parseDateFromInput(e.target.value) : e.target.value)}
-                                                                            onKeyDown={(e) => {
-                                                                                if (e.key === 'Enter' && newEntryValue.trim()) handleAddNewEntry();
-                                                                            }}
-                                                                            placeholder={isDateType ? '' : 'Add new value...'}
-                                                                            className="h-8 text-sm pl-8 bg-slate-50/50 border-slate-200 focus:bg-white focus:border-indigo-300"
-                                                                            disabled={isAddingSaving}
-                                                                        />
+                                                                        {isBooleanType ? (
+                                                                            <Select
+                                                                                value={String(newEntryValue)}
+                                                                                onValueChange={(val) => setNewEntryValue(val === 'true')}
+                                                                                disabled={isAddingSaving}
+                                                                            >
+                                                                                <SelectTrigger className="h-8 text-sm pl-8 flex-1 bg-slate-50/50 border-slate-200 focus:bg-white focus:border-indigo-300">
+                                                                                    <SelectValue placeholder="Select Yes/No..." />
+                                                                                </SelectTrigger>
+                                                                                <SelectContent>
+                                                                                    <SelectItem value="true">Yes</SelectItem>
+                                                                                    <SelectItem value="false">No</SelectItem>
+                                                                                </SelectContent>
+                                                                            </Select>
+                                                                        ) : (
+                                                                            <Input
+                                                                                ref={newEntryInputRef}
+                                                                                type={isDateType ? 'date' : 'text'}
+                                                                                value={isDateType ? formatDateForInput(newEntryValue) : newEntryValue}
+                                                                                onChange={(e) => setNewEntryValue(isDateType ? parseDateFromInput(e.target.value) : e.target.value)}
+                                                                                onKeyDown={(e) => {
+                                                                                    if (e.key === 'Enter' && (typeof newEntryValue === 'string' ? newEntryValue.trim() : true)) handleAddNewEntry();
+                                                                                }}
+                                                                                placeholder={isDateType ? '' : 'Add new value...'}
+                                                                                className="h-8 text-sm pl-8 bg-slate-50/50 border-slate-200 focus:bg-white focus:border-indigo-300"
+                                                                                disabled={isAddingSaving}
+                                                                            />
+                                                                        )}
                                                                     </div>
                                                                     <Button
                                                                         variant="ghost"
                                                                         size="sm"
                                                                         className="h-8 px-3 text-xs text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 shrink-0"
                                                                         onClick={() => handleAddNewEntry()}
-                                                                        disabled={isAddingSaving || !newEntryValue.trim()}
+                                                                        disabled={isAddingSaving || newEntryValue === "" || (typeof newEntryValue === 'string' && !newEntryValue.trim())}
                                                                     >
                                                                         {isAddingSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Add'}
                                                                     </Button>
@@ -1658,19 +1713,63 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                      </div>
                                                                  ) : isAddressField || isCuratedAddressRef ? (
                                                                      <div className="flex items-center gap-1.5 shrink-0">
-                                                                         {isCuratedAddressRef || data?.current?.source === 'USER_INPUT' ? (
-                                                                             <button
-                                                                                 className="p-1.5 rounded text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors shrink-0"
-                                                                                 onClick={() => {
-                                                                                     setManualValue(data?.current?.value?._resolvedData?.ccAddress?.data || data?.current?.value || { addressLines: [] });
-                                                                                     setIsEditing(true);
-                                                                                     setRelatedValues({});
+                                                                         {!isSystemOnlyAddress && (
+                                                                             (isCuratedAddressRef || (data?.current?.value && typeof data.current.value === 'object' && 'ccAddressId' in data.current.value)) ? (
+                                                                                 <button
+                                                                                     className="p-1.5 rounded text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors shrink-0"
+                                                                                     onClick={() => {
+                                                                                         setManualValue(data?.current?.value?._resolvedData?.ccAddress?.data || data?.current?.value || { addressLines: [] });
+                                                                                         setIsEditing(true);
+                                                                                         setRelatedValues({});
+                                                                                     }}
+                                                                                     title={isCuratedAddressRef ? "Edit saved address" : "Edit value"}
+                                                                                 >
+                                                                                     <Pencil className="h-3.5 w-3.5" />
+                                                                                 </button>
+                                                                             ) : (
+                                                                                 <UnifiedAddressPicker
+                                                                                     clientLEId={clientLEId}
+                                                                                     fieldNo={fieldNo}
+                                                                                     onSuccess={async () => {
+                                                                                         const refreshed = await getFieldDetail(clientLEId, fieldNo, 'CLIENT_LE', customFieldId);
+                                                                                         setData(refreshed);
+                                                                                         if (onUpdate && refreshed?.current) {
+                                                                                             onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
+                                                                                         }
+                                                                                     }}
+                                                                                     trigger={
+                                                                                         <button
+                                                                                             className="p-1.5 rounded text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors shrink-0"
+                                                                                             title="Use saved address"
+                                                                                         >
+                                                                                             <Pencil className="h-3.5 w-3.5" />
+                                                                                         </button>
+                                                                                     }
+                                                                                 />
+                                                                             )
+                                                                         )}
+                                                                         {(!isSystemOnlyAddress && isCuratedAddressRef) && (
+                                                                             <UnifiedAddressPicker
+                                                                                 clientLEId={clientLEId}
+                                                                                 fieldNo={fieldNo}
+                                                                                 onSuccess={async () => {
+                                                                                     const refreshed = await getFieldDetail(clientLEId, fieldNo, 'CLIENT_LE', customFieldId);
+                                                                                     setData(refreshed);
+                                                                                     if (onUpdate && refreshed?.current) {
+                                                                                         onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
+                                                                                     }
                                                                                  }}
-                                                                                 title={isCuratedAddressRef ? "Edit saved address" : "Edit value"}
-                                                                             >
-                                                                                 <Pencil className="h-3.5 w-3.5" />
-                                                                             </button>
-                                                                         ) : (
+                                                                                 trigger={
+                                                                                     <button
+                                                                                         className="p-1.5 rounded text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors shrink-0"
+                                                                                         title="Change saved address"
+                                                                                     >
+                                                                                         <ArrowRightLeft className="h-3.5 w-3.5" />
+                                                                                     </button>
+                                                                                 }
+                                                                             />
+                                                                         )}
+                                                                         {data?.current?.source !== 'USER_INPUT' && !isCuratedAddressRef && (
                                                                              data?.current?.isPromotedToCCC ? (
                                                                                  <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-50 font-medium h-6" title="A reusable copy already exists for this item.">
                                                                                      <CheckCircle2 className="w-3 h-3 mr-1" />
@@ -1823,7 +1922,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                      <div className="text-sm text-slate-500 italic">
                                                                          No address recorded
                                                                      </div>
-                                                                     {!isLocked && (
+                                                                     {!isLocked && !isSystemOnlyAddress && (
                                                                          <UnifiedAddressPicker
                                                                              clientLEId={clientLEId}
                                                                              fieldNo={fieldNo}
@@ -1997,6 +2096,34 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                                     </div>
                                                                                 )}
                                                                             </div>
+                                                                        ) : isBooleanType ? (
+                                                                            <div className="space-y-2">
+                                                                                <Select
+                                                                                    value={String(manualValue || '')}
+                                                                                    onValueChange={(val) => setManualValue(val === 'true')}
+                                                                                >
+                                                                                    <SelectTrigger className="bg-white border-slate-300">
+                                                                                        <SelectValue placeholder="Select Yes/No..." />
+                                                                                    </SelectTrigger>
+                                                                                    <SelectContent>
+                                                                                        <SelectItem value="true">Yes</SelectItem>
+                                                                                        <SelectItem value="false">No</SelectItem>
+                                                                                    </SelectContent>
+                                                                                </Select>
+                                                                                {manualValue !== undefined && manualValue !== null && manualValue !== "" && (
+                                                                                    <div className="flex items-center gap-2">
+                                                                                        <Button
+                                                                                            size="sm"
+                                                                                            className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700"
+                                                                                            onClick={() => { setIsEditing(true); handleManualSave(); }}
+                                                                                            disabled={isSaving}
+                                                                                        >
+                                                                                            {isSaving ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Check className="h-3 w-3 mr-1" />}
+                                                                                            Save
+                                                                                        </Button>
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
                                                                         ) : (
                                                                             <>
                                                                                 <Input
@@ -2075,6 +2202,14 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                 </label>
                                                  {isCuratedPartyRef || isPersonOrContactField ? (
                                                      <div className="mt-4 bg-slate-50 p-3 rounded-lg border border-slate-200">
+                                                         {manualValue?.ccPartyId && (
+                                                             <SharedResourceUsageNotice
+                                                                 resourceType="PARTY"
+                                                                 resourceId={manualValue.ccPartyId}
+                                                                 clientLEId={clientLEId}
+                                                                 currentFieldNo={fieldNo}
+                                                             />
+                                                         )}
                                                          <PersonOrContactValueEditor
                                                              value={typeof manualValue === 'object' && manualValue ? manualValue : { contactType: 'PERSON', roles: [] } as any}
                                                              onChange={(val) => setManualValue(val as any)}
@@ -2084,6 +2219,14 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                      </div>
                                                 ) : isAddressField || isCuratedAddressRef ? (
                                                      <div className="mt-4 bg-slate-50 p-3 rounded-lg border border-slate-200">
+                                                         {manualValue?.ccAddressId && (
+                                                             <SharedResourceUsageNotice
+                                                                 resourceType="ADDRESS"
+                                                                 resourceId={manualValue.ccAddressId}
+                                                                 clientLEId={clientLEId}
+                                                                 currentFieldNo={fieldNo}
+                                                             />
+                                                         )}
                                                          <AddressValueEditor
                                                              value={typeof manualValue === 'object' && manualValue ? manualValue : { addressLines: [] } as any}
                                                              onChange={(val) => setManualValue(val as any)}
@@ -2181,7 +2324,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                         <Textarea
                                             value={manualReason}
                                             onChange={(e) => setManualReason(e.target.value)}
-                                            placeholder="Add notes about this override (optional)..."
+                                            placeholder="Add notes about this edit (optional)..."
                                             className="h-24 bg-white border-slate-300 focus:ring-indigo-500 shadow-sm"
                                         />
                                     </div>
@@ -2194,7 +2337,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                              disabled={isSaving || ((isPersonOrContactField || isCuratedPartyRef) && !isValidPartyValue(manualValue))}
                                          >
                                             {isSaving ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : <CheckCircle className="h-3 w-3 mr-2" />}
-                                            Save Override
+                                            Save
                                         </Button>
                                     </div>
                                 </div>
@@ -2307,10 +2450,10 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                         </div>
                     )}
 
-                    <Tabs defaultValue="history" className="w-full mt-6">
+                    <Tabs defaultValue="note" className="w-full mt-6">
                         <TabsList className="grid w-full grid-cols-2">
-                            <TabsTrigger value="history">History Log</TabsTrigger>
                             <TabsTrigger value="note">Notes</TabsTrigger>
+                            <TabsTrigger value="history">History Log</TabsTrigger>
                         </TabsList>
 
                         {/* ─── Notes Tab ─── */}

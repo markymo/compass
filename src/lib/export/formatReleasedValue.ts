@@ -20,6 +20,11 @@ export async function formatReleasedValue({
 }: FormatReleasedValueOptions): Promise<string> {
     if (value === null || value === undefined || value === "") return "";
 
+    if (appDataType === 'BOOLEAN') {
+        if (value === true || value === "true") return "Yes";
+        if (value === false || value === "false") return "No";
+    }
+
     // Handle Arrays
     if (Array.isArray(value)) {
         const formattedItems = await Promise.all(value.map(v => formatReleasedValue({ value: v, appDataType, profileConfig })));
