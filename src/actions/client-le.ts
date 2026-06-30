@@ -1031,3 +1031,77 @@ export async function removeCommonQuestionnaire(clientLEId: string, questionnair
         return { success: false, error: "Database error" };
     }
 };
+
+export async function getEngagementTeam(engagementId: string) {
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+
+    try {
+        const engagement = await prisma.fIEngagement.findUnique({
+            where: { id: engagementId },
+            select: { clientLEId: true }
+        });
+
+        if (!engagement) return { success: false, error: "Engagement not found" };
+
+        const rawInvitations = await prisma.invitation.findMany({
+            where: {
+                fiEngagementId: engagementId,
+                usedAt: null,
+                revokedAt: null
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+
+        const creatorIds = [...new Set(rawInvitations.map((inv: any) => inv.createdByUserId))];
+        const creators = await prisma.user.findMany({
+            where: { id: { in: creatorIds } },
+            select: { id: true, name: true, email: true }
+        });
+
+        const invitations = rawInvitations.map((inv: any) => ({
+            ...inv,
+            createdByUser: creators.find((c: any) => c.id === inv.createdByUserId) || null
+        }));
+
+        const members = await prisma.membership.findMany({
+            where: { clientLEId: engagement.clientLEId },
+            include: { user: { select: { name: true, email: true, image: true } } },
+            orderBy: { createdAt: 'desc' }
+        });
+
+        return { success: true, invitations, members };
+    } catch (error) {
+        return { success: false, error: "Failed to fetch team details" };
+    }
+}
+
+export async function getEngagementDocuments(engagementId: string) {
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+
+    try {
+        const engagement = await prisma.fIEngagement.findUnique({
+            where: { id: engagementId },
+            include: {
+                sharedDocuments: {
+                    where: { isDeleted: false },
+                    orderBy: { createdAt: 'desc' }
+                }
+            }
+        });
+
+        if (!engagement) return { success: false, error: "Engagement not found" };
+        
+        const { getEngagementEvidenceDocuments } = await import("./kanban-actions");
+        const evidenceResult = await getEngagementEvidenceDocuments(engagementId);
+
+        return { 
+            success: true, 
+            sharedDocuments: engagement.sharedDocuments,
+            evidenceDocuments: evidenceResult.documents || []
+        };
+    } catch (error) {
+        return { success: false, error: "Failed to fetch document details" };
+    }
+}
