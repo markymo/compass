@@ -4,8 +4,9 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Building2, Plus, Search, Loader2, X, FileText, ChevronRight, Folder, Download, Users, MoreVertical, Trash2, ArrowUpRight } from "lucide-react";
+import { Building2, Plus, Search, Loader2, X, FileText, ChevronRight, Folder, Download, Users, MoreVertical, Trash2, ArrowUpRight, Check } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { createFIEngagement } from "@/actions/client-le";
@@ -17,6 +18,9 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { assignQuestionnaireToEngagement, deleteQuestionnaire } from "@/actions/questionnaire";
+import { getDiscoverableReferenceSnapshotsForOrg } from "@/actions/questionnaires-v2";
 import { ProgressTracker } from "@/components/shared/progress-tracker";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { usePreferences } from "@/components/providers/user-preferences-provider";
@@ -53,6 +57,7 @@ interface EngagementManagerProps {
 }
 
 export function EngagementManager({ leId, initialEngagements, leDueDate }: EngagementManagerProps) {
+    const router = useRouter();
     const [engagements, setEngagements] = useState(initialEngagements);
 
     useEffect(() => {
@@ -77,6 +82,84 @@ export function EngagementManager({ leId, initialEngagements, leDueDate }: Engag
 
     const [isAdding, setIsAdding] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // --- Inline Questionnaire Management State ---
+    const [popoversOpen, setPopoversOpen] = useState<Record<string, boolean>>({});
+    const [availableQ, setAvailableQ] = useState<Record<string, any[]>>({});
+    const [isLoadingAvailable, setIsLoadingAvailable] = useState<Record<string, boolean>>({});
+    const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
+    const [isRemoving, setIsRemoving] = useState<string | null>(null);
+    const [isAddingQ, setIsAddingQ] = useState<string | null>(null);
+
+    const fetchAvailableForEngagement = async (engId: string, fiOrgId: string) => {
+        setIsLoadingAvailable(prev => ({ ...prev, [engId]: true }));
+        try {
+            const snapshots = await getDiscoverableReferenceSnapshotsForOrg(fiOrgId);
+            setAvailableQ(prev => ({ ...prev, [engId]: snapshots || [] }));
+        } catch (error) {
+            console.error("Failed to fetch available questionnaires", error);
+        }
+        setIsLoadingAvailable(prev => ({ ...prev, [engId]: false }));
+    };
+
+    const handleAddQuestionnaire = async (engId: string, templateId: string, templateName: string) => {
+        setIsAddingQ(templateId);
+        setPopoversOpen(prev => ({ ...prev, [engId]: false }));
+        
+        toast.promise(assignQuestionnaireToEngagement(templateId, engId), {
+            loading: `Adding ${templateName}...`,
+            success: (res) => {
+                setIsAddingQ(null);
+                if (res.success) {
+                    router.refresh();
+                    return `Added ${templateName}`;
+                }
+                throw new Error(res.error || "Failed to add questionnaire");
+            },
+            error: (err) => {
+                setIsAddingQ(null);
+                return err.message || "Failed to add questionnaire";
+            }
+        });
+    };
+
+    const handleRemoveQuestionnaire = async (engId: string, instanceId: string, instanceName: string) => {
+        setConfirmRemoveId(null);
+        setIsRemoving(instanceId);
+        
+        // Optimistic UI Removal
+        const previousEngagements = [...engagements];
+        setEngagements(prev => prev.map(eng => {
+            if (eng.id === engId) {
+                const newEng = { ...eng };
+                if (newEng.questionnaireInstances) {
+                    newEng.questionnaireInstances = newEng.questionnaireInstances.filter((q: any) => q.id !== instanceId);
+                } else if (newEng.questionnaires) {
+                    newEng.questionnaires = newEng.questionnaires.filter((q: any) => q.id !== instanceId);
+                }
+                return newEng;
+            }
+            return eng;
+        }));
+
+        toast.promise(deleteQuestionnaire(instanceId), {
+            loading: `Removing ${instanceName}...`,
+            success: (res) => {
+                setIsRemoving(null);
+                if (res.success) {
+                    router.refresh();
+                    return `Removed ${instanceName}`;
+                }
+                setEngagements(previousEngagements);
+                throw new Error(res.error || "Failed to remove questionnaire");
+            },
+            error: (err) => {
+                setIsRemoving(null);
+                setEngagements(previousEngagements);
+                return err.message || "Failed to remove questionnaire";
+            }
+        });
+    };
 
     // Initial Mock Data to show something before type
     const initialDirectory = [
@@ -376,15 +459,61 @@ export function EngagementManager({ leId, initialEngagements, leDueDate }: Engag
                                         {/* Questionnaires Section (Expandable) */}
                                         <Accordion type="multiple" defaultValue={[]} className="w-full">
                                             <AccordionItem value="questionnaires" className="border border-slate-200 rounded-md overflow-hidden bg-white shadow-sm data-[state=open]:border-indigo-200 transition-colors">
-                                                <AccordionTrigger className="hover:no-underline px-4 py-3 text-sm font-semibold text-slate-700 bg-slate-50/50">
-                                                    <div className="flex items-center justify-between w-full pr-4">
+                                                <div className="flex items-center justify-between bg-slate-50/50 pr-4 w-full border-b border-transparent">
+                                                    <AccordionTrigger className="hover:no-underline px-4 py-3 text-sm font-semibold text-slate-700 flex-1 hover:bg-slate-50/80">
                                                         <div className="flex items-center gap-2">
                                                             <FileText className="w-4 h-4 text-indigo-500" />
                                                             Questionnaires
                                                             <Badge variant="secondary" className="ml-2 bg-indigo-50 text-indigo-700 text-[10px] font-bold uppercase tracking-wider px-1.5 py-0">{qCount}</Badge>
                                                         </div>
+                                                    </AccordionTrigger>
+                                                    <div className="shrink-0 z-10 relative">
+                                                        <Popover 
+                                                            open={popoversOpen[eng.id] || false} 
+                                                            onOpenChange={(val) => { 
+                                                                setPopoversOpen(prev => ({ ...prev, [eng.id]: val })); 
+                                                                if (val) fetchAvailableForEngagement(eng.id, eng.fiOrgId); 
+                                                            }}
+                                                        >
+                                                            <PopoverTrigger asChild>
+                                                                <Button variant="outline" size="sm" className="h-7 text-xs px-2 text-indigo-600 border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700">
+                                                                    <Plus className="h-3 w-3 mr-1" />
+                                                                    Add
+                                                                </Button>
+                                                            </PopoverTrigger>
+                                                            <PopoverContent className="w-[300px] p-0" align="end" onClick={(e) => e.stopPropagation()}>
+                                                                <Command>
+                                                                    <CommandInput placeholder="Search available questionnaires..." />
+                                                                    <CommandList>
+                                                                        <CommandEmpty>
+                                                                            {isLoadingAvailable[eng.id] ? "Loading..." : "No questionnaires found."}
+                                                                        </CommandEmpty>
+                                                                        <CommandGroup>
+                                                                            {(availableQ[eng.id] || []).map((snapshot) => (
+                                                                                <CommandItem
+                                                                                    key={snapshot.id}
+                                                                                    value={`${snapshot.id} ${snapshot.name} ${snapshot.referenceCode || ""} ${snapshot.functionalCode || ""}`}
+                                                                                    onSelect={() => handleAddQuestionnaire(eng.id, snapshot.id, snapshot.name)}
+                                                                                    className="flex flex-col items-start py-3 cursor-pointer"
+                                                                                    disabled={isAddingQ === snapshot.id}
+                                                                                >
+                                                                                    <div className="flex items-center w-full">
+                                                                                        <FileText className="mr-2 h-4 w-4 text-indigo-500 shrink-0" />
+                                                                                        <span className="font-medium truncate flex-1">{snapshot.name}</span>
+                                                                                        {isAddingQ === snapshot.id && <Loader2 className="ml-2 h-4 w-4 animate-spin text-indigo-500" />}
+                                                                                    </div>
+                                                                                    {snapshot.referenceCode && (
+                                                                                        <span className="text-[10px] text-slate-400 mt-1 ml-6">{snapshot.referenceCode}</span>
+                                                                                    )}
+                                                                                </CommandItem>
+                                                                            ))}
+                                                                        </CommandGroup>
+                                                                    </CommandList>
+                                                                </Command>
+                                                            </PopoverContent>
+                                                        </Popover>
                                                     </div>
-                                                </AccordionTrigger>
+                                                </div>
                                                 <AccordionContent className="border-t border-slate-100 p-0">
                                                     {qCount > 0 ? (
                                                         <div className="divide-y divide-slate-100">
@@ -435,14 +564,48 @@ export function EngagementManager({ leId, initialEngagements, leDueDate }: Engag
                                                                                     </div>
                                                                                 </>
                                                                             )}
-                                                                            <div className="pl-4">
-                                                                                <Link 
-                                                                                    href={`/app/le/${leId}/workbench4?rel=${encodeURIComponent(orgName || "Unknown")}&q=${encodeURIComponent(q.name)}`}
-                                                                                    className="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-slate-200 text-slate-400 hover:text-slate-600 transition-colors"
-                                                                                    title="Review questionnaire"
-                                                                                >
-                                                                                    <ArrowUpRight className="h-4 w-4" />
-                                                                                </Link>
+                                                                            <div className="pl-4 flex items-center gap-1">
+                                                                                {confirmRemoveId === q.id ? (
+                                                                                    <div className="flex items-center gap-1 animate-in fade-in zoom-in duration-200">
+                                                                                        <Button 
+                                                                                            variant="ghost" 
+                                                                                            size="sm"
+                                                                                            onClick={() => handleRemoveQuestionnaire(eng.id, q.id, q.name)}
+                                                                                            className="text-red-600 hover:text-red-700 hover:bg-red-50 h-8 px-2 text-xs"
+                                                                                            disabled={isRemoving === q.id}
+                                                                                        >
+                                                                                            {isRemoving === q.id ? <Loader2 className="h-3 w-3 animate-spin" /> : "Yes"}
+                                                                                        </Button>
+                                                                                        <Button 
+                                                                                            variant="ghost" 
+                                                                                            size="sm"
+                                                                                            onClick={() => setConfirmRemoveId(null)}
+                                                                                            className="text-slate-500 hover:text-slate-700 hover:bg-slate-100 h-8 px-2 text-xs"
+                                                                                            disabled={isRemoving === q.id}
+                                                                                        >
+                                                                                            No
+                                                                                        </Button>
+                                                                                    </div>
+                                                                                ) : (
+                                                                                    <>
+                                                                                        <Link 
+                                                                                            href={`/app/le/${leId}/workbench4?rel=${encodeURIComponent(orgName || "Unknown")}&q=${encodeURIComponent(q.name)}`}
+                                                                                            className="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-slate-200 text-slate-400 hover:text-slate-600 transition-colors"
+                                                                                            title="Review questionnaire"
+                                                                                        >
+                                                                                            <ArrowUpRight className="h-4 w-4" />
+                                                                                        </Link>
+                                                                                        <Button 
+                                                                                            variant="ghost" 
+                                                                                            size="icon" 
+                                                                                            className="h-8 w-8 text-slate-400 hover:text-red-600 hover:bg-red-50"
+                                                                                            onClick={() => setConfirmRemoveId(q.id)}
+                                                                                            title="Remove Questionnaire"
+                                                                                        >
+                                                                                            <Trash2 className="h-4 w-4" />
+                                                                                        </Button>
+                                                                                    </>
+                                                                                )}
                                                                             </div>
                                                                         </div>
                                                                     </div>
@@ -451,8 +614,21 @@ export function EngagementManager({ leId, initialEngagements, leDueDate }: Engag
                                                                         <div className="flex items-center gap-3 pr-4 pl-2">
                                                                             <FileText className="h-4 w-4 text-slate-400 shrink-0" />
                                                                             <div className="min-w-0 flex-1">
-                                                                                <div className="flex items-center gap-2">
+                                                                                <div className="flex items-center justify-between w-full">
                                                                                     <span className="font-medium text-[13.5px] text-slate-800 truncate transition-colors">{q.name}</span>
+                                                                                    <div className="shrink-0">
+                                                                                        {confirmRemoveId === q.id ? (
+                                                                                            <div className="flex items-center gap-1">
+                                                                                                <Button variant="ghost" size="sm" onClick={() => handleRemoveQuestionnaire(eng.id, q.id, q.name)} className="text-red-600 h-6 px-2 text-xs" disabled={isRemoving === q.id}>Yes</Button>
+                                                                                                <Button variant="ghost" size="sm" onClick={() => setConfirmRemoveId(null)} className="text-slate-500 h-6 px-2 text-xs" disabled={isRemoving === q.id}>No</Button>
+                                                                                            </div>
+                                                                                        ) : (
+                                                                                            <div className="flex items-center gap-1">
+                                                                                                <Link href={`/app/le/${leId}/workbench4?rel=${encodeURIComponent(orgName || "Unknown")}&q=${encodeURIComponent(q.name)}`} className="h-6 w-6 inline-flex items-center justify-center rounded-md text-slate-400"><ArrowUpRight className="h-3 w-3" /></Link>
+                                                                                                <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400" onClick={() => setConfirmRemoveId(q.id)}><Trash2 className="h-3 w-3" /></Button>
+                                                                                            </div>
+                                                                                        )}
+                                                                                    </div>
                                                                                 </div>
                                                                             </div>
                                                                         </div>

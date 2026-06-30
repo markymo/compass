@@ -108,9 +108,9 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
                 
                 <Popover open={open} onOpenChange={(val) => { setOpen(val); if (val) fetchAvailable(); }}>
                     <PopoverTrigger asChild>
-                        <Button variant="outline" role="combobox" aria-expanded={open} className="w-full md:w-[300px] justify-between text-slate-600 border-slate-300">
-                            Search and add...
-                            <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        <Button variant="outline" size="sm" role="combobox" aria-expanded={open} className="h-7 text-xs px-2 text-indigo-600 border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 w-fit">
+                            <Plus className="h-3 w-3 mr-1" />
+                            Add
                         </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-full md:w-[400px] p-0" align="end">
