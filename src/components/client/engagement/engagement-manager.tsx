@@ -544,7 +544,10 @@ export function EngagementManager({ leId, initialEngagements, leDueDate }: Engag
                                                                             <FileText className="h-4 w-4 text-slate-400 shrink-0" />
                                                                             <div className="min-w-0 flex-1">
                                                                                 <div className="flex items-center gap-2">
-                                                                                    <span className="font-medium text-[13.5px] text-slate-800 truncate group-hover/card:text-indigo-600 transition-colors" title={q.name}>{q.name}</span>
+                                                                                    <div className="flex flex-col">
+                                                                                        <span className="font-medium text-[13.5px] text-slate-800 truncate group-hover/card:text-indigo-600 transition-colors" title={q.name}>{q.name}</span>
+                                                                                        {q.referenceCode && <span className="text-[10px] text-slate-400 font-mono tracking-tight">{q.referenceCode}</span>}
+                                                                                    </div>
                                                                                     {q.status === 'DIGITIZING' && (
                                                                                         <Badge variant="outline" className="w-fit text-[9px] h-[16px] py-0 bg-indigo-50 text-indigo-600 border-indigo-200 animate-pulse">
                                                                                             Digitizing

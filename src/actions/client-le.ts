@@ -973,17 +973,65 @@ export async function addCommonQuestionnaire(clientLEId: string, questionnaireId
 
         if (!template) return { success: false, error: "Questionnaire not found" };
 
+        const clientLe = await prisma.clientLE.findUnique({
+            where: { id: clientLEId },
+            select: { shortCode: true }
+        });
+
+        let instanceReferenceCode = template.referenceCode;
+        if (template.kind === "REFERENCE_SNAPSHOT" && template.referenceCode) {
+            const { normalizeCode } = await import("@/lib/questionnaires/reference-codes");
+            const leCode = clientLe?.shortCode ? normalizeCode(clientLe.shortCode) : "XXXXX";
+            
+            const contextualPrefix = template.referenceCode
+                .replace(/_v\d+$/, "")                      // drop template's _v{n}
+                .replace(/_(XXXXX)(?=_|$)/, `_${leCode}`)  // substitute LE
+                .replace(/_(S{4,})(?=_|$)/, `_COMMON`);    // substitute supplier with COMMON
+            
+            // Check for uniqueness within this client's common questionnaires
+            const existingInstances = await prisma.questionnaire.findMany({
+                where: {
+                    commonForClients: { some: { id: clientLEId } },
+                    referenceCode: { startsWith: contextualPrefix }
+                },
+                select: { referenceCode: true }
+            });
+            
+            const existingCodes = existingInstances.map((q: any) => q.referenceCode).filter(Boolean) as string[];
+            
+            if (!existingCodes.includes(contextualPrefix)) {
+                instanceReferenceCode = contextualPrefix;
+            } else {
+                const { computeNextVersion } = await import("@/lib/questionnaires/reference-codes");
+                let nextVersion = computeNextVersion(contextualPrefix, existingCodes);
+                if (nextVersion === 1) nextVersion = 2; // if exact prefix exists but no suffixes, next is 2
+                instanceReferenceCode = `${contextualPrefix}_v${nextVersion}`;
+            }
+        } else if (template.functionalCode) {
+            const { generateWorkingCopyTitle } = await import("@/lib/questionnaires/reference-codes");
+            instanceReferenceCode = generateWorkingCopyTitle({
+                functionalCode: template.functionalCode,
+                clientLeShortCode: clientLe?.shortCode,
+                supplierShortCode: "COMMON",
+            });
+        }
+
+        let instanceName = template.name;
+        if (!instanceName || instanceName === template.referenceCode || instanceName.includes("XXXXX") || instanceName.includes("SSSSS")) {
+            instanceName = instanceReferenceCode || template.name;
+        }
+
         const newQuestionnaire = await prisma.questionnaire.create({
             data: {
-                name: template.name,
+                name: instanceName,
                 fiOrgId: template.fiOrgId,
                 status: "ACTIVE",
                 extractedContent: template.extractedContent as any,
-                kind: "WORKING_COPY", 
+                kind: "COMMON_QUESTIONNAIRE", 
                 isTemplate: false,
                 isGlobal: false,
                 sourceId: questionnaireId,
-                referenceCode: template.referenceCode,
+                referenceCode: instanceReferenceCode,
                 commonForClients: {
                     connect: { id: clientLEId }
                 }

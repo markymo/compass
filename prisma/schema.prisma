@@ -1083,6 +1083,7 @@ enum QuestionnaireKind {
   WORKING_COPY
   REFERENCE_SNAPSHOT
   ENGAGEMENT_QUESTIONNAIRE
+  COMMON_QUESTIONNAIRE
 }
 
 enum QuestionnaireVisibility {
