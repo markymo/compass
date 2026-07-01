@@ -156,7 +156,7 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
                     <div className={cn("hidden md:grid items-center px-4 py-2 border-b border-slate-200 bg-slate-50/80 rounded-t-xl border-x border-t", DASHBOARD_GRID_V2)}>
                         {/* 1. Entity */}
                         <div className="flex items-center gap-2 pr-4 pl-1">
-                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider pl-[44px]">Common Questionnaires</span>
+                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider pl-[32px]">Questionnaire</span>
                         </div>
 
                         {/* 2. Anchor (Total) */}
@@ -195,24 +195,14 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
                             <div key={q.id} className="p-3 rounded-lg border border-slate-200 bg-white shadow-sm hover:border-indigo-300 transition-colors group/card">
                                 <div className={cn("hidden md:grid items-center gap-2", DASHBOARD_GRID_V2)}>
                                     {/* Col 1: Name and Badges */}
-                                    <div className="flex items-center gap-3 overflow-hidden pr-4 pl-1">
-                                        <div className="h-8 w-8 rounded bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
-                                            <FileText className="h-4 w-4" />
-                                        </div>
+                                    <div className="flex items-center gap-3 overflow-hidden pr-4 pl-4">
+                                        <FileText className="h-4 w-4 text-slate-400 shrink-0" />
                                         <div className="min-w-0 flex-1">
-                                            <div className="flex flex-col gap-0.5 min-w-0">
-                                                <h3 className="font-semibold text-[13.5px] text-slate-900 group-hover/card:text-indigo-600 transition-colors leading-none truncate" title={q.name}>{q.name}</h3>
-                                                <div className="flex flex-wrap items-center gap-2 mt-0.5">
-                                                    <Badge variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-200 text-[9px] uppercase font-bold px-1.5 py-0 h-4 shrink-0">
-                                                        COMMON TEMPLATE
-                                                    </Badge>
-                                                    {q.referenceCode && (
-                                                        <span className="text-[10px] text-slate-500 shrink-0">{q.referenceCode}</span>
-                                                    )}
+                                            <div className="flex items-center gap-2">
+                                                <div className="flex flex-col">
+                                                    <span className="font-medium text-[13.5px] text-slate-800 truncate group-hover/card:text-indigo-600 transition-colors" title={q.name}>{q.name}</span>
+                                                    {q.referenceCode && <span className="text-[10px] text-slate-400 font-mono tracking-tight">{q.referenceCode}</span>}
                                                 </div>
-                                                {q.description && (
-                                                    <span className="text-xs text-slate-500 mt-0.5 truncate">{q.description}</span>
-                                                )}
                                             </div>
                                         </div>
                                     </div>
@@ -296,15 +286,15 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
                                 <div className="md:hidden flex flex-col gap-3">
                                     <div className="flex items-center justify-between gap-3">
                                         <div className="flex items-center gap-3">
-                                            <div className="h-8 w-8 rounded bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+                                            <div className="h-8 w-8 rounded bg-slate-100 text-slate-500 flex items-center justify-center shrink-0">
                                                 <FileText className="h-4 w-4" />
                                             </div>
                                             <div className="flex flex-col gap-0.5 min-w-0">
                                                 <h3 className="font-semibold text-sm text-slate-900 leading-none truncate">{q.name}</h3>
-                                                <div className="flex flex-wrap items-center gap-2 mt-0.5">
-                                                    <Badge variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-200 text-[10px] uppercase font-bold px-1.5 py-0">
-                                                        COMMON TEMPLATE
-                                                    </Badge>
+                                                <div className="flex items-center gap-2 mt-0.5">
+                                                    {q.referenceCode && (
+                                                        <span className="text-[10px] text-slate-500 shrink-0">{q.referenceCode}</span>
+                                                    )}
                                                 </div>
                                             </div>
                                         </div>

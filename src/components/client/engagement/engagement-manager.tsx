@@ -24,6 +24,7 @@ import { getDiscoverableReferenceSnapshotsForOrg } from "@/actions/questionnaire
 import { ProgressTracker } from "@/components/shared/progress-tracker";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { usePreferences } from "@/components/providers/user-preferences-provider";
+import { InlineDocumentManager, InlineOutputBuilder, InlineTeamManager } from "./inline-engagement-sections";
 const DASHBOARD_GRID_V2 = "grid-cols-[minmax(350px,1fr)_60px_160px_160px_150px]";
 
 function MicroChart({ value, total, colorClass, emptyClass, numeratorLabel, denominatorLabel }: { value: number, total: number, colorClass: string, emptyClass: string, numeratorLabel: string, denominatorLabel: string }) {
@@ -67,17 +68,30 @@ export function EngagementManager({ leId, initialEngagements, leDueDate }: Engag
     const { preferences, isLoading, updatePreference } = usePreferences();
     const [expandedEngagements, setExpandedEngagements] = useState<string[]>([]);
     const [isExpandedInit, setIsExpandedInit] = useState(false);
+    
+    const [expandedSections, setExpandedSections] = useState<Record<string, string[]>>({});
+    const [isSectionsInit, setIsSectionsInit] = useState(false);
 
     useEffect(() => {
         if (!isLoading && !isExpandedInit) {
             setExpandedEngagements(preferences.relationshipsExpandedEngagements || []);
             setIsExpandedInit(true);
         }
-    }, [isLoading, isExpandedInit, preferences.relationshipsExpandedEngagements]);
+        if (!isLoading && !isSectionsInit) {
+            setExpandedSections(preferences.relationshipsExpandedSections || {});
+            setIsSectionsInit(true);
+        }
+    }, [isLoading, isExpandedInit, isSectionsInit, preferences.relationshipsExpandedEngagements, preferences.relationshipsExpandedSections]);
 
     const handleAccordionChange = (val: string[]) => {
         setExpandedEngagements(val);
         updatePreference('relationshipsExpandedEngagements', val);
+    };
+
+    const handleSectionsAccordionChange = (engId: string, val: string[]) => {
+        const next = { ...expandedSections, [engId]: val };
+        setExpandedSections(next);
+        updatePreference('relationshipsExpandedSections', next);
     };
 
     const [isAdding, setIsAdding] = useState(false);
@@ -456,8 +470,13 @@ export function EngagementManager({ leId, initialEngagements, leDueDate }: Engag
 
                                 <AccordionContent className="border-t border-slate-100 bg-slate-50/30 pb-4 pt-3 px-4">
                                     <div className="flex flex-col gap-2">
-                                        {/* Questionnaires Section (Expandable) */}
-                                        <Accordion type="multiple" defaultValue={[]} className="w-full">
+                                        {/* Nested Accordion for Sections */}
+                                        <Accordion 
+                                            type="multiple" 
+                                            value={expandedSections[eng.id] || []} 
+                                            onValueChange={(val) => handleSectionsAccordionChange(eng.id, val)} 
+                                            className="w-full flex flex-col gap-2"
+                                        >
                                             <AccordionItem value="questionnaires" className="border border-slate-200 rounded-md overflow-hidden bg-white shadow-sm data-[state=open]:border-indigo-200 transition-colors">
                                                 <div className="flex items-center justify-between bg-slate-50/50 pr-4 w-full border-b border-transparent">
                                                     <AccordionTrigger className="hover:no-underline px-4 py-3 text-sm font-semibold text-slate-700 flex-1 hover:bg-slate-50/80">
@@ -525,7 +544,10 @@ export function EngagementManager({ leId, initialEngagements, leDueDate }: Engag
                                                                             <FileText className="h-4 w-4 text-slate-400 shrink-0" />
                                                                             <div className="min-w-0 flex-1">
                                                                                 <div className="flex items-center gap-2">
-                                                                                    <span className="font-medium text-[13.5px] text-slate-800 truncate group-hover/card:text-indigo-600 transition-colors" title={q.name}>{q.name}</span>
+                                                                                    <div className="flex flex-col">
+                                                                                        <span className="font-medium text-[13.5px] text-slate-800 truncate group-hover/card:text-indigo-600 transition-colors" title={q.name}>{q.name}</span>
+                                                                                        {q.referenceCode && <span className="text-[10px] text-slate-400 font-mono tracking-tight">{q.referenceCode}</span>}
+                                                                                    </div>
                                                                                     {q.status === 'DIGITIZING' && (
                                                                                         <Badge variant="outline" className="w-fit text-[9px] h-[16px] py-0 bg-indigo-50 text-indigo-600 border-indigo-200 animate-pulse">
                                                                                             Digitizing
@@ -645,58 +667,67 @@ export function EngagementManager({ leId, initialEngagements, leDueDate }: Engag
                                                         </div>
                                                     )}
                                                 </AccordionContent>
-                                            </AccordionItem>
+                                        </AccordionItem>
+
+                                        {/* Documents Accordion */}
+                                        <AccordionItem value="documents" className="border border-slate-200 rounded-md overflow-hidden bg-white shadow-sm data-[state=open]:border-emerald-200 transition-colors">
+                                            <div className="flex items-center justify-between bg-slate-50/50 pr-4 w-full border-b border-transparent">
+                                                <AccordionTrigger className="hover:no-underline px-4 py-3 text-sm font-semibold text-slate-700 flex-1 hover:bg-slate-50/80">
+                                                    <div className="flex items-center gap-3">
+                                                        <Folder className="w-4 h-4 text-emerald-500" />
+                                                        Documents
+                                                        <Badge variant="secondary" className="ml-2 bg-emerald-50 text-emerald-700 text-[10px] font-bold uppercase tracking-wider px-1.5 py-0">{docCount}</Badge>
+                                                    </div>
+                                                </AccordionTrigger>
+                                            </div>
+                                            <AccordionContent className="p-0 border-t border-slate-100">
+                                                {(expandedSections[eng.id] || []).includes("documents") && (
+                                                    <InlineDocumentManager engagementId={eng.id} />
+                                                )}
+                                            </AccordionContent>
+                                        </AccordionItem>
+
+                                        {/* Output Accordion */}
+                                        <AccordionItem value="output" className="border border-slate-200 rounded-md overflow-hidden bg-white shadow-sm data-[state=open]:border-amber-200 transition-colors">
+                                            <div className="flex items-center justify-between bg-slate-50/50 pr-4 w-full border-b border-transparent">
+                                                <AccordionTrigger className="hover:no-underline px-4 py-3 text-sm font-semibold text-slate-700 flex-1 hover:bg-slate-50/80">
+                                                    <div className="flex items-center gap-3">
+                                                        <Download className="w-4 h-4 text-amber-500" />
+                                                        Output
+                                                        <Badge variant="outline" className={cn(
+                                                            "ml-2 text-[10px] font-bold uppercase tracking-wider px-1.5 py-0",
+                                                            eng.status === 'PREPARATION' ? "bg-slate-100 text-slate-600 border-slate-200" : "bg-amber-50 text-amber-700 border-amber-200"
+                                                        )}>
+                                                            {eng.status === 'PREPARATION' ? 'Draft' : 'Pending'}
+                                                        </Badge>
+                                                    </div>
+                                                </AccordionTrigger>
+                                            </div>
+                                            <AccordionContent className="p-0 border-t border-slate-100">
+                                                {(expandedSections[eng.id] || []).includes("output") && (
+                                                    <InlineOutputBuilder engagementId={eng.id} questionnaires={eng.questionnaires || []} />
+                                                )}
+                                            </AccordionContent>
+                                        </AccordionItem>
+
+                                        {/* Team Accordion */}
+                                        <AccordionItem value="team" className="border border-slate-200 rounded-md overflow-hidden bg-white shadow-sm data-[state=open]:border-blue-200 transition-colors">
+                                            <div className="flex items-center justify-between bg-slate-50/50 pr-4 w-full border-b border-transparent">
+                                                <AccordionTrigger className="hover:no-underline px-4 py-3 text-sm font-semibold text-slate-700 flex-1 hover:bg-slate-50/80">
+                                                    <div className="flex items-center gap-3">
+                                                        <Users className="w-4 h-4 text-blue-500" />
+                                                        Team
+                                                        <Badge variant="secondary" className="ml-2 bg-blue-50 text-blue-700 text-[10px] font-bold uppercase tracking-wider px-1.5 py-0">{teamCount}</Badge>
+                                                    </div>
+                                                </AccordionTrigger>
+                                            </div>
+                                            <AccordionContent className="p-0 border-t border-slate-100 bg-slate-50/50">
+                                                {(expandedSections[eng.id] || []).includes("team") && (
+                                                    <InlineTeamManager engagementId={eng.id} orgName={orgName || "Unknown"} />
+                                                )}
+                                            </AccordionContent>
+                                        </AccordionItem>
                                         </Accordion>
-
-                                        {/* Documents Static Row */}
-                                        <Link href={`/app/le/${leId}/engagement-new/${eng.id}?tab=documents`} className="block">
-                                            <div className="flex items-center justify-between px-4 py-3 bg-white border border-slate-200 rounded-md shadow-sm hover:bg-slate-50 hover:border-emerald-200 transition-colors group">
-                                                <div className="flex items-center gap-3">
-                                                    <Folder className="w-4 h-4 text-emerald-500" />
-                                                    <span className="text-sm font-semibold text-slate-700">Documents</span>
-                                                    <Badge variant="secondary" className="ml-2 bg-emerald-50 text-emerald-700 text-[10px] font-bold uppercase tracking-wider px-1.5 py-0">{docCount}</Badge>
-                                                </div>
-                                                <div className="flex items-center gap-3 text-sm text-slate-500">
-                                                    <span className="hidden sm:inline">Manage documents</span>
-                                                    <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-emerald-500 transition-colors" />
-                                                </div>
-                                            </div>
-                                        </Link>
-
-                                        {/* Output Static Row */}
-                                        <Link href={`/app/le/${leId}/engagement-new/${eng.id}?tab=output`} className="block">
-                                            <div className="flex items-center justify-between px-4 py-3 bg-white border border-slate-200 rounded-md shadow-sm hover:bg-slate-50 hover:border-amber-200 transition-colors group">
-                                                <div className="flex items-center gap-3">
-                                                    <Download className="w-4 h-4 text-amber-500" />
-                                                    <span className="text-sm font-semibold text-slate-700">Output</span>
-                                                    <Badge variant="outline" className={cn(
-                                                        "ml-2 text-[10px] font-bold uppercase tracking-wider px-1.5 py-0",
-                                                        eng.status === 'PREPARATION' ? "bg-slate-100 text-slate-600 border-slate-200" : "bg-amber-50 text-amber-700 border-amber-200"
-                                                    )}>
-                                                        {eng.status === 'PREPARATION' ? 'Draft' : 'Pending'}
-                                                    </Badge>
-                                                </div>
-                                                <div className="flex items-center gap-3 text-sm text-slate-500">
-                                                    <span className="hidden sm:inline">Prepare output pack</span>
-                                                    <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-amber-500 transition-colors" />
-                                                </div>
-                                            </div>
-                                        </Link>
-
-                                        {/* Team Static Row */}
-                                        <Link href={`/app/le/${leId}/engagement-new/${eng.id}?tab=team`} className="block">
-                                            <div className="flex items-center justify-between px-4 py-3 bg-white border border-slate-200 rounded-md shadow-sm hover:bg-slate-50 hover:border-blue-200 transition-colors group">
-                                                <div className="flex items-center gap-3">
-                                                    <Users className="w-4 h-4 text-blue-500" />
-                                                    <span className="text-sm font-semibold text-slate-700">Team</span>
-                                                    <Badge variant="secondary" className="ml-2 bg-blue-50 text-blue-700 text-[10px] font-bold uppercase tracking-wider px-1.5 py-0">{teamCount}</Badge>
-                                                </div>
-                                                <div className="flex items-center gap-3 text-sm text-slate-500">
-                                                    <span className="hidden sm:inline">Manage team</span>
-                                                    <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-blue-500 transition-colors" />
-                                                </div>
-                                            </div>
-                                        </Link>
                                     </div>
                                 </AccordionContent>
                             </AccordionItem>

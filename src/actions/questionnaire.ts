@@ -1194,47 +1194,64 @@ export async function assignQuestionnaireToEngagement(
             ? JSON.parse(JSON.stringify(template.mappings))
             : undefined;
 
-        // ── Engagement Questionnaire name derivation ──────────────────────────
-        // For V2 Reference Snapshots that carry a referenceCode
-        // (e.g. "FMSBUK_260606_COPARITY_XXXXX_SSSSS_v1"), derive the engagement
-        // questionnaire name by:
-        //   1. Stripping the version suffix (_v{n})
-        //   2. Replacing placeholder slots XXXXX and SSSSS with the real LE/supplier codes
-        //
-        // Result: "FMSBUK_260606_COPARITY_LYNNW_RSKBR"
-        //
-        // This preserves the published date and owner context, making the lineage
-        // immediately readable without querying the source snapshot.
-        //
-        // Legacy templates (no referenceCode) continue to use generateWorkingCopyTitle.
-        let defaultName: string;
+        // ── Instance Reference Code Derivation ──────────────────────────
+        // Generate contextual reference code by replacing placeholders, then
+        // query for uniqueness within this engagement to determine if a _vN 
+        // suffix is needed.
+        let instanceReferenceCode = template.referenceCode;
         if (template.kind === "REFERENCE_SNAPSHOT" && template.referenceCode) {
             const leCode   = engagement.clientLE?.shortCode ? normalizeCode(engagement.clientLE.shortCode) : "XXXXX";
             const supCode  = engagement.org?.shortCode      ? normalizeCode(engagement.org.shortCode)      : "SSSSS";
-            // Strip _v{n} suffix, replace _XXXXX_ → real LE, _SSSSS → real supplier.
-            // Note: \b word boundaries don't work across underscores in JS regex
-            // (underscore is a \w character), so we match with explicit _ delimiters.
-            defaultName = template.referenceCode
-                .replace(/_v\d+$/, "")                      // drop _v{n} version suffix
-                .replace(/_(XXXXX)(?=_|$)/, `_${leCode}`)  // substitute LE placeholder
-                .replace(/_(S{4,})(?=_|$)/, `_${supCode}`); // substitute supplier placeholder
+            
+            const contextualPrefix = template.referenceCode
+                .replace(/_v\d+$/, "")                      // drop template's _v{n}
+                .replace(/_(XXXXX)(?=_|$)/, `_${leCode}`)  // substitute LE
+                .replace(/_(S{4,})(?=_|$)/, `_${supCode}`); // substitute supplier
+            
+            // Check for uniqueness within this specific engagement
+            const existingInstances = await prisma.questionnaire.findMany({
+                where: {
+                    fiEngagementId: engagementId,
+                    referenceCode: { startsWith: contextualPrefix }
+                },
+                select: { referenceCode: true }
+            });
+            
+            const existingCodes = existingInstances.map((q: any) => q.referenceCode).filter(Boolean) as string[];
+            
+            if (!existingCodes.includes(contextualPrefix)) {
+                instanceReferenceCode = contextualPrefix;
+            } else {
+                const { computeNextVersion } = await import("@/lib/questionnaires/reference-codes");
+                let nextVersion = computeNextVersion(contextualPrefix, existingCodes);
+                if (nextVersion === 1) nextVersion = 2; // if exact prefix exists but no suffixes, next is 2
+                instanceReferenceCode = `${contextualPrefix}_v${nextVersion}`;
+            }
         } else if (template.functionalCode) {
-            defaultName = generateWorkingCopyTitle({
+            const { generateWorkingCopyTitle } = await import("@/lib/questionnaires/reference-codes");
+            instanceReferenceCode = generateWorkingCopyTitle({
                 functionalCode: template.functionalCode,
                 clientLeShortCode: engagement.clientLE?.shortCode,
                 supplierShortCode: engagement.org?.shortCode,
             });
-        } else {
-            defaultName = template.name;
+        }
+
+        // ── Instance Name Derivation ──────────────────────────────
+        // If the template has a human-readable name, preserve it.
+        // If it is missing, exactly matches its referenceCode, or contains 
+        // the XXXXX/SSSSS placeholders, use the freshly resolved referenceCode instead.
+        let instanceName = template.name;
+        if (!instanceName || instanceName === template.referenceCode || instanceName.includes("XXXXX") || instanceName.includes("SSSSS")) {
+            instanceName = instanceReferenceCode || template.name; // fallback to template.name just in case referenceCode is null
         }
 
         const instance = await prisma.questionnaire.create({
             data: {
                 fiOrgId: engagement.fiOrgId,
                 fiEngagementId: engagementId,
-                name: defaultName,
+                name: instanceName,
                 functionalCode: template.functionalCode,
-                referenceCode: template.referenceCode,
+                referenceCode: instanceReferenceCode,
                 status: "ACTIVE",
                 extractedContent: extractedToCopy,
                 mappings: mappingsToCopy,

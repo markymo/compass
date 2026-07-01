@@ -670,20 +670,15 @@ export async function instantiateQuestionnaire(templateId: string, engagementId:
 
         if (!engagement) return { success: false, error: "Engagement not found" };
 
-        let resolvedName = name;
-        if (!resolvedName) {
-            resolvedName = template.functionalCode ? generateWorkingCopyTitle({
-                functionalCode: template.functionalCode,
-                clientLeShortCode: engagement.clientLE?.shortCode,
-                supplierShortCode: engagement.org?.shortCode,
-            }) : template.name;
-        }
+        // We defer name resolution until after we generate the contextual referenceCode
+        // because we might need to fall back to it.
+        let providedName = name;
 
         const existing = await prisma.questionnaire.findFirst({
             where: {
                 fiEngagementId: engagementId,
                 fiOrgId: engagement.fiOrgId,
-                name: resolvedName,
+                sourceId: templateId,
                 isDeleted: false,
             },
             orderBy: { createdAt: "desc" },
@@ -695,11 +690,59 @@ export async function instantiateQuestionnaire(templateId: string, engagementId:
             return { success: true, id: existing.id, created: false };
         }
 
+        let instanceReferenceCode = template.referenceCode;
+        if (template.kind === "REFERENCE_SNAPSHOT" && template.referenceCode) {
+            const { normalizeCode } = await import("@/lib/questionnaires/reference-codes");
+            const leCode   = engagement.clientLE?.shortCode ? normalizeCode(engagement.clientLE.shortCode) : "XXXXX";
+            const supCode  = engagement.org?.shortCode      ? normalizeCode(engagement.org.shortCode)      : "SSSSS";
+            
+            const contextualPrefix = template.referenceCode
+                .replace(/_v\d+$/, "")                      // drop template's _v{n}
+                .replace(/_(XXXXX)(?=_|$)/, `_${leCode}`)  // substitute LE
+                .replace(/_(S{4,})(?=_|$)/, `_${supCode}`); // substitute supplier
+            
+            // Check for uniqueness within this specific engagement
+            const existingInstances = await prisma.questionnaire.findMany({
+                where: {
+                    fiEngagementId: engagementId,
+                    referenceCode: { startsWith: contextualPrefix }
+                },
+                select: { referenceCode: true }
+            });
+            
+            const existingCodes = existingInstances.map((q: any) => q.referenceCode).filter(Boolean) as string[];
+            
+            if (!existingCodes.includes(contextualPrefix)) {
+                instanceReferenceCode = contextualPrefix;
+            } else {
+                const { computeNextVersion } = await import("@/lib/questionnaires/reference-codes");
+                let nextVersion = computeNextVersion(contextualPrefix, existingCodes);
+                if (nextVersion === 1) nextVersion = 2; // if exact prefix exists but no suffixes, next is 2
+                instanceReferenceCode = `${contextualPrefix}_v${nextVersion}`;
+            }
+        } else if (template.functionalCode) {
+            const { generateWorkingCopyTitle } = await import("@/lib/questionnaires/reference-codes");
+            instanceReferenceCode = generateWorkingCopyTitle({
+                functionalCode: template.functionalCode,
+                clientLeShortCode: engagement.clientLE?.shortCode,
+                supplierShortCode: engagement.org?.shortCode,
+            });
+        }
+
+        let resolvedName = providedName;
+        if (!resolvedName) {
+            if (!template.name || template.name === template.referenceCode || template.name.includes("XXXXX") || template.name.includes("SSSSS")) {
+                resolvedName = instanceReferenceCode || template.name;
+            } else {
+                resolvedName = template.name;
+            }
+        }
+
         const newQuestionnaire = await prisma.questionnaire.create({
             data: {
                 name: resolvedName,
                 functionalCode: template.functionalCode,
-                referenceCode: template.referenceCode,
+                referenceCode: instanceReferenceCode,
                 fiOrgId: engagement.fiOrgId,
                 status: "ACTIVE",
                 extractedContent: template.extractedContent as any,

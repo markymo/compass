@@ -973,17 +973,65 @@ export async function addCommonQuestionnaire(clientLEId: string, questionnaireId
 
         if (!template) return { success: false, error: "Questionnaire not found" };
 
+        const clientLe = await prisma.clientLE.findUnique({
+            where: { id: clientLEId },
+            select: { shortCode: true }
+        });
+
+        let instanceReferenceCode = template.referenceCode;
+        if (template.kind === "REFERENCE_SNAPSHOT" && template.referenceCode) {
+            const { normalizeCode } = await import("@/lib/questionnaires/reference-codes");
+            const leCode = clientLe?.shortCode ? normalizeCode(clientLe.shortCode) : "XXXXX";
+            
+            const contextualPrefix = template.referenceCode
+                .replace(/_v\d+$/, "")                      // drop template's _v{n}
+                .replace(/_(XXXXX)(?=_|$)/, `_${leCode}`)  // substitute LE
+                .replace(/_(S{4,})(?=_|$)/, `_COMMON`);    // substitute supplier with COMMON
+            
+            // Check for uniqueness within this client's common questionnaires
+            const existingInstances = await prisma.questionnaire.findMany({
+                where: {
+                    commonForClients: { some: { id: clientLEId } },
+                    referenceCode: { startsWith: contextualPrefix }
+                },
+                select: { referenceCode: true }
+            });
+            
+            const existingCodes = existingInstances.map((q: any) => q.referenceCode).filter(Boolean) as string[];
+            
+            if (!existingCodes.includes(contextualPrefix)) {
+                instanceReferenceCode = contextualPrefix;
+            } else {
+                const { computeNextVersion } = await import("@/lib/questionnaires/reference-codes");
+                let nextVersion = computeNextVersion(contextualPrefix, existingCodes);
+                if (nextVersion === 1) nextVersion = 2; // if exact prefix exists but no suffixes, next is 2
+                instanceReferenceCode = `${contextualPrefix}_v${nextVersion}`;
+            }
+        } else if (template.functionalCode) {
+            const { generateWorkingCopyTitle } = await import("@/lib/questionnaires/reference-codes");
+            instanceReferenceCode = generateWorkingCopyTitle({
+                functionalCode: template.functionalCode,
+                clientLeShortCode: clientLe?.shortCode,
+                supplierShortCode: "COMMON",
+            });
+        }
+
+        let instanceName = template.name;
+        if (!instanceName || instanceName === template.referenceCode || instanceName.includes("XXXXX") || instanceName.includes("SSSSS")) {
+            instanceName = instanceReferenceCode || template.name;
+        }
+
         const newQuestionnaire = await prisma.questionnaire.create({
             data: {
-                name: template.name,
+                name: instanceName,
                 fiOrgId: template.fiOrgId,
                 status: "ACTIVE",
                 extractedContent: template.extractedContent as any,
-                kind: "WORKING_COPY", 
+                kind: "COMMON_QUESTIONNAIRE", 
                 isTemplate: false,
                 isGlobal: false,
                 sourceId: questionnaireId,
-                referenceCode: template.referenceCode,
+                referenceCode: instanceReferenceCode,
                 commonForClients: {
                     connect: { id: clientLEId }
                 }
@@ -1031,3 +1079,77 @@ export async function removeCommonQuestionnaire(clientLEId: string, questionnair
         return { success: false, error: "Database error" };
     }
 };
+
+export async function getEngagementTeam(engagementId: string) {
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+
+    try {
+        const engagement = await prisma.fIEngagement.findUnique({
+            where: { id: engagementId },
+            select: { clientLEId: true }
+        });
+
+        if (!engagement) return { success: false, error: "Engagement not found" };
+
+        const rawInvitations = await prisma.invitation.findMany({
+            where: {
+                fiEngagementId: engagementId,
+                usedAt: null,
+                revokedAt: null
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+
+        const creatorIds = [...new Set(rawInvitations.map((inv: any) => inv.createdByUserId))];
+        const creators = await prisma.user.findMany({
+            where: { id: { in: creatorIds } },
+            select: { id: true, name: true, email: true }
+        });
+
+        const invitations = rawInvitations.map((inv: any) => ({
+            ...inv,
+            createdByUser: creators.find((c: any) => c.id === inv.createdByUserId) || null
+        }));
+
+        const members = await prisma.membership.findMany({
+            where: { clientLEId: engagement.clientLEId },
+            include: { user: { select: { name: true, email: true, image: true } } },
+            orderBy: { createdAt: 'desc' }
+        });
+
+        return { success: true, invitations, members };
+    } catch (error) {
+        return { success: false, error: "Failed to fetch team details" };
+    }
+}
+
+export async function getEngagementDocuments(engagementId: string) {
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+
+    try {
+        const engagement = await prisma.fIEngagement.findUnique({
+            where: { id: engagementId },
+            include: {
+                sharedDocuments: {
+                    where: { isDeleted: false },
+                    orderBy: { createdAt: 'desc' }
+                }
+            }
+        });
+
+        if (!engagement) return { success: false, error: "Engagement not found" };
+        
+        const { getEngagementEvidenceDocuments } = await import("./kanban-actions");
+        const evidenceResult = await getEngagementEvidenceDocuments(engagementId);
+
+        return { 
+            success: true, 
+            sharedDocuments: engagement.sharedDocuments,
+            evidenceDocuments: evidenceResult.documents || []
+        };
+    } catch (error) {
+        return { success: false, error: "Failed to fetch document details" };
+    }
+}
