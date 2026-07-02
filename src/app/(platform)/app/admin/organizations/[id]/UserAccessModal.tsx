@@ -7,6 +7,7 @@ import { Loader2, Mail, ShieldAlert, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { updateMembershipRole, removeMembership } from "@/actions/memberships";
 import { resendInvitation, revokeInvitation, updateInvitationRole } from "@/actions/invitations";
+import { ConfirmDeleteDialog } from "@/components/shared/confirm-dialogs";
 
 export type UserAccessRow = {
     kind: "membership" | "invitation";
@@ -182,26 +183,19 @@ export function UserAccessModal({ open, onOpenChange, user, onSuccess }: UserAcc
                             <ShieldAlert className="w-4 h-4" /> Danger Zone
                         </h4>
                         
-                        {!confirmRemove ? (
-                            <Button variant="destructive" className="w-full justify-start" onClick={() => setConfirmRemove(true)}>
-                                {isInvite ? "Revoke invite" : "Remove access"}
-                            </Button>
-                        ) : (
-                            <div className="bg-red-50 p-3 rounded-md border border-red-100 space-y-3">
-                                <p className="text-sm text-red-800 font-medium flex items-start gap-2">
-                                    <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
-                                    Are you sure you want to {isInvite ? "revoke this invite" : "remove this user's access"}?
-                                </p>
-                                <div className="flex gap-2">
-                                    <Button variant="destructive" size="sm" className="w-full" onClick={handleRemove} disabled={removing}>
-                                        {removing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : "Yes, confirm"}
-                                    </Button>
-                                    <Button variant="outline" size="sm" className="w-full" onClick={() => setConfirmRemove(false)} disabled={removing}>
-                                        Cancel
-                                    </Button>
-                                </div>
-                            </div>
-                        )}
+                        <Button variant="destructive" className="w-full justify-start" onClick={() => setConfirmRemove(true)}>
+                            {isInvite ? "Revoke invite" : "Remove access"}
+                        </Button>
+                        <ConfirmDeleteDialog
+                            open={confirmRemove}
+                            onOpenChange={setConfirmRemove}
+                            title={isInvite ? "Revoke invite?" : "Remove access?"}
+                            description={isInvite 
+                                ? "Are you sure you want to revoke this invite? They will no longer be able to join." 
+                                : "Are you sure you want to remove this user's access? They will immediately lose access to this organization."}
+                            onConfirm={handleRemove}
+                            isLoading={removing}
+                        />
                     </div>
                 </div>
             </DialogContent>

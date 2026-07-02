@@ -17,6 +17,7 @@ import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
+import { ConfirmArchiveDialog } from "@/components/shared/confirm-dialogs";
 
 // Helper for Logs
 function LogViewer({ logs }: { logs: any }) {
@@ -79,6 +80,11 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
     // Edit State
     const [isEditing, setIsEditing] = useState(false);
     const [editName, setEditName] = useState("");
+
+    // Archive / Unarchive State
+    const [archiveOpen, setArchiveOpen] = useState(false);
+    const [unarchiveOpen, setUnarchiveOpen] = useState(false);
+    const [isArchiving, setIsArchiving] = useState(false);
 
     async function handleSaveName() {
         if (!org || !editName.trim()) return;
@@ -267,35 +273,55 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
 
                 <div className="ml-auto">
                     {org.status === "ARCHIVED" ? (
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={async () => {
-                                if (confirm("Are you sure you want to unarchive this organization? All Legal Entities will also be unarchived.")) {
+                        <>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setUnarchiveOpen(true)}
+                            >
+                                <ArchiveRestore className="w-4 h-4 mr-2" />
+                                Unarchive Organization
+                            </Button>
+                            <ConfirmArchiveDialog
+                                open={unarchiveOpen}
+                                onOpenChange={setUnarchiveOpen}
+                                title="Unarchive Organization?"
+                                description="Are you sure you want to unarchive this organization? All associated Legal Entities will also be unarchived."
+                                isLoading={isArchiving}
+                                onConfirm={async () => {
+                                    setIsArchiving(true);
                                     await unarchiveOrganization(org.id);
-                                    loadData(org.id);
+                                    await loadData(org.id);
                                     toast.success("Organization Unarchived");
-                                }
-                            }}
-                        >
-                            <ArchiveRestore className="w-4 h-4 mr-2" />
-                            Unarchive Organization
-                        </Button>
+                                    setIsArchiving(false);
+                                }}
+                            />
+                        </>
                     ) : (
-                        <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={async () => {
-                                if (confirm("Are you sure you want to archive this organization? All Legal Entities will also be archived.")) {
+                        <>
+                            <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => setArchiveOpen(true)}
+                            >
+                                <Trash2 className="w-4 h-4 mr-2" />
+                                Archive Organization
+                            </Button>
+                            <ConfirmArchiveDialog
+                                open={archiveOpen}
+                                onOpenChange={setArchiveOpen}
+                                title="Archive Organization?"
+                                description="Are you sure you want to archive this organization? All associated Legal Entities will also be archived and hidden from primary workflows."
+                                isLoading={isArchiving}
+                                onConfirm={async () => {
+                                    setIsArchiving(true);
                                     await archiveOrganization(org.id);
-                                    loadData(org.id);
+                                    await loadData(org.id);
                                     toast.success("Organization Archived");
-                                }
-                            }}
-                        >
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            Archive Organization
-                        </Button>
+                                    setIsArchiving(false);
+                                }}
+                            />
+                        </>
                     )}
                 </div>
             </div>

@@ -22,6 +22,7 @@ import { TRANSFORM_SELECT_OPTIONS, TRANSFORM_DEFINITION_MAP, getTransformDescrip
 import { getCountryName } from "@/components/client/fields/AddressValueViewer";
 import { resolvePathString } from "@/services/kyc/normalization/pathResolver";
 import { MappingFormDialog, type MappingRow, displayScope } from "@/components/client/admin/source-mappings/mapping-form-dialog";
+import { ConfirmDeleteDialog } from "@/components/shared/confirm-dialogs";
 
 
 
@@ -61,6 +62,8 @@ export default function SourceMappingsV2Page() {
     const [prefillTransformType, setPrefillTransformType] = useState<string | null>(null);
     const [prefillTransformConfig, setPrefillTransformConfig] = useState<any>(null);
     const [initialTargetFieldNo, setInitialTargetFieldNo] = useState<number | null>(null);
+    const [deleteId, setDeleteId] = useState<string | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     useEffect(() => {
         if (typeof window !== 'undefined') {
@@ -114,11 +117,14 @@ export default function SourceMappingsV2Page() {
         setDialogOpen(true); 
     };
     const handleEdit = (m: MappingRow) => { setEditingMapping(m); setPrefillPath(""); setDialogOpen(true); };
-    const handleDelete = async (id: string) => {
-        if (!confirm("Delete this mapping? This cannot be undone.")) return;
-        const res = await deleteSourceMapping(id);
+    const handleDeleteClick = (id: string) => setDeleteId(id);
+    const handleConfirmDelete = async () => {
+        if (!deleteId) return;
+        setIsDeleting(true);
+        const res = await deleteSourceMapping(deleteId);
         if (res.success) { toast.success("Mapping deleted"); loadMappings(selectedOption); }
         else toast.error(res.error ?? "Failed to delete");
+        setIsDeleting(false);
     };
     const handleToggle = async (id: string, isActive: boolean) => {
         const res = await toggleSourceMapping(id, isActive);
@@ -249,7 +255,7 @@ export default function SourceMappingsV2Page() {
                             </CardContent>
                         </Card>
                     ) : (
-                        <MappingTable mappings={mappings} onEdit={handleEdit} onDelete={handleDelete} onToggle={handleToggle} />
+                        <MappingTable mappings={mappings} onEdit={handleEdit} onDelete={handleDeleteClick} onToggle={handleToggle} />
                     )}
                 </div>
 
@@ -294,6 +300,14 @@ export default function SourceMappingsV2Page() {
             initialTransformConfig={prefillTransformConfig}
             onSaved={handleSaved}
             resolvedDefaults={resolvedDefaults}
+        />
+        <ConfirmDeleteDialog
+            open={!!deleteId}
+            onOpenChange={(open) => { if (!open) setDeleteId(null); }}
+            onConfirm={handleConfirmDelete}
+            isLoading={isDeleting}
+            title="Delete this mapping?"
+            description="Are you sure you want to delete this source field mapping? This action cannot be undone."
         />
         </>
     );
