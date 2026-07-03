@@ -245,6 +245,85 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
 
     const fieldKey = String(fieldNo || customFieldId || "");
 
+    const displayHistoryEvents = useMemo(() => {
+        if (!data?.history || data.history.length === 0) return [];
+        
+        const rawHistory = data.history;
+        const events: any[] = [];
+        
+        for (let i = 0; i < rawHistory.length; i++) {
+            const current = rawHistory[i];
+            
+            // 1. Tombstone
+            if (current.isTombstone) {
+                let previousValue = null;
+                for (let j = i + 1; j < rawHistory.length; j++) {
+                    if (rawHistory[j].instanceId === current.instanceId && !rawHistory[j].isTombstone) {
+                        previousValue = rawHistory[j].newValue;
+                        break;
+                    }
+                }
+                
+                events.push({
+                    ...current,
+                    displayType: 'DELETE',
+                    fromValue: previousValue,
+                    toValue: null
+                });
+                continue;
+            }
+            
+            // 2. New Value - Check for adjacent Tombstone to merge into EDIT
+            let matchedEdit = false;
+            if (i + 1 < rawHistory.length) {
+                const nextOlder = rawHistory[i+1];
+                // Group claims only when they can be matched with confidence.
+                if (nextOlder.isTombstone && 
+                    nextOlder.assertedByUserName === current.assertedByUserName && 
+                    new Date(nextOlder.assertedAt).getTime() === new Date(current.assertedAt).getTime()) 
+                {
+                    // Find what the tombstone deleted
+                    let previousValue = null;
+                    for (let j = i + 2; j < rawHistory.length; j++) {
+                        if (rawHistory[j].instanceId === nextOlder.instanceId && !rawHistory[j].isTombstone) {
+                            previousValue = rawHistory[j].newValue;
+                            break;
+                        }
+                    }
+                    
+                    events.push({
+                        ...current,
+                        displayType: 'EDIT_MERGED',
+                        fromValue: previousValue,
+                        toValue: current.newValue
+                    });
+                    
+                    i++; // skip the tombstone
+                    matchedEdit = true;
+                }
+            }
+            
+            if (!matchedEdit) {
+                // Just an addition/update. Find the previous value if we can to show "From -> To"
+                let previousValue = null;
+                for (let j = i + 1; j < rawHistory.length; j++) {
+                    if ((!data.isRepeating || rawHistory[j].instanceId === current.instanceId) && !rawHistory[j].isTombstone) {
+                        previousValue = rawHistory[j].newValue;
+                        break;
+                    }
+                }
+                
+                events.push({
+                    ...current,
+                    displayType: previousValue !== null ? 'UPDATE' : 'ADD',
+                    fromValue: previousValue,
+                    toValue: current.newValue
+                });
+            }
+        }
+        return events;
+    }, [data?.history, data?.isRepeating]);
+
     const currentSelectionIds = useMemo(() => {
         if (!data) return [];
         if (data.isRepeating) {
@@ -2547,20 +2626,47 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                         <TabsContent value="history" className="mt-4">
                             <ScrollArea className="h-[300px] w-full rounded-md border p-4">
                                 <div className="relative border-l border-slate-200 ml-3 space-y-6">
-                                    {data?.history && data.history.length > 0 ? (
-                                        data.history.map((item: any) => (
+                                    {displayHistoryEvents && displayHistoryEvents.length > 0 ? (
+                                        displayHistoryEvents.map((item: any) => (
                                             <div key={item.id} className="relative pl-6">
                                                 <div className="absolute -left-1.5 top-1.5 h-3 w-3 rounded-full border border-white bg-slate-300 ring-4 ring-white" />
                                                 <div className="flex flex-col gap-1">
                                                     <div className="flex items-center gap-2 text-xs text-slate-500">
                                                         <span>{new Date(item.timestamp).toLocaleString()}</span>
                                                         <span>•</span>
-                                                        <span className="font-medium text-slate-700">{item.actorId || "System"}</span>
+                                                        <span className="font-medium text-slate-700">{item.assertedByUserName || item.actorId || "System"}</span>
                                                     </div>
                                                     <div className="text-sm font-medium">
-                                                        Changed value to <span className="font-mono bg-slate-100 px-1 rounded">{renderRowValue(item.newValue)}</span>
+                                                        {item.displayType === 'DELETE' ? (
+                                                            item.fromValue !== null ? (
+                                                                <>Deleted value <span className="font-mono bg-slate-100 px-1 rounded">{renderRowValue(item.fromValue)}</span></>
+                                                            ) : (
+                                                                <span className="text-slate-500 italic">Previous value replaced</span>
+                                                            )
+                                                        ) : item.displayType === 'ADD' ? (
+                                                            <>Changed value to <span className="font-mono bg-slate-100 px-1 rounded">{renderRowValue(item.toValue)}</span></>
+                                                        ) : (
+                                                            // UPDATE or EDIT_MERGED
+                                                            item.fromValue !== null ? (
+                                                                <div className="flex flex-col gap-1 mt-1">
+                                                                    <div>Changed value</div>
+                                                                    <div className="flex flex-col gap-0.5 text-xs">
+                                                                        <div className="flex items-start gap-2">
+                                                                            <span className="text-slate-400 w-10">From:</span>
+                                                                            <span className="font-mono bg-red-50 text-red-700 px-1 rounded break-all">{renderRowValue(item.fromValue)}</span>
+                                                                        </div>
+                                                                        <div className="flex items-start gap-2">
+                                                                            <span className="text-slate-400 w-10">To:</span>
+                                                                            <span className="font-mono bg-emerald-50 text-emerald-700 px-1 rounded break-all">{renderRowValue(item.toValue)}</span>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            ) : (
+                                                                <>Changed value to <span className="font-mono bg-slate-100 px-1 rounded">{renderRowValue(item.toValue)}</span></>
+                                                            )
+                                                        )}
                                                     </div>
-                                                    <div className="text-xs text-slate-500 flex items-center gap-1">
+                                                    <div className="text-xs text-slate-500 flex items-center gap-1 mt-1">
                                                         via <SourceBadge 
                                                                 source={item.source} 
                                                                 sourceReference={item.actor} 

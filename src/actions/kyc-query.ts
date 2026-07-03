@@ -1087,13 +1087,20 @@ export async function getFieldDetail(
 
     const history = claims.map((c: any) => ({
         id: c.id,
+        claimId: c.id,
         newValue: (c.valueText ?? c.valueNumber ?? c.valueDate ?? c.valueJson ?? c.valueLeId ?? c.valuePersonId ?? c.valueOrgId ?? c.valueDocId) ?? null,
         source: c.sourceType,
+        sourceType: c.sourceType,
         timestamp: c.assertedAt,
+        assertedAt: c.assertedAt,
         actorId: c.verifiedBy?.name || c.verifiedBy?.email || "System",
+        assertedByUserName: c.verifiedBy?.name || c.verifiedBy?.email || "System",
         actor: c.sourceReference, // Use sourceReference for reference detail (reason/LEI)
         status: c.status,
-        isScoped: c.ownerScopeId !== null
+        isScoped: c.ownerScopeId !== null,
+        isTombstone: KycStateService.isTombstone(c),
+        instanceId: c.instanceId,
+        collectionId: c.collectionId
     }));
 
     // 3. Get Candidates (Persisted Claims)
