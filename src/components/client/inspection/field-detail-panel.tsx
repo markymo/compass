@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef, useMemo } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { StandardTooltip } from "@/components/ui/standard-tooltip";
 import { getRegistryAuthorityNamesMap } from "@/actions/system";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -1673,11 +1674,14 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                         registrationAuthorityId={registrationAuthorityId} 
                                                                         registrationAuthorityName={registrationAuthorityId ? raNameMap[registrationAuthorityId] : undefined}
                                                                     />
-                                                                    <div className="flex flex-col text-[10px] text-slate-400 border-l border-slate-200 pl-2 leading-tight">
-                                                                        {data.current.sourceCheckedAt && (
-                                                                            <span className="whitespace-nowrap">Source last checked: {new Date(data.current.sourceCheckedAt).toLocaleString()}</span>
+                                                                    <div className="flex flex-col text-[10px] text-slate-400 border-l border-slate-200 pl-2 leading-tight justify-center">
+                                                                        {data.current.sourceCheckedAt ? (
+                                                                            <StandardTooltip content="Based on the most recent successful sync of the mapped external source.">
+                                                                                <span className="whitespace-nowrap">Last validated: {new Date(data.current.sourceCheckedAt).toLocaleString()}</span>
+                                                                            </StandardTooltip>
+                                                                        ) : (
+                                                                            <span className="whitespace-nowrap">Last validated: {data.current.timestamp ? new Date(data.current.timestamp).toLocaleString() : 'Never'}</span>
                                                                         )}
-                                                                        <span className="whitespace-nowrap">Value last changed: {data.current.timestamp ? new Date(data.current.timestamp).toLocaleString() : 'Never'}</span>
                                                                     </div>
                                                                 </div>
                                                             </div>

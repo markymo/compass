@@ -87,9 +87,9 @@ export default async function RegistryPage({ params }: { params: Promise<{ id: s
             />
 
             {/* Header */}
-            <div className="flex items-center justify-between bg-emerald-50/50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-900/30 rounded-lg p-4">
+            <div className="flex items-center justify-between bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-lg p-4">
                 <div className="flex items-center gap-3">
-                    <div className="bg-white dark:bg-emerald-900/30 p-1 rounded-lg border border-emerald-100 dark:border-emerald-800 shadow-sm overflow-hidden flex items-center justify-center min-w-[40px] h-[40px]">
+                    <div className="bg-white dark:bg-blue-900/30 p-1 rounded-lg border border-blue-100 dark:border-blue-800 shadow-sm overflow-hidden flex items-center justify-center min-w-[40px] h-[40px]">
                         {authority?.id === "RA000585" ? (
                             <img 
                                 src="/images/Companies_House.png" 
@@ -97,19 +97,19 @@ export default async function RegistryPage({ params }: { params: Promise<{ id: s
                                 className="h-8 w-auto object-contain"
                             />
                         ) : (
-                            <Building2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                            <Building2 className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                         )}
                     </div>
                     <div>
                         <div className="flex items-center gap-2">
-                            <h3 className="font-bold text-emerald-900 dark:text-emerald-100 text-lg tracking-tight">{displayTitle}</h3>
+                            <h3 className="font-bold text-blue-900 dark:text-blue-100 text-lg tracking-tight">{displayTitle}</h3>
                             {primaryRef && (
-                                <Badge variant="outline" className="text-[10px] h-5 px-1.5 font-mono text-emerald-600 border-emerald-200 bg-emerald-50">
+                                <Badge variant="outline" className="text-[10px] h-5 px-1.5 font-mono text-blue-600 border-blue-200 bg-blue-50">
                                     {authority?.id} • {primaryRef.localRegistrationNumber}
                                 </Badge>
                             )}
                         </div>
-                        <p className="text-sm text-emerald-700 dark:text-emerald-300">
+                        <p className="text-sm text-blue-700 dark:text-blue-300">
                             Official record retrieved from local jurisdiction registry
                         </p>
                     </div>

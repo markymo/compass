@@ -118,3 +118,19 @@ When we reach Phase 4, the correct strategy is:
 - [ ] `refactor(ui): replace window.confirm with ConfirmDeleteDialog in source-mappings-v2`
 - [ ] `refactor(ui): replace inline deletion dialogs with ConfirmDeleteDialog in organizations page and UserAccessModal`
 - [ ] `refactor(ui): adopt RowActionsMenu for standalone Trash buttons in specific table views`
+
+### E. StandardTooltip
+A standardized wrapper around `Tooltip` from Shadcn to ensure consistent hover interactions without relying on ugly `cursor-help` question marks.
+*   **Props**:
+    *   `content: ReactNode` (The tooltip text/content)
+    *   `children?: ReactNode` (The trigger element)
+    *   `dottedUnderline?: boolean` (Optional affordance)
+    *   `iconClassName?: string`
+    *   `contentClassName?: string`
+*   **API/Usage**:
+    ```tsx
+    <StandardTooltip content="Based on the most recent successful sync.">
+      <span>Last validated: 01/01/2026</span>
+    </StandardTooltip>
+    ```
+*   **Accessibility & UX**: Uses a small Lucide `Info` icon appended to the children to clearly indicate hoverable content. The tooltip itself uses `bg-emerald-600 text-white` for a modern, distinct look.

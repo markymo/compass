@@ -1129,6 +1129,41 @@ export async function getFieldDetail(
         await enrichPartyReferences(valuesToEnrich);
     }
 
+    /**
+     * Phase 1 Proxy: This timestamp indicates when the mapped source(s) were last 
+     * successfully synced globally for this entity. 
+     * IMPORTANT LIMITATION: It does NOT guarantee that this exact field mapping was 
+     * evaluated during that sync (e.g., if the mapping was added *after* the sync occurred).
+     */
+    let sourceSyncDerivedLastValidatedAt: Date | null = null;
+    const mappedSources = await prisma.sourceFieldMapping.findMany({
+        where: { targetFieldNo: fieldNo, isActive: true },
+        select: { sourceType: true }
+    });
+    
+    if (mappedSources.length > 0 && entityType === 'CLIENT_LE') {
+        const fullClientLE = await prisma.clientLE.findUnique({
+            where: { id: entityId },
+            include: { registryReferences: true }
+        });
+        if (fullClientLE) {
+            const sources = mappedSources.map(m => m.sourceType);
+            let dates: Date[] = [];
+            if (sources.includes('GLEIF') && fullClientLE.gleifFetchedAt) {
+                dates.push(fullClientLE.gleifFetchedAt);
+            }
+            if (sources.includes('REGISTRATION_AUTHORITY') || sources.includes('COMPANIES_HOUSE')) {
+                for (const ref of fullClientLE.registryReferences) {
+                    if (ref.lastSyncSucceededAt) dates.push(ref.lastSyncSucceededAt);
+                }
+                if (fullClientLE.registryFetchedAt) dates.push(fullClientLE.registryFetchedAt);
+            }
+            if (dates.length > 0) {
+                sourceSyncDerivedLastValidatedAt = new Date(Math.max(...dates.map(d => d.getTime())));
+            }
+        }
+    }
+
     // 4. Get Current Assignment
     const [assignment, noteRecord] = await Promise.all([
         prisma.masterFieldAssignment.findUnique({
@@ -1286,14 +1321,14 @@ export async function getFieldDetail(
             confidence: derived.confidenceScore || 1.0,
             claimId: derived.claimId,
             isPromotedToCCC: promotedClaimIds.has(derived.claimId),
-            sourceCheckedAt: winningSourceCheckedAt
+            sourceCheckedAt: sourceSyncDerivedLastValidatedAt || winningSourceCheckedAt
         } : (finalSourceBadgeForEmpty ? {
             value: null,
             source: finalSourceBadgeForEmpty as ProvenanceSource,
             timestamp: evaluatedSourceTimestamp,
             confidence: null,
             isPromotedToCCC: false,
-            sourceCheckedAt: evaluatedSourceTimestamp
+            sourceCheckedAt: sourceSyncDerivedLastValidatedAt || evaluatedSourceTimestamp
         } : null),
         displayState,
         defaultResponse: (def as any)?.defaultResponse || undefined,
