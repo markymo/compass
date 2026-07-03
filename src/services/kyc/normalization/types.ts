@@ -20,4 +20,5 @@ export type FieldCandidate = {
     sourceMappingId?: string;
     payloadSubtype?: string;
     syncMode?: string;
+    isExplicitNone?: boolean;
 };

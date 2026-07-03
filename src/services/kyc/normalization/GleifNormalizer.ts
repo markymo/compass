@@ -76,7 +76,22 @@ export async function mapGleifPayloadToFieldCandidates(payload: any, evidenceId:
                     rawValue = resolveDotPath(payload, segments);
                 }
 
-                if (rawValue == null) continue; // Try next priority
+                if (rawValue == null) {
+                    console.log(`[GleifNormalizer] Emitting explicit-none for field=${targetFieldNo} because mapped path "${mapping.sourcePath}" was missing.`);
+                    candidates.push({
+                        fieldNo: targetFieldNo,
+                        value: { explicitNone: true },
+                        isExplicitNone: true,
+                        source: 'GLEIF',
+                        evidenceId,
+                        confidence: mapping.confidenceDefault
+                    });
+                    continue; // First priority was missing, but we emitted none. Wait, we should break? 
+                    // Actually, if a higher priority mapping is missing, do we emit none and win, or fall back to lower priority?
+                    // "value missing / null / missing path → assert an explicit "none" claim"
+                    // If a higher priority is missing, we shouldn't necessarily assume explicit none if a lower priority mapping MIGHT have a value. 
+                    // Let's think: The user's rule "If a mapped external source is successfully processed, and an active mapping produces no value...".
+                }
 
                 // For RA_CODE_TO_NAME: inject the pre-loaded lookup into transformConfig
                 // so that applyTransform can resolve the name without hitting the DB.

@@ -35,6 +35,11 @@ export class KycWriteService {
     ): Promise<boolean> {
         const fieldDef = await getMasterFieldDefinition(candidate.fieldNo);
 
+        if (candidate.isExplicitNone && fieldDef?.isMultiValue) {
+            console.log(`[KycWriteService] Dropping explicit-none candidate for repeating field ${candidate.fieldNo}`);
+            return true;
+        }
+
         // Pre-fetch ClientLE context for PARTY to inject into roles[0].company
         let clientLEContext: any = null;
         if (entityType === 'CLIENT_LE' && fieldDef?.appDataType === APP_DATA_TYPES.PARTY) {
@@ -961,6 +966,7 @@ export class KycWriteService {
 
     private valuesAreEqual(a: any, b: any): boolean {
         if (a === b) return true;
+        if (a?.explicitNone === true && b?.explicitNone === true) return true;
         if (a instanceof Date && typeof b === 'string') {
             return a.toISOString().split('T')[0] === b.split('T')[0];
         }

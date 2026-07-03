@@ -477,8 +477,12 @@ export class KycStateService {
                         // Same timestamp: tombstone wins (explicit deletion intent)
                         return isTombA ? -1 : 1;
                     }
-                    // Cross-source: tombstone (user exclusion) always beats registry value,
-                    // and registry tombstone loses to USER_INPUT value.
+                    
+                    // Safety fix: automated tombstone loses to USER_INPUT value
+                    if (isTombA && a.sourceType !== 'USER_INPUT' && b.sourceType === 'USER_INPUT') return 1;
+                    if (isTombB && b.sourceType !== 'USER_INPUT' && a.sourceType === 'USER_INPUT') return -1;
+
+                    // Cross-source: tombstone (user exclusion) always beats registry value
                     return isTombA ? -1 : 1;
                 }
 

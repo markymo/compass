@@ -145,7 +145,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
         }
 
         if (parsedVal && typeof parsedVal === 'object' && parsedVal.explicitNone) {
-            return <span className="text-slate-800 font-medium">None</span>;
+            return <span className="text-slate-400 italic">None</span>;
         }
 
         if (isBooleanType) {
@@ -254,11 +254,32 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
         for (let i = 0; i < rawHistory.length; i++) {
             const current = rawHistory[i];
             
+            
+            let isExplicitNone = false;
+            try {
+                if (typeof current.newValue === 'object' && current.newValue !== null) {
+                    isExplicitNone = current.newValue.explicitNone === true;
+                } else if (typeof current.newValue === 'string') {
+                    const parsed = JSON.parse(current.newValue);
+                    isExplicitNone = parsed.explicitNone === true;
+                }
+            } catch (e) {}
+
             // 1. Tombstone
-            if (current.isTombstone) {
+            if (current.isTombstone || isExplicitNone) {
                 let previousValue = null;
                 for (let j = i + 1; j < rawHistory.length; j++) {
-                    if (rawHistory[j].instanceId === current.instanceId && !rawHistory[j].isTombstone) {
+                    let jIsExplicitNone = false;
+                    try {
+                        if (typeof rawHistory[j].newValue === 'object' && rawHistory[j].newValue !== null) {
+                            jIsExplicitNone = rawHistory[j].newValue.explicitNone === true;
+                        } else if (typeof rawHistory[j].newValue === 'string') {
+                            const parsed = JSON.parse(rawHistory[j].newValue);
+                            jIsExplicitNone = parsed.explicitNone === true;
+                        }
+                    } catch (e) {}
+                    
+                    if (rawHistory[j].instanceId === current.instanceId && !rawHistory[j].isTombstone && !jIsExplicitNone) {
                         previousValue = rawHistory[j].newValue;
                         break;
                     }
@@ -266,7 +287,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                 
                 events.push({
                     ...current,
-                    displayType: 'DELETE',
+                    displayType: isExplicitNone ? 'EXPLICIT_NONE' : 'DELETE',
                     fromValue: previousValue,
                     toValue: null
                 });
@@ -2637,7 +2658,9 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                         <span className="font-medium text-slate-700">{item.assertedByUserName || item.actorId || "System"}</span>
                                                     </div>
                                                     <div className="text-sm font-medium">
-                                                        {item.displayType === 'DELETE' ? (
+                                                        {item.displayType === 'EXPLICIT_NONE' ? (
+                                                            <span className="text-slate-500 italic">Source returned no value</span>
+                                                        ) : item.displayType === 'DELETE' ? (
                                                             item.fromValue !== null ? (
                                                                 <>Deleted value <span className="font-mono bg-slate-100 px-1 rounded">{renderRowValue(item.fromValue)}</span></>
                                                             ) : (

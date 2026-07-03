@@ -122,7 +122,19 @@ export class RegistryMappingEngine {
                     const rawValue = resolveDotPath(sourceObject, segments);
 
                     if (rawValue == null) {
-                        console.log(`[RegistryMappingEngine] skip field=${fieldNo}: path "${mapping.sourcePath}" resolved to null (scope=${mapping.mappingScope}, subtype=${mapping.payloadSubtype})`);
+                        console.log(`[RegistryMappingEngine] Emitting explicit-none for field=${fieldNo} because mapped path "${mapping.sourcePath}" was missing (scope=${mapping.mappingScope}, subtype=${mapping.payloadSubtype}).`);
+                        candidates.push({
+                            fieldNo,
+                            value: { explicitNone: true },
+                            isExplicitNone: true,
+                            sourceMappingId: mapping.id,
+                            payloadSubtype: mapping.payloadSubtype,
+                            syncMode: mapping.syncMode,
+                            source: SourceType.REGISTRATION_AUTHORITY,
+                            sourceKey: mappingSourceKey || raId || 'GENERIC_RA',
+                            evidenceId: run.id,
+                            confidence: mapping.confidenceDefault
+                        });
                         continue;
                     }
                     console.log(`[RegistryMappingEngine] field=${fieldNo} path="${mapping.sourcePath}" resolved → ${Array.isArray(rawValue) ? `array[${rawValue.length}]` : typeof rawValue}`);
