@@ -14,10 +14,9 @@ interface GleifTabProps {
     leId: string;
     data: any; // Raw GLEIF JSON
     fetchedAt: Date | string | null;
-    nationalRegistryData?: any; // Companies House / National Registry data
 }
 
-export function GleifTab({ leId, data, fetchedAt, nationalRegistryData }: GleifTabProps) {
+export function GleifTab({ leId, data, fetchedAt }: GleifTabProps) {
     if (!data || !data.attributes) {
         return (
             <div className="space-y-4">
@@ -28,38 +27,7 @@ export function GleifTab({ leId, data, fetchedAt, nationalRegistryData }: GleifT
                         <GleifRefreshButton leId={leId} lastRefreshed={fetchedAt} />
                     </div>
                 </div>
-                {nationalRegistryData && (
-                    <div className="flex items-center justify-between bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-lg p-3">
-                        <div className="flex items-center gap-2.5">
-                            <div className="bg-white dark:bg-blue-900/30 p-1 rounded-md border border-blue-100 dark:border-blue-800 shadow-sm overflow-hidden flex items-center justify-center w-8 h-8">
-                                <img 
-                                    src="/images/Companies_House.png" 
-                                    alt="Companies House"
-                                    className="h-6 w-auto object-contain"
-                                    onError={(e) => { (e.target as any).style.display = 'none'; }}
-                                />
-                            </div>
-                            <div>
-                                <div className="flex items-center gap-2">
-                                    <span className="text-sm font-semibold text-blue-900 dark:text-blue-100">UK Companies House</span>
-                                    <Badge variant="outline" className="text-[10px] h-5 px-1.5 bg-blue-500 text-white border-none font-bold">
-                                        LINKED
-                                    </Badge>
-                                </div>
-                                <p className="text-xs text-blue-600 dark:text-blue-300">
-                                    {nationalRegistryData.entityName || nationalRegistryData.company_name || 'Registry data available'}
-                                </p>
-                            </div>
-                        </div>
-                        <a 
-                            href={`/app/le/${leId}/sources/registry`}
-                            className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-800 font-medium transition-colors"
-                        >
-                            View Details
-                            <ExternalLink className="h-3 w-3" />
-                        </a>
-                    </div>
-                )}
+
             </div>
         );
     }
@@ -378,40 +346,7 @@ export function GleifTab({ leId, data, fetchedAt, nationalRegistryData }: GleifT
                 );
             })()}
 
-            {nationalRegistryData && (
 
-                <div className="flex items-center justify-between bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-lg p-3">
-                    <div className="flex items-center gap-2.5">
-                        <div className="bg-white dark:bg-blue-900/30 p-1 rounded-md border border-blue-100 dark:border-blue-800 shadow-sm overflow-hidden flex items-center justify-center w-8 h-8">
-                            <img 
-                                src="/images/Companies_House.png" 
-                                alt="Companies House"
-                                className="h-6 w-auto object-contain"
-                                onError={(e) => { (e.target as any).style.display = 'none'; }}
-                            />
-                        </div>
-                        <div>
-                            <div className="flex items-center gap-2">
-                                <span className="text-sm font-semibold text-blue-900 dark:text-blue-100">UK Companies House</span>
-                                <Badge variant="outline" className="text-[10px] h-5 px-1.5 bg-blue-500 text-white border-none font-bold">
-                                    LINKED
-                                </Badge>
-                            </div>
-                            <p className="text-xs text-blue-600 dark:text-blue-300">
-                                {nationalRegistryData.entityName || nationalRegistryData.company_name || 'Registry data available'}
-                                {nationalRegistryData.officers?.length > 0 && ` • ${nationalRegistryData.officers.length} officers`}
-                            </p>
-                        </div>
-                    </div>
-                    <a 
-                        href={`/app/le/${leId}/sources/registry`}
-                        className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-800 font-medium transition-colors"
-                    >
-                        View Details
-                        <ExternalLink className="h-3 w-3" />
-                    </a>
-                </div>
-            )}
 
         </div>
     );
