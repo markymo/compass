@@ -1154,7 +1154,7 @@ export async function getFieldDetail(
             include: { registryReferences: true }
         });
         if (fullClientLE) {
-            const sources = mappedSources.map(m => m.sourceType);
+            const sources = mappedSources.map((m: any) => m.sourceType);
             let dates: Date[] = [];
             if (sources.includes('GLEIF') && fullClientLE.gleifFetchedAt) {
                 dates.push(fullClientLE.gleifFetchedAt);
