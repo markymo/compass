@@ -82,7 +82,7 @@ export function InviteSupplierDialog({ open, onOpenChange, engagementId, orgName
                 {step === 'FORM' && (
                     <div className="space-y-4 py-4">
                         <div className="space-y-2">
-                            <Label htmlFor="email">Supplier Email</Label>
+                            <Label htmlFor="email">{orgName} representative&apos;s email</Label>
                             <Input
                                 id="email"
                                 placeholder="name@bank.com"
@@ -95,7 +95,7 @@ export function InviteSupplierDialog({ open, onOpenChange, engagementId, orgName
                             <Label htmlFor="message">Personal Message (Optional)</Label>
                             <Textarea
                                 id="message"
-                                placeholder={`Hi, I'm inviting you to collaborate on our onboarding via Compass...`}
+                                placeholder="I am inviting you to collaborate via CoParity"
                                 value={message}
                                 onChange={(e) => setMessage(e.target.value)}
                             />

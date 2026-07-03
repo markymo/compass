@@ -14,6 +14,7 @@ import { archiveClientLE, deleteClientLE, forceDeleteClientLE } from "@/actions/
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
+import { ConfirmArchiveDialog } from "@/components/shared/confirm-dialogs";
 import { AlertCircle } from "lucide-react";
 
 interface ClientLEActionsProps {
@@ -25,10 +26,9 @@ interface ClientLEActionsProps {
 export function ClientLEActions({ leId, leName, isSystemAdmin }: ClientLEActionsProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
+    const [showArchive, setShowArchive] = useState(false);
 
-    const handleArchive = async () => {
-        if (!confirm(`Are you sure you want to archive ${leName}? It will be hidden from the dashboard.`)) return;
-
+    const handleArchiveConfirm = async () => {
         setIsLoading(true);
         const res = await archiveClientLE(leId);
         if (res.success) {
@@ -69,6 +69,14 @@ export function ClientLEActions({ leId, leName, isSystemAdmin }: ClientLEActions
     };
 
     return (
+        <>
+            <ConfirmArchiveDialog
+                open={showArchive}
+                onOpenChange={setShowArchive}
+                itemName={leName}
+                onConfirm={handleArchiveConfirm}
+                isLoading={isLoading}
+            />
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" disabled={isLoading} className="h-8 w-8 text-slate-400 hover:text-slate-600">
@@ -78,7 +86,7 @@ export function ClientLEActions({ leId, leName, isSystemAdmin }: ClientLEActions
             <DropdownMenuContent align="end">
                 <DropdownMenuLabel>Actions</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleArchive}>
+                <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setShowArchive(true); }}>
                     <Archive className="mr-2 h-4 w-4" />
                     <span>Archive Entity</span>
                 </DropdownMenuItem>
@@ -101,5 +109,6 @@ export function ClientLEActions({ leId, leName, isSystemAdmin }: ClientLEActions
                 )}
             </DropdownMenuContent>
         </DropdownMenu>
+        </>
     );
 }

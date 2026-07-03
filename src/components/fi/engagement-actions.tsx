@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { archiveEngagement, deleteEngagement } from "@/actions/fi";
 import { useState } from "react";
+import { ConfirmArchiveDialog } from "@/components/shared/confirm-dialogs";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
@@ -23,9 +24,9 @@ interface EngagementActionsProps {
 export function EngagementActions({ engagementId, clientName }: EngagementActionsProps) {
     const router = useRouter(); // For refresh
     const [isLoading, setIsLoading] = useState(false);
+    const [showArchive, setShowArchive] = useState(false);
 
-    const handleArchive = async () => {
-        if (!confirm(`Archive engagement with ${clientName}?`)) return;
+    const handleArchiveConfirm = async () => {
         setIsLoading(true);
         const res = await archiveEngagement(engagementId);
         if (res.success) {
@@ -51,7 +52,15 @@ export function EngagementActions({ engagementId, clientName }: EngagementAction
     };
 
     return (
-        <DropdownMenu>
+        <>
+            <ConfirmArchiveDialog
+                open={showArchive}
+                onOpenChange={setShowArchive}
+                itemName={`engagement with ${clientName}`}
+                onConfirm={handleArchiveConfirm}
+                isLoading={isLoading}
+            />
+            <DropdownMenu>
             <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" disabled={isLoading} className="h-6 w-6 p-0 hover:bg-slate-100 text-slate-400">
                     {isLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <MoreVertical className="h-3 w-3" />}
@@ -60,7 +69,7 @@ export function EngagementActions({ engagementId, clientName }: EngagementAction
             <DropdownMenuContent align="end">
                 <DropdownMenuLabel>Actions</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleArchive}>
+                <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setShowArchive(true); }}>
                     <Archive className="mr-2 h-4 w-4" />
                     <span>Archive</span>
                 </DropdownMenuItem>
@@ -70,5 +79,6 @@ export function EngagementActions({ engagementId, clientName }: EngagementAction
                 </DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>
+        </>
     );
 }

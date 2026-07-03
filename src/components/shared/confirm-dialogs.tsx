@@ -22,6 +22,8 @@ interface BaseConfirmDialogProps {
     isLoading?: boolean;
     confirmDisabled?: boolean;
     itemName?: string;
+    confirmLabel?: string;
+    buttonVariant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link";
 }
 
 export function ConfirmDeleteDialog({
@@ -33,6 +35,8 @@ export function ConfirmDeleteDialog({
     isLoading,
     confirmDisabled,
     itemName,
+    confirmLabel = "Delete",
+    buttonVariant = "destructive",
 }: BaseConfirmDialogProps) {
     const defaultTitle = "Are you sure you want to delete this?";
     const defaultDescription = itemName 
@@ -49,7 +53,7 @@ export function ConfirmDeleteDialog({
                 <AlertDialogFooter>
                     <AlertDialogCancel disabled={isLoading}>Cancel</AlertDialogCancel>
                     <Button
-                        variant="destructive"
+                        variant={buttonVariant}
                         disabled={isLoading || confirmDisabled}
                         onClick={async (e) => {
                             e.preventDefault();
@@ -58,7 +62,7 @@ export function ConfirmDeleteDialog({
                         }}
                     >
                         {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                        Delete
+                        {confirmLabel}
                     </Button>
                 </AlertDialogFooter>
             </AlertDialogContent>

@@ -42,6 +42,7 @@ import { UnifiedPartyPicker } from "../fields/UnifiedPartyPicker";
 import { inferClaimValueKind, ClaimValueKind } from "@/lib/master-data/claim-value-resolver";
 import { ExpandableRowItem } from "./expandable-row-item";
 import { SharedResourceUsageNotice } from "./SharedResourceUsageNotice";
+import { ConfirmDeleteDialog } from "@/components/shared/confirm-dialogs";
 
 import {
     DropdownMenu,
@@ -76,10 +77,11 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
     const [loading, setLoading] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
 
-    // Manual Edit State
     const [manualValue, setManualValue] = useState<any>("");
     const [manualReason, setManualReason] = useState("");
     const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
+    const [candidateToApply, setCandidateToApply] = useState<any | null>(null);
+    const [isApplyingCandidate, setIsApplyingCandidate] = useState(false);
     const [relatedValues, setRelatedValues] = useState<Record<string, any>>({});
     const [isSaving, setIsSaving] = useState(false);
     const [isClearingSingleValue, setIsClearingSingleValue] = useState(false);
@@ -782,28 +784,36 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
         }
     };
 
+    const confirmApplyCandidate = async () => {
+        if (!candidateToApply) return;
+        setIsApplyingCandidate(true);
+        try {
+            const result = await applyCandidate(clientLEId, candidateToApply, selectedRowId || undefined);
+            if (result.success) {
+                toast.success("Candidate applied");
+                const refreshed = await getFieldDetail(clientLEId, fieldNo, 'CLIENT_LE', customFieldId);
+                setData(refreshed);
+                setCandidateToApply(null);
+                if (onUpdate && refreshed.current) {
+                    onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
+                }
+            } else {
+                toast.error((result as any).message || "Apply failed");
+            }
+        } catch (error) {
+            console.error("Apply error:", error);
+            toast.error("An error occurred");
+        } finally {
+            setIsApplyingCandidate(false);
+        }
+    };
+
     const handleApplyCandidate = async (candidate: any) => {
         if (isLocked) {
             toast.error("Cannot apply candidate to a locked question.");
             return;
         }
-        if (confirm(`Are you sure you want to apply this value: ${candidate.value}?`)) {
-            try {
-                const result = await applyCandidate(clientLEId, candidate, selectedRowId || undefined);
-                if (result.success) {
-                    toast.success("Candidate applied");
-                    const refreshed = await getFieldDetail(clientLEId, fieldNo, 'CLIENT_LE', customFieldId);
-                    setData(refreshed);
-                    if (onUpdate && refreshed.current) {
-                        onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
-                    }
-                } else {
-                    toast.error(result.message || "Failed to apply candidate");
-                }
-            } catch (e) {
-                toast.error("Error applying candidate");
-            }
-        }
+        setCandidateToApply(candidate);
     };
 
     const handleAssign = async (userId: string | null) => {
@@ -832,6 +842,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
 
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
+            <ConfirmDeleteDialog open={!!candidateToApply} onOpenChange={(open) => { if (!open) setCandidateToApply(null); }} title="Apply Candidate?" description={`Are you sure you want to apply this value: ${candidateToApply?.value}?`} onConfirm={confirmApplyCandidate} isLoading={isApplyingCandidate} confirmLabel="Apply" buttonVariant="default" />
             <SheetContent className="w-[900px] sm:max-w-[800px] flex flex-col h-full">
                 <SheetHeader className="pb-3 border-b border-slate-100">
                     <SheetTitle className="sr-only">{fieldName}</SheetTitle>

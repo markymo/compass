@@ -17,6 +17,7 @@ import {
     CardTitle,
     CardDescription
 } from "@/components/ui/card";
+import { ConfirmDeleteDialog } from "@/components/shared/confirm-dialogs";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -57,6 +58,7 @@ export function QuestionnaireLibrary({ leId }: QuestionnaireLibraryProps) {
     const [isUploading, setIsUploading] = useState(false);
     const [isAdding, setIsAdding] = useState<string | null>(null);
     const [isRemoving, setIsRemoving] = useState<string | null>(null);
+    const [removeId, setRemoveId] = useState<string | null>(null);
 
     // Upload Form State
     const [fiName, setFiName] = useState("");
@@ -106,21 +108,22 @@ export function QuestionnaireLibrary({ leId }: QuestionnaireLibraryProps) {
         setIsAdding(null);
     };
 
-    const handleRemove = async (qId: string) => {
-        if (!confirm("Are you sure you want to remove this questionnaire from your list?")) return;
+    const handleRemoveConfirm = async () => {
+        if (!removeId) return;
 
-        setIsRemoving(qId);
-        const res = await removeQuestionnaireFromLibrary(leId, qId);
+        setIsRemoving(removeId);
+        const res = await removeQuestionnaireFromLibrary(leId, removeId);
         if (res.success) {
             // Success
             setEngagements(prev => prev.map((eng: any) => ({
                 ...eng,
-                questionnaires: eng.questionnaires.filter((q: any) => q.id !== qId)
+                questionnaires: eng.questionnaires.filter((q: any) => q.id !== removeId)
             })).filter((eng: any) => eng.questionnaires.length > 0));
         } else {
             alert("Failed to remove questionnaire");
         }
         setIsRemoving(null);
+        setRemoveId(null);
     };
 
     const handleUpload = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -142,6 +145,14 @@ export function QuestionnaireLibrary({ leId }: QuestionnaireLibraryProps) {
 
     return (
         <div className="grid gap-8 lg:grid-cols-3">
+            <ConfirmDeleteDialog
+                open={!!removeId}
+                onOpenChange={(open) => { if (!open) setRemoveId(null); }}
+                title="Remove Questionnaire?"
+                description="Are you sure you want to remove this questionnaire from your list?"
+                onConfirm={handleRemoveConfirm}
+                confirmLabel="Remove"
+            />
             {/* Left Column: Active Library */}
             <div className="lg:col-span-2 space-y-6">
                 <div className="flex items-center justify-between">
@@ -247,7 +258,7 @@ export function QuestionnaireLibrary({ leId }: QuestionnaireLibraryProps) {
                                                         variant="ghost"
                                                         size="icon"
                                                         className="h-8 w-8 text-slate-400 hover:text-red-600 hover:bg-red-50"
-                                                        onClick={() => handleRemove(q.id)}
+                                                        onClick={() => setRemoveId(q.id)}
                                                         disabled={isRemoving === q.id}
                                                     >
                                                         {isRemoving === q.id ? (
