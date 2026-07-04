@@ -435,7 +435,7 @@ export function QuestionnaireManager({ questionnaire: initialQ, masterFields, li
             {/* Header */}
             <header className="h-16 border-b bg-white px-6 flex items-center justify-between sticky top-0 z-30 shadow-sm flex-none">
                 <div className="flex items-center gap-4">
-                    <Link href="/app/admin/questionnaires">
+                    <Link href="/app/admin/questionnaires-v2">
                         <Button variant="ghost" size="icon" className="hover:bg-slate-100 rounded-full h-8 w-8">
                             <ArrowLeft className="w-4 h-4 text-slate-600" />
                         </Button>
