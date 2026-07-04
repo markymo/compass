@@ -156,7 +156,10 @@ describe("GleifNormalizer", () => {
 
         const candidates = await mapGleifPayloadToFieldCandidates(payloadNoRegion, "ev-005");
 
-        expect(candidates).toHaveLength(0);
+        expect(candidates).toHaveLength(1);
+        expect(candidates[0].fieldNo).toBe(8);
+        expect(candidates[0].isExplicitNone).toBe(true);
+        expect(candidates[0].value).toEqual({ explicitNone: true });
     });
 
     // GN-6: F12 scope anomaly — RAW_PAYLOAD scope / null subtype are ignored
@@ -302,8 +305,15 @@ describe("GleifNormalizer", () => {
 
         const candidates = await mapGleifPayloadToFieldCandidates(payload, "ev-013");
 
-        expect(candidates).toHaveLength(1);
-        expect(candidates[0].fieldNo).toBe(3);
-        expect(candidates[0].value).toBe("HSBC Holdings plc");
+        expect(candidates).toHaveLength(2);
+        
+        const c3 = candidates.find(c => c.fieldNo === 3);
+        expect(c3).toBeDefined();
+        expect(c3?.value).toBe("HSBC Holdings plc");
+
+        const c30 = candidates.find(c => c.fieldNo === 30);
+        expect(c30).toBeDefined();
+        expect(c30?.isExplicitNone).toBe(true);
+        expect(c30?.value).toEqual({ explicitNone: true });
     });
 });
