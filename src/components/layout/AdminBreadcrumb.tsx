@@ -37,10 +37,16 @@ export function AdminBreadcrumb() {
     const segments = relativePath.split("/").filter(Boolean);
     const crumbs = segments.map((seg, i) => {
         const config = configMap[seg];
+        
+        // TODO: Refactor this later. 
+        // Currently intercepting /questionnaires to /questionnaires-v2 as a quick fix.
+        // A fuller refactor should move the /[id] routes under questionnaires-v2.
+        const segmentHref = segments.slice(0, i + 1).map(s => s === "questionnaires" ? "questionnaires-v2" : s).join("/");
+        
         return {
             label: config?.label || seg.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase()),
             icon: config?.icon,
-            href: "/app/admin/" + segments.slice(0, i + 1).join("/"),
+            href: "/app/admin/" + segmentHref,
             isLast: i === segments.length - 1,
         };
     });
