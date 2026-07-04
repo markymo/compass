@@ -17,6 +17,9 @@ import { enrichAddressReferences } from "@/actions/kyc-query";
 import { FieldClaimService } from "@/lib/kyc/FieldClaimService";
 import { getComplexFieldConfig } from "@/lib/master-data/complex-field-config";
 import { formatReleasedValue } from "@/lib/export/formatReleasedValue";
+import { resolveFieldForDisplay } from "@/lib/master-data/field-interpreter";
+import { compareAndLogShadowRender } from "@/lib/master-data/shadow-logger";
+import { FieldDisplayModel } from "@/lib/master-data/field-display-model";
 
 import { ensureNotReferenceSnapshot } from "./questionnaire";
 async function ensureAuthorization(action: Action, context: { partyId?: string, clientLEId?: string, engagementId?: string }) {
@@ -575,7 +578,8 @@ export async function getFullMasterData(clientLEId: string) {
         sourceReference?: string,
         displayState: "HAS_VALUE" | "MAPPED_NOT_CHECKED" | "CHECKED_NO_DATA" | "DEFAULT_RESPONSE" | "UNMAPPED_NO_RESPONSE",
         defaultResponse?: string,
-        mappingStats?: { questions: number, questionnaires: number, suppliers: number }
+        mappingStats?: { questions: number, questionnaires: number, suppliers: number },
+        canonicalDisplayModel?: FieldDisplayModel
     }> = {};
 
     const isEmptyValue = (val: any) => {
@@ -756,14 +760,41 @@ export async function getFullMasterData(clientLEId: string) {
                 displayState = "DEFAULT_RESPONSE";
             }
 
+            const oldFormattedDisplayValue = await formatReleasedValue({ value: valueToSet, appDataType: def.appDataType, profileConfig: def.profileConfig });
+
+            // --- SHADOW RENDERER (Phase 1) ---
+            const rawSource = sourceToSet ? {
+                type: sourceToSet,
+                reference: sourceRefToSet,
+                // Passing null for timestamp/userName for now as the old pipeline drops them here,
+                // but we will enrich them fully in Phase 2.
+            } : null;
+
+            const shadowModel = resolveFieldForDisplay(
+                valueToSet,
+                rawSource,
+                {
+                    fieldNo: def.fieldNo,
+                    label: def.fieldName,
+                    defaultText: def.defaultResponse || undefined,
+                    displayState,
+                    isEditable: true,
+                    isMultiValue: def.isMultiValue
+                }
+            );
+            
+            compareAndLogShadowRender(oldFormattedDisplayValue, shadowModel);
+            // ---------------------------------
+
             flattened[def.fieldNo] = {
                 value: valueToSet,
-                formattedDisplayValue: await formatReleasedValue({ value: valueToSet, appDataType: def.appDataType, profileConfig: def.profileConfig }),
+                formattedDisplayValue: oldFormattedDisplayValue,
                 source: sourceToSet,
                 sourceReference: sourceRefToSet,
                 displayState,
                 defaultResponse: def.defaultResponse ?? undefined,
-                mappingStats: mappingStatsMap.get(def.fieldNo) || { questions: 0, questionnaires: 0, suppliers: 0 }
+                mappingStats: mappingStatsMap.get(def.fieldNo) || { questions: 0, questionnaires: 0, suppliers: 0 },
+                canonicalDisplayModel: shadowModel
             };
         }
     }

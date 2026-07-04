@@ -14,6 +14,9 @@ import { cn } from "@/lib/utils";
 import { getSourceDisplayName } from "@/lib/source-display";
 import { FieldDetailPanel } from "./inspection/field-detail-panel";
 import { PersonOrContactValueViewer } from "./fields/PersonOrContactValueViewer";
+import { FieldSourceBadge } from "./fields/FieldSourceBadge";
+import { FieldValueRenderer } from "./fields/FieldValueRenderer";
+import { FieldDisplayModel } from "@/lib/master-data/field-display-model";
 import { isAddressValue, getAddressSummary } from "@/lib/master-data/address-value";
 import { isPersonOrContactValue, getPersonOrContactSummary } from "@/lib/master-data/person-or-contact-value";
 import { Input } from "@/components/ui/input";
@@ -44,6 +47,7 @@ interface DataSchemaTabProps {
         defaultResponse?: string;
         formattedDisplayValue?: string;
         mappingStats?: { questions: number; questionnaires: number; suppliers: number };
+        canonicalDisplayModel?: FieldDisplayModel;
     }>;
     customData?: Record<string, any>;
     customDefinitions?: any[];
@@ -591,6 +595,7 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                                                 displayState={data?.displayState}
                                                 defaultResponse={data?.defaultResponse}
                                                 mappingStats={data?.mappingStats}
+                                                canonicalDisplayModel={data?.canonicalDisplayModel}
                                                 onClick={() => setSelectedField({ fieldNo: field.fieldNo, name: field.fieldName, mappingStats: data?.mappingStats })}
                                             />
                                         );
@@ -640,6 +645,7 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                                             displayState={data?.displayState}
                                             defaultResponse={data?.defaultResponse}
                                             mappingStats={data?.mappingStats}
+                                            canonicalDisplayModel={data?.canonicalDisplayModel}
                                             onClick={() => setSelectedField({ fieldNo: field.fieldNo, name: field.fieldName, mappingStats: data?.mappingStats })}
                                         />
                                     );
@@ -681,7 +687,7 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
     );
 }
 
-function MasterFieldDisplay({ label, fieldNo, value, formattedDisplayValue, source, sourceReference, registrationAuthorityId, onClick, description, isCustom, groups = [], displayState, defaultResponse, mappingStats, fieldDef }: {
+function MasterFieldDisplay({ label, fieldNo, value, formattedDisplayValue, source, sourceReference, registrationAuthorityId, onClick, description, isCustom, groups = [], displayState, defaultResponse, mappingStats, fieldDef, canonicalDisplayModel }: {
     label: string,
     fieldNo: number,
     value: any,
@@ -697,7 +703,8 @@ function MasterFieldDisplay({ label, fieldNo, value, formattedDisplayValue, sour
     displayState?: "HAS_VALUE" | "MAPPED_NOT_CHECKED" | "CHECKED_NO_DATA" | "DEFAULT_RESPONSE" | "UNMAPPED_NO_RESPONSE",
     defaultResponse?: string,
     mappingStats?: { questions: number; questionnaires: number; suppliers: number },
-    fieldDef?: any
+    fieldDef?: any,
+    canonicalDisplayModel?: FieldDisplayModel
 }) {
     const hasValue = value !== null && value !== undefined && value !== "";
     const resolvedState = displayState || (hasValue ? "HAS_VALUE" : (source ? "CHECKED_NO_DATA" : "UNMAPPED_NO_RESPONSE"));
@@ -788,7 +795,7 @@ function MasterFieldDisplay({ label, fieldNo, value, formattedDisplayValue, sour
                         <div className="flex justify-between items-start w-full">
                             <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">{value.length} Items</span>
                             {(resolvedState === "HAS_VALUE" || resolvedState === "MAPPED_NOT_CHECKED" || resolvedState === "CHECKED_NO_DATA") && source && (
-                                <SourceBadge source={source} sourceReference={sourceReference} registrationAuthorityId={registrationAuthorityId} />
+                                <FieldSourceBadge legacySourceType={source} legacySourceReference={sourceReference} legacyRaId={registrationAuthorityId} />
                             )}
                         </div>
                         <div className="flex flex-col gap-2 w-full">
@@ -814,20 +821,26 @@ function MasterFieldDisplay({ label, fieldNo, value, formattedDisplayValue, sour
                 ) : (
                     <>
                         <div className="font-mono text-sm line-clamp-2 break-words flex-1 min-w-0" title={typeof value === 'object' && value ? JSON.stringify(value, null, 2) : String(value)}>
-                            {resolvedState === "HAS_VALUE" && (value?.explicitNone ? "None" : displayValue)}
-                            {resolvedState === "MAPPED_NOT_CHECKED" && <span className="text-slate-400 italic">No response recorded</span>}
-                            {resolvedState === "CHECKED_NO_DATA" && <span className="text-slate-800 font-medium">None</span>}
-                            {resolvedState === "DEFAULT_RESPONSE" && (
-                                <span className="flex items-center gap-2 text-blue-600 font-medium">
-                                    <span>{defaultResponse}</span>
-                                    <Badge variant="outline" className="text-[9px] uppercase tracking-wider text-blue-500 bg-blue-50 border-blue-200">Field Default</Badge>
-                                </span>
+                            {canonicalDisplayModel && (canonicalDisplayModel.value.kind === 'scalar' || canonicalDisplayModel.value.kind === 'empty') ? (
+                                <FieldValueRenderer field={canonicalDisplayModel} />
+                            ) : (
+                                <>
+                                    {resolvedState === "HAS_VALUE" && (value?.explicitNone ? "None" : displayValue)}
+                                    {resolvedState === "MAPPED_NOT_CHECKED" && <span className="text-slate-400 italic">No response recorded</span>}
+                                    {resolvedState === "CHECKED_NO_DATA" && <span className="text-slate-800 font-medium">None</span>}
+                                    {resolvedState === "DEFAULT_RESPONSE" && (
+                                        <span className="flex items-center gap-2 text-blue-600 font-medium">
+                                            <span>{defaultResponse}</span>
+                                            <Badge variant="outline" className="text-[9px] uppercase tracking-wider text-blue-500 bg-blue-50 border-blue-200">Field Default</Badge>
+                                        </span>
+                                    )}
+                                    {resolvedState === "UNMAPPED_NO_RESPONSE" && <span className="text-slate-400 italic">No response recorded</span>}
+                                </>
                             )}
-                            {resolvedState === "UNMAPPED_NO_RESPONSE" && <span className="text-slate-400 italic">No response recorded</span>}
                         </div>
                         {(resolvedState === "HAS_VALUE" || resolvedState === "MAPPED_NOT_CHECKED" || resolvedState === "CHECKED_NO_DATA") && source && (
                             <div className="flex items-center gap-2 shrink-0 ml-4">
-                                <SourceBadge source={source} sourceReference={sourceReference} registrationAuthorityId={registrationAuthorityId} />
+                                <FieldSourceBadge legacySourceType={source} legacySourceReference={sourceReference} legacyRaId={registrationAuthorityId} />
                             </div>
                         )}
                         {!hasValue && !isCustom && (
@@ -842,46 +855,6 @@ function MasterFieldDisplay({ label, fieldNo, value, formattedDisplayValue, sour
     );
 }
 
-/** Colour classes keyed by SourceType enum value (or legacy source type strings). */
-const SOURCE_COLOR_MAP: Record<string, string> = {
-    GLEIF:                  'bg-orange-100 text-orange-700 border-orange-200',
-    REGISTRATION_AUTHORITY: 'bg-blue-100   text-blue-700  border-blue-200',
-    COMPANIES_HOUSE:        'bg-blue-100   text-blue-700  border-blue-200',
-    NATIONAL_REGISTRY:      'bg-blue-100   text-blue-700  border-blue-200',
-    USER_INPUT:             'bg-purple-100 text-purple-700 border-purple-200',
-    SYSTEM:                 'bg-gray-100   text-gray-700  border-gray-200',
-    SYSTEM_DERIVED:         'bg-gray-100   text-gray-700  border-gray-200',
-    MASTER_RECORD:          'bg-slate-100  text-slate-700 border-slate-200',
-};
-
-/**
- * Pure presentation badge — delegates all label resolution to getSourceDisplayName.
- * Shows the entity-specific GLEIF RA code as a subtle secondary label for RA sources.
- * To change how any source is displayed, update source-display.ts only.
- */
-function SourceBadge({ source, sourceReference, registrationAuthorityId, timestamp }: {
-    source: string,
-    sourceReference?: string,
-    /** Entity-specific GLEIF RA code, e.g. RA000585. Only shown for REGISTRATION_AUTHORITY sources. */
-    registrationAuthorityId?: string,
-    timestamp?: string
-}) {
-    const classes = SOURCE_COLOR_MAP[source] || SOURCE_COLOR_MAP['SYSTEM'];
-    const label = getSourceDisplayName(source, sourceReference ?? null);
-    const showRaCode = source === 'REGISTRATION_AUTHORITY' && registrationAuthorityId;
-
-    return (
-        <Badge variant="outline" className={cn("text-[10px] h-auto py-0.5", classes)}>
-            <span>{label}</span>
-            {showRaCode && (
-                <span className="ml-1 opacity-60 font-mono normal-case tracking-normal">
-                    · {registrationAuthorityId}
-                </span>
-            )}
-            {timestamp && <span className="ml-1 opacity-50">· {new Date(timestamp).toLocaleDateString()}</span>}
-        </Badge>
-    );
-}
 
 export function formatGraphValue(val: any): string {
     if (val === null || val === undefined || val === '') return '';
