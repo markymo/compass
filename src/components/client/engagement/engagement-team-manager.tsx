@@ -9,6 +9,7 @@ import { InviteSupplierDialog } from "./invite-supplier-dialog";
 import { revokeInvitation } from "@/actions/invitations";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { ConfirmDeleteDialog } from "@/components/shared/confirm-dialogs";
 
 export interface EngagementTeamManagerProps {
     engagementId: string;
@@ -19,23 +20,39 @@ export interface EngagementTeamManagerProps {
 
 export function EngagementTeamManager({ engagementId, orgName, members, invitations }: EngagementTeamManagerProps) {
     const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
+    const [revokeId, setRevokeId] = useState<string | null>(null);
+    const [isRevoking, setIsRevoking] = useState(false);
     const router = useRouter();
 
-    const handleRevokeInvite = async (invitationId: string) => {
-        if (!confirm("Are you sure you want to revoke this invitation?")) return;
-
-        toast.promise(revokeInvitation(invitationId), {
+    const confirmRevoke = async () => {
+        if (!revokeId) return;
+        setIsRevoking(true);
+        toast.promise(revokeInvitation(revokeId), {
             loading: "Revoking invitation...",
             success: () => {
                 router.refresh();
+                setIsRevoking(false);
+                setRevokeId(null);
                 return "Invitation revoked";
             },
-            error: "Failed to revoke invitation"
+            error: () => {
+                setIsRevoking(false);
+                return "Failed to revoke invitation";
+            }
         });
     };
 
     return (
         <div className="space-y-6">
+            <ConfirmDeleteDialog
+                open={!!revokeId}
+                onOpenChange={(open) => { if (!open) setRevokeId(null); }}
+                title="Revoke Invitation?"
+                description="Are you sure you want to revoke this invitation?"
+                onConfirm={confirmRevoke}
+                isLoading={isRevoking}
+                confirmLabel="Revoke"
+            />
             {/* Active Members Card */}
             <Card>
                 <CardHeader className="pb-3 border-b border-slate-100 mb-4">
@@ -103,7 +120,7 @@ export function EngagementTeamManager({ engagementId, orgName, members, invitati
                                         variant="ghost"
                                         size="sm"
                                         className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                                        onClick={() => handleRevokeInvite(invite.id)}
+                                        onClick={() => setRevokeId(invite.id)}
                                     >
                                         Revoke
                                     </Button>

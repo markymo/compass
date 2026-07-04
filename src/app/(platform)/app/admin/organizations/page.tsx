@@ -13,6 +13,7 @@ import Link from "next/link";
 import { Loader2, Plus, Building2, Users, Search, Trash2, AlertTriangle, Ban } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import { ConfirmDeleteDialog } from "@/components/shared/confirm-dialogs";
 
 import { useSearchParams } from "next/navigation";
 
@@ -180,6 +181,33 @@ function DeleteOrgButton({ orgId, orgName, orgCount, onDeleted }: {
         }
     };
 
+    const descriptionContent = (
+        <div className="space-y-4">
+            <div>{orgName}</div>
+            {checking ? (
+                <div className="flex items-center gap-2 py-4 text-sm text-slate-500">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Checking for related data…
+                </div>
+            ) : checkResult && !checkResult.deletable ? (
+                <div className="py-2 space-y-2">
+                    <p className="text-sm text-red-600 font-medium">{checkResult.error}</p>
+                    {checkResult.blockers && checkResult.blockers.length > 0 && (
+                        <ul className="text-xs text-slate-500 list-disc list-inside space-y-0.5">
+                            {checkResult.blockers.map((b, i) => <li key={i}>{b}</li>)}
+                        </ul>
+                    )}
+                    <p className="text-xs text-slate-500">Remove all related data before this organization can be deleted.</p>
+                </div>
+            ) : checkResult && checkResult.deletable ? (
+                <div className="py-2 space-y-2">
+                    <p className="text-sm text-slate-700">This organization has no related data and can be safely deleted.</p>
+                    <p className="text-xs text-slate-500 font-medium">This action cannot be undone.</p>
+                </div>
+            ) : null}
+        </div>
+    );
+
     return (
         <>
             <span
@@ -204,55 +232,15 @@ function DeleteOrgButton({ orgId, orgName, orgCount, onDeleted }: {
                     }
                 </Button>
             </span>
-            <Dialog open={open} onOpenChange={setOpen}>
-                <DialogContent className="sm:max-w-[420px]">
-                    <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2">
-                            <AlertTriangle className="h-5 w-5 text-amber-500" />
-                            Delete Organization
-                        </DialogTitle>
-                        <DialogDescription>
-                            {orgName}
-                        </DialogDescription>
-                    </DialogHeader>
-                    {checking ? (
-                        <div className="flex items-center gap-2 py-4 text-sm text-slate-500">
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                            Checking for related data…
-                        </div>
-                    ) : checkResult && !checkResult.deletable ? (
-                        <div className="py-2 space-y-2">
-                            <p className="text-sm text-red-600 font-medium">{checkResult.error}</p>
-                            {checkResult.blockers && checkResult.blockers.length > 0 && (
-                                <ul className="text-xs text-slate-500 list-disc list-inside space-y-0.5">
-                                    {checkResult.blockers.map((b, i) => <li key={i}>{b}</li>)}
-                                </ul>
-                            )}
-                            <p className="text-xs text-slate-500">Remove all related data before this organization can be deleted.</p>
-                        </div>
-                    ) : checkResult && checkResult.deletable ? (
-                        <div className="py-2 space-y-2">
-                            <p className="text-sm text-slate-700">This organization has no related data and can be safely deleted.</p>
-                            <p className="text-xs text-slate-500 font-medium">This action cannot be undone.</p>
-                        </div>
-                    ) : null}
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setOpen(false)}>
-                            {checkResult?.deletable ? "Cancel" : "Close"}
-                        </Button>
-                        {checkResult?.deletable && (
-                            <Button
-                                variant="destructive"
-                                onClick={handleConfirmDelete}
-                                disabled={deleting}
-                            >
-                                {deleting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Trash2 className="h-4 w-4 mr-1" />}
-                                Confirm Delete
-                            </Button>
-                        )}
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+            <ConfirmDeleteDialog
+                open={open}
+                onOpenChange={setOpen}
+                title="Delete Organization"
+                description={descriptionContent}
+                isLoading={deleting || checking}
+                confirmDisabled={!checkResult?.deletable}
+                onConfirm={handleConfirmDelete}
+            />
         </>
     );
 }

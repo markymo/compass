@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { archiveQuestionnaire, deleteQuestionnaire } from "@/actions/questionnaire";
 import { useState } from "react";
+import { ConfirmArchiveDialog } from "@/components/shared/confirm-dialogs";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
@@ -23,9 +24,9 @@ interface QuestionnaireActionsProps {
 export function QuestionnaireActions({ id, name }: QuestionnaireActionsProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
+    const [showArchive, setShowArchive] = useState(false);
 
-    const handleArchive = async () => {
-        if (!confirm(`Archive questionnaire "${name}"?`)) return;
+    const handleArchiveConfirm = async () => {
         setIsLoading(true);
         const res = await archiveQuestionnaire(id);
         if (res.success) {
@@ -51,7 +52,15 @@ export function QuestionnaireActions({ id, name }: QuestionnaireActionsProps) {
     };
 
     return (
-        <DropdownMenu>
+        <>
+            <ConfirmArchiveDialog
+                open={showArchive}
+                onOpenChange={setShowArchive}
+                itemName={name}
+                onConfirm={handleArchiveConfirm}
+                isLoading={isLoading}
+            />
+            <DropdownMenu>
             <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" disabled={isLoading} className="h-8 w-8 p-0 hover:bg-slate-100 text-slate-400">
                     {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreVertical className="h-4 w-4" />}
@@ -60,7 +69,7 @@ export function QuestionnaireActions({ id, name }: QuestionnaireActionsProps) {
             <DropdownMenuContent align="end">
                 <DropdownMenuLabel>Actions</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleArchive}>
+                <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setShowArchive(true); }}>
                     <Archive className="mr-2 h-4 w-4" />
                     <span>Archive</span>
                 </DropdownMenuItem>
@@ -70,5 +79,6 @@ export function QuestionnaireActions({ id, name }: QuestionnaireActionsProps) {
                 </DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>
+        </>
     );
 }

@@ -20,6 +20,7 @@ import {
     toggleGroupItemPickerVisibility,
 } from "@/actions/master-data-governance";
 import { AddFieldPopover } from "./add-field-popover";
+import { ConfirmDeleteDialog } from "@/components/shared/confirm-dialogs";
 
 export type GroupItem = {
     id: string;
@@ -42,6 +43,7 @@ interface GroupItemsTableProps {
 export function GroupItemsTable({ group }: GroupItemsTableProps) {
     const router = useRouter();
     const [busy, setBusy] = useState<string | null>(null); // itemId of in-flight action, or 'add'
+    const [itemToRemove, setItemToRemove] = useState<GroupItem | null>(null);
 
     // Items arrive pre-sorted by order from the server query.
     // Re-sort defensively in case order values drift.
@@ -95,15 +97,13 @@ export function GroupItemsTable({ group }: GroupItemsTableProps) {
         });
     };
 
-    const handleRemove = async (item: GroupItem) => {
-        const confirmed = window.confirm(
-            `Remove "${item.field?.fieldName ?? `Field ${item.fieldNo}`}" from this group?\n\nThis does not delete the field itself.`
-        );
-        if (!confirmed) return;
-        await withBusy(item.id, async () => {
-            const res = await removeGroupItem(item.id);
+    const confirmRemove = async () => {
+        if (!itemToRemove) return;
+        await withBusy(itemToRemove.id, async () => {
+            const res = await removeGroupItem(itemToRemove.id);
             if (res.success) {
                 toast.success("Field removed from group");
+                setItemToRemove(null);
                 router.refresh();
             } else {
                 toast.error(res.error || "Failed to remove field");
@@ -113,6 +113,15 @@ export function GroupItemsTable({ group }: GroupItemsTableProps) {
 
     return (
         <div>
+            <ConfirmDeleteDialog
+                open={!!itemToRemove}
+                onOpenChange={(open) => { if (!open) setItemToRemove(null); }}
+                title={`Remove "${itemToRemove?.field?.fieldName ?? `Field ${itemToRemove?.fieldNo}`}"?`}
+                description="This will remove the field from this group. This does not delete the field itself."
+                onConfirm={confirmRemove}
+                isLoading={itemToRemove ? busy === itemToRemove.id : false}
+                confirmLabel="Remove"
+            />
             <Table>
                 <TableHeader>
                     <TableRow className="hover:bg-transparent border-none">
@@ -232,7 +241,7 @@ export function GroupItemsTable({ group }: GroupItemsTableProps) {
                                         size="icon"
                                         className="h-7 w-7 text-slate-300 hover:text-red-500 opacity-0 group-hover/row:opacity-100 transition-opacity"
                                         disabled={isBusy}
-                                        onClick={() => handleRemove(item)}
+                                        onClick={() => setItemToRemove(item)}
                                         title="Remove from group"
                                     >
                                         <Trash2 className="h-3.5 w-3.5" />

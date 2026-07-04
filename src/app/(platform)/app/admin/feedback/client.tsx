@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { Bug, Lightbulb, MessageSquare, Trash2, Download, FileText, ChevronDown, ChevronRight, MessageSquarePlus, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { ConfirmDeleteDialog } from "@/components/shared/confirm-dialogs";
 
 type Note = {
     id: string;
@@ -41,6 +42,7 @@ export function FeedbackAdminClient({
     const [newCategory, setNewCategory] = useState("general");
     const [newAssigneeId, setNewAssigneeId] = useState(currentUser?.id || "");
     const [isSaving, setIsSaving] = useState(false);
+    const [deleteId, setDeleteId] = useState<string | null>(null);
 
     const router = useRouter();
     const [isPending, startTransition] = useTransition();
@@ -79,8 +81,7 @@ export function FeedbackAdminClient({
         }
     }
 
-    async function handleDelete(id: string) {
-        if (!confirm("Delete this feedback?")) return;
+    async function confirmDelete(id: string) {
         const res = await fetch(`/api/feedback?id=${id}`, { method: "DELETE" });
         if (!res.ok) {
             alert("Failed to delete feedback");
@@ -176,6 +177,16 @@ export function FeedbackAdminClient({
 
     return (
         <div className="space-y-4">
+            <ConfirmDeleteDialog
+                open={!!deleteId}
+                onOpenChange={(open) => { if (!open) setDeleteId(null); }}
+                title="Delete this feedback?"
+                description="Are you sure you want to delete this feedback? This action cannot be undone."
+                onConfirm={async () => {
+                    if (deleteId) await confirmDelete(deleteId);
+                }}
+            />
+
             {/* Create Ticket Form */}
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden mb-6">
                 <button
@@ -356,7 +367,7 @@ export function FeedbackAdminClient({
                                                     {new Date(n.createdAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
                                                 </span>
                                                 <button
-                                                    onClick={() => handleDelete(n.id)}
+                                                    onClick={() => setDeleteId(n.id)}
                                                     disabled={isPending}
                                                     className="opacity-0 group-hover/row:opacity-100 text-slate-300 hover:text-red-500 transition-all"
                                                 >

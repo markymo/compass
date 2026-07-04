@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
 import { updateAdminTodo, addAdminTodoComment, getSystemAdmins, deleteAdminTodo, archiveAdminTodo } from "@/actions/admin-todo-actions";
 import { toast } from "sonner";
+import { ConfirmDeleteDialog } from "@/components/shared/confirm-dialogs";
 import {
     Select,
     SelectContent,
@@ -72,6 +73,9 @@ export function AdminTodoDialog({ open, onOpenChange, task }: AdminTodoDialogPro
         }
     }, [task]);
 
+    const [showDelete, setShowDelete] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
+
     const handleSave = async (overrideAssigneeId?: string | any) => {
         if (!task) return;
 
@@ -93,11 +97,15 @@ export function AdminTodoDialog({ open, onOpenChange, task }: AdminTodoDialogPro
         }
     };
 
-    const handleDelete = async () => {
-        if (!task) return;
-        if (!confirm("Are you sure you want to delete this task? It will be hidden permanently.")) return;
+    const handleDeleteClick = () => {
+        setShowDelete(true);
+    };
 
+    const confirmDeleteAction = async () => {
+        if (!task) return;
+        setIsDeleting(true);
         const res = await deleteAdminTodo(task.id);
+        setIsDeleting(false);
         if (res.success) {
             toast.success("Task deleted");
             onOpenChange(false);
@@ -133,6 +141,15 @@ export function AdminTodoDialog({ open, onOpenChange, task }: AdminTodoDialogPro
     if (!task) return null;
 
     return (
+        <>
+            <ConfirmDeleteDialog
+                open={showDelete}
+                onOpenChange={setShowDelete}
+                title="Delete this task?"
+                description="Are you sure you want to delete this task? It will be hidden permanently."
+                onConfirm={confirmDeleteAction}
+                isLoading={isDeleting}
+            />
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-[85vw] w-[85vw] h-[85vh] flex flex-col p-0 gap-0 overflow-hidden">
                 <DialogHeader className="p-6 pb-4 border-b bg-slate-50/50">
@@ -212,7 +229,7 @@ export function AdminTodoDialog({ open, onOpenChange, task }: AdminTodoDialogPro
                                             size="sm"
                                             variant="ghost"
                                             className="text-red-500 hover:text-red-600 hover:bg-red-50"
-                                            onClick={handleDelete}
+                                            onClick={handleDeleteClick}
                                         >
                                             <Trash className="h-4 w-4 mr-1.5" />
                                             Delete
@@ -275,5 +292,6 @@ export function AdminTodoDialog({ open, onOpenChange, task }: AdminTodoDialogPro
                 </div>
             </DialogContent>
         </Dialog>
+        </>
     );
 }

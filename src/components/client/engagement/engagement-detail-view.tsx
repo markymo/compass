@@ -41,6 +41,7 @@ import { useRouter } from "next/navigation";
 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, Settings, Trash2 } from "lucide-react";
+import { ConfirmDeleteDialog } from "@/components/shared/confirm-dialogs";
 
 import { QuestionnaireMapper } from "./questionnaire-mapper";
 
@@ -54,6 +55,8 @@ export function EngagementDetailView({ le, engagement, questionnaires, sharedDoc
     const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
     const [shareTarget, setShareTarget] = useState<{ id: string, name: string } | null>(null);
     const [refreshKey, setRefreshKey] = useState(0);
+    const [revokeId, setRevokeId] = useState<string | null>(null);
+    const [isRevoking, setIsRevoking] = useState(false);
     const router = useRouter();
     const searchParams = useSearchParams();
     
@@ -127,21 +130,35 @@ export function EngagementDetailView({ le, engagement, questionnaires, sharedDoc
         );
     };
 
-    const handleRevokeInvite = async (invitationId: string) => {
-        if (!confirm("Are you sure you want to revoke this invitation?")) return;
-
-        toast.promise(revokeInvitation(invitationId), {
+    const confirmRevoke = async () => {
+        if (!revokeId) return;
+        setIsRevoking(true);
+        toast.promise(revokeInvitation(revokeId), {
             loading: "Revoking invitation...",
             success: () => {
                 router.refresh();
+                setIsRevoking(false);
+                setRevokeId(null);
                 return "Invitation revoked";
             },
-            error: "Failed to revoke invitation"
+            error: () => {
+                setIsRevoking(false);
+                return "Failed to revoke invitation";
+            }
         });
     };
 
     return (
         <div className="space-y-6">
+            <ConfirmDeleteDialog
+                open={!!revokeId}
+                onOpenChange={(open) => { if (!open) setRevokeId(null); }}
+                title="Revoke Invitation?"
+                description="Are you sure you want to revoke this invitation?"
+                onConfirm={confirmRevoke}
+                isLoading={isRevoking}
+                confirmLabel="Revoke"
+            />
             <SetPageBreadcrumbs 
                 items={breadcrumbItems}
                 title={currentTitle}
@@ -363,7 +380,7 @@ export function EngagementDetailView({ le, engagement, questionnaires, sharedDoc
                                                     variant="ghost"
                                                     size="sm"
                                                     className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                                                    onClick={() => handleRevokeInvite(invite.id)}
+                                                    onClick={() => setRevokeId(invite.id)}
                                                 >
                                                     Revoke
                                                 </Button>

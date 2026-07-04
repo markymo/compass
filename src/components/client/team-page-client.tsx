@@ -14,6 +14,7 @@ import { revokeInvitation } from "@/actions/invitations";
 import { useRouter } from "next/navigation";
 import { Checkbox } from "@/components/ui/checkbox";
 import { updateUserPermission } from "@/actions/memberships";
+import { ConfirmDeleteDialog } from "@/components/shared/confirm-dialogs";
 
 interface TeamPageProps {
     params: { clientId: string };
@@ -34,18 +35,29 @@ export default function ClientTeamPage({
 }: any) {
     console.log("[ClientTeamPage] Received users:", users.length, "LEs:", allClientLEs.length);
     const router = useRouter();
-    const [isRevoking, setIsRevoking] = useState<string | null>(null);
+    const [isRevoking, setIsRevoking] = useState(false);
+    const [revokeId, setRevokeId] = useState<string | null>(null);
 
-    async function handleRevoke(inviteId: string) {
-        if (!confirm("Are you sure you want to revoke this invitation?")) return;
-        setIsRevoking(inviteId);
-        await revokeInvitation(inviteId);
-        setIsRevoking(null);
+    async function confirmRevoke() {
+        if (!revokeId) return;
+        setIsRevoking(true);
+        await revokeInvitation(revokeId);
+        setIsRevoking(false);
+        setRevokeId(null);
         router.refresh();
     }
 
     return (
         <div className="max-w-6xl mx-auto w-full space-y-8 p-8">
+            <ConfirmDeleteDialog
+                open={!!revokeId}
+                onOpenChange={(open) => { if (!open) setRevokeId(null); }}
+                title="Revoke Invitation?"
+                description="Are you sure you want to revoke this invitation?"
+                onConfirm={confirmRevoke}
+                isLoading={isRevoking}
+                confirmLabel="Revoke"
+            />
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-900 leading-none mb-1">Team Management</h1>
@@ -125,10 +137,10 @@ export default function ClientTeamPage({
                                                                 variant="ghost"
                                                                 size="sm"
                                                                 className="h-6 text-red-500 hover:text-red-700 hover:bg-red-50 text-xs px-2"
-                                                                onClick={() => handleRevoke(inv.id)}
-                                                                disabled={isRevoking === inv.id}
+                                                                onClick={() => setRevokeId(inv.id)}
+                                                                disabled={isRevoking}
                                                             >
-                                                                {isRevoking === inv.id ? "..." : "Revoke"}
+                                                                Revoke
                                                             </Button>
                                                         )}
                                                     </div>

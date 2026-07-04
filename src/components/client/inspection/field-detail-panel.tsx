@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef, useMemo } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { StandardTooltip } from "@/components/ui/standard-tooltip";
 import { getRegistryAuthorityNamesMap } from "@/actions/system";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -42,6 +43,7 @@ import { UnifiedPartyPicker } from "../fields/UnifiedPartyPicker";
 import { inferClaimValueKind, ClaimValueKind } from "@/lib/master-data/claim-value-resolver";
 import { ExpandableRowItem } from "./expandable-row-item";
 import { SharedResourceUsageNotice } from "./SharedResourceUsageNotice";
+import { ConfirmDeleteDialog } from "@/components/shared/confirm-dialogs";
 
 import {
     DropdownMenu,
@@ -76,10 +78,11 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
     const [loading, setLoading] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
 
-    // Manual Edit State
     const [manualValue, setManualValue] = useState<any>("");
     const [manualReason, setManualReason] = useState("");
     const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
+    const [candidateToApply, setCandidateToApply] = useState<any | null>(null);
+    const [isApplyingCandidate, setIsApplyingCandidate] = useState(false);
     const [relatedValues, setRelatedValues] = useState<Record<string, any>>({});
     const [isSaving, setIsSaving] = useState(false);
     const [isClearingSingleValue, setIsClearingSingleValue] = useState(false);
@@ -142,7 +145,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
         }
 
         if (parsedVal && typeof parsedVal === 'object' && parsedVal.explicitNone) {
-            return <span className="text-slate-800 font-medium">None</span>;
+            return <span className="text-slate-400 italic">None</span>;
         }
 
         if (isBooleanType) {
@@ -241,6 +244,106 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
     const [editingEntityId, setEditingEntityId] = useState<string | null>(null);
 
     const fieldKey = String(fieldNo || customFieldId || "");
+
+    const displayHistoryEvents = useMemo(() => {
+        if (!data?.history || data.history.length === 0) return [];
+        
+        const rawHistory = data.history;
+        const events: any[] = [];
+        
+        for (let i = 0; i < rawHistory.length; i++) {
+            const current = rawHistory[i];
+            
+            
+            let isExplicitNone = false;
+            try {
+                if (typeof current.newValue === 'object' && current.newValue !== null) {
+                    isExplicitNone = current.newValue.explicitNone === true;
+                } else if (typeof current.newValue === 'string') {
+                    const parsed = JSON.parse(current.newValue);
+                    isExplicitNone = parsed.explicitNone === true;
+                }
+            } catch (e) {}
+
+            // 1. Tombstone
+            if (current.isTombstone || isExplicitNone) {
+                let previousValue = null;
+                for (let j = i + 1; j < rawHistory.length; j++) {
+                    let jIsExplicitNone = false;
+                    try {
+                        if (typeof rawHistory[j].newValue === 'object' && rawHistory[j].newValue !== null) {
+                            jIsExplicitNone = rawHistory[j].newValue.explicitNone === true;
+                        } else if (typeof rawHistory[j].newValue === 'string') {
+                            const parsed = JSON.parse(rawHistory[j].newValue);
+                            jIsExplicitNone = parsed.explicitNone === true;
+                        }
+                    } catch (e) {}
+                    
+                    if (rawHistory[j].instanceId === current.instanceId && !rawHistory[j].isTombstone && !jIsExplicitNone) {
+                        previousValue = rawHistory[j].newValue;
+                        break;
+                    }
+                }
+                
+                events.push({
+                    ...current,
+                    displayType: isExplicitNone ? 'EXPLICIT_NONE' : 'DELETE',
+                    fromValue: previousValue,
+                    toValue: null
+                });
+                continue;
+            }
+            
+            // 2. New Value - Check for adjacent Tombstone to merge into EDIT
+            let matchedEdit = false;
+            if (i + 1 < rawHistory.length) {
+                const nextOlder = rawHistory[i+1];
+                // Group claims only when they can be matched with confidence.
+                if (nextOlder.isTombstone && 
+                    nextOlder.assertedByUserName === current.assertedByUserName && 
+                    new Date(nextOlder.assertedAt).getTime() === new Date(current.assertedAt).getTime()) 
+                {
+                    // Find what the tombstone deleted
+                    let previousValue = null;
+                    for (let j = i + 2; j < rawHistory.length; j++) {
+                        if (rawHistory[j].instanceId === nextOlder.instanceId && !rawHistory[j].isTombstone) {
+                            previousValue = rawHistory[j].newValue;
+                            break;
+                        }
+                    }
+                    
+                    events.push({
+                        ...current,
+                        displayType: 'EDIT_MERGED',
+                        fromValue: previousValue,
+                        toValue: current.newValue
+                    });
+                    
+                    i++; // skip the tombstone
+                    matchedEdit = true;
+                }
+            }
+            
+            if (!matchedEdit) {
+                // Just an addition/update. Find the previous value if we can to show "From -> To"
+                let previousValue = null;
+                for (let j = i + 1; j < rawHistory.length; j++) {
+                    if ((!data.isRepeating || rawHistory[j].instanceId === current.instanceId) && !rawHistory[j].isTombstone) {
+                        previousValue = rawHistory[j].newValue;
+                        break;
+                    }
+                }
+                
+                events.push({
+                    ...current,
+                    displayType: previousValue !== null ? 'UPDATE' : 'ADD',
+                    fromValue: previousValue,
+                    toValue: current.newValue
+                });
+            }
+        }
+        return events;
+    }, [data?.history, data?.isRepeating]);
 
     const currentSelectionIds = useMemo(() => {
         if (!data) return [];
@@ -782,28 +885,36 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
         }
     };
 
+    const confirmApplyCandidate = async () => {
+        if (!candidateToApply) return;
+        setIsApplyingCandidate(true);
+        try {
+            const result = await applyCandidate(clientLEId, candidateToApply, selectedRowId || undefined);
+            if (result.success) {
+                toast.success("Candidate applied");
+                const refreshed = await getFieldDetail(clientLEId, fieldNo, 'CLIENT_LE', customFieldId);
+                setData(refreshed);
+                setCandidateToApply(null);
+                if (onUpdate && refreshed.current) {
+                    onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
+                }
+            } else {
+                toast.error((result as any).message || "Apply failed");
+            }
+        } catch (error) {
+            console.error("Apply error:", error);
+            toast.error("An error occurred");
+        } finally {
+            setIsApplyingCandidate(false);
+        }
+    };
+
     const handleApplyCandidate = async (candidate: any) => {
         if (isLocked) {
             toast.error("Cannot apply candidate to a locked question.");
             return;
         }
-        if (confirm(`Are you sure you want to apply this value: ${candidate.value}?`)) {
-            try {
-                const result = await applyCandidate(clientLEId, candidate, selectedRowId || undefined);
-                if (result.success) {
-                    toast.success("Candidate applied");
-                    const refreshed = await getFieldDetail(clientLEId, fieldNo, 'CLIENT_LE', customFieldId);
-                    setData(refreshed);
-                    if (onUpdate && refreshed.current) {
-                        onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
-                    }
-                } else {
-                    toast.error(result.message || "Failed to apply candidate");
-                }
-            } catch (e) {
-                toast.error("Error applying candidate");
-            }
-        }
+        setCandidateToApply(candidate);
     };
 
     const handleAssign = async (userId: string | null) => {
@@ -832,6 +943,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
 
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
+            <ConfirmDeleteDialog open={!!candidateToApply} onOpenChange={(open) => { if (!open) setCandidateToApply(null); }} title="Apply Candidate?" description={`Are you sure you want to apply this value: ${candidateToApply?.value}?`} onConfirm={confirmApplyCandidate} isLoading={isApplyingCandidate} confirmLabel="Apply" buttonVariant="default" />
             <SheetContent className="w-[900px] sm:max-w-[800px] flex flex-col h-full">
                 <SheetHeader className="pb-3 border-b border-slate-100">
                     <SheetTitle className="sr-only">{fieldName}</SheetTitle>
@@ -1662,11 +1774,14 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                         registrationAuthorityId={registrationAuthorityId} 
                                                                         registrationAuthorityName={registrationAuthorityId ? raNameMap[registrationAuthorityId] : undefined}
                                                                     />
-                                                                    <div className="flex flex-col text-[10px] text-slate-400 border-l border-slate-200 pl-2 leading-tight">
-                                                                        {data.current.sourceCheckedAt && (
-                                                                            <span className="whitespace-nowrap">Source last checked: {new Date(data.current.sourceCheckedAt).toLocaleString()}</span>
+                                                                    <div className="flex flex-col text-[10px] text-slate-400 border-l border-slate-200 pl-2 leading-tight justify-center">
+                                                                        {data.current.sourceCheckedAt ? (
+                                                                            <StandardTooltip content="Based on the most recent successful sync of the mapped external source.">
+                                                                                <span className="whitespace-nowrap">Last validated: {new Date(data.current.sourceCheckedAt).toLocaleString()}</span>
+                                                                            </StandardTooltip>
+                                                                        ) : (
+                                                                            <span className="whitespace-nowrap">Last validated: {data.current.timestamp ? new Date(data.current.timestamp).toLocaleString() : 'Never'}</span>
                                                                         )}
-                                                                        <span className="whitespace-nowrap">Value last changed: {data.current.timestamp ? new Date(data.current.timestamp).toLocaleString() : 'Never'}</span>
                                                                     </div>
                                                                 </div>
                                                             </div>
@@ -2532,20 +2647,49 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                         <TabsContent value="history" className="mt-4">
                             <ScrollArea className="h-[300px] w-full rounded-md border p-4">
                                 <div className="relative border-l border-slate-200 ml-3 space-y-6">
-                                    {data?.history && data.history.length > 0 ? (
-                                        data.history.map((item: any) => (
+                                    {displayHistoryEvents && displayHistoryEvents.length > 0 ? (
+                                        displayHistoryEvents.map((item: any) => (
                                             <div key={item.id} className="relative pl-6">
                                                 <div className="absolute -left-1.5 top-1.5 h-3 w-3 rounded-full border border-white bg-slate-300 ring-4 ring-white" />
                                                 <div className="flex flex-col gap-1">
                                                     <div className="flex items-center gap-2 text-xs text-slate-500">
                                                         <span>{new Date(item.timestamp).toLocaleString()}</span>
                                                         <span>•</span>
-                                                        <span className="font-medium text-slate-700">{item.actorId || "System"}</span>
+                                                        <span className="font-medium text-slate-700">{item.assertedByUserName || item.actorId || "System"}</span>
                                                     </div>
                                                     <div className="text-sm font-medium">
-                                                        Changed value to <span className="font-mono bg-slate-100 px-1 rounded">{renderRowValue(item.newValue)}</span>
+                                                        {item.displayType === 'EXPLICIT_NONE' ? (
+                                                            <span className="text-slate-500 italic">Source returned no value</span>
+                                                        ) : item.displayType === 'DELETE' ? (
+                                                            item.fromValue !== null ? (
+                                                                <>Deleted value <span className="font-mono bg-slate-100 px-1 rounded">{renderRowValue(item.fromValue)}</span></>
+                                                            ) : (
+                                                                <span className="text-slate-500 italic">Previous value replaced</span>
+                                                            )
+                                                        ) : item.displayType === 'ADD' ? (
+                                                            <>Changed value to <span className="font-mono bg-slate-100 px-1 rounded">{renderRowValue(item.toValue)}</span></>
+                                                        ) : (
+                                                            // UPDATE or EDIT_MERGED
+                                                            item.fromValue !== null ? (
+                                                                <div className="flex flex-col gap-1 mt-1">
+                                                                    <div>Changed value</div>
+                                                                    <div className="flex flex-col gap-0.5 text-xs">
+                                                                        <div className="flex items-start gap-2">
+                                                                            <span className="text-slate-400 w-10">From:</span>
+                                                                            <span className="font-mono bg-red-50 text-red-700 px-1 rounded break-all">{renderRowValue(item.fromValue)}</span>
+                                                                        </div>
+                                                                        <div className="flex items-start gap-2">
+                                                                            <span className="text-slate-400 w-10">To:</span>
+                                                                            <span className="font-mono bg-emerald-50 text-emerald-700 px-1 rounded break-all">{renderRowValue(item.toValue)}</span>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            ) : (
+                                                                <>Changed value to <span className="font-mono bg-slate-100 px-1 rounded">{renderRowValue(item.toValue)}</span></>
+                                                            )
+                                                        )}
                                                     </div>
-                                                    <div className="text-xs text-slate-500 flex items-center gap-1">
+                                                    <div className="text-xs text-slate-500 flex items-center gap-1 mt-1">
                                                         via <SourceBadge 
                                                                 source={item.source} 
                                                                 sourceReference={item.actor} 
