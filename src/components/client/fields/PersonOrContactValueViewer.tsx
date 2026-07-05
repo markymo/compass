@@ -103,7 +103,7 @@ function RoleRow({ role, displayMask }: { role: PersonOrContactRole, displayMask
             {dateRange && (
                 <span className="text-[11px] text-slate-400 ml-3.5">{dateRange}</span>
             )}
-            {showRoleField('natureOfControl') && role.natureOfControl.length > 0 && (
+            {showRoleField('natureOfControl') && role.natureOfControl?.length > 0 && (
                 <div className="ml-3.5 mt-0.5 flex flex-wrap gap-1">
                     {role.natureOfControl.map((noc, i) => (
                         <span key={i} className="text-[10px] bg-purple-50 text-purple-600 border border-purple-100 rounded px-1.5 py-0.5">
@@ -152,7 +152,7 @@ export function PersonOrContactValueViewer({ value, layout = "compact", displayM
 
         // Secondary text pieces
         const secondaryParts = [];
-        if (showField('roles') && poc.roles.length > 0) {
+        if (showField('roles') && poc.roles?.length > 0) {
             const r = poc.roles[0];
             let roleStr = r.roleTitle || r.roleType;
             const dates = [];
@@ -242,7 +242,7 @@ export function PersonOrContactValueViewer({ value, layout = "compact", displayM
             )}
 
             {/* Contact info */}
-            {(showField('email') || showField('phones')) && (poc.email || poc.phones.length > 0) && (
+            {(showField('email') || showField('phones')) && (poc.email || poc.phones?.length > 0) && (
                 <div className="grid grid-cols-2 gap-4 border-b border-slate-100 pb-3">
                     {showField('email') && poc.email && <Field label="Email" value={poc.email} />}
                     {showField('phones') && poc.phones.map((p, i) => (
@@ -252,9 +252,9 @@ export function PersonOrContactValueViewer({ value, layout = "compact", displayM
             )}
 
             {/* Individual attributes */}
-            {(showField('nationality') || showField('countryOfResidence') || showField('dateOfBirth') || showField('placeOfBirth') || showField('correspondenceAddress')) && (poc.nationality.length > 0 || poc.countryOfResidence || dob || poc.placeOfBirth || poc.correspondenceAddress) && (
-                <div className="grid grid-cols-2 gap-4 border-b border-slate-100 pb-3">
-                    {showField('nationality') && poc.nationality.length > 0 && (
+            {(showField('nationality') || showField('countryOfResidence') || showField('dateOfBirth') || showField('placeOfBirth') || showField('correspondenceAddress')) && (poc.nationality?.length > 0 || poc.countryOfResidence || dob || poc.placeOfBirth || poc.correspondenceAddress) && (
+                <div className="grid grid-cols-2 gap-y-2 mt-2 pt-2 border-t border-slate-100">
+                    {showField('nationality') && poc.nationality?.length > 0 && (
                         <Field label="Nationality" value={poc.nationality.join(', ')} />
                     )}
                     {showField('countryOfResidence') && poc.countryOfResidence && (
@@ -269,7 +269,7 @@ export function PersonOrContactValueViewer({ value, layout = "compact", displayM
             )}
 
             {/* Roles */}
-            {showField('roles') && poc.roles.length > 0 && (
+            {showField('roles') && poc.roles?.length > 0 && (
                 <div className="border-b border-slate-100 pb-3">
                     <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-2">
                         Roles
@@ -283,7 +283,7 @@ export function PersonOrContactValueViewer({ value, layout = "compact", displayM
             )}
 
             {/* Source identifiers */}
-            {showField('sourceIdentifiers') && poc.sourceIdentifiers.length > 0 && (
+            {showField('sourceIdentifiers') && poc.sourceIdentifiers?.length > 0 && (
                 <div>
                     <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-2">
                         Source Identifiers
