@@ -1,18 +1,45 @@
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { FieldDisplayModel } from "@/lib/master-data/field-display-model";
+import { PartyRenderer } from "./PartyRenderer";
+import { AddressRenderer } from "./AddressRenderer";
+import { CollectionRenderer } from "./CollectionRenderer";
+import { CodeListRenderer } from "./CodeListRenderer";
 
 export interface FieldValueRendererProps {
     field: FieldDisplayModel;
+    layout?: "compact" | "row" | "detailed";
+    itemLimit?: number;
     className?: string;
 }
 
-export function FieldValueRenderer({ field, className }: FieldValueRendererProps) {
+export function FieldValueRenderer({ field, layout, itemLimit, className }: FieldValueRendererProps) {
     switch (field.state) {
         case 'POPULATED':
-            // Only scalar rendering is supported in this phase
             if (field.value.kind === 'scalar') {
                 return <span className={className}>{field.value.display}</span>;
+            }
+            if (field.value.kind === 'party' || field.value.kind === 'partyRef') {
+                return <PartyRenderer value={field.value} layout={layout} className={className} />;
+            }
+            if (field.value.kind === 'address' || field.value.kind === 'addressRef') {
+                return <AddressRenderer value={field.value} layout={layout} className={className} />;
+            }
+            if (field.value.kind === 'collection') {
+                const isComplex = field.value.items.some(i => i.value.kind !== 'scalar' && i.value.kind !== 'empty');
+                const collectionLayout = isComplex ? "block" : "inline";
+                return (
+                    <CollectionRenderer 
+                        items={field.value.items} 
+                        fieldSource={field.source} 
+                        collectionLayout={collectionLayout} 
+                        itemLimit={itemLimit}
+                        className={className} 
+                    />
+                );
+            }
+            if (field.value.kind === 'codeList') {
+                return <CodeListRenderer value={field.value} itemLimit={itemLimit} className={className} />;
             }
             return null;
 

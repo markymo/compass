@@ -34,6 +34,29 @@ describe('field-interpreter', () => {
         expect(result.source?.type).toBe('DEFAULT');
     });
 
+    it('formats DATE appDataType correctly with valid date string', () => {
+        const meta = { ...defaultMeta, appDataType: 'DATE' };
+        const result = resolveFieldForDisplay('2026-06-10T00:00:00Z', null, meta);
+
+        expect(result.value.kind).toBe('scalar');
+        if (result.value.kind === 'scalar') {
+            expect(result.value.display).toBe('10 Jun 2026');
+            expect(result.value.rawValue).toBe('2026-06-10T00:00:00Z');
+        }
+        expect(result.textSummary).toBe('10 Jun 2026');
+    });
+
+    it('formats DATE appDataType gracefully for invalid dates', () => {
+        const meta = { ...defaultMeta, appDataType: 'DATE' };
+        const result = resolveFieldForDisplay('not-a-date', null, meta);
+
+        expect(result.value.kind).toBe('scalar');
+        if (result.value.kind === 'scalar') {
+            expect(result.value.display).toBe('not-a-date');
+            expect(result.value.rawValue).toBe('not-a-date');
+        }
+    });
+
     it('resolves string array as collection of scalars', () => {
         const result = resolveFieldForDisplay(['A', 'B', 'C'], null, defaultMeta);
 
@@ -60,13 +83,15 @@ describe('field-interpreter', () => {
             surname: 'Doe',
             roles: []
         };
-        const result = resolveFieldForDisplay(party, null, defaultMeta);
+        const metaWithProfile = { ...defaultMeta, profileConfig: { displayMask: ['forenames', 'surname'] } };
+        const result = resolveFieldForDisplay(party, null, metaWithProfile);
 
         expect(result.state).toBe('POPULATED');
         expect(result.value.kind).toBe('party');
         if (result.value.kind === 'party') {
             expect(result.value.summary).toBe('John Doe');
             expect(result.value.data).toEqual(party);
+            expect(result.value.displayMask).toEqual(['forenames', 'surname']);
         }
         expect(result.textSummary).toBe('John Doe');
     });
@@ -75,15 +100,33 @@ describe('field-interpreter', () => {
         const ref = {
             ccPartyId: '12345678-abcd',
         };
-        const result = resolveFieldForDisplay(ref, null, defaultMeta);
+        const metaWithProfile = { ...defaultMeta, profileConfig: { displayMask: ['forenames'] } };
+        const result = resolveFieldForDisplay(ref, null, metaWithProfile);
 
         expect(result.state).toBe('POPULATED');
         expect(result.value.kind).toBe('partyRef');
         if (result.value.kind === 'partyRef') {
             expect(result.value.refId).toBe('12345678-abcd');
             expect(result.value.summary).toBe('ID:12345678…');
+            expect(result.value.displayMask).toEqual(['forenames']);
         }
         expect(result.textSummary).toBe('ID:12345678…');
+    });
+
+    it('resolves array elements with per-item source', () => {
+        const rawValue = [
+            { value: 'Item 1', sourceType: 'GLEIF', sourceReference: 'REF1' },
+            { value: 'Item 2' }
+        ];
+        const result = resolveFieldForDisplay(rawValue, null, defaultMeta);
+
+        expect(result.state).toBe('POPULATED');
+        expect(result.value.kind).toBe('collection');
+        if (result.value.kind === 'collection') {
+            expect(result.value.items[0].source?.type).toBe('GLEIF');
+            expect(result.value.items[0].source?.reference).toBe('REF1');
+            expect(result.value.items[1].source).toBeUndefined();
+        }
     });
 
     it('resolves enriched PARTY_REF object', () => {
@@ -112,10 +155,14 @@ describe('field-interpreter', () => {
             { code: 'A', label: 'Option A' },
             { code: 'B', label: 'Option B' }
         ];
-        const result = resolveFieldForDisplay(codes, null, defaultMeta);
+        const metaWithCodeSystem = { ...defaultMeta, codeSystem: 'TEST_CODES_2026' };
+        const result = resolveFieldForDisplay(codes, null, metaWithCodeSystem);
 
         expect(result.state).toBe('POPULATED');
         expect(result.value.kind).toBe('codeList');
+        if (result.value.kind === 'codeList') {
+            expect(result.value.codeSystem).toBe('TEST_CODES_2026');
+        }
         expect(result.textSummary).toBe('Option A; Option B');
     });
 

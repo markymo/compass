@@ -25,16 +25,140 @@ describe('FieldValueRenderer', () => {
         expect(element?.props?.children).toBe('Test Value');
     });
 
-    it('returns null for POPULATED non-scalar values (fallback boundary)', () => {
+    it('returns null for POPULATED unhandled values (fallback boundary)', () => {
         const field: FieldDisplayModel = {
             ...baseField,
             state: 'POPULATED',
-            value: { kind: 'party', partyId: 'p1', data: {} },
-            textSummary: 'Party'
+            value: { kind: 'unknown_fake_kind' } as any, // simulating unhandled
+            textSummary: 'Summary'
         };
 
         const element: any = FieldValueRenderer({ field });
         expect(element).toBeNull();
+    });
+
+    it('renders POPULATED address values using AddressRenderer', () => {
+        const field: FieldDisplayModel = {
+            ...baseField,
+            state: 'POPULATED',
+            value: { kind: 'address', data: {} as any, summary: 'Address' },
+            textSummary: 'Address'
+        };
+
+        const element: any = FieldValueRenderer({ field, layout: 'detailed' });
+        expect(element?.type?.name || element?.type?.displayName).toBe('AddressRenderer');
+        expect(element?.props?.layout).toBe('detailed');
+    });
+
+    it('renders POPULATED addressRef values using AddressRenderer', () => {
+        const field: FieldDisplayModel = {
+            ...baseField,
+            state: 'POPULATED',
+            value: { kind: 'addressRef', refId: '123', summary: 'AddressRef' },
+            textSummary: 'AddressRef'
+        };
+
+        const element: any = FieldValueRenderer({ field });
+        expect(element?.type?.name || element?.type?.displayName).toBe('AddressRenderer');
+    });
+
+    it('renders POPULATED collection values using CollectionRenderer with appropriate layout', () => {
+        const scalarField: FieldDisplayModel = {
+            ...baseField,
+            state: 'POPULATED',
+            value: { 
+                kind: 'collection', 
+                items: [{ value: { kind: 'scalar', display: 'A', rawValue: 'A' } }] 
+            },
+            textSummary: 'Collection'
+        };
+
+        const scalarElement: any = FieldValueRenderer({ field: scalarField });
+        expect(scalarElement?.type?.name || scalarElement?.type?.displayName).toBe('CollectionRenderer');
+        expect(scalarElement?.props?.collectionLayout).toBe('inline');
+
+        const complexField: FieldDisplayModel = {
+            ...baseField,
+            state: 'POPULATED',
+            value: { 
+                kind: 'collection', 
+                items: [{ value: { kind: 'party', data: {} as any, summary: 'P' } }] 
+            },
+            textSummary: 'Collection'
+        };
+
+        const complexElement: any = FieldValueRenderer({ field: complexField });
+        expect(complexElement?.type?.name || complexElement?.type?.displayName).toBe('CollectionRenderer');
+        expect(complexElement?.props?.collectionLayout).toBe('block');
+        
+        const addressField: FieldDisplayModel = {
+            ...baseField,
+            state: 'POPULATED',
+            value: { 
+                kind: 'collection', 
+                items: [{ value: { kind: 'address', data: {} as any, summary: 'A' } }] 
+            },
+            textSummary: 'Collection'
+        };
+
+        const addressElement: any = FieldValueRenderer({ field: addressField });
+        expect(addressElement?.type?.name || addressElement?.type?.displayName).toBe('CollectionRenderer');
+        expect(addressElement?.props?.collectionLayout).toBe('block');
+        
+        const addressRefField: FieldDisplayModel = {
+            ...baseField,
+            state: 'POPULATED',
+            value: { 
+                kind: 'collection', 
+                items: [{ value: { kind: 'addressRef', refId: '123', summary: 'A' } }] 
+            },
+            textSummary: 'Collection'
+        };
+
+        const addressRefElement: any = FieldValueRenderer({ field: addressRefField });
+        expect(addressRefElement?.type?.name || addressRefElement?.type?.displayName).toBe('CollectionRenderer');
+        expect(addressRefElement?.props?.collectionLayout).toBe('block');
+    });
+
+    it('renders POPULATED codeList values using CodeListRenderer', () => {
+        const field: FieldDisplayModel = {
+            ...baseField,
+            state: 'POPULATED',
+            value: { 
+                kind: 'codeList', 
+                items: [{ code: '123' }] 
+            },
+            textSummary: 'CodeList'
+        };
+
+        const element: any = FieldValueRenderer({ field });
+        expect(element?.type?.name || element?.type?.displayName).toBe('CodeListRenderer');
+    });
+
+    it('renders POPULATED party values using PartyRenderer', () => {
+        const field: FieldDisplayModel = {
+            ...baseField,
+            state: 'POPULATED',
+            value: { kind: 'party', data: {} as any, summary: 'Party' },
+            textSummary: 'Party'
+        };
+
+        const element: any = FieldValueRenderer({ field, layout: 'row' });
+        // Instead of deep snapshotting PartyRenderer, we just assert its name/type matches
+        expect(element?.type?.name || element?.type?.displayName).toBe('PartyRenderer');
+        expect(element?.props?.layout).toBe('row');
+    });
+
+    it('renders POPULATED partyRef values using PartyRenderer', () => {
+        const field: FieldDisplayModel = {
+            ...baseField,
+            state: 'POPULATED',
+            value: { kind: 'partyRef', refId: '123', summary: 'PartyRef' },
+            textSummary: 'PartyRef'
+        };
+
+        const element: any = FieldValueRenderer({ field });
+        expect(element?.type?.name || element?.type?.displayName).toBe('PartyRenderer');
     });
 
     it('renders EXPLICIT_NONE', () => {

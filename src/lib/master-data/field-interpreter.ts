@@ -12,6 +12,12 @@ export interface FieldInterpreterMetadata {
     isMultiValue?: boolean;
     defaultText?: string;
     displayState?: "HAS_VALUE" | "MAPPED_NOT_CHECKED" | "CHECKED_NO_DATA" | "DEFAULT_RESPONSE" | "UNMAPPED_NO_RESPONSE";
+    /** DB appDataType — drives future displayHint derivation. */
+    appDataType?: string;
+    /** Field-level profile configuration — carries displayMask for PARTY fields. */
+    profileConfig?: { displayMask?: string[] };
+    /** Controlled-vocabulary code system identifier (e.g. 'SIC_2007_UK'). */
+    codeSystem?: string;
 }
 
 export interface RawFieldSource {
@@ -36,7 +42,7 @@ export function resolveFieldForDisplay(
     }
 
     const state = resolveState(metadata.displayState, parsedValue);
-    const resolvedValue = resolveValue(parsedValue, state, metadata.defaultText);
+    const resolvedValue = resolveValue(parsedValue, state, metadata.defaultText, metadata.profileConfig?.displayMask, metadata.codeSystem, metadata.appDataType);
     const source = resolveSource(rawSource, state);
 
     return {
@@ -78,7 +84,10 @@ function resolveState(
 function resolveValue(
     parsedValue: any,
     state: FieldDisplayModel['state'],
-    defaultText?: string
+    defaultText?: string,
+    displayMask?: string[],
+    codeSystem?: string,
+    appDataType?: string
 ): ResolvedFieldValue {
     if (state === 'EXPLICIT_NONE' || state === 'NO_DATA' || state === 'UNMAPPED') {
         return { kind: 'empty' };
@@ -92,10 +101,10 @@ function resolveValue(
         };
     }
 
-    return parseAnyValue(parsedValue);
+    return parseAnyValue(parsedValue, displayMask, codeSystem, appDataType);
 }
 
-function parseAnyValue(val: any): ResolvedFieldValue {
+function parseAnyValue(val: any, displayMask?: string[], codeSystem?: string, appDataType?: string): ResolvedFieldValue {
     if (val === null || val === undefined) return { kind: 'empty' };
 
     if (Array.isArray(val)) {
@@ -109,13 +118,17 @@ function parseAnyValue(val: any): ResolvedFieldValue {
                     code: String(item.code),
                     label: item.label || String(item.code),
                     source: item.sourceType ? (resolveSource({ type: item.sourceType, reference: item.sourceReference }, 'POPULATED') ?? undefined) : undefined
-                }))
+                })),
+                codeSystem
             };
         }
 
         return {
             kind: 'collection',
-            items: val.map(item => ({ value: parseAnyValue(item) }))
+            items: val.map(item => ({ 
+                value: parseAnyValue(item, displayMask, codeSystem, appDataType),
+                source: item?.sourceType ? (resolveSource({ type: item.sourceType, reference: item.sourceReference }, 'POPULATED') ?? undefined) : undefined
+            }))
         };
     }
 
@@ -125,7 +138,8 @@ function parseAnyValue(val: any): ResolvedFieldValue {
                 kind: 'partyRef',
                 refId: val.ccPartyId,
                 summary: val.ccParty?.data ? getPartySummary(val.ccParty.data) : `ID:${val.ccPartyId.slice(0, 8)}…`,
-                resolved: val.ccParty?.data
+                resolved: val.ccParty?.data,
+                displayMask
             };
         }
         if (val.ccAddressId) {
@@ -140,7 +154,8 @@ function parseAnyValue(val: any): ResolvedFieldValue {
             return {
                 kind: 'party',
                 data: val as any,
-                summary: getPartySummary(val)
+                summary: getPartySummary(val),
+                displayMask
             };
         }
         if (isAddressValue(val)) {
@@ -162,6 +177,15 @@ function parseAnyValue(val: any): ResolvedFieldValue {
     // Primitive
     if (typeof val === 'boolean') {
         return { kind: 'scalar', display: val ? 'Yes' : 'No', rawValue: val };
+    }
+    if (appDataType === 'DATE' && (typeof val === 'string' || typeof val === 'number')) {
+        try {
+            const d = new Date(val);
+            if (!isNaN(d.getTime())) {
+                const display = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+                return { kind: 'scalar', display, rawValue: val };
+            }
+        } catch {}
     }
     
     return { kind: 'scalar', display: String(val), rawValue: val };

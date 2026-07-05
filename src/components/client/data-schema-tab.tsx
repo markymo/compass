@@ -821,9 +821,29 @@ function MasterFieldDisplay({ label, fieldNo, value, formattedDisplayValue, sour
                 ) : (
                     <>
                         <div className="font-mono text-sm line-clamp-2 break-words flex-1 min-w-0" title={typeof value === 'object' && value ? JSON.stringify(value, null, 2) : String(value)}>
-                            {canonicalDisplayModel && (canonicalDisplayModel.value.kind === 'scalar' || canonicalDisplayModel.value.kind === 'empty') ? (
-                                <FieldValueRenderer field={canonicalDisplayModel} />
-                            ) : (
+                            {(() => {
+                                const isSafeCollection = canonicalDisplayModel?.value.kind === 'collection' && 
+                                    canonicalDisplayModel.value.items.every(i => 
+                                        i.value.kind === 'scalar' || 
+                                        i.value.kind === 'empty' || 
+                                        i.value.kind === 'party' || 
+                                        i.value.kind === 'partyRef' ||
+                                        i.value.kind === 'address' ||
+                                        i.value.kind === 'addressRef'
+                                    );
+
+                                return canonicalDisplayModel && (
+                                    canonicalDisplayModel.value.kind === 'scalar' || 
+                                    canonicalDisplayModel.value.kind === 'empty' ||
+                                    canonicalDisplayModel.value.kind === 'party' ||
+                                    canonicalDisplayModel.value.kind === 'partyRef' ||
+                                    canonicalDisplayModel.value.kind === 'address' ||
+                                    canonicalDisplayModel.value.kind === 'addressRef' ||
+                                    canonicalDisplayModel.value.kind === 'codeList' ||
+                                    isSafeCollection
+                                ) ? (
+                                    <FieldValueRenderer field={canonicalDisplayModel} />
+                                ) : (
                                 <>
                                     {resolvedState === "HAS_VALUE" && (value?.explicitNone ? "None" : displayValue)}
                                     {resolvedState === "MAPPED_NOT_CHECKED" && <span className="text-slate-400 italic">No response recorded</span>}
@@ -836,7 +856,8 @@ function MasterFieldDisplay({ label, fieldNo, value, formattedDisplayValue, sour
                                     )}
                                     {resolvedState === "UNMAPPED_NO_RESPONSE" && <span className="text-slate-400 italic">No response recorded</span>}
                                 </>
-                            )}
+                                );
+                            })()}
                         </div>
                         {(resolvedState === "HAS_VALUE" || resolvedState === "MAPPED_NOT_CHECKED" || resolvedState === "CHECKED_NO_DATA") && source && (
                             <div className="flex items-center gap-2 shrink-0 ml-4">

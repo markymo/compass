@@ -4,6 +4,8 @@ import { FieldDisplayModel, FieldSource, ResolvedFieldValue } from "@/lib/master
 import { FieldSourceBadge } from "./FieldSourceBadge";
 import { FieldValueRenderer } from "./FieldValueRenderer";
 
+export const COLLECTION_PREVIEW_LIMIT = 18;
+
 export interface CollectionRendererProps {
     items: Array<{ value: ResolvedFieldValue; source?: FieldSource }>;
     fieldSource: FieldSource | null;
@@ -16,7 +18,7 @@ export function CollectionRenderer({
     items,
     fieldSource,
     collectionLayout = "inline",
-    itemLimit = 18,
+    itemLimit = COLLECTION_PREVIEW_LIMIT,
     className
 }: CollectionRendererProps) {
     if (!items || items.length === 0) {
@@ -42,9 +44,7 @@ export function CollectionRenderer({
         return (
             <React.Fragment key={idx}>
                 <FieldValueRenderer field={syntheticField} layout={layoutHint} />
-                {item.source && (
-                    <FieldSourceBadge source={item.source} className="ml-2" />
-                )}
+                {/* Per-item sources are intentionally suppressed for this phase to preserve legacy 1:1 parity */}
             </React.Fragment>
         );
     };

@@ -2,6 +2,7 @@
 
 import { isPartyValue, getPartySummary } from "@/lib/master-data/party-value";
 import { isAddressValue, getAddressSummary } from "@/lib/master-data/address-value";
+import { FieldValueRenderer } from "@/components/client/fields/FieldValueRenderer";
 
 import { useState, useMemo, useTransition } from "react";
 import { Workbench4Data, mapQuestionToField, getAIFieldNameSuggestion } from "@/actions/kyc-workbench";
@@ -889,6 +890,10 @@ function QuestionCard({
                                                     raNameLookup={raNameLookup}
                                                     className="py-0.5"
                                                 />
+                                            ) : question.canonicalDisplayModel ? (
+                                                <div className="py-0.5">
+                                                    <FieldValueRenderer field={question.canonicalDisplayModel} itemLimit={3} />
+                                                </div>
                                             ) : question.masterDataValue != null && question.masterDataValue !== '' ? (
                                                 Array.isArray(question.masterDataValue) ? (
                                                     <div className="flex flex-wrap gap-1">

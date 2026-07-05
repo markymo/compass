@@ -28,11 +28,11 @@ export interface FieldDisplayModel {
 export type ResolvedFieldValue =
     | { kind: 'empty' }
     | { kind: 'scalar'; display: string; rawValue: string | number | boolean | null }
-    | { kind: 'party'; data: import('./party-value').PartyValue; summary: string }
+    | { kind: 'party'; data: import('./party-value').PartyValue; summary: string; displayMask?: string[] }
     | { kind: 'address'; data: import('./address-value').AddressValue; summary: string }
-    | { kind: 'partyRef'; refId: string; summary: string; resolved?: import('./party-value').PartyValue }
+    | { kind: 'partyRef'; refId: string; summary: string; resolved?: import('./party-value').PartyValue; displayMask?: string[] }
     | { kind: 'addressRef'; refId: string; summary: string; resolved?: import('./address-value').AddressValue }
-    | { kind: 'codeList'; items: Array<{ code: string; label: string; source?: FieldSource }> }
+    | { kind: 'codeList'; items: Array<{ code: string; label: string; source?: FieldSource }>; codeSystem?: string }
     | { kind: 'collection'; items: Array<{ value: ResolvedFieldValue; source?: FieldSource }> };
 
 // Canonical Source

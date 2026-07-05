@@ -14,7 +14,8 @@ export interface ExportAnswerResult {
     sourceCategory?: 'REGISTRY' | 'USER' | 'DEFAULT' | 'NO_RESPONSE' | 'SYSTEM';
 }
 
-import { formatReleasedValue } from "@/lib/export/formatReleasedValue";
+import { toExportText } from "@/lib/export/toExportText";
+import { resolveFieldForDisplay } from "@/lib/master-data/field-interpreter";
 
 export async function resolveExportAnswer(
     question: any, 
@@ -37,11 +38,18 @@ export async function resolveExportAnswer(
         if (derived && derived.value !== null && derived.value !== undefined && derived.value !== "") {
             // Fetch field detail for profileConfig
             const fieldDetail = await getFieldDetail(entityId, question.masterFieldNo, "CLIENT_LE");
-            const displayValue = await formatReleasedValue({
-                value: derived.value,
-                appDataType: fieldDetail.dataType,
-                profileConfig: fieldDetail.profileConfig
-            });
+            const displayModel = resolveFieldForDisplay(
+                derived.value,
+                null,
+                {
+                    fieldNo: question.masterFieldNo,
+                    label: "Export Field", // Not used by toExportText, but required by metadata
+                    displayState: "HAS_VALUE",
+                    appDataType: fieldDetail.dataType,
+                    profileConfig: fieldDetail.profileConfig
+                }
+            );
+            const displayValue = toExportText(displayModel);
             
             // Resolve provenance
             let sourceLabel = derived.sourceType;
@@ -144,7 +152,16 @@ export async function resolveExportAnswer(
                 } catch (e) { }
             }
 
-            const displayValue = await formatReleasedValue({ value: parsedAnswer });
+            const displayModel = resolveFieldForDisplay(
+                parsedAnswer,
+                null,
+                {
+                    fieldNo: -1,
+                    label: "Unmapped Question",
+                    displayState: "HAS_VALUE"
+                }
+            );
+            const displayValue = toExportText(displayModel);
             if (displayValue.trim() === "") {
                 return {
                     displayValue: "No response recorded",
