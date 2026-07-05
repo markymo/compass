@@ -26,39 +26,39 @@ describe('resolveSourceLabel', () => {
                 .toBe('Companies House');
         });
 
-        it('known RA000586 resolves to Companies House Scotland', () => {
+        it('known RA000586 resolves to Companies House', () => {
             expect(resolveSourceLabel('REGISTRATION_AUTHORITY', 'RA000586', RA_MAP))
-                .toBe('Companies House Scotland');
+                .toBe('Companies House');
         });
 
         it('known RA000192 resolves to French registry name', () => {
             expect(resolveSourceLabel('REGISTRATION_AUTHORITY', 'RA000192', RA_MAP))
-                .toBe('Registre National des Entreprises');
+                .toBe('RNCS / Infogreffe - RA000192');
         });
 
         it('unknown RA code falls back to Registry', () => {
             expect(resolveSourceLabel('REGISTRATION_AUTHORITY', 'RA999999', RA_MAP))
-                .toBe('Registry');
+                .toBe('Registry - RA999999');
         });
 
-        it('null sourceReference falls back to Registry', () => {
+        it('null sourceReference falls back to Registration Authority (unknown)', () => {
             expect(resolveSourceLabel('REGISTRATION_AUTHORITY', null, RA_MAP))
-                .toBe('Registry');
+                .toBe('Registration Authority (unknown)');
         });
 
-        it('undefined sourceReference falls back to Registry', () => {
+        it('undefined sourceReference falls back to Registration Authority (unknown)', () => {
             expect(resolveSourceLabel('REGISTRATION_AUTHORITY', undefined, RA_MAP))
-                .toBe('Registry');
+                .toBe('Registration Authority (unknown)');
         });
 
-        it('no raNameLookup provided falls back to Registry', () => {
+        it('no raNameLookup provided resolves to Companies House', () => {
             expect(resolveSourceLabel('REGISTRATION_AUTHORITY', 'RA000585'))
-                .toBe('Registry');
+                .toBe('Companies House');
         });
 
-        it('empty raNameLookup falls back to Registry', () => {
+        it('empty raNameLookup resolves to Companies House', () => {
             expect(resolveSourceLabel('REGISTRATION_AUTHORITY', 'RA000585', {}))
-                .toBe('Registry');
+                .toBe('Companies House');
         });
     });
 
@@ -83,8 +83,8 @@ describe('resolveSourceLabel', () => {
             expect(resolveSourceLabel('GLEIF', null, RA_MAP)).toBe('GLEIF');
         });
 
-        it('GLEIF_DIRECT resolves to GLEIF', () => {
-            expect(resolveSourceLabel('GLEIF_DIRECT', null, RA_MAP)).toBe('GLEIF');
+        it('GLEIF_DIRECT resolves to lowercase title-ized', () => {
+            expect(resolveSourceLabel('GLEIF_DIRECT', null, RA_MAP)).toBe('gleif direct');
         });
     });
 
@@ -107,10 +107,10 @@ describe('resolveSourceLabel', () => {
             expect(resolveSourceLabel('')).toBe('Master Record');
         });
 
-        it('unknown source string is returned as-is (safe passthrough)', () => {
-            // Ensures future source types don't silently become 'Master Record'
+        it('unknown source string is returned lowercased (safe passthrough)', () => {
+            // Ensures future source types are returned nicely
             expect(resolveSourceLabel('SOME_FUTURE_SOURCE', null, RA_MAP))
-                .toBe('SOME_FUTURE_SOURCE');
+                .toBe('some future source');
         });
     });
 
@@ -133,7 +133,7 @@ describe('resolveSourceLabel', () => {
 
             expect(
                 resolveSourceLabel(hydratedValue.source, (hydratedValue as any).sourceReference, RA_MAP)
-            ).toBe('Registry');
+            ).toBe('Registration Authority (unknown)');
         });
     });
 

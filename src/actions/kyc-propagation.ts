@@ -5,7 +5,8 @@ import { revalidatePath } from "next/cache";
 import { QuestionStatus } from "@prisma/client";
 import { ensureQuestionNotReferenceSnapshot } from "./questionnaire";
 import { getFieldDetail } from "./kyc-query";
-import { formatReleasedValue } from "@/lib/export/formatReleasedValue";
+import { toExportText } from "@/lib/export/toExportText";
+import { resolveFieldForDisplay } from "@/lib/master-data/field-interpreter";
 
 export async function applyMasterToQuestion(
     questionId: string,
@@ -32,13 +33,21 @@ export async function applyMasterToQuestion(
         let answerText = "";
         if (clientLEId && question.masterFieldNo) {
             const fieldDetail = await getFieldDetail(clientLEId, question.masterFieldNo, "CLIENT_LE");
-            answerText = await formatReleasedValue({
-                value: masterValue,
+            const displayModel = resolveFieldForDisplay(masterValue, null, {
+                fieldNo: question.masterFieldNo,
+                label: "Propagated Field",
+                displayState: "HAS_VALUE",
                 appDataType: fieldDetail.dataType,
                 profileConfig: fieldDetail.profileConfig
             });
+            answerText = toExportText(displayModel);
         } else {
-            answerText = await formatReleasedValue({ value: masterValue });
+            const displayModel = resolveFieldForDisplay(masterValue, null, {
+                fieldNo: -1,
+                label: "Unmapped Propagated Field",
+                displayState: "HAS_VALUE"
+            });
+            answerText = toExportText(displayModel);
         }
 
         // 2. Update the Question

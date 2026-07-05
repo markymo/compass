@@ -23,6 +23,8 @@ import { resolveSourceLabel, RaNameLookup } from "@/lib/kyc/source-label";
 import { isPartyValue, getPartySummary } from "@/lib/master-data/party-value";
 import { isAddressValue, getAddressSummary } from "@/lib/master-data/address-value";
 import type { HydratedValue } from "@/actions/kyc-query";
+import { FieldValueRenderer } from "@/components/client/fields/FieldValueRenderer";
+import { FieldSourceBadge } from "@/components/client/fields/FieldSourceBadge";
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
@@ -42,6 +44,8 @@ export interface GroupFieldData {
     codeSystem?: string;
     /** Resolved value + provenance from resolveMasterData / resolveMasterDataBatch */
     hydrated: HydratedValue;
+    /** Canonical display model for consistent rendering. Added in Phase 1 of migration. */
+    canonicalDisplayModel?: import("@/lib/master-data/field-display-model").FieldDisplayModel;
 }
 
 export interface GroupAnswerRendererProps {
@@ -269,6 +273,9 @@ function GroupFieldRow({
         if (dimmed) {
             return <span className="text-xs text-slate-300 italic">—</span>;
         }
+        if (field.canonicalDisplayModel) {
+            return <FieldValueRenderer field={field.canonicalDisplayModel} itemLimit={3} />;
+        }
         if (isMultiValue && Array.isArray(value)) {
             if (codeSystem) {
                 return <CodeListValue items={value} />;
@@ -287,12 +294,18 @@ function GroupFieldRow({
                 {renderValue()}
             </div>
             {!dimmed && (
-                <ProvenanceLine
-                    source={source}
-                    sourceReference={sourceReference}
-                    updatedAt={updatedAt}
-                    raNameLookup={raNameLookup}
-                />
+                field.canonicalDisplayModel?.source ? (
+                    <div className="flex items-center gap-1.5 mt-1">
+                        <FieldSourceBadge source={field.canonicalDisplayModel.source} variant="span" />
+                    </div>
+                ) : (
+                    <ProvenanceLine
+                        source={source}
+                        sourceReference={sourceReference}
+                        updatedAt={updatedAt}
+                        raNameLookup={raNameLookup}
+                    />
+                )
             )}
         </div>
     );

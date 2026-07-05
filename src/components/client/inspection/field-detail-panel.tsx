@@ -31,6 +31,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { CollectionRowDisplay } from "@/lib/master-data/structured-collection-renderers";
 import { CodeListField } from "@/components/client/fields/CodeListField";
+import { FieldSourceBadge } from "../fields/FieldSourceBadge";
 import { AddressValueViewer } from "../fields/AddressValueViewer";
 import { isAddressValue } from "@/lib/master-data/address-value";
 import { AddressValueEditor } from "../fields/AddressValueEditor";
@@ -1156,17 +1157,21 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                         - "User input" if user has ever added or removed any item
                                                         - Otherwise show the first row's registry source as representative */}
                                                     {data.isUserCurated ? (
-                                                        <SourceBadge 
-                                                            source="USER_INPUT" 
-                                                            registrationAuthorityId={undefined} 
-                                                            registrationAuthorityName={undefined} 
+                                                        <FieldSourceBadge 
+                                                            legacySourceType="USER_INPUT" 
+                                                            variant="span"
+                                                            className="uppercase tracking-wider"
+                                                            wrapperClassName="flex items-center gap-1.5"
                                                         />
                                                     ) : data.rows[0]?.source ? (
-                                                        <SourceBadge 
-                                                            source={data.rows[0].source as any} 
-                                                            sourceReference={data.rows[0].sourceReference} 
-                                                            registrationAuthorityId={registrationAuthorityId} 
-                                                            registrationAuthorityName={registrationAuthorityId ? raNameMap[registrationAuthorityId] : undefined}
+                                                        <FieldSourceBadge 
+                                                            legacySourceType={data.rows[0].source as any} 
+                                                            legacySourceReference={data.rows[0].sourceReference} 
+                                                            legacyRaId={registrationAuthorityId} 
+                                                            legacyRaName={(registrationAuthorityId ? raNameMap[registrationAuthorityId] : undefined) || 'Registration Authority'}
+                                                            variant="span"
+                                                            className="uppercase tracking-wider"
+                                                            wrapperClassName="flex items-center gap-1.5"
                                                         />
                                                     ) : null}
                                                 </div>
@@ -1507,11 +1512,14 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                     
                                                                     const badges = (
                                                                         <>
-                                                                            <SourceBadge 
-                                                                                source={row.source as any} 
-                                                                                sourceReference={row.sourceReference} 
-                                                                                registrationAuthorityId={registrationAuthorityId} 
-                                                                                registrationAuthorityName={registrationAuthorityId ? raNameMap[registrationAuthorityId] : undefined}
+                                                                            <FieldSourceBadge 
+                                                                                legacySourceType={row.source as any} 
+                                                                                legacySourceReference={row.sourceReference} 
+                                                                                legacyRaId={registrationAuthorityId} 
+                                                                                legacyRaName={(registrationAuthorityId ? raNameMap[registrationAuthorityId] : undefined) || 'Registration Authority'}
+                                                                                variant="span"
+                                                                                className="uppercase tracking-wider"
+                                                                                wrapperClassName="flex items-center gap-1.5"
                                                                             />
                                                                             <span className="text-[9px] text-slate-400">
                                                                                 {row.timestamp ? new Date(row.timestamp).toLocaleDateString() : ''}
@@ -1768,11 +1776,14 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                     )}
                                                                 </div>
                                                                 <div className="mt-2 flex items-center gap-2">
-                                                                    <SourceBadge 
-                                                                        source={data.current.source || 'UNKNOWN'} 
-                                                                        sourceReference={data.current.sourceReference} 
-                                                                        registrationAuthorityId={registrationAuthorityId} 
-                                                                        registrationAuthorityName={registrationAuthorityId ? raNameMap[registrationAuthorityId] : undefined}
+                                                                    <FieldSourceBadge 
+                                                                        legacySourceType={data.current.source || 'UNKNOWN'} 
+                                                                        legacySourceReference={data.current.sourceReference} 
+                                                                        legacyRaId={registrationAuthorityId} 
+                                                                        legacyRaName={(registrationAuthorityId ? raNameMap[registrationAuthorityId] : undefined) || 'Registration Authority'}
+                                                                        variant="span"
+                                                                        className="uppercase tracking-wider"
+                                                                        wrapperClassName="flex items-center gap-1.5"
                                                                     />
                                                                     <div className="flex flex-col text-[10px] text-slate-400 border-l border-slate-200 pl-2 leading-tight justify-center">
                                                                         {data.current.sourceCheckedAt ? (
@@ -2109,10 +2120,13 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                         </div>
                                                                         {data?.displayState === 'CHECKED_NO_DATA' && data?.current?.source && (
                                                                             <div className="mt-2 flex items-center gap-2">
-                                                                                <SourceBadge 
-                                                                                    source={data.current.source} 
-                                                                                    registrationAuthorityId={registrationAuthorityId} 
-                                                                                    registrationAuthorityName={registrationAuthorityId ? raNameMap[registrationAuthorityId] : undefined}
+                                                                                <FieldSourceBadge 
+                                                                                    legacySourceType={data.current.source} 
+                                                                                    legacyRaId={registrationAuthorityId} 
+                                                                                    legacyRaName={(registrationAuthorityId ? raNameMap[registrationAuthorityId] : undefined) || 'Registration Authority'}
+                                                                                    variant="span"
+                                                                                    className="uppercase tracking-wider"
+                                                                                    wrapperClassName="flex items-center gap-1.5"
                                                                                 />
                                                                                 {data?.current?.timestamp && (
                                                                                     <span className="text-xs text-slate-400">
@@ -2690,11 +2704,14 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                         )}
                                                     </div>
                                                     <div className="text-xs text-slate-500 flex items-center gap-1 mt-1">
-                                                        via <SourceBadge 
-                                                                source={item.source} 
-                                                                sourceReference={item.actor} 
-                                                                registrationAuthorityId={registrationAuthorityId} 
-                                                                registrationAuthorityName={registrationAuthorityId ? raNameMap[registrationAuthorityId] : undefined}
+                                                        via <FieldSourceBadge 
+                                                                legacySourceType={item.source} 
+                                                                legacySourceReference={item.actor} 
+                                                                legacyRaId={registrationAuthorityId} 
+                                                                legacyRaName={(registrationAuthorityId ? raNameMap[registrationAuthorityId] : undefined) || 'Registration Authority'}
+                                                                variant="span"
+                                                                className="uppercase tracking-wider"
+                                                                wrapperClassName="flex items-center gap-1.5"
                                                             />
                                                     </div>
                                                     {item.reason && (
@@ -2743,11 +2760,14 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                             <div className="flex items-start justify-between gap-3">
                                                 <div className="flex-1 min-w-0">
                                                     <div className="flex items-center gap-2 mb-1.5">
-                                                        <SourceBadge 
-                                                            source={candidate.source} 
-                                                            sourceReference={candidate.sourceReference} 
-                                                            registrationAuthorityId={registrationAuthorityId} 
-                                                            registrationAuthorityName={registrationAuthorityId ? raNameMap[registrationAuthorityId] : undefined}
+                                                        <FieldSourceBadge 
+                                                            legacySourceType={candidate.source} 
+                                                            legacySourceReference={candidate.sourceReference} 
+                                                            legacyRaId={registrationAuthorityId} 
+                                                            legacyRaName={(registrationAuthorityId ? raNameMap[registrationAuthorityId] : undefined) || 'Registration Authority'}
+                                                            variant="span"
+                                                            className="uppercase tracking-wider"
+                                                            wrapperClassName="flex items-center gap-1.5"
                                                         />
                                                         {candidate.isAuthoritative && (
                                                             <Badge className="bg-indigo-600 text-white text-[9px] h-4 px-1.5 border-none">
@@ -2843,54 +2863,3 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
     );
 }
 
-/** Colour classes keyed by SourceType enum value (or legacy source type strings). */
-const SOURCE_COLOR_MAP: Record<string, string> = {
-    GLEIF:                  'bg-orange-100 text-orange-700 border-orange-200',
-    REGISTRATION_AUTHORITY: 'bg-blue-100   text-blue-700  border-blue-200',
-    USER_INPUT:             'bg-purple-100 text-purple-700 border-purple-200',
-    SYSTEM:                 'bg-gray-100   text-gray-700  border-gray-200',
-    SYSTEM_DERIVED:         'bg-gray-100   text-gray-700  border-gray-200',
-    AI_EXTRACTION:          'bg-emerald-100 text-emerald-700 border-emerald-200',
-    // Legacy source type strings that may appear on old FieldClaim rows
-    COMPANIES_HOUSE:        'bg-blue-100   text-blue-700  border-blue-200',
-    NATIONAL_REGISTRY:      'bg-blue-100   text-blue-700  border-blue-200',
-};
-
-/**
- * Pure presentation badge — delegates all label resolution to getSourceDisplayName.
- * Shows the entity-specific GLEIF RA code as a subtle secondary label for RA sources.
- * To change how any source is labelled, update source-display.ts only.
- */
-function SourceBadge({ source, sourceReference, registrationAuthorityId, registrationAuthorityName }: { 
-    source: string; 
-    sourceReference?: string;
-    /** Entity-specific GLEIF RA code, e.g. RA000585. Only shown for REGISTRATION_AUTHORITY sources. */
-    registrationAuthorityId?: string;
-    /** Resolved human-readable name of the RA code, e.g. "Companies House". */
-    registrationAuthorityName?: string;
-}) {
-    const classes = SOURCE_COLOR_MAP[source] || 'bg-gray-100 text-gray-700 border-gray-200';
-    
-    // For REGISTRATION_AUTHORITY, we skip the legacy sourceReference resolution if we have a proper RA name/ID
-    let label = '';
-    const showRaCode = source === 'REGISTRATION_AUTHORITY' && registrationAuthorityId;
-    
-    if (showRaCode) {
-        label = registrationAuthorityName || 'Registration Authority';
-    } else {
-        label = getSourceDisplayName(source, sourceReference ?? null);
-    }
-
-    return (
-        <div className="flex items-center gap-1.5">
-            <span className={cn("inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border uppercase tracking-wider", classes)}>
-                {label}
-                {showRaCode && (
-                    <span className="ml-1 opacity-60 font-mono normal-case tracking-normal">
-                        &middot; {registrationAuthorityId}
-                    </span>
-                )}
-            </span>
-        </div>
-    );
-}

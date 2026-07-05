@@ -8,7 +8,7 @@ import prisma from "@/lib/prisma";
 import { getComplexFieldConfig } from "@/lib/master-data/complex-field-config";
 import { FieldClaim } from "@prisma/client";
 import { getPartySummary } from "@/lib/master-data/party-value";
-
+import { resolveFieldForDisplay } from "@/lib/master-data/field-interpreter";
 // KycLoader is deprecated in favor of KycStateService
 
 export type ResolverRequest = {
@@ -54,10 +54,14 @@ export async function resolveMasterData(
                         const fieldNo = item.fieldNo;
                         const def = await getMasterFieldDefinition(fieldNo);
                         if (def.isMultiValue) {
+                            const cfg = getComplexFieldConfig(fieldNo);
+                            const filterCollectionId = cfg?.kind === 'STRUCTURED_COLLECTION' ? cfg.collectionId : undefined;
                             let collection = await KycStateService.getAuthoritativeCollection(
                                 { subjectLeId },
                                 fieldNo,
-                                ownerScopeId || undefined
+                                ownerScopeId || undefined,
+                                undefined,
+                                filterCollectionId
                             );
 
                             if (collection.length > 0) {
@@ -101,10 +105,14 @@ export async function resolveMasterData(
         else if (q.masterFieldNo && subjectLeId) {
             const def = await getMasterFieldDefinition(q.masterFieldNo);
             if (def.isMultiValue) {
+                const cfg = getComplexFieldConfig(q.masterFieldNo);
+                const filterCollectionId = cfg?.kind === 'STRUCTURED_COLLECTION' ? cfg.collectionId : undefined;
                 let collection = await KycStateService.getAuthoritativeCollection(
                     { subjectLeId },
                     q.masterFieldNo,
-                    ownerScopeId || undefined
+                    ownerScopeId || undefined,
+                    undefined,
+                    filterCollectionId
                 );
 
                 if (collection.length > 0) {
@@ -584,6 +592,8 @@ export interface GroupFieldDetail {
     /** Present if the field is a controlled-vocabulary code list (e.g. 'SIC_2007_UK') */
     codeSystem?: string;
     hydrated: HydratedValue;
+    /** Canonical display model for consistent rendering. Added in Phase 1 of migration. */
+    canonicalDisplayModel?: import("@/lib/master-data/field-display-model").FieldDisplayModel;
 }
 
 export interface FieldDetailData {
@@ -703,8 +713,9 @@ export async function getFieldDetail(
                 const codeSystem = cfg && 'codeSystem' in cfg ? cfg.codeSystem : undefined;
 
                 if (def.isMultiValue) {
+                    const filterCollectionId = cfg?.kind === 'STRUCTURED_COLLECTION' ? cfg.collectionId : undefined;
                     const collection = await KycStateService.getAuthoritativeCollection(
-                        { subjectLeId }, item.fieldNo, ownerScopeId
+                        { subjectLeId }, item.fieldNo, ownerScopeId, undefined, filterCollectionId
                     );
                     if (collection.length > 0) {
                         const maxUpdatedAt = collection.reduce(
@@ -725,6 +736,19 @@ export async function getFieldDetail(
                             isMultiValue: true,
                             codeSystem,
                             hydrated,
+                            canonicalDisplayModel: resolveFieldForDisplay(
+                                hydrated.value,
+                                hydrated.source ? { type: hydrated.source, reference: hydrated.sourceReference } : null,
+                                {
+                                    fieldNo: item.fieldNo,
+                                    label: def.fieldName,
+                                    displayState: hydrated.isSynced ? 'HAS_VALUE' : 'CHECKED_NO_DATA',
+                                    appDataType: def.appDataType,
+                                    profileConfig: def.profileConfig ? (def.profileConfig as any) : undefined,
+                                    isMultiValue: def.isMultiValue,
+                                    codeSystem
+                                }
+                            ),
                         });
                         groupValues[def.fieldName] = hydrated.value;
                         if (maxUpdatedAt > latestTimestamp) latestTimestamp = maxUpdatedAt;
@@ -738,6 +762,19 @@ export async function getFieldDetail(
                             isMultiValue: true,
                             codeSystem,
                             hydrated: { value: null, source: null, isSynced: false },
+                            canonicalDisplayModel: resolveFieldForDisplay(
+                                null,
+                                null,
+                                {
+                                    fieldNo: item.fieldNo,
+                                    label: def.fieldName,
+                                    displayState: 'CHECKED_NO_DATA',
+                                    appDataType: def.appDataType,
+                                    profileConfig: def.profileConfig ? (def.profileConfig as any) : undefined,
+                                    isMultiValue: def.isMultiValue,
+                                    codeSystem
+                                }
+                            ),
                         });
                     }
                 } else {
@@ -759,6 +796,19 @@ export async function getFieldDetail(
                             isMultiValue: false,
                             codeSystem,
                             hydrated,
+                            canonicalDisplayModel: resolveFieldForDisplay(
+                                hydrated.value,
+                                hydrated.source ? { type: hydrated.source, reference: hydrated.sourceReference } : null,
+                                {
+                                    fieldNo: item.fieldNo,
+                                    label: def.fieldName,
+                                    displayState: hydrated.isSynced ? 'HAS_VALUE' : 'CHECKED_NO_DATA',
+                                    appDataType: def.appDataType,
+                                    profileConfig: def.profileConfig ? (def.profileConfig as any) : undefined,
+                                    isMultiValue: def.isMultiValue,
+                                    codeSystem
+                                }
+                            ),
                         });
                         groupValues[def.fieldName] = hydrated.value;
                         if (derived.assertedAt > latestTimestamp) latestTimestamp = derived.assertedAt;
@@ -770,6 +820,19 @@ export async function getFieldDetail(
                             isMultiValue: false,
                             codeSystem,
                             hydrated: { value: null, source: null, isSynced: false },
+                            canonicalDisplayModel: resolveFieldForDisplay(
+                                null,
+                                null,
+                                {
+                                    fieldNo: item.fieldNo,
+                                    label: def.fieldName,
+                                    displayState: 'CHECKED_NO_DATA',
+                                    appDataType: def.appDataType,
+                                    profileConfig: def.profileConfig ? (def.profileConfig as any) : undefined,
+                                    isMultiValue: def.isMultiValue,
+                                    codeSystem
+                                }
+                            ),
                         });
                     }
                 }
@@ -1484,6 +1547,8 @@ export interface ConsoleQuestion {
      *  Populated by getWorkbench4Data(). Consumed by GroupAnswerRenderer in workbench4.
      *  undefined for all non-group questions — fully backward compatible. */
     masterDataGroupFields?: GroupFieldDetail[];
+    /** For single mapped fields in workbench4. */
+    canonicalDisplayModel?: import("@/lib/master-data/field-display-model").FieldDisplayModel;
 };
 
 export async function getConsoleQuestions(leId: string, includeLocked: boolean = false): Promise<ConsoleQuestion[]> {

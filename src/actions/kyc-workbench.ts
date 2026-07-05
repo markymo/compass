@@ -12,6 +12,7 @@ import { generateObject } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
 import { z } from 'zod';
 import { ensureQuestionNotReferenceSnapshot } from "./questionnaire";
+import { resolveFieldForDisplay } from "@/lib/master-data/field-interpreter";
 
 export interface Workbench4Data {
     questions: ConsoleQuestion[];
@@ -157,8 +158,8 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
     const mappedQuestions = questions.filter((q: any) => q.masterFieldNo || q.masterQuestionGroupId || q.customFieldDefinitionId);
     if (mappedQuestions.length > 0 && subjectLeId) {
         // Build fieldDefMap from already-loaded allFields
-        const fieldDefMap = new Map<number, { fieldNo: number; fieldName: string; appDataType: string; isMultiValue: boolean }>(
-            allFields.map((f: any) => [f.fieldNo, { fieldNo: f.fieldNo, fieldName: f.fieldName ?? '', appDataType: f.appDataType, isMultiValue: f.isMultiValue }])
+        const fieldDefMap = new Map<number, { fieldNo: number; fieldName: string; appDataType: string; isMultiValue: boolean; profileConfig?: any }>(
+            allFields.map((f: any) => [f.fieldNo, { fieldNo: f.fieldNo, fieldName: f.fieldName ?? '', appDataType: f.appDataType, isMultiValue: f.isMultiValue, profileConfig: f.profileConfig }])
         );
 
         // Build groupFieldMap from already-loaded allGroupsWithItems
@@ -221,6 +222,21 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
                         const hydratedVal = resolvedValues[q.id][String(fieldNo)];
                         const cfg = getComplexFieldConfig(fieldNo);
                         const codeSystem = cfg && 'codeSystem' in cfg ? (cfg as any).codeSystem : undefined;
+
+                        const canonicalDisplayModel = hydratedVal ? resolveFieldForDisplay(
+                            hydratedVal.value,
+                            hydratedVal.source ? { type: hydratedVal.source as any, reference: hydratedVal.sourceReference } : null,
+                            {
+                                fieldNo,
+                                label: def.fieldName ? `F${fieldNo} ${def.fieldName}` : `F${fieldNo}`,
+                                displayState: hydratedVal.isSynced ? 'HAS_VALUE' : 'CHECKED_NO_DATA',
+                                appDataType: def.appDataType,
+                                profileConfig: def.profileConfig,
+                                isMultiValue: def.isMultiValue,
+                                codeSystem
+                            }
+                        ) : undefined;
+
                         groupFields.push({
                             fieldNo,
                             fieldName: def.fieldName ? `F${fieldNo} ${def.fieldName}` : `F${fieldNo}`,
@@ -228,6 +244,7 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
                             isMultiValue: def.isMultiValue,
                             ...(codeSystem ? { codeSystem } : {}),
                             hydrated: hydratedVal ?? { value: null, source: null, isSynced: false },
+                            canonicalDisplayModel
                         });
                     }
 
@@ -242,6 +259,23 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
                         q.masterDataValue = fv.value;
                         q.masterDataSource = fv.source;
                         q.masterDataUpdatedAt = fv.updatedAt;
+
+                        const def = fieldDefMap.get(q.masterFieldNo);
+                        const cfg = getComplexFieldConfig(q.masterFieldNo);
+                        const codeSystem = cfg && 'codeSystem' in cfg ? (cfg as any).codeSystem : undefined;
+
+                        q.canonicalDisplayModel = resolveFieldForDisplay(
+                            fv.value,
+                            fv.source ? { type: fv.source as any, reference: fv.sourceReference } : null,
+                            {
+                                fieldNo: q.masterFieldNo,
+                                label: def?.fieldName || '',
+                                displayState: fv.isSynced ? 'HAS_VALUE' : 'CHECKED_NO_DATA',
+                                appDataType: def?.appDataType || 'JSON',
+                                isMultiValue: def?.isMultiValue || false,
+                                codeSystem
+                            }
+                        );
                     }
                 }
             }
