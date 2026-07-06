@@ -27,6 +27,7 @@ export default async function RelationshipsPage({ params }: { params: Promise<{ 
             <EngagementManager
                 leId={le.id}
                 initialEngagements={(le as any).fiEngagements || []}
+                commonQuestionnaires={(le as any).commonQuestionnaires || []}
                 leDueDate={(le as any).dueDate}
             />
         </div>

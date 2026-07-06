@@ -31,6 +31,7 @@ interface OutputQuestionnaire {
     name: string;
     questionCount: number;
     answeredCount: number;
+    isCommon?: boolean;
     files: {
         id: string;
         name: string;
@@ -51,6 +52,7 @@ interface OutputDocument {
 interface OutputPackBuilderProps {
     engagementId: string;
     questionnaires: any[];
+    commonQuestionnaires?: any[];
     evidenceDocuments: any[];
     sharedDocuments: any[];
 }
@@ -58,6 +60,7 @@ interface OutputPackBuilderProps {
 export function OutputPackBuilder({
     engagementId,
     questionnaires,
+    commonQuestionnaires = [],
     evidenceDocuments,
     sharedDocuments,
 }: OutputPackBuilderProps) {
@@ -81,13 +84,24 @@ export function OutputPackBuilder({
         docsByQuestionnaireId.set(question.questionnaireId, qFiles);
     }
 
-    const outputQuestionnaires: OutputQuestionnaire[] = questionnaires.map(q => ({
-        id: q.id,
-        name: q.name,
-        questionCount: q.metrics?.total ?? 0,
-        answeredCount: q.metrics?.answered ?? 0,
-        files: docsByQuestionnaireId.get(q.id) ?? [],
-    }));
+    const outputQuestionnaires: OutputQuestionnaire[] = [
+        ...commonQuestionnaires.map((q: any) => ({
+            id: q.id,
+            name: q.name,
+            questionCount: q.metrics?.total ?? 0,
+            answeredCount: q.metrics?.answered ?? 0,
+            files: docsByQuestionnaireId.get(q.id) ?? [],
+            isCommon: true,
+        })),
+        ...questionnaires.map((q: any) => ({
+            id: q.id,
+            name: q.name,
+            questionCount: q.metrics?.total ?? 0,
+            answeredCount: q.metrics?.answered ?? 0,
+            files: docsByQuestionnaireId.get(q.id) ?? [],
+            isCommon: false,
+        }))
+    ];
 
     const outputDocs: OutputDocument[] = sharedDocuments.map((d: any) => ({
         id: d.id,
@@ -296,7 +310,7 @@ export function OutputPackBuilder({
 
                         return (
                             <Card
-                                key={q.id}
+                                key={`${q.id}-${q.isCommon ? 'common' : 'rel'}`}
                                 className={cn(
                                     "transition-all overflow-hidden",
                                     isSelected
@@ -312,9 +326,14 @@ export function OutputPackBuilder({
                                             onCheckedChange={() => toggleQuestionnaire(q.id)}
                                             className="data-[state=checked]:bg-indigo-600 data-[state=checked]:border-indigo-600"
                                         />
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-2">
-                                                <span className="font-medium text-sm text-slate-900">{q.name}</span>
+                                        <div className="flex-1 min-w-0 flex flex-col items-start">
+                                                {q.isCommon && (
+                                                    <Badge variant="outline" className="text-[9px] uppercase font-bold text-slate-500 mb-0.5 w-fit py-0 px-1.5 border-slate-200 -ml-0.5">
+                                                        Common
+                                                    </Badge>
+                                                )}
+                                                <div className="flex items-center gap-2">
+                                                    <span className="font-medium text-sm text-slate-900">{q.name}</span>
                                                 <Badge variant="secondary" className="text-[10px] py-0 px-1.5 bg-slate-100 text-slate-500">
                                                     {q.answeredCount}/{q.questionCount} answered
                                                 </Badge>
