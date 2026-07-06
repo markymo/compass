@@ -27,6 +27,7 @@ export class KycLoader {
         // 1. Resolve Scope and Subject
         let subjectLeId = entityId;
         let ownerScopeId = null;
+        let clientLEId: string | undefined = undefined;
 
         if (entityType === 'CLIENT_LE') {
             const clientLE = await prisma.clientLE.findUnique({
@@ -36,6 +37,7 @@ export class KycLoader {
             if (!clientLE?.legalEntityId) return null;
             subjectLeId = clientLE.legalEntityId;
             ownerScopeId = await KycStateService.resolveScopeId(entityId);
+            clientLEId = entityId;
         }
 
         const def = getFieldDefinition(fieldNo);
@@ -43,7 +45,7 @@ export class KycLoader {
         // 2. Fetch authoritative via Service
         if (def.isMultiValue || def.isRepeating) {
             let collection = await KycStateService.getAuthoritativeCollection(
-                { subjectLeId },
+                { subjectLeId, clientLEId },
                 fieldNo,
                 ownerScopeId || undefined
             );
@@ -66,7 +68,7 @@ export class KycLoader {
         }
 
         const derived = await KycStateService.getAuthoritativeValue(
-            { subjectLeId },
+            { subjectLeId, clientLEId },
             fieldNo,
             ownerScopeId || undefined
         );

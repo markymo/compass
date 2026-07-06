@@ -9,6 +9,7 @@ import { getComplexFieldConfig } from "@/lib/master-data/complex-field-config";
 import { FieldClaim } from "@prisma/client";
 import { getPartySummary } from "@/lib/master-data/party-value";
 import { resolveFieldForDisplay } from "@/lib/master-data/field-interpreter";
+import { resolveSourceCheckedAt } from "@/lib/kyc/provenance-enricher";
 // KycLoader is deprecated in favor of KycStateService
 
 export type ResolverRequest = {
@@ -24,6 +25,7 @@ export type HydratedValue = {
     /** Raw RA code e.g. 'RA000585'. Null for GLEIF/USER_INPUT. Additive — do not remove source. */
     sourceReference?: string | null;
     updatedAt?: Date | null;
+    sourceCheckedAt?: Date | null;
     isSynced: boolean; // True if value exists in Master Data
 };
 
@@ -234,6 +236,8 @@ export type BatchResolverInput = {
     claims:        FieldClaim[];
     /** All active SourceFieldMapping rows (pre-loaded) */
     sourceMappings: BatchSourceMapping[];
+    /** The provenance map containing EnrichmentRun and GLEIF dates (pre-loaded) */
+    provenanceMap: import("@/lib/kyc/provenance-enricher").ProvenanceMap | null;
 };
 
 /**
@@ -272,7 +276,8 @@ function resolveField(
     isMultiValue: boolean,
     allClaims: FieldClaim[],
     ownerScopeId: string | null,
-    sourceMappings: BatchSourceMapping[]
+    sourceMappings: BatchSourceMapping[],
+    provenanceMap: import("@/lib/kyc/provenance-enricher").ProvenanceMap | null
 ): Record<string, HydratedValue> {
     const priorityMap = buildPriorityMap(sourceMappings, fieldNo);
 
@@ -297,6 +302,7 @@ function resolveField(
         const values: any[] = [];
         let firstDerived: any = null;
         let maxAssertedAt: Date | null = null;
+        let maxSourceCheckedAt: Date | null = null;
         for (const group of Object.values(itemGroups)) {
             const winner = KycStateService.pickWinner(group, ownerScopeId ?? undefined, priorityMap);
             if (winner && !KycStateService.isTombstone(winner)) {
@@ -304,6 +310,16 @@ function resolveField(
                 values.push(derived.value);
                 if (!firstDerived) firstDerived = derived;
                 if (!maxAssertedAt || derived.assertedAt > maxAssertedAt) maxAssertedAt = derived.assertedAt;
+                
+                const checkedAt = resolveSourceCheckedAt(
+                    derived.sourceType || derived.evidenceProvider,
+                    derived.sourceReference,
+                    derived.assertedAt,
+                    provenanceMap
+                );
+                if (checkedAt && (!maxSourceCheckedAt || checkedAt > maxSourceCheckedAt)) {
+                    maxSourceCheckedAt = checkedAt;
+                }
             }
         }
 
@@ -317,6 +333,7 @@ function resolveField(
                 source: firstDerived.isScoped ? 'USER_INPUT' : (firstDerived.evidenceProvider || firstDerived.sourceType || 'MASTER_RECORD'),
                 sourceReference: firstDerived.sourceReference ?? null,
                 updatedAt: maxAssertedAt,
+                sourceCheckedAt: maxSourceCheckedAt,
                 isSynced: true,
             }
         };
@@ -335,6 +352,7 @@ function resolveField(
                 source: derived.isScoped ? 'USER_INPUT' : (derived.evidenceProvider || derived.sourceType || 'MASTER_RECORD'),
                 sourceReference: derived.sourceReference ?? null,
                 updatedAt: derived.assertedAt,
+                sourceCheckedAt: resolveSourceCheckedAt(derived.sourceType || derived.evidenceProvider, derived.sourceReference, derived.assertedAt, provenanceMap),
                 isSynced: true,
             }
         };
@@ -468,7 +486,7 @@ export async function enrichAddressReferences(values: any[]) {
  * exactly — no duplicated logic.
  */
 export async function resolveMasterDataBatch(input: BatchResolverInput): Promise<ResolverResponse> {
-    const { subjectLeId, ownerScopeId, questions, fieldDefMap, groupFieldMap, claims, sourceMappings } = input;
+    const { subjectLeId, ownerScopeId, questions, fieldDefMap, groupFieldMap, claims, sourceMappings, provenanceMap } = input;
 
     const response: ResolverResponse = {};
 
@@ -483,7 +501,7 @@ export async function resolveMasterDataBatch(input: BatchResolverInput): Promise
         for (const fieldNo of fieldNos) {
             const def = fieldDefMap.get(fieldNo);
             if (!def) continue;
-            Object.assign(groupResult, resolveField(fieldNo, def.isMultiValue, claims, ownerScopeId, sourceMappings));
+            Object.assign(groupResult, resolveField(fieldNo, def.isMultiValue, claims, ownerScopeId, sourceMappings, provenanceMap));
         }
         resolvedGroups.set(groupKey, groupResult);
     }
@@ -494,7 +512,7 @@ export async function resolveMasterDataBatch(input: BatchResolverInput): Promise
             if (!resolvedFields.has(q.masterFieldNo)) {
                 const def = fieldDefMap.get(q.masterFieldNo);
                 if (def) {
-                    resolvedFields.set(q.masterFieldNo, resolveField(q.masterFieldNo, def.isMultiValue, claims, ownerScopeId, sourceMappings));
+                    resolvedFields.set(q.masterFieldNo, resolveField(q.masterFieldNo, def.isMultiValue, claims, ownerScopeId, sourceMappings, provenanceMap));
                 }
             }
         }
@@ -639,7 +657,20 @@ export interface FieldDetailData {
         isAuthoritative: boolean;
         status: string;
     }[];
-    rows?: { id: string; value: any; source: string; timestamp: Date; instanceId?: string; collectionId?: string; data?: any; label?: string; sourceReference?: string; isPromotedToCCC?: boolean }[];
+    rows?: { 
+        id: string; 
+        value: any; 
+        source: string; 
+        timestamp: Date; 
+        instanceId?: string; 
+        collectionId?: string; 
+        data?: any; 
+        label?: string; 
+        sourceReference?: string; 
+        isPromotedToCCC?: boolean;
+        canonicalDisplayModel?: import('@/lib/master-data/field-display-model').FieldDisplayModel;
+    }[];
+    canonicalDisplayModel?: import('@/lib/master-data/field-display-model').FieldDisplayModel;
     /**
      * For repeating/collection fields only.
      * True if the user has made any add or remove action on this collection
@@ -953,7 +984,7 @@ export async function getFieldDetail(
     const derived = await KycStateService.getAuthoritativeValue({ subjectLeId }, fieldNo, ownerScopeId);
 
     // 2. Load Rows if repeating
-    let rows: { id: string; value: any; source: string; timestamp: Date; instanceId?: string; collectionId?: string; data?: any; label?: string; sourceReference?: string; isPromotedToCCC?: boolean }[] | undefined = undefined;
+    let rows: { id: string; value: any; source: string; timestamp: Date; instanceId?: string; collectionId?: string; data?: any; label?: string; sourceReference?: string; isPromotedToCCC?: boolean; sourceCheckedAt?: Date | null; }[] | undefined = undefined;
 
     // Check for Graph Binding
     const bindings = await prisma.masterFieldGraphBinding.findMany({
@@ -1014,7 +1045,8 @@ export async function getFieldDetail(
                     timestamp: edge.createdAt,
                     instanceId: edge.id, // Use edge ID as instance ID for graph-bound fields
                     label,
-                    sourceReference: edge.edgeType
+                    sourceReference: edge.edgeType,
+                    sourceCheckedAt: null
                 };
             });
         } else {
@@ -1043,7 +1075,8 @@ export async function getFieldDetail(
                     collectionId: c.collectionId,
                     data: undefined,
                     label: typeof c.value === 'string' ? c.value : undefined,
-                    isPromotedToCCC: promotedClaimIds.has(c.claimId)
+                    isPromotedToCCC: promotedClaimIds.has(c.claimId),
+                    sourceCheckedAt: c.sourceCheckedAt || null
                 };
             });
 
@@ -1319,26 +1352,6 @@ export async function getFieldDetail(
         return false;
     };
 
-    let winningSourceCheckedAt: Date | null = null;
-    if (derived && !derived.isScoped && clientLEForSource) {
-        const sourceType = derived.sourceType || derived.evidenceProvider;
-        if (sourceType === "GLEIF" && clientLEForSource.gleifFetchedAt) {
-            winningSourceCheckedAt = clientLEForSource.gleifFetchedAt;
-        } else if ((sourceType === "REGISTRATION_AUTHORITY" || sourceType === "COMPANIES_HOUSE") && derived.sourceReference) {
-            const run = await prisma.enrichmentRun.findFirst({
-                where: {
-                    legalEntityId: clientLEForSource.legalEntityId,
-                    registrationAuthorityId: derived.sourceReference,
-                    status: "SUCCESS"
-                },
-                orderBy: { completedAt: 'desc' }
-            });
-            if (run) {
-                winningSourceCheckedAt = run.completedAt;
-            }
-        }
-    }
-
     let displayState: "HAS_VALUE" | "MAPPED_NOT_CHECKED" | "CHECKED_NO_DATA" | "DEFAULT_RESPONSE" | "UNMAPPED_NO_RESPONSE" = "UNMAPPED_NO_RESPONSE";
     
     const derivedValueForCheck = def?.isMultiValue && rows ? rows.map((r: any) => r.value) : derived?.value;
@@ -1391,7 +1404,7 @@ export async function getFieldDetail(
             confidence: derived.confidenceScore || 1.0,
             claimId: derived.claimId,
             isPromotedToCCC: promotedClaimIds.has(derived.claimId),
-            sourceCheckedAt: sourceSyncDerivedLastValidatedAt || winningSourceCheckedAt
+            sourceCheckedAt: derived.sourceCheckedAt || evaluatedSourceTimestamp
         } : (finalSourceBadgeForEmpty ? {
             value: null,
             source: finalSourceBadgeForEmpty as ProvenanceSource,
@@ -1515,6 +1528,50 @@ export async function getFieldDetail(
             } else {
                 result.current.value = enrichValue(result.current.value);
             }
+        }
+    }
+
+    // Phase FD-1: Attach canonical display model to root current value
+    const metadataForDisplay = {
+        fieldNo: result.fieldNo ?? 0,
+        label: result.fieldName ?? 'Unknown Field',
+        displayState: result.displayState as any,
+        appDataType: result.dataType as any,
+        profileConfig: result.profileConfig as any,
+        isMultiValue: result.isRepeating,
+        codeSystem: result.codeSystem
+    };
+
+    if (result.current) {
+        (result as any).canonicalDisplayModel = resolveFieldForDisplay(
+            result.current.value,
+            result.current.source ? { 
+                type: result.current.source as any, 
+                reference: result.current.sourceReference,
+                timestamp: result.current.timestamp,
+                sourceCheckedAt: result.current.sourceCheckedAt
+            } : null,
+            metadataForDisplay
+        );
+    }
+
+    // Phase FD-1: Attach canonical display model to each row for repeating fields
+    if (result.isRepeating && result.rows) {
+        for (const row of result.rows) {
+            (row as any).canonicalDisplayModel = resolveFieldForDisplay(
+                row.value,
+                row.source ? { 
+                    type: row.source as any, 
+                    reference: row.sourceReference,
+                    timestamp: row.timestamp,
+                    sourceCheckedAt: row.sourceCheckedAt 
+                } : null,
+                {
+                    ...metadataForDisplay,
+                    // Treat each row as a single scalar item for canonical display purposes
+                    isMultiValue: false 
+                }
+            );
         }
     }
 

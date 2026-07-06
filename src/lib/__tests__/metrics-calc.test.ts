@@ -25,6 +25,7 @@ vi.mock('@/lib/prisma', () => ({
         masterFieldGroupItem: { findMany: vi.fn() },
         clientLEOwner: { findFirst: vi.fn() },
         sourceFieldMapping: { findMany: vi.fn() },
+        clientLE: { findUnique: vi.fn() },
     },
 }));
 
@@ -82,6 +83,7 @@ beforeEach(() => {
     // Stable defaults — no group items needed for single-field tests
     mock.masterFieldGroupItem.findMany.mockResolvedValue([]);
     mock.sourceFieldMapping.findMany.mockResolvedValue([]);
+    mock.clientLE.findUnique.mockResolvedValue({ gleifFetchedAt: null, registryReferences: [] });
 });
 
 // ─── Tests ───────────────────────────────────────────────────────────────────

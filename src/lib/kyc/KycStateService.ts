@@ -2,6 +2,7 @@ import prisma from "@/lib/prisma";
 import { ClaimStatus, FieldClaim, Prisma } from "@prisma/client";
 import { COLLECTION_FIELD_CONFIG } from "./collection-field-config";
 import { getFallbackPriority, USER_INPUT_PRIORITY } from "./source-priority-config";
+import { fetchProvenanceMap, resolveSourceCheckedAt } from "./provenance-enricher";
 
 export type DerivedValue = {
     value: any;
@@ -20,6 +21,8 @@ export type DerivedValue = {
     effectiveFrom?: Date;
     /** End of the relationship period (e.g. director resignation date). Null/absent = still active. */
     effectiveTo?: Date;
+    /** The date the value was last validated against its authoritative source. */
+    sourceCheckedAt?: Date;
 };
 
 // ── Priority resolution ───────────────────────────────────────────────────────
@@ -148,17 +151,17 @@ export class KycStateService {
      * Derives the authoritative value for a single-value field.
      */
     static async getAuthoritativeValue(
-        subject: { subjectLeId?: string; subjectPersonId?: string; subjectOrgId?: string },
+        subject: { subjectLeId?: string; subjectPersonId?: string; subjectOrgId?: string; clientLEId?: string },
         fieldNo: number,
         ownerScopeId?: string,
         snapshotDate?: Date
     ): Promise<DerivedValue | null> {
-        // Comparison Set: (subject, fieldNo, ownerScopeId)
+        const { clientLEId, ...subjectFilter } = subject;
         const claims = await prisma.fieldClaim.findMany({
             include: { evidence: true, valueAddress: true, valuePerson: true, valueLe: true, valueOrg: true },
             where: {
                 fieldNo,
-                ...subject,
+                ...subjectFilter,
                 status: { in: [ClaimStatus.VERIFIED, ClaimStatus.ASSERTED] },
                 assertedAt: snapshotDate ? { lte: snapshotDate } : undefined,
                 OR: [
@@ -180,14 +183,29 @@ export class KycStateService {
         const winner = this.pickWinner(claims, ownerScopeId, priorityMap);
         if (!winner || this.isTombstone(winner)) return null;
 
-        return this.mapToDerivedValue(winner, ownerScopeId);
+        const derived = this.mapToDerivedValue(winner, ownerScopeId);
+        
+        if (subject.clientLEId) {
+            const provenanceMap = await fetchProvenanceMap({ clientLEId: subject.clientLEId });
+            const resolvedCheckedAt = resolveSourceCheckedAt(
+                derived.sourceType || derived.evidenceProvider,
+                derived.sourceReference,
+                derived.assertedAt,
+                provenanceMap
+            );
+            if (resolvedCheckedAt) {
+                derived.sourceCheckedAt = resolvedCheckedAt;
+            }
+        }
+
+        return derived;
     }
 
     /**
      * Derives a collection of values for a repeating field.
      */
     static async getAuthoritativeCollection(
-        subject: { subjectLeId?: string; subjectPersonId?: string; subjectOrgId?: string },
+        subject: { subjectLeId?: string; subjectPersonId?: string; subjectOrgId?: string; clientLEId?: string },
         fieldNo: number,
         ownerScopeId?: string,
         snapshotDate?: Date,
@@ -199,12 +217,13 @@ export class KycStateService {
          */
         filterCollectionId?: string
     ): Promise<DerivedValue[]> {
+        const { clientLEId, ...subjectFilter } = subject;
         // Multi-value Comparison Set: (subject, fieldNo, ownerScopeId, collectionId, instanceId)
         const claims = await prisma.fieldClaim.findMany({
             include: { evidence: true, valueAddress: true, valuePerson: true, valueLe: true, valueOrg: true },
             where: {
                 fieldNo,
-                ...subject,
+                ...subjectFilter,
                 // When a named collection is specified, exclude legacy NULL-collectionId claims.
                 collectionId: filterCollectionId ?? undefined,
                 status: { in: [ClaimStatus.VERIFIED, ClaimStatus.ASSERTED] },
@@ -232,10 +251,25 @@ export class KycStateService {
         }
 
         const results: DerivedValue[] = [];
+        let provenanceMap = null;
+        if (subject.clientLEId) {
+            provenanceMap = await fetchProvenanceMap({ clientLEId: subject.clientLEId });
+        }
+
         for (const key in itemGroups) {
             const winner = this.pickWinner(itemGroups[key], ownerScopeId, priorityMap);
             if (winner && !this.isTombstone(winner)) {
-                results.push(this.mapToDerivedValue(winner, ownerScopeId));
+                const derived = this.mapToDerivedValue(winner, ownerScopeId);
+                const resolvedCheckedAt = resolveSourceCheckedAt(
+                    derived.sourceType || derived.evidenceProvider,
+                    derived.sourceReference,
+                    derived.assertedAt,
+                    provenanceMap
+                );
+                if (resolvedCheckedAt) {
+                    derived.sourceCheckedAt = resolvedCheckedAt;
+                }
+                results.push(derived);
             }
         }
 
@@ -279,7 +313,7 @@ export class KycStateService {
      * tombstone rules, same effectiveTo filter.
      */
     static async resolveAllFields(
-        subject: { subjectLeId?: string; subjectPersonId?: string; subjectOrgId?: string },
+        subject: { subjectLeId?: string; subjectPersonId?: string; subjectOrgId?: string; clientLEId?: string },
         fieldDefs: Array<{
             fieldNo: number;
             isMultiValue: boolean;
@@ -294,11 +328,12 @@ export class KycStateService {
         const fieldNos = fieldDefs.map(d => d.fieldNo);
 
         // ── Round-trip 1: all claims for all fields ────────────────────────────
+        const { clientLEId, ...subjectFilter } = subject;
         const allClaims = await prisma.fieldClaim.findMany({
             include: { evidence: true, valueAddress: true, valuePerson: true, valueLe: true, valueOrg: true },
             where: {
-                fieldNo: { in: fieldNos },
-                ...subject,
+                fieldNo: { in: Array.from(fieldNos) },
+                ...subjectFilter,
                 status: { in: [ClaimStatus.VERIFIED, ClaimStatus.ASSERTED] },
                 OR: [
                     { ownerScopeId: ownerScopeId || undefined },
@@ -346,6 +381,11 @@ export class KycStateService {
 
         // ── Resolve each field in memory ──────────────────────────────────────
         const now = new Date();
+        let provenanceMap = null;
+        if (subject.clientLEId) {
+            provenanceMap = await fetchProvenanceMap({ clientLEId: subject.clientLEId });
+        }
+
         for (const def of fieldDefs) {
             // Filter to the named collection when specified — excludes legacy
             // plain-text claims (collectionId = NULL) that predate the structured
@@ -374,7 +414,17 @@ export class KycStateService {
                 for (const group of Object.values(itemGroups)) {
                     const winner = this.pickWinner(group, ownerScopeId, priorityMap);
                     if (winner && !this.isTombstone(winner)) {
-                        collection.push(this.mapToDerivedValue(winner, ownerScopeId));
+                        const derived = this.mapToDerivedValue(winner, ownerScopeId);
+                        if (provenanceMap) {
+                            const resolvedCheckedAt = resolveSourceCheckedAt(
+                                derived.sourceType || derived.evidenceProvider,
+                                derived.sourceReference,
+                                derived.assertedAt,
+                                provenanceMap
+                            );
+                            if (resolvedCheckedAt) derived.sourceCheckedAt = resolvedCheckedAt;
+                        }
+                        collection.push(derived);
                     }
                 }
 
@@ -390,7 +440,17 @@ export class KycStateService {
                 if (!winner || this.isTombstone(winner)) {
                     result.set(def.fieldNo, null);
                 } else {
-                    result.set(def.fieldNo, this.mapToDerivedValue(winner, ownerScopeId));
+                    const derived = this.mapToDerivedValue(winner, ownerScopeId);
+                    if (provenanceMap) {
+                        const resolvedCheckedAt = resolveSourceCheckedAt(
+                            derived.sourceType || derived.evidenceProvider,
+                            derived.sourceReference,
+                            derived.assertedAt,
+                            provenanceMap
+                        );
+                        if (resolvedCheckedAt) derived.sourceCheckedAt = resolvedCheckedAt;
+                    }
+                    result.set(def.fieldNo, derived);
                 }
             }
         }

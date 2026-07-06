@@ -26,9 +26,8 @@ import {
     buildNameHistoryRowKey,
 } from '../transforms';
 import {
-    renderNameHistoryRow,
-    renderCollectionRow,
-} from '@/lib/master-data/structured-collection-renderers';
+    formatStructuredCollectionRow,
+} from '@/lib/master-data/structured-value-formatters';
 
 // ── T1: CH shape ──────────────────────────────────────────────────────────────
 
@@ -193,11 +192,11 @@ describe('TO_NAME_HISTORY_LIST', () => {
 
 // ── Renderer tests ────────────────────────────────────────────────────────────
 
-describe('renderNameHistoryRow', () => {
+describe('formatStructuredCollectionRow (Field 5)', () => {
 
     // T9: full date range
     it('T9: formats full date range correctly', () => {
-        const result = renderNameHistoryRow({
+        const result = formatStructuredCollectionRow(5, {
             name: 'CENTRICA (LW) LIMITED',
             effectiveFrom: '2006-03-03',
             effectiveTo: '2009-10-08',
@@ -212,7 +211,7 @@ describe('renderNameHistoryRow', () => {
 
     // T10: no dates → null secondary
     it('T10: no dates returns null secondary', () => {
-        const result = renderNameHistoryRow({ name: 'Some Previous Name' });
+        const result = formatStructuredCollectionRow(5, { name: 'Some Previous Name' });
 
         expect(result.primary).toBe('Some Previous Name');
         expect(result.secondary).toBeNull();
@@ -220,7 +219,7 @@ describe('renderNameHistoryRow', () => {
 
     // T11: only effectiveTo
     it('T11: only effectiveTo → "Until ..." secondary', () => {
-        const result = renderNameHistoryRow({
+        const result = formatStructuredCollectionRow(5, {
             name: 'Ended Name Ltd',
             effectiveTo: '2015-06-30',
         });
@@ -229,18 +228,16 @@ describe('renderNameHistoryRow', () => {
     });
 });
 
-describe('renderCollectionRow', () => {
+describe('formatStructuredCollectionRow (generic fallback)', () => {
 
     // T12: graceful fallback for unregistered fieldNo
     it('T12: falls back gracefully for unregistered fieldNo', () => {
-        const result = renderCollectionRow(999, { name: 'Something' });
-        // Should still pick up .name from generic fallback
-        expect(result.primary).toBe('Something');
-        expect(result.secondary).toBeNull();
+        const result = formatStructuredCollectionRow(999, { name: 'Something' });
+        expect(result.handled).toBe(false);
     });
 
     it('T12b: uses Field 5 renderer when fieldNo is 5', () => {
-        const result = renderCollectionRow(5, {
+        const result = formatStructuredCollectionRow(5, {
             name: 'CENTRICA (LW) LIMITED',
             effectiveFrom: '2006-03-03',
             effectiveTo: '2009-10-08',

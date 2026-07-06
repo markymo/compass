@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils";
 import { FieldSource } from "@/lib/master-data/field-display-model";
 import { getSourceDisplayName } from "@/lib/source-display";
 import { SOURCE_PALETTE } from "@/lib/master-data/source-palette";
+import { StandardTooltip } from "@/components/ui/standard-tooltip";
 
 export interface FieldSourceBadgeProps {
     source?: FieldSource | null;
@@ -13,6 +14,9 @@ export interface FieldSourceBadgeProps {
     legacyRaId?: string;
     legacyRaName?: string;
     legacyTimestamp?: string;
+
+    // Optional feature flags
+    showLastValidated?: boolean;
 
     // Overrides
     className?: string;
@@ -27,6 +31,7 @@ export function FieldSourceBadge({
     legacyRaId,
     legacyRaName,
     legacyTimestamp,
+    showLastValidated = false,
     className,
     variant = 'badge',
     wrapperClassName
@@ -75,16 +80,6 @@ export function FieldSourceBadge({
     const content = (
         <>
             <span>{label}</span>
-            {showRaCode && raId && (
-                <span className="ml-1 opacity-60 font-mono normal-case tracking-normal">
-                    &middot; {raId}
-                </span>
-            )}
-            {timestampStr && (
-                <span className="ml-1 opacity-50">
-                    &middot; {new Date(timestampStr).toLocaleDateString()}
-                </span>
-            )}
         </>
     );
 
@@ -104,7 +99,22 @@ export function FieldSourceBadge({
     }
 
     if (wrapperClassName) {
-        return <div className={wrapperClassName}>{element}</div>;
+        element = <div className={wrapperClassName}>{element}</div>;
+    }
+
+    if (showLastValidated && source?.lastValidatedAt) {
+        return (
+            <div className="flex items-center gap-2">
+                {element}
+                <div className="flex flex-col text-[10px] text-slate-400 border-l border-slate-200 pl-2 leading-tight justify-center">
+                    <StandardTooltip content="Based on the most recent successful sync of the mapped external source.">
+                        <span className="whitespace-nowrap">
+                            Last validated: {new Date(source.lastValidatedAt).toLocaleString()}
+                        </span>
+                    </StandardTooltip>
+                </div>
+            </div>
+        );
     }
 
     return element;

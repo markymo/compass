@@ -178,6 +178,54 @@ describe('field-interpreter', () => {
             expect(result.source.category).toBe('REGISTRY');
             expect(result.source.label).toContain('Companies House');
             expect(result.source.timestamp).toBe('2025-01-01T12:00:00.000Z');
+            expect(result.source.lastValidatedAt).toBe('2025-01-01T12:00:00.000Z'); // Fallback to timestamp
         }
+    });
+
+    it('resolves lastValidatedAt correctly when sourceCheckedAt is provided', () => {
+        const rawSource = { 
+            type: 'USER_INPUT', 
+            timestamp: new Date('2025-01-01T12:00:00Z'),
+            sourceCheckedAt: new Date('2025-02-01T15:30:00Z')
+        };
+        const result = resolveFieldForDisplay('Hello', rawSource, defaultMeta);
+
+        expect(result.source).toBeDefined();
+        if (result.source) {
+            expect(result.source.timestamp).toBe('2025-01-01T12:00:00.000Z');
+            expect(result.source.lastValidatedAt).toBe('2025-02-01T15:30:00.000Z');
+        }
+    });
+
+    it('resolves structured collection row correctly when fieldNo is registered', () => {
+        const rawValue = { 
+            name: "CENTRICA (LW) LIMITED", 
+            effectiveFrom: "2006-03-03T00:00:00.000Z", 
+            effectiveTo: "2009-10-08T00:00:00.000Z" 
+        };
+        const metaWithFieldNo = { ...defaultMeta, fieldNo: 5 };
+        const result = resolveFieldForDisplay(rawValue, null, metaWithFieldNo);
+
+        expect(result.state).toBe('POPULATED');
+        expect(result.value.kind).toBe('scalar');
+        if (result.value.kind === 'scalar') {
+            expect(result.value.display).toBe('CENTRICA (LW) LIMITED (3 Mar 2006 → 8 Oct 2009)');
+        }
+        expect(result.textSummary).toBe('CENTRICA (LW) LIMITED (3 Mar 2006 → 8 Oct 2009)');
+    });
+
+    it('falls back to [Structured value] when fieldNo formatter returns handled: false', () => {
+        const rawValue = { 
+            unknownKey: "value" 
+        };
+        const metaWithFieldNo = { ...defaultMeta, fieldNo: 999 }; // Unknown field
+        const result = resolveFieldForDisplay(rawValue, null, metaWithFieldNo);
+
+        expect(result.state).toBe('POPULATED');
+        expect(result.value.kind).toBe('scalar');
+        if (result.value.kind === 'scalar') {
+            expect(result.value.display).toBe('[Structured value]');
+        }
+        expect(result.textSummary).toBe('[Structured value]');
     });
 });

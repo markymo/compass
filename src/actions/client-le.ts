@@ -636,7 +636,7 @@ export async function getFullMasterData(clientLEId: string) {
         // Batch-resolve all fields in 2 DB queries instead of 2×N sequential round-trips.
         // resolveAllFields: 1× fieldClaim.findMany (all fields) + 1× sourceFieldMapping.findMany
         const resolved = await KycStateService.resolveAllFields(
-            { subjectLeId },
+            { subjectLeId, clientLEId: clientLE.id },
             allFields.map(d => {
                 const cfg = getComplexFieldConfig(d.fieldNo);
                 return {
@@ -703,6 +703,8 @@ export async function getFullMasterData(clientLEId: string) {
             let valueToSet: any = null;
             let sourceToSet: string | undefined = undefined;
             let sourceRefToSet: string | undefined = undefined;
+            let timestampToSet: Date | undefined = undefined;
+            let sourceCheckedAtToSet: Date | undefined = undefined;
 
             if (val !== null && val !== undefined) {
                 if (Array.isArray(val)) {
@@ -711,11 +713,15 @@ export async function getFullMasterData(clientLEId: string) {
                         valueToSet = val.map((c: any) => resolvePartyRef(c.value));
                         sourceToSet = val[0].isScoped ? 'USER_INPUT' : (val[0].evidenceProvider || val[0].sourceType || 'MASTER_RECORD');
                         sourceRefToSet = val[0].isScoped ? val[0].sourceReference || undefined : undefined;
+                        timestampToSet = val[0].assertedAt || undefined;
+                        sourceCheckedAtToSet = val[0].sourceCheckedAt || undefined;
                     }
                 } else {
                     valueToSet = resolvePartyRef(val.value);
                     sourceToSet = val.isScoped ? 'USER_INPUT' : (val.evidenceProvider || val.sourceType || 'MASTER_RECORD');
                     sourceRefToSet = val.sourceReference ?? undefined;
+                    timestampToSet = val.assertedAt || undefined;
+                    sourceCheckedAtToSet = val.sourceCheckedAt || undefined;
                 }
             }
 
@@ -730,12 +736,17 @@ export async function getFullMasterData(clientLEId: string) {
                 if (mappedSources.includes("GLEIF") && clientLE.gleifFetchedAt) {
                     hasEvaluationAttempt = true;
                     evaluatedSourceBadge = "GLEIF";
+                    sourceCheckedAtToSet = sourceCheckedAtToSet || clientLE.gleifFetchedAt;
                 } else if (mappedSources.includes("REGISTRATION_AUTHORITY") && clientLE.registryReferences?.some((r: any) => r.lastSyncSucceededAt || r.lastSyncStatus)) {
                     hasEvaluationAttempt = true;
                     evaluatedSourceBadge = "REGISTRATION_AUTHORITY";
+                    const ref = clientLE.registryReferences.find((r: any) => r.lastSyncSucceededAt);
+                    if (ref) sourceCheckedAtToSet = sourceCheckedAtToSet || ref.lastSyncSucceededAt;
                 } else if (mappedSources.includes("COMPANIES_HOUSE") && clientLE.registryReferences?.some((r: any) => r.authority?.name?.includes("Companies House"))) {
                     hasEvaluationAttempt = true;
                     evaluatedSourceBadge = "COMPANIES_HOUSE";
+                    const ref = clientLE.registryReferences.find((r: any) => r.authority?.name?.includes("Companies House"));
+                    if (ref?.lastSyncSucceededAt) sourceCheckedAtToSet = sourceCheckedAtToSet || ref.lastSyncSucceededAt;
                 } else if (clientLE.gleifFetchedAt || clientLE.registryReferences?.length > 0) {
                     // Fallback: If it's mapped to some automated source and we've done general enrichment
                     hasEvaluationAttempt = true;
@@ -763,8 +774,9 @@ export async function getFullMasterData(clientLEId: string) {
             const rawSource = sourceToSet ? {
                 type: sourceToSet,
                 reference: sourceRefToSet,
-                // Passing null for timestamp/userName for now as the old pipeline drops them here,
-                // but we will enrich them fully in Phase 2.
+                timestamp: timestampToSet || null,
+                sourceCheckedAt: sourceCheckedAtToSet || null,
+                userName: null
             } : null;
 
             const displayModel = resolveFieldForDisplay(
