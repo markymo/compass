@@ -136,6 +136,7 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
 
     // 3. Get Custom Fields available to this LE (context of owners or current user FI)
     const customFieldsRaw = await prisma.customFieldDefinition.findMany({
+        where: { isDeleted: false },
         orderBy: { label: 'asc' }
     });
     const customData = (clientLE?.customData as Record<string, any>) || {};

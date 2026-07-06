@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import Link from "next/link";
 import { ChevronRight, Database, Edit, Save, BookOpen, FileText, Globe, Link as LinkIcon, Trash2, GitBranch, Plus, Loader2, ScanSearch, Users } from "lucide-react";
-import { updateMasterField } from "@/actions/master-data-governance";
+import { updateMasterField, checkCustomFieldDependencies, softDeleteCustomField, DependencyReport } from "@/actions/master-data-governance";
 import { useRouter } from "next/navigation";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -192,6 +192,46 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
     const [isAddBindingOpen, setIsAddBindingOpen] = useState(false);
     /** null = add mode; string = id of binding being edited */
     const [editingBindingId, setEditingBindingId] = useState<string | null>(null);
+
+    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+    const [isCheckingDependencies, setIsCheckingDependencies] = useState(false);
+    const [dependencyReport, setDependencyReport] = useState<DependencyReport | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
+
+    const openDeleteDialog = async () => {
+        setIsDeleteDialogOpen(true);
+        setIsCheckingDependencies(true);
+        setDependencyReport(null);
+        try {
+            const report = await checkCustomFieldDependencies(field!.customFieldId!);
+            setDependencyReport(report);
+        } catch (e) {
+            toast.error("Failed to check dependencies");
+            setIsDeleteDialogOpen(false);
+        } finally {
+            setIsCheckingDependencies(false);
+        }
+    };
+
+    const confirmDelete = async () => {
+        setIsDeleting(true);
+        try {
+            const res = await softDeleteCustomField(field!.customFieldId!);
+            if (res.success) {
+                toast.success("Field deleted");
+                setIsDeleteDialogOpen(false);
+                onOpenChange(false);
+                router.refresh();
+            } else {
+                toast.error(res.error || "Failed to delete field");
+            }
+        } catch (e) {
+            toast.error("An error occurred");
+        } finally {
+            setIsDeleting(false);
+        }
+    };
+
     const [deletingBindingId, setDeletingBindingId] = useState<string | null>(null);
     const [isBindingSaving, setIsBindingSaving] = useState(false);
     const [bindingForm, setBindingForm] = useState(BLANK_BINDING_FORM);
@@ -385,6 +425,11 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                             <Badge variant="outline" className={field.isActive ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-slate-100 text-slate-500"}>
                                 {field.isActive ? "Active" : "Inactive"}
                             </Badge>
+                            {field.fieldNo === 0 && field.customFieldId && (
+                                <Button variant="ghost" size="icon" onClick={openDeleteDialog} className="text-slate-400 hover:text-red-600 hover:bg-red-50" title="Delete Custom Field">
+                                    <Trash2 className="h-4 w-4" />
+                                </Button>
+                            )}
                         </div>
                         <div className="flex flex-wrap gap-2 mt-1">
                             {field.masterDataCategory?.displayName && <Badge variant="secondary" className="bg-blue-50 text-blue-700 font-normal">{field.masterDataCategory.displayName}</Badge>}

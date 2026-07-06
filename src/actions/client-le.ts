@@ -847,7 +847,8 @@ export async function getFullMasterData(clientLEId: string) {
                 OR: [
                     { orgId: { in: Array.from(targetOrgIds) } },
                     { id: { in: Array.from(targetDefIds) } }
-                ]
+                ],
+                isDeleted: false
             },
             orderBy: { label: 'asc' }
         });

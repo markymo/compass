@@ -235,16 +235,18 @@ export async function updateCustomFieldManually(
         const currentData = (le.customData as Record<string, any>) || {};
 
         // Update structure
-        const newData = {
-            ...currentData,
-            [fieldKey]: {
+        const newData = { ...currentData };
+        if (value === "" || value === null || value === undefined) {
+            delete newData[fieldKey];
+        } else {
+            newData[fieldKey] = {
                 value: value,
                 source: "USER_INPUT",
                 timestamp: new Date().toISOString(),
                 updatedBy: userId,
                 reason: reason
-            }
-        };
+            };
+        }
 
         await prisma.clientLE.update({
             where: { id: clientLEId },

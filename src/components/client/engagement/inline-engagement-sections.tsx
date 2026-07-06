@@ -54,10 +54,12 @@ export function InlineDocumentManager({ engagementId }: { engagementId: string }
 // --- Inline Output Builder ---
 export function InlineOutputBuilder({ 
     engagementId, 
-    questionnaires 
+    questionnaires,
+    commonQuestionnaires = []
 }: { 
     engagementId: string, 
-    questionnaires: any[] 
+    questionnaires: any[],
+    commonQuestionnaires?: any[]
 }) {
     const [data, setData] = useState<{ sharedDocuments: any[], evidenceDocuments: any[] } | null>(null);
     const [error, setError] = useState<string | null>(null);
@@ -92,9 +94,10 @@ export function InlineOutputBuilder({
 
     return (
         <div className="px-4 py-4 bg-white/50 border-t border-slate-100">
-            <OutputPackBuilder 
-                engagementId={engagementId} 
-                questionnaires={questionnaires}
+            <OutputPackBuilder
+                    engagementId={engagementId}
+                    questionnaires={questionnaires}
+                    commonQuestionnaires={commonQuestionnaires}
                 evidenceDocuments={data.evidenceDocuments}
                 sharedDocuments={data.sharedDocuments}
             />

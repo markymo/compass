@@ -55,9 +55,10 @@ interface EngagementManagerProps {
     leId: string;
     initialEngagements: any[];
     leDueDate: Date | null;
+    commonQuestionnaires?: any[];
 }
 
-export function EngagementManager({ leId, initialEngagements, leDueDate }: EngagementManagerProps) {
+export function EngagementManager({ leId, initialEngagements, leDueDate, commonQuestionnaires = [] }: EngagementManagerProps) {
     const router = useRouter();
     const [engagements, setEngagements] = useState(initialEngagements);
 
@@ -705,7 +706,7 @@ export function EngagementManager({ leId, initialEngagements, leDueDate }: Engag
                                             </div>
                                             <AccordionContent className="p-0 border-t border-slate-100">
                                                 {(expandedSections[eng.id] || []).includes("output") && (
-                                                    <InlineOutputBuilder engagementId={eng.id} questionnaires={eng.questionnaires || []} />
+                                                    <InlineOutputBuilder engagementId={eng.id} questionnaires={eng.questionnaires || []} commonQuestionnaires={commonQuestionnaires} />
                                                 )}
                                             </AccordionContent>
                                         </AccordionItem>
