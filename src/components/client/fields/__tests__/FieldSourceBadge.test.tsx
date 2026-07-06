@@ -30,7 +30,7 @@ describe('FieldSourceBadge', () => {
             expect(className).toContain('bg-purple-100 text-purple-700 border-purple-200');
         });
 
-        it('renders RA source with RA code suffix', () => {
+        it('renders RA source without RA code suffix', () => {
             const source: FieldSource = {
                 type: 'REGISTRATION_AUTHORITY',
                 reference: 'RA000585',
@@ -42,7 +42,7 @@ describe('FieldSourceBadge', () => {
             const children = getChildrenStr({ source });
             
             expect(children).toContain('Companies House');
-            expect(children).toContain('RA000585');
+            expect(children).not.toContain('RA000585');
             expect(className).toContain('bg-blue-100 text-blue-700 border-blue-200');
         });
     });
@@ -56,7 +56,7 @@ describe('FieldSourceBadge', () => {
             expect(className).toContain('bg-purple-100 text-purple-700 border-purple-200');
         });
 
-        it('resolves legacy RA with ID and name', () => {
+        it('resolves legacy RA with name and hides ID', () => {
             const props = {
                 legacySourceType: 'REGISTRATION_AUTHORITY',
                 legacyRaId: 'RA000585',
@@ -66,7 +66,7 @@ describe('FieldSourceBadge', () => {
             const children = getChildrenStr(props);
             
             expect(children).toContain('Companies House');
-            expect(children).toContain('RA000585');
+            expect(children).not.toContain('RA000585');
             expect(className).toContain('bg-blue-100 text-blue-700 border-blue-200');
         });
 

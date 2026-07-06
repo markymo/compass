@@ -56,7 +56,7 @@ describe('Export Answer Resolver', () => {
         const res = await resolveExportAnswer(question, "le-1", "scope-1", "entity-1");
         
         expect(KycStateService.getAuthoritativeValue).toHaveBeenCalledWith(
-            { subjectLeId: "le-1" },
+            { subjectLeId: "le-1", clientLEId: "entity-1" },
             100,
             "scope-1",
             question.releasedAt
@@ -77,7 +77,7 @@ describe('Export Answer Resolver', () => {
 
             const res = await resolveExportAnswer(question, "le-1", "scope-1", "entity-1");
             expect(res.sourceLabel).toBe("GLEIF");
-            expect(res.sourceTimestamp).toBe(fixedDate);
+            expect(res.sourceTimestamp).toBe(fixedDate.toISOString());
         });
 
         it('2. Companies House includes registry label and timestamp', async () => {
@@ -91,7 +91,7 @@ describe('Export Answer Resolver', () => {
 
             const res = await resolveExportAnswer(question, "le-1", "scope-1", "entity-1");
             expect(res.sourceLabel).toBe("Companies House");
-            expect(res.sourceTimestamp).toBe(fixedDate);
+            expect(res.sourceTimestamp).toBe(fixedDate.toISOString());
         });
 
         it('3. USER_INPUT value includes user metadata', async () => {
@@ -111,7 +111,7 @@ describe('Export Answer Resolver', () => {
             const res = await resolveExportAnswer(question, "le-1", "scope-1", "entity-1");
             expect(res.sourceLabel).toBe("User input — Alice Smith");
             expect(res.sourceUserName).toBe("Alice Smith");
-            expect(res.sourceTimestamp).toBe(fixedDate);
+            expect(res.sourceTimestamp).toBe(fixedDate.toISOString());
         });
 
         it('4. released default shows releasing user and release timestamp', async () => {
@@ -182,7 +182,7 @@ describe('Export Answer Resolver', () => {
             const res = await resolveExportAnswer(question, "le-1", "scope-1", "entity-1");
             expect(res.displayValue).toBe("None");
             expect(res.sourceLabel).toBe("User input — Charlie");
-            expect(res.sourceTimestamp).toBe(fixedDate);
+            expect(res.sourceTimestamp).toBe(fixedDate.toISOString());
         });
 
         it('8. direct unmapped answer shows questionnaire/release provenance', async () => {
