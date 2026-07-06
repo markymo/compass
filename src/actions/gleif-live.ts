@@ -2,7 +2,7 @@
 
 import { fetchGLEIFData } from "@/actions/gleif";
 
-export async function fetchLiveGleifRecord(leiOrName: string) {
+export async function fetchLiveGleifRecord(leiOrName: string, subtype?: string) {
     if (!leiOrName || leiOrName.trim().length < 3) {
         return { success: false, error: "Please enter at least 3 characters." };
     }
@@ -17,6 +17,10 @@ export async function fetchLiveGleifRecord(leiOrName: string) {
                 return { success: false, error: res.error };
             }
             const data = res.data;
+            if (subtype === "LEVEL_1") return { success: true, payload: data.attributes };
+            if (subtype === "LEVEL_2_RELATIONSHIPS") return { success: true, payload: data.gleifL2 };
+            if (subtype === "ELF") return { success: true, payload: data.gleifElf };
+            
             const mergedPayload = {
                 ...data.attributes,
                 gleifL2: data.gleifL2,
@@ -49,6 +53,10 @@ export async function fetchLiveGleifRecord(leiOrName: string) {
         }
         
         const data = res.data;
+        if (subtype === "LEVEL_1") return { success: true, payload: data.attributes };
+        if (subtype === "LEVEL_2_RELATIONSHIPS") return { success: true, payload: data.gleifL2 };
+        if (subtype === "ELF") return { success: true, payload: data.gleifElf };
+        
         const mergedPayload = {
             ...data.attributes,
             gleifL2: data.gleifL2,

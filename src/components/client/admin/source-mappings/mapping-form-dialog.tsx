@@ -239,7 +239,7 @@ export function MappingFormDialog({ open, onOpenChange, selectedOption, fieldDef
     const [sourcePath,    setSourcePath]    = useState("");
     const [targetFieldNo, setTargetFieldNo] = useState("");
     const [mappingScope,  setMappingScope]  = useState(isGleif ? GLEIF_SCOPE_DEFAULT : RA_SCOPE_DEFAULT);
-    const [payloadSubtype,setPayloadSubtype]= useState(isGleif ? "NONE" : RA_SUBTYPE_DEFAULT);
+    const [payloadSubtype,setPayloadSubtype]= useState(isGleif ? "LEVEL_1" : RA_SUBTYPE_DEFAULT);
     const [transformType, setTransformType] = useState("DIRECT");
     const [priority,      setPriority]      = useState("100");
     const [notes,         setNotes]         = useState("");
@@ -280,7 +280,7 @@ export function MappingFormDialog({ open, onOpenChange, selectedOption, fieldDef
 
         const targetFieldId = existingMapping?.targetFieldNo?.toString() ?? "";
         const field = fieldDefs.find((f: any) => String(f.fieldNo) === targetFieldId);
-        const defaultSubtype = isGleif ? "NONE" : ((field?.appDataType === "PARTY" || field?.appDataType === "PERSON_OR_CONTACT") ? "OFFICERS" : RA_SUBTYPE_DEFAULT);
+        const defaultSubtype = isGleif ? "LEVEL_1" : ((field?.appDataType === "PARTY" || field?.appDataType === "PERSON_OR_CONTACT") ? "OFFICERS" : RA_SUBTYPE_DEFAULT);
         setPayloadSubtype(existingMapping?.payloadSubtype ?? initialPayloadSubtype ?? defaultSubtype);
 
         setTransformType(existingMapping?.transformType ?? initialTransformType ?? "DIRECT");

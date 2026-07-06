@@ -70,10 +70,20 @@ export async function mapGleifPayloadToFieldCandidates(payload: any, evidenceId:
         for (const mapping of mappings) {
             try {
                 const segments = parsePath(mapping.sourcePath);
-                let rawValue = resolveDotPath(attr, segments);
+                let rawValue = null;
 
-                if (rawValue == null && (mapping.sourcePath.startsWith("gleifL2") || mapping.sourcePath.startsWith("gleifElf"))) {
-                    rawValue = resolveDotPath(payload, segments);
+                if (mapping.payloadSubtype === 'LEVEL_2_RELATIONSHIPS') {
+                    rawValue = resolveDotPath(payload?.gleifL2, segments);
+                } else if (mapping.payloadSubtype === 'ELF') {
+                    rawValue = resolveDotPath(payload?.gleifElf, segments);
+                } else {
+                    // LEVEL_1 or legacy
+                    rawValue = resolveDotPath(attr, segments);
+
+                    // Legacy fallback for old mappings that already include gleifL2/gleifElf in the path
+                    if (rawValue == null && (mapping.sourcePath.startsWith("gleifL2") || mapping.sourcePath.startsWith("gleifElf"))) {
+                        rawValue = resolveDotPath(payload, segments);
+                    }
                 }
 
                 if (rawValue == null) {

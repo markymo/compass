@@ -99,7 +99,7 @@ export function DataInspectorPanel({
            : "04155137"); // Default CH example
 
     const [query, setQuery] = useState(defaultQuery);
-    const [payloadSubtype, setPayloadSubtype] = useState("COMPANY_PROFILE");
+    const [payloadSubtype, setPayloadSubtype] = useState(sourceType === "GLEIF" ? "LEVEL_1" : "COMPANY_PROFILE");
     const [loading, setLoading] = useState(false);
     const [payload, setPayload] = useState<any>(null);
     const [error, setError] = useState<string | null>(null);
@@ -142,7 +142,7 @@ export function DataInspectorPanel({
             const triggerFetch = async () => {
                 try {
                     if (sourceType === "GLEIF") {
-                        const res = await fetchLiveGleifRecord(defaultQuery);
+                        const res = await fetchLiveGleifRecord(defaultQuery, payloadSubtype);
                         if (res.success) setPayload(res.payload);
                         else { setError(res.error || "Failed to fetch data"); setPayload(null); }
                     } else if (sourceType === "REGISTRATION_AUTHORITY") {
@@ -195,7 +195,7 @@ export function DataInspectorPanel({
         setError(null);
         try {
             if (sourceType === "GLEIF") {
-                const res = await fetchLiveGleifRecord(query);
+                const res = await fetchLiveGleifRecord(query, payloadSubtype);
                 if (res.success) setPayload(res.payload);
                 else { setError(res.error || "Failed to fetch data"); setPayload(null); }
             } else if (sourceType === "REGISTRATION_AUTHORITY") {
@@ -273,6 +273,26 @@ export function DataInspectorPanel({
                         <span className="inline-block w-2 h-2 rounded-full bg-slate-300" /> Unmapped
                     </span>
                 </div>
+
+                {sourceType === "GLEIF" && (
+                    <div className="flex gap-1 mt-3">
+                        {["LEVEL_1", "LEVEL_2_RELATIONSHIPS", "ELF"].map(sub => (
+                            <button
+                                key={sub}
+                                onClick={() => setPayloadSubtype(sub)}
+                                className={cn("text-[10px] px-2 py-0.5 rounded border transition-colors",
+                                    payloadSubtype === sub
+                                        ? "bg-blue-600 text-white border-blue-600 font-medium"
+                                        : "text-slate-500 border-slate-200 hover:border-slate-300 bg-white"
+                                )}
+                            >
+                                {sub === "LEVEL_1" ? "Level 1 Data"
+                                  : sub === "LEVEL_2_RELATIONSHIPS" ? "Relationships"
+                                  : "ELF Data"}
+                            </button>
+                        ))}
+                    </div>
+                )}
 
                 {isCompaniesHouse && (
                     <div className="flex gap-1 mt-3">
