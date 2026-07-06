@@ -25,6 +25,8 @@ export interface GleifL2Entity {
 export interface GleifL2Data {
     directParent: GleifL2Entity | null;
     ultimateParent: GleifL2Entity | null;
+    fundManager: GleifL2Entity | null;
+    umbrellaFund: GleifL2Entity | null;
     directParentException: string | null;
     ultimateParentException: string | null;
     directChildrenCount: number | null;
@@ -71,12 +73,12 @@ function extractCompact(record: any): GleifL2Entity | null {
  */
 async function fetchRelationship(
     lei: string,
-    relationship: "direct-parent" | "ultimate-parent"
+    relationship: "direct-parent" | "ultimate-parent" | "fund-manager" | "umbrella-fund"
 ): Promise<{ entity: GleifL2Entity | null; exception: string | null }> {
     try {
         const res = await fetch(`${GLEIF_API}/lei-records/${lei}/${relationship}`, {
             headers: GLEIF_HEADERS,
-            next: { revalidate: 3600 },
+            next: { revalidate: 60 },
         });
 
         // 404 → no relationship declared
@@ -109,7 +111,7 @@ async function fetchException(
     try {
         const res = await fetch(
             `${GLEIF_API}/lei-records/${lei}/${relationship}-reporting-exception`,
-            { headers: GLEIF_HEADERS, next: { revalidate: 86400 } }
+            { headers: GLEIF_HEADERS, next: { revalidate: 60 } }
         );
         if (!res.ok) return null;
         const json = await res.json();
@@ -125,7 +127,7 @@ async function fetchChildrenCount(lei: string): Promise<number | null> {
     try {
         const res = await fetch(
             `${GLEIF_API}/lei-records/${lei}/direct-children?page[size]=1`,
-            { headers: GLEIF_HEADERS, next: { revalidate: 3600 } }
+            { headers: GLEIF_HEADERS, next: { revalidate: 60 } }
         );
         if (!res.ok) return null;
         const json = await res.json();
@@ -144,16 +146,24 @@ async function fetchChildrenCount(lei: string): Promise<number | null> {
 export async function fetchGleifL2(lei: string): Promise<GleifL2Data> {
     const fetchedAt = new Date().toISOString();
 
+    console.log(`[GLEIF] Fetching Level 2 relationships for LEI: ${lei}`);
+
     // Fire all L2 requests in parallel — any failure silenced by allSettled
-    const [dpResult, upResult, ccResult] = await Promise.allSettled([
+    const [dpResult, upResult, ccResult, fmResult, ufResult] = await Promise.allSettled([
         fetchRelationship(lei, "direct-parent"),
         fetchRelationship(lei, "ultimate-parent"),
         fetchChildrenCount(lei),
+        fetchRelationship(lei, "fund-manager"),
+        fetchRelationship(lei, "umbrella-fund"),
     ]);
 
     const dp = dpResult.status === "fulfilled" ? dpResult.value : { entity: null, exception: null };
     const up = upResult.status === "fulfilled" ? upResult.value : { entity: null, exception: null };
     const cc = ccResult.status === "fulfilled" ? ccResult.value : null;
+    const fm = fmResult.status === "fulfilled" ? fmResult.value : { entity: null, exception: null };
+    const uf = ufResult.status === "fulfilled" ? ufResult.value : { entity: null, exception: null };
+
+    console.log(`[GLEIF] L2 relationships fetched for LEI: ${lei} (DP: ${dp.entity ? 'yes' : 'no'}, UP: ${up.entity ? 'yes' : 'no'}, FM: ${fm.entity ? 'yes' : 'no'}, UF: ${uf.entity ? 'yes' : 'no'})`);
 
     // If direct parent returned no entity, check for reporting exception
     let directParentException: string | null = dp.exception;
@@ -171,6 +181,8 @@ export async function fetchGleifL2(lei: string): Promise<GleifL2Data> {
     return {
         directParent: dp.entity,
         ultimateParent: up.entity,
+        fundManager: fm.entity,
+        umbrellaFund: uf.entity,
         directParentException,
         ultimateParentException,
         directChildrenCount: cc,

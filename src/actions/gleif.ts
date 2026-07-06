@@ -69,11 +69,12 @@ export async function fetchGLEIFData(lei: string): Promise<GLEIFFetchResult> {
     }
 
     try {
+        console.log(`[GLEIF] Fetching Level 1 data for LEI: ${cleanLEI}`);
         const response = await fetch(`https://api.gleif.org/api/v1/lei-records?filter[lei]=${cleanLEI}`, {
             headers: {
                 'Accept': 'application/vnd.api+json'
             },
-            next: { revalidate: 3600 } // Cache for 1 hour
+            next: { revalidate: 60 } // Cache for 1 minute
         });
 
         if (!response.ok) {
@@ -93,6 +94,8 @@ export async function fetchGLEIFData(lei: string): Promise<GLEIFFetchResult> {
         const attributes = record.attributes;
         const entity = attributes.entity;
 
+        console.log(`[GLEIF] Success! Found LEI: ${cleanLEI} (${entity.legalName.name})`);
+
         // Create a normalized summary for the UI
         const summary = {
             name: entity.legalName.name,
@@ -109,7 +112,7 @@ export async function fetchGLEIFData(lei: string): Promise<GLEIFFetchResult> {
             // 1. Registration Authority name
             registrationAuthorityId
                 ? fetch(`https://api.gleif.org/api/v1/registration-authorities/${registrationAuthorityId}`, {
-                      next: { revalidate: 86400 },
+                      next: { revalidate: 60 },
                   }).then(r => r.ok ? r.json() : null).catch(() => null)
                 : Promise.resolve(null),
 
@@ -187,7 +190,7 @@ export async function searchGLEIFByName(name: string): Promise<{ success: boolea
 
         const response = await fetch(url, {
             headers: { 'Accept': 'application/vnd.api+json' },
-            next: { revalidate: 300 } // Cache searches for 5 mins
+            next: { revalidate: 60 } // Cache searches for 1 min
         });
 
         if (!response.ok) {

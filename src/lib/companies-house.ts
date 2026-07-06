@@ -52,7 +52,7 @@ export async function fetchCompanyOfficers(companyNumber: string): Promise<Compa
             headers: {
                 Authorization: `Basic ${auth}`,
             },
-            next: { revalidate: 3600 } // Cache for 1 hour
+            next: { revalidate: 60 } // Cache for 1 minute
         });
 
         if (!response.ok) {
