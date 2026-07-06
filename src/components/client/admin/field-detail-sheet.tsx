@@ -23,6 +23,7 @@ import { CategoryCombobox } from "./category-combobox";
 import { DataInspectorPanel } from "@/components/client/admin/source-mappings/data-inspector-panel";
 import { AddressFieldSourceMappingModal } from "@/components/client/admin/source-mappings/address-field-source-mapping-modal";
 import { MappingFormDialog } from "@/components/client/admin/source-mappings/mapping-form-dialog";
+import { ExpandableText } from "@/components/ui/expandable-text";
 import { SOURCE_OPTIONS, getSourceDisplayName } from "@/lib/source-display";
 import { getEffectiveMappingDefaults } from "@/actions/user-preferences";
 import { SCALAR_UI_OPTIONS, REFERENCE_UI_OPTIONS, APP_DATA_TYPES } from "@/lib/master-data/field-types";
@@ -419,7 +420,7 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                                                 <span className="text-sm font-semibold text-indigo-900">{cfg.label}</span>
                                                 <Badge className="bg-indigo-100 text-indigo-700 border-indigo-200 text-[10px] font-medium">Graph relationship collection</Badge>
                                             </div>
-                                            <p className="text-xs text-indigo-700 mt-1 leading-relaxed max-w-[480px]">{cfg.description}</p>
+                                            <ExpandableText text={cfg.description} maxLines={4} textClassName="text-xs text-indigo-700 mt-1 leading-relaxed max-w-[480px]" />
                                         </div>
                                     </div>
                                     {/* Technical detail strip */}
@@ -459,7 +460,7 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                                                 <span className="text-sm font-semibold text-teal-900">{cfg.label}</span>
                                                 <Badge className="bg-teal-100 text-teal-700 border-teal-200 text-[10px] font-medium">Structured temporal collection</Badge>
                                             </div>
-                                            <p className="text-xs text-teal-700 mt-1 leading-relaxed max-w-[480px]">{cfg.description}</p>
+                                            <ExpandableText text={cfg.description} maxLines={4} textClassName="text-xs text-teal-700 mt-1 leading-relaxed max-w-[480px]" />
                                         </div>
                                     </div>
                                     {/* Field schema strip */}

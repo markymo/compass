@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+.clamped-inline {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    white-space: pre-wrap;
+    width: 200px;
+    background: #eee;
+}
+</style>
+</head>
+<body>
+<div class="clamped-inline" id="box">
+test
+test
+test
+test
+test
+</div>
+<script>
+console.log("scrollHeight", document.getElementById("box").scrollHeight);
+console.log("clientHeight", document.getElementById("box").clientHeight);
+</script>
+</body>
+</html>

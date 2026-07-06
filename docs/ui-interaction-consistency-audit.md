@@ -24,6 +24,20 @@ To unify the user experience and ensure safe data handling, we propose the follo
 - **Error Handling**: Catch backend errors and display them via `toast.error(res.error)`. Do not fail silently.
 - **Accessibility**: Modals must trap focus. Destructive buttons must use appropriate `aria-label`s and `variant="destructive"`.
 
+### Long-Form Text & Truncation
+- **Whitespace Preservation**: Any user-authored or admin-authored long text (Descriptions, Help Text, Notes) must preserve intended paragraph breaks using `whitespace-pre-wrap`.
+- **Vertical Space Constraints**: Long-form text displayed inline outside of an explicit "Reading Mode" should be clamped to a reasonable default (usually 3 or 4 lines).
+- **Expansion Paradigm**:
+  - **In Tables/Cards**: If text is tightly constrained, use strict `line-clamp` and provide the full text in a `StandardTooltip` or a detail slide-out.
+  - **Inline/Detail Views**: If text is part of a detail panel (e.g., descriptions or help text), use the standard `ExpandableText` component, which provides a seamless inline "Show more" / "Show less" toggle based on actual overflow detection.
+
+### Standard "Open Details" Pattern
+- **Consistent Icon**: Use `<PanelRightOpen />` exclusively to denote "opens a side drawer/panel". Do not use `<ExternalLink />` or `<ArrowUpRight />` for in-context drawers.
+- **Placement**: Align to the right edge of the row, or directly attached to the primary value container. It should be discoverable on hover, or consistently visible but muted (`text-slate-400`).
+- **Accessibility**: The action must be wrapped in a semantic `<button>` with `aria-label="Open details for [Item Name]"` and `aria-haspopup="dialog"`.
+- **Click Targets**: Provide a minimum 44x44px touch target area.
+- **Separation of Concerns**: Informational text (titles, descriptions, badges) must not be clickable unless they have their own inline interactive behaviour. Do not wrap entire rows in an `onClick` handler. Only specific interactive zones (e.g., the Value Container or the dedicated Icon Button) should trigger the drawer.
+
 ---
 
 ## 2. Codebase Scan Findings

@@ -46,6 +46,7 @@ import { inferClaimValueKind, ClaimValueKind } from "@/lib/master-data/claim-val
 import { ExpandableRowItem } from "./expandable-row-item";
 import { SharedResourceUsageNotice } from "./SharedResourceUsageNotice";
 import { ConfirmDeleteDialog } from "@/components/shared/confirm-dialogs";
+import { ExpandableText } from "@/components/ui/expandable-text";
 
 import {
     DropdownMenu,
@@ -965,9 +966,12 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                 </span>
                             )}
                             {data?.description && (
-                                <p className="text-sm text-slate-600 mt-1.5 leading-relaxed max-h-32 overflow-y-auto pr-2">
-                                    {data.description}
-                                </p>
+                                <ExpandableText
+                                    text={data.description}
+                                    maxLines={4}
+                                    className="mt-1.5 pr-2"
+                                    textClassName="text-sm text-slate-600 leading-relaxed"
+                                />
                             )}
                         </div>
 

@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
-import { Fingerprint, RefreshCcw, ArrowRight, ShieldCheck, Ban, Info, Building2, FileText, Users, Sparkles, ChevronDown, ChevronUp, Clock, ClipboardList } from "lucide-react";
+import { Fingerprint, RefreshCcw, ArrowRight, ShieldCheck, Ban, Info, Building2, FileText, Users, Sparkles, ChevronDown, ChevronUp, Clock, ClipboardList, PanelRightOpen } from "lucide-react";
 import { toast } from "sonner";
 import { refreshGleifProposals } from "@/actions/kyc-proposals";
 import { refreshRegistryReferenceAction } from "@/actions/registry";
@@ -18,6 +18,7 @@ import { FieldSourceBadge } from "./fields/FieldSourceBadge";
 import { FieldValueRenderer } from "./fields/FieldValueRenderer";
 import { FieldDisplayModel } from "@/lib/master-data/field-display-model";
 import { isAddressValue, getAddressSummary } from "@/lib/master-data/address-value";
+import { ExpandableText } from "@/components/ui/expandable-text";
 import { isPersonOrContactValue, getPersonOrContactSummary } from "@/lib/master-data/person-or-contact-value";
 import { Input } from "@/components/ui/input";
 import { Search, Filter, AlertCircle, CheckCircle2, Circle } from "lucide-react";
@@ -719,17 +720,18 @@ function MasterFieldDisplay({ label, fieldNo, value, formattedDisplayValue, sour
     const isArrayValue = Array.isArray(value) && value.length > 0;
 
     return (
-        <div
-            className={cn("group transition-all duration-200", onClick && "cursor-pointer hover:translate-x-1")}
-            onClick={onClick}
-        >
+        <div className="group transition-all duration-200">
             <div className="flex items-center justify-between mb-1">
                 <div className="flex flex-col">
-                    <label className={cn("text-sm font-medium text-slate-700", onClick && "group-hover:text-blue-600 transition-colors")}>
+                    <label className="text-sm font-medium text-slate-700">
                         {label}
                     </label>
                     {description && (
-                        <span className="text-[10px] text-slate-400 italic font-normal">{description}</span>
+                        <ExpandableText
+                            text={description}
+                            maxLines={3}
+                            textClassName="text-[10px] text-slate-400 italic font-normal"
+                        />
                     )}
                 </div>
                 {!isCustom && (
@@ -785,18 +787,42 @@ function MasterFieldDisplay({ label, fieldNo, value, formattedDisplayValue, sour
                 )}
             </div>
 
-            <div className={cn(
-                "flex p-3 bg-slate-50 rounded-md border border-slate-100 transition-all w-full",
-                isRepeatingParty && isArrayValue ? "flex-col gap-3" : "items-center justify-between",
-                onClick && "group-hover:border-blue-200 group-hover:bg-white group-hover:shadow-sm"
-            )}>
+            <div 
+                className={cn(
+                    "flex p-3 bg-slate-50 rounded-md border border-slate-100 transition-all w-full",
+                    isRepeatingParty && isArrayValue ? "flex-col gap-3" : "items-center justify-between",
+                    onClick && "cursor-pointer hover:border-blue-200 hover:bg-white hover:shadow-sm"
+                )}
+                onClick={onClick}
+            >
                 {isRepeatingParty && isArrayValue ? (
                     <>
                         <div className="flex justify-between items-start w-full">
                             <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">{value.length} Items</span>
-                            {(resolvedState === "HAS_VALUE" || resolvedState === "MAPPED_NOT_CHECKED" || resolvedState === "CHECKED_NO_DATA") && (canonicalDisplayModel?.source || source) && (
-                                <FieldSourceBadge source={canonicalDisplayModel?.source} showLastValidated={true} legacySourceType={source} legacySourceReference={sourceReference} legacyRaId={registrationAuthorityId} />
-                            )}
+                            <div className="flex items-center gap-2">
+                                {(resolvedState === "HAS_VALUE" || resolvedState === "MAPPED_NOT_CHECKED" || resolvedState === "CHECKED_NO_DATA") && (canonicalDisplayModel?.source || source) && (
+                                    <FieldSourceBadge source={canonicalDisplayModel?.source} showLastValidated={true} legacySourceType={source} legacySourceReference={sourceReference} legacyRaId={registrationAuthorityId} />
+                                )}
+                                {onClick && (
+                                    <TooltipProvider delayDuration={150}>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); onClick(); }}
+                                                    className="p-1 rounded-md text-slate-400 opacity-0 group-hover:opacity-100 hover:text-slate-700 hover:bg-slate-200/50 transition-all focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-blue-500 shrink-0"
+                                                    aria-label={`Open details for ${label}`}
+                                                    aria-haspopup="dialog"
+                                                >
+                                                    <PanelRightOpen className="h-4 w-4" />
+                                                </button>
+                                            </TooltipTrigger>
+                                            <TooltipContent side="top" className="text-xs bg-slate-900 text-white border-slate-800">
+                                                Open details for {label}
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    </TooltipProvider>
+                                )}
+                            </div>
                         </div>
                         <div className="flex flex-col gap-2 w-full">
                             <div className="flex flex-col w-full divide-y divide-slate-100 border border-slate-200 rounded-md bg-white shadow-sm overflow-hidden">
@@ -864,10 +890,24 @@ function MasterFieldDisplay({ label, fieldNo, value, formattedDisplayValue, sour
                                 <FieldSourceBadge source={canonicalDisplayModel?.source} showLastValidated={true} legacySourceType={source} legacySourceReference={sourceReference} legacyRaId={registrationAuthorityId} />
                             </div>
                         )}
-                        {!hasValue && !isCustom && (
-                            <div className="opacity-0 group-hover:opacity-100 text-xs text-blue-500 flex items-center gap-1 transition-opacity shrink-0 ml-4">
-                                <Info className="h-3 w-3" /> Inspect
-                            </div>
+                        {onClick && (
+                            <TooltipProvider delayDuration={150}>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <button 
+                                            onClick={(e) => { e.stopPropagation(); onClick(); }}
+                                            className="ml-4 p-1.5 rounded-md text-slate-400 opacity-0 group-hover:opacity-100 hover:text-slate-700 hover:bg-slate-200/50 transition-all focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-blue-500 shrink-0"
+                                            aria-label={`Open details for ${label}`}
+                                            aria-haspopup="dialog"
+                                        >
+                                            <PanelRightOpen className="h-4 w-4" />
+                                        </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top" className="text-xs bg-slate-900 text-white border-slate-800">
+                                                Open details for {label}
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
                         )}
                     </>
                 )}
