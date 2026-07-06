@@ -387,7 +387,7 @@ async function getOrgBlockers(orgId: string): Promise<string[]> {
         prisma.fIEngagement.count({ where: { fiOrgId: orgId } }),
         prisma.questionnaire.count({ where: { fiOrgId: orgId } }),
         prisma.questionnaire.count({ where: { ownerOrgId: orgId } }),
-        prisma.customFieldDefinition.count({ where: { orgId: orgId } }),
+        prisma.customFieldDefinition.count({ where: { orgId: orgId, isDeleted: false } }),
         prisma.fISchema.count({ where: { fiOrgId: orgId } }),
         prisma.invitation.count({ where: { organizationId: orgId } }),
         prisma.fieldClaim.count({ where: { ownerScopeId: orgId } }),

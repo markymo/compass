@@ -149,6 +149,7 @@ model CustomFieldDefinition {
   label        String
   dataType     String
   description  String?
+  isDeleted    Boolean      @default(false)
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
   organization Organization @relation(fields: [orgId], references: [id])

@@ -707,3 +707,77 @@ export async function retireMasterDataCategory(
         return { success: false, error: String(e) };
     }
 }
+
+export interface DependencyReport {
+    canDelete: boolean;
+    dependencies: {
+        referenceQuestionnaires: number;
+        workingQuestionnaires: number;
+        engagementQuestionnaires: number;
+        clientProfilesWithData: number;
+        fiSchemaOverlays: number;
+    }
+}
+
+export async function checkCustomFieldDependencies(fieldId: string): Promise<DependencyReport> {
+    const questions = await prisma.question.findMany({
+        where: { customFieldDefinitionId: fieldId },
+        include: { questionnaire: true }
+    });
+
+    let referenceQuestionnaires = 0;
+    let workingQuestionnaires = 0;
+    let engagementQuestionnaires = 0;
+
+    for (const q of questions) {
+        if (q.questionnaire.isTemplate) referenceQuestionnaires++;
+        else if (q.questionnaire.fiEngagementId) engagementQuestionnaires++;
+        else workingQuestionnaires++;
+    }
+
+    // JSONB check for ClientLE
+    const leRes = await prisma.$queryRaw<any[]>`SELECT count(*) as count FROM "ClientLE" WHERE "customData"::jsonb ? ${fieldId}`;
+    const clientProfilesWithData = Number(leRes[0].count);
+
+    // Conservative check for FISchema (JSON LIKE search as we don't know the exact structure it might be buried in)
+    const schemaRes = await prisma.$queryRaw<any[]>`SELECT count(*) as count FROM "FISchema" WHERE "overlayDefinition"::text LIKE ${'%' + fieldId + '%'}`;
+    const fiSchemaOverlays = Number(schemaRes[0].count);
+
+    const hasDependencies = (referenceQuestionnaires + workingQuestionnaires + engagementQuestionnaires + clientProfilesWithData + fiSchemaOverlays) > 0;
+
+    return {
+        canDelete: !hasDependencies,
+        dependencies: {
+            referenceQuestionnaires,
+            workingQuestionnaires,
+            engagementQuestionnaires,
+            clientProfilesWithData,
+            fiSchemaOverlays
+        }
+    };
+}
+
+export async function softDeleteCustomField(fieldId: string) {
+    const check = await checkCustomFieldDependencies(fieldId);
+    if (!check.canDelete) {
+        return { success: false, error: "Cannot delete field with active dependencies" };
+    }
+
+    const field = await prisma.customFieldDefinition.findUnique({ where: { id: fieldId } });
+    if (!field) return { success: false, error: "Field not found" };
+
+    try {
+        await prisma.customFieldDefinition.update({
+            where: { id: fieldId },
+            data: {
+                isDeleted: true,
+                key: `${field.key}__deleted__${fieldId}`
+            }
+        });
+        revalidatePath("/app/admin/master-data", "layout");
+        return { success: true };
+    } catch (e) {
+        console.error("[softDeleteCustomField] Error:", e);
+        return { success: false, error: "Failed to delete custom field" };
+    }
+}

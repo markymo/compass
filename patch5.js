@@ -1,27 +1,29 @@
 const fs = require('fs');
-const file = '/opt/code/coparity/src/components/client/admin/field-detail-sheet.tsx';
+const file = '/opt/code/coparity/src/components/client/inspection/field-detail-panel.tsx';
 let code = fs.readFileSync(file, 'utf8');
 
 // 1. Add imports
 code = code.replace(
-    /import { updateMasterField } from "@\/actions\/master-data-governance";/,
-    `import { updateMasterField, checkCustomFieldDependencies, softDeleteCustomField, DependencyReport } from "@/actions/master-data-governance";`
+    /import { getFieldDetail, FieldDetailData } from "@\/actions\/kyc-query";/,
+    `import { getFieldDetail, FieldDetailData } from "@/actions/kyc-query";\nimport { checkCustomFieldDependencies, softDeleteCustomField, DependencyReport } from "@/actions/master-data-governance";\nimport { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";\nimport { useRouter } from "next/navigation";`
 );
 
 // 2. Add state for delete dialog
-const stateAnchor = "const [editingBindingId, setEditingBindingId] = useState<string | null>(null);";
+const stateAnchor = "const [candidateToApply, setCandidateToApply] = useState<any | null>(null);";
 const stateToAdd = `
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [isCheckingDependencies, setIsCheckingDependencies] = useState(false);
     const [dependencyReport, setDependencyReport] = useState<DependencyReport | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
+    const router = useRouter();
 
     const openDeleteDialog = async () => {
+        if (!customFieldId) return;
         setIsDeleteDialogOpen(true);
         setIsCheckingDependencies(true);
         setDependencyReport(null);
         try {
-            const report = await checkCustomFieldDependencies(field!.customFieldId!);
+            const report = await checkCustomFieldDependencies(customFieldId);
             setDependencyReport(report);
         } catch (e) {
             toast.error("Failed to check dependencies");
@@ -32,9 +34,10 @@ const stateToAdd = `
     };
 
     const confirmDelete = async () => {
+        if (!customFieldId) return;
         setIsDeleting(true);
         try {
-            const res = await softDeleteCustomField(field!.customFieldId!);
+            const res = await softDeleteCustomField(customFieldId);
             if (res.success) {
                 toast.success("Field deleted");
                 setIsDeleteDialogOpen(false);
@@ -53,16 +56,18 @@ const stateToAdd = `
 code = code.replace(stateAnchor, stateAnchor + "\n" + stateToAdd);
 
 // 3. Add Delete button in header
-const headerBadgeAnchor = `{field.isActive ? "Active" : "Inactive"}\n                            </Badge>`;
-const deleteButtonCode = `\n                            {field.fieldNo === 0 && field.customFieldId && (
-                                <Button variant="ghost" size="icon" onClick={openDeleteDialog} className="text-slate-400 hover:text-red-600 hover:bg-red-50" title="Delete Custom Field">
-                                    <Trash2 className="h-4 w-4" />
-                                </Button>
-                            )}`;
+const headerBadgeAnchor = `<h2 className="text-xl font-bold text-slate-900 leading-tight">
+                                    {fieldName} <span className="text-slate-400 font-medium text-lg">({fieldNo || customFieldId})</span>
+                                </h2>`;
+const deleteButtonCode = `\n                                {customFieldId && fieldNo === 0 && (
+                                    <Button variant="ghost" size="icon" onClick={openDeleteDialog} className="text-slate-400 hover:text-red-600 hover:bg-red-50 ml-2" title="Delete Custom Field">
+                                        <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                )}`;
 code = code.replace(headerBadgeAnchor, headerBadgeAnchor + deleteButtonCode);
 
 // 4. Add Dialog component
-const dialogAnchor = "</SheetContent>\n        </Sheet>";
+const dialogAnchor = "<ConfirmDeleteDialog open={!!candidateToApply}";
 const dialogCode = `
             <Dialog open={isDeleteDialogOpen} onOpenChange={(open) => {
                 if (!isDeleting) setIsDeleteDialogOpen(open);
@@ -121,7 +126,6 @@ const dialogCode = `
                 </DialogContent>
             </Dialog>
 `;
-
 code = code.replace(dialogAnchor, dialogCode + "\n" + dialogAnchor);
 
 fs.writeFileSync(file, code);

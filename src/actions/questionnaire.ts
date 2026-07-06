@@ -292,7 +292,7 @@ export async function getOrgCustomFields(orgId: string) {
     }
 
     return await prisma.customFieldDefinition.findMany({
-        where: { orgId },
+        where: { orgId, isDeleted: false },
         orderBy: { label: 'asc' }
     });
 }
