@@ -402,7 +402,7 @@ export const QuestionnairePDF = ({ data, title, exportMetadata }: QuestionnaireP
                                 <Text style={styles.statusBadgeText}>{item.status}</Text>
                             </View>
                             {item.sourceLabel && <Text style={styles.provenanceText}>Source: {item.sourceLabel}</Text>}
-                            {item.sourceTimestamp && <Text style={styles.provenanceText}>Sourced At: {new Date(item.sourceTimestamp).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'})}</Text>}
+                            {item.sourceTimestamp && <Text style={styles.provenanceText}>Last validated: {new Date(item.sourceTimestamp).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'})}</Text>}
                         </View>
                         
                         {item.evidencePaths && item.evidencePaths.length > 0 && (

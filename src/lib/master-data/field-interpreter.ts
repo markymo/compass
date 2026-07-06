@@ -2,6 +2,7 @@ import { FieldDisplayModel, ResolvedFieldValue, FieldSource } from './field-disp
 import { getSourceDisplayName } from '@/lib/source-display';
 import { isPartyValue, getPartySummary } from './party-value';
 import { isAddressValue, getAddressSummary } from './address-value';
+import { formatStructuredCollectionRow } from './structured-value-formatters';
 
 export interface FieldInterpreterMetadata {
     fieldNo: number;
@@ -24,6 +25,7 @@ export interface RawFieldSource {
     type: string;
     reference?: string | null;
     timestamp?: Date | string | null;
+    sourceCheckedAt?: Date | string | null;
     userName?: string | null;
 }
 
@@ -42,7 +44,7 @@ export function resolveFieldForDisplay(
     }
 
     const state = resolveState(metadata.displayState, parsedValue);
-    const resolvedValue = resolveValue(parsedValue, state, metadata.defaultText, metadata.profileConfig?.displayMask, metadata.codeSystem, metadata.appDataType);
+    const resolvedValue = resolveValue(parsedValue, state, metadata.defaultText, metadata.profileConfig?.displayMask, metadata.codeSystem, metadata.appDataType, metadata.fieldNo);
     const source = resolveSource(rawSource, state);
 
     return {
@@ -87,7 +89,8 @@ function resolveValue(
     defaultText?: string,
     displayMask?: string[],
     codeSystem?: string,
-    appDataType?: string
+    appDataType?: string,
+    fieldNo?: number
 ): ResolvedFieldValue {
     if (state === 'EXPLICIT_NONE' || state === 'NO_DATA' || state === 'UNMAPPED') {
         return { kind: 'empty' };
@@ -101,10 +104,10 @@ function resolveValue(
         };
     }
 
-    return parseAnyValue(parsedValue, displayMask, codeSystem, appDataType);
+    return parseAnyValue(parsedValue, displayMask, codeSystem, appDataType, fieldNo);
 }
 
-function parseAnyValue(val: any, displayMask?: string[], codeSystem?: string, appDataType?: string): ResolvedFieldValue {
+function parseAnyValue(val: any, displayMask?: string[], codeSystem?: string, appDataType?: string, fieldNo?: number): ResolvedFieldValue {
     if (val === null || val === undefined) return { kind: 'empty' };
 
     if (Array.isArray(val)) {
@@ -126,7 +129,7 @@ function parseAnyValue(val: any, displayMask?: string[], codeSystem?: string, ap
         return {
             kind: 'collection',
             items: val.map(item => ({ 
-                value: parseAnyValue(item, displayMask, codeSystem, appDataType),
+                value: parseAnyValue(item, displayMask, codeSystem, appDataType, fieldNo),
                 source: item?.sourceType ? (resolveSource({ type: item.sourceType, reference: item.sourceReference }, 'POPULATED') ?? undefined) : undefined
             }))
         };
@@ -134,20 +137,22 @@ function parseAnyValue(val: any, displayMask?: string[], codeSystem?: string, ap
 
     if (typeof val === 'object') {
         if (val.ccPartyId) {
+            const resolvedParty = val.ccParty?.data || val._resolvedData?.ccParty?.data;
             return {
                 kind: 'partyRef',
                 refId: val.ccPartyId,
-                summary: val.ccParty?.data ? getPartySummary(val.ccParty.data) : `ID:${val.ccPartyId.slice(0, 8)}…`,
-                resolved: val.ccParty?.data,
+                summary: resolvedParty ? getPartySummary(resolvedParty) : `ID:${val.ccPartyId.slice(0, 8)}…`,
+                resolved: resolvedParty,
                 displayMask
             };
         }
         if (val.ccAddressId) {
+            const resolvedAddress = val.ccAddress?.data || val._resolvedData?.ccAddress?.data;
             return {
                 kind: 'addressRef',
                 refId: val.ccAddressId,
-                summary: val.ccAddress?.data ? getAddressSummary(val.ccAddress.data) : `ID:${val.ccAddressId.slice(0, 8)}…`,
-                resolved: val.ccAddress?.data
+                summary: resolvedAddress ? getAddressSummary(resolvedAddress) : `ID:${val.ccAddressId.slice(0, 8)}…`,
+                resolved: resolvedAddress
             };
         }
         if (isPartyValue(val)) {
@@ -166,6 +171,21 @@ function parseAnyValue(val: any, displayMask?: string[], codeSystem?: string, ap
             };
         }
         
+        // Attempt to format as a known structured collection row
+        if (fieldNo !== undefined) {
+            const formatted = formatStructuredCollectionRow(fieldNo, val);
+            if (formatted.handled) {
+                const displayStr = formatted.secondary 
+                    ? `${formatted.primary} (${formatted.secondary})`
+                    : formatted.primary || '';
+                return {
+                    kind: 'scalar',
+                    display: displayStr,
+                    rawValue: val
+                };
+            }
+        }
+
         // Unrecognized object
         return {
             kind: 'scalar',
@@ -213,6 +233,12 @@ function resolveSource(rawSource: RawFieldSource | null | undefined, state: Fiel
         timestamp = rawSource.timestamp instanceof Date ? rawSource.timestamp.toISOString() : String(rawSource.timestamp);
     }
 
+    const checkTime = rawSource.sourceCheckedAt || rawSource.timestamp;
+    let lastValidatedAt: string | undefined;
+    if (checkTime) {
+        lastValidatedAt = checkTime instanceof Date ? checkTime.toISOString() : String(checkTime);
+    }
+
     return {
         type,
         reference: rawSource.reference || null,
@@ -220,7 +246,8 @@ function resolveSource(rawSource: RawFieldSource | null | undefined, state: Fiel
         colorKey,
         timestamp,
         userName: rawSource.userName || null,
-        category
+        category,
+        lastValidatedAt
     };
 }
 

@@ -15,13 +15,9 @@
  */
 
 import { useState } from "react";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronUp, Database, Eye, EyeOff } from "lucide-react";
+import { Database, Eye, EyeOff } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { resolveSourceLabel, RaNameLookup } from "@/lib/kyc/source-label";
-import { isPartyValue, getPartySummary } from "@/lib/master-data/party-value";
-import { isAddressValue, getAddressSummary } from "@/lib/master-data/address-value";
+import { RaNameLookup } from "@/lib/kyc/source-label";
 import type { HydratedValue } from "@/actions/kyc-query";
 import { FieldValueRenderer } from "@/components/client/fields/FieldValueRenderer";
 import { FieldSourceBadge } from "@/components/client/fields/FieldSourceBadge";
@@ -62,198 +58,7 @@ export interface GroupAnswerRendererProps {
     className?: string;
 }
 
-// ── Helpers (exported for unit testing) ──────────────────────────────────────
-
-/** Format a date value for display. Accepts Date, ISO string, or timestamp. */
-export function formatFieldDate(raw: Date | string | number | null | undefined): string {
-    if (!raw) return "—";
-    try {
-        const d = raw instanceof Date ? raw : new Date(raw);
-        if (isNaN(d.getTime())) return String(raw);
-        return d.toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" });
-    } catch {
-        return String(raw);
-    }
-}
-
-/** Format a single SIC code item (string or { code, label } object). */
-export function formatSicItem(item: unknown): string {
-    if (typeof item === "string") return item;
-    if (item && typeof item === "object") {
-        const obj = item as Record<string, unknown>;
-        if (typeof obj.code === "string") {
-            const label = typeof obj.label === "string" && obj.label ? obj.label : null;
-            return label ? `${obj.code}  ${label}` : obj.code;
-        }
-    }
-    // Fallback: safe stringify
-    try { return JSON.stringify(item); } catch { return String(item); }
-}
-
-/**
- * Render a scalar field value to a display string.
- * Returns null if the value is genuinely empty (null/undefined/"").
- */
-export function formatScalarValue(value: unknown, appDataType: string): string | null {
-    if (value === null || value === undefined) return null;
-
-    switch (appDataType) {
-        case "BOOLEAN":
-            return value ? "Yes" : "No";
-        case "NUMBER":
-            return typeof value === "number"
-                ? value.toLocaleString()
-                : String(value);
-        case "DATE":
-            return formatFieldDate(value as any);
-        default:
-            // TEXT, ENUM, and unknown types
-            const str = String(value);
-            return str === "" ? null : str;
-    }
-}
-
 // ── Sub-components ────────────────────────────────────────────────────────────
-
-// Source badge colours mirror knowledge-graph-table.tsx
-const SOURCE_COLORS: Record<string, string> = {
-    "User Input":    "bg-indigo-50 text-indigo-700 border-indigo-200",
-    "GLEIF":         "bg-violet-50 text-violet-700 border-violet-200",
-    "Master Record": "bg-slate-100 text-slate-500 border-slate-200",
-};
-
-function SourceBadge({ label }: { label: string }) {
-    const color = SOURCE_COLORS[label] ?? "bg-emerald-50 text-emerald-700 border-emerald-200";
-    return (
-        <span className={cn("inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border", color)}>
-            {label}
-        </span>
-    );
-}
-
-/** Per-field provenance line: source badge + date */
-function ProvenanceLine({
-    source,
-    sourceReference,
-    updatedAt,
-    raNameLookup,
-}: {
-    source: string | null;
-    sourceReference?: string | null;
-    updatedAt?: Date | null;
-    raNameLookup: RaNameLookup;
-}) {
-    const label = resolveSourceLabel(source, sourceReference, raNameLookup);
-    const dateStr = updatedAt ? formatFieldDate(updatedAt) : null;
-
-    return (
-        <div className="flex items-center gap-1.5 mt-1">
-            <SourceBadge label={label} />
-            {dateStr && (
-                <span className="text-[10px] text-slate-400">{dateStr}</span>
-            )}
-        </div>
-    );
-}
-
-/** Renders a single scalar field value */
-function ScalarFieldValue({ value, appDataType }: { value: unknown; appDataType: string }) {
-    if (appDataType === "ADDRESS" || isAddressValue(value)) {
-        return <span className="text-sm text-slate-900 whitespace-pre-line">{getAddressSummary(value as any)}</span>;
-    }
-
-    if (appDataType === "PERSON_OR_CONTACT" || appDataType === "PARTY" || isPartyValue(value)) {
-        return <span className="text-sm text-slate-900">{getPartySummary(value as any)}</span>;
-    }
-
-    // JSONB / unsupported — safe fallback
-    if (appDataType === "JSONB" || (typeof value === "object" && value !== null && !Array.isArray(value))) {
-        try {
-            return (
-                <code className="text-xs text-slate-500 break-all bg-slate-50 rounded px-1 py-0.5">
-                    {JSON.stringify(value)}
-                </code>
-            );
-        } catch {
-            return <span className="text-xs text-slate-400 italic">Unable to display</span>;
-        }
-    }
-
-    const display = formatScalarValue(value, appDataType);
-    if (!display) return <span className="text-xs text-slate-400 italic">—</span>;
-
-    return <span className="text-sm text-slate-900">{display}</span>;
-}
-
-/**
- * Renders a code-list collection (e.g. SIC codes).
- * Shows first 3 inline; collapses the rest behind a toggle for 5+.
- */
-function CodeListValue({ items }: { items: unknown[] }) {
-    const ALWAYS_SHOW = 3;
-    const COLLAPSE_THRESHOLD = 5; // only collapse if > 4 items
-    const [expanded, setExpanded] = useState(false);
-
-    const needsCollapse = items.length >= COLLAPSE_THRESHOLD;
-    const visible = needsCollapse && !expanded ? items.slice(0, ALWAYS_SHOW) : items;
-    const hiddenCount = items.length - ALWAYS_SHOW;
-
-    return (
-        <div className="space-y-1">
-            {visible.map((item, idx) => (
-                <div key={idx} className="flex items-baseline gap-1.5">
-                    <span className="text-slate-300 text-xs shrink-0">●</span>
-                    <span className="text-sm text-slate-900 font-mono leading-snug">
-                        {formatSicItem(item)}
-                    </span>
-                </div>
-            ))}
-            {needsCollapse && (
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 px-1 text-xs text-slate-500 hover:text-slate-700 -ml-1"
-                    onClick={() => setExpanded(v => !v)}
-                >
-                    {expanded ? (
-                        <><ChevronUp className="h-3 w-3 mr-1" />Show less</>
-                    ) : (
-                        <><ChevronDown className="h-3 w-3 mr-1" />+ {hiddenCount} more</>
-                    )}
-                </Button>
-            )}
-        </div>
-    );
-}
-
-/** Renders an arbitrary array of non-code-list values (fallback) */
-function ArrayValue({ items }: { items: unknown[] }) {
-    return (
-        <div className="flex flex-wrap gap-1 mt-0.5">
-            {items.map((item, idx) => {
-                let display = String(item ?? "");
-                if (typeof item === "object" && item !== null) {
-                    if (isAddressValue(item)) {
-                        display = getAddressSummary(item as any);
-                    } else if (isPartyValue(item)) {
-                        display = getPartySummary(item as any);
-                    } else {
-                        display = JSON.stringify(item);
-                    }
-                }
-                return (
-                    <Badge
-                        key={idx}
-                        variant="outline"
-                        className="text-xs bg-white border-slate-200 text-slate-700 font-normal py-0.5"
-                    >
-                        {display}
-                    </Badge>
-                );
-            })}
-        </div>
-    );
-}
 
 /** A single group field row */
 function GroupFieldRow({
@@ -266,8 +71,7 @@ function GroupFieldRow({
     /** True for isSynced:false rows shown when the expand toggle is on */
     dimmed?: boolean;
 }) {
-    const { fieldName, appDataType, isMultiValue, codeSystem, hydrated } = field;
-    const { value, source, sourceReference, updatedAt } = hydrated;
+    const { fieldName } = field;
 
     const renderValue = () => {
         if (dimmed) {
@@ -276,13 +80,7 @@ function GroupFieldRow({
         if (field.canonicalDisplayModel) {
             return <FieldValueRenderer field={field.canonicalDisplayModel} itemLimit={3} />;
         }
-        if (isMultiValue && Array.isArray(value)) {
-            if (codeSystem) {
-                return <CodeListValue items={value} />;
-            }
-            return <ArrayValue items={value} />;
-        }
-        return <ScalarFieldValue value={value} appDataType={appDataType} />;
+        return <span className="text-xs text-slate-300 italic">—</span>;
     };
 
     return (
@@ -293,19 +91,10 @@ function GroupFieldRow({
             <div className="text-sm text-slate-900">
                 {renderValue()}
             </div>
-            {!dimmed && (
-                field.canonicalDisplayModel?.source ? (
-                    <div className="flex items-center gap-1.5 mt-1">
-                        <FieldSourceBadge source={field.canonicalDisplayModel.source} variant="span" />
-                    </div>
-                ) : (
-                    <ProvenanceLine
-                        source={source}
-                        sourceReference={sourceReference}
-                        updatedAt={updatedAt}
-                        raNameLookup={raNameLookup}
-                    />
-                )
+            {!dimmed && field.canonicalDisplayModel?.source && (
+                <div className="flex items-center gap-1.5 mt-1">
+                    <FieldSourceBadge source={field.canonicalDisplayModel.source} variant="span" />
+                </div>
             )}
         </div>
     );

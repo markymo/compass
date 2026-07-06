@@ -3,6 +3,7 @@
 import { isPartyValue, getPartySummary } from "@/lib/master-data/party-value";
 import { isAddressValue, getAddressSummary } from "@/lib/master-data/address-value";
 import { FieldValueRenderer } from "@/components/client/fields/FieldValueRenderer";
+import { FieldSourceBadge } from "@/components/client/fields/FieldSourceBadge";
 
 import { useState, useMemo, useTransition } from "react";
 import { Workbench4Data, mapQuestionToField, getAIFieldNameSuggestion } from "@/actions/kyc-workbench";
@@ -1011,21 +1012,27 @@ function QuestionCard({
                                     </div>
                                 )}
                             </div>
-                            {!isEditing && !isGroupAnswer && (question.masterDataSource || question.masterDataUpdatedAt) && (
-                                <div className="flex items-center gap-3 pl-6 text-[10px] text-slate-400 font-medium">
-                                    {question.masterDataSource && (
-                                        <div className="flex items-center gap-1 bg-slate-100/50 px-1.5 py-0.5 rounded border border-slate-200/50">
-                                            <span className="opacity-60 uppercase tracking-wide">Source:</span>
-                                            <span className="text-slate-600 font-bold uppercase">{question.masterDataSource}</span>
-                                        </div>
-                                    )}
-                                    {question.masterDataUpdatedAt && (
-                                        <div className="flex items-center gap-1">
-                                            <span className="opacity-60 uppercase tracking-wide">Last Updated:</span>
-                                            <span className="text-slate-500 font-semibold">{new Date(question.masterDataUpdatedAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}</span>
-                                        </div>
-                                    )}
-                                </div>
+                            {!isEditing && !isGroupAnswer && (
+                                question.canonicalDisplayModel?.source ? (
+                                    <div className="flex items-center gap-3 pl-6 mt-1 text-[10px] font-medium">
+                                        <FieldSourceBadge source={question.canonicalDisplayModel.source} showLastValidated={true} variant="span" />
+                                    </div>
+                                ) : (question.masterDataSource || question.masterDataUpdatedAt) ? (
+                                    <div className="flex items-center gap-3 pl-6 text-[10px] text-slate-400 font-medium">
+                                        {question.masterDataSource && (
+                                            <div className="flex items-center gap-1 bg-slate-100/50 px-1.5 py-0.5 rounded border border-slate-200/50">
+                                                <span className="opacity-60 uppercase tracking-wide">Source:</span>
+                                                <span className="text-slate-600 font-bold uppercase">{question.masterDataSource}</span>
+                                            </div>
+                                        )}
+                                        {question.masterDataUpdatedAt && (
+                                            <div className="flex items-center gap-1">
+                                                <span className="opacity-60 uppercase tracking-wide">Last Updated:</span>
+                                                <span className="text-slate-500 font-semibold">{new Date(question.masterDataUpdatedAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                ) : null
                             )}
                         </div>
                     </div>

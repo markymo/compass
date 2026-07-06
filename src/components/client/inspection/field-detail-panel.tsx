@@ -32,6 +32,7 @@ import { cn } from "@/lib/utils";
 import { CollectionRowDisplay } from "@/lib/master-data/structured-collection-renderers";
 import { CodeListField } from "@/components/client/fields/CodeListField";
 import { FieldSourceBadge } from "../fields/FieldSourceBadge";
+import { FieldValueRenderer } from "@/components/client/fields/FieldValueRenderer";
 import { AddressValueViewer } from "../fields/AddressValueViewer";
 import { isAddressValue } from "@/lib/master-data/address-value";
 import { AddressValueEditor } from "../fields/AddressValueEditor";
@@ -1511,20 +1512,18 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                     );
                                                                     
                                                                     const badges = (
-                                                                        <>
-                                                                            <FieldSourceBadge 
-                                                                                legacySourceType={row.source as any} 
-                                                                                legacySourceReference={row.sourceReference} 
-                                                                                legacyRaId={registrationAuthorityId} 
-                                                                                legacyRaName={(registrationAuthorityId ? raNameMap[registrationAuthorityId] : undefined) || 'Registration Authority'}
-                                                                                variant="span"
-                                                                                className="uppercase tracking-wider"
-                                                                                wrapperClassName="flex items-center gap-1.5"
-                                                                            />
-                                                                            <span className="text-[9px] text-slate-400">
-                                                                                {row.timestamp ? new Date(row.timestamp).toLocaleDateString() : ''}
-                                                                            </span>
-                                                                        </>
+                                                                        <FieldSourceBadge 
+                                                                            source={row.canonicalDisplayModel?.source}
+                                                                            legacySourceType={row.source as any} 
+                                                                            legacySourceReference={row.sourceReference} 
+                                                                            legacyRaId={registrationAuthorityId} 
+                                                                            legacyRaName={(registrationAuthorityId ? raNameMap[registrationAuthorityId] : undefined) || 'Registration Authority'}
+                                                                            legacyTimestamp={row.timestamp}
+                                                                            showLastValidated={true}
+                                                                            variant="span"
+                                                                            className="uppercase tracking-wider"
+                                                                            wrapperClassName="flex items-center gap-1.5"
+                                                                        />
                                                                     );
 
                                                                     if (partyValForExpandable) {
@@ -1550,7 +1549,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                                     }
                                                                                     return (
                                                                                         <div className="text-sm font-medium text-slate-900 truncate">
-                                                                                            {renderRowValue(row.value, row)}
+                                                                                            {row.canonicalDisplayModel ? <FieldValueRenderer field={row.canonicalDisplayModel} /> : renderRowValue(row.value, row)}
                                                                                         </div>
                                                                                     );
                                                                                 })()}
@@ -1740,7 +1739,9 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                         <div className="flex items-start gap-3">
                                                             <div className="flex-1 mt-0.5">
                                                                 <div className="text-base font-medium text-slate-900 break-all leading-relaxed">
-                                                                    {isAddressValue(data.current.value) || (data.current.value && typeof data.current.value === 'object' && 'ccAddressId' in data.current.value) ? (
+                                                                    {data?.canonicalDisplayModel && !data.isRepeating ? (
+                                                                        <FieldValueRenderer field={data.canonicalDisplayModel!} />
+                                                                    ) : isAddressValue(data.current.value) || (data.current.value && typeof data.current.value === 'object' && 'ccAddressId' in data.current.value) ? (
                                                                          <AddressValueViewer value={data.current.value?._resolvedData?.ccAddress?.data || data.current.value} layout="detailed" />
                                                                      ) : (isPersonOrContactValue(data.current.value) || (data.current.value && typeof data.current.value === 'object' && 'ccPartyId' in data.current.value)) ? (
                                                                             <PersonOrContactValueViewer value={data.current.value?.ccParty?.data || data.current.value?._resolvedData?.ccParty?.data || data.current.value} layout="detailed" displayMask={data?.profileConfig?.displayMask} />
@@ -1777,6 +1778,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                 </div>
                                                                 <div className="mt-2 flex items-center gap-2">
                                                                     <FieldSourceBadge 
+                                                                        source={data.canonicalDisplayModel?.source}
                                                                         legacySourceType={data.current.source || 'UNKNOWN'} 
                                                                         legacySourceReference={data.current.sourceReference} 
                                                                         legacyRaId={registrationAuthorityId} 
@@ -1784,16 +1786,8 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                         variant="span"
                                                                         className="uppercase tracking-wider"
                                                                         wrapperClassName="flex items-center gap-1.5"
+                                                                        showLastValidated={true}
                                                                     />
-                                                                    <div className="flex flex-col text-[10px] text-slate-400 border-l border-slate-200 pl-2 leading-tight justify-center">
-                                                                        {data.current.sourceCheckedAt ? (
-                                                                            <StandardTooltip content="Based on the most recent successful sync of the mapped external source.">
-                                                                                <span className="whitespace-nowrap">Last validated: {new Date(data.current.sourceCheckedAt).toLocaleString()}</span>
-                                                                            </StandardTooltip>
-                                                                        ) : (
-                                                                            <span className="whitespace-nowrap">Last validated: {data.current.timestamp ? new Date(data.current.timestamp).toLocaleString() : 'Never'}</span>
-                                                                        )}
-                                                                    </div>
                                                                 </div>
                                                             </div>
                                                              {!isLocked && (

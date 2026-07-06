@@ -219,7 +219,7 @@ async function getActiveClaimsContext(legalEntityId?: string | null, customData?
         
         if (masterFieldNos.length > 0) {
             const fieldDefs = masterFieldNos.map((no: number) => ({ fieldNo: no, isMultiValue: true })); // Safe default
-            const resolved = await KycStateService.resolveAllFields({ subjectLeId: legalEntityId }, fieldDefs, ownerScopeId || undefined);
+            const resolved = await KycStateService.resolveAllFields({ subjectLeId: legalEntityId, clientLEId: clientLeId || undefined }, fieldDefs, ownerScopeId || undefined);
             console.log("RESOLVED", resolved);
             
             for (const [fieldNo, val] of Array.from(resolved.entries())) {

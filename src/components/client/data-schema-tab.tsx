@@ -794,8 +794,8 @@ function MasterFieldDisplay({ label, fieldNo, value, formattedDisplayValue, sour
                     <>
                         <div className="flex justify-between items-start w-full">
                             <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">{value.length} Items</span>
-                            {(resolvedState === "HAS_VALUE" || resolvedState === "MAPPED_NOT_CHECKED" || resolvedState === "CHECKED_NO_DATA") && source && (
-                                <FieldSourceBadge legacySourceType={source} legacySourceReference={sourceReference} legacyRaId={registrationAuthorityId} />
+                            {(resolvedState === "HAS_VALUE" || resolvedState === "MAPPED_NOT_CHECKED" || resolvedState === "CHECKED_NO_DATA") && (canonicalDisplayModel?.source || source) && (
+                                <FieldSourceBadge source={canonicalDisplayModel?.source} showLastValidated={true} legacySourceType={source} legacySourceReference={sourceReference} legacyRaId={registrationAuthorityId} />
                             )}
                         </div>
                         <div className="flex flex-col gap-2 w-full">
@@ -859,9 +859,9 @@ function MasterFieldDisplay({ label, fieldNo, value, formattedDisplayValue, sour
                                 );
                             })()}
                         </div>
-                        {(resolvedState === "HAS_VALUE" || resolvedState === "MAPPED_NOT_CHECKED" || resolvedState === "CHECKED_NO_DATA") && source && (
+                        {(resolvedState === "HAS_VALUE" || resolvedState === "MAPPED_NOT_CHECKED" || resolvedState === "CHECKED_NO_DATA") && (canonicalDisplayModel?.source || source) && (
                             <div className="flex items-center gap-2 shrink-0 ml-4">
-                                <FieldSourceBadge legacySourceType={source} legacySourceReference={sourceReference} legacyRaId={registrationAuthorityId} />
+                                <FieldSourceBadge source={canonicalDisplayModel?.source} showLastValidated={true} legacySourceType={source} legacySourceReference={sourceReference} legacyRaId={registrationAuthorityId} />
                             </div>
                         )}
                         {!hasValue && !isCustom && (

@@ -44,4 +44,5 @@ export interface FieldSource {
     timestamp?: string;     // ISO String for JSON serialisability
     userName?: string | null; // Optional for USER_INPUT
     category: 'REGISTRY' | 'USER' | 'SYSTEM' | 'DEFAULT';
+    lastValidatedAt?: string; // ISO String for JSON serialisability
 }

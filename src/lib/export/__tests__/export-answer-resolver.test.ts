@@ -7,16 +7,21 @@ import prisma from '@/lib/prisma';
 vi.mock('@/lib/kyc/KycStateService', () => ({
     KycStateService: {
         getAuthoritativeValue: vi.fn(),
+        getAuthoritativeCollection: vi.fn(),
     }
 }));
 
 vi.mock('@/actions/kyc-query', () => ({
     getFieldDetail: vi.fn(),
     enrichPartyReferences: vi.fn().mockImplementation(async (arr) => {
-        if (arr[0]?.ccPartyId) arr[0].resolvedSummary = "Mocked Party Name";
+        for (const item of arr) {
+            if (item?.ccPartyId) item._resolvedData = { ccParty: { data: { name: `Mocked Party ${item.ccPartyId}` } } };
+        }
     }),
     enrichAddressReferences: vi.fn().mockImplementation(async (arr) => {
-        if (arr[0]?.ccAddressId) arr[0].resolvedSummary = "Mocked Address Summary";
+        for (const item of arr) {
+            if (item?.ccAddressId) item.resolvedSummary = `Mocked Address ${item.ccAddressId}`;
+        }
     }),
 }));
 
@@ -207,6 +212,34 @@ describe('Export Answer Resolver', () => {
             const res = await resolveExportAnswer(question, "le-1", "scope-1", "entity-1");
             expect(res.sourceLabel).toBeUndefined();
             expect(res.sourceTimestamp).toBeUndefined();
+        });
+
+        it('10. repeating field uses getAuthoritativeCollection and exports multiple resolved items', async () => {
+            const question = { status: 'DRAFT', masterFieldNo: 63 };
+            
+            vi.mocked(getFieldDetail).mockResolvedValue({
+                isRepeating: true,
+                dataType: 'PARTY'
+            } as any);
+    
+            const fixedDate = new Date('2026-06-22T12:00:00Z');
+            
+            vi.mocked(KycStateService.getAuthoritativeCollection).mockResolvedValue([
+                { value: { ccPartyId: 'p1' }, sourceType: 'USER_INPUT', claimId: 'claim-1', assertedAt: fixedDate },
+                { value: { ccPartyId: 'p2' }, sourceType: 'USER_INPUT', claimId: 'claim-2', assertedAt: fixedDate }
+            ] as any);
+    
+            vi.mocked(prisma.fieldClaim.findUnique).mockResolvedValue({
+                id: 'claim-1',
+                verifiedBy: { name: 'Alice Smith' }
+            } as any);
+    
+            const res = await resolveExportAnswer(question, "le-1", "scope-1", "entity-1");
+            
+            expect(KycStateService.getAuthoritativeCollection).toHaveBeenCalled();
+            expect(KycStateService.getAuthoritativeValue).not.toHaveBeenCalled();
+            expect(res.displayValue).toBe("Mocked Party p1; Mocked Party p2");
+            expect(res.sourceLabel).toBe("User input — Alice Smith"); // Pulled from primary claim (first item)
         });
     });
 });

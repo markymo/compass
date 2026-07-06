@@ -28,19 +28,50 @@ export async function resolveExportAnswer(
     const releasedByName = question.releasedByUser?.name || question.releasedByUser?.email || null;
 
     if (question.masterFieldNo && subjectLeId && entityId) {
-        const derived = await KycStateService.getAuthoritativeValue(
-            { subjectLeId },
-            question.masterFieldNo,
-            ownerScopeId || undefined,
-            snapshotDate
-        );
+        // Fetch field detail first
+        const fieldDetail = await getFieldDetail(entityId, question.masterFieldNo, "CLIENT_LE");
 
-        if (derived && derived.value !== null && derived.value !== undefined && derived.value !== "") {
-            // Fetch field detail for profileConfig
-            const fieldDetail = await getFieldDetail(entityId, question.masterFieldNo, "CLIENT_LE");
+        let derivedValueToDisplay: any = null;
+        let primaryDerived: any = null;
+
+        if (fieldDetail.isRepeating) {
+            const collection = await KycStateService.getAuthoritativeCollection(
+                { subjectLeId, clientLEId: entityId },
+                question.masterFieldNo,
+                ownerScopeId || undefined,
+                snapshotDate
+            );
+            if (collection && collection.length > 0) {
+                derivedValueToDisplay = collection.map(c => c.value);
+                primaryDerived = collection[0];
+            }
+        } else {
+            const derived = await KycStateService.getAuthoritativeValue(
+                { subjectLeId, clientLEId: entityId },
+                question.masterFieldNo,
+                ownerScopeId || undefined,
+                snapshotDate
+            );
+            if (derived && derived.value !== null && derived.value !== undefined && derived.value !== "") {
+                derivedValueToDisplay = derived.value;
+                primaryDerived = derived;
+            }
+        }
+
+        if (primaryDerived && derivedValueToDisplay !== null && derivedValueToDisplay !== undefined && derivedValueToDisplay !== "" && (!Array.isArray(derivedValueToDisplay) || derivedValueToDisplay.length > 0)) {
+            const valuesToEnrich = Array.isArray(derivedValueToDisplay) ? derivedValueToDisplay : [derivedValueToDisplay];
+            await enrichPartyReferences(valuesToEnrich);
+            await enrichAddressReferences(valuesToEnrich);
+
             const displayModel = resolveFieldForDisplay(
-                derived.value,
-                null,
+                derivedValueToDisplay,
+                {
+                    type: primaryDerived.sourceType as any,
+                    reference: primaryDerived.sourceReference,
+                    timestamp: primaryDerived.assertedAt,
+                    sourceCheckedAt: primaryDerived.sourceCheckedAt || primaryDerived.assertedAt,
+                    userName: null
+                },
                 {
                     fieldNo: question.masterFieldNo,
                     label: "Export Field", // Not used by toExportText, but required by metadata
@@ -51,42 +82,42 @@ export async function resolveExportAnswer(
             );
             const displayValue = toExportText(displayModel);
             
-            // Resolve provenance
-            let sourceLabel = derived.sourceType;
-            let sourceUserName: string | null = null;
-            let sourceTimestamp = derived.assertedAt;
+            // Resolve provenance from canonical model
+            let sourceLabel = displayModel.source?.label || primaryDerived.sourceType;
+            let sourceUserName: string | null = displayModel.source?.userName || null;
+            let sourceTimestamp = displayModel.source?.lastValidatedAt || displayModel.source?.timestamp || primaryDerived.assertedAt;
 
             let sourceCategory: 'REGISTRY' | 'USER' | 'DEFAULT' | 'SYSTEM' = 'REGISTRY';
-            if (derived.sourceType === 'USER_INPUT') {
+            if (primaryDerived.sourceType === 'USER_INPUT') {
                 const claim = await prisma.fieldClaim.findUnique({
-                    where: { id: derived.claimId },
+                    where: { id: primaryDerived.claimId },
                     include: { verifiedBy: true }
                 });
                 sourceUserName = claim?.verifiedBy?.name || claim?.verifiedBy?.email || null;
                 sourceLabel = sourceUserName ? `User input — ${sourceUserName}` : "User input";
                 sourceCategory = 'USER';
-            } else if (derived.sourceReference === 'COMPANIES_HOUSE' || derived.sourceType === 'COMPANIES_HOUSE') {
+            } else if (primaryDerived.sourceReference === 'COMPANIES_HOUSE' || primaryDerived.sourceType === 'COMPANIES_HOUSE') {
                 sourceCategory = 'REGISTRY';
-            } else if (derived.sourceType === 'GLEIF') {
+            } else if (primaryDerived.sourceType === 'GLEIF') {
                 sourceCategory = 'REGISTRY';
-            } else if (derived.sourceType === 'REGISTRATION_AUTHORITY' || derived.sourceType === 'NATIONAL_REGISTRY') {
+            } else if (primaryDerived.sourceType === 'REGISTRATION_AUTHORITY' || primaryDerived.sourceType === 'NATIONAL_REGISTRY') {
                 sourceCategory = 'REGISTRY';
-            } else if (derived.sourceType === 'SYSTEM_DERIVED' || derived.sourceType === 'AI_EXTRACTION') {
+            } else if (primaryDerived.sourceType === 'SYSTEM_DERIVED' || primaryDerived.sourceType === 'AI_EXTRACTION') {
                 sourceCategory = 'SYSTEM';
             } else {
                 sourceCategory = 'SYSTEM';
             }
 
             // Apply human-readable naming conventions centrally
-            sourceLabel = getSourceDisplayName(derived.sourceType, derived.sourceReference);
-            if (derived.sourceType === 'USER_INPUT' && sourceUserName) {
+            sourceLabel = getSourceDisplayName(primaryDerived.sourceType, primaryDerived.sourceReference);
+            if (primaryDerived.sourceType === 'USER_INPUT' && sourceUserName) {
                 sourceLabel = `User input — ${sourceUserName}`;
             }
 
             return {
                 displayValue,
-                rawValue: derived.value,
-                answerState: derived.value.explicitNone === true ? "EMPTY_CHECKED" : "HAS_VALUE",
+                rawValue: derivedValueToDisplay,
+                answerState: (!Array.isArray(derivedValueToDisplay) && derivedValueToDisplay.explicitNone === true) ? "EMPTY_CHECKED" : "HAS_VALUE",
                 sourceLabel,
                 sourceTimestamp,
                 sourceUserName,
@@ -151,6 +182,10 @@ export async function resolveExportAnswer(
                     parsedAnswer = JSON.parse(parsedAnswer);
                 } catch (e) { }
             }
+
+            const valuesToEnrich = [parsedAnswer];
+            await enrichPartyReferences(valuesToEnrich);
+            await enrichAddressReferences(valuesToEnrich);
 
             const displayModel = resolveFieldForDisplay(
                 parsedAnswer,

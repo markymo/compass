@@ -2,6 +2,7 @@
 
 import prisma from "@/lib/prisma";
 import { getConsoleQuestions, ConsoleQuestion, resolveMasterData, resolveMasterDataBatch, BatchResolverInput } from "./kyc-query";
+import { fetchProvenanceMap } from "@/lib/kyc/provenance-enricher";
 import { fetchRaNameLookup } from "@/lib/kyc/source-label.server";
 import { KycStateService } from "@/lib/kyc/KycStateService";
 import { listAllMasterFields, listAllMasterGroups, listAllMasterGroupsWithItems, getMasterFieldGroup } from "@/services/masterData/definitionService";
@@ -167,6 +168,8 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
             allGroupsWithItems.map((g: any) => [g.key, g.fieldNos as number[]])
         );
 
+        const provenanceMap = await fetchProvenanceMap({ clientLEId: leId });
+
         const batchInput: BatchResolverInput = {
             subjectLeId,
             ownerScopeId,
@@ -182,6 +185,7 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
             groupFieldMap,
             claims: allClaims as any,
             sourceMappings: allSourceMappings,
+            provenanceMap,
         };
 
         const resolvedValues = await resolveMasterDataBatch(batchInput);
@@ -189,12 +193,30 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
         questions.forEach((q: any) => {
             if (q.customFieldDefinitionId) {
                 const val = customData[q.customFieldDefinitionId];
-                q.masterDataValue = (val && typeof val === 'object' && 'value' in val) ? val.value : val;
+                const rawValue = (val && typeof val === 'object' && 'value' in val) ? val.value : val;
+                const rawSource = val && typeof val === 'object' ? val.source : 'USER_INPUT';
+                
+                q.masterDataValue = rawValue;
                 if (val && typeof val === 'object') {
                     q.masterDataSource = val.source || 'USER_INPUT';
                     q.masterDataUpdatedAt = val.timestamp ? new Date(val.timestamp) : null;
                 } else {
                     q.masterDataSource = 'USER_INPUT';
+                }
+
+                const customDef = customFieldsRaw.find((f: any) => f.id === q.customFieldDefinitionId);
+                if (customDef) {
+                    q.canonicalDisplayModel = resolveFieldForDisplay(
+                        rawValue,
+                        { type: rawSource, reference: null },
+                        {
+                            fieldNo: -1, // Sentinel value for Custom Fields
+                            label: customDef.label,
+                            displayState: rawValue ? 'HAS_VALUE' : 'CHECKED_NO_DATA',
+                            appDataType: customDef.dataType.toUpperCase(),
+                            isMultiValue: Array.isArray(rawValue)
+                        }
+                    );
                 }
             } else if (resolvedValues[q.id]) {
                 if (q.masterQuestionGroupId) {
@@ -225,7 +247,7 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
 
                         const canonicalDisplayModel = hydratedVal ? resolveFieldForDisplay(
                             hydratedVal.value,
-                            hydratedVal.source ? { type: hydratedVal.source as any, reference: hydratedVal.sourceReference } : null,
+                            hydratedVal.source ? { type: hydratedVal.source as any, reference: hydratedVal.sourceReference, timestamp: hydratedVal.updatedAt ?? null, sourceCheckedAt: hydratedVal.sourceCheckedAt ?? null } : null,
                             {
                                 fieldNo,
                                 label: def.fieldName ? `F${fieldNo} ${def.fieldName}` : `F${fieldNo}`,
@@ -266,7 +288,7 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
 
                         q.canonicalDisplayModel = resolveFieldForDisplay(
                             fv.value,
-                            fv.source ? { type: fv.source as any, reference: fv.sourceReference } : null,
+                            fv.source ? { type: fv.source as any, reference: fv.sourceReference, timestamp: fv.updatedAt ?? null, sourceCheckedAt: fv.sourceCheckedAt ?? null } : null,
                             {
                                 fieldNo: q.masterFieldNo,
                                 label: def?.fieldName || '',
