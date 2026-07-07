@@ -30,6 +30,9 @@ export interface GleifL2Data {
     directParentException: string | null;
     ultimateParentException: string | null;
     directChildrenCount: number | null;
+    ultimateChildrenCount: number | null;
+    directChildren: GleifL2Entity[];
+    ultimateChildren: GleifL2Entity[];
     fetchedAt: string;
 }
 
@@ -122,18 +125,32 @@ async function fetchException(
     }
 }
 
-/** Fetch only the page-total of direct children (page[size]=1). */
-async function fetchChildrenCount(lei: string): Promise<number | null> {
+/** Fetch the page-total and a limited list of children. */
+async function fetchChildrenList(
+    lei: string,
+    relationship: "direct-children" | "ultimate-children"
+): Promise<{ count: number | null; entities: GleifL2Entity[] }> {
     try {
         const res = await fetch(
-            `${GLEIF_API}/lei-records/${lei}/direct-children?page[size]=1`,
+            `${GLEIF_API}/lei-records/${lei}/${relationship}?page[size]=50`,
             { headers: GLEIF_HEADERS, next: { revalidate: 60 } }
         );
-        if (!res.ok) return null;
+        if (!res.ok) return { count: null, entities: [] };
+        
         const json = await res.json();
-        return json.meta?.pagination?.total ?? null;
+        const count = json.meta?.pagination?.total ?? null;
+        
+        const entities: GleifL2Entity[] = [];
+        if (Array.isArray(json.data)) {
+            for (const record of json.data) {
+                const entity = extractCompact(record);
+                if (entity) entities.push(entity);
+            }
+        }
+        
+        return { count, entities };
     } catch {
-        return null;
+        return { count: null, entities: [] };
     }
 }
 
@@ -149,17 +166,19 @@ export async function fetchGleifL2(lei: string): Promise<GleifL2Data> {
     console.log(`[GLEIF] Fetching Level 2 relationships for LEI: ${lei}`);
 
     // Fire all L2 requests in parallel — any failure silenced by allSettled
-    const [dpResult, upResult, ccResult, fmResult, ufResult] = await Promise.allSettled([
+    const [dpResult, upResult, dcResult, ucResult, fmResult, ufResult] = await Promise.allSettled([
         fetchRelationship(lei, "direct-parent"),
         fetchRelationship(lei, "ultimate-parent"),
-        fetchChildrenCount(lei),
+        fetchChildrenList(lei, "direct-children"),
+        fetchChildrenList(lei, "ultimate-children"),
         fetchRelationship(lei, "fund-manager"),
         fetchRelationship(lei, "umbrella-fund"),
     ]);
 
     const dp = dpResult.status === "fulfilled" ? dpResult.value : { entity: null, exception: null };
     const up = upResult.status === "fulfilled" ? upResult.value : { entity: null, exception: null };
-    const cc = ccResult.status === "fulfilled" ? ccResult.value : null;
+    const dc = dcResult.status === "fulfilled" ? dcResult.value : { count: null, entities: [] };
+    const uc = ucResult.status === "fulfilled" ? ucResult.value : { count: null, entities: [] };
     const fm = fmResult.status === "fulfilled" ? fmResult.value : { entity: null, exception: null };
     const uf = ufResult.status === "fulfilled" ? ufResult.value : { entity: null, exception: null };
 
@@ -185,7 +204,10 @@ export async function fetchGleifL2(lei: string): Promise<GleifL2Data> {
         umbrellaFund: uf.entity,
         directParentException,
         ultimateParentException,
-        directChildrenCount: cc,
+        directChildrenCount: dc.count,
+        ultimateChildrenCount: uc.count,
+        directChildren: dc.entities,
+        ultimateChildren: uc.entities,
         fetchedAt,
     };
 }
