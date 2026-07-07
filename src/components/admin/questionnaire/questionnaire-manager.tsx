@@ -911,7 +911,7 @@ export function QuestionnaireManager({ questionnaire: initialQ, masterFields, li
                     ) /* end isReferenceSnapshot else-branch */
                 ) : (
                     // The Mapping Workbench fills the area smoothly
-                    <div className="flex-1 pb-12 relative">
+                    <div className="flex-1 flex flex-col pb-12 relative">
                         {(extracting || questionnaire.status === 'DIGITIZING') && (
                             <div className="absolute top-0 left-0 right-0 z-10 bg-indigo-50/80 backdrop-blur-sm border-b border-indigo-100 px-4 py-2 flex items-center justify-center gap-3 animate-in fade-in slide-in-from-top-2">
                                 <Loader2 className="w-4 h-4 animate-spin text-indigo-600" />

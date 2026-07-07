@@ -13,9 +13,10 @@ import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, Save, Sparkles, AlertCircle, CheckCircle2, ChevronRight, Search, LayoutList, LayoutTemplate, Check, Plus, Settings, Pencil, Paperclip, RefreshCw, Cloud, CloudOff } from "lucide-react";
+import { Loader2, Save, Sparkles, AlertCircle, CheckCircle2, ChevronRight, Search, LayoutList, LayoutTemplate, Check, Plus, Settings, Pencil, Paperclip, RefreshCw, Cloud, CloudOff, GripVertical } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 
 // --- Inline Text Editor Component ---
 function InlineTextEditor({ value, onSave, className, readOnly }: { value: string, onSave: (val: string) => void, className?: string, readOnly?: boolean }) {
@@ -124,6 +125,11 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData, rea
 
     // Editor Scroll Management
     const editorScrollRef = useRef<HTMLDivElement>(null);
+
+    const [isMounted, setIsMounted] = useState(false);
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
 
     useEffect(() => {
         if (editorScrollRef.current) {
@@ -432,6 +438,28 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData, rea
             // Re-assign orders based on new array position
             return newQuestions.map((q: any, i: any) => ({ ...q, order: i + 1 }));
         });
+        scheduleAutoSave();
+    };
+
+    const handleDragEnd = (result: DropResult) => {
+        if (!result.destination) return;
+        if (result.source.index === result.destination.index) return;
+
+        const sourceIndex = result.source.index;
+        const destinationIndex = result.destination.index;
+
+        setQuestions(prev => {
+            const newQuestions = Array.from(prev);
+            const [reorderedItem] = newQuestions.splice(sourceIndex, 1);
+            newQuestions.splice(destinationIndex, 0, reorderedItem);
+
+            // Re-assign orders
+            return newQuestions.map((q: any, i: number) => ({
+                ...q,
+                order: i + 1
+            }));
+        });
+        scheduleAutoSave();
     };
 
     const handleCreateCustomField = async (label: string) => {
@@ -778,7 +806,15 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData, rea
 
                         {/* List Body */}
                         <div className="flex-1 overflow-y-auto">
-                            <div className="divide-y divide-slate-100">
+                            {isMounted && (
+                                <DragDropContext onDragEnd={handleDragEnd}>
+                                    <Droppable droppableId="questions-list" isDropDisabled={filter !== "" || readOnly}>
+                                        {(provided) => (
+                                            <div 
+                                                className="divide-y divide-slate-100 min-h-full"
+                                                {...provided.droppableProps}
+                                                ref={provided.innerRef}
+                                            >
                                 {filteredQuestions.map((q: any) => {
                                     const isMapped = q.masterFieldNo || q.masterQuestionGroupId || q.customFieldDefinitionId;
                                     const mappingValue =
@@ -799,82 +835,105 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData, rea
                                     const selectedOption = allOptions.find((o: any) => o.value === mappingValue);
 
                                     const isSelected = selectedQuestionId === q.id;
+                                    const index = filteredQuestions.indexOf(q);
 
                                     return (
-                                        <div
-                                            key={q.id}
-                                            className={cn(
-                                                GRID_COLS,
-                                                "h-12 border-b border-slate-100 transition-colors group cursor-pointer border-l-2",
-                                                isSelected
-                                                    ? "bg-indigo-50/40 border-l-indigo-500"
-                                                    : "hover:bg-slate-50/60 border-l-transparent"
-                                            )}
-                                            onClick={() => setSelectedQuestionId(q.id)}
-                                        >
-                                            {/* Col 1: # */}
-                                            <div className="px-3 flex items-center h-full border-r border-slate-100 shrink-0">
-                                                <span className="text-[11px] text-slate-400 font-mono tabular-nums select-none">{q.order}</span>
-                                            </div>
-
-                                            {/* Col 2: Compact Label */}
-                                            <div className="px-3 flex items-center h-full border-r border-slate-100 min-w-0 gap-1.5">
-                                                <span className={cn(
-                                                    "text-sm leading-none truncate",
-                                                    q.compactText ? "font-medium text-slate-800" : "italic font-normal text-slate-400"
-                                                )}>
-                                                    {q.compactText || "Add label..."}
-                                                </span>
-                                                {q.allowAttachments && (
-                                                    <span title="Attachments enabled" className="shrink-0">
-                                                        <Paperclip className="h-3 w-3 text-slate-300" />
-                                                    </span>
-                                                )}
-                                            </div>
-
-                                            {/* Col 3: Mapping — plain table-cell text, no ghost button */}
-                                            <div
-                                                className="px-3 flex items-center h-full border-r border-slate-100 min-w-0"
-                                                onClick={(e) => e.stopPropagation()}
-                                            >
-                                                <FieldSelector
-                                                    value={mappingValue}
-                                                    onSelect={(val, type, label) => {
-                                                        if (type === 'create') handleCreateCustomField(label!);
-                                                        else if (type === 'master') updateQuestion(q.id, { masterFieldNo: parseInt(val), masterQuestionGroupId: null, customFieldDefinitionId: null });
-                                                        else if (type === 'group') updateQuestion(q.id, { masterQuestionGroupId: val, masterFieldNo: null, customFieldDefinitionId: null });
-                                                        else if (type === 'custom') updateQuestion(q.id, { customFieldDefinitionId: val, masterFieldNo: null, masterQuestionGroupId: null });
-                                                        else if (type === 'clear') updateQuestion(q.id, { masterFieldNo: null, masterQuestionGroupId: null, customFieldDefinitionId: null });
-                                                    }}
-                                                    customFields={customFields}
-                                                    tableMode
-                                                    resolvedDisplay={resolved?.display ?? null}
-                                                />
-                                            </div>
-
-                                            {/* Col 4: Actions — hover-only; hidden when readOnly */}
-                                            {readOnly ? (
-                                                <div />
-                                            ) : (
+                                        <Draggable key={q.id} draggableId={q.id} index={index} isDragDisabled={filter !== "" || readOnly}>
+                                            {(provided, snapshot) => (
                                                 <div
-                                                    className="px-2 flex items-center justify-end h-full gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
-                                                    onClick={(e) => e.stopPropagation()}
+                                                    ref={provided.innerRef}
+                                                    {...provided.draggableProps}
+                                                    style={provided.draggableProps.style as React.CSSProperties}
+                                                    className={cn(
+                                                        GRID_COLS,
+                                                        "h-12 border-b border-slate-100 transition-colors group cursor-pointer border-l-2 bg-white",
+                                                        isSelected
+                                                            ? "bg-indigo-50/40 border-l-indigo-500"
+                                                            : "hover:bg-slate-50/60 border-l-transparent",
+                                                        snapshot.isDragging ? "shadow-lg ring-1 ring-indigo-500/20 z-50 relative" : ""
+                                                    )}
+                                                    onClick={() => setSelectedQuestionId(q.id)}
                                                 >
-                                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-slate-600" onClick={() => handleMoveQuestionUp(q.id)}>
-                                                        <ChevronRight className="h-3.5 w-3.5 -rotate-90" />
-                                                    </Button>
-                                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-slate-600" onClick={() => handleMoveQuestionDown(q.id)}>
-                                                        <ChevronRight className="h-3.5 w-3.5 rotate-90" />
-                                                    </Button>
-                                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-red-400 hover:text-red-500 hover:bg-red-50" onClick={() => handleRemoveQuestion(q.id)}>
-                                                        <svg width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5"><path d="M5.5 1C5.22386 1 5 1.22386 5 1.5C5 1.77614 5.22386 2 5.5 2H9.5C9.77614 2 10 1.77614 10 1.5C10 1.22386 9.77614 1 9.5 1H5.5ZM3 3.5C3 3.22386 3.22386 3 3.5 3H11.5C11.7761 3 12 3.22386 12 3.5C12 3.77614 11.7761 4 11.5 4H11V12C11 12.5523 10.5523 13 10 13H5C4.44772 13 4 12.5523 4 12V4H3.5C3.22386 4 3 3.77614 3 3.5ZM5 4H10V12H5V4Z" fill="currentColor" fillRule="evenodd" clipRule="evenodd"></path></svg>
-                                                    </Button>
+                                                    {/* Col 1: # and Drag Handle */}
+                                                    <div className="px-2 flex items-center h-full border-r border-slate-100 shrink-0 gap-1">
+                                                        <div 
+                                                            {...provided.dragHandleProps} 
+                                                            className={cn(
+                                                                "h-6 w-6 flex items-center justify-center rounded text-slate-300 hover:text-slate-500 hover:bg-slate-100 cursor-grab active:cursor-grabbing",
+                                                                (filter !== "" || readOnly) && "hidden"
+                                                            )}
+                                                            onClick={(e) => e.stopPropagation()}
+                                                        >
+                                                            <GripVertical className="h-4 w-4" />
+                                                        </div>
+                                                        <span className="text-[11px] text-slate-400 font-mono tabular-nums select-none">{q.order}</span>
+                                                    </div>
+
+                                                    {/* Col 2: Compact Label */}
+                                                    <div className="px-3 flex items-center h-full border-r border-slate-100 min-w-0 gap-1.5">
+                                                        <span className={cn(
+                                                            "text-sm leading-none truncate",
+                                                            q.compactText ? "font-medium text-slate-800" : "italic font-normal text-slate-400"
+                                                        )}>
+                                                            {q.compactText || "Add label..."}
+                                                        </span>
+                                                        {q.allowAttachments && (
+                                                            <span title="Attachments enabled" className="shrink-0">
+                                                                <Paperclip className="h-3 w-3 text-slate-300" />
+                                                            </span>
+                                                        )}
+                                                    </div>
+
+                                                    {/* Col 3: Mapping — plain table-cell text, no ghost button */}
+                                                    <div
+                                                        className="px-3 flex items-center h-full border-r border-slate-100 min-w-0"
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    >
+                                                        <FieldSelector
+                                                            value={mappingValue}
+                                                            onSelect={(val, type, label) => {
+                                                                if (type === 'create') handleCreateCustomField(label!);
+                                                                else if (type === 'master') updateQuestion(q.id, { masterFieldNo: parseInt(val), masterQuestionGroupId: null, customFieldDefinitionId: null });
+                                                                else if (type === 'group') updateQuestion(q.id, { masterQuestionGroupId: val, masterFieldNo: null, customFieldDefinitionId: null });
+                                                                else if (type === 'custom') updateQuestion(q.id, { customFieldDefinitionId: val, masterFieldNo: null, masterQuestionGroupId: null });
+                                                                else if (type === 'clear') updateQuestion(q.id, { masterFieldNo: null, masterQuestionGroupId: null, customFieldDefinitionId: null });
+                                                            }}
+                                                            customFields={customFields}
+                                                            tableMode
+                                                            resolvedDisplay={resolved?.display ?? null}
+                                                        />
+                                                    </div>
+
+                                                    {/* Col 4: Actions — hover-only; hidden when readOnly */}
+                                                    {readOnly ? (
+                                                        <div />
+                                                    ) : (
+                                                        <div
+                                                            className="px-2 flex items-center justify-end h-full gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                            onClick={(e) => e.stopPropagation()}
+                                                        >
+                                                            <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-slate-600 md:hidden" onClick={() => handleMoveQuestionUp(q.id)}>
+                                                                <ChevronRight className="h-3.5 w-3.5 -rotate-90" />
+                                                            </Button>
+                                                            <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-slate-600 md:hidden" onClick={() => handleMoveQuestionDown(q.id)}>
+                                                                <ChevronRight className="h-3.5 w-3.5 rotate-90" />
+                                                            </Button>
+                                                            <Button variant="ghost" size="icon" className="h-6 w-6 text-red-400 hover:text-red-500 hover:bg-red-50" onClick={() => handleRemoveQuestion(q.id)}>
+                                                                <svg width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5"><path d="M5.5 1C5.22386 1 5 1.22386 5 1.5C5 1.77614 5.22386 2 5.5 2H9.5C9.77614 2 10 1.77614 10 1.5C10 1.22386 9.77614 1 9.5 1H5.5ZM3 3.5C3 3.22386 3.22386 3 3.5 3H11.5C11.7761 3 12 3.22386 12 3.5C12 3.77614 11.7761 4 11.5 4H11V12C11 12.5523 10.5523 13 10 13H5C4.44772 13 4 12.5523 4 12V4H3.5C3.22386 4 3 3.77614 3 3.5ZM5 4H10V12H5V4Z" fill="currentColor" fillRule="evenodd" clipRule="evenodd"></path></svg>
+                                                            </Button>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             )}
-                                        </div>
+                                        </Draggable>
                                     );
                                 })}
+                                {provided.placeholder}
                             </div>
+                            )}
+                        </Droppable>
+                    </DragDropContext>
+                )}
                             {!readOnly && (
                                 <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/50">
                                     <Button variant="outline" size="sm" onClick={handleAddQuestion} className="w-full border-dashed border-slate-300 text-slate-500 hover:text-slate-800 hover:border-slate-400 bg-transparent h-10">
