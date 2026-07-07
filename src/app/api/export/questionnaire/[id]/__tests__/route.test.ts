@@ -97,8 +97,8 @@ describe('Export API Route', () => {
         // Since we mocked renderToStream, the response will be a 200 OK with a ReadableStream
         expect(response.status).toBe(200);
 
-        // Verify that the helper was called with the right ID
-        expect(resolveQuestionnaireContext).toHaveBeenCalledWith(questionnaireId);
+        // Verify that the helper was called with the right ID and undefined for explicitClientLeId
+        expect(resolveQuestionnaireContext).toHaveBeenCalledWith(questionnaireId, undefined);
 
         // Verify that resolveExportAnswer was called with the correct subjectLeId resolved from the M2M engagement!
         expect(resolveExportAnswer).toHaveBeenCalledWith(
@@ -107,5 +107,72 @@ describe('Export API Route', () => {
             'scope-789', // ownerScopeId successfully passed
             'client-123' // entityId successfully passed
         );
+
+        // Verify that Supplier Name is correctly resolved by inspecting the arguments passed to renderToStream
+        const renderArgs = vi.mocked(renderToStream).mock.calls[0][0] as any;
+        expect(renderArgs.props.exportMetadata.supplierDisplayName).toBe('Supplier Org');
+        expect(renderArgs.props.exportMetadata.clientDisplayName).toBe('Client Entity');
+    });
+
+    it('successfully resolves a Common Questionnaire when explicit engagementId is provided', async () => {
+        const questionnaireId = 'q-common-123';
+        const explicitEngagementId = 'engagement-789';
+
+        vi.mocked(resolveQuestionnaireContext).mockResolvedValue({
+            questionnaire: { id: questionnaireId, name: 'Common Master Template', isDeleted: false },
+            engagement: { org: { name: 'Common Supplier Org' } },
+            clientLE: {
+                id: 'client-123',
+                legalEntityId: 'le-common-456',
+                name: 'Client Entity',
+                owners: [{ party: { name: 'Parent Org' } }]
+            },
+            clientLeId: 'client-123',
+            subjectLeId: 'le-common-456',
+            ownerScopeId: 'scope-common-123'
+        } as any);
+
+        const mockQuestions = [
+            {
+                id: 'question-2',
+                questionnaireId,
+                text: 'Registered Address',
+                masterFieldNo: 138,
+                status: 'RELEASED',
+                order: 1,
+                documents: [],
+                comments: []
+            }
+        ];
+        vi.mocked(prisma.question.findMany).mockResolvedValue(mockQuestions as any);
+
+        vi.mocked(resolveExportAnswer).mockResolvedValue({
+            displayValue: "456 Common Street, London, UK",
+            rawValue: { ccAddressId: 'addr-common' },
+            answerState: "HAS_VALUE",
+            sourceCategory: "GLEIF"
+        });
+
+        // Pass engagementId in searchParams
+        const req = new NextRequest(`http://localhost/api/export/questionnaire/${questionnaireId}?engagementId=${explicitEngagementId}`);
+        const response = await GET(req, { params: Promise.resolve({ id: questionnaireId }) } as any);
+
+        expect(response.status).toBe(200);
+
+        // Verify helper was called with explicitEngagementId
+        expect(resolveQuestionnaireContext).toHaveBeenCalledWith(questionnaireId, explicitEngagementId);
+
+        // Verify correct subjectLeId was passed to canonical resolver
+        expect(resolveExportAnswer).toHaveBeenCalledWith(
+            mockQuestions[0],
+            'le-common-456',
+            'scope-common-123',
+            'client-123'
+        );
+
+        // Verify that Supplier Name is correctly resolved
+        const renderArgs = vi.mocked(renderToStream).mock.calls[0][0] as any;
+        expect(renderArgs.props.exportMetadata.supplierDisplayName).toBe('Common Supplier Org');
+        expect(renderArgs.props.exportMetadata.clientDisplayName).toBe('Client Entity');
     });
 });

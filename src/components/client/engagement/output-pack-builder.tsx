@@ -64,7 +64,6 @@ export function OutputPackBuilder({
     evidenceDocuments,
     sharedDocuments,
 }: OutputPackBuilderProps) {
-
     // Build derived data
     const docsByQuestionnaireId = new Map<string, OutputQuestionnaire["files"]>();
 
@@ -185,7 +184,9 @@ export function OutputPackBuilder({
     const handleDownloadQuestionnaire = async (id: string, name: string) => {
         const toastId = toast.loading(`Generating PDF for ${name}...`);
         try {
-            const response = await fetch(`/api/export/questionnaire/${id}`);
+            const fetchUrl = engagementId ? `/api/export/questionnaire/${id}?engagementId=${engagementId}` : `/api/export/questionnaire/${id}`;
+            console.log(`[OutputPackBuilder] Triggering PDF export with URL: ${fetchUrl}`);
+            const response = await fetch(fetchUrl);
             if (!response.ok) throw new Error("Failed to generate PDF");
             
             const blob = await response.blob();

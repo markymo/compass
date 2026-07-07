@@ -21,7 +21,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         const identity = await getIdentity();
         const user = identity?.userId ? await prisma.user.findUnique({ where: { id: identity.userId } }) : null;
 
-        const ctx = await resolveQuestionnaireContext(questionnaireId);
+        const explicitEngagementId = req.nextUrl.searchParams.get('engagementId') || undefined;
+
+        const ctx = await resolveQuestionnaireContext(questionnaireId, explicitEngagementId);
         if (!ctx || !ctx.questionnaire || ctx.questionnaire.isDeleted) {
             return NextResponse.json({ error: "Questionnaire not found" }, { status: 404 });
         }
