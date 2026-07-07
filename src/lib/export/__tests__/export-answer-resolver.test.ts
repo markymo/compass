@@ -20,7 +20,7 @@ vi.mock('@/actions/kyc-query', () => ({
     }),
     enrichAddressReferences: vi.fn().mockImplementation(async (arr) => {
         for (const item of arr) {
-            if (item?.ccAddressId) item.resolvedSummary = `Mocked Address ${item.ccAddressId}`;
+            if (item?.ccAddressId) item._resolvedData = { ccAddress: { data: { addressLines: [`Mocked Address ${item.ccAddressId}`] } } };
         }
     }),
 }));
@@ -240,6 +240,28 @@ describe('Export Answer Resolver', () => {
             expect(KycStateService.getAuthoritativeValue).not.toHaveBeenCalled();
             expect(res.displayValue).toBe("Mocked Party p1; Mocked Party p2");
             expect(res.sourceLabel).toBe("User input — Alice Smith"); // Pulled from primary claim (first item)
+        });
+
+        it('11. mapped address field stringified JSON is parsed before enrichment so it formats correctly', async () => {
+            const question = { status: 'DRAFT', masterFieldNo: 15 };
+            vi.mocked(getFieldDetail).mockResolvedValue({
+                isRepeating: false,
+                dataType: 'ADDRESS'
+            } as any);
+
+            const fixedDate = new Date('2026-06-22T12:00:00Z');
+            
+            // Simulating KycStateService returning the value as a stringified JSON (the bug condition)
+            vi.mocked(KycStateService.getAuthoritativeValue).mockResolvedValue({
+                value: JSON.stringify({ ccAddressId: 'addr-123' }),
+                sourceType: 'COMPANIES_HOUSE',
+                assertedAt: fixedDate
+            } as any);
+
+            const res = await resolveExportAnswer(question, "le-1", "scope-1", "entity-1");
+            
+            // Should be the enriched address, not ID:addr-123...
+            expect(res.displayValue).toBe("Mocked Address addr-123");
         });
     });
 });
