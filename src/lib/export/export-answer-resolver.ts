@@ -59,6 +59,22 @@ export async function resolveExportAnswer(
         }
 
         if (primaryDerived && derivedValueToDisplay !== null && derivedValueToDisplay !== undefined && derivedValueToDisplay !== "" && (!Array.isArray(derivedValueToDisplay) || derivedValueToDisplay.length > 0)) {
+            // Parse structured JSON string(s) into objects BEFORE enrichment
+            let parsedDerivedValue = derivedValueToDisplay;
+            if (Array.isArray(parsedDerivedValue)) {
+                parsedDerivedValue = parsedDerivedValue.map(v => {
+                    if (typeof v === 'string') {
+                        try { return JSON.parse(v); } catch (e) { return v; }
+                    }
+                    return v;
+                });
+            } else if (typeof parsedDerivedValue === 'string') {
+                try {
+                    parsedDerivedValue = JSON.parse(parsedDerivedValue);
+                } catch (e) {}
+            }
+            derivedValueToDisplay = parsedDerivedValue;
+
             const valuesToEnrich = Array.isArray(derivedValueToDisplay) ? derivedValueToDisplay : [derivedValueToDisplay];
             await enrichPartyReferences(valuesToEnrich);
             await enrichAddressReferences(valuesToEnrich);

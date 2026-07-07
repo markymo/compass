@@ -632,4 +632,35 @@ describe('resolveMasterDataBatch', () => {
         expect(result['q20']['3'].value).toBe('W1');
     });
 
+    // ── T21: Parse-before-enrich stringified JSON fallback ───────────────────
+
+    it('T21: stringified JSON address payload is parsed before enrichment and projection', async () => {
+        // Mock the DB call inside enrichAddressReferences
+        vi.mocked(prisma.cCAddress.findMany).mockResolvedValueOnce([
+            { id: 'addr-789', data: { locality: 'Manchester', postalCode: 'M1' } } as any
+        ]);
+
+        const claim = makeClaim({
+            id: 'c-t21', fieldNo: 3,
+            sourceType: 'USER_INPUT',
+            // Simulate the bug where the payload is trapped in valueText as stringified JSON
+            valueText: JSON.stringify({ ccAddressId: 'addr-789' }),
+        });
+        const input: BatchResolverInput = {
+            subjectLeId: SUBJECT_LE_ID,
+            ownerScopeId: null,
+            questions: [{ questionId: 'q21', masterFieldNo: 3, masterFieldProjectionPath: 'locality' }],
+            fieldDefMap: new Map([[3, { ...makeDef(3), appDataType: 'ADDRESS' }]]),
+            groupFieldMap: new Map(),
+            claims: [claim],
+            sourceMappings: [],
+        };
+
+        const result = await resolveMasterDataBatch(input);
+
+        // It should have successfully parsed the string, enriched it with findMany data,
+        // and extracted the 'locality' projection path.
+        expect(result['q21']['3'].value).toBe('Manchester');
+    });
+
 });

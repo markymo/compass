@@ -519,10 +519,25 @@ export async function resolveMasterDataBatch(input: BatchResolverInput): Promise
     }
 
     // Phase 2: Bulk-enrich PARTY_REF and ADDRESS_REF before any projection is applied
+    const parseValue = (val: any) => {
+        if (Array.isArray(val)) {
+            return val.map(v => {
+                if (typeof v === 'string' && (v.startsWith('{') || v.startsWith('['))) {
+                    try { return JSON.parse(v); } catch (e) { return v; }
+                }
+                return v;
+            });
+        } else if (typeof val === 'string' && (val.startsWith('{') || val.startsWith('['))) {
+            try { return JSON.parse(val); } catch (e) { return val; }
+        }
+        return val;
+    };
+
     const allValues: any[] = [];
     for (const res of resolvedGroups.values()) {
         for (const hv of Object.values(res)) {
             if (hv && hv.value !== null && hv.value !== undefined) {
+                hv.value = parseValue(hv.value);
                 allValues.push(hv.value);
             }
         }
@@ -530,6 +545,7 @@ export async function resolveMasterDataBatch(input: BatchResolverInput): Promise
     for (const res of resolvedFields.values()) {
         for (const hv of Object.values(res)) {
             if (hv && hv.value !== null && hv.value !== undefined) {
+                hv.value = parseValue(hv.value);
                 allValues.push(hv.value);
             }
         }
