@@ -582,14 +582,6 @@ export async function getFullMasterData(clientLEId: string) {
         canonicalDisplayModel?: FieldDisplayModel
     }> = {};
 
-    const isEmptyValue = (val: any) => {
-        if (val === null || val === undefined) return true;
-        if (typeof val === 'string' && val.trim() === '') return true;
-        if (Array.isArray(val) && val.length === 0) return true;
-        if (typeof val === 'object' && Object.keys(val).length === 0) return true;
-        return false;
-    };
-
     const allMappings = await prisma.sourceFieldMapping.findMany({
         where: { isActive: true },
         select: { targetFieldNo: true, sourceType: true }
@@ -725,7 +717,10 @@ export async function getFullMasterData(clientLEId: string) {
                 }
             }
 
-            const hasValue = !isEmptyValue(valueToSet);
+            const interpreterState = resolveFieldForDisplay(valueToSet, null, {
+                isMultiValue: def.isMultiValue
+            } as any).state;
+            const hasValue = interpreterState === 'POPULATED' || interpreterState === 'EXPLICIT_NONE';
             const mappedSources = mappingsByField.get(def.fieldNo) || [];
             const hasMapping = mappedSources.length > 0;
             

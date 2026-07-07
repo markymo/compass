@@ -76,7 +76,8 @@ function resolveState(
 
     const isEmpty = parsedValue === null || parsedValue === undefined || 
                     (typeof parsedValue === 'string' && parsedValue.trim() === '') || 
-                    (Array.isArray(parsedValue) && parsedValue.length === 0);
+                    (Array.isArray(parsedValue) && parsedValue.length === 0) ||
+                    (typeof parsedValue === 'object' && !Array.isArray(parsedValue) && !(parsedValue instanceof Date) && Object.keys(parsedValue).length === 0);
                     
     if (isEmpty) return 'NO_DATA';
 
@@ -109,6 +110,14 @@ function resolveValue(
 
 function parseAnyValue(val: any, displayMask?: string[], codeSystem?: string, appDataType?: string, fieldNo?: number): ResolvedFieldValue {
     if (val === null || val === undefined) return { kind: 'empty' };
+
+    if (val instanceof Date) {
+        if (isNaN(val.getTime())) {
+            return { kind: 'scalar', display: 'Invalid Date', rawValue: String(val) };
+        }
+        const display = val.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+        return { kind: 'scalar', display, rawValue: val.toISOString() };
+    }
 
     if (Array.isArray(val)) {
         if (val.length === 0) return { kind: 'empty' };

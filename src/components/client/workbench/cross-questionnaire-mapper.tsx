@@ -256,6 +256,7 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
                                 masterDataValue: (res as any).newValue,
                                 masterDataSource: (res as any).newSource,
                                 masterDataUpdatedAt: (res as any).newUpdatedAt,
+                                canonicalDisplayModel: (res as any).newCanonicalDisplayModel !== undefined ? (res as any).newCanonicalDisplayModel : q.canonicalDisplayModel,
                                 status: 'DRAFT' as any // Safety Reset
                             } as any
                             : q

@@ -1356,22 +1356,15 @@ export async function getFieldDetail(
             }
         }
 
-    const isEmptyValue = (val: any) => {
-        if (val === null || val === undefined) return true;
-        if (typeof val === 'string' && val.trim() === '') return true;
-        if (Array.isArray(val) && val.length === 0) return true;
-        if (typeof val === 'object') {
-            // Treat explicit none assertion as a VALID value
-            if (val.explicitNone === true) return false;
-            if (Object.keys(val).length === 0) return true;
-        }
-        return false;
-    };
-
     let displayState: "HAS_VALUE" | "MAPPED_NOT_CHECKED" | "CHECKED_NO_DATA" | "DEFAULT_RESPONSE" | "UNMAPPED_NO_RESPONSE" = "UNMAPPED_NO_RESPONSE";
     
+    // Rely on the canonical field interpreter to determine if this value is actually empty,
+    // avoiding JS quirks like Date objects falsely evaluating as empty plain objects.
     const derivedValueForCheck = def?.isMultiValue && rows ? rows.map((r: any) => r.value) : derived?.value;
-    const hasValue = !isEmptyValue(derivedValueForCheck);
+    const interpreterState = resolveFieldForDisplay(derivedValueForCheck, null, {
+        isMultiValue: def?.isMultiValue
+    } as any).state;
+    const hasValue = interpreterState === 'POPULATED' || interpreterState === 'EXPLICIT_NONE';
     
     if (hasValue) {
         displayState = "HAS_VALUE";
