@@ -23,6 +23,22 @@ describe('field-interpreter', () => {
         expect(result.value).toEqual({ kind: 'empty' });
     });
 
+    it('treats empty plain objects {} as NO_DATA', () => {
+        const result = resolveFieldForDisplay({}, null, defaultMeta);
+        expect(result.state).toBe('NO_DATA');
+    });
+
+    it('does NOT treat native Date objects as empty', () => {
+        const dateObj = new Date('2026-07-07T12:00:00Z');
+        const result = resolveFieldForDisplay(dateObj, null, defaultMeta);
+        expect(result.state).toBe('POPULATED');
+    });
+
+    it('treats empty arrays [] as NO_DATA', () => {
+        const result = resolveFieldForDisplay([], null, defaultMeta);
+        expect(result.state).toBe('NO_DATA');
+    });
+
     it('resolves DEFAULT state with scalar display value', () => {
         const meta = { ...defaultMeta, displayState: 'DEFAULT_RESPONSE' as const, defaultText: 'Not Applicable' };
         // Value is typically null when falling back to default

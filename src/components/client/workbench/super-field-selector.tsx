@@ -9,6 +9,7 @@ import { Loader2, Sparkles, Plus, Check, ChevronRight, XCircle, Type, Calendar, 
 import { getAISemanticMatch } from "@/actions/kyc-workbench";
 import { getAddressSummary } from "@/components/client/fields/AddressValueViewer";
 import { applyMasterDataProjection } from "@/lib/kyc/projection";
+import { resolveFieldForDisplay } from "@/lib/master-data/field-interpreter";
 
 function getDataTypeIcon(dataType: string | null | undefined) {
     if (!dataType) return null;
@@ -58,7 +59,15 @@ export function SuperFieldSelector({
             if (f.dataType === 'ADDRESS') {
                 previewText = f.currentValue ? getAddressSummary(f.currentValue) : "Structured address";
             } else if (f.currentValue != null && f.currentValue !== "") {
-                previewText = Array.isArray(f.currentValue) ? f.currentValue.join(", ") : (typeof f.currentValue === 'object' ? "Structured object" : String(f.currentValue));
+                const metadata = {
+                    fieldNo: f.fieldNo,
+                    label: f.label,
+                    appDataType: f.dataType as any,
+                    displayState: 'HAS_VALUE' as const,
+                    isMultiValue: Array.isArray(f.currentValue)
+                };
+                const displayModel = resolveFieldForDisplay(f.currentValue, null, metadata);
+                previewText = displayModel.state === 'NO_DATA' ? null : (displayModel.textSummary || (displayModel.value as any)?.display || null);
             }
 
             options.push({
@@ -117,7 +126,15 @@ export function SuperFieldSelector({
     const customOptions = useMemo(() => customFields.map((f: any) => {
         let previewText = null;
         if (f.currentValue != null && f.currentValue !== "") {
-            previewText = Array.isArray(f.currentValue) ? f.currentValue.join(", ") : (typeof f.currentValue === 'object' ? "Structured object" : String(f.currentValue));
+            const metadata = {
+                fieldNo: -1,
+                label: f.label,
+                appDataType: f.dataType as any,
+                displayState: 'HAS_VALUE' as const,
+                isMultiValue: Array.isArray(f.currentValue)
+            };
+            const displayModel = resolveFieldForDisplay(f.currentValue, null, metadata);
+            previewText = displayModel.state === 'NO_DATA' ? null : (displayModel.textSummary || (displayModel.value as any)?.display || null);
         }
         return {
             value: `custom:${f.id}`,

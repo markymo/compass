@@ -358,6 +358,8 @@ export async function mapQuestionToField(
         let newValue: any = null;
         let newSource: string | null = null;
         let newUpdatedAt: Date | null = null;
+        let newCanonicalDisplayModel: any = null;
+        let previewText: string | null = null;
 
         if (mapping.customFieldId) {
             const le = await prisma.clientLE.findUnique({
@@ -372,6 +374,21 @@ export async function mapQuestionToField(
                 newUpdatedAt = val.timestamp ? new Date(val.timestamp) : null;
             } else {
                 newSource = "USER_INPUT";
+            }
+            
+            const customDef = await prisma.customFieldDefinition.findUnique({ where: { id: mapping.customFieldId } });
+            if (customDef) {
+                newCanonicalDisplayModel = resolveFieldForDisplay(
+                    newValue,
+                    { type: newSource as any, reference: null },
+                    {
+                        fieldNo: -1,
+                        label: customDef.label,
+                        displayState: newValue ? 'HAS_VALUE' : 'CHECKED_NO_DATA',
+                        appDataType: customDef.dataType.toUpperCase() as any,
+                        isMultiValue: Array.isArray(newValue)
+                    }
+                );
             }
         } else if (mapping.fieldNo || mapping.groupId) {
             const resolved = await resolveMasterData(leId, [{
@@ -403,12 +420,25 @@ export async function mapQuestionToField(
                         newValue = fv.value;
                         newSource = fv.source;
                         newUpdatedAt = fv.updatedAt || null;
+
+                        const def = await prisma.masterFieldDefinition.findUnique({ where: { fieldNo: mapping.fieldNo! } });
+                        newCanonicalDisplayModel = resolveFieldForDisplay(
+                            fv.value,
+                            fv.source ? { type: fv.source as any, reference: fv.sourceReference, timestamp: fv.updatedAt ?? null, sourceCheckedAt: fv.sourceCheckedAt ?? null } : null,
+                            {
+                                fieldNo: mapping.fieldNo!,
+                                label: def?.fieldName || '',
+                                displayState: fv.isSynced ? 'HAS_VALUE' : 'CHECKED_NO_DATA',
+                                appDataType: (def?.appDataType || 'JSON') as any,
+                                isMultiValue: def?.isMultiValue || false
+                            }
+                        );
                     }
                 }
             }
         }
 
-        return { success: true, newValue, newSource, newUpdatedAt };
+        return { success: true, newValue, newSource, newUpdatedAt, newCanonicalDisplayModel };
     } catch (error) {
         console.error("Failed to map question:", error);
         return { success: false, error: "Database update failed" };
