@@ -722,7 +722,13 @@ export interface DependencyReport {
 export async function checkCustomFieldDependencies(fieldId: string): Promise<DependencyReport> {
     const questions = await prisma.question.findMany({
         where: { customFieldDefinitionId: fieldId },
-        include: { questionnaire: true }
+        include: { 
+            questionnaire: {
+                include: {
+                    fiEngagement: true
+                }
+            }
+        }
     });
 
     let referenceQuestionnaires = 0;
@@ -730,9 +736,16 @@ export async function checkCustomFieldDependencies(fieldId: string): Promise<Dep
     let engagementQuestionnaires = 0;
 
     for (const q of questions) {
-        if (q.questionnaire.isTemplate) referenceQuestionnaires++;
-        else if (q.questionnaire.fiEngagementId) engagementQuestionnaires++;
-        else workingQuestionnaires++;
+        if (q.questionnaire.isDeleted) continue;
+
+        if (q.questionnaire.isTemplate) {
+            referenceQuestionnaires++;
+        } else if (q.questionnaire.fiEngagementId) {
+            if (q.questionnaire.fiEngagement?.isDeleted) continue;
+            engagementQuestionnaires++;
+        } else {
+            workingQuestionnaires++;
+        }
     }
 
     // JSONB check for ClientLE

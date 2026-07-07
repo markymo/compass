@@ -7,7 +7,7 @@ import { QuestionnairePDF } from "@/components/pdf/questionnaire-pdf";
 import { sanitizeFilename } from "@/lib/export/path-builder";
 import { v4 as uuidv4 } from "uuid";
 import { resolveExportAnswer } from "@/lib/export/export-answer-resolver";
-import { KycStateService } from "@/lib/kyc/KycStateService";
+import { resolveQuestionnaireContext } from "@/lib/kyc/engagement-context";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> | { id: string } }) {
     try {
@@ -21,28 +21,13 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         const identity = await getIdentity();
         const user = identity?.userId ? await prisma.user.findUnique({ where: { id: identity.userId } }) : null;
 
-        const questionnaire = await prisma.questionnaire.findUnique({
-            where: { id: questionnaireId },
-            include: { 
-                fiEngagement: { 
-                    include: { 
-                        org: true, 
-                        clientLE: {
-                            include: {
-                                owners: {
-                                    where: { endAt: null },
-                                    include: { party: true }
-                                }
-                            }
-                        } 
-                    } 
-                } 
-            }
-        });
+        const explicitEngagementId = req.nextUrl.searchParams.get('engagementId') || undefined;
 
-        if (!questionnaire || questionnaire.isDeleted) {
+        const ctx = await resolveQuestionnaireContext(questionnaireId, explicitEngagementId);
+        if (!ctx || !ctx.questionnaire || ctx.questionnaire.isDeleted) {
             return NextResponse.json({ error: "Questionnaire not found" }, { status: 404 });
         }
+        const { questionnaire, engagement, clientLE, subjectLeId, ownerScopeId, clientLeId: entityId } = ctx;
 
         const questions = await prisma.question.findMany({
             where: { questionnaireId },
@@ -53,10 +38,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
                 releasedByUser: true
             }
         });
-
-        const subjectLeId = questionnaire.fiEngagement?.clientLE?.legalEntityId;
-        const ownerScopeId = questionnaire.fiEngagement?.clientLE?.id ? await KycStateService.resolveScopeId(questionnaire.fiEngagement.clientLE.id) : null;
-        const entityId = questionnaire.fiEngagement?.clientLE?.id;
 
         const exportData = await Promise.all(questions.map(async (question: any) => {
             const resolvedAnswer = await resolveExportAnswer(question, subjectLeId, ownerScopeId || undefined, entityId);
@@ -99,7 +80,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
             }
         }
 
-        const dueDateObj = questionnaire.dueDate || questionnaire.fiEngagement?.dueDate;
+        const dueDateObj = questionnaire.dueDate || engagement?.dueDate;
         const dueDate = dueDateObj ? new Date(dueDateObj).toISOString() : undefined;
 
         const summaryStats = {
@@ -118,9 +99,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         const qPdfElement = React.createElement(QuestionnairePDF, {
             title: questionnaire.name,
             exportMetadata: {
-                clientParentName: questionnaire.fiEngagement?.clientLE?.owners?.[0]?.party?.name,
-                clientDisplayName: questionnaire.fiEngagement?.clientLE?.name || "Unknown Client Legal Entity",
-                supplierDisplayName: questionnaire.fiEngagement?.org?.name || "Unknown Supplier",
+                clientParentName: clientLE?.owners?.[0]?.party?.name,
+                clientDisplayName: clientLE?.name || "Unknown Client Legal Entity",
+                supplierDisplayName: engagement?.org?.name || "Unknown Supplier",
                 exportFormatVersion: "1.0.0",
                 applicationVersion: "0.1.0",
                 generatedBy,
