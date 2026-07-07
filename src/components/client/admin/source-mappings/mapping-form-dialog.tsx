@@ -511,14 +511,50 @@ export function MappingFormDialog({ open, onOpenChange, selectedOption, fieldDef
                                 </div>
                             )}
 
-                            {/* Scope / Subtype — implementation detail, shown for debugging only */}
-                            <div className="flex items-center gap-1.5 font-mono text-[10px] text-slate-400 bg-slate-50 dark:bg-zinc-900/50 border border-slate-100 dark:border-zinc-800 rounded px-2.5 py-1.5">
-                                <span className="text-slate-300">scope:</span>
-                                <span className="text-slate-500">{displayScope(mappingScope, selectedOption.sourceType)}</span>
-                                <span className="text-slate-200 mx-0.5">·</span>
-                                <span className="text-slate-300">subtype:</span>
-                                <span className="text-slate-500">{(!payloadSubtype || payloadSubtype === "NONE") ? "—" : payloadSubtype}</span>
-                            </div>
+                            {/* Premium GLEIF Scope Selector */}
+                            {isGleif && (
+                                <div className="grid gap-2 my-2">
+                                    <Label className="text-xs font-semibold text-slate-500 dark:text-zinc-400 uppercase tracking-wider">GLEIF Data Scope</Label>
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                        {[
+                                            { id: "LEVEL_1", title: "Level 1 (Core)", desc: "Entity core data (name, address, status)." },
+                                            { id: "LEVEL_2_RELATIONSHIPS", title: "Level 2 (Rel.)", desc: "Parents, funds, children, LOUs." },
+                                            { id: "ELF", title: "ELF Data", desc: "Entity legal forms & jurisdiction." }
+                                        ].map(opt => (
+                                            <div 
+                                                key={opt.id}
+                                                onClick={() => setPayloadSubtype(opt.id)}
+                                                className={cn(
+                                                    "cursor-pointer rounded-lg border p-2.5 transition-all duration-200 hover:shadow-sm group",
+                                                    payloadSubtype === opt.id 
+                                                        ? "bg-gradient-to-br from-indigo-50 to-white border-indigo-200 dark:from-indigo-950/40 dark:to-zinc-900/50 dark:border-indigo-800/50 shadow-sm ring-1 ring-indigo-500/20"
+                                                        : "bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 hover:border-indigo-100 dark:hover:border-indigo-900/30"
+                                                )}
+                                            >
+                                                <div className="flex items-center justify-between mb-1">
+                                                    <span className={cn(
+                                                        "text-[11px] font-semibold transition-colors",
+                                                        payloadSubtype === opt.id ? "text-indigo-700 dark:text-indigo-300" : "text-slate-700 dark:text-zinc-300 group-hover:text-indigo-600"
+                                                    )}>{opt.title}</span>
+                                                    {payloadSubtype === opt.id && <Check className="w-3 h-3 text-indigo-500" />}
+                                                </div>
+                                                <p className="text-[9px] text-slate-500 dark:text-zinc-400 leading-tight pr-2">{opt.desc}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Scope / Subtype — fallback for RA debugging */}
+                            {!isGleif && (
+                                <div className="flex items-center gap-1.5 font-mono text-[10px] text-slate-400 bg-slate-50 dark:bg-zinc-900/50 border border-slate-100 dark:border-zinc-800 rounded px-2.5 py-1.5 mt-1">
+                                    <span className="text-slate-300">scope:</span>
+                                    <span className="text-slate-500">{displayScope(mappingScope, selectedOption.sourceType)}</span>
+                                    <span className="text-slate-200 mx-0.5">·</span>
+                                    <span className="text-slate-300">subtype:</span>
+                                    <span className="text-slate-500">{(!payloadSubtype || payloadSubtype === "NONE") ? "—" : payloadSubtype}</span>
+                                </div>
+                            )}
 
                             {!isPersonOrContactMapping && (
                                 <div className="grid grid-cols-2 gap-3">
