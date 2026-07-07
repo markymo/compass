@@ -22,14 +22,32 @@ export interface GleifL2Entity {
     registeredAs: string | null;  // Local registration number
 }
 
+export interface GleifL2FieldModification {
+    id: string;
+    modificationType: string;
+    field: string;
+    date: string;
+    valueOld: string | null;
+    valueNew: string | null;
+}
+
 export interface GleifL2Data {
     directParent: GleifL2Entity | null;
     ultimateParent: GleifL2Entity | null;
     fundManager: GleifL2Entity | null;
     umbrellaFund: GleifL2Entity | null;
+    managingLou: GleifL2Entity | null;
+    leiIssuer: GleifL2Entity | null;
     directParentException: string | null;
     ultimateParentException: string | null;
     directChildrenCount: number | null;
+    ultimateChildrenCount: number | null;
+    subFundsCount: number | null;
+    fieldModificationsCount: number | null;
+    directChildren: GleifL2Entity[];
+    ultimateChildren: GleifL2Entity[];
+    subFunds: GleifL2Entity[];
+    fieldModifications: GleifL2FieldModification[];
     fetchedAt: string;
 }
 
@@ -65,15 +83,10 @@ function extractCompact(record: any): GleifL2Entity | null {
     };
 }
 
-/**
- * Try to fetch a relationship endpoint. Returns:
- *   - { entity } if a valid LEI record is returned
- *   - { exception } if GLEIF returns a reporting-exception
- *   - null if 404 / network error
- */
+/** Fetch a singular relationship entity. */
 async function fetchRelationship(
     lei: string,
-    relationship: "direct-parent" | "ultimate-parent" | "fund-manager" | "umbrella-fund"
+    relationship: "direct-parent" | "ultimate-parent" | "fund-manager" | "umbrella-fund" | "managing-lou" | "lei-issuer"
 ): Promise<{ entity: GleifL2Entity | null; exception: string | null }> {
     try {
         const res = await fetch(`${GLEIF_API}/lei-records/${lei}/${relationship}`, {
@@ -122,18 +135,66 @@ async function fetchException(
     }
 }
 
-/** Fetch only the page-total of direct children (page[size]=1). */
-async function fetchChildrenCount(lei: string): Promise<number | null> {
+/** Fetch the page-total and a limited list of entities. */
+async function fetchEntityList(
+    lei: string,
+    relationship: "direct-children" | "ultimate-children" | "sub-funds"
+): Promise<{ count: number | null; entities: GleifL2Entity[] }> {
     try {
         const res = await fetch(
-            `${GLEIF_API}/lei-records/${lei}/direct-children?page[size]=1`,
+            `${GLEIF_API}/lei-records/${lei}/${relationship}?page[size]=50`,
             { headers: GLEIF_HEADERS, next: { revalidate: 60 } }
         );
-        if (!res.ok) return null;
+        if (!res.ok) return { count: null, entities: [] };
+        
         const json = await res.json();
-        return json.meta?.pagination?.total ?? null;
+        const count = json.meta?.pagination?.total ?? null;
+        
+        const entities: GleifL2Entity[] = [];
+        if (Array.isArray(json.data)) {
+            for (const record of json.data) {
+                const entity = extractCompact(record);
+                if (entity) entities.push(entity);
+            }
+        }
+        
+        return { count, entities };
     } catch {
-        return null;
+        return { count: null, entities: [] };
+    }
+}
+
+/** Fetch field modifications. */
+async function fetchModificationsList(
+    lei: string
+): Promise<{ count: number | null; modifications: GleifL2FieldModification[] }> {
+    try {
+        const res = await fetch(
+            `${GLEIF_API}/lei-records/${lei}/field-modifications?page[size]=20`,
+            { headers: GLEIF_HEADERS, next: { revalidate: 60 } }
+        );
+        if (!res.ok) return { count: null, modifications: [] };
+        
+        const json = await res.json();
+        const count = json.meta?.pagination?.total ?? null;
+        
+        const modifications: GleifL2FieldModification[] = [];
+        if (Array.isArray(json.data)) {
+            for (const record of json.data) {
+                modifications.push({
+                    id: record.id,
+                    modificationType: record.attributes?.modificationType ?? "",
+                    field: record.attributes?.field ?? "",
+                    date: record.attributes?.date ?? "",
+                    valueOld: record.attributes?.valueOld ?? null,
+                    valueNew: record.attributes?.valueNew ?? null,
+                });
+            }
+        }
+        
+        return { count, modifications };
+    } catch {
+        return { count: null, modifications: [] };
     }
 }
 
@@ -149,19 +210,32 @@ export async function fetchGleifL2(lei: string): Promise<GleifL2Data> {
     console.log(`[GLEIF] Fetching Level 2 relationships for LEI: ${lei}`);
 
     // Fire all L2 requests in parallel — any failure silenced by allSettled
-    const [dpResult, upResult, ccResult, fmResult, ufResult] = await Promise.allSettled([
+    const [
+        dpResult, upResult, dcResult, ucResult, fmResult, ufResult,
+        mlResult, liResult, sfResult, fmListResult
+    ] = await Promise.allSettled([
         fetchRelationship(lei, "direct-parent"),
         fetchRelationship(lei, "ultimate-parent"),
-        fetchChildrenCount(lei),
+        fetchEntityList(lei, "direct-children"),
+        fetchEntityList(lei, "ultimate-children"),
         fetchRelationship(lei, "fund-manager"),
         fetchRelationship(lei, "umbrella-fund"),
+        fetchRelationship(lei, "managing-lou"),
+        fetchRelationship(lei, "lei-issuer"),
+        fetchEntityList(lei, "sub-funds"),
+        fetchModificationsList(lei),
     ]);
 
     const dp = dpResult.status === "fulfilled" ? dpResult.value : { entity: null, exception: null };
     const up = upResult.status === "fulfilled" ? upResult.value : { entity: null, exception: null };
-    const cc = ccResult.status === "fulfilled" ? ccResult.value : null;
+    const dc = dcResult.status === "fulfilled" ? dcResult.value : { count: null, entities: [] };
+    const uc = ucResult.status === "fulfilled" ? ucResult.value : { count: null, entities: [] };
     const fm = fmResult.status === "fulfilled" ? fmResult.value : { entity: null, exception: null };
     const uf = ufResult.status === "fulfilled" ? ufResult.value : { entity: null, exception: null };
+    const ml = mlResult.status === "fulfilled" ? mlResult.value : { entity: null, exception: null };
+    const li = liResult.status === "fulfilled" ? liResult.value : { entity: null, exception: null };
+    const sf = sfResult.status === "fulfilled" ? sfResult.value : { count: null, entities: [] };
+    const mods = fmListResult.status === "fulfilled" ? fmListResult.value : { count: null, modifications: [] };
 
     console.log(`[GLEIF] L2 relationships fetched for LEI: ${lei} (DP: ${dp.entity ? 'yes' : 'no'}, UP: ${up.entity ? 'yes' : 'no'}, FM: ${fm.entity ? 'yes' : 'no'}, UF: ${uf.entity ? 'yes' : 'no'})`);
 
@@ -183,9 +257,18 @@ export async function fetchGleifL2(lei: string): Promise<GleifL2Data> {
         ultimateParent: up.entity,
         fundManager: fm.entity,
         umbrellaFund: uf.entity,
+        managingLou: ml.entity,
+        leiIssuer: li.entity,
         directParentException,
         ultimateParentException,
-        directChildrenCount: cc,
+        directChildrenCount: dc.count,
+        ultimateChildrenCount: uc.count,
+        subFundsCount: sf.count,
+        fieldModificationsCount: mods.count,
+        directChildren: dc.entities,
+        ultimateChildren: uc.entities,
+        subFunds: sf.entities,
+        fieldModifications: mods.modifications,
         fetchedAt,
     };
 }

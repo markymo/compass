@@ -9,9 +9,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import Link from "next/link";
-import { ChevronRight, Database, Edit, Save, BookOpen, FileText, Globe, Link as LinkIcon, Trash2, GitBranch, Plus, Loader2, ScanSearch, Users } from "lucide-react";
+import { ChevronRight, Database, Edit, Save, BookOpen, FileText, Globe, Link as LinkIcon, Trash2, GitBranch, Plus, Loader2, ScanSearch, Users, Check } from "lucide-react";
 import { updateMasterField, checkCustomFieldDependencies, softDeleteCustomField, DependencyReport } from "@/actions/master-data-governance";
 import { useRouter } from "next/navigation";
+import { cn } from "@/lib/utils";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TRANSFORM_SELECT_OPTIONS, getTransformDescription } from "@/lib/master-data/transform-registry";
@@ -1023,14 +1024,50 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                                                 <p className="text-[10px] text-slate-400">Which part of the raw registry payload this path reads from.</p>
                                             </div>
                                         )}
-                                        {/* Scope confirmation strip */}
-                                        <div className="flex items-center gap-1.5 font-mono text-[10px] text-slate-400 bg-slate-50 border border-slate-100 rounded px-2.5 py-1.5">
-                                            <span className="text-slate-300">scope:</span>
-                                            <span className="text-slate-600">{mappingForm.mappingScope}</span>
-                                            {mappingForm.payloadSubtype && mappingForm.payloadSubtype !== 'NONE' && (
-                                                <><span className="text-slate-200 mx-0.5">·</span><span className="text-slate-300">subtype:</span><span className="text-slate-600">{mappingForm.payloadSubtype}</span></>
-                                            )}
-                                        </div>
+                                        {/* Premium GLEIF Scope Selector */}
+                                        {SOURCE_OPTIONS.find(o => o.value === mappingForm.sourceType)?.sourceType === 'GLEIF' && (
+                                            <div className="grid gap-2 my-2">
+                                                <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">GLEIF Data Scope</Label>
+                                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                                    {[
+                                                        { id: "LEVEL_1", title: "Level 1 (Core)", desc: "Entity core data (name, address, status)." },
+                                                        { id: "LEVEL_2_RELATIONSHIPS", title: "Level 2 (Rel.)", desc: "Parents, funds, children, LOUs." },
+                                                        { id: "ELF", title: "ELF Data", desc: "Entity legal forms & jurisdiction." }
+                                                    ].map(opt => (
+                                                        <div 
+                                                            key={opt.id}
+                                                            onClick={() => setMappingForm({ ...mappingForm, payloadSubtype: opt.id })}
+                                                            className={cn(
+                                                                "cursor-pointer rounded-lg border p-2.5 transition-all duration-200 hover:shadow-sm group",
+                                                                mappingForm.payloadSubtype === opt.id 
+                                                                    ? "bg-gradient-to-br from-indigo-50 to-white border-indigo-200 shadow-sm ring-1 ring-indigo-500/20"
+                                                                    : "bg-white border-slate-200 hover:border-indigo-100"
+                                                            )}
+                                                        >
+                                                            <div className="flex items-center justify-between mb-1">
+                                                                <span className={cn(
+                                                                    "text-[11px] font-semibold transition-colors",
+                                                                    mappingForm.payloadSubtype === opt.id ? "text-indigo-700" : "text-slate-700 group-hover:text-indigo-600"
+                                                                )}>{opt.title}</span>
+                                                                {mappingForm.payloadSubtype === opt.id && <Check className="w-3 h-3 text-indigo-500" />}
+                                                            </div>
+                                                            <p className="text-[9px] text-slate-500 leading-tight pr-2">{opt.desc}</p>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Scope confirmation strip — fallback for RA */}
+                                        {SOURCE_OPTIONS.find(o => o.value === mappingForm.sourceType)?.sourceType !== 'GLEIF' && (
+                                            <div className="flex items-center gap-1.5 font-mono text-[10px] text-slate-400 bg-slate-50 border border-slate-100 rounded px-2.5 py-1.5 mt-1">
+                                                <span className="text-slate-300">scope:</span>
+                                                <span className="text-slate-600">{mappingForm.mappingScope}</span>
+                                                {mappingForm.payloadSubtype && mappingForm.payloadSubtype !== 'NONE' && (
+                                                    <><span className="text-slate-200 mx-0.5">·</span><span className="text-slate-300">subtype:</span><span className="text-slate-600">{mappingForm.payloadSubtype}</span></>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
                                     <DialogFooter>
                                         <Button onClick={handleSaveMapping} disabled={isMappingSaving}>
