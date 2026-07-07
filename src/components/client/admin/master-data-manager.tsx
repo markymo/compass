@@ -380,7 +380,7 @@ export default function MasterDataManager({ initialData, rawFields, initialUserC
             accessorKey: "notes",
             header: "Notes",
             size: 200,
-            cell: ({ row }) => <DescriptionCell key={row.original.fieldNo} row={row} router={router} />,
+            cell: ({ row }) => <NotesCell key={row.original.fieldNo} row={row} router={router} />,
         },
         {
             id: "category",
@@ -938,7 +938,7 @@ function FieldNameCell({ row, router }: { row: any, router: any }) {
     );
 }
 
-function DescriptionCell({ row, router }: { row: any, router: any }) {
+function NotesCell({ row, router }: { row: any, router: any }) {
     const field = row.original;
     const [isEditing, setIsEditing] = useState(false);
     const [val, setVal] = useState(field.notes || "");
@@ -954,14 +954,14 @@ function DescriptionCell({ row, router }: { row: any, router: any }) {
             return;
         }
         setSaving(true);
-        const res = await updateFieldDescription(field.fieldNo, val);
+        const res = await updateMasterField(field.fieldNo, { notes: val });
         setSaving(false);
         if (res.success) {
-            toast.success("Description updated");
+            toast.success("Notes updated");
             setIsEditing(false);
             router.refresh();
         } else {
-            toast.error("Failed to save description");
+            toast.error("Failed to save notes");
             setVal(field.notes || "");
             setIsEditing(false);
         }
