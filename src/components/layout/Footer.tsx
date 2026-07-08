@@ -7,9 +7,7 @@ export function Footer() {
             <div className="container mx-auto grid gap-12 px-4 md:grid-cols-4 md:px-6">
                 <div className="col-span-1 md:col-span-2">
                     <Link href="/" className="mb-6 flex items-center gap-1">
-                        <span className="text-2xl font-bold text-white font-sans tracking-tight flex items-baseline gap-1">
-                            {BRAND.name}<span className="inline-block w-3 h-3 bg-amber-500" />
-                        </span>
+                        <img src="/logo-inverted.svg" alt={BRAND.name} className="h-9 w-auto opacity-90 hover:opacity-100 transition-opacity" />
                     </Link>
                     <p className="max-w-sm text-sm leading-relaxed text-slate-300">
                         The Single Source of Truth for company data
