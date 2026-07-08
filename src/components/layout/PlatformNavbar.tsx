@@ -21,9 +21,7 @@ export function PlatformNavbar({ isSystemAdmin = false, assignmentCount = 0 }: P
                 <div className="flex items-center gap-8">
                     <div className="flex items-center gap-3">
                         <Link href="/" className="flex items-center gap-1">
-                            <span className="text-xl font-bold tracking-tight text-slate-900 font-sans flex items-baseline gap-1">
-                                {BRAND.name}<span className="inline-block w-2.5 h-2.5 bg-amber-500" />
-                            </span>
+                            <img src="/logo.svg" alt={BRAND.name} className="h-10 w-auto" />
                         </Link>
                         <AdminAppReturnLink />
                     </div>

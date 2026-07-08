@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 450 140">
+    <defs>
+        <style>
+            @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@800&amp;display=swap');
+            .logo-text { font-family: 'Montserrat', sans-serif; font-weight: 800; font-size: 76px; letter-spacing: -2px; }
+            .box-bg { fill: #000000; }
+            .box { fill: none; stroke: #f97316; stroke-width: 11; stroke-miterlimit: 10; }
+            .tick { fill: none; stroke: #f97316; stroke-width: 14; stroke-linecap: butt; stroke-linejoin: miter; }
+        </style>
+    </defs>
+
+    <!-- Box Border -->
+    <polyline class="box" points="80,20 20,20 20,105 105,105 105,65" />
+    <!-- Tick -->
+    <polyline class="tick" points="40,65 65,90 100,20" />
+    <!-- Text -->
+    <text x="130" y="98" class="logo-text">
+        <tspan fill="#f97316">On</tspan><tspan fill="#000000">Pro</tspan>
+    </text>
+</svg>

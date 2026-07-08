@@ -86,7 +86,13 @@ export function QuestionnaireManageDialog({ open, onOpenChange, questionnaireId,
                 compactText: q.compactText,
                 order: q.order,
                 masterFieldNo: q.masterFieldNo,
-                masterQuestionGroupId: q.masterQuestionGroupId
+                masterQuestionGroupId: q.masterQuestionGroupId,
+                customFieldDefinitionId: q.customFieldDefinitionId,
+                masterFieldProjectionPath: q.masterFieldProjectionPath,
+                approvedMappingConfig: q.approvedMappingConfig,
+                expectedDataType: q.expectedDataType,
+                prefilledValue: q.prefilledValue,
+                allowAttachments: q.allowAttachments,
             }));
 
             const result = await saveQuestionnaireChanges(questionnaireId, itemsToSave);

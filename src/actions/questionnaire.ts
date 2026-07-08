@@ -8,7 +8,7 @@ import { getIdentity } from "@/lib/auth";
 
 import { can, Action, UserWithMemberships } from "@/lib/auth/permissions";
 import { generateWorkingCopyTitle, normalizeCode } from "@/lib/questionnaires/reference-codes";
-
+import { cloneQuestionFields } from "@/lib/questionnaires/question-utils";
 // NEW CORE ENGINE HELPER
 async function ensureAuthorization(action: Action, context: { partyId?: string, clientLEId?: string, engagementId?: string }) {
     const identity = await getIdentity();
@@ -1009,6 +1009,9 @@ async function syncQuestionsToDatabase(id: string, items: any[]) {
                 masterFieldNo: item.masterFieldNo || null,
                 masterQuestionGroupId: item.masterQuestionGroupId || null,
                 customFieldDefinitionId: item.customFieldDefinitionId || null,
+                masterFieldProjectionPath: item.masterFieldProjectionPath || null,
+                approvedMappingConfig: item.approvedMappingConfig ? JSON.parse(JSON.stringify(item.approvedMappingConfig)) : null,
+                expectedDataType: item.expectedDataType || "TEXT",
                 prefilledValue: item.prefilledValue || null,
                 answer: item.answer || null,
                 allowAttachments: true
@@ -1268,20 +1271,7 @@ export async function assignQuestionnaireToEngagement(
         // Clone question rows including all mapping fields
         if (template.questions.length > 0) {
             await prisma.question.createMany({
-                data: template.questions.map((q: any) => ({
-                    questionnaireId: instance.id,
-                    text: q.text,
-                    compactText: q.compactText,
-                    order: q.order,
-                    masterFieldNo: q.masterFieldNo,
-                    masterQuestionGroupId: q.masterQuestionGroupId,
-                    customFieldDefinitionId: q.customFieldDefinitionId,
-                    sourceSectionId: q.sourceSectionId,
-                    expectedDataType: q.expectedDataType,
-                    allowAttachments: q.allowAttachments,
-                    prefilledValue: q.prefilledValue,
-                    status: "DRAFT" as any,
-                })),
+                data: template.questions.map((q: any) => cloneQuestionFields(q, instance.id)),
             });
         }
 
@@ -1353,19 +1343,7 @@ export async function cloneQuestionnaire(sourceId: string, newFIOrgId?: string, 
         });
 
         if (source.questions.length > 0) {
-            const questionData = source.questions.map((q: any) => ({
-                questionnaireId: clone.id,
-                text: q.text,
-                compactText: q.compactText,
-                order: q.order,
-                masterFieldNo: q.masterFieldNo,
-                masterQuestionGroupId: q.masterQuestionGroupId,
-                customFieldDefinitionId: q.customFieldDefinitionId,
-                sourceSectionId: q.sourceSectionId,
-                expectedDataType: q.expectedDataType,
-                allowAttachments: q.allowAttachments,
-                status: "DRAFT" as any
-            }));
+            const questionData = source.questions.map((q: any) => cloneQuestionFields(q, clone.id));
 
             await prisma.question.createMany({
                 data: questionData
@@ -1457,20 +1435,9 @@ export async function shareQuestionnaireLaterally(sourceQuestionnaireId: string,
             });
 
             if (source.questions.length > 0) {
-                const questionData = source.questions.map((q: any) => ({
-                    questionnaireId: clone.id,
-                    text: q.text,
-                    compactText: q.compactText,
-                    order: q.order,
-                    masterFieldNo: q.masterFieldNo,
-                    masterQuestionGroupId: q.masterQuestionGroupId,
-                    customFieldDefinitionId: q.customFieldDefinitionId,
-                    sourceSectionId: q.sourceSectionId,
-                    expectedDataType: q.expectedDataType,
-                    allowAttachments: q.allowAttachments,
+                const questionData = source.questions.map((q: any) => cloneQuestionFields(q, clone.id, {
                     answer: q.answer, // Natively copy the raw answer string
                     status: (q.answer ? "ANSWERED" : "OPEN") as any, // Reset status
-                    prefilledValue: q.prefilledValue
                     // Notice we explicitly strip assignedToUserId, comments, supplierNote, approvedAt etc.
                 }));
 

@@ -31,9 +31,7 @@ export function Navbar() {
         <header className="fixed top-0 left-0 right-0 z-50 border-b border-slate-200 bg-white/80 backdrop-blur-xl">
             <div className="container mx-auto flex h-20 items-center justify-between px-4 md:px-6">
                 <Link href="/" className="flex items-center gap-1">
-                    <span className="text-2xl font-bold tracking-tight text-slate-900 font-sans flex items-baseline gap-1">
-                        {BRAND.name}<span className="inline-block w-3 h-3 bg-amber-500" />
-                    </span>
+                    <img src="/logo.svg" alt={BRAND.name} className="h-12 w-auto" />
                 </Link>
 
                 <nav className="hidden gap-8 md:flex">
