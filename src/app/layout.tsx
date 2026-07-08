@@ -9,6 +9,7 @@ import { AuthSessionProvider } from "@/components/providers/session-provider";
 import { Suspense } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { DevFeedbackGate } from "@/components/dev/dev-feedback-gate";
+import { StagingBanner } from "@/components/dev/staging-banner";
 import { UserPreferencesProvider } from "@/components/providers/user-preferences-provider";
 
 const outfit = Outfit({
@@ -45,6 +46,7 @@ export default function RootLayout({
       >
         <AuthSessionProvider>
           <UserPreferencesProvider>
+            <StagingBanner />
             <Suspense fallback={null}>
               <UsageTracker />
             </Suspense>
