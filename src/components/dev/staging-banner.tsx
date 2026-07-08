@@ -4,54 +4,84 @@ import { AlertTriangle } from "lucide-react";
 import { useEffect, useState } from "react";
 
 export function StagingBanner() {
-  const [isStaging, setIsStaging] = useState(false);
+  const [envType, setEnvType] = useState<"staging" | "dev" | null>(null);
 
   useEffect(() => {
     const env = process.env.NEXT_PUBLIC_APP_ENV;
-    const isStagingDomain = window.location.hostname.includes("dev.onpro.tech") || window.location.hostname.includes("staging") || window.location.hostname.includes("localhost");
+    const hostname = window.location.hostname;
     
-    if (env === "staging" || isStagingDomain) {
-      setIsStaging(true);
+    let detectedEnv: "staging" | "dev" | null = null;
+    
+    if (env === "dev" || hostname.includes("localhost") || hostname.includes("127.0.0.1")) {
+      detectedEnv = "dev";
+    } else if (env === "staging" || hostname.includes("dev.onpro.tech") || hostname.includes("staging")) {
+      detectedEnv = "staging";
+    }
+    
+    if (detectedEnv) {
+      setEnvType(detectedEnv);
       
-      // Update the favicon dynamically for staging tabs
-      let link = document.querySelector("link[rel~='icon']") as HTMLLinkElement;
-      if (!link) {
-        link = document.createElement('link');
-        link.rel = 'icon';
-        document.head.appendChild(link);
-      }
-      link.href = '/icon-staging.svg';
+      const iconSuffix = detectedEnv === "dev" ? "-dev" : "-staging";
+      
+      // Function to enforce the favicon
+      const enforceFavicon = () => {
+        const cacheBuster = `?v=${Date.now()}`;
+        const targetHref = `/icon${iconSuffix}.svg${cacheBuster}`;
+        
+        let hasCorrectIcon = false;
+        
+        document.querySelectorAll("link[rel~='icon'], link[rel='shortcut icon']").forEach(link => {
+          if ((link as HTMLLinkElement).href.includes(`/icon${iconSuffix}.svg`)) {
+            hasCorrectIcon = true;
+          } else {
+            link.remove();
+          }
+        });
+
+        if (!hasCorrectIcon) {
+          const newIcon = document.createElement('link');
+          newIcon.rel = 'shortcut icon';
+          newIcon.href = targetHref;
+          newIcon.type = 'image/svg+xml';
+          document.head.appendChild(newIcon);
+        }
+      };
 
       // Function to swap logos
       const swapLogos = () => {
         document.querySelectorAll('img[src="/logo.svg"], img[src^="/logo.svg?"]').forEach(img => {
-          (img as HTMLImageElement).src = '/logo-staging.svg';
+          (img as HTMLImageElement).src = `/logo${iconSuffix}.svg`;
         });
         document.querySelectorAll('img[src="/logo-inverted.svg"], img[src^="/logo-inverted.svg?"]').forEach(img => {
-          (img as HTMLImageElement).src = '/logo-inverted-staging.svg';
+          (img as HTMLImageElement).src = `/logo-inverted${iconSuffix}.svg`;
         });
       };
 
       // Initial swap
+      enforceFavicon();
       swapLogos();
 
-      // Set up a MutationObserver to catch any logos rendered after initial load (e.g. Next.js navigations)
+      // Set up a MutationObserver to catch any logos/head tags rendered after initial load
       const observer = new MutationObserver(() => {
         swapLogos();
+        enforceFavicon();
       });
-      observer.observe(document.body, { childList: true, subtree: true });
+      observer.observe(document.documentElement, { childList: true, subtree: true });
 
       return () => observer.disconnect();
     }
   }, []);
 
-  if (!isStaging) return null;
+  if (!envType) return null;
 
   return (
-    <div className="bg-purple-600 text-white px-4 py-1.5 text-xs font-semibold flex items-center justify-center gap-2 z-[9999] relative w-full shadow-sm">
+    <div className={`px-4 py-1.5 text-xs font-semibold flex items-center justify-center gap-2 z-[9999] relative w-full shadow-sm ${envType === 'dev' ? 'bg-green-600 text-white' : 'bg-purple-600 text-white'}`}>
       <AlertTriangle className="w-4 h-4" />
       <span className="tracking-wide uppercase">
-        Staging Environment - Changes here will not affect live production data
+        {envType === 'dev' 
+          ? "Local Development Environment"
+          : "Staging Environment - Changes here will not affect live production data"
+        }
       </span>
       <AlertTriangle className="w-4 h-4" />
     </div>
