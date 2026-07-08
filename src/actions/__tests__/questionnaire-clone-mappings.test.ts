@@ -23,7 +23,7 @@ vi.mock('next/cache', () => ({
     unstable_noStore: vi.fn(),
 }));
 
-describe('Questionnaire mapping clone/persistence', () => {
+describe.skipIf(!process.env.DATABASE_URL)('Questionnaire mapping clone/persistence', () => {
     let fiOrgId: string;
     let templateId: string;
     let engagementId: string;
