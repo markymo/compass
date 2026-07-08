@@ -148,11 +148,11 @@ export async function upsertCCAddress(params: {
 }) {
     const identity = await getIdentity();
     if (!identity?.userId) {
-        throw new Error("Unauthorized");
+        return { success: false, error: "Unauthorized" };
     }
 
     if (!isAddressValue(params.data) && !params.data.addressLines && !params.data.countryCode) {
-        throw new Error("Invalid AddressValue data structure");
+        return { success: false, error: "Invalid AddressValue data structure" };
     }
 
     try {
@@ -180,14 +180,14 @@ export async function upsertCCAddress(params: {
         revalidatePath(`/app/le/${params.clientLEId}/sources/ccc`);
         return {
             success: true,
-            address: {
+            ccAddress: {
                 ...address,
                 data: address.data as unknown as AddressValue
             }
         };
-    } catch (error) {
+    } catch (error: any) {
         console.error("Failed to upsert CC address:", error);
-        throw new Error("Failed to save saved address");
+        return { success: false, error: error.message || "Failed to save saved address" };
     }
 }
 
@@ -249,7 +249,7 @@ export async function getCCAddressUsage(clientLEId: string) {
 export async function deleteCCAddress(id: string, clientLEId: string) {
     const identity = await getIdentity();
     if (!identity?.userId) {
-        throw new Error("Unauthorized");
+        return { success: false, error: "Unauthorized" };
     }
 
     try {
@@ -264,7 +264,7 @@ export async function deleteCCAddress(id: string, clientLEId: string) {
         });
 
         if (isUsed) {
-            throw new Error("This saved address is used by one or more fields. Remove those references before deleting.");
+            return { success: false, error: "This saved address is used by one or more fields. Remove those references before deleting." };
         }
 
         await prisma.cCAddress.delete({
@@ -275,7 +275,7 @@ export async function deleteCCAddress(id: string, clientLEId: string) {
         return { success: true };
     } catch (error: any) {
         console.error("Failed to delete CC address:", error);
-        throw new Error(error.message || "Failed to delete saved address");
+        return { success: false, error: error.message || "Failed to delete saved address" };
     }
 }
 
