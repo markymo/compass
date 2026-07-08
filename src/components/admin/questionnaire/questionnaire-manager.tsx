@@ -102,6 +102,7 @@ export function QuestionnaireManager({ questionnaire: initialQ, masterFields, li
             expectedDataType: q.expectedDataType,
             prefilledValue: q.prefilledValue,
             allowAttachments: q.allowAttachments,
+            confidence: 1,
         }));
     };
 
