@@ -47,21 +47,10 @@ export interface QV2Row {
 
 // ── Shared clone helper ─────────────────────────────────────────────────────
 
+import { cloneQuestionFields } from "@/lib/questionnaires/question-utils";
+
 function cloneQuestions(questions: any[], targetId: string) {
-    return questions.map((q: any) => ({
-        questionnaireId: targetId,
-        text: q.text,
-        compactText: q.compactText,
-        order: q.order,
-        masterFieldNo: q.masterFieldNo,
-        masterQuestionGroupId: q.masterQuestionGroupId,
-        customFieldDefinitionId: q.customFieldDefinitionId,
-        sourceSectionId: q.sourceSectionId,
-        expectedDataType: q.expectedDataType,
-        allowAttachments: q.allowAttachments,
-        prefilledValue: q.prefilledValue,
-        status: "DRAFT",
-    }));
+    return questions.map((q: any) => cloneQuestionFields(q, targetId));
 }
 
 function deepCopyJson(val: any) {

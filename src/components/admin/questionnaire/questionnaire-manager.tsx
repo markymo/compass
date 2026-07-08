@@ -87,7 +87,29 @@ export function QuestionnaireManager({ questionnaire: initialQ, masterFields, li
 
     // --- State ---
     const [questionnaire, setQuestionnaire] = useState(initialQ);
-    const [items, setItems] = useState<ExtractedItem[]>(initialQ.extractedContent as ExtractedItem[] || []);
+    const mapQuestionsToExtractedItems = (qArray: any[]): ExtractedItem[] => {
+        return qArray.map((q: any) => ({
+            id: q.id,
+            type: "question",
+            text: q.text,
+            compactText: q.compactText,
+            order: q.order,
+            masterFieldNo: q.masterFieldNo,
+            masterQuestionGroupId: q.masterQuestionGroupId,
+            customFieldDefinitionId: q.customFieldDefinitionId,
+            masterFieldProjectionPath: q.masterFieldProjectionPath,
+            approvedMappingConfig: q.approvedMappingConfig,
+            expectedDataType: q.expectedDataType,
+            prefilledValue: q.prefilledValue,
+            allowAttachments: q.allowAttachments,
+        }));
+    };
+
+    const [items, setItems] = useState<ExtractedItem[]>(
+        initialQ.questions && initialQ.questions.length > 0 
+            ? mapQuestionsToExtractedItems(initialQ.questions)
+            : (initialQ.extractedContent as ExtractedItem[] || [])
+    );
     const [rawText, setRawText] = useState<string>(initialQ.rawText || "");
 
     const [extracting, setExtracting] = useState(false);
@@ -246,7 +268,11 @@ export function QuestionnaireManager({ questionnaire: initialQ, masterFields, li
 
             if (chainRes.success) {
                 const freshQ = await fetchQ();
-                setItems(freshQ && freshQ.extractedContent ? freshQ.extractedContent as any[] : []);
+                if (freshQ && freshQ.questions && freshQ.questions.length > 0) {
+                    setItems(mapQuestionsToExtractedItems(freshQ.questions));
+                } else {
+                    setItems(freshQ && freshQ.extractedContent ? freshQ.extractedContent as any[] : []);
+                }
                 if (freshQ && freshQ.rawText) setRawText(freshQ.rawText);
             } else {
                 // Refresh anyway to get logs/rawText even on failure
@@ -260,7 +286,11 @@ export function QuestionnaireManager({ questionnaire: initialQ, masterFields, li
                         const imgRes = await extractDetailedContent(questionnaire.id, images);
                         if (imgRes.success) {
                             const ocrQ = await fetchQ();
-                            setItems(ocrQ && ocrQ.extractedContent ? ocrQ.extractedContent as any[] : []);
+                            if (ocrQ && ocrQ.questions && ocrQ.questions.length > 0) {
+                                setItems(mapQuestionsToExtractedItems(ocrQ.questions));
+                            } else {
+                                setItems(ocrQ && ocrQ.extractedContent ? ocrQ.extractedContent as any[] : []);
+                            }
                             if (ocrQ && ocrQ.rawText) setRawText(ocrQ.rawText);
                         } else {
                             setExtractionError(imgRes.error || "OCR Failed");
@@ -307,7 +337,9 @@ export function QuestionnaireManager({ questionnaire: initialQ, masterFields, li
             console.log(`[CLIENT] Received fresh data. Status: ${fresh.status}, Logs: ${logCount}`);
             
             setQuestionnaire({ ...fresh }); // Force re-render with new ref
-            if (fresh.extractedContent && (fresh.extractedContent as any[]).length > 0) {
+            if (fresh.questions && fresh.questions.length > 0) {
+                setItems(mapQuestionsToExtractedItems(fresh.questions));
+            } else if (fresh.extractedContent && (fresh.extractedContent as any[]).length > 0) {
                 console.log(`[CLIENT] Fresh items found: ${(fresh.extractedContent as any[]).length}`);
                 setItems(fresh.extractedContent as ExtractedItem[]);
             }
