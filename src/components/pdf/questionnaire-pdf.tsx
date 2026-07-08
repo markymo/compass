@@ -20,7 +20,7 @@ const GlobeIcon = () => (
     </Svg>
 );
 
-// --- PDF Styles (CoParity Theme) ---
+// --- PDF Styles (OnPro Theme) ---
 const styles = StyleSheet.create({
     page: { 
         padding: 30, 
@@ -261,7 +261,7 @@ export interface QuestionnairePDFProps {
         supplierDisplayName?: string;
         clientLogoUrl?: string;
         supplierLogoUrl?: string;
-        coparityLogoUrl?: string;
+        onProLogoUrl?: string;
         exportFormatVersion: string;
         applicationVersion: string;
         summaryStats?: {
@@ -294,11 +294,11 @@ export const QuestionnairePDF = ({ data, title, exportMetadata }: QuestionnaireP
                 <View style={styles.headerBlock}>
                     <View style={styles.headerTopRow}>
                         <View style={styles.headerLeft}>
-                            {exportMetadata?.coparityLogoUrl ? (
-                                <Image src={exportMetadata.coparityLogoUrl} style={styles.logo} />
+                            {exportMetadata?.onProLogoUrl ? (
+                                <Image src={exportMetadata.onProLogoUrl} style={styles.logo} />
                             ) : (
                                 <View style={styles.wordmarkContainer}>
-                                    <Text style={styles.brandName}>CoParity</Text>
+                                    <Text style={styles.brandName}>OnPro</Text>
                                     <View style={styles.brandDot}></View>
                                 </View>
                             )}
@@ -429,7 +429,7 @@ export const QuestionnairePDF = ({ data, title, exportMetadata }: QuestionnaireP
                 {exportMetadata && (
                     <View style={styles.metaFooter} fixed>
                         <View>
-                            <Text style={styles.metaFooterText}>CoParity | Single Source of Truth for Company Data</Text>
+                            <Text style={styles.metaFooterText}>OnPro | Single Source of Truth for Company Data</Text>
                         </View>
                         <Text style={styles.metaFooterText} render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`} />
                     </View>

@@ -62,7 +62,7 @@ describe.skipIf(!process.env.DATABASE_URL)('Questionnaire Visibility Model', () 
     async function makeWC(suffix = '') {
         const wc = await prisma.questionnaire.create({
             data: {
-                name: `VIS_TEST_UNPUBLISHED_COPARITY_XXXXX_SSSSS${suffix}`,
+                name: `VIS_TEST_UNPUBLISHED_ONPRO_XXXXX_SSSSS${suffix}`,
                 functionalCode: 'VISTEST',
                 fiOrgId: sysOrgId,
                 ownerOrgId: sysOrgId,

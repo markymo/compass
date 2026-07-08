@@ -790,7 +790,7 @@ export function applyTransform(
                     roleType:  mapRoleType(roleTitleRaw ? String(roleTitleRaw) : null) ??
                                mapRoleType(roleTypeRaw  ? String(roleTypeRaw)  : null),
                     company: {
-                        coparityCompanyId: null,
+                        onProCompanyId: null,
                         externalId:        null,
                         externalIdScheme:  null,
                         name:              null,

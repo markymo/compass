@@ -102,7 +102,7 @@ export class KycWriteService {
 
                 // Inject ClientLE context into PARTY roles[0].company before saving
                 if (clientLEContext && item?.roles?.[0]?.company) {
-                    item.roles[0].company.coparityCompanyId = clientLEContext.id;
+                    item.roles[0].company.onProCompanyId = clientLEContext.id;
                     item.roles[0].company.name = clientLEContext.legalEntity?.name || null;
                     // Provide actual registry identifiers if safely resolvable
                     if (candidate.source === 'REGISTRATION_AUTHORITY' || candidate.source === 'GLEIF') {

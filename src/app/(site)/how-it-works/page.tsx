@@ -19,21 +19,21 @@ const steps = [
     {
         number: "01",
         title: "Create your Legal Entity",
-        description: "There is no complex setup. Simply input your entity’s legal name and national registry or Legal Entity Identifier. CoParity automatically populates publicly available information.",
+        description: "There is no complex setup. Simply input your entity’s legal name and national registry or Legal Entity Identifier. OnPro automatically populates publicly available information.",
         image: step1,
         color: "amber"
     },
     {
         number: "02",
         title: "Build your “Knowledge Base”",
-        description: "Select suppliers from CoParity’s existing database, invite new suppliers, or upload data requirements yourself using our intuitive interface.",
+        description: "Select suppliers from OnPro’s existing database, invite new suppliers, or upload data requirements yourself using our intuitive interface.",
         image: step2,
         color: "slate"
     },
     {
         number: "03",
         title: "Never repeat yourself",
-        description: "As you work through your consolidated question list, CoParity learns and applies the responses to questions from other suppliers.",
+        description: "As you work through your consolidated question list, OnPro learns and applies the responses to questions from other suppliers.",
         image: step3,
         color: "amber"
     },

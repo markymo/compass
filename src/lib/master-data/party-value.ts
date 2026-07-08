@@ -132,7 +132,7 @@ export interface PartyRole {
      * Supports Coparity GUID, CH number, LEI, or any registry identifier.
      */
     company: {
-        coparityCompanyId: string | null;   // internal ClientLE id
+        onProCompanyId: string | null;   // internal ClientLE id
         externalId:        string | null;   // e.g. CH company number, LEI
         externalIdScheme:  string | null;   // e.g. "COMPANIES_HOUSE", "GLEIF"
         name:              string | null;

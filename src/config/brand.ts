@@ -1,7 +1,7 @@
 export const BRAND = {
-    name: "CoParity",
-    email: "advice@coparity.tech",
-    website: "https://coparity.tech",
-    legalName: "CoParity Financial Infrastructure",
+    name: "OnPro",
+    email: "advice@onpro.tech",
+    website: "https://onpro.tech",
+    legalName: "OnPro Financial Infrastructure",
     year: new Date().getFullYear().toString()
 };

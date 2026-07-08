@@ -27,7 +27,7 @@ describe('reference-codes logic', () => {
                 isSystemQuestionnaire: true,
                 date: testDate
             });
-            expect(prefix).toBe("FMSB_260605_COPARITY_ACME_STRIPE");
+            expect(prefix).toBe("FMSB_260605_ONPRO_ACME_STRIPE");
         });
 
         it('non-system reference with both parties', () => {
@@ -60,7 +60,7 @@ describe('reference-codes logic', () => {
                 isSystemQuestionnaire: true,
                 date: testDate
             });
-            expect(prefix).toBe("KYC_260605_COPARITY_ACME_SSSSS");
+            expect(prefix).toBe("KYC_260605_ONPRO_ACME_SSSSS");
         });
 
         it('both missing uses XXXXX and SSSSS', () => {
@@ -69,7 +69,7 @@ describe('reference-codes logic', () => {
                 isSystemQuestionnaire: true,
                 date: testDate
             });
-            expect(prefix).toBe("TEMPLATE_260605_COPARITY_XXXXX_SSSSS");
+            expect(prefix).toBe("TEMPLATE_260605_ONPRO_XXXXX_SSSSS");
         });
 
         it('functionalCode sanitisation occurs', () => {
@@ -102,7 +102,7 @@ describe('reference-codes logic', () => {
                 supplierShortCode: "STRIPE",
                 isSystemQuestionnaire: true,
             });
-            expect(title).toBe("FMSB_UNPUBLISHED_COPARITY_ACME_STRIPE");
+            expect(title).toBe("FMSB_UNPUBLISHED_ONPRO_ACME_STRIPE");
         });
 
         it('working copy default title with missing parties', () => {
@@ -114,7 +114,7 @@ describe('reference-codes logic', () => {
     });
 
     describe('computeNextVersion', () => {
-        const prefix = "FMSB_260605_COPARITY_ACME_STRIPE";
+        const prefix = "FMSB_260605_ONPRO_ACME_STRIPE";
 
         it('version increment v1 when none exist', () => {
             expect(computeNextVersion(prefix, [])).toBe(1);

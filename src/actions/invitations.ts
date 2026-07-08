@@ -226,7 +226,7 @@ export async function inviteUser(payload: InvitePayload) {
             }));
 
             await resend.emails.send({
-                from: `${BRAND.name} <noreply@app.coparity.tech>`,
+                from: `${BRAND.name} <noreply@mail.onpro.tech>`,
                 to: payload.email,
                 subject: `You have been granted access to ${scopeLabel}`,
                 html,
@@ -305,7 +305,7 @@ export async function inviteUser(payload: InvitePayload) {
         const html = await render(TeamInviteEmail({ inviterName, scopeLabel, role: payload.role, inviteLink: acceptUrl, recipientEmail: payload.email }));
 
         await resend.emails.send({
-            from: `${BRAND.name} <noreply@app.coparity.tech>`,
+            from: `${BRAND.name} <noreply@mail.onpro.tech>`,
             to: payload.email,
             subject: `You've been invited to join ${scopeLabel}`,
             html,
