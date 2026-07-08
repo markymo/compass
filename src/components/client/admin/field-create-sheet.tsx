@@ -95,6 +95,7 @@ export function FieldCreateSheet({ open, onOpenChange, categories=[] }: FieldCre
                 APP_DATA_TYPES.BOOLEAN,
                 APP_DATA_TYPES.DATETIME,
                 APP_DATA_TYPES.DOCUMENT_REF,
+                APP_DATA_TYPES.ADDRESS,
             ];
             if (noMultiValueTypes.includes(payload.appDataType)) {
                 payload.optionSetId = undefined;
@@ -200,8 +201,8 @@ export function FieldCreateSheet({ open, onOpenChange, categories=[] }: FieldCre
                                     </div>
                                 )}
                                 {/* isMultiValue toggle — hidden only for BOOLEAN, DATETIME, DOCUMENT_REF */}
-                             {!([APP_DATA_TYPES.BOOLEAN, APP_DATA_TYPES.DATETIME,
-                                 APP_DATA_TYPES.DOCUMENT_REF
+                                {!([APP_DATA_TYPES.BOOLEAN, APP_DATA_TYPES.DATETIME,
+                                 APP_DATA_TYPES.DOCUMENT_REF, APP_DATA_TYPES.ADDRESS
                                ] as string[]).includes(formData.appDataType) && (
                                 <>
                                     {formData.appDataType === APP_DATA_TYPES.SELECT && (

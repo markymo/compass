@@ -31,10 +31,14 @@ export function StagingBanner() {
         let hasCorrectIcon = false;
         
         document.querySelectorAll("link[rel~='icon'], link[rel='shortcut icon']").forEach(link => {
-          if ((link as HTMLLinkElement).href.includes(`/icon${iconSuffix}.svg`)) {
+          const l = link as HTMLLinkElement;
+          if (l.href.includes(`/icon${iconSuffix}.svg`)) {
             hasCorrectIcon = true;
           } else {
-            link.remove();
+            // Safely mutate href instead of calling link.remove(), 
+            // which breaks React's node.parentNode.removeChild(node) on unmount
+            l.href = targetHref;
+            hasCorrectIcon = true;
           }
         });
 

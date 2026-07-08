@@ -385,6 +385,7 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                 APP_DATA_TYPES.BOOLEAN,
                 APP_DATA_TYPES.DATETIME,
                 APP_DATA_TYPES.DOCUMENT_REF,
+                APP_DATA_TYPES.ADDRESS,
             ];
             if (noMultiValueTypes.includes(payload.appDataType)) {
                 payload.isMultiValue = false;
@@ -795,17 +796,21 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                                     </div>
                                 </>
                             )}
-                            <div className="grid gap-2 border rounded-md p-3 justify-center text-left max-w-[fit-content] h-[fit-content]">
-                                <div className="flex flex-row gap-3 items-center">
-                                    <div className="space-y-0.5">
-                                        <Label className="text-xs text-slate-500 font-semibold cursor-pointer">Allow Multiple Values</Label>
+                            {!([APP_DATA_TYPES.BOOLEAN, APP_DATA_TYPES.DATETIME,
+                                APP_DATA_TYPES.DOCUMENT_REF, APP_DATA_TYPES.ADDRESS
+                              ] as string[]).includes(formData.appDataType) && (
+                                <div className="grid gap-2 border rounded-md p-3 justify-center text-left max-w-[fit-content] h-[fit-content]">
+                                    <div className="flex flex-row gap-3 items-center">
+                                        <div className="space-y-0.5">
+                                            <Label className="text-xs text-slate-500 font-semibold cursor-pointer">Allow Multiple Values</Label>
+                                        </div>
+                                        <Switch
+                                            checked={formData.isMultiValue}
+                                            onCheckedChange={(val) => setFormData({ ...formData, isMultiValue: val })}
+                                        />
                                     </div>
-                                    <Switch
-                                        checked={formData.isMultiValue}
-                                        onCheckedChange={(val) => setFormData({ ...formData, isMultiValue: val })}
-                                    />
                                 </div>
-                            </div>
+                            )}
                         </div>
                     </section>
 
