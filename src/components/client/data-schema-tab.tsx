@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef, useTransition } from "react";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -79,11 +80,40 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
     const [autoCollapseProgress, setAutoCollapseProgress] = useState(100); // 100→0 over 6s
     const collapseTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-    const [search, setSearch] = useState("");
-    const [catFilter, setCatFilter] = useState("ALL");
-    const [popFilter, setPopFilter] = useState("ALL");
-    const [usageFilter, setUsageFilter] = useState("ALL");
+    const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
+    const [, startTransition] = useTransition();
+
+    const [search, setSearch] = useState(searchParams.get("search") || "");
+    const catFilter = searchParams.get("category") || "ALL";
+    const popFilter = searchParams.get("status") || "ALL";
+    const usageFilter = searchParams.get("usage") || "ALL";
     const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
+
+    // Sync search input to URL with debounce
+    useEffect(() => {
+        const timeout = setTimeout(() => {
+            if (search !== (searchParams.get("search") || "")) {
+                const params = new URLSearchParams(searchParams.toString());
+                if (search) params.set("search", search);
+                else params.delete("search");
+                startTransition(() => {
+                    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+                });
+            }
+        }, 300);
+        return () => clearTimeout(timeout);
+    }, [search, searchParams, pathname, router]);
+
+    const updateQuery = (key: string, value: string) => {
+        const params = new URLSearchParams(searchParams.toString());
+        if (value && value !== "ALL") params.set(key, value);
+        else params.delete(key);
+        startTransition(() => {
+            router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+        });
+    };
 
     const toggleCategory = (id: string) => {
         setCollapsedCategories(prev => {
@@ -436,9 +466,15 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                     <div>
                         <h2 className="text-2xl font-semibold tracking-tight">Master Record</h2>
-                        <p className="text-slate-500 text-sm mt-1">
-                            Source record
-                        </p>
+                        <div className="flex items-center gap-3 mt-1">
+                            <Filter className="h-4 w-4 text-slate-400" />
+                            <span className="text-slate-300 text-xs">•</span>
+                            <div className="flex items-center gap-1">
+                                <button onClick={expandAll} className="text-xs text-blue-600 hover:text-blue-700 font-medium hover:underline transition-all">Expand all</button>
+                                <span className="text-slate-300 text-xs px-1">/</span>
+                                <button onClick={collapseAll} className="text-xs text-blue-600 hover:text-blue-700 font-medium hover:underline transition-all">Collapse all</button>
+                            </div>
+                        </div>
                     </div>
 
                     <div className="flex flex-col md:flex-row gap-3 items-center">
@@ -452,7 +488,7 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                             />
                         </div>
 
-                        <Select value={catFilter} onValueChange={setCatFilter}>
+                        <Select value={catFilter} onValueChange={(v) => updateQuery("category", v)}>
                             <SelectTrigger className="w-full md:w-[180px] bg-white border-slate-200">
                                 <Filter className="h-3.5 w-3.5 mr-2 text-slate-400" />
                                 <SelectValue placeholder="Category" />
@@ -467,7 +503,7 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                             </SelectContent>
                         </Select>
 
-                        <Select value={popFilter} onValueChange={setPopFilter}>
+                        <Select value={popFilter} onValueChange={(v) => updateQuery("status", v)}>
                             <SelectTrigger className="w-full md:w-[160px] bg-white border-slate-200">
                                 <span className="flex items-center gap-2">
                                     {popFilter === 'POPULATED' ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> : <Circle className="h-3.5 w-3.5 text-slate-300" />}
@@ -481,7 +517,7 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                             </SelectContent>
                         </Select>
 
-                        <Select value={usageFilter} onValueChange={setUsageFilter}>
+                        <Select value={usageFilter} onValueChange={(v) => updateQuery("usage", v)}>
                             <SelectTrigger className="w-full md:w-[220px] bg-white border-slate-200">
                                 <span className="flex items-center gap-2">
                                     <ClipboardList className="h-3.5 w-3.5 text-slate-400" />
@@ -494,10 +530,6 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                                 <SelectItem value="UNUSED">Not used in questionnaires</SelectItem>
                             </SelectContent>
                         </Select>
-                        <div className="flex items-center gap-1 border-l border-slate-200 pl-3 shrink-0">
-                            <Button variant="ghost" size="sm" onClick={expandAll} className="h-9 px-2 text-[11px] font-medium text-slate-500 hover:text-slate-700">Expand all</Button>
-                            <Button variant="ghost" size="sm" onClick={collapseAll} className="h-9 px-2 text-[11px] font-medium text-slate-500 hover:text-slate-700">Collapse all</Button>
-                        </div>
                     </div>
                 </div>
 
@@ -663,7 +695,7 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                             <p className="text-slate-500 mt-1">Try adjusting your filters or search terms.</p>
                             <Button
                                 variant="link"
-                                onClick={() => { setSearch(""); setCatFilter("ALL"); setPopFilter("ALL"); setUsageFilter("ALL"); }}
+                                onClick={() => { setSearch(""); router.replace(pathname, { scroll: false }); }}
                                 className="text-blue-500 mt-2"
                             >
                                 Clear all filters
