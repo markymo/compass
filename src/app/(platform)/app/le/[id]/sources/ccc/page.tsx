@@ -40,10 +40,10 @@ export default async function CCCPage({ params }: CCCPageProps) {
             <div className="space-y-2 border-b border-slate-100 pb-5">
                 <div className="flex items-center gap-2 text-slate-800">
                     <Layers className="h-6 w-6 text-slate-500" />
-                    <h2 className="text-xl font-semibold tracking-tight">CoParity Curated Content</h2>
+                    <h2 className="text-xl font-semibold tracking-tight">User Content</h2>
                 </div>
                 <p className="text-sm text-slate-500 max-w-2xl leading-relaxed">
-                    List of all Party Records that are currently shared across this ClientLE. These can be Individual (Person, Contact), Organisation (Company, Trust, Fund, Partnership, Government Body, Team, Distribution List, Other), or Unknown (Other). Please note this page is shown as is during development but may eventually be hidden in the final implementation with entities edited directly from the Master Data Fields.
+                    Manage your own custom Party and Address records for this Legal Entity. This content is entirely user-managed, providing a repository for your bespoke Individuals (Persons, Contacts) and Organisations (Companies, Trusts, Funds, Partnerships, etc.) distinct from external registries. Please note this interface is available during development, but entities may eventually be edited directly from the Master Data Fields.
                 </p>
             </div>
 

@@ -21,6 +21,27 @@ export function StagingBanner() {
         document.head.appendChild(link);
       }
       link.href = '/icon-staging.svg';
+
+      // Function to swap logos
+      const swapLogos = () => {
+        document.querySelectorAll('img[src="/logo.svg"], img[src^="/logo.svg?"]').forEach(img => {
+          (img as HTMLImageElement).src = '/logo-staging.svg';
+        });
+        document.querySelectorAll('img[src="/logo-inverted.svg"], img[src^="/logo-inverted.svg?"]').forEach(img => {
+          (img as HTMLImageElement).src = '/logo-inverted-staging.svg';
+        });
+      };
+
+      // Initial swap
+      swapLogos();
+
+      // Set up a MutationObserver to catch any logos rendered after initial load (e.g. Next.js navigations)
+      const observer = new MutationObserver(() => {
+        swapLogos();
+      });
+      observer.observe(document.body, { childList: true, subtree: true });
+
+      return () => observer.disconnect();
     }
   }, []);
 

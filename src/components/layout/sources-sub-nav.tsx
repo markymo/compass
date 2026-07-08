@@ -36,7 +36,7 @@ export function SourcesSubNav({ leId, jurisdiction, registryName }: SourcesSubNa
             isActive: (path: string) => path.startsWith(`${baseUrl}/registry`)
         },
         {
-            label: "CoParity Curated Content",
+            label: "User Content",
             href: `${baseUrl}/ccc`,
             icon: Layers,
             isActive: (path: string) => path.startsWith(`${baseUrl}/ccc`)
