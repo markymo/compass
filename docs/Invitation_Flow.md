@@ -110,7 +110,7 @@ The recipient already has a Compass account.
     └─ Eng scope  → /app/s/{fiOrgId}
 
 9a. Send "You've been granted access" notification email via Resend.
-    From: noreply@app.coparity.tech
+    From: noreply@mail.onpro.tech
     Subject: "You have been granted access to {scopeLabel}"
     Link:  Direct to their dashboard (no /invite token needed).
 
@@ -140,7 +140,7 @@ The recipient does not yet have a Compass account.
 
 9b. Render TeamInviteEmail template.
     Send via Resend:
-      From:    noreply@app.coparity.tech
+      From:    noreply@mail.onpro.tech
       To:      payload.email
       Subject: "You've been invited to join {scopeLabel}"
       Link:    {NEXT_PUBLIC_APP_URL}/invite/{rawToken}
@@ -159,7 +159,7 @@ The recipient does not yet have a Compass account.
 
 ## Accepting an Invitation: The `/invite/[token]` Flow
 
-The invite URL format is: `https://app.coparity.tech/invite/{rawToken}`
+The invite URL format is: `https://onpro.tech/invite/{rawToken}`
 
 This page lives **outside** the `(platform)` route group and is **publicly accessible** (whitelisted in `src/proxy.ts`).
 
@@ -252,8 +252,8 @@ Also shows: "Already have an account? Sign in to your existing account" link.
 | Setting | Value |
 |---------|-------|
 | Provider | Resend |
-| Sending domain | `app.coparity.tech` |
-| From address | `noreply@app.coparity.tech` |
+| Sending domain | `mail.onpro.tech` |
+| From address | `noreply@mail.onpro.tech` |
 | DNS | SPF, DKIM configured on subdomain |
 | Template | `TeamInviteEmail` (React Email) |
 | API Key | `RESEND_API_KEY` environment variable |

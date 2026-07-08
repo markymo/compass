@@ -92,7 +92,7 @@ function ExplorerRow({ row, tab, isSelected, isLast, onSelect, onAddToLibrary, o
                                     {row.functionalCode}
                                 </span>
                             )}
-                            {tab === "working-copy" && row.isCoparityOwned && !row.functionalCode && (
+                            {tab === "working-copy" && row.isOnProOwned && !row.functionalCode && (
                                 <span title="Missing functionalCode"><AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0" /></span>
                             )}
                         </div>
@@ -100,7 +100,7 @@ function ExplorerRow({ row, tab, isSelected, isLast, onSelect, onAddToLibrary, o
                         <div className="flex items-center gap-2 mt-1 flex-wrap">
                             {row.referenceCode ? (
                                 <span className="font-mono text-[10px] text-slate-400 break-all">{row.referenceCode}</span>
-                            ) : tab === "reference" && row.isCoparityOwned ? (
+                            ) : tab === "reference" && row.isOnProOwned ? (
                                 <span className="flex items-center gap-1 text-[10px] text-amber-500"><AlertTriangle className="w-3 h-3 shrink-0" /> Missing referenceCode</span>
                             ) : null}
                             {tab === "reference" && row.sharingState && <SharingPill state={row.sharingState} />}
@@ -117,7 +117,7 @@ function ExplorerRow({ row, tab, isSelected, isLast, onSelect, onAddToLibrary, o
                         <div className="text-[10px] truncate"><span className="text-slate-400">Supplier:</span> {row.supplierShortCode || "SSSSS"}</div>
                     </div>
                 ) : (
-                    <span className="text-xs text-slate-500 font-medium">Coparity</span>
+                    <span className="text-xs text-slate-500 font-medium">OnPro</span>
                 )}
             </td>
             {/* ── Provenance ── */}
@@ -284,8 +284,8 @@ export function DetailPanelContent({ row, onAddToLibrary, onCreateWorkingCopy, o
                     {isRef && <DrawerRow label="Derived" value={row.descendantCount > 0
                         ? <span className="text-[11px] text-slate-600">{row.descendantCount} questionnaire{row.descendantCount !== 1 ? "s" : ""}</span>
                         : <span className="text-[11px] text-slate-300 italic">None</span>} />}
-                    <DrawerRow label="Owner" value={row.isCoparityOwned ? "Coparity" : (row.ownerOrgName || "Unknown")} />
-                    {!row.isCoparityOwned && row.kind === "ENGAGEMENT_QUESTIONNAIRE" && (<>
+                    <DrawerRow label="Owner" value={row.isOnProOwned ? "OnPro" : (row.ownerOrgName || "Unknown")} />
+                    {!row.isOnProOwned && row.kind === "ENGAGEMENT_QUESTIONNAIRE" && (<>
                         <DrawerRow label="Client LE" value={row.clientLeShortCode || "XXXXX"} />
                         <DrawerRow label="Supplier" value={row.supplierShortCode || "SSSSS"} />
                     </>)}
@@ -306,7 +306,7 @@ export function DetailPanelContent({ row, onAddToLibrary, onCreateWorkingCopy, o
 
             {/* Actions */}
             <div className="space-y-1.5 mt-auto">
-                {isRef && row.isCoparityOwned ? (<>
+                {isRef && row.isOnProOwned ? (<>
                     <Link href={`/app/admin/questionnaires/${row.id}`} className="flex items-center justify-between w-full text-xs font-medium text-slate-700 hover:text-slate-900 px-3 py-2 rounded border border-slate-200 hover:border-slate-300 transition-colors">
                         View questionnaire <ExternalLink className="w-3 h-3" />
                     </Link>
@@ -329,7 +329,7 @@ export function DetailPanelContent({ row, onAddToLibrary, onCreateWorkingCopy, o
                     >
                         Delete Snapshot <Trash2 className="w-3 h-3" />
                     </button>
-                </>) : row.kind === "WORKING_COPY" && row.isCoparityOwned ? (<>
+                </>) : row.kind === "WORKING_COPY" && row.isOnProOwned ? (<>
                     <Link href={`/app/admin/questionnaires/${row.id}`} className="flex items-center justify-between w-full text-xs font-medium text-slate-700 hover:text-slate-900 px-3 py-2 rounded border border-slate-200 hover:border-slate-300 transition-colors">
                         Open editor <ChevronRight className="w-3 h-3" />
                     </Link>

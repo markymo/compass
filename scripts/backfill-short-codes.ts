@@ -56,7 +56,7 @@ function sanitize(code: string): string {
 }
 
 function generateShortCode(name: string): string {
-    if (name.toLowerCase().includes('coparity')) return 'COPAR';
+    if (name.toLowerCase().includes('onpro')) return 'ONPRO';
 
     const bracketMatch = name.trim().match(/^\(([A-Z0-9]+)\)$/);
     if (bracketMatch) {

@@ -23,7 +23,7 @@ export interface QV2Row {
     kind: "WORKING_COPY" | "REFERENCE_SNAPSHOT" | "ENGAGEMENT_QUESTIONNAIRE" | null;
     functionalCode: string | null;
     referenceCode: string | null;
-    isCoparityOwned: boolean;
+    isOnProOwned: boolean;
     status: string;
     fiOrgName: string | null;
     ownerOrgName: string | null;
@@ -127,11 +127,11 @@ export async function getQuestionnairesV2(): Promise<{
             }
         }
 
-        // isCoparityOwned = true when:
-        //   a) the ownerOrg is a SYSTEM-type organisation (covers Coparity sysOrg,
-        //      ONpro System legacy, and any future SYSTEM-typed org)
-        //   b) ownerOrgId is null and the row is a template (pre-migration system rows)
-        const isCoparityOwned =
+        // isOnProOwned = true when:
+        // 1. isGlobal = true (system-level templates / forms)
+        // 2. OR ownerOrgId is the host FI (the platform owner)
+        
+        const isOnProOwned =
             (r.ownerOrg?.types?.includes('SYSTEM') ?? false) ||
             (r.ownerOrgId === null && r.isTemplate === true);
 
@@ -141,7 +141,7 @@ export async function getQuestionnairesV2(): Promise<{
             kind,
             functionalCode: r.functionalCode,
             referenceCode: r.referenceCode,
-            isCoparityOwned,
+            isOnProOwned,
             status: r.status,
             fiOrgName: r.fiOrg?.name ?? null,
             ownerOrgName: r.ownerOrg?.name ?? null,
@@ -165,9 +165,9 @@ export async function getQuestionnairesV2(): Promise<{
     });
 
     return {
-        workingCopies:    mapped.filter(r => r.kind === "WORKING_COPY" && r.isCoparityOwned),
-        referenceLibrary: mapped.filter(r => r.kind === "REFERENCE_SNAPSHOT" && r.isCoparityOwned),
-        other:            mapped.filter(r => !(r.kind === "WORKING_COPY" && r.isCoparityOwned) && !(r.kind === "REFERENCE_SNAPSHOT" && r.isCoparityOwned)),
+        workingCopies:    mapped.filter(r => r.kind === "WORKING_COPY" && r.isOnProOwned),
+        referenceLibrary: mapped.filter(r => r.kind === "REFERENCE_SNAPSHOT" && r.isOnProOwned),
+        other:            mapped.filter(r => !(r.kind === "WORKING_COPY" && r.isOnProOwned) && !(r.kind === "REFERENCE_SNAPSHOT" && r.isOnProOwned)),
     };
 }
 

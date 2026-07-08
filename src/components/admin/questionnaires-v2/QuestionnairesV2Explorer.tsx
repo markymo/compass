@@ -81,8 +81,8 @@ export function QuestionnairesV2Explorer({ data, initialTab }: Props) {
                     </div>
 
                     <div className="flex items-center border-b border-slate-200 overflow-x-auto">
-                        <TabButton label="Coparity Working Copies" count={data.workingCopies.length} active={tab === "working-copy"} onClick={() => setTab("working-copy")} />
-                        <TabButton label="Coparity Reference Library" count={data.referenceLibrary.length} active={tab === "reference"} onClick={() => setTab("reference")} />
+                        <TabButton label="OnPro Working Copies" count={data.workingCopies.length} active={tab === "working-copy"} onClick={() => setTab("working-copy")} />
+                        <TabButton label="OnPro Reference Library" count={data.referenceLibrary.length} active={tab === "reference"} onClick={() => setTab("reference")} />
                         <TabButton label="Other Questionnaires" count={data.other.length} active={tab === "other"} onClick={() => setTab("other")} />
                     </div>
 
@@ -438,7 +438,7 @@ function VisibilityDialog({ row, onCancel, onSuccess }: { row: QV2Row; onCancel:
                 const labels: Record<QuestionnaireVisibility, string> = {
                     PRIVATE: "Reference Snapshot is now private",
                     RESTRICTED: "Visibility updated",
-                    GLOBAL: "Reference Snapshot is now visible to all CoParity users",
+                    GLOBAL: "Reference Snapshot is now visible to all OnPro users",
                 };
                 toast.success(labels[visibility]);
                 onSuccess();
@@ -454,7 +454,7 @@ function VisibilityDialog({ row, onCancel, onSuccess }: { row: QV2Row; onCancel:
             value: "PRIVATE",
             icon: <Lock className="w-4 h-4 text-slate-400 shrink-0" />,
             label: "Private",
-            description: "Visible only to Coparity admins",
+            description: "Visible only to OnPro admins",
         },
         {
             value: "RESTRICTED",

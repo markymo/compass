@@ -648,7 +648,7 @@ function enrichCCPartyRolesForField63(clientLE: any, partyData: any): any {
 
     const hasActiveDirectorRole = roles.some((role: any) =>
         role.roleType === "director" &&
-        role.company?.coparityCompanyId === clientLE.id &&
+        role.company?.onProCompanyId === clientLE.id &&
         role.isActiveRole !== false
     );
 
@@ -657,7 +657,7 @@ function enrichCCPartyRolesForField63(clientLE: any, partyData: any): any {
     }
 
     const companyName = clientLE.name;
-    const coparityCompanyId = clientLE.id;
+    const onProCompanyId = clientLE.id;
     let externalId = null;
     let externalIdScheme = null;
 
@@ -678,7 +678,7 @@ function enrichCCPartyRolesForField63(clientLE: any, partyData: any): any {
         natureOfControl: [],
         company: {
             name: companyName,
-            coparityCompanyId: coparityCompanyId,
+            onProCompanyId: onProCompanyId,
             externalId,
             externalIdScheme
         }

@@ -232,7 +232,7 @@ describe.skipIf(!process.env.DATABASE_URL)('kyc-manual-update PARTY_REF Smoke Te
         expect(data.roles).toHaveLength(1);
         expect(data.roles[0].roleType).toBe("director");
         expect(data.roles[0].company.name).toBe(le!.name);
-        expect(data.roles[0].company.coparityCompanyId).toBe(le!.id);
+        expect(data.roles[0].company.onProCompanyId).toBe(le!.id);
     });
 
     it('smoke test: linking existing CCParty via Field 63 appends the role context', async () => {
@@ -261,7 +261,7 @@ describe.skipIf(!process.env.DATABASE_URL)('kyc-manual-update PARTY_REF Smoke Te
         const data = updatedParty!.data as any;
         expect(data.roles).toHaveLength(1);
         expect(data.roles[0].roleType).toBe("director");
-        expect(data.roles[0].company.coparityCompanyId).toBe(clientLEId);
+        expect(data.roles[0].company.onProCompanyId).toBe(clientLEId);
     });
 
     it('smoke test: linking same CCParty twice does not duplicate the role', async () => {

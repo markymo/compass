@@ -125,9 +125,9 @@ describe.skipIf(!process.env.DATABASE_URL)('Reference Codes Integration', () => 
         const ref = await prisma.questionnaire.findUnique({ where: { id: res.referenceId } });
         expect(ref?.kind).toBe('REFERENCE_SNAPSHOT');
         expect(ref?.functionalCode).toBe('FMSB');
-        expect(ref?.referenceCode).toMatch(/^FMSB_\d{6}_COPARITY_XXXXX_SSSSS_v\d+$/);
+        expect(ref?.referenceCode).toMatch(/^FMSB_\d{6}_ONPRO_XXXXX_SSSSS_v\d+$/);
         // Action returns the new snapshot's name and referenceCode directly
-        expect(res.snapshotReferenceCode).toMatch(/^FMSB_\d{6}_COPARITY_XXXXX_SSSSS_v\d+$/);
+        expect(res.snapshotReferenceCode).toMatch(/^FMSB_\d{6}_ONPRO_XXXXX_SSSSS_v\d+$/);
         // For WCs without UNPUBLISHED token, snapshotName is kept as the source name
         expect(res.snapshotName).toBe('Test Working Copy');
 
@@ -148,8 +148,8 @@ describe.skipIf(!process.env.DATABASE_URL)('Reference Codes Integration', () => 
         const res2 = await addToReferenceLibrary(wc2.id);
         expect(res2.success).toBe(true);
         const ref2 = await prisma.questionnaire.findUnique({ where: { id: res2.referenceId } });
-        expect(ref2?.referenceCode).toMatch(/^FMSB_\d{6}_COPARITY_XXXXX_SSSSS_v\d+$/);
-        expect(res2.snapshotReferenceCode).toMatch(/^FMSB_\d{6}_COPARITY_XXXXX_SSSSS_v\d+$/);
+        expect(ref2?.referenceCode).toMatch(/^FMSB_\d{6}_ONPRO_XXXXX_SSSSS_v\d+$/);
+        expect(res2.snapshotReferenceCode).toMatch(/^FMSB_\d{6}_ONPRO_XXXXX_SSSSS_v\d+$/);
         
         templateId = ref2!.id;
     });
@@ -157,7 +157,7 @@ describe.skipIf(!process.env.DATABASE_URL)('Reference Codes Integration', () => 
     it('addToReferenceLibrary replaces UNPUBLISHED with publish date and versions name/code', async () => {
         const wc = await prisma.questionnaire.create({
             data: {
-                name: 'FMSBUK_UNPUBLISHED_COPARITY_XXXXX_SSSSS',
+                name: 'FMSBUK_UNPUBLISHED_ONPRO_XXXXX_SSSSS',
                 functionalCode: 'FMSBUK',
                 fiOrgId: sysOrgId,
                 ownerOrgId: sysOrgId,
@@ -175,17 +175,17 @@ describe.skipIf(!process.env.DATABASE_URL)('Reference Codes Integration', () => 
         expect(ref?.kind).toBe('REFERENCE_SNAPSHOT');
         expect(ref?.functionalCode).toBe('FMSBUK');
         expect(ref?.referenceCode).not.toContain('UNPUBLISHED');
-        expect(ref?.referenceCode).toMatch(/^FMSBUK_\d{6}_COPARITY_XXXXX_SSSSS_v\d+$/);
+        expect(ref?.referenceCode).toMatch(/^FMSBUK_\d{6}_ONPRO_XXXXX_SSSSS_v\d+$/);
         expect(ref?.name).not.toContain('UNPUBLISHED');
-        expect(ref?.name).toMatch(/^FMSBUK_\d{6}_COPARITY_XXXXX_SSSSS_v\d+$/);
+        expect(ref?.name).toMatch(/^FMSBUK_\d{6}_ONPRO_XXXXX_SSSSS_v\d+$/);
         // Action return values are also clean
         expect(res.snapshotReferenceCode).not.toContain('UNPUBLISHED');
-        expect(res.snapshotReferenceCode).toMatch(/^FMSBUK_\d{6}_COPARITY_XXXXX_SSSSS_v\d+$/);
+        expect(res.snapshotReferenceCode).toMatch(/^FMSBUK_\d{6}_ONPRO_XXXXX_SSSSS_v\d+$/);
         expect(res.snapshotName).not.toContain('UNPUBLISHED');
 
         // Assert source working copy name is untouched
         const originalWc = await prisma.questionnaire.findUnique({ where: { id: wc.id } });
-        expect(originalWc?.name).toBe('FMSBUK_UNPUBLISHED_COPARITY_XXXXX_SSSSS');
+        expect(originalWc?.name).toBe('FMSBUK_UNPUBLISHED_ONPRO_XXXXX_SSSSS');
 
         // cleanup
         await prisma.questionnaire.delete({ where: { id: ref!.id } });
@@ -195,7 +195,7 @@ describe.skipIf(!process.env.DATABASE_URL)('Reference Codes Integration', () => 
     it('previewPublishReferenceSnapshot returns correct preview without writing to DB', async () => {
         const wc = await prisma.questionnaire.create({
             data: {
-                name: 'FMSBUK_UNPUBLISHED_COPARITY_XXXXX_SSSSS',
+                name: 'FMSBUK_UNPUBLISHED_ONPRO_XXXXX_SSSSS',
                 functionalCode: 'FMSBUK',
                 fiOrgId: sysOrgId,
                 ownerOrgId: sysOrgId,
@@ -209,11 +209,11 @@ describe.skipIf(!process.env.DATABASE_URL)('Reference Codes Integration', () => 
         const res = await previewPublishReferenceSnapshot(wc.id);
         expect(res.success).toBe(true);
         expect(res.preview).toBeDefined();
-        expect(res.preview!.sourceName).toBe('FMSBUK_UNPUBLISHED_COPARITY_XXXXX_SSSSS');
+        expect(res.preview!.sourceName).toBe('FMSBUK_UNPUBLISHED_ONPRO_XXXXX_SSSSS');
         expect(res.preview!.proposedReferenceCode).not.toContain('UNPUBLISHED');
-        expect(res.preview!.proposedReferenceCode).toMatch(/^FMSBUK_\d{6}_COPARITY_XXXXX_SSSSS_v\d+$/);
+        expect(res.preview!.proposedReferenceCode).toMatch(/^FMSBUK_\d{6}_ONPRO_XXXXX_SSSSS_v\d+$/);
         expect(res.preview!.proposedSnapshotName).not.toContain('UNPUBLISHED');
-        expect(res.preview!.proposedSnapshotName).toMatch(/^FMSBUK_\d{6}_COPARITY_XXXXX_SSSSS_v\d+$/);
+        expect(res.preview!.proposedSnapshotName).toMatch(/^FMSBUK_\d{6}_ONPRO_XXXXX_SSSSS_v\d+$/);
         expect(res.preview!.nextVersion).toBeGreaterThanOrEqual(1);
         expect(res.preview!.publishDateToken).toMatch(/^\d{6}$/);
 
@@ -236,7 +236,7 @@ describe.skipIf(!process.env.DATABASE_URL)('Reference Codes Integration', () => 
                 kind: 'REFERENCE_SNAPSHOT',
                 isTemplate: true,
                 isGlobal: true,
-                referenceCode: 'FMSB_260605_COPARITY_XXXXX_SSSSS_v2'
+                referenceCode: 'FMSB_260605_ONPRO_XXXXX_SSSSS_v2'
             }
         });
         
@@ -247,7 +247,7 @@ describe.skipIf(!process.env.DATABASE_URL)('Reference Codes Integration', () => 
         expect(wc?.kind).toBe('WORKING_COPY');
         expect(wc?.functionalCode).toBe('FMSB');
         // It carries the source reference code
-        expect(wc?.referenceCode).toMatch(/^FMSB_\d{6}_COPARITY_XXXXX_SSSSS_v\d+$/);
+        expect(wc?.referenceCode).toMatch(/^FMSB_\d{6}_ONPRO_XXXXX_SSSSS_v\d+$/);
     });
 
     it('assignQuestionnaireToEngagement copies referenceCode and generates title', async () => {
@@ -261,7 +261,7 @@ describe.skipIf(!process.env.DATABASE_URL)('Reference Codes Integration', () => 
                 kind: 'REFERENCE_SNAPSHOT',
                 isTemplate: true,
                 isGlobal: true,
-                referenceCode: 'FMSB_260605_COPARITY_XXXXX_SSSSS_v2',
+                referenceCode: 'FMSB_260605_ONPRO_XXXXX_SSSSS_v2',
                 visibility: 'GLOBAL', // must be discoverable by the per-test engagement org
             }
         });
@@ -276,13 +276,13 @@ describe.skipIf(!process.env.DATABASE_URL)('Reference Codes Integration', () => 
         const instance = await prisma.questionnaire.findUnique({ where: { id: res.id } });
         expect(instance?.kind).toBe('ENGAGEMENT_QUESTIONNAIRE');
         expect(instance?.functionalCode).toBe('FMSB');
-        expect(instance?.referenceCode).toMatch(/^FMSB_\d{6}_COPARITY_XXXXX_SSSSS_v\d+$/);
+        expect(instance?.referenceCode).toMatch(/^FMSB_\d{6}_ONPRO_XXXXX_SSSSS_v\d+$/);
         
         // The default title is derived from the referenceCode: strip _v{n}, substitute real LE/supplier codes.
-        // referenceCode = 'FMSB_260605_COPARITY_XXXXX_SSSSS_v2'
-        // → strip _v2 → 'FMSB_260605_COPARITY_XXXXX_SSSSS'
+        // referenceCode = 'FMSB_260605_ONPRO_XXXXX_SSSSS_v2'
+        // → strip _v2 → 'FMSB_260605_ONPRO_XXXXX_SSSSS'
         // → sub XXXXX=leShort, SSSSS=orgShort
-        expect(instance?.name).toBe(`FMSB_260605_COPARITY_${currentLeShort}_${currentOrgShort}`);
+        expect(instance?.name).toBe(`FMSB_260605_ONPRO_${currentLeShort}_${currentOrgShort}`);
     });
 
     it('New Working Copy creation rejects empty functionalCode and enforces formatting', async () => {
@@ -305,7 +305,7 @@ describe.skipIf(!process.env.DATABASE_URL)('Reference Codes Integration', () => 
         expect(res2.id).toBeDefined();
 
         const wc = await prisma.questionnaire.findUnique({ where: { id: res2.id } });
-        expect(wc?.name).toBe('FMSBUK_UNPUBLISHED_COPARITY_XXXXX_SSSSS');
+        expect(wc?.name).toBe('FMSBUK_UNPUBLISHED_ONPRO_XXXXX_SSSSS');
         expect(wc?.functionalCode).toBe('FMSBUK');
         expect(wc?.kind).toBe('WORKING_COPY');
         expect(wc?.ownerOrgId).toBe(sysOrgId);
@@ -322,7 +322,7 @@ describe.skipIf(!process.env.DATABASE_URL)('Reference Codes Integration', () => 
         // Create a working copy and publish a snapshot from it
         const wc = await prisma.questionnaire.create({
             data: {
-                name: 'FMSBUK_UNPUBLISHED_COPARITY_XXXXX_SSSSS',
+                name: 'FMSBUK_UNPUBLISHED_ONPRO_XXXXX_SSSSS',
                 functionalCode: 'FMSBUK',
                 fiOrgId: sysOrgId,
                 ownerOrgId: sysOrgId,
@@ -370,7 +370,7 @@ describe.skipIf(!process.env.DATABASE_URL)('Reference Codes Integration', () => 
     async function makeWC(sysOrgId: string, suffix = '') {
         return prisma.questionnaire.create({
             data: {
-                name: `FMSBUK_UNPUBLISHED_COPARITY_XXXXX_SSSSS${suffix}`,
+                name: `FMSBUK_UNPUBLISHED_ONPRO_XXXXX_SSSSS${suffix}`,
                 functionalCode: 'FMSBUK',
                 fiOrgId: sysOrgId,
                 ownerOrgId: sysOrgId,

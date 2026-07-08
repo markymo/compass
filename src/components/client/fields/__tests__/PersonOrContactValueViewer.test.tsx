@@ -14,7 +14,7 @@ describe('PersonOrContactValueViewer Mutation Safety', () => {
                 {
                     roleTitle: 'Director',
                     roleType: 'director',
-                    company: { coparityCompanyId: null, externalId: null, name: 'Test Corp' },
+                    company: { onProCompanyId: null, externalId: null, name: 'Test Corp' },
                     appointedOn: '2020-01-01',
                     resignedOn: null,
                     isActiveRole: true,

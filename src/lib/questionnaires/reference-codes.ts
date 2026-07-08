@@ -28,20 +28,20 @@ export function generateReferenceCodePrefix(params: ReferenceCodeParams): string
     
     const func = normalizeCode(functionalCode);
     const yymmdd = formatYYMMDD(date);
-    const coparity = isSystemQuestionnaire ? "COPARITY_" : "";
+    const onpro = isSystemQuestionnaire ? "ONPRO_" : "";
     const client = clientLeShortCode ? normalizeCode(clientLeShortCode) : "XXXXX";
     const supplier = supplierShortCode ? normalizeCode(supplierShortCode) : "SSSSS";
 
-    return `${func}_${yymmdd}_${coparity}${client}_${supplier}`;
+    return `${func}_${yymmdd}_${onpro}${client}_${supplier}`;
 }
 
 export function generateWorkingCopyTitle(params: Omit<ReferenceCodeParams, 'date'>): string {
     const func = normalizeCode(params.functionalCode);
-    const coparity = params.isSystemQuestionnaire ? "COPARITY_" : "";
+    const onpro = params.isSystemQuestionnaire ? "ONPRO_" : "";
     const client = params.clientLeShortCode ? normalizeCode(params.clientLeShortCode) : "XXXXX";
     const supplier = params.supplierShortCode ? normalizeCode(params.supplierShortCode) : "SSSSS";
 
-    return `${func}_UNPUBLISHED_${coparity}${client}_${supplier}`;
+    return `${func}_UNPUBLISHED_${onpro}${client}_${supplier}`;
 }
 
 export function computeNextVersion(prefix: string, existingCodes: string[]): number {

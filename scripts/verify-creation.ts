@@ -31,8 +31,8 @@ async function main() {
     // 2. Parent with Placeholder Name
     const parent1 = await prisma.questionnaire.create({
         data: {
-            name: "FMSB_260606_COPARITY_XXXXX_SSSSS_v1",
-            referenceCode: "FMSB_260606_COPARITY_XXXXX_SSSSS_v1",
+            name: "FMSB_260606_ONPRO_XXXXX_SSSSS_v1",
+            referenceCode: "FMSB_260606_ONPRO_XXXXX_SSSSS_v1",
             fiOrgId: fiOrg.id,
             kind: "REFERENCE_SNAPSHOT",
             status: "ACTIVE"
@@ -43,7 +43,7 @@ async function main() {
     const parent2 = await prisma.questionnaire.create({
         data: {
             name: "FMSB Master Questionnaire",
-            referenceCode: "FMSB_260606_COPARITY_XXXXX_SSSSS_v1",
+            referenceCode: "FMSB_260606_ONPRO_XXXXX_SSSSS_v1",
             fiOrgId: fiOrg.id,
             kind: "REFERENCE_SNAPSHOT",
             status: "ACTIVE"

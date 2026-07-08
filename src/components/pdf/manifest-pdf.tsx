@@ -61,7 +61,7 @@ export const ManifestPDF = ({
             <Page size="A4" style={styles.page}>
                 {/* Header */}
                 <View style={styles.header}>
-                    <Text style={styles.title}>CoParity Output Pack</Text>
+                    <Text style={styles.title}>OnPro Output Pack</Text>
                     <Text style={styles.subtitle}>Index & Manifest</Text>
                 </View>
 

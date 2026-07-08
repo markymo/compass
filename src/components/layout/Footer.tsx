@@ -28,7 +28,7 @@ export function Footer() {
                     <h3 className="mb-6 text-sm font-semibold text-white uppercase tracking-wider">Company</h3>
                     <ul className="space-y-3 text-sm">
                         <li><Link href="/about" className="hover:text-amber-500 transition-colors">About Us</Link></li>
-                        <li><Link href="/why-coparity" className="hover:text-amber-500 transition-colors">Why &ldquo;{BRAND.name}&rdquo;?</Link></li>
+                        <li><Link href="/why-onpro" className="hover:text-amber-500 transition-colors">Why &ldquo;{BRAND.name}&rdquo;?</Link></li>
                         <li><Link href="/contact" className="hover:text-amber-500 transition-colors">Contact</Link></li>
                         <li><Link href="/privacy" className="hover:text-amber-500 transition-colors">Privacy Policy</Link></li>
                     </ul>

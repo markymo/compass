@@ -19,14 +19,14 @@ const steps = [
     {
         number: "01",
         title: "Upload your requirements",
-        description: "Upload a set of information requirements to CoParity (for example – UK large corporates).",
+        description: "Upload a set of information requirements to OnPro (for example – UK large corporates).",
         image: step1,
         color: "amber"
     },
     {
         number: "02",
         title: "Seamless integration",
-        description: "CoParity integrates your data requirements into its standard data set, expanding it if necessary.",
+        description: "OnPro integrates your data requirements into its standard data set, expanding it if necessary.",
         image: step2,
         color: "slate"
     },

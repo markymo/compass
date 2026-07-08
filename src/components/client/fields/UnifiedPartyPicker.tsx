@@ -82,7 +82,7 @@ export function UnifiedPartyPicker({ clientLEId, fieldNo, trigger, onSuccess, ro
                 roleType: "director",
                 roleTitle: "Director",
                 company: {
-                    coparityCompanyId: null,
+                    onProCompanyId: null,
                     externalId: null,
                     externalIdScheme: null,
                     name: null

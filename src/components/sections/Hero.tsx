@@ -22,7 +22,7 @@ export function Hero() {
                     transition={{ duration: 0.5, delay: 0.1 }}
                     className="mx-auto text-center text-5xl font-bold tracking-tight text-slate-900 md:text-8xl font-serif"
                 >
-                    Co<span className="text-amber-500">Parity</span>
+                    On<span className="text-amber-500">Pro</span>
                 </motion.h1>
 
                 <motion.p
