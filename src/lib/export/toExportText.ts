@@ -34,7 +34,7 @@ function exportValue(val: ResolvedFieldValue): string {
     }
 
     if (val.kind === 'collection') {
-        return val.items.map(i => exportValue(i.value)).filter(Boolean).join("; ");
+        return val.items.map(i => exportValue(i.value)).filter(Boolean).map(v => `• ${v}`).join("\n");
     }
 
     if (val.kind === 'address' || val.kind === 'addressRef') {

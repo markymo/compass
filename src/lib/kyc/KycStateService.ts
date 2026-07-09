@@ -310,14 +310,15 @@ export class KycStateService {
             itemGroups[key].push(c);
         }
 
-        const results: DerivedValue[] = [];
+        const resultsWithOrder: { derived: DerivedValue; oldestAssertedAt: number; oldestId: string }[] = [];
         let provenanceMap = null;
         if (subject.clientLEId) {
             provenanceMap = await fetchProvenanceMap({ clientLEId: subject.clientLEId });
         }
 
         for (const key in itemGroups) {
-            const winner = this.pickWinner(itemGroups[key], ownerScopeId, priorityMap);
+            const group = itemGroups[key];
+            const winner = this.pickWinner(group, ownerScopeId, priorityMap);
             if (winner && !this.isTombstone(winner)) {
                 const derived = this.mapToDerivedValue(winner, ownerScopeId);
                 const resolvedCheckedAt = resolveSourceCheckedAt(
@@ -329,9 +330,16 @@ export class KycStateService {
                 if (resolvedCheckedAt) {
                     derived.sourceCheckedAt = resolvedCheckedAt;
                 }
-                results.push(derived);
+                const oldestClaim = group[group.length - 1];
+                resultsWithOrder.push({ derived, oldestAssertedAt: oldestClaim.assertedAt.getTime(), oldestId: oldestClaim.id });
             }
         }
+
+        resultsWithOrder.sort((a, b) => {
+            if (a.oldestAssertedAt !== b.oldestAssertedAt) return a.oldestAssertedAt - b.oldestAssertedAt;
+            return a.oldestId.localeCompare(b.oldestId);
+        });
+        const results = resultsWithOrder.map(r => r.derived);
 
         // ── Effective-date post-filter ─────────────────────────────────────────
         // For collection fields configured with filterByEffectiveDate, exclude
@@ -470,7 +478,7 @@ export class KycStateService {
                     itemGroups[key].push(c);
                 }
 
-                const collection: DerivedValue[] = [];
+                const collectionWithOrder: { derived: DerivedValue; oldestAssertedAt: number; oldestId: string }[] = [];
                 for (const group of Object.values(itemGroups)) {
                     const winner = this.pickWinner(group, ownerScopeId, priorityMap);
                     if (winner && !this.isTombstone(winner)) {
@@ -484,9 +492,16 @@ export class KycStateService {
                             );
                             if (resolvedCheckedAt) derived.sourceCheckedAt = resolvedCheckedAt;
                         }
-                        collection.push(derived);
+                        const oldestClaim = group[group.length - 1];
+                        collectionWithOrder.push({ derived, oldestAssertedAt: oldestClaim.assertedAt.getTime(), oldestId: oldestClaim.id });
                     }
                 }
+
+                collectionWithOrder.sort((a, b) => {
+                    if (a.oldestAssertedAt !== b.oldestAssertedAt) return a.oldestAssertedAt - b.oldestAssertedAt;
+                    return a.oldestId.localeCompare(b.oldestId);
+                });
+                const collection = collectionWithOrder.map(c => c.derived);
 
                 // Effective-date post-filter (mirrors getAuthoritativeCollection)
                 const config = COLLECTION_FIELD_CONFIG[def.fieldNo];

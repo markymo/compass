@@ -1319,7 +1319,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                         const isPartyRefValue = inferredKind === 'PARTY_REF';
                                                         const isComplexEditor = inferredKind === 'PARTY_REF' || inferredKind === 'EMBEDDED_PARTY' || inferredKind === 'ADDRESS' || inferredKind === 'ADDRESS_REF';
                                                         
-                                                        const showPromote = inferredKind === 'EMBEDDED_PARTY' || inferredKind === 'ADDRESS';
+                                                        const showPromote = (inferredKind === 'EMBEDDED_PARTY' && isPartyField) || (inferredKind === 'ADDRESS' && isAddressField);
                                                         const isReadOnlySource = row.source !== 'USER_INPUT';
                                                         const canEdit = !isReadOnlySource;
                                                         const canRemove = !isReadOnlySource;

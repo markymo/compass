@@ -1410,7 +1410,13 @@ export async function getFieldDetail(
             value: def?.isMultiValue && rows ? rows.map((r: any) => r.value) : derived.value,
             source: (derived.isScoped ? 'USER_INPUT' : (derived.evidenceProvider || derived.sourceType || 'SYSTEM')) as ProvenanceSource,
             sourceReference: derived.sourceReference || undefined,
-            timestamp: derived.assertedAt,
+            timestamp: (() => {
+                if (def?.isMultiValue && rows && rows.length > 0) {
+                    const times = rows.map((r: any) => r.timestamp ? new Date(r.timestamp).getTime() : 0).filter((t: number) => t > 0);
+                    if (times.length > 0) return new Date(Math.max(...times));
+                }
+                return derived.assertedAt;
+            })(),
             confidence: derived.confidenceScore || 1.0,
             claimId: derived.claimId,
             isPromotedToCCC: promotedClaimIds.has(derived.claimId),

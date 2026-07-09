@@ -878,7 +878,7 @@ function MasterFieldDisplay({ label, fieldNo, value, formattedDisplayValue, sour
                     </>
                 ) : (
                     <>
-                        <div className="font-mono text-sm line-clamp-2 break-words flex-1 min-w-0" title={typeof value === 'object' && value ? JSON.stringify(value, null, 2) : String(value)}>
+                        <div className="font-mono text-sm line-clamp-[10] break-words flex-1 min-w-0" title={typeof value === 'object' && value ? JSON.stringify(value, null, 2) : String(value)}>
                             {(() => {
                                 const isSafeCollection = canonicalDisplayModel?.value.kind === 'collection' && 
                                     canonicalDisplayModel.value.items.every(i => 
