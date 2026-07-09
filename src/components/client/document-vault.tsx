@@ -442,7 +442,7 @@ export function DocumentVault({ leId }: DocumentVaultProps) {
                 open={!!deleteDocId}
                 onOpenChange={(open) => !open && setDeleteDocId(null)}
                 itemName={selectedDoc?.name || documents.find(d => d.id === deleteDocId)?.name}
-                onConfirm={() => deleteDocId && handleDelete(deleteDocId)}
+                onConfirm={() => { if (deleteDocId) return handleDelete(deleteDocId); }}
             />
         </div>
     );
