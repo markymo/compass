@@ -134,7 +134,7 @@ export const REFERENCE_UI_OPTIONS: AppDataTypeOption[] = [
     { value: APP_DATA_TYPES.PARTY_REF,    label: 'Party Reference',        description: 'Links to a Person or Legal Entity (directors, UBOs, PSCs)' },
     { value: APP_DATA_TYPES.ORG_REF,      label: 'Organisation Reference',  description: 'Links to a Legal Entity / Org node in the graph' },
     { value: APP_DATA_TYPES.DOCUMENT_REF, label: 'Document Reference',      description: 'Links to an uploaded document in the Document Registry' },
-    { value: APP_DATA_TYPES.ADDRESS_REF,  label: 'Address Reference',       description: 'Links to a structured Address record' },
+    { value: APP_DATA_TYPES.ADDRESS_REF,  label: 'Address Reference [DO NOT USE]', description: 'Links to a structured Address record' },
 ];
 
 /** All UI options combined (scalar first, then reference). */

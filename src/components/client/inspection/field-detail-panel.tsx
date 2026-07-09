@@ -18,7 +18,7 @@ import { checkCustomFieldDependencies, softDeleteCustomField, DependencyReport }
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useRouter } from "next/navigation";
 // FIELD_DEFINITIONS removed
-import { updateFieldManually, applyCandidate, updateCustomFieldManually, addMultiValueEntry, removeMultiValueEntry, applyBulkOverride, promoteClaim, releaseFieldDefault, releaseFieldAbsence } from "@/actions/kyc-manual-update";
+import { updateFieldManually, applyCandidate, updateCustomFieldManually, addMultiValueEntry, removeMultiValueEntry, applyBulkOverride, promoteClaim, releaseFieldDefault, releaseFieldAbsence, restoreSourceValue } from "@/actions/kyc-manual-update";
 import { promoteClaimToCCParty } from "@/actions/cc-party-actions";
 import { saveAddressForReuse } from "@/actions/cc-address-actions";
 import { getMasterFieldDocuments, setMasterFieldAssignment } from "@/actions/standing-data";
@@ -2111,19 +2111,24 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                          {isClearingSingleValue && (
                                                              <div className="mt-4 flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg bg-red-50 border border-red-200 animate-in fade-in duration-150">
                                                                  <span className="text-xs text-red-700 font-medium truncate flex-1">
-                                                                     Break link to party reference?
-                                                                 </span>
+                                                                    {isAddressField || isCuratedAddressRef ? "Break link and return to source management?" : "Break link to party reference?"}
+                                                                </span>
                                                                  <div className="flex items-center gap-1.5 shrink-0">
                                                                      <Button
                                                                          variant="ghost"
                                                                          size="sm"
                                                                          className="h-6 px-2 text-[11px] text-red-700 hover:bg-red-100 hover:text-red-800"
                                                                          onClick={async () => {
-                                                                             setIsSaving(true);
-                                                                             try {
-                                                                                 const result = await updateFieldManually(clientLEId, fieldNo, null, "Break party link", undefined, 'CLIENT_LE');
-                                                                                 if (result.success) {
-                                                                                     toast.success("Party link broken");
+    setIsSaving(true);
+    try {
+        let result;
+        if (isAddressField || isCuratedAddressRef) {
+            result = await restoreSourceValue(clientLEId, fieldNo);
+        } else {
+            result = await updateFieldManually(clientLEId, fieldNo, null, "Break party link", undefined, 'CLIENT_LE');
+        }
+        if (result.success) {
+                                                                                     toast.success("Link broken");
                                                                                      setIsClearingSingleValue(false);
                                                                                      const refreshed = await getFieldDetail(clientLEId, fieldNo, 'CLIENT_LE', customFieldId);
                                                                                      setData(refreshed);

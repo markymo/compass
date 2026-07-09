@@ -1246,6 +1246,7 @@ export async function getFieldDetail(
     }
     if (valuesToEnrich.length > 0) {
         await enrichPartyReferences(valuesToEnrich);
+        await enrichAddressReferences(valuesToEnrich);
     }
 
     /**

@@ -97,6 +97,8 @@ export function CCAddressManager({ clientLEId, initialAddresses }: CCAddressMana
                     );
                     setDialogOpen(false);
                     router.refresh();
+                } else {
+                    toast.error(res.error || "Failed to save saved address");
                 }
             } catch (err: any) {
                 toast.error(err.message || "Failed to save saved address");
@@ -114,6 +116,8 @@ export function CCAddressManager({ clientLEId, initialAddresses }: CCAddressMana
                     toast.success("Saved address deleted successfully");
                     setConfirmDeleteOpen(false);
                     router.refresh();
+                } else {
+                    toast.error(res.error || "Failed to delete saved address");
                 }
             } catch (err: any) {
                 toast.error(err.message || "Failed to delete saved address");

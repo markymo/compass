@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { ClipboardCheck } from "lucide-react";
 import { UserNav } from "./UserNav";
 import { Button } from "@/components/ui/button";
@@ -15,8 +18,11 @@ interface PlatformNavbarProps {
 import { BRAND } from "@/config/brand";
 
 export function PlatformNavbar({ isSystemAdmin = false, assignmentCount = 0 }: PlatformNavbarProps) {
+    const pathname = usePathname();
+    const isAdminRoute = pathname?.startsWith("/app/admin");
+
     return (
-        <header className="sticky top-0 left-0 right-0 z-50 border-b border-slate-200 bg-white/80 backdrop-blur-xl">
+        <header className={`sticky top-0 left-0 right-0 z-50 border-b border-slate-200 backdrop-blur-xl transition-colors duration-200 ${isAdminRoute ? "bg-slate-200/90" : "bg-white/80"}`}>
             <div className="container mx-auto flex h-20 items-center justify-between px-4 md:px-6">
                 <div className="flex items-center gap-8">
                     <div className="flex items-center gap-3">

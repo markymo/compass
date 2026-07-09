@@ -721,36 +721,32 @@ export function DashboardContentV2({ contexts }: { contexts: DashboardContexts }
         return reshapeContexts(contexts);
     }, [contexts]);
 
-    if (isLoading) {
-        return (
-            <div className="flex items-center justify-center py-20 text-slate-400">
-                <Loader2 className="h-6 w-6 animate-spin mr-2" />
-                <span className="text-sm">Loading dashboard...</span>
-            </div>
-        );
-    }
-
-    if (orgNodes.length === 0) {
-        return (
-            <div className="text-center py-20 border-2 border-dashed rounded-xl bg-slate-50/50">
-                <div className="flex flex-col items-center gap-3">
-                    <div className="p-4 bg-white rounded-full shadow-sm">
-                        <Building2 className="h-8 w-8 text-slate-400" />
-                    </div>
-                    <h3 className="text-lg font-medium text-slate-900">No organisations found</h3>
-                    <p className="text-slate-500 max-w-sm">
-                        You aren't a member of any organisations yet. Contact your administrator to get started.
-                    </p>
-                </div>
-            </div>
-        );
-    }
-
     return (
-        <div className="space-y-6">
-            {orgNodes.map((org: any) => (
-                <OrgCard key={org.id} org={org} />
-            ))}
+        <div className="dashboard-content-wrapper min-h-[200px]">
+            {isLoading ? (
+                <div className="flex items-center justify-center py-20 text-slate-400">
+                    <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                    <span className="text-sm">Loading dashboard...</span>
+                </div>
+            ) : orgNodes.length === 0 ? (
+                <div className="text-center py-20 border-2 border-dashed rounded-xl bg-slate-50/50">
+                    <div className="flex flex-col items-center gap-3">
+                        <div className="p-4 bg-white rounded-full shadow-sm">
+                            <Building2 className="h-8 w-8 text-slate-400" />
+                        </div>
+                        <h3 className="text-lg font-medium text-slate-900">No organisations found</h3>
+                        <p className="text-slate-500 max-w-sm">
+                            You aren't a member of any organisations yet. Contact your administrator to get started.
+                        </p>
+                    </div>
+                </div>
+            ) : (
+                <div className="space-y-6">
+                    {orgNodes.map((org: any) => (
+                        <OrgCard key={`${org.orgType}-${org.id}`} org={org} />
+                    ))}
+                </div>
+            )}
         </div>
     );
 }

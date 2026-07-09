@@ -202,6 +202,66 @@ export class KycStateService {
     }
 
     /**
+     * Simulates resolving the authoritative value by ignoring a specific active claim.
+     * This is used to preview what the value would be if a manual override were retired.
+     */
+    static async simulateAuthoritativeValue(
+        subject: { subjectLeId?: string; subjectPersonId?: string; subjectOrgId?: string; clientLEId?: string },
+        fieldNo: number,
+        ownerScopeId?: string
+    ): Promise<{ currentWinnerClaimId: string; nextDerivedValue: DerivedValue | null } | null> {
+        const { clientLEId, ...subjectFilter } = subject;
+        const claims = await prisma.fieldClaim.findMany({
+            include: { evidence: true, valueAddress: true, valuePerson: true, valueLe: true, valueOrg: true },
+            where: {
+                fieldNo,
+                ...subjectFilter,
+                status: { in: [ClaimStatus.VERIFIED, ClaimStatus.ASSERTED] },
+                OR: [
+                    { ownerScopeId: ownerScopeId || undefined },
+                    { ownerScopeId: null }
+                ]
+            },
+            orderBy: [
+                { assertedAt: 'desc' },
+                { id: 'desc' }
+            ]
+        });
+
+        if (claims.length === 0) return null;
+
+        const priorityMap = await this.preloadMappingPriorities(claims, fieldNo);
+        const currentWinner = this.pickWinner(claims, ownerScopeId, priorityMap);
+
+        if (!currentWinner || currentWinner.sourceType !== 'USER_INPUT') return null;
+
+        const simulatedClaims = claims.filter((c: any) => c.id !== currentWinner.id);
+        const nextWinner = this.pickWinner(simulatedClaims, ownerScopeId, priorityMap);
+
+        let nextDerivedValue = null;
+        if (nextWinner && !this.isTombstone(nextWinner)) {
+            nextDerivedValue = this.mapToDerivedValue(nextWinner, ownerScopeId);
+            if (subject.clientLEId) {
+                const provenanceMap = await fetchProvenanceMap({ clientLEId: subject.clientLEId });
+                const resolvedCheckedAt = resolveSourceCheckedAt(
+                    nextDerivedValue.sourceType || nextDerivedValue.evidenceProvider,
+                    nextDerivedValue.sourceReference,
+                    nextDerivedValue.assertedAt,
+                    provenanceMap
+                );
+                if (resolvedCheckedAt) {
+                    nextDerivedValue.sourceCheckedAt = resolvedCheckedAt;
+                }
+            }
+        }
+
+        return {
+            currentWinnerClaimId: currentWinner.id,
+            nextDerivedValue
+        };
+    }
+
+    /**
      * Derives a collection of values for a repeating field.
      */
     static async getAuthoritativeCollection(
