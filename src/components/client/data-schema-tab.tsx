@@ -861,7 +861,7 @@ function MasterFieldDisplay({ label, fieldNo, value, formattedDisplayValue, sour
                                 {value.slice(0, 18).map((party: any, idx: number) => {
                                     let parsed = party;
                                     if (typeof party === 'string' && (party.startsWith('{') || party.startsWith('['))) { try { parsed = JSON.parse(party); } catch {} }
-                                    const partyVal = parsed.ccParty?.data || parsed._resolvedData?.ccParty?.data || parsed;
+                                    const partyVal = parsed?.ccParty?.data || parsed?._resolvedData?.ccParty?.data || parsed;
                                     return (
                                         <div key={idx} className="px-3 py-2 flex items-center min-h-[48px] min-w-0">
                                             <PersonOrContactValueViewer value={partyVal} layout="row" displayMask={fieldDef?.profileConfig?.displayMask} />

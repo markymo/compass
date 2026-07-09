@@ -41,12 +41,15 @@ export function SourcesSubNav({ leId, jurisdiction, registryName }: SourcesSubNa
             icon: Layers,
             isActive: (path: string) => path.startsWith(`${baseUrl}/ccc`)
         },
+        // TODO: Bring back Knowledge Base in the future once we are ready
+        /*
         {
             label: "Knowledge Base",
             href: `${baseUrl}/knowledge`,
             icon: BookOpen,
             isActive: (path: string) => path.startsWith(`${baseUrl}/knowledge`)
         },
+        */
         {
             label: "Document Vault",
             href: `${baseUrl}/vault`,

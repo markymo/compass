@@ -42,9 +42,6 @@ export default async function CCCPage({ params }: CCCPageProps) {
                     <Layers className="h-6 w-6 text-slate-500" />
                     <h2 className="text-xl font-semibold tracking-tight">User Content</h2>
                 </div>
-                <p className="text-sm text-slate-500 max-w-2xl leading-relaxed">
-                    Manage your own custom Party and Address records for this Legal Entity. This content is entirely user-managed, providing a repository for your bespoke Individuals (Persons, Contacts) and Organisations (Companies, Trusts, Funds, Partnerships, etc.) distinct from external registries. Please note this interface is available during development, but entities may eventually be edited directly from the Master Data Fields.
-                </p>
             </div>
 
             {/* Curated Parties Manager */}

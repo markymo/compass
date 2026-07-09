@@ -48,7 +48,7 @@ import { formatUploader } from "@/lib/vault-utils";
 import { DocumentSharingDialog } from "./document-sharing-dialog";
 import {
     FileText, MoreVertical, Search, Upload, Download, Trash2, Loader2, File, ShieldCheck, Clock,
-    LayoutGrid, List as ListIcon, Filter, FolderOpen, Building2, Eye, Bot, Database, Sparkles, ChevronRight
+    LayoutGrid, List as ListIcon, Filter, FolderOpen, Building2, Eye, Bot, Database, Sparkles, ChevronRight, PanelRightOpen, Lock
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -66,23 +66,21 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { upload } from "@vercel/blob/client";
 import Link from "next/link";
+import { ConfirmDeleteDialog } from "@/components/shared/confirm-dialogs";
 
 interface DocumentVaultProps {
     leId: string;
 }
-
-type ViewMode = 'grid' | 'list';
-
 
 export function DocumentVault({ leId }: DocumentVaultProps) {
     const [documents, setDocuments] = useState<any[]>([]);
     const [engagements, setEngagements] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
-    const [viewMode, setViewMode] = useState<ViewMode>('list');
 
     const [selectedDoc, setSelectedDoc] = useState<any>(null);
     const [isSheetOpen, setIsSheetOpen] = useState(false);
+    const [deleteDocId, setDeleteDocId] = useState<string | null>(null);
 
     const loadDocuments = async () => {
         setLoading(true);
@@ -120,7 +118,6 @@ export function DocumentVault({ leId }: DocumentVaultProps) {
     });
 
     const handleDelete = async (id: string) => {
-        if (!confirm("Are you sure you want to delete this document?")) return;
         const res = await deleteDocument(id);
         if (res.success) {
             toast.success("Document deleted");
@@ -132,6 +129,7 @@ export function DocumentVault({ leId }: DocumentVaultProps) {
         } else {
             toast.error("Failed to delete document");
         }
+        setDeleteDocId(null);
     };
 
     const handleDocClick = (doc: any) => {
@@ -174,7 +172,7 @@ export function DocumentVault({ leId }: DocumentVaultProps) {
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div className="flex items-center gap-2">
                         <div className="bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-2 rounded-lg shadow-sm">
-                            <ShieldCheck className="h-5 w-5 text-slate-600 dark:text-slate-300" />
+                            <Lock className="h-5 w-5 text-slate-600 dark:text-slate-300" />
                         </div>
                         <div>
                             <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Document Vault</h2>
@@ -191,24 +189,6 @@ export function DocumentVault({ leId }: DocumentVaultProps) {
                             />
                         </div>
                         <div className="hidden sm:block h-4 w-px bg-slate-200 dark:bg-slate-800 mx-2" />
-                        <div className="flex bg-slate-100 dark:bg-slate-900 p-1 rounded-lg border border-slate-200 dark:border-slate-800">
-                            <Button
-                                variant={viewMode === 'list' ? 'outline' : 'ghost'}
-                                size="sm"
-                                className={cn("h-7 w-7 p-0 rounded-md", viewMode === 'list' && "bg-white shadow-sm")}
-                                onClick={() => setViewMode('list')}
-                            >
-                                <ListIcon className="h-4 w-4" />
-                            </Button>
-                            <Button
-                                variant={viewMode === 'grid' ? 'outline' : 'ghost'}
-                                size="sm"
-                                className={cn("h-7 w-7 p-0 rounded-md", viewMode === 'grid' && "bg-white shadow-sm")}
-                                onClick={() => setViewMode('grid')}
-                            >
-                                <LayoutGrid className="h-4 w-4" />
-                            </Button>
-                        </div>
                         <>
                             <input
                                 type="file"
@@ -223,7 +203,7 @@ export function DocumentVault({ leId }: DocumentVaultProps) {
                                     }
                                 }}
                             />
-                            <Button className="shadow-sm h-9" onClick={() => document.getElementById('vault-file-upload')?.click()}>
+                            <Button variant="outline" className="shadow-sm h-9" onClick={() => document.getElementById('vault-file-upload')?.click()}>
                                 <Upload className="w-4 h-4 mr-2" />
                                 Upload
                             </Button>
@@ -251,69 +231,14 @@ export function DocumentVault({ leId }: DocumentVaultProps) {
                             {searchQuery ? "Try adjusting your search or filters." : "Upload documents to the secure vault to get started."}
                         </p>
                         {!searchQuery && (
-                            <Button className="shadow-sm" onClick={() => document.getElementById('vault-file-upload')?.click()}>
+                            <Button variant="outline" className="shadow-sm" onClick={() => document.getElementById('vault-file-upload')?.click()}>
                                 <Upload className="w-4 h-4 mr-2" />
                                 Upload Document
                             </Button>
                         )}
                     </div>
                 ) : (
-                    <>
-                        {viewMode === 'grid' ? (
-                            <div className="grid gap-4 min-[450px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 pb-20">
-                                {filteredDocs.map((doc: any) => {
-                                    const aiData = doc.metadata?.extractedKnowledge;
-                                    return (
-                                        <div
-                                            key={doc.id}
-                                            className="group cursor-pointer h-full"
-                                            onClick={() => handleDocClick(doc)}
-                                        >
-                                            <Card className="h-full hover:shadow-lg hover:-translate-y-1 transition-all duration-200 border-slate-200 hover:border-slate-300 dark:border-slate-800 dark:hover:border-slate-700 relative overflow-hidden">
-                                                {aiData && (
-                                                    <div className="absolute top-0 right-0 p-1.5 bg-slate-100 dark:bg-slate-800 rounded-bl-xl border-l border-b border-slate-200 dark:border-slate-700 backdrop-blur-sm">
-                                                        <Sparkles className="w-3 h-3 text-indigo-500 dark:text-indigo-400" />
-                                                    </div>
-                                                )}
-                                                <CardContent className="p-4 flex flex-col h-full">
-                                                    <div className="flex items-start justify-between mb-3">
-                                                        <div className="p-2 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-lg group-hover:bg-slate-200 dark:group-hover:bg-slate-700 transition-colors">
-                                                            <File className="h-5 w-5" />
-                                                        </div>
-                                                    </div>
-
-                                                    <div className="mb-2 flex-1">
-                                                        <h4 className="font-medium text-slate-900 dark:text-slate-100 truncate text-sm" title={doc.name}>
-                                                            {doc.name}
-                                                        </h4>
-                                                        <div className="flex items-center gap-2 mt-1 flex-wrap">
-                                                            <span className="text-[10px] text-slate-400">{(doc.kbSize || 120) + ' KB'}</span>
-                                                        </div>
-                                                        {aiData?.summary && (
-                                                            <p className="text-[10px] text-slate-500 mt-2 line-clamp-2 leading-relaxed bg-slate-50 p-1.5 rounded border border-slate-100">
-                                                                {aiData.summary}
-                                                            </p>
-                                                        )}
-                                                    </div>
-
-                                                    <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800 mt-2">
-                                                        <span className="text-xs text-slate-400">{format(new Date(doc.createdAt), "MMM d, yyyy")}</span>
-                                                        {doc.sharedWith?.length > 0 && (
-                                                            <div className="flex -space-x-1">
-                                                                {doc.sharedWith.slice(0, 3).map((s: any) => (
-                                                                    <div key={s.id} className="w-4 h-4 rounded-full bg-slate-200 border border-white" title={s.org.name} />
-                                                                ))}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </CardContent>
-                                            </Card>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        ) : (
-                            <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden bg-white dark:bg-slate-950 shadow-sm">
+                    <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden bg-white dark:bg-slate-950 shadow-sm">
                                 <Table>
                                     <TableHeader className="bg-slate-50 dark:bg-slate-900/50">
                                         <TableRow className="hover:bg-transparent">
@@ -328,8 +253,7 @@ export function DocumentVault({ leId }: DocumentVaultProps) {
                                             return (
                                                 <TableRow
                                                     key={doc.id}
-                                                    className="cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-900 group transition-colors"
-                                                    onClick={() => handleDocClick(doc)}
+                                                    className="hover:bg-slate-50 dark:hover:bg-slate-900 group transition-colors"
                                                 >
                                                     <TableCell className="font-medium">
                                                         <div className="flex items-center gap-3">
@@ -373,8 +297,8 @@ export function DocumentVault({ leId }: DocumentVaultProps) {
                                                         {format(new Date(doc.createdAt), "MMM d, yyyy")}
                                                     </TableCell>
                                                     <TableCell className="text-right">
-                                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-indigo-600">
-                                                            <ChevronRight className="h-4 w-4" />
+                                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-indigo-600 opacity-0 group-hover:opacity-100 focus:opacity-100" onClick={() => handleDocClick(doc)} aria-label={`Open details for ${doc.name}`} aria-haspopup="dialog">
+                                                            <PanelRightOpen className="h-4 w-4" />
                                                         </Button>
                                                     </TableCell>
                                                 </TableRow>
@@ -383,8 +307,6 @@ export function DocumentVault({ leId }: DocumentVaultProps) {
                                     </TableBody>
                                 </Table>
                             </div>
-                        )}
-                    </>
                 )}
             </div>
 
@@ -459,7 +381,7 @@ export function DocumentVault({ leId }: DocumentVaultProps) {
                                             <Button className="w-full text-slate-700 dark:text-slate-300" variant="outline" onClick={() => window.open(selectedDoc.fileUrl, '_blank')}>
                                                 <Download className="mr-2 h-4 w-4" /> Download
                                             </Button>
-                                            <Button className="w-full text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200" variant="outline" onClick={() => handleDelete(selectedDoc.id)}>
+                                            <Button className="w-full text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200" variant="outline" onClick={() => setDeleteDocId(selectedDoc.id)}>
                                                 <Trash2 className="mr-2 h-4 w-4" /> Delete
                                             </Button>
                                         </div>
@@ -515,6 +437,13 @@ export function DocumentVault({ leId }: DocumentVaultProps) {
                     )}
                 </SheetContent>
             </Sheet>
+
+            <ConfirmDeleteDialog
+                open={!!deleteDocId}
+                onOpenChange={(open) => !open && setDeleteDocId(null)}
+                itemName={selectedDoc?.name || documents.find(d => d.id === deleteDocId)?.name}
+                onConfirm={() => deleteDocId && handleDelete(deleteDocId)}
+            />
         </div>
     );
 }
@@ -743,7 +672,7 @@ function UploadDocumentDialog({ leId, onSuccess }: { leId: string, onSuccess: ()
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                <Button className="shadow-sm h-9">
+                <Button variant="outline" className="shadow-sm h-9">
                     <Upload className="w-4 h-4 mr-2" />
                     Upload
                 </Button>

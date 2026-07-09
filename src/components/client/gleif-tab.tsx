@@ -273,7 +273,7 @@ export function GleifTab({ leId, data, fetchedAt }: GleifTabProps) {
                                 </Badge>
                             </CardTitle>
                             <CardDescription className="text-xs">
-                                GLEIF-reported data — not a verified Coparity claim
+                                GLEIF-reported data — not a verified OnPro claim
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
