@@ -131,17 +131,14 @@ export function CCAddressManager({ clientLEId, initialAddresses }: CCAddressMana
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="space-y-1">
                     <h3 className="text-base font-bold tracking-tight text-slate-800">
-                        Saved Addresses
+                        Addresses
                     </h3>
-                    <p className="text-sm text-slate-500">
-                        Manage local curated client addresses for this entity.
-                    </p>
                 </div>
                 <Button
                     onClick={handleCreateClick}
                     className="bg-indigo-600 text-white hover:bg-indigo-700 font-semibold text-sm flex items-center gap-1.5 shadow-sm transition-all duration-150 rounded-lg h-9 px-4"
                 >
-                    <Plus className="h-4 w-4" /> Add saved address
+                    <Plus className="h-4 w-4" /> Address
                 </Button>
             </div>
 

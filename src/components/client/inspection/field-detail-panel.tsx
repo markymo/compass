@@ -1864,7 +1864,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                                 let parsed = v;
                                                                                 if (typeof v === 'string' && (v.startsWith('{') || v.startsWith('['))) { try { parsed = JSON.parse(v); } catch {} }
                                                                                 if (isPersonOrContactValue(parsed) || (parsed && typeof parsed === 'object' && 'ccPartyId' in parsed)) {
-                                                                                    const partyVal = parsed.ccParty?.data || parsed._resolvedData?.ccParty?.data || parsed;
+                                                                                    const partyVal = parsed?.ccParty?.data || parsed?._resolvedData?.ccParty?.data || parsed;
                                                                                     const rowId = `current_auth_${idx}`;
                                                                                     return (
                                                                                         <ExpandableRowItem
@@ -2892,7 +2892,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                             let parsed = candidate.value;
                                                             if (typeof parsed === 'string' && (parsed.startsWith('{') || parsed.startsWith('['))) { try { parsed = JSON.parse(parsed); } catch {} }
                                                             if (isPersonOrContactValue(parsed) || (parsed && typeof parsed === 'object' && 'ccPartyId' in parsed)) {
-                                                                const partyVal = parsed.ccParty?.data || parsed._resolvedData?.ccParty?.data || parsed;
+                                                                const partyVal = parsed?.ccParty?.data || parsed?._resolvedData?.ccParty?.data || parsed;
                                                                 return <PersonOrContactValueViewer value={partyVal} layout="detailed" displayMask={data?.profileConfig?.displayMask} />;
                                                             }
                                                             return renderRowValue(candidate.value);
