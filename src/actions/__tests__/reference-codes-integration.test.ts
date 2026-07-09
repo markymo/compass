@@ -253,7 +253,7 @@ describe.skipIf(!process.env.DATABASE_URL)('Reference Codes Integration', () => 
     it('assignQuestionnaireToEngagement copies referenceCode and generates title', async () => {
         const ref = await prisma.questionnaire.create({
             data: {
-                name: 'Source Snapshot',
+                name: 'FMSB_260605_ONPRO_XXXXX_SSSSS_v2',
                 functionalCode: 'FMSB',
                 fiOrgId: sysOrgId,
                 ownerOrgId: sysOrgId,
@@ -276,7 +276,7 @@ describe.skipIf(!process.env.DATABASE_URL)('Reference Codes Integration', () => 
         const instance = await prisma.questionnaire.findUnique({ where: { id: res.id } });
         expect(instance?.kind).toBe('ENGAGEMENT_QUESTIONNAIRE');
         expect(instance?.functionalCode).toBe('FMSB');
-        expect(instance?.referenceCode).toMatch(/^FMSB_\d{6}_ONPRO_XXXXX_SSSSS_v\d+$/);
+        expect(instance?.referenceCode).toMatch(new RegExp(`^FMSB_\\d{6}_ONPRO_${currentLeShort}_${currentOrgShort}$`));
         
         // The default title is derived from the referenceCode: strip _v{n}, substitute real LE/supplier codes.
         // referenceCode = 'FMSB_260605_ONPRO_XXXXX_SSSSS_v2'

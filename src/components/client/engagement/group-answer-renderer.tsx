@@ -78,7 +78,8 @@ function GroupFieldRow({
             return <span className="text-xs text-slate-300 italic">—</span>;
         }
         if (field.canonicalDisplayModel) {
-            return <FieldValueRenderer field={field.canonicalDisplayModel} itemLimit={3} />;
+            // TODO: This limit (currently 10) might be made configurable one day.
+            return <FieldValueRenderer field={field.canonicalDisplayModel} itemLimit={10} />;
         }
         return <span className="text-xs text-slate-300 italic">—</span>;
     };

@@ -40,6 +40,12 @@ vi.mock('@/services/masterData/definitionService', async (importOriginal) => {
                     }
                 };
             }
+            if (fieldNo === 125) {
+                return {
+                    ...def,
+                    appDataType: 'PARTY_REF'
+                };
+            }
             return def;
         }
     };

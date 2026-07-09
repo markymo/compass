@@ -72,20 +72,19 @@ export function CollectionRenderer({
         );
     }
 
-    // Inline layout
+    // List layout (formerly inline)
     return (
-        <span className={className}>
+        <ul className={`list-disc pl-4 space-y-1 m-0 ${className || ''}`}>
             {visibleItems.map((item, idx) => (
-                <span key={idx} className="inline-flex items-center">
-                    {idx > 0 && <span className="mx-1 text-slate-400">;</span>}
+                <li key={idx} className="marker:text-slate-800 text-slate-800">
                     {renderItem(item, idx, "compact")}
-                </span>
+                </li>
             ))}
             {hiddenCount > 0 && (
-                <span className="ml-2 text-[11px] text-slate-500 font-medium italic">
+                <li className="text-[11px] text-slate-500 font-medium italic list-none -ml-4 mt-1">
                     + {hiddenCount} more
-                </span>
+                </li>
             )}
-        </span>
+        </ul>
     );
 }

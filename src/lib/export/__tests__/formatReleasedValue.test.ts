@@ -165,7 +165,7 @@ describe('toExportText (Legacy Parity Regression Coverage)', () => {
     describe('Collections (Arrays)', () => {
         it('handles scalar collections', () => {
             const res = canonicalFormat({ value: ["A", "B", "C"] });
-            expect(res).toBe("A; B; C");
+            expect(res).toBe("• A\n• B\n• C");
         });
 
         it('handles party collections', () => {
@@ -174,7 +174,7 @@ describe('toExportText (Legacy Parity Regression Coverage)', () => {
                 { organisationName: "Party Two" }
             ];
             const res = canonicalFormat({ value: arr, appDataType: 'PARTY' });
-            expect(res).toBe("Party One; Party Two");
+            expect(res).toBe("• Party One\n• Party Two");
         });
 
         it('handles address collections', () => {
@@ -183,7 +183,7 @@ describe('toExportText (Legacy Parity Regression Coverage)', () => {
                 { addressLines: ["Address 2"] }
             ];
             const res = canonicalFormat({ value: arr, appDataType: 'ADDRESS' });
-            expect(res).toBe("Address 1; Address 2");
+            expect(res).toBe("• Address 1\n• Address 2");
         });
     });
 

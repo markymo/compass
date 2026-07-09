@@ -894,17 +894,18 @@ function QuestionCard({
                                                 />
                                             ) : question.canonicalDisplayModel ? (
                                                 <div className="py-0.5">
-                                                    <FieldValueRenderer field={question.canonicalDisplayModel} itemLimit={3} />
+                                                    {/* TODO: This limit (currently 10) might be made configurable one day. */}
+                                                    <FieldValueRenderer field={question.canonicalDisplayModel} itemLimit={10} />
                                                 </div>
                                             ) : question.masterDataValue != null && question.masterDataValue !== '' ? (
                                                 Array.isArray(question.masterDataValue) ? (
-                                                    <div className="flex flex-wrap gap-1">
-                                                        {question.masterDataValue.map((val: any, i: any) => (
-                                                            <Badge key={i} variant="secondary" className="bg-white border-slate-200 text-slate-700 py-0 px-1.5 text-[11px]">
-                                                                {formatPartyLabel(val)}
-                                                            </Badge>
+                                                    <ul className="list-disc pl-4 space-y-1 m-0 text-slate-800">
+                                                        {question.masterDataValue.slice(0, 10).map((val: any, i: any) => (
+                                                            <li key={i} className="marker:text-slate-800">
+                                                                {formatAnswerValue(val)}
+                                                            </li>
                                                         ))}
-                                                    </div>
+                                                    </ul>
                                                 ) : typeof question.masterDataValue === 'object' && !isPartyValue(question.masterDataValue) && !isAddressValue(question.masterDataValue) && !('ccAddressId' in (question.masterDataValue as any)) && !('ccPartyId' in (question.masterDataValue as any)) ? (
                                                     <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]">
                                                         {Object.entries(question.masterDataValue).map(([fNo, val]) => (

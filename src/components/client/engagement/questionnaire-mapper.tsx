@@ -513,9 +513,9 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData, rea
                     ? (count > 1 ? `${readable} +${count - 1} more` : readable)
                     : `${count} item${count !== 1 ? 's' : ''}`;
             } else {
-                const shown = (entry.value as any[]).slice(0, 3).map(String);
-                display = shown.join(', ');
-                if (count > 3) display += ` +${count - 3} more`;
+                const shown = (entry.value as any[]).slice(0, 10).map(String);
+                display = shown.map(s => `• ${s}`).join('\n');
+                if (count > 10) display += `\n+${count - 10} more`;
             }
         } else if (typeof entry.value === 'object' && entry.value !== null) {
             const obj = entry.value as any;

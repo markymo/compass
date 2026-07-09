@@ -8,7 +8,7 @@ vi.mock('../FieldValueRenderer', () => ({
 }));
 
 describe('CollectionRenderer', () => {
-    it('renders inline layout for scalar items', () => {
+    it('renders list layout for scalar items', () => {
         const items = [
             { value: { kind: 'scalar', display: 'A', rawValue: 'A' } },
             { value: { kind: 'scalar', display: 'B', rawValue: 'B' } }
@@ -16,21 +16,18 @@ describe('CollectionRenderer', () => {
 
         const element: any = CollectionRenderer({ items, fieldSource: null, collectionLayout: 'inline' });
         
-        expect(element?.type).toBe('span');
+        expect(element?.type).toBe('ul');
         
         const children = element?.props?.children;
         const visibleItems = children[0]; // first part of children array is the map
         expect(visibleItems).toHaveLength(2);
         
         // Item 0
-        expect(visibleItems[0].props.children[0]).toBeFalsy(); // No semicolon for first item
-        const fragment0 = visibleItems[0].props.children[1];
-        // fragment0.props.children is now a single React element (the FieldValueRenderer mock), not an array
+        const fragment0 = visibleItems[0].props.children;
         expect(fragment0.props.children.props.field.value.display).toBe('A');
         
         // Item 1
-        expect(visibleItems[1].props.children[0].props.children).toBe(';'); // Semicolon for second item
-        const fragment1 = visibleItems[1].props.children[1];
+        const fragment1 = visibleItems[1].props.children;
         expect(fragment1.props.children.props.field.value.display).toBe('B');
     });
 
@@ -71,11 +68,9 @@ describe('CollectionRenderer', () => {
         
         const visibleItems = element?.props?.children[0];
         const itemContainer = visibleItems[0];
-        const fragment = itemContainer.props.children[1];
+        const fragment = itemContainer.props.children;
         
-        // Since there is only one child, children is not an array.
-        // It's just the FieldValueRenderer element.
-        // The badge element is simply missing.
+        // The fragment is a React.Fragment containing FieldValueRenderer.
         expect(Array.isArray(fragment.props.children)).toBe(false);
         expect(fragment.props.children.type.name || fragment.props.children.type.displayName || fragment.props.children.type).not.toBe('FieldSourceBadge');
     });

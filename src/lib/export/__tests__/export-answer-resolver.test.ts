@@ -238,7 +238,7 @@ describe('Export Answer Resolver', () => {
             
             expect(KycStateService.getAuthoritativeCollection).toHaveBeenCalled();
             expect(KycStateService.getAuthoritativeValue).not.toHaveBeenCalled();
-            expect(res.displayValue).toBe("Mocked Party p1; Mocked Party p2");
+            expect(res.displayValue).toBe("• Mocked Party p1\n• Mocked Party p2");
             expect(res.sourceLabel).toBe("User input — Alice Smith"); // Pulled from primary claim (first item)
         });
 
