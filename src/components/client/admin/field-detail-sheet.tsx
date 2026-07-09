@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import Link from "next/link";
-import { ChevronRight, Database, Edit, Save, BookOpen, FileText, Globe, Link as LinkIcon, Trash2, GitBranch, Plus, Loader2, ScanSearch, Users, Check } from "lucide-react";
+import { ChevronRight, ChevronDown, Database, Edit, Save, BookOpen, FileText, Globe, Link as LinkIcon, Trash2, GitBranch, Plus, Loader2, ScanSearch, Users, Check } from "lucide-react";
 import { updateMasterField, checkCustomFieldDependencies, softDeleteCustomField, DependencyReport } from "@/actions/master-data-governance";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -138,6 +138,8 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
         appDataType: field?.appDataType || "TEXT",
         profileConfig: field?.profileConfig || null
     });
+
+    const [isProfileSectionOpen, setIsProfileSectionOpen] = useState(false);
 
     // Only reset the form when the panel opens fresh OR the user switches to a different
     // field (different fieldNo). Do NOT reset on every prop re-render caused by router.refresh() —
@@ -371,8 +373,11 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
             if (payload.optionSetId === "none" || payload.appDataType !== APP_DATA_TYPES.SELECT) {
                 payload.optionSetId = null;
             }
-            if (payload.appDataType === 'PARTY') {
+            if (payload.appDataType === 'PARTY' || payload.appDataType === 'ADDRESS') {
+                const hasMapping = field?.sourceMappings?.length > 0;
+                const defaultPolicy = hasMapping ? 'SYSTEM_ONLY' : 'SYSTEM_AND_CURATED';
                 payload.profileConfig = {
+                    partyPopulationPolicy: defaultPolicy,
                     ...(field.profileConfig || {}), // preserve existing like storageModes
                     ...(formData.profileConfig || {}) // override with edited options
                 };
@@ -544,25 +549,40 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                         );
                     })()}
 
-                    {/* Party Profile Section */}
-                    {formData.appDataType === 'PARTY' && (
+                    {/* Profile Section */}
+                    {['PARTY', 'ADDRESS'].includes(formData.appDataType || '') && (
                         <section className="rounded-lg border border-indigo-200 bg-indigo-50/60 p-4 space-y-4">
-                            <div className="flex items-center gap-2 border-b border-indigo-200 pb-2">
-                                <span className="text-sm font-semibold text-indigo-900">PARTY Field Profile</span>
+                            <div 
+                                className="flex items-center gap-2 border-b border-indigo-200 pb-2 cursor-pointer group"
+                                onClick={() => setIsProfileSectionOpen(!isProfileSectionOpen)}
+                            >
+                                {isProfileSectionOpen ? (
+                                    <ChevronDown className="h-4 w-4 text-indigo-700 transition-transform" />
+                                ) : (
+                                    <ChevronRight className="h-4 w-4 text-indigo-700 transition-transform" />
+                                )}
+                                <span className="text-sm font-semibold text-indigo-900 group-hover:text-indigo-700 transition-colors">{formData.appDataType} Field Profile</span>
                                 <Badge className="bg-indigo-100 text-indigo-700 border-indigo-200 text-[10px] font-medium">Schema Constraints</Badge>
                             </div>
                             
-                            <div className="space-y-4">
+                            {isProfileSectionOpen && (
+                                <div className="space-y-4">
                                 <div>
-                                    <Label className="text-xs font-semibold text-indigo-900 mb-2 block">Party value source</Label>
-                                    <p className="text-[11px] text-slate-500 mb-2">Where are parties for this field allowed to come from?</p>
+                                    <Label className="text-xs font-semibold text-indigo-900 mb-2 block">
+                                        {formData.appDataType === 'PARTY' ? 'Party' : 'Address'} value source
+                                    </Label>
+                                    <p className="text-[11px] text-slate-500 mb-2">
+                                        Where are {formData.appDataType === 'PARTY' ? 'parties' : 'addresses'} for this field allowed to come from?
+                                    </p>
                                     <div className="flex flex-col gap-2">
                                         {[
                                             { value: 'SYSTEM_ONLY', label: 'Source only' },
                                             { value: 'CURATED_ONLY', label: 'Curated only' },
                                             { value: 'SYSTEM_AND_CURATED', label: 'Source + curated' }
                                         ].map(policy => {
-                                            const isSelected = (formData.profileConfig?.partyPopulationPolicy || 'SYSTEM_AND_CURATED') === policy.value;
+                                            const hasMapping = field?.sourceMappings?.length > 0;
+                                            const defaultPolicy = hasMapping ? 'SYSTEM_ONLY' : 'SYSTEM_AND_CURATED';
+                                            const isSelected = (formData.profileConfig?.partyPopulationPolicy || defaultPolicy) === policy.value;
                                             return (
                                                 <div 
                                                     key={policy.value}
@@ -588,106 +608,111 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                                     </div>
                                 </div>
 
-                                <div className="border-t border-indigo-100 pt-4">
-                                    <Label className="text-xs font-semibold text-indigo-900 mb-2 block">Allowed Party Types</Label>
-                                    <div className="flex flex-wrap gap-2">
-                                        {PARTY_TYPES.map(type => {
-                                            const isSelected = formData.profileConfig?.allowedPartyTypes?.includes(type);
-                                            return (
-                                                <Badge 
-                                                    key={type} 
-                                                    variant={isSelected ? "default" : "outline"}
-                                                    className={`cursor-pointer ${isSelected ? 'bg-indigo-600 hover:bg-indigo-700 text-white' : 'bg-white text-indigo-700 border-indigo-200 hover:bg-indigo-50'}`}
-                                                    onClick={() => {
-                                                        const current = formData.profileConfig?.allowedPartyTypes || [];
-                                                        const next = isSelected ? current.filter((t: string) => t !== type) : [...current, type];
-                                                        setFormData({
-                                                            ...formData,
-                                                            profileConfig: { ...formData.profileConfig, allowedPartyTypes: next }
-                                                        });
-                                                    }}
-                                                >
-                                                    {type}
-                                                </Badge>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
+                                {formData.appDataType === 'PARTY' && (
+                                    <>
+                                        <div className="border-t border-indigo-100 pt-4">
+                                            <Label className="text-xs font-semibold text-indigo-900 mb-2 block">Allowed Party Types</Label>
+                                            <div className="flex flex-wrap gap-2">
+                                                {PARTY_TYPES.map(type => {
+                                                    const isSelected = formData.profileConfig?.allowedPartyTypes?.includes(type);
+                                                    return (
+                                                        <Badge 
+                                                            key={type} 
+                                                            variant={isSelected ? "default" : "outline"}
+                                                            className={`cursor-pointer ${isSelected ? 'bg-indigo-600 hover:bg-indigo-700 text-white' : 'bg-white text-indigo-700 border-indigo-200 hover:bg-indigo-50'}`}
+                                                            onClick={() => {
+                                                                const current = formData.profileConfig?.allowedPartyTypes || [];
+                                                                const next = isSelected ? current.filter((t: string) => t !== type) : [...current, type];
+                                                                setFormData({
+                                                                    ...formData,
+                                                                    profileConfig: { ...formData.profileConfig, allowedPartyTypes: next }
+                                                                });
+                                                            }}
+                                                        >
+                                                            {type}
+                                                        </Badge>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
 
-                                <div>
-                                    <Label className="text-xs font-semibold text-indigo-900 mb-2 block">Allowed Party Subtypes</Label>
-                                    <div className="flex flex-wrap gap-2">
-                                        {PARTY_SUBTYPES.map(type => {
-                                            const isSelected = formData.profileConfig?.allowedPartySubTypes?.includes(type);
-                                            return (
-                                                <Badge 
-                                                    key={type} 
-                                                    variant={isSelected ? "default" : "outline"}
-                                                    className={`cursor-pointer ${isSelected ? 'bg-indigo-600 hover:bg-indigo-700 text-white' : 'bg-white text-indigo-700 border-indigo-200 hover:bg-indigo-50'}`}
-                                                    onClick={() => {
-                                                        const current = formData.profileConfig?.allowedPartySubTypes || [];
-                                                        const next = isSelected ? current.filter((t: string) => t !== type) : [...current, type];
-                                                        setFormData({
-                                                            ...formData,
-                                                            profileConfig: { ...formData.profileConfig, allowedPartySubTypes: next }
-                                                        });
-                                                    }}
-                                                >
-                                                    {type}
-                                                </Badge>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
+                                        <div>
+                                            <Label className="text-xs font-semibold text-indigo-900 mb-2 block">Allowed Party Subtypes</Label>
+                                            <div className="flex flex-wrap gap-2">
+                                                {PARTY_SUBTYPES.map(type => {
+                                                    const isSelected = formData.profileConfig?.allowedPartySubTypes?.includes(type);
+                                                    return (
+                                                        <Badge 
+                                                            key={type} 
+                                                            variant={isSelected ? "default" : "outline"}
+                                                            className={`cursor-pointer ${isSelected ? 'bg-indigo-600 hover:bg-indigo-700 text-white' : 'bg-white text-indigo-700 border-indigo-200 hover:bg-indigo-50'}`}
+                                                            onClick={() => {
+                                                                const current = formData.profileConfig?.allowedPartySubTypes || [];
+                                                                const next = isSelected ? current.filter((t: string) => t !== type) : [...current, type];
+                                                                setFormData({
+                                                                    ...formData,
+                                                                    profileConfig: { ...formData.profileConfig, allowedPartySubTypes: next }
+                                                                });
+                                                            }}
+                                                        >
+                                                            {type}
+                                                        </Badge>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
 
-                                <div>
-                                    <Label className="text-xs font-semibold text-indigo-900 mb-2 block">Display Mask</Label>
-                                    <div className="text-[10px] text-indigo-600 mb-2">Order of selection determines display order.</div>
-                                    <div className="flex flex-col gap-4">
-                                        {SCHEMA_GROUPS.map(group => (
-                                            <div key={group.label} className="bg-indigo-50/50 p-2 rounded border border-indigo-100">
-                                                <div className="text-[10px] font-bold text-indigo-800 uppercase tracking-wider mb-2">{group.label}</div>
-                                                <div className="flex flex-wrap gap-2">
-                                                    {group.fields.map(f => {
-                                                        const isSelected = formData.profileConfig?.displayMask?.includes(f.path);
-                                                        return (
-                                                            <Badge 
-                                                                key={f.path} 
-                                                                variant={isSelected ? "default" : "outline"}
-                                                                className={`cursor-pointer ${f.deEmphasise && !isSelected ? 'opacity-60' : ''} ${isSelected ? 'bg-indigo-600 hover:bg-indigo-700 text-white' : 'bg-white text-indigo-700 border-indigo-200 hover:bg-indigo-50'}`}
-                                                                onClick={() => {
-                                                                    const current = formData.profileConfig?.displayMask || [];
-                                                                    const next = isSelected ? current.filter((p: string) => p !== f.path) : [...current, f.path];
-                                                                    setFormData({
-                                                                        ...formData,
-                                                                        profileConfig: { ...formData.profileConfig, displayMask: next }
-                                                                    });
-                                                                }}
-                                                            >
-                                                                {f.label}
-                                                            </Badge>
-                                                        );
-                                                    })}
+                                        <div>
+                                            <Label className="text-xs font-semibold text-indigo-900 mb-2 block">Display Mask</Label>
+                                            <div className="text-[10px] text-indigo-600 mb-2">Order of selection determines display order.</div>
+                                            <div className="flex flex-col gap-4">
+                                                {SCHEMA_GROUPS.map(group => (
+                                                    <div key={group.label} className="bg-indigo-50/50 p-2 rounded border border-indigo-100">
+                                                        <div className="text-[10px] font-bold text-indigo-800 uppercase tracking-wider mb-2">{group.label}</div>
+                                                        <div className="flex flex-wrap gap-2">
+                                                            {group.fields.map(f => {
+                                                                const isSelected = formData.profileConfig?.displayMask?.includes(f.path);
+                                                                return (
+                                                                    <Badge 
+                                                                        key={f.path} 
+                                                                        variant={isSelected ? "default" : "outline"}
+                                                                        className={`cursor-pointer ${f.deEmphasise && !isSelected ? 'opacity-60' : ''} ${isSelected ? 'bg-indigo-600 hover:bg-indigo-700 text-white' : 'bg-white text-indigo-700 border-indigo-200 hover:bg-indigo-50'}`}
+                                                                        onClick={() => {
+                                                                            const current = formData.profileConfig?.displayMask || [];
+                                                                            const next = isSelected ? current.filter((p: string) => p !== f.path) : [...current, f.path];
+                                                                            setFormData({
+                                                                                ...formData,
+                                                                                profileConfig: { ...formData.profileConfig, displayMask: next }
+                                                                            });
+                                                                        }}
+                                                                    >
+                                                                        {f.label}
+                                                                    </Badge>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            {formData.profileConfig?.displayMask && formData.profileConfig.displayMask.length > 0 && (
+                                                <div className="mt-2 p-2 bg-white rounded border border-indigo-100 text-xs font-mono text-indigo-800">
+                                                    {formData.profileConfig.displayMask.join(', ')}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {formData.profileConfig?.storageModes && (
+                                            <div>
+                                                <Label className="text-xs font-semibold text-indigo-900 mb-1 block">Storage Modes (Read-only)</Label>
+                                                <div className="text-xs text-indigo-700 font-mono">
+                                                    {formData.profileConfig.storageModes.join(', ')}
                                                 </div>
                                             </div>
-                                        ))}
-                                    </div>
-                                    {formData.profileConfig?.displayMask && formData.profileConfig.displayMask.length > 0 && (
-                                        <div className="mt-2 p-2 bg-white rounded border border-indigo-100 text-xs font-mono text-indigo-800">
-                                            {formData.profileConfig.displayMask.join(', ')}
-                                        </div>
-                                    )}
-                                </div>
-
-                                {formData.profileConfig?.storageModes && (
-                                    <div>
-                                        <Label className="text-xs font-semibold text-indigo-900 mb-1 block">Storage Modes (Read-only)</Label>
-                                        <div className="text-xs text-indigo-700 font-mono">
-                                            {formData.profileConfig.storageModes.join(', ')}
-                                        </div>
-                                    </div>
+                                        )}
+                                    </>
                                 )}
                             </div>
+                            )}
                         </section>
                     )}
 

@@ -846,3 +846,51 @@ export async function releaseFieldAbsence(
         return { success: false, message: e.message };
     }
 }
+
+
+
+export async function restoreSourceValue(
+    clientLEId: string,
+    fieldNo: number
+) {
+    try {
+        const identity = await getIdentity();
+        if (!identity?.userId) return { success: false, message: "Unauthorized" };
+
+        const clientLE = await prisma.clientLE.findUnique({
+            where: { id: clientLEId },
+            select: { legalEntityId: true }
+        });
+        if (!clientLE || !clientLE.legalEntityId) return { success: false, message: "Legal entity not found" };
+
+        const ownerScopeId = (await KycStateService.resolveScopeId(clientLEId)) || undefined;
+
+        const { getMasterFieldDefinition } = await import('@/services/masterData/definitionService');
+        const def = await getMasterFieldDefinition(fieldNo);
+        if (def.appDataType !== 'ADDRESS') {
+            return { success: false, message: "Bulk restore is currently only supported for Address fields" };
+        }
+
+        await prisma.fieldClaim.updateMany({
+            where: {
+                subjectLeId: clientLE.legalEntityId,
+                fieldNo: fieldNo,
+                sourceType: 'USER_INPUT',
+                status: { in: ['ASSERTED', 'VERIFIED'] },
+                OR: [
+                    { ownerScopeId: ownerScopeId },
+                    { ownerScopeId: null }
+                ]
+            },
+            data: {
+                status: 'REJECTED'
+            }
+        });
+
+        revalidatePath(`/app/le/${clientLEId}`, 'layout');
+        return { success: true };
+    } catch (e: any) {
+        console.error("restoreSourceValue error:", e);
+        return { success: false, message: e.message };
+    }
+}
