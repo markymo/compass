@@ -191,7 +191,7 @@ describe('toExportText', () => {
                     ]
                 }
             };
-            expect(toExportText(field)).toBe('A; B');
+            expect(toExportText(field)).toBe('• A\n• B');
         });
 
         it('handles complex collections recursively', () => {
@@ -206,7 +206,7 @@ describe('toExportText', () => {
                     ]
                 }
             };
-            expect(toExportText(field)).toBe('Addr 1; Party 1');
+            expect(toExportText(field)).toBe('• Addr 1\n• Party 1');
         });
     });
 

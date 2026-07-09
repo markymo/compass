@@ -277,6 +277,11 @@ describe.skipIf(!process.env.DATABASE_URL)('getDiscoverableReferenceSnapshotsFor
                 visibility,
             },
         });
+        // Enforce visibility explicitly to prevent any parallel test state from overriding it implicitly
+        await prisma.questionnaire.update({
+            where: { id: snap.id },
+            data: { visibility }
+        });
         cleanup.push(snap.id);
         return snap;
     }
@@ -285,8 +290,10 @@ describe.skipIf(!process.env.DATABASE_URL)('getDiscoverableReferenceSnapshotsFor
 
     it('owner org can see its own PRIVATE Reference Snapshot', async () => {
         const snap = await makeSnapshot(sysOrgId, 'PRIVATE', '_t1');
+        console.log("makeSnapshot created snap with visibility:", snap.visibility);
         const results = await getDiscoverableReferenceSnapshotsForOrg(sysOrgId);
         const found = results.find(r => r.id === snap.id);
+        console.log("getDiscoverableReferenceSnapshotsForOrg found:", found);
         expect(found).toBeDefined();
         expect(found?.visibility).toBe('PRIVATE');
     });
