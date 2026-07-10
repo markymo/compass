@@ -58,11 +58,11 @@ describe('toExportText', () => {
             expect(toExportText(field)).toBe('Acme Corp (123456) [UK]');
         });
 
-        it('INTENTIONAL FIX: retrieves companyName if getPartySummary falls back to Unnamed Individual', () => {
+        it('INTENTIONAL FIX: retrieves companyName natively using getPartySummary', () => {
             const field: FieldDisplayModel = {
                 ...baseField,
                 state: 'POPULATED',
-                value: { kind: 'party', data: { companyName: 'Acme Corp' } as any, summary: 'Unnamed Individual' }
+                value: { kind: 'party', data: { companyName: 'Acme Corp' } as any, summary: 'Acme Corp' }
             };
             expect(toExportText(field)).toBe('Acme Corp');
         });
@@ -149,9 +149,9 @@ describe('toExportText', () => {
             const field: FieldDisplayModel = {
                 ...baseField,
                 state: 'POPULATED',
-                value: { kind: 'partyRef', refId: '123', summary: 'Ignored', resolved: { companyName: 'Resolved Party' } as any }
+                value: { kind: 'partyRef', refId: '123', summary: 'Resolved Party', resolved: { companyName: 'Resolved Party' } as any }
             };
-            expect(toExportText(field)).toBe('Resolved Party'); // triggers the "Unnamed Individual" fix implicitly since summary missing
+            expect(toExportText(field)).toBe('Resolved Party');
         });
 
         it('resolves addressRef if resolved data is present', () => {

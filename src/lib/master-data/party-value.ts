@@ -206,28 +206,74 @@ export function isPartyValue(value: any): value is PartyValue {
 
 // ── Display helpers ────────────────────────────────────────────────────────────
 
+export function isFieldPermittedByMask(fieldPath: string, displayMask?: string[]): boolean {
+    if (!Array.isArray(displayMask) || displayMask.length === 0) return true;
+
+    const normalise = (p: string) => p.replace(/\[(\w+)\]/g, '.$1');
+    const normFieldPath = normalise(fieldPath);
+
+    return displayMask.some(mask => {
+        const normMask = normalise(mask);
+        if (normMask === normFieldPath) return true;
+        if (normFieldPath.startsWith(normMask + '.')) return true;
+        if (normMask.startsWith(normFieldPath + '.')) return true;
+        // Also support generic array masks e.g. mask 'roles.roleTitle' matches 'roles.0.roleTitle'
+        // But do NOT treat 'roles.0.roleTitle' as a wildcard mask.
+        const isGenericMask = !/\.\d+\./.test(normMask) && !/\.\d+$/.test(normMask);
+        if (isGenericMask) {
+            const arrayWildcardPath = normFieldPath.replace(/\.\d+\./g, '.').replace(/\.\d+$/, '');
+            if (normMask === arrayWildcardPath) return true;
+            if (arrayWildcardPath.startsWith(normMask + '.')) return true;
+            if (normMask.startsWith(arrayWildcardPath + '.')) return true;
+        }
+        return false;
+    });
+}
+
 /**
  * Returns a human-readable one-line summary for compact display.
  * Falls back gracefully through forenames+surname → contactType.
+ * Honors displayMask to ensure sensitive data is not leaked into summaries.
  */
-export function getPartySummary(v: PartyValue): string {
+export function getPartySummary(v: PartyValue, displayMask?: string[]): string {
+    const isMasked = (path: string) => !isFieldPermittedByMask(path, displayMask);
+
     const isOrg = v.partyType === 'ORGANISATION';
     const isUnknown = v.partyType === 'UNKNOWN';
 
     let name = '';
+    const permittedOrgName = !isMasked('organisationName') ? (v.organisationName || (v as any).companyName || (v as any).name) : null;
+    const permittedDisplayName = !isMasked('displayName') ? v.displayName : null;
+    const permittedForenames = !isMasked('forenames') ? (v.forenames || (v as any).firstName) : null;
+    const permittedSurname = !isMasked('surname') ? (v.surname || (v as any).lastName) : null;
+    const permittedTitle = !isMasked('title') ? v.title : null;
+
+    const personName = [permittedTitle, permittedForenames, permittedSurname].filter(Boolean).join(' ');
+
     if (isOrg) {
-        name = v.organisationName || v.displayName || [v.forenames || (v as any).firstName, v.surname || (v as any).lastName].filter(Boolean).join(' ') || 'Unnamed Organisation';
+        name = permittedDisplayName || permittedOrgName || personName || '';
     } else if (isUnknown) {
-        name = v.organisationName || v.displayName || [v.forenames || (v as any).firstName, v.surname || (v as any).lastName].filter(Boolean).join(' ') || 'Unknown Party';
+        name = permittedDisplayName || permittedOrgName || personName || '';
     } else {
-        name = [v.forenames || (v as any).firstName, v.surname || (v as any).lastName].filter(Boolean).join(' ') || v.displayName || v.organisationName || v.contactType || 'Unnamed Individual';
+        name = personName || permittedDisplayName || permittedOrgName || '';
     }
 
-    const rolesList = v.roles || [];
-    const activeRole = rolesList.find(r => r.isActiveRole !== false);
-    const roleLabel  = activeRole?.roleTitle ?? (rolesList.length > 0 ? rolesList[0].roleTitle : null);
+    let roleLabel: string | null = null;
+    if (!isMasked('roles')) {
+        const rolesList = v.roles || [];
+        const activeRole = rolesList.find(r => r.isActiveRole !== false);
+        const role = activeRole ?? (rolesList.length > 0 ? rolesList[0] : null);
+        
+        if (role) {
+            const roleIndex = rolesList.indexOf(role);
+            if (!isMasked(`roles[${roleIndex}].roleTitle`)) {
+                roleLabel = role.roleTitle;
+            }
+        }
+    }
 
-    return roleLabel ? `${name} (${roleLabel})` : name;
+    const summary = roleLabel ? `${name} (${roleLabel})` : name;
+    return summary.trim() !== '' ? summary.trim() : '';
 }
 
 /**

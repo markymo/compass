@@ -150,7 +150,7 @@ function parseAnyValue(val: any, displayMask?: string[], codeSystem?: string, ap
             return {
                 kind: 'partyRef',
                 refId: val.ccPartyId,
-                summary: resolvedParty ? getPartySummary(resolvedParty) : `ID:${val.ccPartyId.slice(0, 8)}…`,
+                summary: resolvedParty ? getPartySummary(resolvedParty, displayMask) : `ID:${val.ccPartyId.slice(0, 8)}…`,
                 resolved: resolvedParty,
                 displayMask
             };
@@ -168,7 +168,7 @@ function parseAnyValue(val: any, displayMask?: string[], codeSystem?: string, ap
             return {
                 kind: 'party',
                 data: val as any,
-                summary: getPartySummary(val),
+                summary: getPartySummary(val, displayMask),
                 displayMask
             };
         }

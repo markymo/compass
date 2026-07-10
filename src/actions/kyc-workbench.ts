@@ -71,49 +71,64 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
         ])
         : [[], []] as [any[], any[]];
         
-    // Build currentValues for the master field grid (fast in-memory pass)
-    const currentValues: Record<number, any> = {};
+    // Build fieldDefMap from already-loaded allFields
+    const fieldDefMap = new Map<number, { fieldNo: number; fieldName: string; appDataType: string; isMultiValue: boolean; profileConfig?: any }>(
+        allFields.map((f: any) => [f.fieldNo, { fieldNo: f.fieldNo, fieldName: f.fieldName ?? '', appDataType: f.appDataType, isMultiValue: f.isMultiValue, profileConfig: f.profileConfig }])
+    );
+
+    // Build groupFieldMap from already-loaded allGroupsWithItems
+    const groupFieldMap = new Map<string, number[]>(
+        allGroupsWithItems.map((g: any) => [g.key, g.fieldNos as number[]])
+    );
+
+    const relationships = Array.from(new Set(questions.map((q: any) => q.engagementOrgName || "Unknown"))).sort();
+    const questionnaires = Array.from(new Set(questions.map((q: any) => q.questionnaireName))).sort();
+
+    const mappedQuestions = questions.filter((q: any) => q.masterFieldNo || q.masterQuestionGroupId || q.customFieldDefinitionId);
+
+    // Resolve Master Data values using the canonical batch resolver
+    let resolvedValues: Record<string, Record<string, import("./kyc-query").HydratedValue>> = {};
     if (subjectLeId) {
-        const getSourcePriority = (source: string) => {
-            if (source === 'GLEIF') return 1;
-            if (source === 'REGISTRATION_AUTHORITY') return 2;
-            if (source === 'USER_INPUT') return 3;
-            if (source === 'AI_EXTRACTION') return 4;
-            return 5;
+        const provenanceMap = await fetchProvenanceMap({ clientLEId: leId });
+
+        const batchInput: BatchResolverInput = {
+            subjectLeId,
+            ownerScopeId,
+            questions: [
+                ...mappedQuestions
+                    .filter((q: any) => q.masterFieldNo || q.masterQuestionGroupId)
+                    .map((q: any) => ({
+                        questionId: q.id,
+                        masterFieldNo: q.masterFieldNo,
+                        masterQuestionGroupId: q.masterQuestionGroupId,
+                        masterFieldProjectionPath: q.masterFieldProjectionPath,
+                    })),
+                // Add pseudo-requests to resolve all master fields for the lookup dropdown
+                ...allFields.map((f: any) => ({
+                    questionId: `F_${f.fieldNo}`,
+                    masterFieldNo: f.fieldNo,
+                }))
+            ],
+            fieldDefMap,
+            groupFieldMap,
+            claims: allClaims as any,
+            sourceMappings: allSourceMappings,
+            provenanceMap,
         };
 
-        const fieldGroups: Record<number, any[]> = {};
-        for (const c of allClaims) {
-            if (!fieldGroups[c.fieldNo]) fieldGroups[c.fieldNo] = [];
-            fieldGroups[c.fieldNo].push(c);
-        }
-
-        for (const fieldNoStr in fieldGroups) {
-            const fieldNo = parseInt(fieldNoStr);
-            const fieldClaims = fieldGroups[fieldNo];
-            const winner = fieldClaims.sort((a: any, b: any) => {
-                const pA = getSourcePriority(a.sourceType);
-                const pB = getSourcePriority(b.sourceType);
-                if (pA !== pB) return pA - pB;
-                const tA = a.assertedAt.getTime();
-                const tB = b.assertedAt.getTime();
-                if (tA !== tB) return tB - tA;
-                return b.id.localeCompare(a.id);
-            })[0];
-
-            if (winner && !(winner.valueJson && typeof winner.valueJson === 'object' && (winner.valueJson as any).tombstone)) {
-                currentValues[fieldNo] = winner.valueText ?? winner.valueNumber ?? winner.valueDate ?? winner.valueJson ?? winner.valueLeId ?? winner.valuePersonId ?? winner.valueOrgId ?? winner.valueDocId;
-            }
-        }
+        resolvedValues = await resolveMasterDataBatch(batchInput);
     }
 
-    const masterFields = allFields.map((def: any) => ({
-        fieldNo: def.fieldNo,
-        label: def.fieldName,
-        category: def.masterDataCategory?.displayName ?? "Uncategorized",
-        dataType: def.appDataType,
-        currentValue: currentValues[def.fieldNo]
-    }));
+    const masterFields = allFields.map((def: any) => {
+        const hv = resolvedValues[`F_${def.fieldNo}`]?.[def.fieldNo];
+        return {
+            fieldNo: def.fieldNo,
+            label: def.fieldName,
+            category: def.masterDataCategory?.displayName ?? "Uncategorized",
+            dataType: def.appDataType,
+            currentValue: hv ? hv.value : null
+        };
+    });
 
     const masterGroups = allGroups.map((g: any) => ({
         key: g.key,
@@ -123,7 +138,7 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
         currentValue: undefined // Groups are complex, skip live preview for now
     }));
 
-    // 2. Lookups for categories
+    // Lookups for categories
     const fieldCategoryMap = new Map(allFields.map((f: any) => [f.fieldNo, f.masterDataCategory?.displayName]));
     const groupCategoryMap = new Map(allGroups.map((g: any) => [g.key, g.category]));
 
@@ -134,7 +149,7 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
         if (q.customFieldDefinitionId) q.masterFieldCategory = "Custom";
     });
 
-    // 3. Get Custom Fields available to this LE (context of owners or current user FI)
+    // Get Custom Fields available to this LE
     const customFieldsRaw = await prisma.customFieldDefinition.findMany({
         where: { isDeleted: false },
         orderBy: { label: 'asc' }
@@ -151,46 +166,8 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
         };
     });
 
-    // 3. Extract unique filters
-    const relationships = Array.from(new Set(questions.map((q: any) => q.engagementOrgName || "Unknown"))).sort();
-    const questionnaires = Array.from(new Set(questions.map((q: any) => q.questionnaireName))).sort();
-
-    // 4. Resolve Master Data values for mapped questions using the batch resolver
-    // (replaces the N+1 per-question resolveMasterData loop: 76 queries → 0 queries)
-    const mappedQuestions = questions.filter((q: any) => q.masterFieldNo || q.masterQuestionGroupId || q.customFieldDefinitionId);
+    // Populate resolved values onto the questions array
     if (mappedQuestions.length > 0 && subjectLeId) {
-        // Build fieldDefMap from already-loaded allFields
-        const fieldDefMap = new Map<number, { fieldNo: number; fieldName: string; appDataType: string; isMultiValue: boolean; profileConfig?: any }>(
-            allFields.map((f: any) => [f.fieldNo, { fieldNo: f.fieldNo, fieldName: f.fieldName ?? '', appDataType: f.appDataType, isMultiValue: f.isMultiValue, profileConfig: f.profileConfig }])
-        );
-
-        // Build groupFieldMap from already-loaded allGroupsWithItems
-        const groupFieldMap = new Map<string, number[]>(
-            allGroupsWithItems.map((g: any) => [g.key, g.fieldNos as number[]])
-        );
-
-        const provenanceMap = await fetchProvenanceMap({ clientLEId: leId });
-
-        const batchInput: BatchResolverInput = {
-            subjectLeId,
-            ownerScopeId,
-            questions: mappedQuestions
-                .filter((q: any) => q.masterFieldNo || q.masterQuestionGroupId)
-                .map((q: any) => ({
-                    questionId: q.id,
-                    masterFieldNo: q.masterFieldNo,
-                    masterQuestionGroupId: q.masterQuestionGroupId,
-                    masterFieldProjectionPath: q.masterFieldProjectionPath,
-                })),
-            fieldDefMap,
-            groupFieldMap,
-            claims: allClaims as any,
-            sourceMappings: allSourceMappings,
-            provenanceMap,
-        };
-
-        const resolvedValues = await resolveMasterDataBatch(batchInput);
-
         questions.forEach((q: any) => {
             if (q.customFieldDefinitionId) {
                 const val = customData[q.customFieldDefinitionId];
@@ -225,8 +202,6 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
                     let latestDate: Date | null = null;
                     let primarySource: string | null = null;
 
-                    // Build the ordered per-field list for GroupAnswerRenderer.
-                    // Ordering follows the group's fieldNos array (already DB-ordered).
                     const groupFieldNos = groupFieldMap.get(q.masterQuestionGroupId) ?? [];
                     const groupFields: GroupFieldData[] = [];
 
@@ -238,7 +213,6 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
                         }
                     }
 
-                    // Populate groupFields in group-item order
                     for (const fieldNo of groupFieldNos) {
                         const def = fieldDefMap.get(fieldNo);
                         if (!def) continue;
@@ -271,7 +245,7 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
                         });
                     }
 
-                    q.masterDataValue = groupMap;           // preserved — backward compat
+                    q.masterDataValue = groupMap;
                     q.masterDataSource = primarySource || 'MASTER_RECORD';
                     q.masterDataUpdatedAt = latestDate;
                     (q as any).masterDataGroupFields = groupFields;
