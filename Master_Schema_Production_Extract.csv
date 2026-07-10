@@ -1,46 +1,49 @@
 "Field No","Field name","Description / Help Text","Data Type","Entity Scope / Domain","Mandatory / Optional","Source Mappings"
-"1","LEI validation date","","DATETIME","Onboarding","Optional",""
-"2","LEI","","TEXT","Onboarding","Optional",""
-"3","Legal name","","TEXT","Onboarding","Optional",""
-"4","Trading name","","TEXT","Onboarding","Optional",""
-"5","Previous name","Differentiated by type field","TEXT","Onboarding","Optional",""
-"6","Registered address line 1","","TEXT","Onboarding","Optional",""
-"7","Registered address city","","TEXT","Onboarding","Optional",""
-"8","Registered address region","","TEXT","Onboarding","Optional",""
-"9","Registered address country","","TEXT","Onboarding","Optional",""
-"10","Registered address postcode","","TEXT","Onboarding","Optional",""
-"11","Headquarters address line 1","","TEXT","Onboarding","Optional",""
-"12","Headquarters address city","","TEXT","Onboarding","Optional",""
-"13","Headquarters address region","","TEXT","Onboarding","Optional",""
-"14","Headquarters address country","","TEXT","Onboarding","Optional",""
-"15","Headquarters address postcode","","TEXT","Onboarding","Optional",""
-"16","Registration authority GLEIF ID","","TEXT","Onboarding","Optional",""
-"17","Registration authority","","TEXT","Onboarding","Optional",""
-"18","Registered number","","TEXT","Onboarding","Optional",""
-"19","GLEIF entity category","","TEXT","Onboarding","Optional",""
-"20","Industry classification","","TEXT","Onboarding","Optional",""
-"21","Entity legal form code","","TEXT","Onboarding","Optional",""
-"22","Country of formation","","TEXT","Onboarding","Optional",""
-"23","Country code","","TEXT","Onboarding","Optional",""
-"24","Entity legal form local name","","TEXT","Onboarding","Optional",""
-"25","Entity legal form transliterated name","","TEXT","Onboarding","Optional",""
-"26","Entity status","","TEXT","Onboarding","Optional",""
-"27","Entity creation date","","DATETIME","Onboarding","Optional",""
-"28","LEI registration date","","DATETIME","Onboarding","Optional",""
-"29","LEI registration update date","","DATETIME","Onboarding","Optional",""
-"30","LEI registration status","","TEXT","Onboarding","Optional",""
-"31","LEI registration next renewal","","DATETIME","Onboarding","Optional",""
-"32","LEI issuer LEI","","TEXT","Onboarding","Optional",""
-"33","LEI issuer","","TEXT","Onboarding","Optional",""
-"34","LEI corroboration level","","TEXT","Onboarding","Optional",""
-"35","LEI corroboration source","","TEXT","Onboarding","Optional",""
-"36","Direct parent ID","","ORG_REF","Onboarding","Optional",""
-"37","Direct parent","","TEXT","Onboarding","Optional",""
-"38","Direct parent ID type","","TEXT","Onboarding","Optional",""
-"39","Direct parent relationship","","TEXT","Onboarding","Optional",""
-"40","Ultimate parent ID","","ORG_REF","Onboarding","Optional",""
-"41","Ultimate parent","","TEXT","Onboarding","Optional",""
-"42","Ultimate parent ID type","","TEXT","Onboarding","Optional",""
+"1","LEI validation date","Date on which the entity's LEI registration was last validated by the entity","DATETIME","Onboarding","Optional","GLEIF:registration.lastUpdateDate"
+"2","LEI","Legal Entity Identfier (LEI) as recoded by GLEIF","TEXT","Onboarding","Optional","GLEIF:lei"
+"3","Legal name","Legal name as recorded by the national registry.","TEXT","Onboarding","Optional","GLEIF:entity.legalName.name | REGISTRATION_AUTHORITY:nom_complet | REGISTRATION_AUTHORITY:company_name"
+"4","Trading name","Any trading names used by the entity ","TEXT","Onboarding","Optional",""
+"5","Previous legal name","Previous legal names (last 5 years)","TEXT","Onboarding","Optional","REGISTRATION_AUTHORITY:previous_company_names | GLEIF:entity.otherNames"
+"6","Registered address lines","","TEXT","Onboarding","Optional","GLEIF:entity.legalAddress.addressLines[0] | REGISTRATION_AUTHORITY:registered_office_address.address_line_1"
+"7","Registered address city / locality","","TEXT","Onboarding","Optional","GLEIF:entity.legalAddress.city | REGISTRATION_AUTHORITY:registered_office_address.locality"
+"8","Registered address country-region code","GLEIF format 2 character country code + 3 character region code","TEXT","Onboarding","Optional","GLEIF:entity.legalAddress.region"
+"9","Registered address country","","TEXT","Onboarding","Optional","GLEIF:entity.legalAddress.country | REGISTRATION_AUTHORITY:registered_office_address.country"
+"10","Registered address postcode","","TEXT","Onboarding","Optional","GLEIF:entity.legalAddress.postalCode | REGISTRATION_AUTHORITY:registered_office_address.postal_code"
+"11","Headquarters address lines","","TEXT","Onboarding","Optional","GLEIF:entity.headquartersAddress.addressLines[0]"
+"12","Headquarters address city / locality","","TEXT","Onboarding","Optional","GLEIF:entity.headquartersAddress.city"
+"13","Headquarters address country-region code","GLEIF format 2 character country code + 3 character region code","TEXT","Onboarding","Optional","GLEIF:entity.headquartersAddress.region"
+"14","Headquarters address country","","TEXT","Onboarding","Optional","GLEIF:entity.headquartersAddress.country"
+"15","Headquarters address postcode","","TEXT","Onboarding","Optional","GLEIF:entity.headquartersAddress.postalCode"
+"16","Registration authority GLEIF ID","GLEIF short code for the entity's national registry","TEXT","Onboarding","Optional",""
+"17","Registration authority","GLEIF full name of the entity's national registry","TEXT","Onboarding","Optional","GLEIF:entity.registeredAt.id"
+"18","Registered number","The identifier of the entity at the indicated registration authority.","TEXT","Onboarding","Optional","GLEIF:entity.registeredAs | REGISTRATION_AUTHORITY:company_number | REGISTRATION_AUTHORITY:date_creation"
+"19","GLEIF entity category","Type of legal entity as recorded by GLEIF ROC policies.  Possible values are BRANCH, GENERAL, FUND, SOLE_PROPRIETOR, RESIDENT_GOVERNMENT_ENTITY, INTERNAIONAL_ORGANIZATION.","TEXT","Onboarding","Optional","GLEIF:entity.category"
+"20","Industry classification - NACE / UK SIC","EU 4 digit NACE (identical to UK SIC at 4 digit level), selected from UK Companies House condensed SIC code list (https://resources.companieshouse.gov.uk/sic/)","JSONB","Onboarding","Optional","REGISTRATION_AUTHORITY:sic_codes"
+"21","Entity legal form code","ISO 20275 Entity Legal Form (ELF) Code as recorded by GLEIF: see https://www.gleif.org/en/lei-data/code-lists/iso-20275-entity-legal-forms-code-list","TEXT","Onboarding","Optional","GLEIF:entity.legalForm.id"
+"22","Country of registration (if different)","Country in which the entity is locally registered to do business, where different to country of formation (eg, for a branch.)","TEXT","Onboarding","Optional","REGISTRATION_AUTHORITY:jurisdiction"
+"23","ZZD Country code","GEIF short code for country of formation","TEXT","Onboarding","Optional",""
+"24","Entity legal form local name","See F21 lookup note","TEXT","Onboarding","Optional",""
+"25","Entity legal form transliterated name","See F21 lookup note","TEXT","Onboarding","Optional",""
+"26","Registration status","Indicates whether the legal entity the LEI references is legally registered and operating. Possible values are ACTIVE and INACTIVE","TEXT","Onboarding","Optional","GLEIF:entity.status"
+"27","Registration date","Date on which the entity was first registered on the national registry","DATETIME","Onboarding","Optional","GLEIF:entity.creationDate"
+"28","LEI registration date","-","DATETIME","Onboarding","Optional","GLEIF:registration.initialRegistrationDate"
+"29","LEI registration update date","","DATETIME","Onboarding","Optional","GLEIF:registration.lastUpdateDate"
+"30","LEI registration status","The status of the entity's LEI registration.  Active legal entities can have LEI status ISSUED, LAPSED, DUPLICATE, ANNULLED, PENDING_ARCHIVAL or PENDING_TRANSFER.  Inactive legal entities can have status RETIRED or MERGED.  See https://www.gleif.org/en/lei-data/access-and-use-lei-data/gleif-data-dictionary ","TEXT","Onboarding","Optional","GLEIF:registration.status"
+"31","LEI registration next renewal","Date on which the LEI registration will expire if not renewed","DATETIME","Onboarding","Optional","GLEIF:registration.nextRenewalDate"
+"32","LEI issuer LEI","LEI code of the organisation issuing the LEI","TEXT","Onboarding","Optional","GLEIF:registration.managingLou"
+"33","LEI issuer","Organisation issuing the LEI","TEXT","Onboarding","Optional",""
+"34","LEI corroboration level","The Global LEI System uses three levels to indicate the extent to which data has been corroborated:  
+- FULLY_CORROBORATED: All reference data elements have been validated against public authoritative sources. 
+- PARTIALLY_CORROBORATED: At least one data element could not be validated against a public authoritative source. 
+- ENTITY_SUPPLIED_ONLY: No public authoritative source is available. The information provided directly by the entity has been reviewed by the LEI issuer, but it cannot be independently verified against public data.","TEXT","Onboarding","Optional","GLEIF:registration.corroborationLevel"
+"35","LEI corroboration source","Data source for GLEIF corroboration: see https://www.gleif.org/en/lei-data/code-lists/gleif-registration-authorities-list","TEXT","Onboarding","Optional","GLEIF:registration.validatedAt.id"
+"36","Direct parent ID","Test notes from inline edit","ORG_REF","Onboarding","Optional",""
+"37","Direct parent","A Direct Parent as defined by GLEIF, ie the closest fully consolidating parent entity owning >50% of the legal entity, and not being restricted from reporting the relationship due to legal obstacles.  If no direct parent is reported, a reporting exception will be provided.","PARTY","Onboarding","Optional","GLEIF:gleifL2.directParent.legalName"
+"38","Direct parent registered number","","TEXT","Onboarding","Optional","GLEIF:gleifL2.directParent.registeredAs"
+"39","Direct parent registration authority","","TEXT","Onboarding","Optional","GLEIF:gleifL2.directParent.registeredAt"
+"40","Ultimate parent","The Ultimate Parent as defined by GLEIF, ie the most distant fully consolidating parent entity owning >50% of the legal entity, and which is not restricted from reporting the relationship due to legal obstacles.  If no ultimate parent is reported, a reporting exception will be provided.","PARTY","Onboarding","Optional","GLEIF:gleifL2.ultimateParent"
+"41","Ultimate parent registered number","","TEXT","Onboarding","Optional","GLEIF:gleifL2.ultimateParent.registeredAs"
+"42","Ultimate parent registration authority","","TEXT","Onboarding","Optional","GLEIF:gleifL2.ultimateParent.registeredAt"
 "43","Ultimate parent relationship","","TEXT","Onboarding","Optional",""
 "44","Fund manager ID","","ORG_REF","Onboarding","Optional",""
 "45","Fund manager","","TEXT","Onboarding","Optional",""
@@ -52,68 +55,942 @@
 "51","Umbrella fund ID type","","TEXT","Onboarding","Optional",""
 "52","Umbrella fund relationship","","TEXT","Onboarding","Optional",""
 "53","Umbrella fund relationship status","","TEXT","Onboarding","Optional",""
-"54","LEI direct parent exception","","TEXT","Onboarding","Optional",""
-"55","LEI ultimate parent exception","","TEXT","Onboarding","Optional",""
-"56","Constitutional and formation documents","Document upload only","DOCUMENT_REF","Onboarding","Optional",""
-"57","Registration authority GLEIF ID (duplicate)","Same as Field 16","TEXT","Onboarding","Optional",""
-"58","Registration authority (duplicate)","Same as Field 17","TEXT","Onboarding","Optional",""
-"59","Registered number (duplicate)","Same as Field 18","TEXT","Onboarding","Optional",""
+"54","Direct parent exception","Reason for no Direct Parent having been reported.  Possible values are;
+
+Non-consolidating, whenever the accounting consolidation definition for parent relationship does not apply. This category includes cases where the entity is controlled by a natural person(s) without any intermediate legal entity (“Natural Person(s)”); the entity is controlled by legal entities not subject to consolidation (“Non-Consolidating”); and where there is no known person(s) controlling the entity (“No Known Person” e.g.; the entity is controlled by diverse shareholders).
+
+Non-Public, whenever the relationship information is non-public and therefore creates obstacles to releasing this information. This category includes cases where there are obstacles in the laws or regulations of a jurisdiction restricting the reporting (“Binding Legal Constraint”); the existence of other legal constraints such as articles governing the legal entity or a contract (“Legal Obstacles”); where disclosure of the information would be detrimental to the legal entity or the relevant parent (“Disclosure Detrimental” and “Detriment Not Excluded”); and where the consent to disclose the parent LEI was not obtained (“Consent Not Obtained”). An entity is not required to provide non-public relationship information in order to register or renew an LEI.
+
+No LEI, when the parent does not consent to obtain an LEI or to authorize its “child entity” to obtain an LEI on its behalf.","TEXT","Onboarding","Optional","GLEIF:gleifL2.directParentException"
+"55","Ultimate parent exception","Reason for no Ultimate Parent having been reported.  Possible values are;
+
+Non-consolidating, whenever the accounting consolidation definition for parent relationship does not apply. This category includes cases where the entity is controlled by a natural person(s) without any intermediate legal entity (“Natural Person(s)”); the entity is controlled by legal entities not subject to consolidation (“Non-Consolidating”); and where there is no known person(s) controlling the entity (“No Known Person” e.g.; the entity is controlled by diverse shareholders).
+
+Non-Public, whenever the relationship information is non-public and therefore creates obstacles to releasing this information. This category includes cases where there are obstacles in the laws or regulations of a jurisdiction restricting the reporting (“Binding Legal Constraint”); the existence of other legal constraints such as articles governing the legal entity or a contract (“Legal Obstacles”); where disclosure of the information would be detrimental to the legal entity or the relevant parent (“Disclosure Detrimental” and “Detriment Not Excluded”); and where the consent to disclose the parent LEI was not obtained (“Consent Not Obtained”). An entity is not required to provide non-public relationship information in order to register or renew an LEI.
+
+No LEI, when the parent does not consent to obtain an LEI or to authorize its “child entity” to obtain an LEI on its behalf.","TEXT","Onboarding","Optional","GLEIF:gleifL2.ultimateParentException"
+"56","Other constitutional and formation documents","Document upload only","DOCUMENT_REF","Onboarding","Optional",""
+"57","ZZD Registration authority GLEIF ID (duplicate)","Same as Field 16","TEXT","Onboarding","Optional",""
+"58","ZZD Registration authority (duplicate)","Same as Field 17","TEXT","Onboarding","Optional",""
+"59","ZZD Registered number (duplicate)","Same as Field 18","TEXT","Onboarding","Optional",""
 "60","Certificate of incorporation","Document upload only","DOCUMENT_REF","Onboarding","Optional",""
 "61","Memorandum and articles of association","Document upload only","DOCUMENT_REF","Onboarding","Optional",""
-"62","List of ultimate beneficial owners","Role = UBO. Can also point to Org.","PERSON_REF","Onboarding","Optional",""
-"63","List of company directors","Role = DIRECTOR. Can also point to Org.","PERSON_REF","Onboarding","Optional",""
-"64","List of persons controlling","Role = CONTROLLER. Can also point to Org.","PERSON_REF","Onboarding","Optional",""
-"65","Full name (individual)","","TEXT","Onboarding","Optional",""
+"62","List of ultimate beneficial owners","Role = UBO. Can also point to Org.","PARTY","Onboarding","Optional","REGISTRATION_AUTHORITY:$"
+"63","List of company directors","List of company directors stored as embedded PersonOrContact structures with roles[].","PARTY","Onboarding","Optional","REGISTRATION_AUTHORITY:$"
+"64","List of persons controlling","Role = CONTROLLER. Can also point to Org.","PARTY","Onboarding","Optional","REGISTRATION_AUTHORITY:$"
+"65","Full name (individual)","","PARTY","Onboarding","Optional",""
 "66","Date and place of birth","","DATETIME","Onboarding","Optional",""
 "67","Nationalities","","JSONB","Onboarding","Optional",""
-"68","ID including proof of address","FK to DocumentRegistry","DOCUMENT_REF","Onboarding","Optional",""
+"68","ID of individual","FK to DocumentRegistry","DOCUMENT_REF","Onboarding","Optional",""
 "69","Company legal name (corporate)","","TEXT","Onboarding","Optional",""
-"70","LEI (corporate)","","TEXT","Onboarding","Optional",""
-"71","Registration authority GLEIF ID (corporate)","","TEXT","Onboarding","Optional",""
-"72","Registration authority (corporate)","","TEXT","Onboarding","Optional",""
-"73","Registered number (corporate)","","TEXT","Onboarding","Optional",""
+"70","ZZD LEI (corporate)","","TEXT","Onboarding","Optional",""
+"71","ZZD Registration authority GLEIF ID (corporate)","","TEXT","Onboarding","Optional",""
+"72","ZZD Registration authority (corporate)","","TEXT","Onboarding","Optional",""
+"73","Registered number (corporate)","-","TEXT","Onboarding","Optional","REGISTRATION_AUTHORITY:company_number"
 "74","Ownership structure chart","Document upload only","DOCUMENT_REF","Onboarding","Optional",""
 "75","Group structure (names and relationship)","","JSONB","Onboarding","Optional",""
-"76","Regulation","","JSONB","Onboarding","Optional",""
+"76","Regulatory relationship(s)","For regulated entities (law firms, accountants, regulated financial services companies incl funds), provide web link to public register. Otherwise leave blank.  Where no public register is available, attach l;atest return to regulator or letter from the regulator.  Where not otherwise included, state in response field or attch document containing:
+- Name of regulator
+- Regulator's identififier for the legal entity
+- Date first regulated 
+- Regulatory status (eg current / lapsed)  
+
+Entities owned by regulated business do not need to state.","TEXT","Onboarding","Optional",""
 "77","High risk sectors","","JSONB","Onboarding","Optional",""
-"78","Primary business activity","","TEXT","Onboarding","Optional",""
-"79","Secondary business activity","","TEXT","Onboarding","Optional",""
+"78","Primary business activity","Free text client description of business activity (where standardised codes do not sufficiently describe)","TEXT","Onboarding","Optional",""
+"79","Secondary business activity","Free text client description, where more than one substantive business activity (not normally required.)","TEXT","Onboarding","Optional",""
 "80","Description of principal activities","","TEXT","Onboarding","Optional",""
-"81","Tax ID by country","","TEXT","Onboarding","Optional",""
-"82","Recent financial report","Document upload only","DOCUMENT_REF","Onboarding","Optional",""
-"83","Website address","","TEXT","Onboarding","Optional",""
-"84","Prospectus","Document upload only","DOCUMENT_REF","Onboarding","Optional",""
+"81","Tax residence 1 TIN","Tax Identification Number for Tax residence 1 (eg, 10 digit UTR for UK entities.)  Where Tax Residence 1 is given, complete TIN or reason for being able to provide.  ","TEXT","Onboarding","Optional",""
+"82","Financial report","Attach where annual report is a separate document to accounts, or (eg) excel accounts are provided.  Where all data is contained in Financial Accounts, leave blank.","DOCUMENT_REF","Onboarding","Optional",""
+"83","Website","-","TEXT","Onboarding","Optional",""
+"84","Listing prospectus (debt)","Document upload only","DOCUMENT_REF","Onboarding","Optional",""
 "85","Last AML/KYC review date","","DATETIME","Onboarding","Optional",""
 "86","Next AML/KYC review date","","DATETIME","Onboarding","Optional",""
 "87","Last site visit date","","DATETIME","Onboarding","Optional",""
 "88","Last screening date","","DATETIME","Onboarding","Optional",""
-"89","Last adverse news screening date","","DATETIME","Onboarding","Optional",""
+"89","Last adverse news screening date","Latest date of OnPro adverse news screening for the entity
+","DATETIME","Onboarding","Optional",""
 "90","Last transaction monitoring review date","","DATETIME","Onboarding","Optional",""
 "91","ISDA master regulatory disclosure letter","Document reference","TEXT","Onboarding","Optional",""
 "92","ISDA EMIR classification letter","Document reference","TEXT","Onboarding","Optional",""
 "93","ISDA US self-disclosure letter","Document reference","TEXT","Onboarding","Optional",""
-"95","List of authorised traders","Document upload only - data also in AuthorizedTrader table","DOCUMENT_REF","Onboarding","Optional",""
+"95","List of authorised traders (doc upload)","Document upload only - data also in AuthorizedTrader table","DOCUMENT_REF","Onboarding","Optional",""
 "96","Trader full name","","TEXT","Onboarding","Optional",""
-"97","Trader email","","TEXT","Onboarding","Optional",""
-"98","Trader telephone","","TEXT","Onboarding","Optional",""
-"99","Trader mobile","","TEXT","Onboarding","Optional",""
+"97","FO contact email","Front office contact email.  It is suggested to include at least one team email and landline/office telephone number.  ","TEXT","Onboarding","Optional",""
+"98","FO Contact tel (incl IDD +xx)","Front office contact for OTC derivative trading trading purposes.","TEXT","OTC Derivatives","Optional",""
+"99","FO contact tel (incl IDD +xx)","Front office contact email.  It is suggested to include at least one team email and landline/office telephone number.  ","TEXT","Onboarding","Optional",""
 "100","Proof of trading authority","Can be document OR attestation text","TEXT","Onboarding","Optional",""
 "101","Products authorized","","JSONB","Onboarding","Optional",""
 "102","Board minute authorising individuals to trade","Document reference","TEXT","Onboarding","Optional",""
 "103","Board minute authorising entry into transactions","Document reference","TEXT","Onboarding","Optional",""
-"104","Contact address","","TEXT","Onboarding","Optional",""
-"105","Contact attention","","TEXT","Onboarding","Optional",""
-"106","Contact email","","TEXT","Onboarding","Optional",""
-"107","Process agent","","TEXT","Onboarding","Optional",""
+"104","Settlement contact address","It is suggested to include at least one team email address and one team telephone number.  Postal address is optional.","TEXT","Onboarding","Optional",""
+"105","Settlement contact tel (incl IDD +xx)","It is suggested to include at least one team email address and one team telephone number.  Postal address is optional.","TEXT","Onboarding","Optional",""
+"106","Settlement contact email","It is suggested to include at least one team email address and one team telephone number.  Postal address is optional.","TEXT","Onboarding","Optional",""
+"107","Process agent","legal name of agent for ISDA service of process in the ISDA jusirdiction country","TEXT","Onboarding","Optional",""
 "108","Office","","TEXT","Onboarding","Optional",""
-"109","Is multibranch party","","TEXT","Onboarding","Optional",""
+"109","ISDA multibranch party","","BOOLEAN","Onboarding","Optional",""
 "110","ISDA reporting delegation agreement","Document reference","TEXT","Onboarding","Optional",""
 "111","ISDA FIA EMIR reporting delegation","Document reference","TEXT","Onboarding","Optional",""
 "112","ISDA 2013 reporting protocol side letter","Document reference","TEXT","Onboarding","Optional",""
-"113","Portfolio data email","","TEXT","Onboarding","Optional",""
-"114","Discrepancy notice email","","TEXT","Onboarding","Optional",""
-"115","Dispute notice email","","TEXT","Onboarding","Optional",""
-"116","Settlement currency","","TEXT","Onboarding","Optional",""
-"117","Settlement account name","","TEXT","Onboarding","Optional",""
-"118","Settlement account number","","TEXT","Onboarding","Optional",""
-"119","Settlement IBAN/SWIFT","","TEXT","Onboarding","Optional",""
+"113","Portfolio resolution contact","Email address of contact for portfolio reconciliation","TEXT","Onboarding","Optional",""
+"114","Discrepancy notice email","Email ddress of contact for portfoolio reconciliation discrpency notices","TEXT","Onboarding","Optional",""
+"115","Dispute resolution contact email","","TEXT","Onboarding","Optional",""
+"116","SSI 1 Currency","","SELECT","Onboarding","Optional",""
+"117","SSI 1 Account name ","","TEXT","Onboarding","Optional",""
+"118","SSI 1 Account number","","TEXT","Onboarding","Optional",""
+"119","SSI 1 BIC/SWIFT","","TEXT","Onboarding","Optional",""
+"120","LEI policy conforming","Indicates whether the LEI record meets key GLEIF Regulatory Oversight Committee (ROC) policies.","TEXT","Onboarding","Optional","GLEIF:conformityFlag"
+"121","temp field","temp field to get category deletion","TEXT","Onboarding","Optional",""
+"122","SSI 3 Currency","","SELECT","Onboarding","Optional",""
+"123","SSI 2 Currency","","SELECT","Onboarding","Optional",""
+"124","SSI 2 Account name","","TEXT","Onboarding","Optional",""
+"125","SSI 2 Account number","","TEXT","Onboarding","Optional",""
+"126","SSI 2 BIC/SWIFT","","TEXT","Onboarding","Optional",""
+"127","SSI 3 Account name","","TEXT","Onboarding","Optional",""
+"128","SSI 3 Account number","","TEXT","Onboarding","Optional",""
+"129","SSI 3 BIC/SWIFT","","TEXT","Onboarding","Optional",""
+"130","Portfolio data contact tel","","TEXT","Onboarding","Optional",""
+"131","Dispute resolution contact tel (incl IDD +xx)","","TEXT","Onboarding","Optional",""
+"132","Countries of business relationships","List all countries in which the entity has a business relationship with any person, a business presence, or is party to a transaction in which any party has a presence.    ","SELECT","Onboarding","Optional",""
+"133","Listing prospectus (equity)","","DOCUMENT_REF","Onboarding","Optional",""
+"134","Country of formation","ISO 3166 form legal jurisdiction of the company's formation, as recorded by GLEIF https://www.gleif.org/en/lei-data/code-lists/gleif-accepted-legal-jurisdictions-code-list","TEXT","Onboarding","Optional","GLEIF:entity.jurisdiction"
+"135","Last accounts period end","Last day of the accounting period of most recently published financial accounts","DATETIME","Onboarding","Optional","REGISTRATION_AUTHORITY:accounts.last_accounts.period_end_on"
+"136","TEST MISC.","TEST PUBLIC DESCRIPTION FROM MDM (EDIT 4/6)","PERSON_REF","Onboarding","Optional","GLEIF:entity.legalAddress.language"
+"137","TEST HIDDEN FIELD POSITION 0","TEST HIDDEN FIELD DESCR (FG EDIT)","TEXT","Onboarding","Optional",""
+"138","Registered address","The address of the legal entity as recorded in the registration of the legal entity in its legal jurisdiction.","ADDRESS","Onboarding","Optional","GLEIF:entity.legalAddress"
+"139","Headquarters address","Primary address from which the highest level strategic decisions of the business are made, as recorded by GLEIF: generally equivalent to Place of Central Management and Control (CMC) for tax pusposes.","ADDRESS","Onboarding","Optional","GLEIF:entity.headquartersAddress"
+"140","Listing particulars","Debt or equity listing particulars.  Include name of exchange, type of instrument, listing status (issued / suspended / review etc), May be a link or document attachment.  Leave blank if none.","TEXT","Onboarding","Optional",""
+"141","Industry classification - NAICS","North American Industry Classification System classification of economic activity (see https://www.census.gov/naics/?68967)","TEXT","Onboarding","Optional",""
+"142","Industry classification - ISIC"," International standard industrial classification of economic activities see https://ec.europa.eu/eurostat/statistics-explained/index.php?title=Glossary:Statistical_classification_of_economic_activities_in_the_European_Community_(NACE)","TEXT","Onboarding","Optional",""
+"143","Tax residence 1","Legal jurisdictions in which the legal entity is taxed (list all. Do not include countries in which parent entities are taxed), as a 2-character country code conforming to ISO 3166-1 alpha-2, or a region code conforming to ISO 3166-2 (see https://www.gleif.org/en/lei-data/code-lists/gleif-accepted-legal-jurisdictions-code-list.)","SELECT","Onboarding","Optional",""
+"144","Principal place of business","Primary location of key management and commercial activity for the business as a whole.  Generally the Place of Effective Management (POEM) for tax purposes.  Defaults to headquarters address.","ADDRESS","Onboarding","Optional","GLEIF:entity.headquartersAddress"
+"145","Sanctions check - UK FCDO","Clearance against UK sanctions list.  See against the https://search-uk-sanctions-list.service.gov.uk/","BOOLEAN","Onboarding","Optional",""
+"146","Sanctions check - EU sanctions tacker","Clearance against EU sanctions checks https://data.europa.eu/apps/eusanctionstracker/entities/","BOOLEAN","Onboarding","Optional",""
+"147","Sanctions check - US OFAC","Sanctions check against US OFAC sanctions list.  See https://sanctionssearch.ofac.treas.gov/","BOOLEAN","Onboarding","Optional",""
+"148","Source of funds","For a corporate entity, source of wealth and source of funds is typically satisfied by establishing ownership & control. Otherwise, or where requested in addition, provide clear, chronological description / documentation demonstrating how the specific transaction funds were acquired and how they reached the legal entitity's bank accounts (where prior to funding of a new entity, identify the expected source.)
+
+Examples:
+
+For trading profits, include most recent audited or management accounts, corporation tax returns, and 6 months of company bank statements highlighting the accumulated profits.
+
+For asset sales, include completion statements, contract notes, and bank statements showing the proceeds from the sale of property, investments, or equipment.
+
+For intercompany loans, include fully executed intercompany loan agreements, board resolutions, and evidence of the transfer/drawdown of funds.
+
+For capital investments, include share subscription records, documentation from venture capitalists, or confirmation of equity raises.","TEXT","Onboarding","Optional",""
+"149","Source of wealth","For a corporate entity, source of wealth and source of funds is typically satisfied by establishing ownership & control. Otherwise, or where requested in addition, provide clear, chronological description / documentation demonstrating how the specific transaction funds were acquired and how they reached the legal entitity's bank accounts (where prior to funding of a new entity, identify the expected source.)
+
+Examples:
+
+For trading profits, include most recent audited or management accounts, corporation tax returns, and 6 months of company bank statements highlighting the accumulated profits.
+
+For asset sales, include completion statements, contract notes, and bank statements showing the proceeds from the sale of property, investments, or equipment.
+
+For intercompany loans, include fully executed intercompany loan agreements, board resolutions, and evidence of the transfer/drawdown of funds.
+
+For capital investments, include share subscription records, documentation from venture capitalists, or confirmation of equity raises.","TEXT","Onboarding","Optional",""
+"150","Authorised signatory","Signatories other than company directors or exceptionally where requested, specific authoristions for directors, for general corporate purposes (eg not OTC derivatves - see separate section)","PARTY","Onboarding","Optional",""
+"151","Agent","Identity of a local process agent or account opening agent with the legal capacity to act on the legal entity's behalf.  Do not include advisors, etc. ","PARTY","Onboarding","Optional",""
+"152","Accounts overdue","Accounts submission date exceeded ","BOOLEAN","Onboarding","Optional","REGISTRATION_AUTHORITY:accounts.next_accounts.overdue"
+"153","Next accounts due date","Date on which next accounts are required to be sumbmitted by registration authority","DATETIME","Onboarding","Optional","REGISTRATION_AUTHORITY:accounts.next_accounts.due_on"
+"154","Financial accounts","Attach pdf accounts or xls/csv.  Where pdf accounts and / or financial report are in a separate document, attach separtaley via Financial Report field.","DOCUMENT_REF","Onboarding","Optional",""
+"155","Senior Managing Official","Where no UBO exists with , a senior offical (typically director) should be designated.  Otherwise leave as N/A.","PARTY","Onboarding","Optional",""
+"156","Tax residence 2","Legal jurisdictions in which the legal entity is taxed (list all. Do not include countries in which parent entities are taxed), as a 2-character country code conforming to ISO 3166-1 alpha-2, or a region code conforming to ISO 3166-2 (see https://www.gleif.org/en/lei-data/code-lists/gleif-accepted-legal-jurisdictions-code-list.)","SELECT","Onboarding","Optional",""
+"157","Tax residence 3","(If the Account Holder is tax resident in more than three countries/jurisdictions, please use a separate sheet)  Legal jurisdictions in which the legal entity is taxed (list all. Do not include countries in which parent entities are taxed), as a 2-character country code conforming to ISO 3166-1 alpha-2, or a region code conforming to ISO 3166-2 (see https://www.gleif.org/en/lei-data/code-lists/gleif-accepted-legal-jurisdictions-code-list.)  ","SELECT","Onboarding","Optional",""
+"158","Tax residence 2 TIN","Tax Identification Number for Tax residence 2 (eg 10 digit UTR for UK entities.)  Where Tax Residence 2 is given, complete TIN or reason for being able to provide.","TEXT","Onboarding","Optional",""
+"159","Tax residence 3 TIN","Tax Identification Number for Tax residence 3 (eg 10 digit UTR for UK entities.)  Where Tax Residence 3 is given, complete TIN or reason for being able to provide.","TEXT","Onboarding","Optional",""
+"160","Tax residence 3 reason","Provide a reason if unable to give TIN.
+Reason A: The country/jurisdiction where the Account Holder is resident does not issue TINs to its residents.
+Reason B: The Account Holder is otherwise unable to obtain a TIN or equivalent number (Please explain why you are unable to obtain a TIN in the following field if you have selected this reason)
+Reason C: No TIN is required. (Note. Only select this reason if the domestic law of the relevant jurisdiction does not require the collection of the TIN issued by such jurisdiction)","SELECT","Onboarding","Optional",""
+"161","Tax residence 1 reason","Provide a reason if unable to give TIN.
+Reason A: The country/jurisdiction where the Account Holder is resident does not issue TINs to its residents.
+Reason B: The Account Holder is otherwise unable to obtain a TIN or equivalent number (Please explain why you are unable to obtain a TIN in the following field if you have selected this reason)
+Reason C: No TIN is required. (Note. Only select this reason if the domestic law of the relevant jurisdiction does not require the collection of the TIN issued by such jurisdiction)","SELECT","Onboarding","Optional",""
+"162","CRS Part 3:  Country/Jurisdiction of Residence for Tax Purposes and related Taxpayer Identification Number or functional equivalent* (“TIN”)","CRS (Entity) Part 3: Country/Jurisdiction of Residence for Tax Purposes and related Taxpayer Identification Number or functional equivalent* (“TIN”)","TEXT","Onboarding","Optional",""
+"163","Tax residence 1 detail","Please explain why you are unable to obtain a TIN if you selected Reason B above.  Otherwise leave blank","TEXT","Onboarding","Optional",""
+"164","Tax residence 2 detail","Please explain why you are unable to obtain a TIN if you selected Reason B above.  Otherwise leave blank","TEXT","Onboarding","Optional",""
+"165","Tax residence 3 detail","Please explain why you are unable to obtain a TIN if you selected Reason B above.  Otherwise leave blank","TEXT","Onboarding","Optional",""
+"166","CRS Entity Type","Select one Entity Type, defined as per OECD CRS Entities Self Reporting Form, Part 2.  Listed corporate entities and Related Entities (defined as either entity controlling the other entity, or under common control, inclkuding direct or indirect ownership of >50% voting rights and ownership) will be 1(c).  Most unlisted corporate entities will be 1(f) (Active NFE - Other.)  See full definitions:  https://www.oecd.org/content/dam/oecd/en/topics/policy-issue-focus/aeoi/crs_controlling_persons_self-cert_form.pdf","SELECT","Onboarding","Optional",""
+"167","CRS Controlling Person(s)","Where CRS Entty is 1(a)(i) or 1(g), then please list the names of any Controlling Persons of the Account Holder.
+
+“Account Holder”: The “Account Holder” is the person listed or identified as the holder of a Financial Account by the Financial Institution that maintains the account. This is regardless of whether such person is a flow-through Entity. Thus, for example, if a trust or an estate is listed as the holder or owner of a Financial Account, the trust or estate is the Account Holder, rather than the trustee or the trust’s owners or beneficiaries. Similarly, if a partnership is listed as the holder or owner of a Financial Account, the partnership is the Account Holder, rather than the partners in the partnership. A person, other than a Financial Institution, holding a Financial Account for the benefit or account of another person as agent, custodian, nominee, signatory, investment advisor, or intermediary, is not treated as holding the account, and such other person is treated as holding the account.
+
+“Controlling Person(s)”: “Controlling Persons” are the natural person(s) who exercise control over an entity. 
+- Where that entity is treated as a Passive Non-Financial Entity (“Passive NFE”) then a Financial Institution is required to determine whether or not these Controlling Persons are Reportable Persons. This definition corresponds to the term “beneficial owner” described in Recommendation 10 and the Interpretative Note on Recommendation 10 of the Financial Action Task Force Recommendations (as adopted in February 2012).
+- In the case of a trust, the Controlling Person(s) are the settlor(s), the trustee(s), the protector(s) (if any), the beneficiary(ies) or class(es) of beneficiaries, or any other natural person(s) exercising ultimate effective control over the trust (including through a chain of control or ownership). Under the CRS the settlor(s), the trustee(s), the protector(s) (if any), and the beneficiary(ies) or
+class(es) of beneficiaries, are always treated as Controlling Persons of a trust, regardless of whether or not any of them exercises control over the activities of the trust.  Where the settlor(s) of a trust is an Entity then the CRS requires Financial Institutions to also identify the Controlling Persons of the settlor(s) and when required report them as Controlling Persons of the trust. 
+- In the case of a legal arrangement other than a trust, “Controlling Person(s) means persons in equivalent or similar positions. 
+
+See full definitions https://www.oecd.org/content/dam/oecd/en/topics/policy-issue-focus/aeoi/crs_entities_self-cert_form.pdf","TEXT","Onboarding","Optional",""
+"168","Global Intermediary Identification Number (GIIN)","For Financial Institutions (CRS Entity Type 1(a) or (b)), a 16 digit GIIN obtained for FATCA purposes (if held).  Non FInancial Institutions leave blank.  Financial institutions with no GIIN state ""None held"".  ","TEXT","Onboarding","Optional",""
+"169","CRS Declaration Addressee List","List of legal entities to whioch the CRS declaration is made.  ","TEXT","Onboarding","Optional",""
+"170","CRS Declaration","Declaration: I understand that the information supplied by me is covered by the full provisions of the terms and conditions governing the Account Holder’s relationship with each financial institution included in the list below setting out how each Financial Institution may use and share the information supplied by me.
+
+I acknowledge that the information contained in this form and information regarding the Account Holder and any Reportable Account(s) may be reported to the tax authorities of the country/jurisdiction in which this account(s) is/are maintained and exchanged with tax authorities of another country/jurisdiction or countries/jurisdictions in which the Account Holder may be tax
+resident pursuant to intergovernmental agreements to exchange financial account information.
+
+I certify that I am authorised to sign for the Account Holder in respect of all the account(s) to which this form relates.
+
+I declare that all statements made in this declaration are, to the best of my knowledge and belief, correct and complete. I undertake to advise each Financial Institution names within 30 days (or such period as may be otherwise agreed with each FInancial Institution) of any change in circumstances which affects the tax residency status of the Account Holder identified in Part 1 of this form or causes the information contained herein to become incorrect or incomplete (including any changes to the information on controlling persons identified in Part 2 question 2a), and to provide the Financial Institution with a suitably updated self-certification and Declaration within 60 days of such change in circumstances (or such period as may be otherwise agreed with each FInancial Institution.)
+
+  ","TEXT","Onboarding","Optional",""
+"171","CRS Declaration name and capacity of signatory ","Please indicate the capacity in which you are signing the form (for example ‘Authorised Officer’).
+If signing under a power of attorney please also attach a certified copy of the power of attorney.  The CRS Declaration and this question should be released by the named individual.","TEXT","Onboarding","Optional",""
+"172","CRS Related Entity","For CRS Entity Type 1(c), if you are a Related Entity of a regularly traded corporation, please provide the legal name of the regularly traded corporation that the Entity is a Related Entity of.  For other CRS Entity Types leave blank.  For Entoty Type 1(c) with no Related Entity, enter ""Not applicable""","TEXT","Onboarding","Optional",""
+"173","CRS Exchange","For CRS Entity Type 1(c), please provide the name of the established securities market on which the corporation (or its Related ENtity) is regularly traded.  Leave blank for other Entity Types.","TEXT","Onboarding","Optional",""
+"174","CRS-CP","Attach a  “Controlling Person tax residency self-certification form” for each Controlling Person (https://www.oecd.org/content/dam/oecd/en/topics/policy-issue-focus/aeoi/crs_controlling_persons_self-cert_form.pdf)
+
+Where there is no Controlling Person, leave blank.  For definitions and guidance on when this is required, see https://www.oecd.org/content/dam/oecd/en/topics/policy-issue-focus/aeoi/crs_entities_self-cert_form.pdf","TEXT","Onboarding","Optional",""
+"175","Account 1 Account Name ","For more than 3 accounts, provide information via attachment.  Name of bank account as recognised by counterpart institution.","TEXT","Onboarding","Optional",""
+"176","Account 2 Account Name","For more than 3 accounts, provide information via attachment.  Name of bank account as recognised by counterpart institution.","TEXT","Onboarding","Optional",""
+"177","OTC Operations - additional information","Additional information regarding OTC derivative operations (incl attachments)","TEXT","OTC Derivatives","Optional",""
+"178","Entity delegates reporting","Whether the entity delegates reporting.  Under EMIR refit, Financial counterparties must report OTC derivatives on behalf of NFC- counterparties unless the entity opts out (set this field to FALSE.)  NFC- counterparties commonly delegate reporting under UK the UK EMIR regime, but delegation is not mandatory.  ","BOOLEAN","Onboarding","Optional",""
+"179","Account 1 short name","Short name for reference purposes within database","TEXT","Onboarding","Optional",""
+"180","Account 1 IBAN","","TEXT","Onboarding","Optional",""
+"181","Account 2 IBAN","","TEXT","Onboarding","Optional",""
+"182","Account 3 IBAN","","TEXT","Onboarding","Optional",""
+"183","Account 3 Account Name","For more than 3 accounts, provide information via attachment.  Name of bank account as recognised by counterpart institution.","TEXT","Onboarding","Optional",""
+"184","Account 2 short name","Short name for reference purposes within database","TEXT","Onboarding","Optional",""
+"185","Account 3 short name","Short name for reference purposes within database","TEXT","Onboarding","Optional",""
+"186","Account 1 Currency","","SELECT","Onboarding","Optional",""
+"187","Account 2 Currency","","SELECT","Onboarding","Optional",""
+"188","Account 3 Currency","","SELECT","Onboarding","Optional",""
+"189","Management accounts","Attach where requested","TEXT","Onboarding","Optional",""
+"190","AML check - FATF Black List","List of business activity countries appearing on the FATF list of High Risk Jurisdictions (""Black List"")  at the time of checking (https://www.fatf-gafi.org/en/topics/high-risk-and-other-monitored-jurisdictions.html)","SELECT","Onboarding","Optional",""
+"191","AML check - FATF Grey List","List of business activity countries appearing on the FATF list of Jurisdictions under Increased Monitoring (""Grey List"")  at the time of checking (https://www.fatf-gafi.org/en/topics/high-risk-and-other-monitored-jurisdictions.html)","SELECT","Onboarding","Optional",""
+"192","PEP disclosure","Has any director, controller, owner, or close family member thereof been a politically exposed person (PEP) within the last 12 months, in accordance with the FATF definitions below?  Provide details.
+
+Foreign PEPs are individuals who are or have been entrusted with prominent
+public functions by a foreign country, for example Heads of State or of
+government, senior politicians, senior government, judicial or military officials,
+senior executives of state owned corporations, important political party officials.
+
+Domestic PEPs are individuals who are or have been entrusted domestically with
+prominent public functions, for example Heads of State or of government, senior
+politicians, senior government, judicial or military officials.  
+
+Persons who are or have been entrusted with a prominent function by an
+international organisation refers to members of senior management, i.e. directors,
+deputy directors and members of the board or equivalent functions.
+
+The definition of PEPs is not intended to cover middle ranking or more junior
+individuals in the foregoing categories.
+
+Further guidance and defintions are contained in https://www.fatf-gafi.org/en/publications/Fatfrecommendations/Fatf-recommendations.html","TEXT","Onboarding","Optional",""
+"193","High risk sectors","Is the entity active in any Designated Non-Financial Business or Profession (DNFBP) under the FATF definitions below?  If yes provide brief details in a separate response for each category.  
+
+High risk financial activities:
+Correspondent banking and similar activites: describe the nature of business activities and AML/CTF controls.
+
+Money or Value Transfer Services (MVTS): describe the nature of business activities and state what regulatory licences / registrations are held.
+
+Virtual asset services / payments (eg crypto currency): describe the nature of business activities and state what regulatory licences / registrations are held.
+
+DNFBP categories:
+(a) Casinos.  State largest transaction size.
+(b) Real estate agent (buying and selling of real estate.)
+(c) Dealers in precious metals and dealers in precious stones (engaging in any
+cash transaction with a customer.  State largest transaction size.)
+(d) Lawyers, notaries, other independent legal professionals and accountants – involving preparation for or carrying out transactions for clients concerning the following activities:
+ buying and selling of real estate;
+ managing of client money, securities or other assets;
+ management of bank, savings or securities accounts;
+ organisation of contributions for the creation, operation or management of
+companies;
+ creation, operation or management of legal persons or arrangements, and
+buying and selling of business entities.
+(e) Trust and company service providers – preparing for or carrying out transactions
+for a client concerning the following activities:
+ acting as a formation agent of legal persons;
+ acting as (or arranging for another person to act as) a director or secretary of a
+company, a partner of a partnership, or a similar position in relation to other
+legal persons;
+ providing a registered office, business address or accommodation,
+correspondence or administrative address for a company, a partnership or any
+other legal person or arrangement;
+ acting as (or arranging for another person to act as) a trustee of an express trust
+or performing the equivalent function for another form of legal arrangement;
+ acting as (or arranging for another person to act as) a nominee shareholder for
+another person.
+
+Detailed definitions may be found in https://www.fatf-gafi.org/content/dam/fatf-gafi/recommendations/FATF%20Recommendations%202012.pdf.coredownload.inline.pdf?nocache=true","TEXT","Onboarding","Optional",""
+"194","Bearer share disclosure","Confirm that bearer share certificates have been surrendered / converted, or provide details.  Leave blank where no bearer shares have existed.","TEXT","Onboarding","Optional",""
+"195","Evidence of AML","Attach evidence of AML programme","DOCUMENT_REF","Onboarding","Optional",""
+"196","Redemption cycle (funds)","Provide details of fund redemption cycle.  ","TEXT","Onboarding","Optional",""
+"197","Licence","Provide details / document demonstrating of licence to operate, if required.  ","TEXT","Onboarding","Optional",""
+"198","Home country regulator (for branch)","Provide link to register, attach document or provide details of home country regulator where applicable.  Leave blank if inapplicable. ","TEXT","Onboarding","Optional",""
+"199","Nature of intended relationship","Provide details of:
+- Purpose and nature of intended relationship
+- Initial funding amount
+- Currency / product mix
+- Anticipated transaction activity
+
+Cross-referenece to transaction termsheet or equivalent is typically sufficient.","TEXT","Onboarding","Optional",""
+"200","Financing contact email","Email address for debt and equity operational matters.  It is suggested to include at least one team email address and telephone number (team landline / team mobile) ","TEXT","Onboarding","Optional",""
+"201","Financing contact tel (incl IDD +xx)","Telephone number for debt and equity operational matters.  It is suggested to include at least one team email address and telephone number (team landline / team mobile) ","TEXT","Onboarding","Optional",""
+"202","TEST ORG ","","ORG_REF","Onboarding","Optional",""
+"203","TEST PERSON (Strutured)","","PARTY","Onboarding","Optional",""
+"204","TEST PARTY","Test description inline","PARTY","Onboarding","Optional",""
+"205","TEST ADDRESS","mapped response not displaying in question bank, and no source / update time (says ""source = master record).   ","ADDRESS","Onboarding","Optional","GLEIF:entity.legalAddress"
+"206","TEST SELECTION","When master record field is added in Master rRecord, it retails the user response ""None"" (in sidebar ""No Value Provided"") ","SELECT","Onboarding","Optional",""
+"207","TEST ADDRESS 2","","TEXT","Onboarding","Optional",""
+"208","VAT Number (incl 2 letter country code)","","TEXT","Onboarding","Optional",""
+"209","OpenCorporates ID","Entity's OpenCorporates ID https://opencorporates.com/ (licencing applies)","TEXT","Onboarding","Optional","GLEIF:ocid"
+"210","ISIN","Entity's ISIN number (https://www.isin.org/isin-database/)","TEXT","Onboarding","Optional",""
+"211","S&P CIQ","Entity's S&P Global Market Intelligence Company ID (S&P CIQ) (https://dunl.org/c/company)","TEXT","Onboarding","Optional","GLEIF:spglobal[0]"
+"212","QCC","Entity's Qichacha ID (China-based entites)","TEXT","Onboarding","Optional","GLEIF:qcc"
+"213","US resident or entity","Is legal entity being onboarded a natural person resident in the United
+States or an entity organised under the laws of the United States?  If the entity is a US branch of non-US entity, select no for this question and ""yes"" to multi-branch entity.
+
+If yes, attach a CFTC US Self-Disclosure Letter in the field below (https://www.isda.org/book/isda-us-self-disclosure-letter/).  Further details and definitions are contained in the letter.","BOOLEAN","Onboarding","Optional",""
+"214","US Person guarantees","Does the legal entity being onboarded have any U.S. Person Guarantees (CFTC 2020 Rules)?
+
+Definitions:
+
+- “U.S. Person Guarantee (CFTC 2020 Rules)” means a Guarantee (CFTC 2020 Rules) by a U.S. Person (CFTC 2020 Rules/SEC Rules).
+
+-  “Guarantee (CFTC 2020 Rules)” means an arrangement pursuant to which one party to a Swap has rights of recourse against a guarantor, with respect to its counterparty’s obligations under the Swap.  For these purposes, a party to a Swap has rights of recourse against a guarantor if the party has a conditional or unconditional legally enforceable right to receive or otherwise collect, in whole or in part, payments from the guarantor with respect to its counterparty’s obligations under the Swap.  In addition, in the case of any arrangement pursuant to which the guarantor has a conditional or unconditional legally enforceable right to receive or otherwise collect, in whole or in part, payments from any other guarantor with respect to the counterparty’s obligations under the Swap, such arrangement will be deemed a guarantee of the counterparty’s obligations under the Swap by the other guarantor.  CFTC Reg. 23.23(a)(9).
+
+“U.S. Person (CFTC 2020 Rules/SEC Rules)” means any person, that is: 
+(A)	a natural person resident in the United States; 
+(B)	a partnership, corporation, trust, investment vehicle, or other legal person organized, incorporated, or established under the laws of the United States or having its principal place of business in the United States; 
+(C)	an account (whether discretionary or non-discretionary) of a U.S. person; or 
+(D)	an estate of a decedent who was a resident of the United States at the time of death.  
+For these purposes, principal place of business means the location from which the officers, partners, or managers of the legal person primarily direct, control, and coordinate the activities of the legal person.  With respect to an externally managed investment vehicle, this location is the office from which the manager of the vehicle primarily directs, controls, and coordinates the investment activities of the vehicle.
+The term “U.S. person” does not include the International Monetary Fund, the International Bank for Reconstruction and Development, the Inter-American Development Bank, the Asian Development Bank, the African Development Bank, the United Nations, and their agencies and pension plans, and any other similar international organizations, their agencies and pension plans.  
+CFTC Reg. 23.23(a)(23) and SEC Rule 240.3a71-3(a)(4).
+
+If yes, attach an ISDA US Self-Disclosure Letter in the field below (https://www.isda.org/book/isda-us-self-disclosure-letter/).  Further details and definitions are contained in the letter.","BOOLEAN","Onboarding","Optional",""
+"215","ISDA US Self-Disclosure Letter","If the response to any question in this section is TRUE, complete and attach the full ISDA US Self-Disclosure Letter (https://www.isda.org/book/isda-us-self-disclosure-letter/).  The following declaration may be omitted.  We recommend discussing with your bank counterparty prior to completing.  Otherwise, complete the declaration below.","TEXT","Onboarding","Optional",""
+"216","US Person","Is the entity a U.S. Person (CFTC 2020 Rules/SEC Rules)?
+
+Definition:
+
+“U.S. Person (CFTC 2020 Rules/SEC Rules)” means any person, that is: 
+(A)	a natural person resident in the United States; 
+
+(B)	a partnership, corporation, trust, investment vehicle, or other legal person organized, incorporated, or established under the laws of the United States or having its principal place of business in the United States; 
+
+(C)	an account (whether discretionary or non-discretionary) of a U.S. person; or 
+
+(D)	an estate of a decedent who was a resident of the United States at the time of death.  
+For these purposes, principal place of business means the location from which the officers, partners, or managers of the legal person primarily direct, control, and coordinate the activities of the legal person.  With respect to an externally managed investment vehicle, this location is the office from which the manager of the vehicle primarily directs, controls, and coordinates the investment activities of the vehicle.
+
+The term “U.S. person” does not include the International Monetary Fund, the International Bank for Reconstruction and Development, the Inter-American Development Bank, the Asian Development Bank, the African Development Bank, the United Nations, and their agencies and pension plans, and any other similar international organizations, their agencies and pension plans.  
+CFTC Reg. 23.23(a)(23) and SEC Rule 240.3a71-3(a)(4).
+
+If yes, attach a CFTC US Self-Disclosure Letter in the field below (https://www.isda.org/book/isda-us-self-disclosure-letter/).  Further details and definitions are contained in the letter.
+","BOOLEAN","Onboarding","Optional",""
+"217","Confirmations email ","It is recommended to provide at least one team email address.","TEXT","Onboarding","Optional",""
+"218","SSI 1 Intermediary Bank SWIFT (if required for currency)","","TEXT","Onboarding","Optional",""
+"219","SSI 2 Intermediary Bank SWIFT (if required for currency)","","TEXT","Onboarding","Optional",""
+"220","SSI 3 Intermediary Bank SWIFT (if required for currency)","","TEXT","Onboarding","Optional",""
+"221","SSI 1 IBAN","","TEXT","Onboarding","Optional",""
+"222","SSI 2 IBAN","","TEXT","Onboarding","Optional",""
+"223","SSI 3 IBAN","","TEXT","Onboarding","Optional",""
+"224","EMIR classification - IR derivatives","Classification in accordance with Regulation (EU) No 648/2012 of the European Parliament and of the Council of 4 July 2012 on OTC derivatives, central counterparties and trade repositories (""EMIR"")
+
+“financial counterparty” for EMIR purposes means:
+	
+an investment firm authorised in accordance with Directive 2004/39/EC, a credit institution authorised in accordance with Directive 2006/48/EC, an insurance undertaking authorised in accordance with Directive 73/239/EEC, an assurance undertaking authorised in accordance with Directive 2002/83/EC, a reinsurance undertaking authorised in accordance with Directive 2005/68/EC, a UCITS and, where relevant, its management company, authorised in accordance with Directive 2009/65/EC, an institution for occupational retirement provision within the meaning of Article 6(a) of Directive 2003/41/EC and an alternative investment fund managed by AIFMs authorised or registered in accordance with Directive 2011/61/EU.
+
+“financial counterparty” for UK EMIR purposes means:
+
+(a) an investment firm within the meaning given in Article 2(1A) of the MIFIR which:
+(i) has its registered office or head office in the United Kingdom;
+(ii) has permission under Part 4A of the FSMA to carry on regulated activities relating to investment services and activities (as defined in Article 2(1)(2) of the MIFIR) in the United Kingdom;
+(iii) would require an authorisation given under Directive 2014/65/EU of the European Parliament and of the Council of 15 May 2014 on markets in financial instruments and amending Directive 2002/92/EC and 2011/61/EU (as it had effect immediately before IP completion day) if it had its registered office (or if it does not have a registered office, its head office) in an EEA state; and
+(iv) is not a firm which has permission under Part 4A of the FSMA to carry on regulated activities as an exempt investment firm, within the meaning given in regulation 8 of the Financial Services and Markets Act 2000 (Markets in Financial Instruments) Regulations 2017;
+
+(b) a credit institution which is a CRR firm (within the meaning given in Article 4(1)(2A) of the Capital Requirements Regulation);
+
+(c) an insurance undertaking or a reinsurance undertaking within the meaning given in section 417 of the FSMA;
+
+(d) a UK UCITS (within the meaning given in section 237(3) of the FSMA) and, where relevant, its management company (within the meaning given in section 237(2) of the FSMA) unless that UCITS is set up exclusively for the purposes of serving one or more employee share purchase plans;
+
+(e) an occupational pension scheme within the meaning given in section 1(1) of the Pension Schemes Act 1993 which is established in the United Kingdom;
+
+(f) an AIF (within the meaning given in regulation 3 of the Alternative Investment Fund Managers Regulations 2013) which is either established in the UK or managed by an AIFM (within the meaning given in regulation 4 of those Regulations) authorised or registered in accordance with those Regulations unless that AIF is set up exclusively for the purpose of serving one or more employee share purchase plans or unless that AIF is a securitisation special purpose entity as defined in Article 4.1(an) of Directive 2011/61/EU, and where relevant, its AIFM is established in the United Kingdom; or
+
+(g) a central securities depository authorised in accordance with Regulation (EU) No 909/2014 of the European Parliament and of the Council of 23 July 2014 on improving securities settlement in the European Union and on central securities depositories.
+
+‘non-financial counterparty’ means an undertaking established in the EU (EMIR) or United Kingdom (UK EMIR), other than a Financial Counterparty or a CCP
+
+Hedging: an OTC derivative contract which: 
+- hedges risks directly associated with the normal course of business (includes proxy hedging and stock options arising from employee benefits)
+- hedges risks indirectly associated with the normal course of business, or
+- qualifies as a hedging contract in accordance with International Financial Reporting Standards (IFRS)
+
+Clearing Threshold: A Non-Financial Counterparty is classified as NFC- for each product class (individually) if the gross notional value of any OTC contracts that don’t fall within the ""hedging"" definition above is below the following clearing thresholds (as at June 2026; these are under revision):
+
+Credit derivatives: €1bn gross notional value.
+Equity derivatives: €1bn gross notional value.
+Interest-rate derivatives: €3bn gross notional value.
+Currency derivatives: €3bn gross notional value.
+Commodity derivatives:  €3bn gross notional value (EMIR); €6bn gross notional value (UK EMIR).
+
+Otherwise it is classified as NFC+.
+
+A Financial Counterparty is a Smal Financial Counterparty if the gross notional value of any OTC contracts calculated at group level do not exceed any of the clearing thresholds above.  The hedging exemption does not apply.
+
+For full definitions and regulation see
+
+EMIR: 
+https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32012R0648
+
+UM EMIR: 
+https://www.legislation.gov.uk/eur/2012/648/contents
+https://www.fca.org.uk/markets/uk-emir/non-financial-counterparties
+","SELECT","Onboarding","Optional",""
+"225","EMIR classification - credit derivatives","Classification in accordance with Regulation (EU) No 648/2012 of the European Parliament and of the Council of 4 July 2012 on OTC derivatives, central counterparties and trade repositories (""EMIR"")
+
+“financial counterparty” for EMIR purposes means:
+	
+an investment firm authorised in accordance with Directive 2004/39/EC, a credit institution authorised in accordance with Directive 2006/48/EC, an insurance undertaking authorised in accordance with Directive 73/239/EEC, an assurance undertaking authorised in accordance with Directive 2002/83/EC, a reinsurance undertaking authorised in accordance with Directive 2005/68/EC, a UCITS and, where relevant, its management company, authorised in accordance with Directive 2009/65/EC, an institution for occupational retirement provision within the meaning of Article 6(a) of Directive 2003/41/EC and an alternative investment fund managed by AIFMs authorised or registered in accordance with Directive 2011/61/EU.
+
+“financial counterparty” for UK EMIR purposes means:
+
+(a) an investment firm within the meaning given in Article 2(1A) of the MIFIR which:
+(i) has its registered office or head office in the United Kingdom;
+(ii) has permission under Part 4A of the FSMA to carry on regulated activities relating to investment services and activities (as defined in Article 2(1)(2) of the MIFIR) in the United Kingdom;
+(iii) would require an authorisation given under Directive 2014/65/EU of the European Parliament and of the Council of 15 May 2014 on markets in financial instruments and amending Directive 2002/92/EC and 2011/61/EU (as it had effect immediately before IP completion day) if it had its registered office (or if it does not have a registered office, its head office) in an EEA state; and
+(iv) is not a firm which has permission under Part 4A of the FSMA to carry on regulated activities as an exempt investment firm, within the meaning given in regulation 8 of the Financial Services and Markets Act 2000 (Markets in Financial Instruments) Regulations 2017;
+
+(b) a credit institution which is a CRR firm (within the meaning given in Article 4(1)(2A) of the Capital Requirements Regulation);
+
+(c) an insurance undertaking or a reinsurance undertaking within the meaning given in section 417 of the FSMA;
+
+(d) a UK UCITS (within the meaning given in section 237(3) of the FSMA) and, where relevant, its management company (within the meaning given in section 237(2) of the FSMA) unless that UCITS is set up exclusively for the purposes of serving one or more employee share purchase plans;
+
+(e) an occupational pension scheme within the meaning given in section 1(1) of the Pension Schemes Act 1993 which is established in the United Kingdom;
+
+(f) an AIF (within the meaning given in regulation 3 of the Alternative Investment Fund Managers Regulations 2013) which is either established in the UK or managed by an AIFM (within the meaning given in regulation 4 of those Regulations) authorised or registered in accordance with those Regulations unless that AIF is set up exclusively for the purpose of serving one or more employee share purchase plans or unless that AIF is a securitisation special purpose entity as defined in Article 4.1(an) of Directive 2011/61/EU, and where relevant, its AIFM is established in the United Kingdom; or
+
+(g) a central securities depository authorised in accordance with Regulation (EU) No 909/2014 of the European Parliament and of the Council of 23 July 2014 on improving securities settlement in the European Union and on central securities depositories.
+
+‘non-financial counterparty’ means an undertaking established in the EU (EMIR) or United Kingdom (UK EMIR), other than a Financial Counterparty or a CCP
+
+Hedging: an OTC derivative contract which: 
+- hedges risks directly associated with the normal course of business (includes proxy hedging and stock options arising from employee benefits)
+- hedges risks indirectly associated with the normal course of business, or
+- qualifies as a hedging contract in accordance with International Financial Reporting Standards (IFRS)
+
+Clearing Threshold: A Non-Financial Counterparty is classified as NFC- for each product class (individually) if the gross notional value of any OTC contracts that don’t fall within the ""hedging"" definition above is below the following clearing thresholds (as at June 2026; these are under revision):
+
+Credit derivatives: €1bn gross notional value.
+Equity derivatives: €1bn gross notional value.
+Interest-rate derivatives: €3bn gross notional value.
+Currency derivatives: €3bn gross notional value.
+Commodity derivatives:  €3bn gross notional value (EMIR); €6bn gross notional value (UK EMIR).
+
+Otherwise it is classified as NFC+.
+
+A Financial Counterparty is a Smal Financial Counterparty if the gross notional value of any OTC contracts calculated at group level do not exceed any of the clearing thresholds above.  The hedging exemption does not apply.
+
+For full definitions and regulation see
+
+EMIR: 
+https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32012R0648
+
+UM EMIR: 
+https://www.legislation.gov.uk/eur/2012/648/contents
+https://www.fca.org.uk/markets/uk-emir/non-financial-counterparties
+","SELECT","Onboarding","Optional",""
+"226","EMIR region","Select the region in which the entity is established:
+UK means the United Kingdom of Great Britain & Northern Irelend (UK EMIR will apply. The entity will be a Third Country Entity for EMIR.)
+EU means the 27 EU Member States (EMIR will apply. The entity will be a Third Country Entity for UK EMIR.)
+US means the United States of America (the entity will be a Third Country Entity for both UK EMIR and EMIR)
+Other means any other country (the entity will be a Third Country Entity for both UK EMIR and EMIR)","SELECT","Onboarding","Optional",""
+"227","Other Corporate Document","As requested by relationships","DOCUMENT_REF","Onboarding","Optional",""
+"228","Address Demo","ML This is a demo of the address data type in a field","ADDRESS","Onboarding","Optional",""
+"229","Headquarters Address","Imported address structure from source payload at entity.headquartersAddress.","ADDRESS","Onboarding","Optional",""
+"230","Headquarters Address","Imported address structure from source payload at entity.headquartersAddress.","ADDRESS","Onboarding","Optional",""
+"231","Legal Address","Imported address structure from source payload at entity.legalAddress.","ADDRESS","Onboarding","Optional","REGISTRATION_AUTHORITY:siege.adresse"
+"232","Legal Address","Imported address structure from source payload at entity.legalAddress.","ADDRESS","Onboarding","Optional",""
+"233","Third Country Entity for UK EMIR?","The entity is a Third Country Entity for UK EMIR if its EMIR Region is not the UK","BOOLEAN","Onboarding","Optional",""
+"234","Third Country Entity for EMIR?","The entity is a Third Country Entity for EMIR if its EMIR Region is not the EU","BOOLEAN","Onboarding","Optional",""
+"235","Corporate Sector(s)","Select the sector(s) that most closely reflect the entity's business, ranked from most closely matched first.","SELECT","Onboarding","Optional",""
+"236","EMIR classification - ALL OTC PRODUCTS","If the entity has the same EMIR classification for all OTC products, reflect it in this field and leave all other fields blank.  Otherwise complete all individual fields and leave this field blank.
+
+Corporate entities will be NFC- unless transacting large volumes of derivatives for non-hedging purposes:
+
+Classification in accordance with Regulation (EU) No 648/2012 of the European Parliament and of the Council of 4 July 2012 on OTC derivatives, central counterparties and trade repositories (""EMIR"")
+
+“financial counterparty” for EMIR purposes means:
+	
+an investment firm authorised in accordance with Directive 2004/39/EC, a credit institution authorised in accordance with Directive 2006/48/EC, an insurance undertaking authorised in accordance with Directive 73/239/EEC, an assurance undertaking authorised in accordance with Directive 2002/83/EC, a reinsurance undertaking authorised in accordance with Directive 2005/68/EC, a UCITS and, where relevant, its management company, authorised in accordance with Directive 2009/65/EC, an institution for occupational retirement provision within the meaning of Article 6(a) of Directive 2003/41/EC and an alternative investment fund managed by AIFMs authorised or registered in accordance with Directive 2011/61/EU.
+
+“financial counterparty” for UK EMIR purposes means:
+
+(a) an investment firm within the meaning given in Article 2(1A) of the MIFIR which:
+(i) has its registered office or head office in the United Kingdom;
+(ii) has permission under Part 4A of the FSMA to carry on regulated activities relating to investment services and activities (as defined in Article 2(1)(2) of the MIFIR) in the United Kingdom;
+(iii) would require an authorisation given under Directive 2014/65/EU of the European Parliament and of the Council of 15 May 2014 on markets in financial instruments and amending Directive 2002/92/EC and 2011/61/EU (as it had effect immediately before IP completion day) if it had its registered office (or if it does not have a registered office, its head office) in an EEA state; and
+(iv) is not a firm which has permission under Part 4A of the FSMA to carry on regulated activities as an exempt investment firm, within the meaning given in regulation 8 of the Financial Services and Markets Act 2000 (Markets in Financial Instruments) Regulations 2017;
+
+(b) a credit institution which is a CRR firm (within the meaning given in Article 4(1)(2A) of the Capital Requirements Regulation);
+
+(c) an insurance undertaking or a reinsurance undertaking within the meaning given in section 417 of the FSMA;
+
+(d) a UK UCITS (within the meaning given in section 237(3) of the FSMA) and, where relevant, its management company (within the meaning given in section 237(2) of the FSMA) unless that UCITS is set up exclusively for the purposes of serving one or more employee share purchase plans;
+
+(e) an occupational pension scheme within the meaning given in section 1(1) of the Pension Schemes Act 1993 which is established in the United Kingdom;
+
+(f) an AIF (within the meaning given in regulation 3 of the Alternative Investment Fund Managers Regulations 2013) which is either established in the UK or managed by an AIFM (within the meaning given in regulation 4 of those Regulations) authorised or registered in accordance with those Regulations unless that AIF is set up exclusively for the purpose of serving one or more employee share purchase plans or unless that AIF is a securitisation special purpose entity as defined in Article 4.1(an) of Directive 2011/61/EU, and where relevant, its AIFM is established in the United Kingdom; or
+
+(g) a central securities depository authorised in accordance with Regulation (EU) No 909/2014 of the European Parliament and of the Council of 23 July 2014 on improving securities settlement in the European Union and on central securities depositories.
+
+‘non-financial counterparty’ means an undertaking established in the EU (EMIR) or United Kingdom (UK EMIR), other than a Financial Counterparty or a CCP
+
+Hedging: an OTC derivative contract which: 
+- hedges risks directly associated with the normal course of business (includes proxy hedging and stock options arising from employee benefits)
+- hedges risks indirectly associated with the normal course of business, or
+- qualifies as a hedging contract in accordance with International Financial Reporting Standards (IFRS)
+
+Clearing Threshold: A Non-Financial Counterparty is classified as NFC- for each product class (individually) if the gross notional value of any OTC contracts that don’t fall within the ""hedging"" definition above is below the following clearing thresholds (as at June 2026; these are under revision):
+
+Credit derivatives: €1bn gross notional value.
+Equity derivatives: €1bn gross notional value.
+Interest-rate derivatives: €3bn gross notional value.
+Currency derivatives: €3bn gross notional value.
+Commodity derivatives:  €3bn gross notional value (EMIR); €6bn gross notional value (UK EMIR).
+
+Otherwise it is classified as NFC+.
+
+A Financial Counterparty is a Smal Financial Counterparty if the gross notional value of any OTC contracts calculated at group level do not exceed any of the clearing thresholds above.  The hedging exemption does not apply.
+
+For full definitions and regulation see
+
+EMIR: 
+https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32012R0648
+
+UM EMIR: 
+https://www.legislation.gov.uk/eur/2012/648/contents
+https://www.fca.org.uk/markets/uk-emir/non-financial-counterparties
+","SELECT","Onboarding","Optional",""
+"237","EMIR classification - equity derivatives","Classification in accordance with Regulation (EU) No 648/2012 of the European Parliament and of the Council of 4 July 2012 on OTC derivatives, central counterparties and trade repositories (""EMIR"")
+
+“financial counterparty” for EMIR purposes means:
+	
+an investment firm authorised in accordance with Directive 2004/39/EC, a credit institution authorised in accordance with Directive 2006/48/EC, an insurance undertaking authorised in accordance with Directive 73/239/EEC, an assurance undertaking authorised in accordance with Directive 2002/83/EC, a reinsurance undertaking authorised in accordance with Directive 2005/68/EC, a UCITS and, where relevant, its management company, authorised in accordance with Directive 2009/65/EC, an institution for occupational retirement provision within the meaning of Article 6(a) of Directive 2003/41/EC and an alternative investment fund managed by AIFMs authorised or registered in accordance with Directive 2011/61/EU.
+
+“financial counterparty” for UK EMIR purposes means:
+
+(a) an investment firm within the meaning given in Article 2(1A) of the MIFIR which:
+(i) has its registered office or head office in the United Kingdom;
+(ii) has permission under Part 4A of the FSMA to carry on regulated activities relating to investment services and activities (as defined in Article 2(1)(2) of the MIFIR) in the United Kingdom;
+(iii) would require an authorisation given under Directive 2014/65/EU of the European Parliament and of the Council of 15 May 2014 on markets in financial instruments and amending Directive 2002/92/EC and 2011/61/EU (as it had effect immediately before IP completion day) if it had its registered office (or if it does not have a registered office, its head office) in an EEA state; and
+(iv) is not a firm which has permission under Part 4A of the FSMA to carry on regulated activities as an exempt investment firm, within the meaning given in regulation 8 of the Financial Services and Markets Act 2000 (Markets in Financial Instruments) Regulations 2017;
+
+(b) a credit institution which is a CRR firm (within the meaning given in Article 4(1)(2A) of the Capital Requirements Regulation);
+
+(c) an insurance undertaking or a reinsurance undertaking within the meaning given in section 417 of the FSMA;
+
+(d) a UK UCITS (within the meaning given in section 237(3) of the FSMA) and, where relevant, its management company (within the meaning given in section 237(2) of the FSMA) unless that UCITS is set up exclusively for the purposes of serving one or more employee share purchase plans;
+
+(e) an occupational pension scheme within the meaning given in section 1(1) of the Pension Schemes Act 1993 which is established in the United Kingdom;
+
+(f) an AIF (within the meaning given in regulation 3 of the Alternative Investment Fund Managers Regulations 2013) which is either established in the UK or managed by an AIFM (within the meaning given in regulation 4 of those Regulations) authorised or registered in accordance with those Regulations unless that AIF is set up exclusively for the purpose of serving one or more employee share purchase plans or unless that AIF is a securitisation special purpose entity as defined in Article 4.1(an) of Directive 2011/61/EU, and where relevant, its AIFM is established in the United Kingdom; or
+
+(g) a central securities depository authorised in accordance with Regulation (EU) No 909/2014 of the European Parliament and of the Council of 23 July 2014 on improving securities settlement in the European Union and on central securities depositories.
+
+‘non-financial counterparty’ means an undertaking established in the EU (EMIR) or United Kingdom (UK EMIR), other than a Financial Counterparty or a CCP
+
+Hedging: an OTC derivative contract which: 
+- hedges risks directly associated with the normal course of business (includes proxy hedging and stock options arising from employee benefits)
+- hedges risks indirectly associated with the normal course of business, or
+- qualifies as a hedging contract in accordance with International Financial Reporting Standards (IFRS)
+
+Clearing Threshold: A Non-Financial Counterparty is classified as NFC- for each product class (individually) if the gross notional value of any OTC contracts that don’t fall within the ""hedging"" definition above is below the following clearing thresholds (as at June 2026; these are under revision):
+
+Credit derivatives: €1bn gross notional value.
+Equity derivatives: €1bn gross notional value.
+Interest-rate derivatives: €3bn gross notional value.
+Currency derivatives: €3bn gross notional value.
+Commodity derivatives:  €3bn gross notional value (EMIR); €6bn gross notional value (UK EMIR).
+
+Otherwise it is classified as NFC+.
+
+A Financial Counterparty is a Smal Financial Counterparty if the gross notional value of any OTC contracts calculated at group level do not exceed any of the clearing thresholds above.  The hedging exemption does not apply.
+
+For full definitions and regulation see
+
+EMIR: 
+https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32012R0648
+
+UM EMIR: 
+https://www.legislation.gov.uk/eur/2012/648/contents
+https://www.fca.org.uk/markets/uk-emir/non-financial-counterparties
+","SELECT","Onboarding","Optional",""
+"238","EMIR classification - FX derivatives","Classification in accordance with Regulation (EU) No 648/2012 of the European Parliament and of the Council of 4 July 2012 on OTC derivatives, central counterparties and trade repositories (""EMIR"")
+
+“financial counterparty” for EMIR purposes means:
+	
+an investment firm authorised in accordance with Directive 2004/39/EC, a credit institution authorised in accordance with Directive 2006/48/EC, an insurance undertaking authorised in accordance with Directive 73/239/EEC, an assurance undertaking authorised in accordance with Directive 2002/83/EC, a reinsurance undertaking authorised in accordance with Directive 2005/68/EC, a UCITS and, where relevant, its management company, authorised in accordance with Directive 2009/65/EC, an institution for occupational retirement provision within the meaning of Article 6(a) of Directive 2003/41/EC and an alternative investment fund managed by AIFMs authorised or registered in accordance with Directive 2011/61/EU.
+
+“financial counterparty” for UK EMIR purposes means:
+
+(a) an investment firm within the meaning given in Article 2(1A) of the MIFIR which:
+(i) has its registered office or head office in the United Kingdom;
+(ii) has permission under Part 4A of the FSMA to carry on regulated activities relating to investment services and activities (as defined in Article 2(1)(2) of the MIFIR) in the United Kingdom;
+(iii) would require an authorisation given under Directive 2014/65/EU of the European Parliament and of the Council of 15 May 2014 on markets in financial instruments and amending Directive 2002/92/EC and 2011/61/EU (as it had effect immediately before IP completion day) if it had its registered office (or if it does not have a registered office, its head office) in an EEA state; and
+(iv) is not a firm which has permission under Part 4A of the FSMA to carry on regulated activities as an exempt investment firm, within the meaning given in regulation 8 of the Financial Services and Markets Act 2000 (Markets in Financial Instruments) Regulations 2017;
+
+(b) a credit institution which is a CRR firm (within the meaning given in Article 4(1)(2A) of the Capital Requirements Regulation);
+
+(c) an insurance undertaking or a reinsurance undertaking within the meaning given in section 417 of the FSMA;
+
+(d) a UK UCITS (within the meaning given in section 237(3) of the FSMA) and, where relevant, its management company (within the meaning given in section 237(2) of the FSMA) unless that UCITS is set up exclusively for the purposes of serving one or more employee share purchase plans;
+
+(e) an occupational pension scheme within the meaning given in section 1(1) of the Pension Schemes Act 1993 which is established in the United Kingdom;
+
+(f) an AIF (within the meaning given in regulation 3 of the Alternative Investment Fund Managers Regulations 2013) which is either established in the UK or managed by an AIFM (within the meaning given in regulation 4 of those Regulations) authorised or registered in accordance with those Regulations unless that AIF is set up exclusively for the purpose of serving one or more employee share purchase plans or unless that AIF is a securitisation special purpose entity as defined in Article 4.1(an) of Directive 2011/61/EU, and where relevant, its AIFM is established in the United Kingdom; or
+
+(g) a central securities depository authorised in accordance with Regulation (EU) No 909/2014 of the European Parliament and of the Council of 23 July 2014 on improving securities settlement in the European Union and on central securities depositories.
+
+‘non-financial counterparty’ means an undertaking established in the EU (EMIR) or United Kingdom (UK EMIR), other than a Financial Counterparty or a CCP
+
+Hedging: an OTC derivative contract which: 
+- hedges risks directly associated with the normal course of business (includes proxy hedging and stock options arising from employee benefits)
+- hedges risks indirectly associated with the normal course of business, or
+- qualifies as a hedging contract in accordance with International Financial Reporting Standards (IFRS)
+
+Clearing Threshold: A Non-Financial Counterparty is classified as NFC- for each product class (individually) if the gross notional value of any OTC contracts that don’t fall within the ""hedging"" definition above is below the following clearing thresholds (as at June 2026; these are under revision):
+
+Credit derivatives: €1bn gross notional value.
+Equity derivatives: €1bn gross notional value.
+Interest-rate derivatives: €3bn gross notional value.
+Currency derivatives: €3bn gross notional value.
+Commodity derivatives:  €3bn gross notional value (EMIR); €6bn gross notional value (UK EMIR).
+
+Otherwise it is classified as NFC+.
+
+A Financial Counterparty is a Smal Financial Counterparty if the gross notional value of any OTC contracts calculated at group level do not exceed any of the clearing thresholds above.  The hedging exemption does not apply.
+
+For full definitions and regulation see
+
+EMIR: 
+https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32012R0648
+
+UM EMIR: 
+https://www.legislation.gov.uk/eur/2012/648/contents
+https://www.fca.org.uk/markets/uk-emir/non-financial-counterparties
+","SELECT","Onboarding","Optional",""
+"239","EMIR classification - commodity & other derivatives (EMIR)","Classification in accordance with Regulation (EU) No 648/2012 of the European Parliament and of the Council of 4 July 2012 on OTC derivatives, central counterparties and trade repositories (""EMIR"")
+
+“financial counterparty” for EMIR purposes means:
+	
+an investment firm authorised in accordance with Directive 2004/39/EC, a credit institution authorised in accordance with Directive 2006/48/EC, an insurance undertaking authorised in accordance with Directive 73/239/EEC, an assurance undertaking authorised in accordance with Directive 2002/83/EC, a reinsurance undertaking authorised in accordance with Directive 2005/68/EC, a UCITS and, where relevant, its management company, authorised in accordance with Directive 2009/65/EC, an institution for occupational retirement provision within the meaning of Article 6(a) of Directive 2003/41/EC and an alternative investment fund managed by AIFMs authorised or registered in accordance with Directive 2011/61/EU.
+
+“financial counterparty” for UK EMIR purposes means:
+
+(a) an investment firm within the meaning given in Article 2(1A) of the MIFIR which:
+(i) has its registered office or head office in the United Kingdom;
+(ii) has permission under Part 4A of the FSMA to carry on regulated activities relating to investment services and activities (as defined in Article 2(1)(2) of the MIFIR) in the United Kingdom;
+(iii) would require an authorisation given under Directive 2014/65/EU of the European Parliament and of the Council of 15 May 2014 on markets in financial instruments and amending Directive 2002/92/EC and 2011/61/EU (as it had effect immediately before IP completion day) if it had its registered office (or if it does not have a registered office, its head office) in an EEA state; and
+(iv) is not a firm which has permission under Part 4A of the FSMA to carry on regulated activities as an exempt investment firm, within the meaning given in regulation 8 of the Financial Services and Markets Act 2000 (Markets in Financial Instruments) Regulations 2017;
+
+(b) a credit institution which is a CRR firm (within the meaning given in Article 4(1)(2A) of the Capital Requirements Regulation);
+
+(c) an insurance undertaking or a reinsurance undertaking within the meaning given in section 417 of the FSMA;
+
+(d) a UK UCITS (within the meaning given in section 237(3) of the FSMA) and, where relevant, its management company (within the meaning given in section 237(2) of the FSMA) unless that UCITS is set up exclusively for the purposes of serving one or more employee share purchase plans;
+
+(e) an occupational pension scheme within the meaning given in section 1(1) of the Pension Schemes Act 1993 which is established in the United Kingdom;
+
+(f) an AIF (within the meaning given in regulation 3 of the Alternative Investment Fund Managers Regulations 2013) which is either established in the UK or managed by an AIFM (within the meaning given in regulation 4 of those Regulations) authorised or registered in accordance with those Regulations unless that AIF is set up exclusively for the purpose of serving one or more employee share purchase plans or unless that AIF is a securitisation special purpose entity as defined in Article 4.1(an) of Directive 2011/61/EU, and where relevant, its AIFM is established in the United Kingdom; or
+
+(g) a central securities depository authorised in accordance with Regulation (EU) No 909/2014 of the European Parliament and of the Council of 23 July 2014 on improving securities settlement in the European Union and on central securities depositories.
+
+‘non-financial counterparty’ means an undertaking established in the EU (EMIR) or United Kingdom (UK EMIR), other than a Financial Counterparty or a CCP
+
+Hedging: an OTC derivative contract which: 
+- hedges risks directly associated with the normal course of business (includes proxy hedging and stock options arising from employee benefits)
+- hedges risks indirectly associated with the normal course of business, or
+- qualifies as a hedging contract in accordance with International Financial Reporting Standards (IFRS)
+
+Clearing Threshold: A Non-Financial Counterparty is classified as NFC- for each product class (individually) if the gross notional value of any OTC contracts that don’t fall within the ""hedging"" definition above is below the following clearing thresholds (as at June 2026; these are under revision):
+
+Credit derivatives: €1bn gross notional value.
+Equity derivatives: €1bn gross notional value.
+Interest-rate derivatives: €3bn gross notional value.
+Currency derivatives: €3bn gross notional value.
+Commodity derivatives:  €3bn gross notional value (EMIR); €6bn gross notional value (UK EMIR).
+
+Otherwise it is classified as NFC+.
+
+A Financial Counterparty is a Smal Financial Counterparty if the gross notional value of any OTC contracts calculated at group level do not exceed any of the clearing thresholds above.  The hedging exemption does not apply.
+
+For full definitions and regulation see
+
+EMIR: 
+https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32012R0648
+
+UM EMIR: 
+https://www.legislation.gov.uk/eur/2012/648/contents
+https://www.fca.org.uk/markets/uk-emir/non-financial-counterparties
+","SELECT","Onboarding","Optional",""
+"240","EMIR classification - commodity & other derivatives (UK EMIR)","Classification in accordance with Regulation (EU) No 648/2012 of the European Parliament and of the Council of 4 July 2012 on OTC derivatives, central counterparties and trade repositories (""EMIR"")
+
+“financial counterparty” for EMIR purposes means:
+	
+an investment firm authorised in accordance with Directive 2004/39/EC, a credit institution authorised in accordance with Directive 2006/48/EC, an insurance undertaking authorised in accordance with Directive 73/239/EEC, an assurance undertaking authorised in accordance with Directive 2002/83/EC, a reinsurance undertaking authorised in accordance with Directive 2005/68/EC, a UCITS and, where relevant, its management company, authorised in accordance with Directive 2009/65/EC, an institution for occupational retirement provision within the meaning of Article 6(a) of Directive 2003/41/EC and an alternative investment fund managed by AIFMs authorised or registered in accordance with Directive 2011/61/EU.
+
+“financial counterparty” for UK EMIR purposes means:
+
+(a) an investment firm within the meaning given in Article 2(1A) of the MIFIR which:
+(i) has its registered office or head office in the United Kingdom;
+(ii) has permission under Part 4A of the FSMA to carry on regulated activities relating to investment services and activities (as defined in Article 2(1)(2) of the MIFIR) in the United Kingdom;
+(iii) would require an authorisation given under Directive 2014/65/EU of the European Parliament and of the Council of 15 May 2014 on markets in financial instruments and amending Directive 2002/92/EC and 2011/61/EU (as it had effect immediately before IP completion day) if it had its registered office (or if it does not have a registered office, its head office) in an EEA state; and
+(iv) is not a firm which has permission under Part 4A of the FSMA to carry on regulated activities as an exempt investment firm, within the meaning given in regulation 8 of the Financial Services and Markets Act 2000 (Markets in Financial Instruments) Regulations 2017;
+
+(b) a credit institution which is a CRR firm (within the meaning given in Article 4(1)(2A) of the Capital Requirements Regulation);
+
+(c) an insurance undertaking or a reinsurance undertaking within the meaning given in section 417 of the FSMA;
+
+(d) a UK UCITS (within the meaning given in section 237(3) of the FSMA) and, where relevant, its management company (within the meaning given in section 237(2) of the FSMA) unless that UCITS is set up exclusively for the purposes of serving one or more employee share purchase plans;
+
+(e) an occupational pension scheme within the meaning given in section 1(1) of the Pension Schemes Act 1993 which is established in the United Kingdom;
+
+(f) an AIF (within the meaning given in regulation 3 of the Alternative Investment Fund Managers Regulations 2013) which is either established in the UK or managed by an AIFM (within the meaning given in regulation 4 of those Regulations) authorised or registered in accordance with those Regulations unless that AIF is set up exclusively for the purpose of serving one or more employee share purchase plans or unless that AIF is a securitisation special purpose entity as defined in Article 4.1(an) of Directive 2011/61/EU, and where relevant, its AIFM is established in the United Kingdom; or
+
+(g) a central securities depository authorised in accordance with Regulation (EU) No 909/2014 of the European Parliament and of the Council of 23 July 2014 on improving securities settlement in the European Union and on central securities depositories.
+
+‘non-financial counterparty’ means an undertaking established in the EU (EMIR) or United Kingdom (UK EMIR), other than a Financial Counterparty or a CCP
+
+Hedging: an OTC derivative contract which: 
+- hedges risks directly associated with the normal course of business (includes proxy hedging and stock options arising from employee benefits)
+- hedges risks indirectly associated with the normal course of business, or
+- qualifies as a hedging contract in accordance with International Financial Reporting Standards (IFRS)
+
+Clearing Threshold: A Non-Financial Counterparty is classified as NFC- for each product class (individually) if the gross notional value of any OTC contracts that don’t fall within the ""hedging"" definition above is below the following clearing thresholds (as at June 2026; these are under revision):
+
+Credit derivatives: €1bn gross notional value.
+Equity derivatives: €1bn gross notional value.
+Interest-rate derivatives: €3bn gross notional value.
+Currency derivatives: €3bn gross notional value.
+Commodity derivatives:  €3bn gross notional value (EMIR); €6bn gross notional value (UK EMIR).
+
+Otherwise it is classified as NFC+.
+
+A Financial Counterparty is a Smal Financial Counterparty if the gross notional value of any OTC contracts calculated at group level do not exceed any of the clearing thresholds above.  The hedging exemption does not apply.
+
+For full definitions and regulation see
+
+EMIR: 
+https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32012R0648
+
+UM EMIR: 
+https://www.legislation.gov.uk/eur/2012/648/contents
+https://www.fca.org.uk/markets/uk-emir/non-financial-counterparties
+","SELECT","Onboarding","Optional",""
+"241","OTC trading for commercial purposes?","Indicate whether you trade OTC derivatives (excluding FX spot transactions) for commercial purposes, ie any purposes other than arbitrage / prop trading / investment / speculation (regardless of whether you also trade for non-commercial purposes: see separate question.)","BOOLEAN","Onboarding","Optional",""
+"242","OTC trading for non-commercial purposes?","Indicate whether you trade OTC derivatives (excluding FX spot transactions) for any non-commercial purposes, eg arbitrage / prop trading / investment / speculation (regardless of whether you also trade for commercial purposes: see separate question.)","BOOLEAN","Onboarding","Optional",""
+"243","Cleared derivative trading only?","Indicate whether you will trade only cleared derivatives.  ","BOOLEAN","Onboarding","Optional",""
+"244","Portfolio reconciliation - agrement to receive from Date Sending Entity","Bank relationship entoties are Data Sending Entities under EMIR / UK EMIR.  Indicate whether you agree to receive portfolio data from them when they are acting in this capacity.","BOOLEAN","Onboarding","Optional",""
+"245","Portfolio Reconciliation Data Receiving or Sending Entity","Indicate whether you wish to be a Data Receiving Entity or Data Sending Entity for EMIR / UK EMIR portfolio reconciliation.  If you elect ","SELECT","Onboarding","Optional",""
+"246","EMIR Response Format(s)","State the format(s) used to provide EMIR Regulatory Disclosure data for EMIR.  For responses other than via the OnPro questionnaires, attach any relevant response forms via the following field.  ","SELECT","Onboarding","Optional",""
+"247","UK EMIR disclosure format(s)","State the format(s) by which you will provide UK EMIR regulatory disclosures.  OnPro questionnaires may be used exclusively, unless counterparties have specifically requrested alternatives, or (eg) you are already in posession of an alternative.
+
+For formats other than OnPro, attach any responses in the following field.","SELECT","Onboarding","Optional",""
+"248","EMIR disclosure format(s)","State the format(s) by which you will provide EMIR regulatory disclosures.  OnPro questionnaires may be used exclusively, unless counterparties have specifically requrested alternatives, or (eg) you are already in posession of an alternative.
+
+For formats other than OnPro, attach any responses in the following field.","SELECT","Onboarding","Optional",""
+"249","Regulatory disclosure document(s)","Attach regulatory disclosure documents, if required","DOCUMENT_REF","Onboarding","Optional",""
+"250","EU branch transactions (EMIR TCE only)","If the entity is a Third Country Entity for EMIR purposes -  indicate whether it will enter into OTC derivative contracts through one or more branches established in the European Union.  If the entity is not a Third Country Entity for EMIR, leave blank.","BOOLEAN","Onboarding","Optional",""
+"251","DFS Guarantees (EMIR TCE only)","XXX","BOOLEAN","Onboarding","Optional",""
+"252","TEST ADDRESS 3","","ADDRESS","Onboarding","Optional","GLEIF:entity.headquartersAddress"
+"253","Signatory - US regulatory representations","","PARTY","Onboarding","Optional",""
+"254","US regulatory disclosure format(s)","State the format(s) by which you will provide US regulatory disclosures.  OnPro questionnaires may be used exclusively, unless you are unabl eto answer ""no"" to all of the following questions (unusual for a corporate entity), counterparties have specifically requested alternatives, or (eg) you are already in posession of an alternative.
+
+For formats other than OnPro or the ISDA US Self-Disclosure Letter, attach any responses in this field.","SELECT","Onboarding","Optional",""
+"255","US multi-branch entity","Is the entity a foreign branch of a US entity (eg a US bank), or a non-US entity that has one or more US branches?  
+
+If yes, attach a CFTC US Self-Disclosure Letter in the field below (https://www.isda.org/book/isda-us-self-disclosure-letter/).  Further details and definitions are contained in the letter.","BOOLEAN","Onboarding","Optional",""
+"256","US-regulated swap entity","Is the legal entity expected to be any of the following, as defined under the Commodities Exchange Act https://www.law.cornell.edu/uscode/text/7/chapter-1:   Corporate entities are unlikely to fall under these categories:
+
+Swap Dealer (SD), Major Swap Participant (MSP); Security-based Swap Dealer (SBSD); Major Security-Based Swap Paerticipant (MSBSP).
+
+If yes, attach a CFTC US Self-Disclosure Letter in the field below (https://www.isda.org/book/isda-us-self-disclosure-letter/).  Further details and definitions are contained in the letter.","BOOLEAN","Onboarding","Optional",""
+"257","US Prudential Regulator","Does the legal Entity have a Prudential Regulator, as defined in the US Commodity Exchange Act  (https://www.law.cornell.edu/uscode/text/7/chapter-1).  This is unlikely to apply to corporate entities.
+
+If yes, attach a CFTC US Self-Disclosure Letter in the field below (https://www.isda.org/book/isda-us-self-disclosure-letter/).  Further details and definitions are contained in the letter.","BOOLEAN","Onboarding","Optional",""
+"258","Affiliate Conduit","Is the entity being onboarded an Affiliate Conduit, based on the CTFC 2013 Interpretative Guidance?  This is a legacy categorisation still used by some organisations.
+
+Affiliate Conduit is not fully defined by the guidance:  ""an affiliate conduit encompasses those entities that function as a conduit or vehicle for U.S. persons conducting swaps transactions with third-party counterparties.""... ""certain factors are relevant to considering whether a non-U.S. person is an ‘‘affiliate conduit.’’ Such factors include whether:
+(i) the non-U.S. person is a majority-owned affiliate of a U.S. person;
+(ii) the non-U.S. person is controlling, controlled by or under common control 592
+with the U.S. person;
+(iii) the financial results of the non-U.S. person are included in the consolidated
+financial statements of the U.S. person; and
+(iv) the non-U.S. person, in the regular course of business, engages in swaps with
+non-U.S. third-party(ies) for the purpose of hedging or mitigating risks faced by, or to
+take positions on behalf of, its U.S. affiliate(s), and enters into offsetting swaps or
+other arrangements with its U.S. affiliate(s) in order to transfer the risks and benefits of
+such swaps with third-party(ies) to its U.S. affiliates.
+Other facts and circumstances also may be relevant. The Commission does not intend that the term ‘‘conduit affiliate’’ would include affiliates of swap dealers.""
+
+For full Interpretative Guidance, see https://www.cftc.gov/sites/default/files/idc/groups/public/@lrfederalregister/documents/file/2013-17958a.pdf (pages 45357-9)
+
+If yes, attach a CFTC US Self-Disclosure Letter in the field below (https://www.isda.org/book/isda-us-self-disclosure-letter/).  Further details and definitions are contained in the letter.","BOOLEAN","Onboarding","Optional",""
+"259","US Ownership","Is the legal entity being onboarded owned (wholly or in part) by a natural person resident in the United States or an entity organised under the laws of the United States?
+
+Definitions:
+
+“U.S. Person (CFTC 2020 Rules/SEC Rules)” means any person, that is: 
+(A)	a natural person resident in the United States; 
+(B)	a partnership, corporation, trust, investment vehicle, or other legal person organized, incorporated, or established under the laws of the United States or having its principal place of business in the United States; 
+(C)	an account (whether discretionary or non-discretionary) of a U.S. person; or 
+(D)	an estate of a decedent who was a resident of the United States at the time of death.  
+For these purposes, principal place of business means the location from which the officers, partners, or managers of the legal person primarily direct, control, and coordinate the activities of the legal person.  With respect to an externally managed investment vehicle, this location is the office from which the manager of the vehicle primarily directs, controls, and coordinates the investment activities of the vehicle.
+The term “U.S. person” does not include the International Monetary Fund, the International Bank for Reconstruction and Development, the Inter-American Development Bank, the Asian Development Bank, the African Development Bank, the United Nations, and their agencies and pension plans, and any other similar international organizations, their agencies and pension plans.  
+CFTC Reg. 23.23(a)(23) and SEC Rule 240.3a71-3(a)(4).
+
+** This information is not usually requested.  If it is requested and the answer is yes, but the answer to all other questions in thi ssection is no, consult with the requesting entity.","BOOLEAN","Onboarding","Optional",""
+"260","Significant Risk Subsidiary","Is the entity being onboarded a Significant Risk Subsidiary under CTFC Rule 23.23 (https://www.ecfr.gov/current/title-17/chapter-I/part-23)
+
+""Significant risk subsidiary  means any non-U.S. significant subsidiary of an ultimate U.S. parent entity where the ultimate U.S. parent entity has more than $50 billion in global consolidated assets, as determined in accordance with U.S. GAAP at the end of the most recently completed fiscal year, but excluding non-U.S. subsidiaries that are:
+
+(i) Subject to consolidated supervision and regulation by the Board of Governors of the Federal Reserve System as a subsidiary of a U.S. bank holding company or an intermediate holding company; or
+
+(ii) Subject to capital standards and oversight by the subsidiary's home country supervisor that are consistent with the Basel Committee on Banking Supervision's “International Regulatory Framework for Banks” and subject to margin requirements for uncleared swaps in a jurisdiction that the Commission has found comparable pursuant to a published comparability determination with respect to uncleared swap margin requirements.""
+
+If yes, attach a CFTC US Self-Disclosure Letter (including in the field below (https://www.isda.org/book/isda-us-self-disclosure-letter/).  Further details and definitions are contained in the letter.
+","BOOLEAN","Onboarding","Optional",""
+"261","Swap Dealer Affiliate","Does the entity being onboarded have a Swap Dealer Affiliate and itself operate below the SD De Minimis Threshold, as defined in CTFC Rule 1.3(4): 
+
+Definitions: 
+
+Affiliate
+An affiliate of, or a person affiliated with a specific person, means a person that directly, or indirectly through one or more intermediaries, controls, or is controlled by, or is under common control with, the person specified.
+
+Swap dealer  
+(1) In general.  The term swap dealer means any person who:
+(i) Holds itself out as a dealer in swaps;
+(ii) Makes a market in swaps;
+(iii) Regularly enters into swaps with counterparties as an ordinary course of business for its own account; or
+(iv) Engages in any activity causing it to be commonly known in the trade as a dealer or market maker in swaps.
+(2) Exception.  The term swap dealer does not include a person that enters into swaps for such person's own account, either individually or in a fiduciary capacity, but not as a part of regular business.
+
+De Minimis threshold (abbridged definition): a person that is not currently registered as a swap dealer shall be deemed not to be a swap dealer as a result of its swap dealing activity involving counterparties, so long as the swaps connected with those dealing activities into which the person—or any other entity controlling, controlled by or under common control with the person—enters over the course of the immediately preceding 12 months have an aggregate gross notional amount of no more than $8 billion, and an aggregate gross notional amount of no more than $25 million with regard to swaps in which the counterparty is a “special entity”
+
+For full definition incl exemptions see https://www.ecfr.gov/current/title-17/chapter-I/part-1/subject-group-ECFR893b3e8e94c8047/section-1.3
+
+If yes, attach a CFTC US Self-Disclosure Letter in the field below (https://www.isda.org/book/isda-us-self-disclosure-letter/).  Further details and definitions are contained in the letter.","BOOLEAN","Onboarding","Optional",""
+"262","Financial End User (CFTC Margin Rules)","(respond only if requested) Is the entity being onboarded a Financial End User under the CFTC Margin Rules?
+
+Citation17 CFR 23.151 “Financial end user” 
+
+(1) A counterparty that is not a swap entity and that is:
+
+(i) A bank holding company or a margin affiliate thereof; a savings and loan holding company; a U.S. intermediate holding company established or designated for purposes of compliance with 12 CFR 252.153; or a nonbank financial institution supervised by the Board of Governors of the Federal Reserve System under Title I of the Dodd-Frank Wall Street Reform and Consumer Protection Act (12 U.S.C. 5323);
+
+(ii) A depository institution; a foreign bank; a Federal credit union or State credit union as defined in section 2 of the Federal Credit Union Act (12 U.S.C. 1752(1) and (6)); an institution that functions solely in a trust or fiduciary capacity as described in section 2(c)(2)(D) of the Bank Holding Company Act (12 U.S.C. 1841(c)(2)(D)); an industrial loan company, an industrial bank, or other similar institution described in section 2(c)(2)(H) of the Bank Holding Company Act (12 U.S.C. 1841(c)(2)(H));
+
+(iii) An entity that is state-licensed or registered as:
+(A) A credit or lending entity, including a finance company; money lender; installment lender; consumer lender or lending company; mortgage lender, broker, or bank; motor vehicle title pledge lender; payday or deferred deposit lender; premium finance company; commercial finance or lending company; or commercial mortgage company; except entities registered or licensed solely on account of financing the entity's direct sales of goods or services to customers;
+(B) A money services business, including a check casher; money transmitter; currency dealer or exchange; or money order or traveler's check issuer;
+
+(iv) A regulated entity as defined in section 1303(20) of the Federal Housing Enterprises Financial Safety and Soundness Act of 1992 (12 U.S.C. 4502(20)) or any entity for which the Federal Housing Finance Agency or its successor is the primary federal regulator;
+
+(v) Any institution chartered in accordance with the Farm Credit Act of 1971, as amended, 12 U.S.C. 2001 et seq. that is regulated by the Farm Credit Administration;
+
+(vi) A securities holding company; a broker or dealer; an investment adviser as defined in section 202(a) of the Investment Advisers Act of 1940 (15 U.S.C. 80b-2(a)); an investment company registered with the Securities and Exchange Commission under the Investment Company Act of 1940 (15 U.S.C. 80a-1 et seq.), a company that has elected to be regulated as a business development company pursuant to section 54(a) of the Investment Company Act of 1940 (15 U.S.C. 80a-53(a)), or a person that is registered with the U.S. Securities and Exchange Commission as a security-based swap dealer or a major security-based swap participant pursuant to the Securities Exchange Act of 1934 (15 U.S.C. 78a et seq.).
+
+(vii) A private fund as defined in section 202(a) of the Investment Advisers Act of 1940 (15 U.S.C. 80-b-2(a)); an entity that would be an investment company under section 3 of the Investment Company Act of 1940 (15 U.S.C. 80a-3) but for section 3(c)(5)(C); or an entity that is deemed not to be an investment company under section 3 of the Investment Company Act of 1940 pursuant to Investment Company Act Rule 3a-7 (§ 270.3a-7 of this title) of the Securities and Exchange Commission;
+
+(viii) A commodity pool, a commodity pool operator, a commodity trading advisor, a floor broker, a floor trader, an introducing broker or a futures commission merchant;
+
+(ix) An employee benefit plan as defined in paragraphs (3) and (32) of section 3 of the Employee Retirement Income and Security Act of 1974 (29 U.S.C. 1002);
+
+(x) An entity that is organized as an insurance company, primarily engaged in writing insurance or reinsuring risks underwritten by insurance companies, or is subject to supervision as such by a State insurance regulator or foreign insurance regulator;
+
+(xi) An entity, person, or arrangement that is, or holds itself out as being, an entity, person, or arrangement that raises money from investors, accepts money from clients, or uses its own money primarily for investing or trading or facilitating the investing or trading in loans, securities, swaps, funds, or other assets; or
+
+(xii) An entity that would be a financial end user described in paragraph (1) of this definition or a swap entity if it were organized under the laws of the United States or any State thereof.
+
+(2) The term “financial end user” does not include any counterparty that is:
+
+(i) A sovereign entity;
+
+(ii) A multilateral development bank;
+
+(iii) The Bank for International Settlements and the European Stability Mechanism;
+
+(iv) An entity that is exempt from the definition of financial entity pursuant to section 2(h)(7)(C)(iii) of the Act and implementing regulations;
+
+(v) An affiliate that qualifies for the exemption from clearing pursuant to section 2(h)(7)(D) of the Act; or
+
+(vi) An eligible treasury affiliate that the Commission exempts from the requirements of §§ 23.150 through 23.161 by rule.
+
+Full definitions at (https://www.ecfr.gov/current/title-17/part-23/section-23.151#p-23.151(Financial%20end%20user)
+
+If yes, attach a CFTC US Self-Disclosure Letter in the field below (https://www.isda.org/book/isda-us-self-disclosure-letter/).  Further details and definitions are contained in the letter.
+","BOOLEAN","Onboarding","Optional",""
+"263","Financial End User (PR Margin Rules)","(Respond only if requested) Is the entity being onboarded a Financial End User under the PR Margin Rules (https://www.ecfr.gov/current/title-12/part-237#p-237.2(Financial%20end%20user)?
+
+Financial end user means:
+
+(1) Any counterparty that is not a swap entity and that is:
+
+(i) A bank holding company or an affiliate thereof; a savings and loan holding company; a U.S. intermediate holding company established or designated for purposes of compliance with 12 CFR 252.153; or a nonbank financial institution supervised by the Board of Governors of the Federal Reserve System under Title I of the Dodd-Frank Wall Street Reform and Consumer Protection Act (12 U.S.C. 5323);
+
+(ii) A depository institution; a foreign bank; a Federal credit union or State credit union as defined in section 2 of the Federal Credit Union Act (12 U.S.C. 1752(1) & (6)); an institution that functions solely in a trust or fiduciary capacity as described in section 2(c)(2)(D) of the Bank Holding Company Act (12 U.S.C. 1841(c)(2)(D)); an industrial loan company, an industrial bank, or other similar institution described in section 2(c)(2)(H) of the Bank Holding Company Act (12 U.S.C. 1841(c)(2)(H));
+
+(iii) An entity that is state-licensed or registered as:
+
+(A) A credit or lending entity, including a finance company; money lender; installment lender; consumer lender or lending company; mortgage lender, broker, or bank; motor vehicle title pledge lender; payday or deferred deposit lender; premium finance company; commercial finance or lending company; or commercial mortgage company; except entities registered or licensed solely on account of financing the entity's direct sales of goods or services to customers;
+
+(B) A money services business, including a check casher; money transmitter; currency dealer or exchange; or money order or traveler's check issuer;
+
+(iv) A regulated entity as defined in section 1303(20) of the Federal Housing Enterprises Financial Safety and Soundness Act of 1992, as amended (12 U.S.C. 4502(20)) or any entity for which the Federal Housing Finance Agency or its successor is the primary federal regulator;
+
+(v) Any institution chartered in accordance with the Farm Credit Act of 1971, as amended, 12 U.S.C. 2001 et seq., that is regulated by the Farm Credit Administration;
+
+(vi) A securities holding company; a broker or dealer; an investment adviser as defined in section 202(a) of the Investment Advisers Act of 1940 (15 U.S.C. 80b-2(a)); an investment company registered with the U.S. Securities and Exchange Commission under the Investment Company Act of 1940 (15 U.S.C. 80a-1 et seq.); or a company that has elected to be regulated as a business development company pursuant to section 54(a) of the Investment Company Act of 1940 (15 U.S.C. 80a-53(a));
+
+(vii) A private fund as defined in section 202(a) of the Investment Advisers Act of 1940 (15 U.S.C. 80-b-2(a)); an entity that would be an investment company under section 3 of the Investment Company Act of 1940 (15 U.S.C. 80a-3) but for section 3(c)(5)(C); or an entity that is deemed not to be an investment company under section 3 of the Investment Company Act of 1940 pursuant to Investment Company Act Rule 3a-7 (17 CFR 270.3a-7) of the U.S. Securities and Exchange Commission;
+
+(viii) A commodity pool, a commodity pool operator, or a commodity trading advisor as defined, respectively, in section 1a(10), 1a(11), and 1a(12) of the Commodity Exchange Act of 1936 (7 U.S.C. 1a(10), 1a(11), and 1a(12)); a floor broker, a floor trader, or introducing broker as defined, respectively, in 1a(22), 1a(23) and 1a(31) of the Commodity Exchange Act of 1936 (7 U.S.C. 1a(22), 1a(23), and 1a(31)); or a futures commission merchant as defined in 1a(28) of the Commodity Exchange Act of 1936 (7 U.S.C. 1a(28));
+
+(ix) An employee benefit plan as defined in paragraphs (3) and (32) of section 3 of the Employee Retirement Income and Security Act of 1974 (29 U.S.C. 1002);
+
+(x) An entity that is organized as an insurance company, primarily engaged in writing insurance or reinsuring risks underwritten by insurance companies, or is subject to supervision as such by a State insurance regulator or foreign insurance regulator;
+
+(xi) An entity, person or arrangement that is, or holds itself out as being, an entity, person, or arrangement that raises money from investors, accepts money from clients, or uses its own money primarily for the purpose of investing or trading or facilitating the investing or trading in loans, securities, swaps, funds or other assets for resale or other disposition or otherwise trading in loans, securities, swaps, funds or other assets; or
+
+(xii) An entity that would be a financial end user described in paragraph (1) of this definition or a swap entity, if it were organized under the laws of the United States or any State thereof.
+
+(2) The term “financial end user” does not include any counterparty that is:
+
+(i) A sovereign entity;
+
+(ii) A multilateral development bank;
+
+(iii) The Bank for International Settlements;
+
+(iv) An entity that is exempt from the definition of financial entity pursuant to section 2(h)(7)(C)(iii) of the Commodity Exchange Act of 1936 (7 U.S.C. 2(h)(7)(C)(iii)) and implementing regulations; or
+
+(v) An affiliate that qualifies for the exemption from clearing pursuant to section 2(h)(7)(D) of the Commodity Exchange Act of 1936 (7 U.S.C. 2(h)(7)(D)) or section 3C(g)(4) of the Securities Exchange Act of 1934 (15 U.S.C. 78c-3(g)(4)) and implementing regulations.
+
+Full / related definitions at https://www.ecfr.gov/current/title-12/part-237#p-237.2(Financial%20end%20user)
+
+If yes, attach a CFTC US Self-Disclosure Letter in the field below (https://www.isda.org/book/isda-us-self-disclosure-letter/).  Further details and definitions are contained in the letter.
+","BOOLEAN","Onboarding","Optional",""
+"264","CTFC Hedging Exemption elections","Has the entity being onboarded made any CTFC elections for hedging exemption (likely to apply to Financial End Users only)?
+
+If yes, attach a CFTC US Self-Disclosure Letter in the field below (https://www.isda.org/book/isda-us-self-disclosure-letter/).  Further details and definitions are contained in the letter.","BOOLEAN","Onboarding","Optional",""
+"265","TEST TEXT","Using description for admin notes on mapped fields","TEXT","Onboarding","Optional",""
+"266","TEST BOOLEAN","[ML070726 fixed, plse retest] allows you to select multiple values (but correctly doesnt record teh response - should not be allowed)","BOOLEAN","Onboarding","Optional",""
+"267","TEST DATETIME","[ML070726, fixed plse retest.]  Says ""no response recorded"" after input.  
+Allows you to select multiple values (but correctly doesnt record teh response - should not be allowed)
+Reformat ""DD MMM YYYY""","DATETIME","Onboarding","Optional",""
+"268","TEST JSONB IND CLASS","","JSONB","Onboarding","Optional",""
+"269","TEST DOCREF","Shows as ""No response recorded"" in master record after docs are attached, unless text is entered (shows text): essentially this data type is identical to the text field and can be depreciated.
+
+Allows multiple attachments regardless of whether multiple values is selected.
+
+","DOCUMENT_REF","Onboarding","Optional",""
+"270","TEST PERSON","","PARTY","Onboarding","Optional",""
+"271","test selection 2","","SELECT","Onboarding","Optional",""

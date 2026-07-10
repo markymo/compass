@@ -82,19 +82,8 @@ function exportValue(val: ResolvedFieldValue): string {
                 }
             }
 
-            // Fallback to summary, but apply the intentional bugfix for Organisation names
-            let summary = val.kind === 'party' ? val.summary : getPartySummary(data);
-            if (summary === 'Unnamed Individual' || summary === 'Unnamed Organisation') {
-                const rawData = data as any;
-                const name = data.organisationName || rawData.companyName || rawData.name || data.displayName;
-                if (name) {
-                    const rolesList = data.roles || [];
-                    const activeRole = rolesList.find((r: any) => r.isActiveRole !== false);
-                    const roleLabel = activeRole?.roleTitle ?? (rolesList.length > 0 ? rolesList[0].roleTitle : null);
-                    summary = roleLabel ? `${name} (${roleLabel})` : name;
-                }
-            }
-            return summary;
+            // Fallback to summary (now natively handles Organisation names and displayMasks)
+            return val.summary;
         }
 
         return val.summary; // Fallback for unresolved ref

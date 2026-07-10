@@ -4,6 +4,7 @@ import React from "react";
 import {
     isPersonOrContactValue,
     getPersonOrContactSummary,
+    isFieldPermittedByMask,
     type PersonOrContactValue,
     type PersonOrContactRole,
 } from "@/lib/master-data/person-or-contact-value";
@@ -63,23 +64,22 @@ function formatPartialDob(
 ): string | null {
     if (!dob) return null;
     const parts: string[] = [];
-    const hasMask = Array.isArray(displayMask) && displayMask.length > 0;
     
-    if (dob.day && (!hasMask || displayMask.includes('dateOfBirth.day'))) parts.push(String(dob.day));
+    if (dob.day && isFieldPermittedByMask('dateOfBirth.day', displayMask)) parts.push(String(dob.day));
     
-    if (dob.month && (!hasMask || displayMask.includes('dateOfBirth.month'))) {
+    if (dob.month && isFieldPermittedByMask('dateOfBirth.month', displayMask)) {
         const date = new Date(2000, dob.month - 1, 1);
         const monthName = date.toLocaleString('default', { month: 'long' });
         parts.push(monthName);
     }
     
-    if (dob.year && (!hasMask || displayMask.includes('dateOfBirth.year'))) parts.push(String(dob.year));
+    if (dob.year && isFieldPermittedByMask('dateOfBirth.year', displayMask)) parts.push(String(dob.year));
     
     return parts.length > 0 ? parts.join(' ') : null;
 }
 
-function RoleRow({ role, displayMask }: { role: PersonOrContactRole, displayMask?: string[] }) {
-    const showRoleField = (key: string) => !displayMask || displayMask.some(p => p === `roles[0].${key}` || p === 'roles');
+function RoleRow({ role, displayMask, index = 0 }: { role: PersonOrContactRole, displayMask?: string[], index?: number }) {
+    const showRoleField = (key: string) => isFieldPermittedByMask(`roles[${index}].${key}`, displayMask);
 
     const dateRange = [
         showRoleField('appointedOn') && role.appointedOn ? `Appointed ${role.appointedOn}` : null,
@@ -136,20 +136,23 @@ export function PersonOrContactValueViewer({ value, layout = "compact", displayM
     }
 
     const dob = formatPartialDob(poc.dateOfBirth, displayMask);
-    const showField = (key: string) => !displayMask || displayMask.some(p => p === key || p.startsWith(key + '.') || p.startsWith(key + '['));
+    const showField = (key: string) => isFieldPermittedByMask(key, displayMask);
 
-    if (layout === "row") {
-        // Primary text
+    // Primary Text Resolution Logic (used for both row and detailed views)
+    let primaryText = "";
+    if (showField('displayName') && poc.displayName) {
+        primaryText = poc.displayName;
+    } else if (showField('organisationName') && poc.organisationName) {
+        primaryText = poc.organisationName;
+    } else {
         const titleParts = [];
+        if (showField('title') && poc.title) titleParts.push(poc.title);
         if (showField('forenames') && poc.forenames) titleParts.push(poc.forenames);
         if (showField('surname') && poc.surname) titleParts.push(poc.surname);
-        const titleString = titleParts.join(' ');
-        
-        let primaryText = "";
-        if (titleString) primaryText = titleString;
-        else if (showField('title') && poc.title) primaryText = poc.title;
-        else primaryText = poc.contactType || "Unknown";
+        primaryText = titleParts.join(' ');
+    }
 
+    if (layout === "row") {
         // Secondary text pieces
         const secondaryParts = [];
         if (showField('roles') && poc.roles?.length > 0) {
@@ -206,23 +209,13 @@ export function PersonOrContactValueViewer({ value, layout = "compact", displayM
                         {poc.contactType}
                     </span>
                     {(() => {
-                        const titleParts = [];
-                        if (showField('forenames') && poc.forenames) titleParts.push(poc.forenames);
-                        if (showField('surname') && poc.surname) titleParts.push(poc.surname);
-                        const titleString = titleParts.join(' ');
-                        
-                        if (!titleString && !poc.title) {
+                        if (!primaryText) {
                             return <span className="text-base font-semibold text-slate-400 italic">No displayable name</span>;
                         }
                         return (
-                            <>
-                                <span className="text-base font-semibold text-slate-900">
-                                    {titleString}
-                                </span>
-                                {poc.title && showField('title') && (
-                                    <span className="ml-2 text-xs text-slate-500">{poc.title}</span>
-                                )}
-                            </>
+                            <span className="text-base font-semibold text-slate-900">
+                                {primaryText}
+                            </span>
                         );
                     })()}
                 </div>
@@ -276,7 +269,7 @@ export function PersonOrContactValueViewer({ value, layout = "compact", displayM
                     </span>
                     <div className="divide-y divide-slate-100">
                         {poc.roles.map((role, i) => (
-                            <RoleRow key={i} role={role} displayMask={displayMask} />
+                            <RoleRow key={i} role={role} displayMask={displayMask} index={i} />
                         ))}
                     </div>
                 </div>

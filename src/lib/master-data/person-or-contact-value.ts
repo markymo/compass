@@ -13,7 +13,8 @@ import {
     isPartyValue,
     getPartySummary,
     isValidPartyValue,
-    isRenderableActiveDirectorParty
+    isRenderableActiveDirectorParty,
+    isFieldPermittedByMask
 } from './party-value';
 
 export type PersonOrContactValue = PartyValue;
@@ -23,5 +24,5 @@ export type PersonOrContactIdentifier = PartyIdentifier;
 
 export const isPersonOrContactValue = isPartyValue;
 export const getPersonOrContactSummary = getPartySummary;
-export { isValidPartyValue, isRenderableActiveDirectorParty };
+export { isValidPartyValue, isRenderableActiveDirectorParty, isFieldPermittedByMask };
 
