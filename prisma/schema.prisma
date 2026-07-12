@@ -270,28 +270,36 @@ model EngagementActivity {
 }
 
 model Document {
-  id                     String         @id @default(uuid())
-  clientLEId             String
-  name                   String
-  fileUrl                String
-  fileType               String
-  kbSize                 Int?
-  docType                String?
-  metadata               Json?
-  isVerified             Boolean        @default(false)
-  isDeleted              Boolean        @default(false)
-  createdAt              DateTime       @default(now())
-  updatedAt              DateTime       @updatedAt
-  masterFieldKey         String?
-  prefilledForQuestionId String?
-  questionId             String?
-  uploadedById           String?
-  clientLE               ClientLE       @relation(fields: [clientLEId], references: [id], onDelete: Cascade)
-  prefilledForQuestion   Question?      @relation("PrefilledQuestionDocuments", fields: [prefilledForQuestionId], references: [id])
-  question               Question?      @relation("QuestionDocuments", fields: [questionId], references: [id])
-  uploadedBy             User?          @relation("UploadedDocuments", fields: [uploadedById], references: [id])
-  sharedWith             FIEngagement[] @relation("SharedDocuments")
-  fieldClaimsAsAttachment FieldClaim[]  @relation("FieldClaimAttachmentDocument")
+  id         String   @id @default(uuid())
+  clientLEId String
+  name       String
+  fileUrl    String
+  fileType   String
+  kbSize     Int?
+  docType    String?
+  metadata   Json?
+  isVerified Boolean  @default(false)
+  isDeleted  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Phase 3: Immutable Binary Identity & Private Storage
+  storageProvider        String?
+  storagePathname        String?        @unique
+  sizeBytes              BigInt?
+  mimeType               String?
+  checksum               String?
+
+  masterFieldKey          String?
+  prefilledForQuestionId  String?
+  questionId              String?
+  uploadedById            String?
+  clientLE                ClientLE       @relation(fields: [clientLEId], references: [id], onDelete: Cascade)
+  prefilledForQuestion    Question?      @relation("PrefilledQuestionDocuments", fields: [prefilledForQuestionId], references: [id])
+  question                Question?      @relation("QuestionDocuments", fields: [questionId], references: [id])
+  uploadedBy              User?          @relation("UploadedDocuments", fields: [uploadedById], references: [id])
+  sharedWith              FIEngagement[] @relation("SharedDocuments")
+  fieldClaimsAsAttachment FieldClaim[]   @relation("FieldClaimAttachmentDocument")
 }
 
 model Query {
@@ -669,53 +677,53 @@ enum ClaimRole {
 }
 
 model FieldClaim {
-  id               String            @id @default(uuid())
-  fieldNo          Int
-  subjectLeId      String?
-  subjectPersonId  String?
-  subjectOrgId     String?
-  collectionId     String?
-  instanceId       String?
-  valueText        String?
-  valueNumber      Decimal?
-  valueDate        DateTime?
-  valueJson        Json?
-  valuePersonId    String?
-  valueLeId        String?
-  valueOrgId       String?
-  valueDocId       String?
+  id                   String            @id @default(uuid())
+  fieldNo              Int
+  subjectLeId          String?
+  subjectPersonId      String?
+  subjectOrgId         String?
+  collectionId         String?
+  instanceId           String?
+  valueText            String?
+  valueNumber          Decimal?
+  valueDate            DateTime?
+  valueJson            Json?
+  valuePersonId        String?
+  valueLeId            String?
+  valueOrgId           String?
+  valueDocId           String?
   attachmentDocumentId String?
-  claimRole        ClaimRole         @default(VALUE)
-  status           ClaimStatus       @default(ASSERTED)
-  ownerScopeId     String?
-  clientLeScopeId  String?
-  sourceType       SourceType
-  sourceReference  String?
-  evidenceId       String?
-  assertedAt       DateTime          @default(now())
-  supersedesId     String?
-  effectiveFrom    DateTime?
-  effectiveTo      DateTime?
-  confidenceScore  Float?
-  verifiedByUserId String?
-  verifiedAt       DateTime?
-  subjectAddressId String?
-  valueAddressId   String?
-  attachmentDocument Document?       @relation("FieldClaimAttachmentDocument", fields: [attachmentDocumentId], references: [id], onDelete: Restrict)
-  evidence         EvidenceStore?    @relation(fields: [evidenceId], references: [id])
-  ownerScope       Organization?     @relation("OrganizationOwnerScope", fields: [ownerScopeId], references: [id])
-  subjectAddress   Address?          @relation("AddressSubject", fields: [subjectAddressId], references: [id])
-  subjectLe        LegalEntity?      @relation("LegalEntitySubject", fields: [subjectLeId], references: [id])
-  subjectOrg       Organization?     @relation("OrganizationSubject", fields: [subjectOrgId], references: [id])
-  subjectPerson    Person?           @relation("PersonSubject", fields: [subjectPersonId], references: [id])
-  supersedes       FieldClaim?       @relation("Lineage", fields: [supersedesId], references: [id])
-  supersededBy     FieldClaim[]      @relation("Lineage")
-  valueAddress     Address?          @relation("AddressValue", fields: [valueAddressId], references: [id])
-  valueDoc         DocumentRegistry? @relation(fields: [valueDocId], references: [id])
-  valueLe          LegalEntity?      @relation("LegalEntityValue", fields: [valueLeId], references: [id])
-  valueOrg         Organization?     @relation("OrganizationValue", fields: [valueOrgId], references: [id])
-  valuePerson      Person?           @relation("PersonValue", fields: [valuePersonId], references: [id])
-  verifiedBy       User?             @relation(fields: [verifiedByUserId], references: [id])
+  claimRole            ClaimRole         @default(VALUE)
+  status               ClaimStatus       @default(ASSERTED)
+  ownerScopeId         String?
+  clientLeScopeId      String?
+  sourceType           SourceType
+  sourceReference      String?
+  evidenceId           String?
+  assertedAt           DateTime          @default(now())
+  supersedesId         String?
+  effectiveFrom        DateTime?
+  effectiveTo          DateTime?
+  confidenceScore      Float?
+  verifiedByUserId     String?
+  verifiedAt           DateTime?
+  subjectAddressId     String?
+  valueAddressId       String?
+  attachmentDocument   Document?         @relation("FieldClaimAttachmentDocument", fields: [attachmentDocumentId], references: [id], onDelete: Restrict)
+  evidence             EvidenceStore?    @relation(fields: [evidenceId], references: [id])
+  ownerScope           Organization?     @relation("OrganizationOwnerScope", fields: [ownerScopeId], references: [id])
+  subjectAddress       Address?          @relation("AddressSubject", fields: [subjectAddressId], references: [id])
+  subjectLe            LegalEntity?      @relation("LegalEntitySubject", fields: [subjectLeId], references: [id])
+  subjectOrg           Organization?     @relation("OrganizationSubject", fields: [subjectOrgId], references: [id])
+  subjectPerson        Person?           @relation("PersonSubject", fields: [subjectPersonId], references: [id])
+  supersedes           FieldClaim?       @relation("Lineage", fields: [supersedesId], references: [id])
+  supersededBy         FieldClaim[]      @relation("Lineage")
+  valueAddress         Address?          @relation("AddressValue", fields: [valueAddressId], references: [id])
+  valueDoc             DocumentRegistry? @relation(fields: [valueDocId], references: [id])
+  valueLe              LegalEntity?      @relation("LegalEntityValue", fields: [valueLeId], references: [id])
+  valueOrg             Organization?     @relation("OrganizationValue", fields: [valueOrgId], references: [id])
+  valuePerson          Person?           @relation("PersonValue", fields: [valuePersonId], references: [id])
+  verifiedBy           User?             @relation(fields: [verifiedByUserId], references: [id])
 
   @@index([subjectLeId, fieldNo])
   @@index([clientLeScopeId])
