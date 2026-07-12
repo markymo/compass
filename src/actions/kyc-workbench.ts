@@ -59,6 +59,7 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
             prisma.fieldClaim.findMany({
                 where: {
                     subjectLeId,
+                    claimRole: 'VALUE',
                     status: { in: ['VERIFIED', 'ASSERTED'] },
                     OR: [{ ownerScopeId: ownerScopeId || null }, { ownerScopeId: null }]
                 },

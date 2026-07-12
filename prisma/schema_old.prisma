@@ -662,11 +662,6 @@ model Person {
   @@map("persons")
 }
 
-enum ClaimRole {
-  VALUE
-  FILE_ATTACHMENT
-}
-
 model FieldClaim {
   id               String            @id @default(uuid())
   fieldNo          Int
@@ -683,7 +678,6 @@ model FieldClaim {
   valueLeId        String?
   valueOrgId       String?
   valueDocId       String?
-  claimRole        ClaimRole         @default(VALUE)
   status           ClaimStatus       @default(ASSERTED)
   ownerScopeId     String?
   clientLeScopeId  String?
@@ -722,7 +716,7 @@ model FieldClaim {
   @@index([ownerScopeId])
   @@index([fieldNo])
   @@index([supersedesId])
-  @@index([subjectLeId, ownerScopeId, fieldNo, collectionId, claimRole])
+  @@index([subjectLeId, ownerScopeId, fieldNo, collectionId])
   @@index([collectionId, instanceId])
   @@map("field_claims")
 }

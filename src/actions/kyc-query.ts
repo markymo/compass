@@ -1171,7 +1171,7 @@ export async function getFieldDetail(
     let isUserCurated: boolean | undefined;
     if (def?.isMultiValue && subjectLeId) {
         const userAction = await prisma.fieldClaim.findFirst({
-            where: { subjectLeId, fieldNo, sourceType: 'USER_INPUT' },
+            where: { subjectLeId, fieldNo, sourceType: 'USER_INPUT', claimRole: 'VALUE' },
             select: { id: true }
         });
         isUserCurated = !!userAction;
@@ -1182,6 +1182,7 @@ export async function getFieldDetail(
     const claims = await prisma.fieldClaim.findMany({
         where: {
             fieldNo,
+            claimRole: 'VALUE',
             subjectLeId: subjectLeId,
             OR: [
                 { ownerScopeId: null },

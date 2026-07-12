@@ -36,6 +36,7 @@ export default async function KnowledgeGraphPage({ params }: GraphPageProps) {
     const allSubjectLeIds = [le.legalEntityId, ...relatedLeIds].filter(Boolean) as string[];
     const claims = await prisma.fieldClaim.findMany({
         where: {
+            claimRole: 'VALUE',
             valueAddressId: { not: null },
             OR: [
                 { subjectLeId: { in: allSubjectLeIds } },

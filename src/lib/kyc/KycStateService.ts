@@ -161,6 +161,7 @@ export class KycStateService {
             include: { evidence: true, valueAddress: true, valuePerson: true, valueLe: true, valueOrg: true },
             where: {
                 fieldNo,
+                claimRole: 'VALUE',
                 ...subjectFilter,
                 status: { in: [ClaimStatus.VERIFIED, ClaimStatus.ASSERTED] },
                 assertedAt: snapshotDate ? { lte: snapshotDate } : undefined,
@@ -215,6 +216,7 @@ export class KycStateService {
             include: { evidence: true, valueAddress: true, valuePerson: true, valueLe: true, valueOrg: true },
             where: {
                 fieldNo,
+                claimRole: 'VALUE',
                 ...subjectFilter,
                 status: { in: [ClaimStatus.VERIFIED, ClaimStatus.ASSERTED] },
                 OR: [
@@ -283,6 +285,7 @@ export class KycStateService {
             include: { evidence: true, valueAddress: true, valuePerson: true, valueLe: true, valueOrg: true },
             where: {
                 fieldNo,
+                claimRole: 'VALUE',
                 ...subjectFilter,
                 // When a named collection is specified, exclude legacy NULL-collectionId claims.
                 collectionId: filterCollectionId ?? undefined,
@@ -401,6 +404,7 @@ export class KycStateService {
             include: { evidence: true, valueAddress: true, valuePerson: true, valueLe: true, valueOrg: true },
             where: {
                 fieldNo: { in: Array.from(fieldNos) },
+                claimRole: 'VALUE',
                 ...subjectFilter,
                 status: { in: [ClaimStatus.VERIFIED, ClaimStatus.ASSERTED] },
                 OR: [

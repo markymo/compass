@@ -58,7 +58,7 @@ export async function getCCParties(clientLEId: string) {
 
         if (claimIds.length > 0) {
             const claims = await prisma.fieldClaim.findMany({
-                where: { id: { in: claimIds } },
+                where: { id: { in: claimIds }, claimRole: 'VALUE' },
                 select: { id: true, fieldNo: true, sourceType: true }
             });
 
@@ -205,7 +205,7 @@ export async function getCCPartyUsage(clientLEId: string) {
 
     try {
         const claims = await prisma.fieldClaim.findMany({
-            where: { valueJson: { not: Prisma.AnyNull } },
+            where: { valueJson: { not: Prisma.AnyNull }, claimRole: 'VALUE' },
             select: { fieldNo: true, valueJson: true }
         });
 
@@ -303,7 +303,7 @@ export async function deleteCCParty(id: string, clientLEId: string) {
 
     try {
         const claims = await prisma.fieldClaim.findMany({
-            where: { valueJson: { not: Prisma.AnyNull } },
+            where: { valueJson: { not: Prisma.AnyNull }, claimRole: 'VALUE' },
             select: { valueJson: true }
         });
 
@@ -345,6 +345,10 @@ export async function promoteClaimToCCParty(claimId: string, clientLEId: string)
 
         if (!claim) {
             throw new Error("Claim not found");
+        }
+
+        if (claim.claimRole !== 'VALUE') {
+            throw new Error("Only VALUE claims are promotable");
         }
 
         if (claim.clientLeScopeId && claim.clientLeScopeId !== clientLEId) {

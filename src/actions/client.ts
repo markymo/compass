@@ -97,40 +97,46 @@ export async function ensureUserOrg(userId: string, userEmail: string = "") {
         if (existingUserByEmail && existingUserByEmail.id !== userId) {
             console.log(`[ensureUserOrg] Found placeholder user ${existingUserByEmail.id} for ${userEmail}. Merging...`);
 
-            // Transactional Merge
-            await prisma.$transaction(async (tx: any) => {
-                // 0. Free up the email on the placeholder so we can assign it to the new user ID
-                await tx.user.update({
-                    where: { id: existingUserByEmail.id },
-                    data: { email: `${existingUserByEmail.id}@merged.demo.com` }
+            try {
+                await prisma.$transaction(async (tx: any) => {
+                    // 0. Free up the email on the placeholder so we can assign it to the new user ID
+                    await tx.user.update({
+                        where: { id: existingUserByEmail.id },
+                        data: { email: `${existingUserByEmail.id}@merged.demo.com` }
+                    });
+
+                    // 1. Create New User first to satisfy foreign keys
+                    // We use upsert in case the userId is already in the DB from a concurrent request.
+                    await tx.user.upsert({
+                        where: { id: userId },
+                        update: { email: userEmail, name: existingUserByEmail.name },
+                        create: { id: userId, email: userEmail, name: existingUserByEmail.name }
+                    });
+
+                    // 2. Move Memberships
+                    await tx.membership.updateMany({
+                        where: { userId: existingUserByEmail.id },
+                        data: { userId: userId }
+                    });
+
+                    // 3. Move Comments/Activities/Todos/Notes if any
+                    await tx.comment.updateMany({ where: { userId: existingUserByEmail.id }, data: { userId: userId } });
+                    await tx.questionActivity.updateMany({ where: { userId: existingUserByEmail.id }, data: { userId: userId } });
+                    await tx.masterFieldNote.updateMany({ where: { createdByUserId: existingUserByEmail.id }, data: { createdByUserId: userId } });
+
+                    // 4. Delete Placeholder
+                    await tx.user.delete({
+                        where: { id: existingUserByEmail.id }
+                    });
                 });
-
-                // 1. Create New User first to satisfy foreign keys
-                // We use upsert in case the userId is already in the DB from a concurrent request.
-                await tx.user.upsert({
-                    where: { id: userId },
-                    update: { email: userEmail, name: existingUserByEmail.name },
-                    create: { id: userId, email: userEmail, name: existingUserByEmail.name }
-                });
-
-                // 2. Move Memberships
-                await tx.membership.updateMany({
-                    where: { userId: existingUserByEmail.id },
-                    data: { userId: userId }
-                });
-
-                // 3. Move Comments/Activities/Todos/Notes if any
-                await tx.comment.updateMany({ where: { userId: existingUserByEmail.id }, data: { userId: userId } });
-                await tx.questionActivity.updateMany({ where: { userId: existingUserByEmail.id }, data: { userId: userId } });
-                await tx.masterFieldNote.updateMany({ where: { createdByUserId: existingUserByEmail.id }, data: { createdByUserId: userId } });
-
-                // 4. Delete Placeholder
-                await tx.user.delete({
-                    where: { id: existingUserByEmail.id }
-                });
-            });
-
-            console.log(`[ensureUserOrg] Merge complete. Welcome ${userEmail}`);
+                console.log(`[ensureUserOrg] Merge complete. Welcome ${userEmail}`);
+            } catch (error: any) {
+                if (error.code === 'P2025') {
+                    console.log(`[ensureUserOrg] Placeholder ${existingUserByEmail.id} was already merged concurrently.`);
+                } else {
+                    throw error;
+                }
+            }
             // Return early or let flow continue to fetch memberships again?
             // Fetching memberships again is safest.
             // Fetching memberships again is safest.
