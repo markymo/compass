@@ -1,6 +1,7 @@
 import prisma from "@/lib/prisma";
 import { getMasterFieldDefinition } from "@/services/masterData/definitionService";
 import { ClaimStatus, SourceType, FieldClaim } from "@prisma/client";
+import { v4 as uuidv4 } from "uuid";
 
 export type AssertClaimInput = {
     fieldNo: number;
@@ -20,6 +21,7 @@ export type AssertClaimInput = {
     valueOrgId?: string;
     valueAddressId?: string;
     valueDocId?: string;
+    attachmentDocumentId?: string;
     // Why
     sourceType: SourceType;
     sourceReference?: string;
@@ -72,6 +74,20 @@ export class FieldClaimService {
         // 3. Invariant: Logical value slot matches FieldDefinition
         this.validateValueSlot(input, fieldDef);
 
+        const isTombstone = input.valueJson && typeof input.valueJson === 'object' && input.valueJson.tombstone === true;
+        if (input.claimRole === 'FILE_ATTACHMENT') {
+            if (!isTombstone) {
+                if (!input.attachmentDocumentId) throw new Error("Active FILE_ATTACHMENT claim must have attachmentDocumentId.");
+                if (input.valueText !== undefined || input.valueNumber !== undefined || input.valueDate !== undefined) {
+                    throw new Error("FILE_ATTACHMENT claim must not populate scalar values.");
+                }
+            } else {
+                if (input.attachmentDocumentId) throw new Error("FILE_ATTACHMENT tombstone must not have attachmentDocumentId.");
+            }
+        } else {
+            if (input.attachmentDocumentId) throw new Error("VALUE claim must not populate attachmentDocumentId.");
+        }
+
         // 4. Create the claim
         const claim = await prisma.fieldClaim.create({
             data: {
@@ -91,6 +107,7 @@ export class FieldClaimService {
                 valueOrgId: input.valueOrgId,
                 valueAddressId: input.valueAddressId,
                 valueDocId: input.valueDocId,
+                attachmentDocumentId: input.attachmentDocumentId,
 
                 sourceType: input.sourceType,
                 sourceReference: input.sourceReference,
@@ -131,9 +148,9 @@ export class FieldClaimService {
      * Emits a tombstone claim to 'delete' a collection item.
      */
     static async emitTombstone(
-        subject: { subjectLeId?: string; subjectPersonId?: string; subjectOrgId?: string },
+        subject: { subjectLeId?: string; subjectPersonId?: string; subjectOrgId?: string; clientLEId?: string },
         fieldNo: number,
-        collectionId: string,
+        collectionId: string | undefined,
         instanceId: string,
         ownerScopeId: string | null,
         sourceType: SourceType = SourceType.USER_INPUT,
@@ -149,6 +166,118 @@ export class FieldClaimService {
             sourceType,
             claimRole
         });
+    }
+
+    // ── File Attachment Writes ───────────────────────────────────────────────
+
+    private static async validateAttachmentInstance(
+        subject: { subjectLeId?: string; subjectPersonId?: string; subjectOrgId?: string },
+        fieldNo: number,
+        instanceId: string,
+        ownerScopeId: string | null
+    ) {
+        const claims = await prisma.fieldClaim.findMany({
+            where: {
+                instanceId,
+                fieldNo,
+                subjectLeId: subject.subjectLeId || null,
+                subjectPersonId: subject.subjectPersonId || null,
+                subjectOrgId: subject.subjectOrgId || null,
+                ownerScopeId: ownerScopeId || null,
+                claimRole: 'FILE_ATTACHMENT'
+            },
+            orderBy: [{ assertedAt: 'desc' }, { id: 'desc' }]
+        });
+
+        if (claims.length === 0) {
+            throw new Error(`Attachment instance ${instanceId} not found or does not belong to the requested scope.`);
+        }
+
+        const latest = claims[0];
+        const isTombstone = latest.valueJson && typeof latest.valueJson === 'object' && (latest.valueJson as any).tombstone;
+        if (isTombstone) {
+            throw new Error(`Attachment instance ${instanceId} has already been removed.`);
+        }
+
+        return latest;
+    }
+
+    private static async validateDocumentExists(documentId: string, clientLEId?: string) {
+        const doc = await prisma.document.findUnique({ where: { id: documentId } });
+        if (!doc) throw new Error(`Document ${documentId} not found.`);
+        if (clientLEId && doc.clientLEId !== clientLEId) {
+            throw new Error(`Document ${documentId} does not belong to the requested clientLE.`);
+        }
+    }
+
+    /**
+     * Adds a new file attachment to a field.
+     * Generates a new instanceId for the attachment lifecycle.
+     */
+    static async addAttachment(
+        subject: { subjectLeId?: string; subjectPersonId?: string; subjectOrgId?: string; clientLEId?: string },
+        fieldNo: number,
+        attachmentDocumentId: string,
+        ownerScopeId: string | null,
+        sourceType: SourceType = SourceType.USER_INPUT
+    ): Promise<FieldClaim> {
+        await this.validateDocumentExists(attachmentDocumentId, subject.clientLEId);
+        const instanceId = uuidv4();
+        return await this.assertClaim({
+            fieldNo,
+            ...subject,
+            ownerScopeId: ownerScopeId || undefined,
+            attachmentDocumentId,
+            instanceId,
+            sourceType,
+            claimRole: 'FILE_ATTACHMENT'
+        });
+    }
+
+    /**
+     * Replaces an existing file attachment (identified by instanceId) with a new one.
+     */
+    static async replaceAttachment(
+        subject: { subjectLeId?: string; subjectPersonId?: string; subjectOrgId?: string; clientLEId?: string },
+        fieldNo: number,
+        instanceId: string,
+        attachmentDocumentId: string,
+        ownerScopeId: string | null,
+        sourceType: SourceType = SourceType.USER_INPUT
+    ): Promise<FieldClaim> {
+        await this.validateDocumentExists(attachmentDocumentId, subject.clientLEId);
+        await this.validateAttachmentInstance(subject, fieldNo, instanceId, ownerScopeId);
+        return await this.assertClaim({
+            fieldNo,
+            ...subject,
+            ownerScopeId: ownerScopeId || undefined,
+            attachmentDocumentId,
+            instanceId,
+            sourceType,
+            claimRole: 'FILE_ATTACHMENT'
+        });
+    }
+
+    /**
+     * Removes an existing file attachment (identified by instanceId) by emitting a tombstone.
+     */
+    static async removeAttachment(
+        subject: { subjectLeId?: string; subjectPersonId?: string; subjectOrgId?: string; clientLEId?: string },
+        fieldNo: number,
+        instanceId: string,
+        ownerScopeId: string | null,
+        sourceType: SourceType = SourceType.USER_INPUT
+    ): Promise<FieldClaim> {
+        await this.validateAttachmentInstance(subject, fieldNo, instanceId, ownerScopeId);
+        return await this.emitTombstone(
+            subject,
+            fieldNo,
+            undefined,
+            instanceId,
+            ownerScopeId,
+            sourceType,
+            'FILE_ATTACHMENT'
+        );
     }
 
     /**

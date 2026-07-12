@@ -291,6 +291,7 @@ model Document {
   question               Question?      @relation("QuestionDocuments", fields: [questionId], references: [id])
   uploadedBy             User?          @relation("UploadedDocuments", fields: [uploadedById], references: [id])
   sharedWith             FIEngagement[] @relation("SharedDocuments")
+  fieldClaimsAsAttachment FieldClaim[]  @relation("FieldClaimAttachmentDocument")
 }
 
 model Query {
@@ -683,6 +684,7 @@ model FieldClaim {
   valueLeId        String?
   valueOrgId       String?
   valueDocId       String?
+  attachmentDocumentId String?
   claimRole        ClaimRole         @default(VALUE)
   status           ClaimStatus       @default(ASSERTED)
   ownerScopeId     String?
@@ -699,6 +701,7 @@ model FieldClaim {
   verifiedAt       DateTime?
   subjectAddressId String?
   valueAddressId   String?
+  attachmentDocument Document?       @relation("FieldClaimAttachmentDocument", fields: [attachmentDocumentId], references: [id], onDelete: Restrict)
   evidence         EvidenceStore?    @relation(fields: [evidenceId], references: [id])
   ownerScope       Organization?     @relation("OrganizationOwnerScope", fields: [ownerScopeId], references: [id])
   subjectAddress   Address?          @relation("AddressSubject", fields: [subjectAddressId], references: [id])
@@ -720,6 +723,7 @@ model FieldClaim {
   @@index([subjectOrgId, fieldNo])
   @@index([subjectAddressId, fieldNo])
   @@index([ownerScopeId])
+  @@index([attachmentDocumentId])
   @@index([fieldNo])
   @@index([supersedesId])
   @@index([subjectLeId, ownerScopeId, fieldNo, collectionId, claimRole])

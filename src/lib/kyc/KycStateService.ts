@@ -23,6 +23,7 @@ export type DerivedValue = {
     effectiveTo?: Date;
     /** The date the value was last validated against its authoritative source. */
     sourceCheckedAt?: Date;
+    attachmentDocumentId?: string;
 };
 
 // ── Priority resolution ───────────────────────────────────────────────────────
@@ -367,6 +368,63 @@ export class KycStateService {
     }
 
     /**
+     * Resolves the active attachments for a given field and subject.
+     * Attachments do not use source priority or overrides. They are strictly temporal per instanceId.
+     */
+    static async getAuthoritativeAttachments(
+        subject: { subjectLeId?: string; subjectPersonId?: string; subjectOrgId?: string; clientLEId?: string },
+        fieldNo: number,
+        snapshotDate?: Date
+    ): Promise<DerivedValue[]> {
+        const { clientLEId, ...subjectFilter } = subject;
+        const claims = await prisma.fieldClaim.findMany({
+            include: { evidence: true },
+            where: {
+                fieldNo,
+                claimRole: 'FILE_ATTACHMENT',
+                ...subjectFilter,
+                status: { in: [ClaimStatus.VERIFIED, ClaimStatus.ASSERTED] },
+                assertedAt: snapshotDate ? { lte: snapshotDate } : undefined,
+            },
+            orderBy: [
+                { assertedAt: 'desc' },
+                { id: 'desc' }
+            ]
+        });
+
+        // Group by instanceId
+        const instanceGroups: Record<string, FieldClaim[]> = {};
+        for (const c of claims) {
+            const key = c.instanceId || 'default';
+            if (!instanceGroups[key]) instanceGroups[key] = [];
+            instanceGroups[key].push(c);
+        }
+
+        const resultsWithOrder: { derived: DerivedValue; oldestAssertedAt: number; oldestId: string }[] = [];
+        
+        for (const key in instanceGroups) {
+            const group = instanceGroups[key];
+            // Since they are ordered by assertedAt desc, the first one is the latest claim for this instance
+            const latestClaim = group[0];
+            
+            // If the latest claim is not a tombstone, the attachment is active
+            if (!this.isTombstone(latestClaim)) {
+                const derived = this.mapToDerivedValue(latestClaim);
+                const oldestClaim = group[group.length - 1];
+                resultsWithOrder.push({ derived, oldestAssertedAt: oldestClaim.assertedAt.getTime(), oldestId: oldestClaim.id });
+            }
+        }
+
+        // Maintain chronological order of original attachment addition
+        resultsWithOrder.sort((a, b) => {
+            if (a.oldestAssertedAt !== b.oldestAssertedAt) return a.oldestAssertedAt - b.oldestAssertedAt;
+            return a.oldestId.localeCompare(b.oldestId);
+        });
+
+        return resultsWithOrder.map(r => r.derived);
+    }
+
+    /**
      * Batch-resolves authoritative values for ALL fields of a given subject in
      * exactly 2 DB round-trips (one for all claims, one for all source mappings).
      *
@@ -687,7 +745,8 @@ export class KycStateService {
             (claim as any).valuePerson ??
             (claim as any).valueLe ??
             (claim as any).valueOrg ??
-            claim.valueDocId;
+            claim.valueDocId ??
+            (claim as any).attachmentDocumentId;
 
         return {
             value,
@@ -704,6 +763,7 @@ export class KycStateService {
             assertedAt: claim.assertedAt,
             effectiveFrom: claim.effectiveFrom ?? undefined,
             effectiveTo: claim.effectiveTo ?? undefined,
+            attachmentDocumentId: (claim as any).attachmentDocumentId ?? undefined,
         };
     }
 }
