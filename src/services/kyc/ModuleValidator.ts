@@ -65,7 +65,7 @@ export class ModuleValidator {
                 // For other modules, we just check if any claims exist for fields in that "module"
                 // This is a loose check until more specific rules are added.
                 const claims = await prisma.fieldClaim.findFirst({
-                    where: { subjectLeId: legalEntityId }
+                    where: { subjectLeId: legalEntityId, claimRole: 'VALUE' }
                 });
                 if (!claims) errors.push(`Module ${moduleName} has no data`);
         }
@@ -82,6 +82,7 @@ export class ModuleValidator {
             where: {
                 subjectLeId: leId,
                 fieldNo,
+                claimRole: 'VALUE',
                 instanceId,
                 status: { in: ['VERIFIED', 'ASSERTED'] }
             },

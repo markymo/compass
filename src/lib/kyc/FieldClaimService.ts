@@ -46,6 +46,7 @@ export type AssertClaimInput = {
      * (KycWriteService, GLEIF, Registry connectors) manage their own edges.
      */
     clientLEId?: string;
+    claimRole?: 'VALUE' | 'FILE_ATTACHMENT';
 };
 
 export class FieldClaimService {
@@ -79,6 +80,7 @@ export class FieldClaimService {
                 subjectPersonId: input.subjectPersonId,
                 subjectOrgId: input.subjectOrgId,
                 ownerScopeId: input.ownerScopeId,
+                claimRole: input.claimRole || 'VALUE',
 
                 valueText: input.valueText,
                 valueNumber: input.valueNumber ? String(input.valueNumber) : null,
@@ -134,7 +136,8 @@ export class FieldClaimService {
         collectionId: string,
         instanceId: string,
         ownerScopeId: string | null,
-        sourceType: SourceType = SourceType.USER_INPUT
+        sourceType: SourceType = SourceType.USER_INPUT,
+        claimRole: 'VALUE' | 'FILE_ATTACHMENT' = 'VALUE'
     ): Promise<FieldClaim> {
         return await this.assertClaim({
             fieldNo,
@@ -143,7 +146,8 @@ export class FieldClaimService {
             collectionId,
             instanceId,
             valueJson: { tombstone: true },
-            sourceType
+            sourceType,
+            claimRole
         });
     }
 

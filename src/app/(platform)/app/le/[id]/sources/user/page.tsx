@@ -6,12 +6,13 @@ import { getCCParties } from "@/actions/cc-party-actions";
 import { CCPartyManager } from "@/components/client/ccc/cc-party-manager";
 import { getCCAddresses } from "@/actions/cc-address-actions";
 import { CCAddressManager } from "@/components/client/ccc/cc-address-manager";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-interface CCCPageProps {
+interface UserPageProps {
     params: Promise<{ id: string }>;
 }
 
-export default async function CCCPage({ params }: CCCPageProps) {
+export default async function UserPage({ params }: UserPageProps) {
     const { id } = await params;
 
     // Verify Legal Entity existence
@@ -44,17 +45,33 @@ export default async function CCCPage({ params }: CCCPageProps) {
                 </div>
             </div>
 
-            {/* Curated Parties Manager */}
-            <CCPartyManager 
-                clientLEId={id} 
-                initialParties={curatedParties} 
-            />
+            <Tabs defaultValue="parties" className="w-full">
+                <TabsList className="mb-4">
+                    <TabsTrigger value="parties">Parties</TabsTrigger>
+                    <TabsTrigger value="addresses">Addresses</TabsTrigger>
+                    <TabsTrigger value="files">Files</TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="parties" className="space-y-4">
+                    {/* Curated Parties Manager */}
+                    <CCPartyManager 
+                        clientLEId={id} 
+                        initialParties={curatedParties} 
+                    />
+                </TabsContent>
 
-            {/* Curated Addresses Manager */}
-            <CCAddressManager 
-                clientLEId={id} 
-                initialAddresses={curatedAddresses} 
-            />
+                <TabsContent value="addresses" className="space-y-4">
+                    {/* Curated Addresses Manager */}
+                    <CCAddressManager 
+                        clientLEId={id} 
+                        initialAddresses={curatedAddresses} 
+                    />
+                </TabsContent>
+
+                <TabsContent value="files">
+                    {/* Files tab left blank for now */}
+                </TabsContent>
+            </Tabs>
         </div>
     );
 }

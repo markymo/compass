@@ -178,6 +178,7 @@ export class KycWriteService {
                         where: {
                             subjectLeId: resolvedEntityId,
                             fieldNo: candidate.fieldNo,
+                            claimRole: 'VALUE',
                             sourceType: candidate.source,
                             sourceReference: candidate.sourceKey || null,
                             collectionId: expectedCollectionId,
@@ -371,6 +372,7 @@ export class KycWriteService {
                 where: {
                     subjectLeId: resolvedEntityId,
                     fieldNo,
+                    claimRole: 'VALUE',
                     instanceId: rowId,
                     // Scope to the expected collectionId so mis-tagged historical claims
                     // (collectionId=null) are not treated as idempotent matches.

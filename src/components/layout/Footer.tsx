@@ -9,6 +9,9 @@ export function Footer() {
                     <Link href="/" className="mb-6 flex items-center gap-1">
                         <img src="/logo-inverted.svg" alt={BRAND.name} className="h-9 w-auto opacity-90 hover:opacity-100 transition-opacity" />
                     </Link>
+                    <p className="max-w-sm text-base font-semibold text-slate-200 mb-1">
+                        Professional Onboarding
+                    </p>
                     <p className="max-w-sm text-sm leading-relaxed text-slate-300">
                         The Single Source of Truth for company data
                     </p>

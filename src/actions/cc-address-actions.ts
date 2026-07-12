@@ -58,7 +58,7 @@ export async function getCCAddresses(clientLEId: string) {
 
         if (claimIds.length > 0) {
             const claims = await prisma.fieldClaim.findMany({
-                where: { id: { in: claimIds } },
+                where: { id: { in: claimIds }, claimRole: 'VALUE' },
                 select: { id: true, fieldNo: true, sourceType: true }
             });
 
@@ -203,7 +203,7 @@ export async function getCCAddressUsage(clientLEId: string) {
 
     try {
         const claims = await prisma.fieldClaim.findMany({
-            where: { valueJson: { not: Prisma.AnyNull } },
+            where: { valueJson: { not: Prisma.AnyNull }, claimRole: 'VALUE' },
             select: { fieldNo: true, valueJson: true }
         });
 
@@ -254,7 +254,7 @@ export async function deleteCCAddress(id: string, clientLEId: string) {
 
     try {
         const claims = await prisma.fieldClaim.findMany({
-            where: { valueJson: { not: Prisma.AnyNull } },
+            where: { valueJson: { not: Prisma.AnyNull }, claimRole: 'VALUE' },
             select: { valueJson: true }
         });
 
@@ -336,6 +336,10 @@ export async function saveAddressForReuse(claimId: string, clientLEId: string) {
 
         if (!claim) {
             return { success: false, message: "Claim not found" };
+        }
+
+        if (claim.claimRole !== 'VALUE') {
+            return { success: false, message: "Only VALUE claims can be saved as addresses" };
         }
 
         if (claim.clientLeScopeId && claim.clientLeScopeId !== clientLEId) {

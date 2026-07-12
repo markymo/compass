@@ -83,31 +83,18 @@ async function main() {
     for (const key of Object.keys(FIELD_DEFINITIONS)) {
         const fieldNo = Number(key);
         const def = FIELD_DEFINITIONS[fieldNo];
-        await prisma.masterFieldDefinition.upsert({
-            where: { fieldNo },
-            update: {
-                fieldName: def.fieldName,
-                appDataType: def.appDataType,
-                isMultiValue: def.isMultiValue,
-                options: (def as any).options || [],
-                notes: def.notes,
-                category: def.model,
-                modelField: def.field,
-                isActive: true,
-            },
-            create: {
-                fieldNo,
-                fieldName: def.fieldName,
-                appDataType: def.appDataType,
-                isMultiValue: def.isMultiValue,
-                options: (def as any).options || [],
-                notes: def.notes,
-                category: def.model,
-                modelField: def.field,
-                isActive: true,
-                order: fieldNo * 10,
-            }
-        });
+        await prisma.$executeRaw`
+            INSERT INTO "master_field_definitions" ("fieldNo", "fieldName", "appDataType", "isMultiValue", "notes", "modelField", "isActive", "updatedAt")
+            VALUES (${fieldNo}, ${def.fieldName}, ${def.appDataType}, ${def.isMultiValue}, ${def.notes || null}, ${def.field || null}, true, NOW())
+            ON CONFLICT ("fieldNo") DO UPDATE SET
+                "fieldName" = ${def.fieldName},
+                "appDataType" = ${def.appDataType},
+                "isMultiValue" = ${def.isMultiValue},
+                "notes" = ${def.notes || null},
+                "modelField" = ${def.field || null},
+                "isActive" = true,
+                "updatedAt" = NOW()
+        `;
     }
 
     // --- 5. SEED MASTER FIELD GROUPS ---
@@ -162,7 +149,7 @@ async function main() {
         if (catId) {
             await prisma.masterFieldDefinition.update({
                 where: { fieldNo },
-                data: { categoryId: catId, categoryLabel: def.model }
+                data: { masterDataCategory: { connect: { id: catId } } }
             });
         }
     }
