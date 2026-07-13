@@ -43,44 +43,45 @@ model VerificationToken {
 }
 
 model User {
-  id                            String                  @id @default(uuid())
-  email                         String                  @unique
+  id                            String                        @id @default(uuid())
+  email                         String                        @unique
   name                          String?
   description                   String?
-  createdAt                     DateTime                @default(now())
+  createdAt                     DateTime                      @default(now())
   password                      String?
   emailVerified                 DateTime?
   image                         String?
-  isDemoActor                   Boolean                 @default(false)
+  isDemoActor                   Boolean                       @default(false)
   jobTitle                      String?
   notificationPrefs             Json?
   phone                         String?
-  preferences                   Json                    @default("{}")
+  preferences                   Json                          @default("{}")
   accounts                      Account[]
-  assignedTodos                 AdminTodo[]             @relation("AssignedTodos")
-  createdTodos                  AdminTodo[]             @relation("CreatedTodos")
+  assignedTodos                 AdminTodo[]                   @relation("AssignedTodos")
+  createdTodos                  AdminTodo[]                   @relation("CreatedTodos")
   adminComments                 AdminTodoComment[]
   auditLogs                     AuditLog[]
   comments                      Comment[]
-  uploadedDocuments             Document[]              @relation("UploadedDocuments")
+  uploadedDocuments             Document[]                    @relation("UploadedDocuments")
   engagementActivities          EngagementActivity[]
   leActivities                  LEActivity[]
   memberships                   Membership[]
-  questionsApproved             Question[]              @relation("QuestionsApprovedBy")
-  questionsAssignedBy           Question[]              @relation("QuestionsAssignedBy")
-  assignedQuestions             Question[]              @relation("AssignedQuestions")
-  questionsReleased             Question[]              @relation("QuestionsReleasedBy")
-  questionsShared               Question[]              @relation("QuestionsSharedBy")
-  supplierNotesUpdated          Question[]              @relation("SupplierNoteUpdatedBy")
+  questionsApproved             Question[]                    @relation("QuestionsApprovedBy")
+  questionsAssignedBy           Question[]                    @relation("QuestionsAssignedBy")
+  assignedQuestions             Question[]                    @relation("AssignedQuestions")
+  questionsReleased             Question[]                    @relation("QuestionsReleasedBy")
+  questionsShared               Question[]                    @relation("QuestionsSharedBy")
+  supplierNotesUpdated          Question[]                    @relation("SupplierNoteUpdatedBy")
   activities                    QuestionActivity[]
   sessions                      Session[]
-  graphEdgesModified            ClientLEGraphEdge[]     @relation("GraphEdgeModifiedBy")
-  graphNodesModified            ClientLEGraphNode[]     @relation("GraphNodeModifiedBy")
-  assignedFeedback              FeedbackNote[]          @relation("FeedbackAssignedTo")
+  graphEdgesModified            ClientLEGraphEdge[]           @relation("GraphEdgeModifiedBy")
+  graphNodesModified            ClientLEGraphNode[]           @relation("GraphNodeModifiedBy")
+  assignedFeedback              FeedbackNote[]                @relation("FeedbackAssignedTo")
   verifiedClaims                FieldClaim[]
-  masterFieldAssignmentsCreated MasterFieldAssignment[] @relation("MasterFieldAssignmentsCreated")
-  assignedMasterFields          MasterFieldAssignment[] @relation("AssignedMasterFields")
+  masterFieldAssignmentsCreated MasterFieldAssignment[]       @relation("MasterFieldAssignmentsCreated")
+  assignedMasterFields          MasterFieldAssignment[]       @relation("AssignedMasterFields")
   masterFieldNotes              MasterFieldNote[]
+  privateDocumentUploadIntents  PrivateDocumentUploadIntent[]
 }
 
 model Organization {
@@ -170,44 +171,45 @@ model StandingDataSection {
 }
 
 model ClientLE {
-  id                       String                    @id @default(uuid())
-  shortCode                String?                   @unique
-  name                     String
-  description              String?
-  jurisdiction             String?
-  status                   String                    @default("ACTIVE")
-  isDeleted                Boolean                   @default(false)
-  createdAt                DateTime                  @default(now())
-  updatedAt                DateTime                  @updatedAt
-  lei                      String?                   @unique
-  gleifData                Json?
-  gleifFetchedAt           DateTime?
-  nationalRegistryData     Json?
-  registryFetchedAt        DateTime?
-  billingDetails           Json?
-  customData               Json?
-  dueDate                  DateTime?
-  legalEntityId            String?
-  legalEntity              LegalEntity?              @relation(fields: [legalEntityId], references: [id])
-  owners                   ClientLEOwner[]
-  records                  ClientLERecord[]
-  documents                Document[]
-  fiEngagements            FIEngagement[]
-  invitations              Invitation[]
-  leActivities             LEActivity[]
-  memberships              Membership[]
-  standingDataSections     StandingDataSection[]
-  graphEdges               ClientLEGraphEdge[]
-  graphNodes               ClientLEGraphNode[]
-  masterFieldAssignments   MasterFieldAssignment[]
-  masterFieldNotes         MasterFieldNote[]
-  registryReferences       RegistryReference[]
-  enrichmentRuns           EnrichmentRun[]
-  registrySourcePayloads   RegistrySourcePayload[]
-  registryBaselineExtracts RegistryBaselineExtract[]
-  ccParties                CCParty[]
-  ccAddresses              CCAddress[]
-  commonQuestionnaires     Questionnaire[]           @relation("ClientCommonQuestionnaires")
+  id                           String                        @id @default(uuid())
+  shortCode                    String?                       @unique
+  name                         String
+  description                  String?
+  jurisdiction                 String?
+  status                       String                        @default("ACTIVE")
+  isDeleted                    Boolean                       @default(false)
+  createdAt                    DateTime                      @default(now())
+  updatedAt                    DateTime                      @updatedAt
+  lei                          String?                       @unique
+  gleifData                    Json?
+  gleifFetchedAt               DateTime?
+  nationalRegistryData         Json?
+  registryFetchedAt            DateTime?
+  billingDetails               Json?
+  customData                   Json?
+  dueDate                      DateTime?
+  legalEntityId                String?
+  legalEntity                  LegalEntity?                  @relation(fields: [legalEntityId], references: [id])
+  owners                       ClientLEOwner[]
+  records                      ClientLERecord[]
+  documents                    Document[]
+  fiEngagements                FIEngagement[]
+  invitations                  Invitation[]
+  leActivities                 LEActivity[]
+  memberships                  Membership[]
+  standingDataSections         StandingDataSection[]
+  graphEdges                   ClientLEGraphEdge[]
+  graphNodes                   ClientLEGraphNode[]
+  masterFieldAssignments       MasterFieldAssignment[]
+  masterFieldNotes             MasterFieldNote[]
+  registryReferences           RegistryReference[]
+  enrichmentRuns               EnrichmentRun[]
+  registrySourcePayloads       RegistrySourcePayload[]
+  registryBaselineExtracts     RegistryBaselineExtract[]
+  ccParties                    CCParty[]
+  ccAddresses                  CCAddress[]
+  commonQuestionnaires         Questionnaire[]               @relation("ClientCommonQuestionnaires")
+  privateDocumentUploadIntents PrivateDocumentUploadIntent[]
 
   @@index([legalEntityId])
 }
@@ -284,22 +286,23 @@ model Document {
   updatedAt  DateTime @updatedAt
 
   // Phase 3: Immutable Binary Identity & Private Storage
-  storageProvider        String?
-  storagePathname        String?        @unique
-  sizeBytes              BigInt?
-  mimeType               String?
-  checksum               String?
+  storageProvider String?
+  storagePathname String? @unique
+  sizeBytes       BigInt?
+  mimeType        String?
+  checksum        String?
 
-  masterFieldKey          String?
-  prefilledForQuestionId  String?
-  questionId              String?
-  uploadedById            String?
-  clientLE                ClientLE       @relation(fields: [clientLEId], references: [id], onDelete: Cascade)
-  prefilledForQuestion    Question?      @relation("PrefilledQuestionDocuments", fields: [prefilledForQuestionId], references: [id])
-  question                Question?      @relation("QuestionDocuments", fields: [questionId], references: [id])
-  uploadedBy              User?          @relation("UploadedDocuments", fields: [uploadedById], references: [id])
-  sharedWith              FIEngagement[] @relation("SharedDocuments")
-  fieldClaimsAsAttachment FieldClaim[]   @relation("FieldClaimAttachmentDocument")
+  masterFieldKey              String?
+  prefilledForQuestionId      String?
+  questionId                  String?
+  uploadedById                String?
+  clientLE                    ClientLE                     @relation(fields: [clientLEId], references: [id], onDelete: Cascade)
+  prefilledForQuestion        Question?                    @relation("PrefilledQuestionDocuments", fields: [prefilledForQuestionId], references: [id])
+  question                    Question?                    @relation("QuestionDocuments", fields: [questionId], references: [id])
+  uploadedBy                  User?                        @relation("UploadedDocuments", fields: [uploadedById], references: [id])
+  sharedWith                  FIEngagement[]               @relation("SharedDocuments")
+  fieldClaimsAsAttachment     FieldClaim[]                 @relation("FieldClaimAttachmentDocument")
+  privateDocumentUploadIntent PrivateDocumentUploadIntent?
 }
 
 model Query {
@@ -693,6 +696,7 @@ model FieldClaim {
   valueOrgId           String?
   valueDocId           String?
   attachmentDocumentId String?
+  idempotencyKey       String?           @unique
   claimRole            ClaimRole         @default(VALUE)
   status               ClaimStatus       @default(ASSERTED)
   ownerScopeId         String?
@@ -1330,4 +1334,31 @@ model CCAddress {
   clientLE ClientLE @relation(fields: [clientLEId], references: [id], onDelete: Cascade)
 
   @@map("cc_addresses")
+}
+
+enum PrivateDocumentUploadStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+model PrivateDocumentUploadIntent {
+  id               String                      @id
+  clientLEId       String
+  initiatedById    String
+  storagePathname  String                      @unique
+  originalFilename String
+  declaredMimeType String?
+  status           PrivateDocumentUploadStatus @default(PENDING)
+  documentId       String?                     @unique
+  createdAt        DateTime                    @default(now())
+  completedAt      DateTime?
+  failureReason    String?
+
+  clientLE    ClientLE  @relation(fields: [clientLEId], references: [id])
+  initiatedBy User      @relation(fields: [initiatedById], references: [id])
+  document    Document? @relation(fields: [documentId], references: [id])
+
+  @@index([clientLEId, status])
+  @@index([initiatedById, createdAt])
 }
