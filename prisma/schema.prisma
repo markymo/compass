@@ -1239,6 +1239,9 @@ enum PayloadSubtype {
   PSC
   FILINGS
   SHAREHOLDERS
+  LEVEL_1
+  LEVEL_2_RELATIONSHIPS
+  ELF
 }
 
 enum EnrichmentStatus {
