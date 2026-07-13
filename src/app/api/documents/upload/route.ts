@@ -10,8 +10,17 @@ import { ALLOWED_PRIVATE_DOCUMENT_TYPES } from '@/lib/documents/file-config';
 export async function POST(request: Request): Promise<NextResponse> {
     const body = (await request.json()) as HandleUploadBody;
 
+    const token = process.env.PRIVATE_BLOB_READ_WRITE_TOKEN;
+    if (!token) {
+        return NextResponse.json(
+            { error: "CRITICAL: PRIVATE_BLOB_READ_WRITE_TOKEN is missing." },
+            { status: 500 }
+        );
+    }
+
     try {
         const jsonResponse = await handleUpload({
+            token,
             body,
             request,
             onBeforeGenerateToken: async (pathname: string, clientPayload: string | null) => {
@@ -34,11 +43,7 @@ export async function POST(request: Request): Promise<NextResponse> {
                 const uuid = randomUUID();
                 const storagePathname = `private-documents/${clientLEId}/${uuid}`;
                 
-                // 3. Ensure token is configured
-                const token = process.env.PRIVATE_BLOB_READ_WRITE_TOKEN;
-                if (!token) {
-                    throw new Error("CRITICAL: PRIVATE_BLOB_READ_WRITE_TOKEN is missing.");
-                }
+                // 3. (Token is already validated and passed at the top level)
 
                 // Verify the intent doesn't already exist to prevent replay
                 const existingIntent = await prisma.privateDocumentUploadIntent.findUnique({
