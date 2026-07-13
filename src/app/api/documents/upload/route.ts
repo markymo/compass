@@ -7,6 +7,35 @@ import { randomUUID } from 'crypto';
 import prisma from '@/lib/prisma';
 import { ALLOWED_PRIVATE_DOCUMENT_TYPES } from '@/lib/documents/file-config';
 
+/**
+ * Resolves the base URL of this deployment so the Vercel Blob SDK can
+ * determine the `callbackUrl` for the upload-completed webhook.
+ *
+ * When VERCEL is not "1" (e.g. custom domain deployments) the SDK's
+ * auto-detection falls back to undefined, which causes the browser client
+ * to use local-dev proxy mode (blob/?pathname=...) instead of the real
+ * Vercel Blob endpoint.  Providing the URL explicitly avoids that.
+ */
+function resolveDeploymentBaseUrl(request: Request): string {
+    // Explicit override wins
+    if (process.env.VERCEL_BLOB_CALLBACK_URL) {
+        return process.env.VERCEL_BLOB_CALLBACK_URL;
+    }
+    // Vercel-injected vars (preview / production deployments)
+    if (process.env.VERCEL_PROJECT_PRODUCTION_URL) {
+        return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
+    }
+    if (process.env.VERCEL_BRANCH_URL) {
+        return `https://${process.env.VERCEL_BRANCH_URL}`;
+    }
+    if (process.env.VERCEL_URL) {
+        return `https://${process.env.VERCEL_URL}`;
+    }
+    // Fall back to deriving from the incoming request
+    const { origin } = new URL(request.url);
+    return origin;
+}
+
 export async function POST(request: Request): Promise<NextResponse> {
     const body = (await request.json()) as HandleUploadBody;
 
@@ -17,6 +46,11 @@ export async function POST(request: Request): Promise<NextResponse> {
             { status: 500 }
         );
     }
+
+    // Determine the callback URL up-front so onBeforeGenerateToken can embed
+    // it explicitly — preventing the SDK from falling back to dev-proxy mode.
+    const baseUrl = resolveDeploymentBaseUrl(request);
+    const callbackUrl = `${baseUrl}/api/documents/upload`;
 
     try {
         const jsonResponse = await handleUpload({
@@ -75,7 +109,7 @@ export async function POST(request: Request): Promise<NextResponse> {
                 
                 return {
                     token,
-                    // If CSV empty mime type is an issue, Vercel Blob might reject. The config enforces it on the server token side.
+                    callbackUrl,  // Explicit URL prevents SDK from falling back to dev-proxy mode
                     allowedContentTypes: [
                         'application/pdf', 
                         'image/jpeg', 
