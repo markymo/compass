@@ -4,6 +4,7 @@ import { isPartyValue, getPartySummary } from "@/lib/master-data/party-value";
 import { isAddressValue, getAddressSummary } from "@/lib/master-data/address-value";
 import { FieldValueRenderer } from "@/components/client/fields/FieldValueRenderer";
 import { FieldSourceBadge } from "@/components/client/fields/FieldSourceBadge";
+import { FieldAttachmentIndicator } from "@/components/shared/FieldAttachmentIndicator";
 
 import { useState, useMemo, useTransition } from "react";
 import { Workbench4Data, mapQuestionToField, getAIFieldNameSuggestion } from "@/actions/kyc-workbench";
@@ -625,7 +626,7 @@ function QuestionCard({
 }: {
     question: ConsoleQuestion;
     leId: string;
-    masterFields: Array<{ fieldNo: number; label: string }>;
+    masterFields: Array<{ fieldNo: number; label: string; attachmentCount?: number }>;
     masterGroups: Array<{ key: string; label: string }>;
     customFields: Array<{ id: string; label: string }>;
     raNameLookup: Record<string, string>;
@@ -1018,6 +1019,9 @@ function QuestionCard({
                                 question.canonicalDisplayModel?.source ? (
                                     <div className="flex items-center gap-3 pl-6 mt-1 text-[10px] font-medium">
                                         <FieldSourceBadge source={question.canonicalDisplayModel.source} showLastValidated={true} variant="span" />
+                                        {question.masterFieldNo && masterFields.find(f => f.fieldNo === question.masterFieldNo)?.attachmentCount ? (
+                                            <FieldAttachmentIndicator count={masterFields.find(f => f.fieldNo === question.masterFieldNo)?.attachmentCount} />
+                                        ) : null}
                                     </div>
                                 ) : (question.masterDataSource || question.masterDataUpdatedAt) ? (
                                     <div className="flex items-center gap-3 pl-6 text-[10px] text-slate-400 font-medium">
@@ -1033,6 +1037,9 @@ function QuestionCard({
                                                 <span className="text-slate-500 font-semibold">{new Date(question.masterDataUpdatedAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}</span>
                                             </div>
                                         )}
+                                        {question.masterFieldNo && masterFields.find(f => f.fieldNo === question.masterFieldNo)?.attachmentCount ? (
+                                            <FieldAttachmentIndicator count={masterFields.find(f => f.fieldNo === question.masterFieldNo)?.attachmentCount} />
+                                        ) : null}
                                     </div>
                                 ) : null
                             )}

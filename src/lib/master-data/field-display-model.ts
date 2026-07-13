@@ -22,6 +22,22 @@ export interface FieldDisplayModel {
     // Behavioural Flags
     isEditable: boolean;
     isMultiValue: boolean;
+    
+    // Attachments
+    attachments: ResolvedAttachment[];
+    allowAttachments: boolean;
+    clientLEId?: string;
+}
+
+export interface ResolvedAttachment {
+    instanceId: string;
+    documentId: string;
+    displayName: string;
+    mimeType: string | null;
+    sizeBytes: string | null;
+    lifecycleCreatedAt: string;
+    currentDocumentCreatedAt: string;
+    uploadedBy?: { displayName: string | null };
 }
 
 // Discriminated Union for exhaustive type checking on the UI side

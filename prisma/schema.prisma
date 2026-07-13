@@ -758,6 +758,7 @@ model MasterFieldDefinition {
   fmsbRef            String?                   @db.VarChar(15)
   optionSetId        String?
   profileConfig      Json?
+  allowAttachments   Boolean                   @default(true)
   masterDataCategory MasterDataCategory?       @relation(fields: [categoryId], references: [id])
   optionSet          MasterDataOptionSet?      @relation(fields: [optionSetId], references: [id])
   graphBindings      MasterFieldGraphBinding[]

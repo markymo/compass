@@ -37,6 +37,7 @@ vi.mock('@/actions/security', () => ({
 vi.mock('@/lib/kyc/KycStateService', () => ({
     KycStateService: {
         resolveScopeId: vi.fn().mockResolvedValue('test-scope'),
+        resolveAllAttachments: vi.fn().mockResolvedValue(new Map()),
         resolveAllFields: vi.fn().mockResolvedValue(new Map([
             [3, {
                 value: 'Test Value',

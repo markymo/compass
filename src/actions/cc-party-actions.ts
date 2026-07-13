@@ -179,7 +179,7 @@ export async function upsertCCParty(params: {
             });
         }
 
-        revalidatePath(`/app/le/${params.clientLEId}/sources/ccc`);
+        revalidatePath(`/app/le/${params.clientLEId}/sources/user`);
         return {
             success: true,
             party: {
@@ -320,7 +320,7 @@ export async function deleteCCParty(id: string, clientLEId: string) {
             where: { id }
         });
 
-        revalidatePath(`/app/le/${clientLEId}/sources/ccc`);
+        revalidatePath(`/app/le/${clientLEId}/sources/user`);
         return { success: true };
     } catch (error: any) {
         console.error("Failed to delete CC party:", error);
@@ -389,7 +389,7 @@ export async function promoteClaimToCCParty(claimId: string, clientLEId: string)
             }
         });
 
-        revalidatePath(`/app/le/${clientLEId}/sources/ccc`);
+        revalidatePath(`/app/le/${clientLEId}/sources/user`);
         return { success: true, party };
     } catch (error) {
         console.error("Failed to promote claim:", error);

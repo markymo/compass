@@ -39,8 +39,28 @@ export class DocumentService {
         originalFilename: string;
         clientLEId: string;
         uploadedById: string;
+        intentId?: string;
     }) {
-        const { storagePathname, originalFilename, clientLEId, uploadedById } = params;
+        const { storagePathname, originalFilename, clientLEId, uploadedById, intentId } = params;
+
+        if (intentId) {
+            const intent = await prisma.privateDocumentUploadIntent.findUnique({ where: { id: intentId } });
+            if (!intent) {
+                throw new Error("Upload intent not found");
+            }
+            if (intent.status === 'FAILED') {
+                throw new Error("Intent is not in PENDING state (rejected/terminal)");
+            }
+            if (intent.storagePathname !== storagePathname) {
+                throw new Error("Pathname mismatch");
+            }
+            if (intent.clientLEId !== clientLEId) {
+                throw new Error("Client context mismatch");
+            }
+            if (intent.initiatedById !== uploadedById) {
+                throw new Error("Uploader mismatch");
+            }
+        }
 
         // 1. Idempotency Check: Already processed?
         const existingDoc = await prisma.document.findUnique({
@@ -127,5 +147,15 @@ export class DocumentService {
 
             throw new Error(`Upload verification failed: ${(error as Error).message}`);
         }
+    }
+
+    /**
+     * Marks an upload intent as failed.
+     */
+    static async markPrivateUploadFailed(intentId: string, failureReason: string) {
+        await prisma.privateDocumentUploadIntent.update({
+            where: { id: intentId },
+            data: { status: 'FAILED', failureReason }
+        });
     }
 }

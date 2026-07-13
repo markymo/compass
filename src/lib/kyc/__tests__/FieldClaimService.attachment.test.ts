@@ -15,7 +15,8 @@ describe('FieldClaimService Attachment Writes', () => {
         (definitionService.getMasterFieldDefinition as any).mockResolvedValue({
             fieldNo: 999,
             logicalType: 'FILE',
-            multiplicity: 'MANY'
+            multiplicity: 'MANY',
+            allowAttachments: true
         });
         
         // Mock document exists

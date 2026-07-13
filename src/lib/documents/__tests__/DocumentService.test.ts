@@ -84,7 +84,7 @@ describe('DocumentService', () => {
             uploadedById: 'user-123'
         });
 
-        expect(doc).toEqual({ id: 'existing-doc' });
+        expect(doc?.id).toBe('existing-doc');
         expect(get).not.toHaveBeenCalled();
         expect(del).not.toHaveBeenCalled();
         expect(prisma.$transaction).not.toHaveBeenCalled();
@@ -124,7 +124,7 @@ describe('DocumentService', () => {
             uploadedById: 'user-123'
         });
 
-        expect(doc).toEqual({ id: 'winning-doc' });
+        expect(doc?.id).toBe('winning-doc');
         
         // Critical: it must NOT have attempted to delete the blob because the blob is owned by the winning doc
         expect(del).not.toHaveBeenCalled();

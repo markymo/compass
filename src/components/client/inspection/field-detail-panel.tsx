@@ -21,7 +21,7 @@ import { useRouter } from "next/navigation";
 import { updateFieldManually, applyCandidate, updateCustomFieldManually, addMultiValueEntry, removeMultiValueEntry, applyBulkOverride, promoteClaim, releaseFieldDefault, releaseFieldAbsence, restoreSourceValue } from "@/actions/kyc-manual-update";
 import { promoteClaimToCCParty } from "@/actions/cc-party-actions";
 import { saveAddressForReuse } from "@/actions/cc-address-actions";
-import { getMasterFieldDocuments, setMasterFieldAssignment } from "@/actions/standing-data";
+import { setMasterFieldAssignment } from "@/actions/standing-data";
 import { renameCustomField } from "@/actions/master-data-governance";
 import { saveMasterFieldNote } from "@/actions/master-data-notes";
 import { getLETeamMembers } from "@/actions/kanban-actions";
@@ -36,6 +36,7 @@ import { CollectionRowDisplay } from "@/lib/master-data/structured-collection-re
 import { CodeListField } from "@/components/client/fields/CodeListField";
 import { FieldSourceBadge } from "../fields/FieldSourceBadge";
 import { FieldValueRenderer } from "@/components/client/fields/FieldValueRenderer";
+import { FieldAttachments } from "@/components/client/fields/FieldAttachments";
 import { AddressValueViewer } from "../fields/AddressValueViewer";
 import { isAddressValue } from "@/lib/master-data/address-value";
 import { AddressValueEditor } from "../fields/AddressValueEditor";
@@ -258,11 +259,6 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
         return new Date(val + 'T00:00:00.000Z').toISOString();
     };
 
-    // Evidence State
-    const [evidenceDocs, setEvidenceDocs] = useState<any[]>([]);
-    const [isLoadingEvidence, setIsLoadingEvidence] = useState(false);
-    const [isUploadingEvidence, setIsUploadingEvidence] = useState(false);
-    const fileInputRef = useRef<HTMLInputElement>(null);
     // Team/Assignment State
     const [team, setTeam] = useState<any[]>([]);
     const [isAssigning, setIsAssigning] = useState(false);
@@ -423,7 +419,6 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
     useEffect(() => {
         if (open && (fieldNo || customFieldId)) {
             loadData();
-            loadEvidence();
             loadTeam();
             if (fieldNo) loadGraphBindings();
         }
@@ -476,19 +471,6 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
             console.error("Failed to load graph bindings:", e);
         } finally {
             setIsLoadingBindings(false);
-        }
-    };
-
-    const loadEvidence = async () => {
-        if (!fieldKey) return;
-        setIsLoadingEvidence(true);
-        try {
-            const res = await getMasterFieldDocuments(clientLEId, fieldKey);
-            setEvidenceDocs(res.documents || []);
-        } catch (e) {
-            console.error("Evidence load failed:", e);
-        } finally {
-            setIsLoadingEvidence(false);
         }
     };
 
@@ -559,53 +541,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
         } finally {
             setIsPromoting(null);
         }
-    };
-
-    const handleEvidenceUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-
-        setIsUploadingEvidence(true);
-        try {
-            // Use a simple FormData POST to the server-side upload route.
-            // This avoids the @vercel/blob/client two-step handshake which
-            // has Turbopack dev compatibility issues.
-            const form = new FormData();
-            form.append('file', file);
-            form.append('leId', clientLEId);
-            form.append('fieldKey', fieldKey);
-
-            const res = await fetch('/api/upload-evidence', {
-                method: 'POST',
-                body: form,
-            });
-
-            const data = await res.json();
-
-            if (!res.ok || !data.success) {
-                toast.error(`Upload failed: ${data.error || 'Unknown error'}`);
-                return;
-            }
-
-            // Optimistic update
-            setEvidenceDocs(prev => [{
-                id: data.document?.id || data.url,
-                name: file.name,
-                fileUrl: data.url,
-                fileType: file.name.split('.').pop() || 'file',
-                kbSize: Math.round(file.size / 1024),
-                createdAt: new Date(),
-            }, ...prev]);
-
-            toast.success("Evidence attached");
-        } catch (error) {
-            console.error("Upload error", error);
-            toast.error("Failed to upload evidence");
-        } finally {
-            setIsUploadingEvidence(false);
-            if (fileInputRef.current) fileInputRef.current.value = '';
-        }
-    };
+      };
 
     // Pre-populate related values when a row is selected
     useEffect(() => {
@@ -1853,7 +1789,9 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                             <div className="flex-1 mt-0.5">
                                                                 <div className="text-base font-medium text-slate-900 break-all leading-relaxed">
                                                                     {data?.canonicalDisplayModel && !data.isRepeating ? (
-                                                                        <FieldValueRenderer field={data.canonicalDisplayModel!} />
+                                                                        <div>
+                                                                            <FieldValueRenderer field={data.canonicalDisplayModel!} />
+                                                                        </div>
                                                                     ) : isAddressValue(data.current.value) || (data.current.value && typeof data.current.value === 'object' && 'ccAddressId' in data.current.value) ? (
                                                                          <AddressValueViewer value={data.current.value?._resolvedData?.ccAddress?.data || data.current.value} layout="detailed" />
                                                                      ) : (isPersonOrContactValue(data.current.value) || (data.current.value && typeof data.current.value === 'object' && 'ccPartyId' in data.current.value)) ? (
@@ -2629,75 +2567,21 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                             )}
                         </div> {/* Closes the p-5 inner padding div */}
 
-                        {/* ─── Attached Evidence (Part of Answer) ─── */}
-                        <div className="bg-slate-50/50 border-t border-slate-100 p-5">
-                            <div className="flex items-center justify-between mb-3">
-                                <span className="text-xs font-semibold text-slate-600 uppercase tracking-wide flex items-center gap-1.5">
-                                    <Paperclip className="w-3.5 h-3.5" /> Documents
+                        {/* ─── Field Attachments (New Phase 4 Path) ─── */}
+                        {data?.canonicalDisplayModel?.allowAttachments && (
+                            <div className="bg-slate-50/50 border-t border-slate-100 p-5">
+                                <span className="text-xs font-semibold text-slate-600 uppercase tracking-wide flex items-center gap-1.5 mb-3">
+                                    <Paperclip className="w-3.5 h-3.5" /> Field Attachments
                                 </span>
-                                <div className="flex items-center gap-2">
-                                    {evidenceDocs.length > 0 && (
-                                        <Badge variant="secondary" className="bg-white text-slate-500 text-[10px] border-slate-200">
-                                            {evidenceDocs.length}
-                                        </Badge>
-                                    )}
-                                    <input
-                                        ref={fileInputRef}
-                                        type="file"
-                                        className="hidden"
-                                        disabled={isUploadingEvidence}
-                                        onChange={handleEvidenceUpload}
-                                    />
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="h-7 text-[10px] bg-white text-indigo-600 border-slate-200 hover:bg-slate-50 hover:text-indigo-700"
-                                        disabled={isUploadingEvidence}
-                                        onClick={() => fileInputRef.current?.click()}
-                                    >
-                                        {isUploadingEvidence ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Plus className="h-3 w-3 mr-1" />} Attach Document
-                                    </Button>
-                                </div>
+                                <FieldAttachments 
+                                    clientLEId={clientLEId} 
+                                    fieldNo={data.fieldNo || fieldNo} 
+                                    attachments={data.canonicalDisplayModel.attachments || []} 
+                                    isEditable={!isLocked}
+                                    mode="manage" 
+                                />
                             </div>
-
-                            {isLoadingEvidence ? (
-                                <div className="flex items-center justify-center py-4 gap-2 text-slate-400">
-                                    <Loader2 className="h-4 w-4 animate-spin" /> Loading documents...
-                                </div>
-                            ) : evidenceDocs.length === 0 ? (
-                                <div className="text-center py-6 text-slate-400 bg-white rounded-lg border border-slate-100 border-dashed">
-                                    <p className="text-xs italic">No documents attached.</p>
-                                </div>
-                            ) : (
-                                <div className="divide-y divide-slate-100 bg-white rounded-lg border border-slate-200 overflow-hidden">
-                                    {evidenceDocs.map((doc: any) => (
-                                        <div key={doc.id} className="flex items-center gap-3 p-2.5 hover:bg-slate-50 group transition-colors">
-                                            <div className="h-8 w-8 rounded bg-indigo-50 flex items-center justify-center shrink-0">
-                                                <FileText className="h-4 w-4 text-indigo-600" />
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-sm font-medium text-slate-900 truncate">{doc.name}</p>
-                                                <p className="text-[10px] text-slate-400 mt-0.5">
-                                                    {doc.fileType?.toUpperCase()}
-                                                    {doc.kbSize ? ` · ${doc.kbSize} KB` : ''}
-                                                    {doc.createdAt ? ` · ${new Date(doc.createdAt).toLocaleDateString()}` : ''}
-                                                </p>
-                                            </div>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="h-7 w-7 text-slate-400 hover:text-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity"
-                                                asChild
-                                            >
-                                                <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer">
-                                                    <Download className="h-3.5 w-3.5" />
-                                                </a>
-                                            </Button>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
+                        )}
                     </div> {/* Closes the rounded-xl "Current Value Card" div */}
 
                     {/* ─── Usage Section ─── */}

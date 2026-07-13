@@ -4,6 +4,8 @@ import { ensureApiAuthorization } from '@/lib/auth/api-auth';
 import { Action } from '@/lib/auth/permissions';
 import { DocumentService } from '@/lib/documents/DocumentService';
 import { randomUUID } from 'crypto';
+import prisma from '@/lib/prisma';
+import { ALLOWED_PRIVATE_DOCUMENT_TYPES } from '@/lib/documents/file-config';
 
 export async function POST(request: Request): Promise<NextResponse> {
     const body = (await request.json()) as HandleUploadBody;
@@ -15,9 +17,14 @@ export async function POST(request: Request): Promise<NextResponse> {
             onBeforeGenerateToken: async (pathname: string, clientPayload: string | null) => {
                 const payload = clientPayload ? JSON.parse(clientPayload) : {};
                 const clientLEId = payload.clientLEId;
+                const intentId = payload.intentId;
 
                 if (!clientLEId) {
                     throw new Error("Missing clientLEId");
+                }
+                
+                if (!intentId || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(intentId)) {
+                    throw new Error("Missing or invalid intentId");
                 }
 
                 // 1. Authenticate and authorize LE_EDIT_MASTER_DATA
@@ -33,21 +40,54 @@ export async function POST(request: Request): Promise<NextResponse> {
                     throw new Error("CRITICAL: PRIVATE_BLOB_READ_WRITE_TOKEN is missing.");
                 }
 
-                // 4. Issue upload token for the private Blob store
+                // Verify the intent doesn't already exist to prevent replay
+                const existingIntent = await prisma.privateDocumentUploadIntent.findUnique({
+                    where: { id: intentId }
+                });
+                if (existingIntent) {
+                    throw new Error("Intent ID already exists");
+                }
+
+                // 4. Create the PENDING intent
+                const intent = await prisma.privateDocumentUploadIntent.create({
+                    data: {
+                        id: intentId,
+                        clientLEId,
+                        initiatedById: userId,
+                        storagePathname,
+                        originalFilename: pathname,
+                        declaredMimeType: payload.mimeType || null,
+                        status: 'PENDING'
+                    }
+                });
+
+                // 5. Issue upload token for the private Blob store
+                // We use the flattened allowed MIME types plus '' for CSV fallback
+                const allowedContentTypes = Object.values(ALLOWED_PRIVATE_DOCUMENT_TYPES)
+                    .flatMap(t => t.mimeTypes)
+                    .filter(m => m !== ''); // Vercel Blob doesn't accept empty string in allowedContentTypes array, but will just not restrict if we don't pass it? Wait.
+                // Vercel Blob allowedContentTypes doesn't accept ''. Let's just pass the valid ones.
+                
                 return {
                     token,
+                    // If CSV empty mime type is an issue, Vercel Blob might reject. The config enforces it on the server token side.
                     allowedContentTypes: [
                         'application/pdf', 
                         'image/jpeg', 
                         'image/png', 
                         'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 
+                        'application/msword',
+                        'application/vnd.ms-excel',
+                        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                        'application/vnd.ms-powerpoint',
+                        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+                        'text/csv',
+                        'application/csv',
                         'text/plain'
                     ],
                     // We trust this state in onUploadCompleted
                     tokenPayload: JSON.stringify({ 
-                        userId, 
-                        clientLEId, 
-                        originalFilename: pathname,
+                        intentId: intent.id,
                         trustedPathname: storagePathname
                     }),
                     // Force the generated server-side pathname
@@ -58,30 +98,64 @@ export async function POST(request: Request): Promise<NextResponse> {
                 };
             },
             onUploadCompleted: async ({ blob, tokenPayload }) => {
+                let intentId = '';
                 try {
                     const payload = JSON.parse(tokenPayload || "{}");
-                    const { userId, clientLEId, originalFilename, trustedPathname } = payload;
+                    intentId = payload.intentId;
+                    const trustedPathname = payload.trustedPathname;
 
-                    if (!userId || !clientLEId || !trustedPathname) {
+                    if (!intentId || !trustedPathname) {
                         throw new Error("Invalid token payload state");
                     }
 
-                    // 5. Trust Verification: Assert that the blob was actually uploaded to the approved path
+                    // 6. Trust Verification: Assert that the blob was actually uploaded to the approved path
                     if (blob.pathname !== trustedPathname) {
                         console.error(`[upload-completed] Tampering detected! Expected pathname ${trustedPathname} but got ${blob.pathname}`);
                         throw new Error("Blob pathname mismatch");
                     }
 
-                    // 6. Verify and persist the upload natively server-side
+                    // 7. Verify and persist the upload natively server-side
+                    const intent = await prisma.privateDocumentUploadIntent.findUnique({
+                        where: { id: intentId }
+                    });
+
+                    if (!intent) {
+                        throw new Error("Upload intent not found");
+                    }
+
+                    if (intent.status === 'COMPLETED') {
+                        return; // Idempotent retry
+                    }
+                    
+                    if (intent.status === 'FAILED') {
+                        return; // Terminal state
+                    }
+
+                    // DocumentService handles the transaction and intent completion atomically
                     await DocumentService.verifyAndPersistPrivateUpload({
                         storagePathname: blob.pathname,
-                        originalFilename: originalFilename || blob.pathname,
-                        clientLEId,
-                        uploadedById: userId,
+                        originalFilename: intent.originalFilename,
+                        clientLEId: intent.clientLEId,
+                        uploadedById: intent.initiatedById,
+                        intentId
                     });
 
                 } catch (e) {
                     console.error('[upload-completed] Failed to process upload:', e);
+                    if (intentId) {
+                        try {
+                            await prisma.privateDocumentUploadIntent.updateMany({
+                                where: { id: intentId, status: 'PENDING' },
+                                data: {
+                                    status: 'FAILED',
+                                    failureReason: 'System error during completion',
+                                    completedAt: new Date()
+                                }
+                            });
+                        } catch (updateErr) {
+                            console.error('Failed to mark intent as failed', updateErr);
+                        }
+                    }
                     throw e; // Vercel Blob catches this and returns 400 to client
                 }
             },

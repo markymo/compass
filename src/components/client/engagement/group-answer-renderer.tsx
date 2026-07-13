@@ -21,6 +21,7 @@ import { RaNameLookup } from "@/lib/kyc/source-label";
 import type { HydratedValue } from "@/actions/kyc-query";
 import { FieldValueRenderer } from "@/components/client/fields/FieldValueRenderer";
 import { FieldSourceBadge } from "@/components/client/fields/FieldSourceBadge";
+import { FieldAttachmentIndicator } from "@/components/shared/FieldAttachmentIndicator";
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
@@ -93,8 +94,11 @@ function GroupFieldRow({
                 {renderValue()}
             </div>
             {!dimmed && field.canonicalDisplayModel?.source && (
-                <div className="flex items-center gap-1.5 mt-1">
+                <div className="flex items-center gap-2 mt-1">
                     <FieldSourceBadge source={field.canonicalDisplayModel.source} variant="span" />
+                    {field.hydrated.attachmentCount ? (
+                        <FieldAttachmentIndicator count={field.hydrated.attachmentCount} />
+                    ) : null}
                 </div>
             )}
         </div>

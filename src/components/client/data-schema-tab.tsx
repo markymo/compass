@@ -17,6 +17,7 @@ import { FieldDetailPanel } from "./inspection/field-detail-panel";
 import { PersonOrContactValueViewer } from "./fields/PersonOrContactValueViewer";
 import { FieldSourceBadge } from "./fields/FieldSourceBadge";
 import { FieldValueRenderer } from "./fields/FieldValueRenderer";
+import { FieldAttachments } from "./fields/FieldAttachments";
 import { FieldDisplayModel } from "@/lib/master-data/field-display-model";
 import { isAddressValue, getAddressSummary } from "@/lib/master-data/address-value";
 import { ExpandableText } from "@/components/ui/expandable-text";
@@ -900,7 +901,17 @@ function MasterFieldDisplay({ label, fieldNo, value, formattedDisplayValue, sour
                                     canonicalDisplayModel.value.kind === 'codeList' ||
                                     isSafeCollection
                                 ) ? (
-                                    <FieldValueRenderer field={canonicalDisplayModel} />
+                                    <div className="flex flex-col gap-1">
+                                        <FieldValueRenderer field={canonicalDisplayModel} />
+                                        {canonicalDisplayModel.allowAttachments && (
+                                            <FieldAttachments 
+                                                clientLEId={canonicalDisplayModel.clientLEId || ''}
+                                                fieldNo={canonicalDisplayModel.fieldNo}
+                                                attachments={canonicalDisplayModel.attachments || []}
+                                                mode="indicator" 
+                                            />
+                                        )}
+                                    </div>
                                 ) : (
                                 <>
                                     {resolvedState === "HAS_VALUE" && (value?.explicitNone ? "None" : displayValue)}

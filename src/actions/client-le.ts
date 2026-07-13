@@ -14,6 +14,7 @@ import { generateText } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
 import { KycStateService } from "@/lib/kyc/KycStateService";
 import { enrichAddressReferences } from "@/actions/kyc-query";
+import { mapDerivedAttachments } from "@/lib/kyc/attachments";
 import { FieldClaimService } from "@/lib/kyc/FieldClaimService";
 import { getComplexFieldConfig } from "@/lib/master-data/complex-field-config";
 import { toExportText } from "@/lib/export/toExportText";
@@ -644,6 +645,12 @@ export async function getFullMasterData(clientLEId: string) {
             ownerScopeId || undefined
         );
 
+        const fieldsWithAttachments = allFields.filter(f => f.allowAttachments).map(f => f.fieldNo);
+        const resolvedAttachments = await KycStateService.resolveAllAttachments(
+            { subjectLeId, clientLEId: clientLE.id },
+            fieldsWithAttachments
+        );
+
         const ccPartyIds = new Set<string>();
         for (const val of Array.from(resolved.values())) {
             if (!val) continue;
@@ -789,7 +796,9 @@ export async function getFullMasterData(clientLEId: string) {
                     codeSystem: (() => {
                         const cfg = getComplexFieldConfig(def.fieldNo);
                         return cfg?.kind === 'STRUCTURED_COLLECTION' ? (cfg as any).codeSystem : undefined;
-                    })()
+                    })(),
+                    allowAttachments: def.allowAttachments,
+                    attachments: mapDerivedAttachments(resolvedAttachments.get(def.fieldNo) || [])
                 }
             );
 
@@ -1009,7 +1018,8 @@ export async function addCommonQuestionnaire(clientLEId: string, questionnaireId
 
     try {
         const template = await prisma.questionnaire.findUnique({
-            where: { id: questionnaireId }
+            where: { id: questionnaireId },
+            include: { questions: true }
         });
 
         if (!template) return { success: false, error: "Questionnaire not found" };
@@ -1075,12 +1085,21 @@ export async function addCommonQuestionnaire(clientLEId: string, questionnaireId
                 referenceCode: instanceReferenceCode,
                 commonForClients: {
                     connect: { id: clientLEId }
+                },
+                questions: {
+                    create: template.questions.map((q: any) => ({
+                        text: q.text,
+                        compactText: q.compactText,
+                        order: q.order,
+                        status: "DRAFT",
+                        sourceSectionId: q.sourceSectionId,
+                        masterFieldNo: q.masterFieldNo,
+                        masterQuestionGroupId: q.masterQuestionGroupId,
+                        customFieldDefinitionId: q.customFieldDefinitionId,
+                    }))
                 }
             }
         });
-
-        const { populateQuestionsFromExtraction } = await import("./kanban-actions");
-        await populateQuestionsFromExtraction(newQuestionnaire.id);
 
         revalidatePath(`/app/le/${clientLEId}`);
         return { success: true };

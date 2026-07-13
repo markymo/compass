@@ -8,11 +8,12 @@ const getToken = () => process.env.PRIVATE_BLOB_READ_WRITE_TOKEN;
 
 export async function GET(
     request: Request,
-    { params }: { params: { id: string } }
+    context: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
     try {
+        const { id } = await context.params;
         const document = await prisma.document.findUnique({
-            where: { id: params.id }
+            where: { id }
         });
 
         if (!document) {

@@ -12,7 +12,9 @@ vi.mock('@/lib/kyc/KycStateService', () => ({
     KycStateService: {
         resolveScopeId: vi.fn().mockResolvedValue('test-scope'),
         getAuthoritativeCollection: vi.fn().mockResolvedValue([]),
-        getAuthoritativeValue: vi.fn().mockResolvedValue(null)
+        getAuthoritativeValue: vi.fn().mockResolvedValue(null),
+        resolveAllFields: vi.fn().mockResolvedValue(new Map()),
+        resolveAllAttachments: vi.fn().mockResolvedValue(new Map())
     }
 }));
 
@@ -43,19 +45,16 @@ describe('kyc-query structured collections', () => {
             appDataType: 'CODE_LIST'
         } as any);
 
-        vi.mocked(KycStateService.getAuthoritativeCollection).mockResolvedValue([
-            { value: { code: '35110', label: 'Production of electricity' }, isScoped: true, assertedAt: new Date() }
-        ] as any);
+        vi.mocked(KycStateService.resolveAllFields).mockResolvedValueOnce(new Map([
+            [20, [{ value: { code: '35110', label: 'Production of electricity' }, isScoped: true, assertedAt: new Date() }] as any]
+        ]));
 
         await getFieldDetail('cle_1', 0, 'CLIENT_LE', undefined, 'group_1');
 
-        // Verify the 5th argument is 'SIC_CODES'
-        expect(KycStateService.getAuthoritativeCollection).toHaveBeenCalledWith(
-            { subjectLeId: 'le_1' },
-            20,
-            'test-scope',
-            undefined,
-            'SIC_CODES'
+        expect(KycStateService.resolveAllFields).toHaveBeenCalledWith(
+            { subjectLeId: 'le_1', clientLEId: 'cle_1' },
+            [{ fieldNo: 20, isMultiValue: true, collectionId: 'SIC_CODES' }],
+            'test-scope'
         );
     });
 

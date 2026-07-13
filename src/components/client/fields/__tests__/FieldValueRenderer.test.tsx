@@ -1,6 +1,10 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { FieldValueRenderer } from '../FieldValueRenderer';
 import { FieldDisplayModel } from '@/lib/master-data/field-display-model';
+
+vi.mock('../FieldAttachments', () => ({
+    FieldAttachments: () => <div data-testid="mock-field-attachments" />
+}));
 
 describe('FieldValueRenderer', () => {
     const baseField: Omit<FieldDisplayModel, 'state' | 'value' | 'defaultText'> = {

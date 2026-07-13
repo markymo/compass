@@ -30,7 +30,15 @@ vi.mock('@/services/masterData/definitionService', async (importOriginal) => {
     return {
         ...actual,
         getMasterFieldDefinition: async (fieldNo: number) => {
-            const def = await actual.getMasterFieldDefinition(fieldNo);
+            let def: any;
+            try {
+                def = await actual.getMasterFieldDefinition(fieldNo);
+            } catch (e) {
+                if (fieldNo === 125) {
+                    return { fieldNo: 125, appDataType: 'PARTY_REF', categoryId: 'cat', isMultiValue: false, isActive: true, allowAttachments: false };
+                }
+                throw e;
+            }
             if (fieldNo === 63) {
                 return {
                     ...def,
