@@ -4,6 +4,7 @@ import { getIdentity } from '@/lib/auth';
 import { FieldClaimService } from '@/lib/kyc/FieldClaimService';
 import { SourceType } from '@prisma/client';
 import prisma from '@/lib/prisma';
+import { revalidatePath } from 'next/cache';
 
 export type AttachmentActionParams = {
     clientLEId: string;
@@ -26,7 +27,7 @@ export async function addFieldAttachment(
 
     const subject = await resolveSubject(params.clientLEId);
 
-    return await FieldClaimService.addAttachment(
+    const result = await FieldClaimService.addAttachment(
         subject,
         params.fieldNo,
         params.attachmentDocumentId,
@@ -34,6 +35,9 @@ export async function addFieldAttachment(
         SourceType.USER_INPUT,
         params.idempotencyKey
     );
+    
+    revalidatePath(`/app/le/${params.clientLEId}`, 'layout');
+    return result;
 }
 
 export async function replaceFieldAttachment(
@@ -44,7 +48,7 @@ export async function replaceFieldAttachment(
 
     const subject = await resolveSubject(params.clientLEId);
 
-    return await FieldClaimService.replaceAttachment(
+    const result = await FieldClaimService.replaceAttachment(
         subject,
         params.fieldNo,
         params.instanceId,
@@ -53,6 +57,9 @@ export async function replaceFieldAttachment(
         SourceType.USER_INPUT,
         params.idempotencyKey
     );
+    
+    revalidatePath(`/app/le/${params.clientLEId}`, 'layout');
+    return result;
 }
 
 export async function removeFieldAttachment(
@@ -63,7 +70,7 @@ export async function removeFieldAttachment(
 
     const subject = await resolveSubject(params.clientLEId);
 
-    return await FieldClaimService.removeAttachment(
+    const result = await FieldClaimService.removeAttachment(
         subject,
         params.fieldNo,
         params.instanceId,
@@ -71,4 +78,7 @@ export async function removeFieldAttachment(
         SourceType.USER_INPUT,
         params.idempotencyKey
     );
+
+    revalidatePath(`/app/le/${params.clientLEId}`, 'layout');
+    return result;
 }
