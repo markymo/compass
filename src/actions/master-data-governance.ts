@@ -75,6 +75,7 @@ export async function updateMasterField(
         isMultiValue?: boolean;
         optionSetId?: string | null;
         profileConfig?: any;
+        allowAttachments?: boolean;
     }
 ) {
     try {
@@ -157,6 +158,7 @@ export async function createMasterField(data: {
     order?: number;
     isMultiValue?: boolean;
     optionSetId?: string | null;
+    allowAttachments?: boolean;
 }) {
     try {
         // Sanitize: empty strings from form selects must be treated as absent.
@@ -213,6 +215,7 @@ export async function createMasterField(data: {
                 order: data.order ?? 999,
                 isMultiValue: data.isMultiValue || false,
                 optionSetId: data.optionSetId || undefined,
+                allowAttachments: data.allowAttachments || false,
             }
         });
         invalidateDefinitionCache();

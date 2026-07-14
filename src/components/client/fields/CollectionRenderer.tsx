@@ -38,7 +38,9 @@ export function CollectionRenderer({
             label: '',
             textSummary: '',
             isEditable: false,
-            isMultiValue: false
+            isMultiValue: false,
+            allowAttachments: false,
+            attachments: []
         };
 
         return (

@@ -136,7 +136,8 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
         isMultiValue: field?.isMultiValue || false,
         optionSetId: field?.optionSetId || "none",
         appDataType: field?.appDataType || "TEXT",
-        profileConfig: field?.profileConfig || null
+        profileConfig: field?.profileConfig || null,
+        allowAttachments: field?.allowAttachments || false
     });
 
     const [isProfileSectionOpen, setIsProfileSectionOpen] = useState(false);
@@ -162,6 +163,7 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                 optionSetId:     field.optionSetId || "none",
                 appDataType:     field.appDataType || "TEXT",
                 profileConfig:   field.profileConfig || null,
+                allowAttachments: field.allowAttachments || false,
             });
         }
 
@@ -836,6 +838,18 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                                     </div>
                                 </div>
                             )}
+                            <div className="grid gap-2 border rounded-md p-3 justify-center text-left max-w-[fit-content] h-[fit-content]">
+                                <div className="flex flex-row gap-3 items-center">
+                                    <div className="space-y-0.5">
+                                        <Label htmlFor="allowAttachmentsSwitchDetail" className="text-xs text-slate-500 font-semibold cursor-pointer">Allow file attachments</Label>
+                                    </div>
+                                    <Switch
+                                        id="allowAttachmentsSwitchDetail"
+                                        checked={formData.allowAttachments}
+                                        onCheckedChange={(val) => setFormData({ ...formData, allowAttachments: val })}
+                                    />
+                                </div>
+                            </div>
                         </div>
                     </section>
 

@@ -10,6 +10,8 @@ import { FieldClaim } from "@prisma/client";
 import { getPartySummary } from "@/lib/master-data/party-value";
 import { resolveFieldForDisplay } from "@/lib/master-data/field-interpreter";
 import { resolveSourceCheckedAt } from "@/lib/kyc/provenance-enricher";
+import { ResolvedAttachment } from "@/lib/master-data/field-display-model";
+import { mapDerivedAttachments } from "@/lib/kyc/attachments";
 // KycLoader is deprecated in favor of KycStateService
 
 export type ResolverRequest = {
@@ -27,6 +29,7 @@ export type HydratedValue = {
     updatedAt?: Date | null;
     sourceCheckedAt?: Date | null;
     isSynced: boolean; // True if value exists in Master Data
+    attachmentCount?: number;
 };
 
 export type ResolverResponse = Record<string, Record<string, HydratedValue>>; // QuestionId -> FieldNo -> Value
@@ -238,6 +241,8 @@ export type BatchResolverInput = {
     sourceMappings: BatchSourceMapping[];
     /** The provenance map containing EnrichmentRun and GLEIF dates (pre-loaded) */
     provenanceMap: import("@/lib/kyc/provenance-enricher").ProvenanceMap | null;
+    /** Map of fieldNo to its resolved attachments (pre-loaded) */
+    attachmentsByField?: Map<number, import("@/lib/kyc/KycStateService").DerivedValue[]>;
 };
 
 /**
@@ -277,7 +282,8 @@ function resolveField(
     allClaims: FieldClaim[],
     ownerScopeId: string | null,
     sourceMappings: BatchSourceMapping[],
-    provenanceMap: import("@/lib/kyc/provenance-enricher").ProvenanceMap | null
+    provenanceMap: import("@/lib/kyc/provenance-enricher").ProvenanceMap | null,
+    attachmentCount?: number
 ): Record<string, HydratedValue> {
     const priorityMap = buildPriorityMap(sourceMappings, fieldNo);
 
@@ -335,6 +341,7 @@ function resolveField(
                 updatedAt: maxAssertedAt,
                 sourceCheckedAt: maxSourceCheckedAt,
                 isSynced: true,
+                ...(attachmentCount !== undefined ? { attachmentCount } : {})
             }
         };
     } else {
@@ -354,6 +361,7 @@ function resolveField(
                 updatedAt: derived.assertedAt,
                 sourceCheckedAt: resolveSourceCheckedAt(derived.sourceType || derived.evidenceProvider, derived.sourceReference, derived.assertedAt, provenanceMap),
                 isSynced: true,
+                ...(attachmentCount !== undefined ? { attachmentCount } : {})
             }
         };
     }
@@ -486,7 +494,7 @@ export async function enrichAddressReferences(values: any[]) {
  * exactly — no duplicated logic.
  */
 export async function resolveMasterDataBatch(input: BatchResolverInput): Promise<ResolverResponse> {
-    const { subjectLeId, ownerScopeId, questions, fieldDefMap, groupFieldMap, claims, sourceMappings, provenanceMap } = input;
+    const { subjectLeId, ownerScopeId, questions, fieldDefMap, groupFieldMap, claims, sourceMappings, provenanceMap, attachmentsByField } = input;
 
     const response: ResolverResponse = {};
 
@@ -501,7 +509,8 @@ export async function resolveMasterDataBatch(input: BatchResolverInput): Promise
         for (const fieldNo of fieldNos) {
             const def = fieldDefMap.get(fieldNo);
             if (!def) continue;
-            Object.assign(groupResult, resolveField(fieldNo, def.isMultiValue, claims, ownerScopeId, sourceMappings, provenanceMap));
+            const attachmentCount = attachmentsByField?.get(fieldNo)?.length;
+            Object.assign(groupResult, resolveField(fieldNo, def.isMultiValue, claims, ownerScopeId, sourceMappings, provenanceMap, attachmentCount));
         }
         resolvedGroups.set(groupKey, groupResult);
     }
@@ -512,7 +521,8 @@ export async function resolveMasterDataBatch(input: BatchResolverInput): Promise
             if (!resolvedFields.has(q.masterFieldNo)) {
                 const def = fieldDefMap.get(q.masterFieldNo);
                 if (def) {
-                    resolvedFields.set(q.masterFieldNo, resolveField(q.masterFieldNo, def.isMultiValue, claims, ownerScopeId, sourceMappings, provenanceMap));
+                    const attachmentCount = attachmentsByField?.get(q.masterFieldNo)?.length;
+                    resolvedFields.set(q.masterFieldNo, resolveField(q.masterFieldNo, def.isMultiValue, claims, ownerScopeId, sourceMappings, provenanceMap, attachmentCount));
                 }
             }
         }
@@ -754,16 +764,47 @@ export async function getFieldDetail(
             const groupValues: Record<string, any> = {};
             let latestTimestamp = new Date(0);
 
-            for (const item of group.items) {
-                const def = await getMasterFieldDefinition(item.fieldNo);
+            // Pre-fetch all definitions to power batching
+            const defs = await Promise.all(group.items.map(i => getMasterFieldDefinition(i.fieldNo)));
+            
+            // Build requested fields for batch resolver
+            const requestedFields = defs.map(d => {
+                const cfg = getComplexFieldConfig(d.fieldNo);
+                return {
+                    fieldNo: d.fieldNo,
+                    isMultiValue: d.isMultiValue,
+                    collectionId: d.isMultiValue
+                        ? (cfg?.kind === 'STRUCTURED_COLLECTION' ? cfg.collectionId : undefined)
+                        : undefined,
+                };
+            });
+
+            // Resolve values and attachments in batch
+            const [resolvedValuesMap, resolvedAttachmentsMap] = await Promise.all([
+                KycStateService.resolveAllFields(
+                    { subjectLeId, clientLEId: entityType === 'CLIENT_LE' ? entityId : undefined },
+                    requestedFields,
+                    ownerScopeId
+                ),
+                KycStateService.resolveAllAttachments(
+                    { subjectLeId, clientLEId: entityType === 'CLIENT_LE' ? entityId : undefined },
+                    defs.filter(d => d.allowAttachments).map(d => d.fieldNo)
+                )
+            ]);
+
+            for (let i = 0; i < group.items.length; i++) {
+                const item = group.items[i];
+                const def = defs[i];
                 const cfg = getComplexFieldConfig(item.fieldNo);
                 const codeSystem = cfg && 'codeSystem' in cfg ? cfg.codeSystem : undefined;
 
+                const derivedAttachments = resolvedAttachmentsMap.get(item.fieldNo) || [];
+                const mappedAttachments = mapDerivedAttachments(derivedAttachments);
+                
+                const resolvedVal = resolvedValuesMap.get(item.fieldNo);
+
                 if (def.isMultiValue) {
-                    const filterCollectionId = cfg?.kind === 'STRUCTURED_COLLECTION' ? cfg.collectionId : undefined;
-                    const collection = await KycStateService.getAuthoritativeCollection(
-                        { subjectLeId }, item.fieldNo, ownerScopeId, undefined, filterCollectionId
-                    );
+                    const collection = (resolvedVal as any[]) || [];
                     if (collection.length > 0) {
                         const maxUpdatedAt = collection.reduce(
                             (max: Date, c: any) => (c.assertedAt > max ? c.assertedAt : max),
@@ -771,7 +812,7 @@ export async function getFieldDetail(
                         );
                         const hydrated: HydratedValue = {
                             value: collection.map((c: any) => c.value),
-                            source: collection[0].isScoped ? 'USER_INPUT' : (collection[0].evidenceProvider || 'MASTER_RECORD'),
+                            source: collection[0].isScoped ? 'USER_INPUT' : (collection[0].evidenceProvider || collection[0].sourceType || 'MASTER_RECORD'),
                             sourceReference: collection[0].sourceReference ?? null,
                             updatedAt: maxUpdatedAt,
                             isSynced: true,
@@ -793,7 +834,9 @@ export async function getFieldDetail(
                                     appDataType: def.appDataType,
                                     profileConfig: def.profileConfig ? (def.profileConfig as any) : undefined,
                                     isMultiValue: def.isMultiValue,
-                                    codeSystem
+                                    codeSystem,
+                                    allowAttachments: def.allowAttachments,
+                                    attachments: mappedAttachments
                                 }
                             ),
                         });
@@ -819,19 +862,19 @@ export async function getFieldDetail(
                                     appDataType: def.appDataType,
                                     profileConfig: def.profileConfig ? (def.profileConfig as any) : undefined,
                                     isMultiValue: def.isMultiValue,
-                                    codeSystem
+                                    codeSystem,
+                                    allowAttachments: def.allowAttachments,
+                                    attachments: mappedAttachments
                                 }
                             ),
                         });
                     }
                 } else {
-                    const derived = await KycStateService.getAuthoritativeValue(
-                        { subjectLeId }, item.fieldNo, ownerScopeId
-                    );
+                    const derived = resolvedVal as any;
                     if (derived) {
                         const hydrated: HydratedValue = {
                             value: derived.value,
-                            source: derived.isScoped ? 'USER_INPUT' : (derived.evidenceProvider || 'MASTER_RECORD'),
+                            source: derived.isScoped ? 'USER_INPUT' : (derived.evidenceProvider || derived.sourceType || 'MASTER_RECORD'),
                             sourceReference: derived.sourceReference ?? null,
                             updatedAt: derived.assertedAt,
                             isSynced: true,
@@ -853,7 +896,9 @@ export async function getFieldDetail(
                                     appDataType: def.appDataType,
                                     profileConfig: def.profileConfig ? (def.profileConfig as any) : undefined,
                                     isMultiValue: def.isMultiValue,
-                                    codeSystem
+                                    codeSystem,
+                                    allowAttachments: def.allowAttachments,
+                                    attachments: mappedAttachments
                                 }
                             ),
                         });
@@ -877,7 +922,9 @@ export async function getFieldDetail(
                                     appDataType: def.appDataType,
                                     profileConfig: def.profileConfig ? (def.profileConfig as any) : undefined,
                                     isMultiValue: def.isMultiValue,
-                                    codeSystem
+                                    codeSystem,
+                                    allowAttachments: def.allowAttachments,
+                                    attachments: mappedAttachments
                                 }
                             ),
                         });
@@ -1549,6 +1596,8 @@ export async function getFieldDetail(
     }
 
     // Phase FD-1: Attach canonical display model to root current value
+    const derivedAttachments = def?.allowAttachments ? await KycStateService.getAuthoritativeAttachments({ subjectLeId }, fieldNo) : [];
+    
     const metadataForDisplay = {
         fieldNo: result.fieldNo ?? 0,
         label: result.fieldName ?? 'Unknown Field',
@@ -1556,7 +1605,9 @@ export async function getFieldDetail(
         appDataType: result.dataType as any,
         profileConfig: result.profileConfig as any,
         isMultiValue: result.isRepeating,
-        codeSystem: result.codeSystem
+        codeSystem: result.codeSystem,
+        allowAttachments: def?.allowAttachments,
+        attachments: mapDerivedAttachments(derivedAttachments)
     };
 
     if (result.current) {

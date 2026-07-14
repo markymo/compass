@@ -49,6 +49,7 @@ export type AssertClaimInput = {
      */
     clientLEId?: string;
     claimRole?: 'VALUE' | 'FILE_ATTACHMENT';
+    idempotencyKey?: string;
 };
 
 export class FieldClaimService {
@@ -62,6 +63,26 @@ export class FieldClaimService {
      * idempotent write-back mechanism described in the architecture design.
      */
     static async assertClaim(input: AssertClaimInput): Promise<FieldClaim> {
+        // Idempotency short-circuit
+        if (input.idempotencyKey) {
+            const existing = await prisma.fieldClaim.findUnique({
+                where: { idempotencyKey: input.idempotencyKey }
+            });
+            if (existing) {
+                if (existing.fieldNo !== input.fieldNo) throw new Error("Idempotency conflict: fieldNo mismatch");
+                if (existing.claimRole !== (input.claimRole || 'VALUE')) throw new Error("Idempotency conflict: claimRole mismatch");
+                if (existing.subjectLeId !== (input.subjectLeId || null)) throw new Error("Idempotency conflict: subjectLeId mismatch");
+                if (existing.subjectPersonId !== (input.subjectPersonId || null)) throw new Error("Idempotency conflict: subjectPersonId mismatch");
+                if (existing.subjectOrgId !== (input.subjectOrgId || null)) throw new Error("Idempotency conflict: subjectOrgId mismatch");
+                if (existing.clientLeScopeId !== (input.clientLEId || null)) throw new Error(`Idempotency conflict: clientLeScopeId mismatch: ${existing.clientLeScopeId} !== ${input.clientLEId}`);
+                if (input.claimRole !== 'FILE_ATTACHMENT' && existing.supersedesId !== (input.supersedesId || null)) throw new Error("Idempotency conflict: supersedesId mismatch");
+                if (input.claimRole === 'FILE_ATTACHMENT' && !!input.supersedesId && existing.instanceId !== input.instanceId) throw new Error("Idempotency conflict: instanceId mismatch");
+                if (existing.attachmentDocumentId !== (input.attachmentDocumentId || null)) throw new Error("Idempotency conflict: attachmentDocumentId mismatch");
+                // Return immediately if this mutation already succeeded
+                return existing;
+            }
+        }
+
         // 1. Invariant: Exactly one subject FK
         const subjects = [input.subjectLeId, input.subjectPersonId, input.subjectOrgId].filter(Boolean);
         if (subjects.length !== 1) {
@@ -77,6 +98,7 @@ export class FieldClaimService {
         const isTombstone = input.valueJson && typeof input.valueJson === 'object' && input.valueJson.tombstone === true;
         if (input.claimRole === 'FILE_ATTACHMENT') {
             if (!isTombstone) {
+                if (!fieldDef.allowAttachments) throw new Error("Attachments are not permitted for this field.");
                 if (!input.attachmentDocumentId) throw new Error("Active FILE_ATTACHMENT claim must have attachmentDocumentId.");
                 if (input.valueText !== undefined || input.valueNumber !== undefined || input.valueDate !== undefined) {
                     throw new Error("FILE_ATTACHMENT claim must not populate scalar values.");
@@ -89,59 +111,74 @@ export class FieldClaimService {
         }
 
         // 4. Create the claim
-        const claim = await prisma.fieldClaim.create({
-            data: {
-                fieldNo: input.fieldNo,
-                subjectLeId: input.subjectLeId,
-                subjectPersonId: input.subjectPersonId,
-                subjectOrgId: input.subjectOrgId,
-                ownerScopeId: input.ownerScopeId,
-                claimRole: input.claimRole || 'VALUE',
+        try {
+            const claim = await prisma.fieldClaim.create({
+                data: {
+                    fieldNo: input.fieldNo,
+                    subjectLeId: input.subjectLeId,
+                    subjectPersonId: input.subjectPersonId,
+                    subjectOrgId: input.subjectOrgId,
+                    ownerScopeId: input.ownerScopeId,
+                    claimRole: input.claimRole || 'VALUE',
 
-                valueText: input.valueText,
-                valueNumber: input.valueNumber ? String(input.valueNumber) : null,
-                valueDate: input.valueDate,
-                valueJson: input.valueJson,
-                valuePersonId: input.valuePersonId,
-                valueLeId: input.valueLeId,
-                valueOrgId: input.valueOrgId,
-                valueAddressId: input.valueAddressId,
-                valueDocId: input.valueDocId,
-                attachmentDocumentId: input.attachmentDocumentId,
+                    valueText: input.valueText,
+                    valueNumber: input.valueNumber ? String(input.valueNumber) : null,
+                    valueDate: input.valueDate,
+                    valueJson: input.valueJson,
+                    valuePersonId: input.valuePersonId,
+                    valueLeId: input.valueLeId,
+                    valueOrgId: input.valueOrgId,
+                    valueAddressId: input.valueAddressId,
+                    valueDocId: input.valueDocId,
+                    attachmentDocumentId: input.attachmentDocumentId,
+                    clientLeScopeId: input.clientLEId || undefined,
 
-                sourceType: input.sourceType,
-                sourceReference: input.sourceReference,
-                evidenceId: input.evidenceId,
-                confidenceScore: input.confidenceScore,
+                    sourceType: input.sourceType,
+                    sourceReference: input.sourceReference,
+                    evidenceId: input.evidenceId,
+                    confidenceScore: input.confidenceScore,
 
-                assertedAt: input.assertedAt || new Date(),
-                effectiveFrom: input.effectiveFrom,
-                effectiveTo: input.effectiveTo,
-                supersedesId: input.supersedesId,
+                    assertedAt: input.assertedAt || new Date(),
+                    effectiveFrom: input.effectiveFrom,
+                    effectiveTo: input.effectiveTo,
+                    supersedesId: input.supersedesId,
 
-                collectionId: input.collectionId,
-                instanceId: input.instanceId,
+                    collectionId: input.collectionId,
+                    instanceId: input.instanceId,
+                    idempotencyKey: input.idempotencyKey,
 
-                status: input.status || ClaimStatus.ASSERTED,
-                verifiedByUserId: input.verifiedByUserId || undefined,
-                verifiedAt: input.status === ClaimStatus.VERIFIED ? (input.assertedAt || new Date()) : null,
+                    status: input.status || ClaimStatus.ASSERTED,
+                    verifiedByUserId: input.verifiedByUserId || undefined,
+                    verifiedAt: input.status === ClaimStatus.VERIFIED ? (input.assertedAt || new Date()) : null,
+                }
+            });
+
+            // 5. Graph write-back — awaited with error isolation so a write-back failure
+            // never rolls back the claim, but the edge IS committed before we return.
+            // This is critical for the UI: callers call getFieldDetail() immediately after
+            // assertClaim() returns, and that query reads from clientLEGraphEdge. If the
+            // edge write is still in-flight (fire-and-forget) the row won't be visible yet.
+            if (input.clientLEId) {
+                try {
+                    await this.writeBackGraphEdge(claim, input);
+                } catch (err) {
+                    console.error("[FieldClaimService] Graph write-back failed (non-fatal):", err);
+                }
             }
-        });
 
-        // 5. Graph write-back — awaited with error isolation so a write-back failure
-        // never rolls back the claim, but the edge IS committed before we return.
-        // This is critical for the UI: callers call getFieldDetail() immediately after
-        // assertClaim() returns, and that query reads from clientLEGraphEdge. If the
-        // edge write is still in-flight (fire-and-forget) the row won't be visible yet.
-        if (input.clientLEId) {
-            try {
-                await this.writeBackGraphEdge(claim, input);
-            } catch (err) {
-                console.error("[FieldClaimService] Graph write-back failed (non-fatal):", err);
+            return claim;
+        } catch (error: any) {
+            // Handle race condition on idempotency key
+            if (input.idempotencyKey && error.code === 'P2002') {
+                const existing = await prisma.fieldClaim.findUnique({
+                    where: { idempotencyKey: input.idempotencyKey }
+                });
+                if (existing) {
+                    return existing;
+                }
             }
+            throw error;
         }
-
-        return claim;
     }
 
     /**
@@ -154,7 +191,9 @@ export class FieldClaimService {
         instanceId: string,
         ownerScopeId: string | null,
         sourceType: SourceType = SourceType.USER_INPUT,
-        claimRole: 'VALUE' | 'FILE_ATTACHMENT' = 'VALUE'
+        claimRole: 'VALUE' | 'FILE_ATTACHMENT' = 'VALUE',
+        supersedesId?: string,
+        idempotencyKey?: string
     ): Promise<FieldClaim> {
         return await this.assertClaim({
             fieldNo,
@@ -164,7 +203,9 @@ export class FieldClaimService {
             instanceId,
             valueJson: { tombstone: true },
             sourceType,
-            claimRole
+            supersedesId,
+            claimRole,
+            idempotencyKey
         });
     }
 
@@ -219,7 +260,8 @@ export class FieldClaimService {
         fieldNo: number,
         attachmentDocumentId: string,
         ownerScopeId: string | null,
-        sourceType: SourceType = SourceType.USER_INPUT
+        sourceType: SourceType = SourceType.USER_INPUT,
+        idempotencyKey?: string
     ): Promise<FieldClaim> {
         await this.validateDocumentExists(attachmentDocumentId, subject.clientLEId);
         const instanceId = uuidv4();
@@ -230,7 +272,8 @@ export class FieldClaimService {
             attachmentDocumentId,
             instanceId,
             sourceType,
-            claimRole: 'FILE_ATTACHMENT'
+            claimRole: 'FILE_ATTACHMENT',
+            idempotencyKey
         });
     }
 
@@ -243,10 +286,11 @@ export class FieldClaimService {
         instanceId: string,
         attachmentDocumentId: string,
         ownerScopeId: string | null,
-        sourceType: SourceType = SourceType.USER_INPUT
+        sourceType: SourceType = SourceType.USER_INPUT,
+        idempotencyKey?: string
     ): Promise<FieldClaim> {
         await this.validateDocumentExists(attachmentDocumentId, subject.clientLEId);
-        await this.validateAttachmentInstance(subject, fieldNo, instanceId, ownerScopeId);
+        const previousClaim = await this.validateAttachmentInstance(subject, fieldNo, instanceId, ownerScopeId);
         return await this.assertClaim({
             fieldNo,
             ...subject,
@@ -254,7 +298,9 @@ export class FieldClaimService {
             attachmentDocumentId,
             instanceId,
             sourceType,
-            claimRole: 'FILE_ATTACHMENT'
+            supersedesId: previousClaim.id,
+            claimRole: 'FILE_ATTACHMENT',
+            idempotencyKey
         });
     }
 
@@ -266,9 +312,10 @@ export class FieldClaimService {
         fieldNo: number,
         instanceId: string,
         ownerScopeId: string | null,
-        sourceType: SourceType = SourceType.USER_INPUT
+        sourceType: SourceType = SourceType.USER_INPUT,
+        idempotencyKey?: string
     ): Promise<FieldClaim> {
-        await this.validateAttachmentInstance(subject, fieldNo, instanceId, ownerScopeId);
+        const previousClaim = await this.validateAttachmentInstance(subject, fieldNo, instanceId, ownerScopeId);
         return await this.emitTombstone(
             subject,
             fieldNo,
@@ -276,7 +323,9 @@ export class FieldClaimService {
             instanceId,
             ownerScopeId,
             sourceType,
-            'FILE_ATTACHMENT'
+            'FILE_ATTACHMENT',
+            previousClaim.id,
+            idempotencyKey
         );
     }
 

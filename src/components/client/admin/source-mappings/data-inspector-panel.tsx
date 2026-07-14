@@ -99,6 +99,7 @@ export function DataInspectorPanel({
            : "04155137"); // Default CH example
 
     const [query, setQuery] = useState(defaultQuery);
+    const [lastSearchedQuery, setLastSearchedQuery] = useState(defaultQuery);
     const [payloadSubtype, setPayloadSubtype] = useState(sourceType === "GLEIF" ? "LEVEL_1" : "COMPANY_PROFILE");
     const [loading, setLoading] = useState(false);
     const [payload, setPayload] = useState<any>(null);
@@ -136,19 +137,26 @@ export function DataInspectorPanel({
 
     useEffect(() => {
         setQuery(defaultQuery);
-        if (defaultQuery && defaultQuery.trim().length >= 3) {
+        setLastSearchedQuery(defaultQuery);
+    }, [defaultQuery]);
+
+    useEffect(() => {
+        if (lastSearchedQuery && lastSearchedQuery.trim().length >= 3) {
             setLoading(true);
             setError(null);
             const triggerFetch = async () => {
                 try {
                     if (sourceType === "GLEIF") {
-                        const res = await fetchLiveGleifRecord(defaultQuery, payloadSubtype);
+                        const res = await fetchLiveGleifRecord(lastSearchedQuery, payloadSubtype);
                         if (res.success) setPayload(res.payload);
                         else { setError(res.error || "Failed to fetch data"); setPayload(null); }
                     } else if (sourceType === "REGISTRATION_AUTHORITY") {
-                        const res = await fetchLiveRegistryRecord(defaultQuery, sourceReference || "COMPANIES_HOUSE", payloadSubtype);
+                        const res = await fetchLiveRegistryRecord(lastSearchedQuery, sourceReference || "COMPANIES_HOUSE", payloadSubtype);
                         if (res.success) setPayload(res.payload);
                         else { setError(res.error || "Failed to fetch registry data"); setPayload(null); }
+                    } else {
+                        setError(`Live fetch not yet implemented for ${sourceType}`);
+                        setPayload(null);
                     }
                 } catch (e) {
                     setError("An unexpected error occurred");
@@ -160,7 +168,7 @@ export function DataInspectorPanel({
         } else {
             setPayload(null);
         }
-    }, [defaultQuery, sourceType, sourceReference, payloadSubtype]);
+    }, [lastSearchedQuery, sourceType, sourceReference, payloadSubtype]);
 
     // Fix 1: Only highlight paths that belong to THIS source (sourceType + sourceReference match).
     // Previously all mappings were included regardless of source, causing inconsistent
@@ -191,28 +199,7 @@ export function DataInspectorPanel({
 
     const handleSearch = async () => {
         if (!query.trim() || query.length < 3) return;
-        setLoading(true);
-        setError(null);
-        try {
-            if (sourceType === "GLEIF") {
-                const res = await fetchLiveGleifRecord(query, payloadSubtype);
-                if (res.success) setPayload(res.payload);
-                else { setError(res.error || "Failed to fetch data"); setPayload(null); }
-            } else if (sourceType === "REGISTRATION_AUTHORITY") {
-                // Pass sourceReference (mappingSourceKey or RA code).
-                // fetchLiveRegistryRecord resolves COMPANIES_HOUSE → RA000585 for connector routing.
-                const res = await fetchLiveRegistryRecord(query, sourceReference || "COMPANIES_HOUSE", payloadSubtype);
-                if (res.success) setPayload(res.payload);
-                else { setError(res.error || "Failed to fetch registry data"); setPayload(null); }
-            } else {
-                setError(`Live fetch not yet implemented for ${sourceType}`);
-                setPayload(null);
-            }
-        } catch (e) {
-            setError("An unexpected error occurred");
-        } finally {
-            setLoading(false);
-        }
+        setLastSearchedQuery(query);
     };
 
     const searchPlaceholder =

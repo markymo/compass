@@ -23,7 +23,13 @@ vi.mock('../kyc-query', () => ({
     resolveMasterDataBatch: vi.fn()
 }));
 vi.mock('@/lib/kyc/source-label.server', () => ({ fetchRaNameLookup: vi.fn() }));
-vi.mock('@/lib/kyc/KycStateService', () => ({ KycStateService: { resolveScopeId: vi.fn() } }));
+vi.mock('@/lib/kyc/KycStateService', () => ({ 
+    KycStateService: { 
+        resolveScopeId: vi.fn(),
+        resolveAllFields: vi.fn().mockResolvedValue([]),
+        resolveAllAttachments: vi.fn().mockResolvedValue(new Map())
+    } 
+}));
 vi.mock('@/services/masterData/definitionService', () => ({
     listAllMasterFields: vi.fn(),
     listAllMasterGroupsWithItems: vi.fn()

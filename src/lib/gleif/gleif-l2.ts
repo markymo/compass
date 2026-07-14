@@ -212,7 +212,7 @@ export async function fetchGleifL2(lei: string): Promise<GleifL2Data> {
     // Fire all L2 requests in parallel — any failure silenced by allSettled
     const [
         dpResult, upResult, dcResult, ucResult, fmResult, ufResult,
-        mlResult, liResult, sfResult, fmListResult
+        mlResult, liResult, sfResult, fmListResult, exDpResult, exUpResult
     ] = await Promise.allSettled([
         fetchRelationship(lei, "direct-parent"),
         fetchRelationship(lei, "ultimate-parent"),
@@ -224,6 +224,8 @@ export async function fetchGleifL2(lei: string): Promise<GleifL2Data> {
         fetchRelationship(lei, "lei-issuer"),
         fetchEntityList(lei, "sub-funds"),
         fetchModificationsList(lei),
+        fetchException(lei, "direct-parent"),
+        fetchException(lei, "ultimate-parent"),
     ]);
 
     const dp = dpResult.status === "fulfilled" ? dpResult.value : { entity: null, exception: null };
@@ -239,18 +241,9 @@ export async function fetchGleifL2(lei: string): Promise<GleifL2Data> {
 
     console.log(`[GLEIF] L2 relationships fetched for LEI: ${lei} (DP: ${dp.entity ? 'yes' : 'no'}, UP: ${up.entity ? 'yes' : 'no'}, FM: ${fm.entity ? 'yes' : 'no'}, UF: ${uf.entity ? 'yes' : 'no'})`);
 
-    // If direct parent returned no entity, check for reporting exception
-    let directParentException: string | null = dp.exception;
-    let ultimateParentException: string | null = up.exception;
-
-    if (!dp.entity && !dp.exception) {
-        const [exDp, exUp] = await Promise.allSettled([
-            fetchException(lei, "direct-parent"),
-            fetchException(lei, "ultimate-parent"),
-        ]);
-        directParentException = exDp.status === "fulfilled" ? exDp.value : null;
-        ultimateParentException = exUp.status === "fulfilled" ? exUp.value : null;
-    }
+    // Unconditionally evaluate exceptions (fall back to dp.exception/up.exception if the direct fetch failed but some exception was populated earlier)
+    const directParentException = exDpResult.status === "fulfilled" && exDpResult.value ? exDpResult.value : dp.exception;
+    const ultimateParentException = exUpResult.status === "fulfilled" && exUpResult.value ? exUpResult.value : up.exception;
 
     return {
         directParent: dp.entity,

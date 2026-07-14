@@ -69,7 +69,8 @@ export function FieldCreateSheet({ open, onOpenChange, categories=[] }: FieldCre
         appDataType: "TEXT",
         isActive: true,
         optionSetId: "none",
-        isMultiValue: false
+        isMultiValue: false,
+        allowAttachments: false
     });
 
     const handleSave = async () => {
@@ -116,7 +117,8 @@ export function FieldCreateSheet({ open, onOpenChange, categories=[] }: FieldCre
                     appDataType: "TEXT",
                     isActive: true,
                     optionSetId: "none",
-                    isMultiValue: false
+                    isMultiValue: false,
+                    allowAttachments: false
                 });
                 onOpenChange(false);
                 router.refresh();
@@ -247,6 +249,20 @@ export function FieldCreateSheet({ open, onOpenChange, categories=[] }: FieldCre
                                     </div>
                                 </>
                             )}
+                            </div>
+
+                            <div className="grid gap-2 col-span-2 flex-row items-center border rounded-md p-3">
+                                <div className="flex items-center justify-between gap-4">
+                                    <div className="flex-1 space-y-0.5">
+                                        <Label htmlFor="allowAttachmentsSwitch" className="text-sm font-medium leading-none cursor-pointer">Allow file attachments</Label>
+                                        <p className="text-xs text-muted-foreground">Allow users to attach supporting documents to this field.</p>
+                                    </div>
+                                    <Switch
+                                        id="allowAttachmentsSwitch"
+                                        checked={formData.allowAttachments}
+                                        onCheckedChange={(val) => setFormData({ ...formData, allowAttachments: val })}
+                                    />
+                                </div>
                             </div>
 
                             <div className="grid gap-2">

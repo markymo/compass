@@ -23,7 +23,13 @@ export type DerivedValue = {
     effectiveTo?: Date;
     /** The date the value was last validated against its authoritative source. */
     sourceCheckedAt?: Date;
+
     attachmentDocumentId?: string;
+    documentName?: string;
+    documentMimeType?: string;
+    documentSizeBytes?: string;
+    documentCreatedAt?: Date;
+    documentUploadedBy?: string;
 };
 
 // ── Priority resolution ───────────────────────────────────────────────────────
@@ -378,7 +384,7 @@ export class KycStateService {
     ): Promise<DerivedValue[]> {
         const { clientLEId, ...subjectFilter } = subject;
         const claims = await prisma.fieldClaim.findMany({
-            include: { evidence: true },
+            include: { evidence: true, attachmentDocument: { include: { uploadedBy: true } } },
             where: {
                 fieldNo,
                 claimRole: 'FILE_ATTACHMENT',
@@ -410,6 +416,14 @@ export class KycStateService {
             // If the latest claim is not a tombstone, the attachment is active
             if (!this.isTombstone(latestClaim)) {
                 const derived = this.mapToDerivedValue(latestClaim);
+                if ((latestClaim as any).attachmentDocument) {
+                    const doc = (latestClaim as any).attachmentDocument;
+                    derived.documentName = doc.name;
+                    derived.documentMimeType = doc.mimeType;
+                    derived.documentSizeBytes = doc.sizeBytes?.toString();
+                    derived.documentCreatedAt = doc.createdAt;
+                    derived.documentUploadedBy = doc.uploadedBy?.name;
+                }
                 const oldestClaim = group[group.length - 1];
                 resultsWithOrder.push({ derived, oldestAssertedAt: oldestClaim.assertedAt.getTime(), oldestId: oldestClaim.id });
             }
@@ -422,6 +436,77 @@ export class KycStateService {
         });
 
         return resultsWithOrder.map(r => r.derived);
+    }
+
+    /**
+     * Batch-resolves all active FILE_ATTACHMENT claims for all requested fields.
+     * Groups by fieldNo and returns an array of attachments per field.
+     */
+    static async resolveAllAttachments(
+        subject: { subjectLeId?: string; subjectPersonId?: string; subjectOrgId?: string; clientLEId?: string },
+        fieldNos: number[]
+    ): Promise<Map<number, DerivedValue[]>> {
+        const result = new Map<number, DerivedValue[]>();
+        if (fieldNos.length === 0) return result;
+
+        const { clientLEId, ...subjectFilter } = subject;
+        const allClaims = await prisma.fieldClaim.findMany({
+            include: { evidence: true, attachmentDocument: { include: { uploadedBy: true } } },
+            where: {
+                fieldNo: { in: fieldNos },
+                claimRole: 'FILE_ATTACHMENT',
+                ...subjectFilter,
+                status: { in: [ClaimStatus.VERIFIED, ClaimStatus.ASSERTED] },
+            },
+            orderBy: [{ assertedAt: 'desc' }, { id: 'desc' }],
+        });
+
+        // Group by fieldNo -> instanceId -> claims
+        const fieldGroups = new Map<number, Record<string, FieldClaim[]>>();
+        for (const c of allClaims) {
+            let instances = fieldGroups.get(c.fieldNo);
+            if (!instances) {
+                instances = {};
+                fieldGroups.set(c.fieldNo, instances);
+            }
+            const key = c.instanceId || 'default';
+            if (!instances[key]) instances[key] = [];
+            instances[key].push(c);
+        }
+
+        for (const fieldNo of fieldNos) {
+            const instances = fieldGroups.get(fieldNo) || {};
+            const resultsWithOrder: { derived: DerivedValue; oldestAssertedAt: number; oldestId: string }[] = [];
+            
+            for (const key in instances) {
+                const group = instances[key];
+                const latestClaim = group[0];
+                
+                if (!this.isTombstone(latestClaim)) {
+                    const derived = this.mapToDerivedValue(latestClaim);
+                    // Pass document info manually since mapToDerivedValue doesn't
+                    if ((latestClaim as any).attachmentDocument) {
+                        const doc = (latestClaim as any).attachmentDocument;
+                        derived.documentName = doc.name;
+                        derived.documentMimeType = doc.mimeType;
+                        derived.documentSizeBytes = doc.sizeBytes?.toString();
+                        derived.documentCreatedAt = doc.createdAt;
+                        derived.documentUploadedBy = doc.uploadedBy?.name;
+                    }
+                    const oldestClaim = group[group.length - 1];
+                    resultsWithOrder.push({ derived, oldestAssertedAt: oldestClaim.assertedAt.getTime(), oldestId: oldestClaim.id });
+                }
+            }
+
+            resultsWithOrder.sort((a, b) => {
+                if (a.oldestAssertedAt !== b.oldestAssertedAt) return a.oldestAssertedAt - b.oldestAssertedAt;
+                return a.oldestId.localeCompare(b.oldestId);
+            });
+
+            result.set(fieldNo, resultsWithOrder.map(r => r.derived));
+        }
+
+        return result;
     }
 
     /**

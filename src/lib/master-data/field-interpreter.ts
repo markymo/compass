@@ -19,6 +19,9 @@ export interface FieldInterpreterMetadata {
     profileConfig?: { displayMask?: string[] };
     /** Controlled-vocabulary code system identifier (e.g. 'SIC_2007_UK'). */
     codeSystem?: string;
+    attachments?: import('./field-display-model').ResolvedAttachment[];
+    allowAttachments?: boolean;
+    clientLEId?: string;
 }
 
 export interface RawFieldSource {
@@ -59,6 +62,9 @@ export function resolveFieldForDisplay(
         defaultText: metadata.defaultText,
         isEditable: metadata.isEditable ?? false,
         isMultiValue: metadata.isMultiValue ?? false,
+        attachments: metadata.attachments || [],
+        allowAttachments: metadata.allowAttachments ?? false,
+        clientLEId: metadata.clientLEId,
     };
 }
 

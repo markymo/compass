@@ -37,9 +37,9 @@ export function SourcesSubNav({ leId, jurisdiction, registryName }: SourcesSubNa
         },
         {
             label: "User Content",
-            href: `${baseUrl}/ccc`,
+            href: `${baseUrl}/user`,
             icon: Layers,
-            isActive: (path: string) => path.startsWith(`${baseUrl}/ccc`)
+            isActive: (path: string) => path.startsWith(`${baseUrl}/user`)
         },
         // TODO: Bring back Knowledge Base in the future once we are ready
         /*
