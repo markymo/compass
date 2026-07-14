@@ -11,6 +11,7 @@ export type ExportGroupField = {
     displayValue: string;
     order: number;
     sourceLabel?: string;
+    attachmentFilenames?: string[];
 };
 
 export interface ExportAnswerResult {
@@ -24,6 +25,7 @@ export interface ExportAnswerResult {
     sourceCategory?: 'REGISTRY' | 'USER' | 'DEFAULT' | 'NO_RESPONSE' | 'SYSTEM';
     groupFields?: ExportGroupField[];
     groupDisplayStyle?: GroupDisplayStyle;
+    attachmentFilenames?: string[];
 }
 
 import { toExportText } from "@/lib/export/toExportText";
@@ -47,6 +49,15 @@ export async function resolveExportAnswer(
 
         let derivedValueToDisplay: any = null;
         let primaryDerived: any = null;
+        let attachmentFilenames: string[] = [];
+
+        const attachmentsMap = await KycStateService.resolveAllAttachments({ subjectLeId }, [question.masterFieldNo]);
+        const derivedAttachments = attachmentsMap.get(question.masterFieldNo) || [];
+        if (derivedAttachments.length > 0) {
+            attachmentFilenames = derivedAttachments
+                .filter(a => a.attachmentDocumentId !== undefined)
+                .map(a => a.documentName || 'Unknown Document');
+        }
 
         if (fieldDetail.isRepeating) {
             const collection = await KycStateService.getAuthoritativeCollection(
@@ -151,7 +162,8 @@ export async function resolveExportAnswer(
                 sourceLabel,
                 sourceTimestamp,
                 sourceUserName,
-                sourceCategory
+                sourceCategory,
+                attachmentFilenames: attachmentFilenames.length > 0 ? attachmentFilenames : undefined
             };
         } else {
             // Check Master Record empty state logic
@@ -251,6 +263,7 @@ export async function resolveExportAnswer(
                 claims: claims as any,
                 sourceMappings,
                 attachmentsByField: attachmentsMap,
+                provenanceMap: null,
             };
 
             const resolvedValues = await resolveMasterDataBatch(batchInput);
@@ -264,8 +277,12 @@ export async function resolveExportAnswer(
 
                 let displayValue = "None";
                 let sourceLabel: string | undefined = undefined;
+                let attachmentFilenames: string[] = [];
 
                 if (hv && hv.value !== null && hv.value !== undefined && hv.value !== "") {
+                    if (hv.attachments && hv.attachments.length > 0) {
+                        attachmentFilenames = hv.attachments.map((a: any) => a.displayName);
+                    }
                     let parsedDerivedValue = hv.value;
                     if (Array.isArray(parsedDerivedValue)) {
                         parsedDerivedValue = parsedDerivedValue.map(v => {
@@ -297,7 +314,8 @@ export async function resolveExportAnswer(
                         label: def.fieldName,
                         displayValue,
                         order: item.order,
-                        sourceLabel
+                        sourceLabel,
+                        attachmentFilenames: attachmentFilenames.length > 0 ? attachmentFilenames : undefined
                     });
                 }
             }

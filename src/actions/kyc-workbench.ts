@@ -238,7 +238,8 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
                                 appDataType: def.appDataType,
                                 profileConfig: def.profileConfig,
                                 isMultiValue: def.isMultiValue,
-                                codeSystem
+                                codeSystem,
+                                attachments: hydratedVal.attachments
                             }
                         ) : undefined;
 
@@ -279,7 +280,8 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
                                 displayState: fv.isSynced ? 'HAS_VALUE' : 'CHECKED_NO_DATA',
                                 appDataType: def?.appDataType || 'JSON',
                                 isMultiValue: def?.isMultiValue || false,
-                                codeSystem
+                                codeSystem,
+                                attachments: fv.attachments
                             }
                         );
                     }

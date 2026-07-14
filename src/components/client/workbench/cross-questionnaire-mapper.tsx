@@ -3,6 +3,7 @@
 import { isPartyValue, getPartySummary } from "@/lib/master-data/party-value";
 import { isAddressValue, getAddressSummary } from "@/lib/master-data/address-value";
 import { FieldValueRenderer } from "@/components/client/fields/FieldValueRenderer";
+import { FieldAttachments } from "@/components/client/fields/FieldAttachments";
 import { FieldSourceBadge } from "@/components/client/fields/FieldSourceBadge";
 import { FieldAttachmentIndicator } from "@/components/shared/FieldAttachmentIndicator";
 
@@ -898,6 +899,17 @@ function QuestionCard({
                                                 <div className="py-0.5">
                                                     {/* TODO: This limit (currently 10) might be made configurable one day. */}
                                                     <FieldValueRenderer field={question.canonicalDisplayModel} itemLimit={10} />
+                                                    {question.canonicalDisplayModel.attachments && question.canonicalDisplayModel.attachments.length > 0 && (
+                                                        <div className="mt-1">
+                                                            <FieldAttachments 
+                                                                clientLEId="read-only"
+                                                                fieldNo={question.canonicalDisplayModel.fieldNo} 
+                                                                attachments={question.canonicalDisplayModel.attachments} 
+                                                                mode="read-only" 
+                                                                isEditable={false} 
+                                                            />
+                                                        </div>
+                                                    )}
                                                 </div>
                                             ) : question.masterDataValue != null && question.masterDataValue !== '' ? (
                                                 Array.isArray(question.masterDataValue) ? (

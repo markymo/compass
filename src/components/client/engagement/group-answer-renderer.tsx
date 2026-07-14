@@ -22,6 +22,7 @@ import type { HydratedValue } from "@/actions/kyc-query";
 import { FieldValueRenderer } from "@/components/client/fields/FieldValueRenderer";
 import { FieldSourceBadge } from "@/components/client/fields/FieldSourceBadge";
 import { FieldAttachmentIndicator } from "@/components/shared/FieldAttachmentIndicator";
+import { FieldAttachments } from "@/components/client/fields/FieldAttachments";
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
@@ -111,6 +112,17 @@ function GroupFieldRow({
                         </div>
                     )}
                 </div>
+                {!dimmed && field.canonicalDisplayModel?.attachments && field.canonicalDisplayModel.attachments.length > 0 && (
+                    <div className="col-span-3 mt-1 pb-1">
+                        <FieldAttachments 
+                            clientLEId="read-only"
+                            fieldNo={field.fieldNo} 
+                            attachments={field.canonicalDisplayModel.attachments} 
+                            mode="read-only" 
+                            isEditable={false} 
+                        />
+                    </div>
+                )}
             </div>
         );
     }
@@ -149,6 +161,17 @@ function GroupFieldRow({
                     {field.hydrated.attachmentCount ? (
                         <FieldAttachmentIndicator count={field.hydrated.attachmentCount} />
                     ) : null}
+                </div>
+            )}
+            {!dimmed && field.canonicalDisplayModel?.attachments && field.canonicalDisplayModel.attachments.length > 0 && (
+                <div className="mt-1">
+                    <FieldAttachments 
+                        clientLEId="read-only"
+                        fieldNo={field.fieldNo} 
+                        attachments={field.canonicalDisplayModel.attachments} 
+                        mode="read-only" 
+                        isEditable={false} 
+                    />
                 </div>
             )}
         </div>

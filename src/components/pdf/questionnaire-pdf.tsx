@@ -227,9 +227,24 @@ const styles = StyleSheet.create({
         marginBottom: 4 
     },
     evidencePath: { 
-        fontSize: 8, 
-        color: '#f59e0b', // Amber 500
+        fontSize: 9, 
+        color: '#2563eb', 
+        marginBottom: 2 
+    },
+    
+    // Attachments
+    attachmentsHeader: {
+        fontSize: 8,
+        fontWeight: 'bold',
+        color: '#64748b',
+        marginTop: 6,
         marginBottom: 2
+    },
+    attachmentItem: {
+        fontSize: 8,
+        color: '#334155',
+        marginLeft: 6,
+        marginBottom: 1
     },
     
     // Footer / Small meta
@@ -410,24 +425,24 @@ export const QuestionnairePDF = ({ data, title, exportMetadata }: QuestionnaireP
                             <View style={styles.identityCard}>
                                 {exportMetadata.clientParentName ? (
                                     <View style={styles.coverRow}>
-                                        <View style={styles.iconContainer}><LandmarkIcon /></View>
+                                        <View style={styles.iconContainer}><BuildingIcon /></View>
                                         <Text style={styles.coverLabel}>Client</Text>
                                         <Text style={styles.coverValue}>{exportMetadata.clientParentName}</Text>
                                     </View>
                                 ) : (
                                     <View style={styles.coverRow}>
-                                        <View style={styles.iconContainer}><LandmarkIcon /></View>
+                                        <View style={styles.iconContainer}><BuildingIcon /></View>
                                         <Text style={styles.coverLabel}>Client</Text>
                                         <Text style={styles.coverValue}>—</Text>
                                     </View>
                                 )}
                                 <View style={styles.coverRow}>
-                                    <View style={styles.iconContainer}><BuildingIcon /></View>
+                                    <View style={styles.iconContainer}><LandmarkIcon /></View>
                                     <Text style={styles.coverLabel}>Client Legal Entity</Text>
                                     <Text style={styles.coverValue}>{exportMetadata.clientDisplayName || "Unknown"}</Text>
                                 </View>
                                 <View style={styles.coverRow}>
-                                    <View style={styles.iconContainer}><GlobeIcon /></View>
+                                    <View style={styles.iconContainer}><LandmarkIcon /></View>
                                     <Text style={styles.coverLabel}>Supplier</Text>
                                     <Text style={styles.coverValue}>{exportMetadata.supplierDisplayName || "Unknown"}</Text>
                                 </View>
@@ -487,6 +502,14 @@ export const QuestionnairePDF = ({ data, title, exportMetadata }: QuestionnaireP
                                         <View key={idx} style={styles.groupItemCompact} wrap={false}>
                                             <Text style={styles.groupLabelCompact}>{f.label}</Text>
                                             <Text style={styles.groupValueCompact}>{f.displayValue}</Text>
+                                            {f.attachmentFilenames && f.attachmentFilenames.length > 0 && (
+                                                <View>
+                                                    <Text style={styles.attachmentsHeader}>Attachments</Text>
+                                                    {f.attachmentFilenames.map((name: string, aidx: number) => (
+                                                        <Text key={aidx} style={styles.attachmentItem}>• {name}</Text>
+                                                    ))}
+                                                </View>
+                                            )}
                                         </View>
                                     ))}
                                 </View>
@@ -498,16 +521,29 @@ export const QuestionnairePDF = ({ data, title, exportMetadata }: QuestionnaireP
                                         <View style={styles.groupCol3}><Text style={styles.groupTextGridLabel}>Source</Text></View>
                                     </View>
                                     {item.groupFields.map((f: any, idx: number) => (
-                                        <View key={idx} style={styles.groupRowGrid} wrap={false}>
-                                            <View style={styles.groupCol1}><Text style={styles.groupTextGridLabel}>{f.label}</Text></View>
-                                            <View style={styles.groupCol2}><Text style={styles.groupTextGridValue}>{f.displayValue}</Text></View>
-                                            <View style={styles.groupCol3}>
-                                                {f.sourceLabel && (
-                                                    <View style={styles.groupBadgeGrid}>
-                                                        <Text style={{ color: '#a21caf', fontSize: 7 }}>{f.sourceLabel}</Text>
-                                                    </View>
-                                                )}
+                                        <View key={idx} style={{ flexDirection: 'column' }} wrap={false}>
+                                            <View style={styles.groupRowGrid}>
+                                                <View style={styles.groupCol1}><Text style={styles.groupTextGridLabel}>{f.label}</Text></View>
+                                                <View style={styles.groupCol2}><Text style={styles.groupTextGridValue}>{f.displayValue}</Text></View>
+                                                <View style={styles.groupCol3}>
+                                                    {f.sourceLabel && (
+                                                        <View style={styles.groupBadgeGrid}>
+                                                            <Text style={{ color: '#a21caf', fontSize: 7 }}>{f.sourceLabel}</Text>
+                                                        </View>
+                                                    )}
+                                                </View>
                                             </View>
+                                            {f.attachmentFilenames && f.attachmentFilenames.length > 0 && (
+                                                <View style={[styles.groupRowGrid, { borderTopWidth: 0, paddingTop: 0 }]}>
+                                                    <View style={styles.groupCol1}><Text style={styles.groupTextGridLabel}></Text></View>
+                                                    <View style={[styles.groupCol2, { flex: 0, width: '60%' }]}>
+                                                        <Text style={styles.attachmentsHeader}>Attachments</Text>
+                                                        {f.attachmentFilenames.map((name: string, aidx: number) => (
+                                                            <Text key={aidx} style={styles.attachmentItem}>• {name}</Text>
+                                                        ))}
+                                                    </View>
+                                                </View>
+                                            )}
                                         </View>
                                     ))}
                                 </View>
@@ -517,12 +553,30 @@ export const QuestionnairePDF = ({ data, title, exportMetadata }: QuestionnaireP
                                         <View key={idx} style={styles.groupRowList} wrap={false}>
                                             <Text style={styles.groupLabelList}>{f.label}</Text>
                                             <Text style={styles.groupValueList}>{f.displayValue}</Text>
+                                            {f.attachmentFilenames && f.attachmentFilenames.length > 0 && (
+                                                <View>
+                                                    <Text style={styles.attachmentsHeader}>Attachments</Text>
+                                                    {f.attachmentFilenames.map((name: string, aidx: number) => (
+                                                        <Text key={aidx} style={styles.attachmentItem}>• {name}</Text>
+                                                    ))}
+                                                </View>
+                                            )}
                                         </View>
                                     ))}
                                 </View>
                             )
                         ) : (
-                            <Text style={styles.answer}>Answer: {item.answer || "No response recorded"}</Text>
+                            <View>
+                                <Text style={styles.answer}>Answer: {item.answer || "No response recorded"}</Text>
+                                {item.attachmentFilenames && item.attachmentFilenames.length > 0 && (
+                                    <View>
+                                        <Text style={styles.attachmentsHeader}>Attachments</Text>
+                                        {item.attachmentFilenames.map((name: string, aidx: number) => (
+                                            <Text key={aidx} style={styles.attachmentItem}>• {name}</Text>
+                                        ))}
+                                    </View>
+                                )}
+                            </View>
                         )}
                         
                         <View style={styles.provenanceRow}>
