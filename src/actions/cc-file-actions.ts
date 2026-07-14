@@ -31,9 +31,19 @@ export async function getCCFiles(clientLEId: string): Promise<CCFileRecord[]> {
         }
     });
 
+    // Also find documents directly linked to a master field via masterFieldKey
+    const directDocs = await prisma.document.findMany({
+        where: {
+            clientLEId,
+            masterFieldKey: { not: null },
+            isDeleted: false
+        }
+    });
+
     const docMap = new Map<string, CCFileRecord>();
     const defMap = new Map<number, string>();
 
+    // Process documents from FieldClaims
     for (const claim of claims) {
         const doc = claim.attachmentDocument;
         if (!doc) continue;
@@ -64,6 +74,41 @@ export async function getCCFiles(clientLEId: string): Promise<CCFileRecord[]> {
                 fieldNo: claim.fieldNo,
                 fieldName: defMap.get(claim.fieldNo) as string
             });
+        }
+    }
+
+    // Process documents directly linked via masterFieldKey
+    for (const doc of directDocs) {
+        if (!docMap.has(doc.id)) {
+            docMap.set(doc.id, {
+                id: doc.id,
+                name: doc.name,
+                fileUrl: doc.fileUrl,
+                fileType: doc.fileType,
+                createdAt: doc.createdAt,
+                usage: []
+            });
+        }
+        
+        if (doc.masterFieldKey) {
+            const fieldNo = parseInt(doc.masterFieldKey, 10);
+            if (!isNaN(fieldNo)) {
+                const docRecord = docMap.get(doc.id)!;
+                if (!docRecord.usage.some((u) => u.fieldNo === fieldNo)) {
+                    if (!defMap.has(fieldNo)) {
+                        try {
+                            const def = await getMasterFieldDefinition(fieldNo);
+                            defMap.set(fieldNo, def.fieldName);
+                        } catch (e) {
+                            defMap.set(fieldNo, `Field ${fieldNo}`);
+                        }
+                    }
+                    docRecord.usage.push({
+                        fieldNo,
+                        fieldName: defMap.get(fieldNo) as string
+                    });
+                }
+            }
         }
     }
 
