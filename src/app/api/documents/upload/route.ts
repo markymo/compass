@@ -20,17 +20,26 @@ function resolveDeploymentBaseUrl(request: Request): string {
     if (process.env.VERCEL_BLOB_CALLBACK_URL) {
         return process.env.VERCEL_BLOB_CALLBACK_URL;
     }
-    // Vercel-injected vars (preview / production deployments)
-    if (process.env.VERCEL_PROJECT_PRODUCTION_URL) {
-        return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
+    
+    // 1. Prefer the actual host the user is hitting (vital for custom domains like dev.onpro.tech)
+    const host = request.headers.get('x-forwarded-host') || request.headers.get('host');
+    const proto = request.headers.get('x-forwarded-proto') || 'https';
+    if (host && !host.includes('localhost')) {
+        return `${proto}://${host}`;
+    }
+
+    // 2. Vercel-injected vars (Specific deployment -> Branch -> Production)
+    if (process.env.VERCEL_URL) {
+        return `https://${process.env.VERCEL_URL}`;
     }
     if (process.env.VERCEL_BRANCH_URL) {
         return `https://${process.env.VERCEL_BRANCH_URL}`;
     }
-    if (process.env.VERCEL_URL) {
-        return `https://${process.env.VERCEL_URL}`;
+    if (process.env.VERCEL_PROJECT_PRODUCTION_URL) {
+        return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
     }
-    // Fall back to deriving from the incoming request
+    
+    // 3. Fall back to deriving from the incoming request url
     const { origin } = new URL(request.url);
     return origin;
 }
