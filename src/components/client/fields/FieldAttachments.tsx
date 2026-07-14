@@ -179,6 +179,11 @@ export function FieldAttachments({ clientLEId, fieldNo, attachments, isEditable,
 
         const newIntentId = crypto.randomUUID();
         
+        // Vercel Blob client requires the pathname to be passed from the client; 
+        // the server cannot override it during token generation.
+        // We construct a secure, unique path here that the server will validate.
+        const storagePathname = `private-documents/${clientLEId}/${newIntentId}/${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+        
         setOpState('UPLOADING');
         setUploadProgress(0);
         setOpType(isReplace ? 'replace' : 'add');
@@ -188,7 +193,7 @@ export function FieldAttachments({ clientLEId, fieldNo, attachments, isEditable,
         pollAttempts.current = 0;
 
         try {
-            await upload(file.name, file, {
+            await upload(storagePathname, file, {
                 access: 'private', // Must match the access level granted by onBeforeGenerateToken
                 handleUploadUrl: '/api/documents/upload',
                 clientPayload: JSON.stringify({ 

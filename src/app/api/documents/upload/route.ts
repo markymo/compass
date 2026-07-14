@@ -81,10 +81,16 @@ export async function POST(request: Request): Promise<NextResponse> {
                 // 1. Authenticate and authorize LE_EDIT_MASTER_DATA
                 const { userId } = await ensureApiAuthorization(Action.LE_EDIT_MASTER_DATA, { clientLEId });
 
-                // 2. Generate the immutable UUID pathname server-side
-                const uuid = randomUUID();
-                const storagePathname = `private-documents/${clientLEId}/${uuid}`;
+                // 2. Validate the client-provided pathname
+                const expectedPrefix = `private-documents/${clientLEId}/${intentId}/`;
+                if (!pathname.startsWith(expectedPrefix)) {
+                    console.error(`[upload-auth] Pathname mismatch. Expected prefix ${expectedPrefix}, got ${pathname}`);
+                    throw new Error("Invalid storage pathname requested by client.");
+                }
                 
+                const storagePathname = pathname;
+                const originalFilename = pathname.slice(expectedPrefix.length);
+
                 // 3. (Token is already validated and passed at the top level)
 
                 // Verify the intent doesn't already exist to prevent replay
@@ -102,16 +108,13 @@ export async function POST(request: Request): Promise<NextResponse> {
                         clientLEId,
                         initiatedById: userId,
                         storagePathname,
-                        originalFilename: pathname,
+                        originalFilename,
                         declaredMimeType: payload.mimeType || null,
                         status: 'PENDING'
                     }
                 });
 
                 // 5. Build the token options for the private Blob store.
-                // NOTE: `token` is NOT returned here — it is already passed at the
-                // handleUpload() call site and the SDK overwrites any token returned
-                // from onBeforeGenerateToken with the top-level value anyway.
                 return {
                     callbackUrl,  // Explicit URL prevents SDK from falling back to dev-proxy mode
                     allowedContentTypes: [
@@ -133,9 +136,7 @@ export async function POST(request: Request): Promise<NextResponse> {
                         intentId: intent.id,
                         trustedPathname: storagePathname
                     }),
-                    // Force the generated server-side pathname
-                    pathname: storagePathname,
-                    addRandomSuffix: false, // We use UUID for uniqueness
+                    addRandomSuffix: false, // Client provided full unique path
                     access: 'private',      // Enforce private blob
                     maximumSizeInBytes: 20 * 1024 * 1024, // 20MB Phase 3 limit
                 };
