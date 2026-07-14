@@ -1,5 +1,5 @@
 import React from "react";
-import { Document, Page, Text, View, StyleSheet, Image, Svg, Path } from "@react-pdf/renderer";
+import { Document, Page, Text, View, StyleSheet, Image, Svg, Path, Polyline } from "@react-pdf/renderer";
 
 // --- Icons ---
 const LandmarkIcon = () => (
@@ -18,6 +18,19 @@ const GlobeIcon = () => (
     <Svg viewBox="0 0 24 24" width={12} height={12} fill="none">
         <Path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z M2 12h20 M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" stroke="#64748b" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
+);
+
+const OnProLogo = () => (
+    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+        <Svg viewBox="0 0 120 120" width={28} height={28} style={{ marginRight: 6 }}>
+            <Polyline points="80,20 20,20 20,105 105,105 105,65" fill="none" stroke="#f97316" strokeWidth={11} />
+            <Polyline points="40,65 65,90 100,20" fill="none" stroke="#f97316" strokeWidth={14} />
+        </Svg>
+        <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
+            <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#f97316', letterSpacing: -1 }}>On</Text>
+            <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#000000', letterSpacing: -1 }}>Pro</Text>
+        </View>
+    </View>
 );
 
 // --- PDF Styles (OnPro Theme) ---
@@ -52,23 +65,6 @@ const styles = StyleSheet.create({
         width: 100,
         height: 'auto',
         marginBottom: 10
-    },
-    wordmarkContainer: {
-        flexDirection: 'row',
-        alignItems: 'baseline',
-        marginBottom: 10
-    },
-    brandName: { 
-        fontSize: 22, 
-        fontWeight: 'bold', 
-        color: '#0f172a', 
-        letterSpacing: -0.5
-    },
-    brandDot: {
-        width: 8,
-        height: 8,
-        backgroundColor: '#f59e0b',
-        marginLeft: 2
     },
     questionnaireTitle: { 
         fontSize: 16, 
@@ -389,10 +385,7 @@ export const QuestionnairePDF = ({ data, title, exportMetadata }: QuestionnaireP
                             {exportMetadata?.onProLogoUrl ? (
                                 <Image src={exportMetadata.onProLogoUrl} style={styles.logo} />
                             ) : (
-                                <View style={styles.wordmarkContainer}>
-                                    <Text style={styles.brandName}>OnPro</Text>
-                                    <View style={styles.brandDot}></View>
-                                </View>
+                                <OnProLogo />
                             )}
                             <Text style={styles.questionnaireTitle}>{title}</Text>
                             <Text style={styles.coverSubtitle}>Supplier Questionnaire Response</Text>

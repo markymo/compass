@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactPDF from '@react-pdf/renderer';
-import { QuestionnairePDF } from '/opt/code/coparity/src/components/pdf/questionnaire-pdf';
+import { QuestionnairePDF } from './src/components/pdf/questionnaire-pdf';
 import fs from 'fs';
 
 const dummyData = [
@@ -60,9 +60,9 @@ const metadata = {
 async function generate() {
     await ReactPDF.render(
         <QuestionnairePDF title="Group Render Test" data={dummyData} exportMetadata={metadata as any} />,
-        '/opt/code/coparity/test-groups.pdf'
+        './test-groups.pdf'
     );
-    console.log("PDF generated at /opt/code/coparity/test-groups.pdf");
+    console.log("PDF generated at ./test-groups.pdf");
 }
 
 generate().catch(console.error);
