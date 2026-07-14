@@ -99,7 +99,7 @@ export function CCFileManager({ initialFiles }: CCFileManagerProps) {
                                             </TableCell>
                                             <TableCell className="py-3 px-5 text-right">
                                                 <a
-                                                    href={file.fileUrl}
+                                                    href={`/api/documents/${file.id}/download`}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
                                                     className="inline-flex items-center justify-center h-8.5 w-8.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition-all duration-150"
