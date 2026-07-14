@@ -29,6 +29,7 @@ export interface FieldAttachmentsProps {
     isEditable?: boolean;
     mode?: 'manage' | 'read-only' | 'indicator';
     className?: string;
+    onChange?: () => void;
 }
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
@@ -49,7 +50,7 @@ const ALLOWED_MIME_TYPES = [
 
 type OperationState = 'IDLE' | 'UPLOADING' | 'PROCESSING' | 'PROCESSING_DELAYED' | 'FAILED';
 
-export function FieldAttachments({ clientLEId, fieldNo, attachments, isEditable, mode = 'manage', className }: FieldAttachmentsProps) {
+export function FieldAttachments({ clientLEId, fieldNo, attachments, isEditable, mode = 'manage', className, onChange }: FieldAttachmentsProps) {
     const [opState, setOpState] = useState<OperationState>('IDLE');
     const [uploadProgress, setUploadProgress] = useState(0);
     const [activeIntentId, setActiveIntentId] = useState<string | null>(null);
@@ -107,6 +108,7 @@ export function FieldAttachments({ clientLEId, fieldNo, attachments, isEditable,
                         
                         resetState();
                         router.refresh();
+                        onChange?.();
                     } catch (actionErr: any) {
                         setOpState('FAILED');
                         setErrorMsg(actionErr.message || 'Failed to attach document to the field');
@@ -142,7 +144,7 @@ export function FieldAttachments({ clientLEId, fieldNo, attachments, isEditable,
             isSubscribed = false;
             clearTimeout(timeoutId);
         };
-    }, [activeIntentId, opState, opType, targetInstanceId, clientLEId, fieldNo, router]);
+    }, [activeIntentId, opState, opType, targetInstanceId, clientLEId, fieldNo, router, onChange]);
 
     const resetState = () => {
         setOpState('IDLE');
@@ -232,7 +234,9 @@ export function FieldAttachments({ clientLEId, fieldNo, attachments, isEditable,
             await removeFieldAttachment({ clientLEId, fieldNo, instanceId, idempotencyKey: crypto.randomUUID() });
             toast.success('Attachment removed');
             router.refresh();
+            onChange?.();
         } catch (error) {
+            console.error('Failed to remove attachment:', error);
             toast.error('Failed to remove attachment');
         } finally {
             setRemovingInstanceId(null);
