@@ -52,7 +52,7 @@ export async function resolveExportAnswer(
         let attachmentFilenames: string[] = [];
 
         const attachmentsMap = await KycStateService.resolveAllAttachments({ subjectLeId }, [question.masterFieldNo]);
-        const derivedAttachments = attachmentsMap.get(question.masterFieldNo) || [];
+        const derivedAttachments = attachmentsMap?.get(question.masterFieldNo) || [];
         if (derivedAttachments.length > 0) {
             attachmentFilenames = derivedAttachments
                 .filter(a => a.attachmentDocumentId !== undefined)
@@ -256,7 +256,7 @@ export async function resolveExportAnswer(
 
             const batchInput = {
                 subjectLeId,
-                ownerScopeId,
+                ownerScopeId: ownerScopeId ?? null,
                 questions: [{ questionId: question.id, masterQuestionGroupId: question.masterQuestionGroupId, masterFieldProjectionPath: question.masterFieldProjectionPath }],
                 fieldDefMap,
                 groupFieldMap,
