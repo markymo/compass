@@ -1,0 +1,4 @@
+-- AlterEnum
+ALTER TYPE "PayloadSubtype" ADD VALUE 'LEVEL_1';
+ALTER TYPE "PayloadSubtype" ADD VALUE 'LEVEL_2_RELATIONSHIPS';
+ALTER TYPE "PayloadSubtype" ADD VALUE 'ELF';
