@@ -100,7 +100,7 @@ export class DocumentService {
 
             // 4. Create the immutable Document inside a Prisma transaction
             const document = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-                return await tx.document.create({
+                const doc = await tx.document.create({
                     data: {
                         name: originalFilename,
                         clientLEId,
@@ -121,6 +121,19 @@ export class DocumentService {
                         fileType: mimeType,
                     }
                 });
+
+                if (intentId) {
+                    await tx.privateDocumentUploadIntent.update({
+                        where: { id: intentId },
+                        data: {
+                            status: 'COMPLETED',
+                            documentId: doc.id,
+                            completedAt: new Date()
+                        }
+                    });
+                }
+
+                return doc;
             });
 
             return document;
