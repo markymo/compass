@@ -5,7 +5,6 @@ import { Action } from '@/lib/auth/permissions';
 import { DocumentService } from '@/lib/documents/DocumentService';
 import { randomUUID } from 'crypto';
 import prisma from '@/lib/prisma';
-import { ALLOWED_PRIVATE_DOCUMENT_TYPES } from '@/lib/documents/file-config';
 
 /**
  * Resolves the base URL of this deployment so the Vercel Blob SDK can
@@ -100,15 +99,11 @@ export async function POST(request: Request): Promise<NextResponse> {
                     }
                 });
 
-                // 5. Issue upload token for the private Blob store
-                // We use the flattened allowed MIME types plus '' for CSV fallback
-                const allowedContentTypes = Object.values(ALLOWED_PRIVATE_DOCUMENT_TYPES)
-                    .flatMap(t => t.mimeTypes)
-                    .filter(m => m !== ''); // Vercel Blob doesn't accept empty string in allowedContentTypes array, but will just not restrict if we don't pass it? Wait.
-                // Vercel Blob allowedContentTypes doesn't accept ''. Let's just pass the valid ones.
-                
+                // 5. Build the token options for the private Blob store.
+                // NOTE: `token` is NOT returned here — it is already passed at the
+                // handleUpload() call site and the SDK overwrites any token returned
+                // from onBeforeGenerateToken with the top-level value anyway.
                 return {
-                    token,
                     callbackUrl,  // Explicit URL prevents SDK from falling back to dev-proxy mode
                     allowedContentTypes: [
                         'application/pdf', 

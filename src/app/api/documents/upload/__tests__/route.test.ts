@@ -34,7 +34,7 @@ vi.mock('@vercel/blob/client', () => ({
     handleUpload: vi.fn(),
 }));
 
-describe('Upload Route Token Configuration', () => {
+describe('Upload Route — PRIVATE_BLOB_READ_WRITE_TOKEN', () => {
     const originalEnv = process.env;
 
     beforeEach(() => {
@@ -46,12 +46,10 @@ describe('Upload Route Token Configuration', () => {
         process.env = originalEnv;
     });
 
-    const createMockRequest = () => {
-        return new Request('http://localhost/api/documents/upload', {
+    const makeRequest = () =>
+        new Request('http://localhost/api/documents/upload', {
             method: 'POST',
-            headers: {
-                'content-type': 'application/json',
-            },
+            headers: { 'content-type': 'application/json' },
             body: JSON.stringify({
                 type: 'blob.generate-client-token',
                 payload: {
@@ -60,51 +58,58 @@ describe('Upload Route Token Configuration', () => {
                 }
             })
         });
-    };
 
-    it('fails closed with a 500 status when PRIVATE_BLOB_READ_WRITE_TOKEN is missing', async () => {
+    it('fails closed with a 500 when PRIVATE_BLOB_READ_WRITE_TOKEN is missing', async () => {
         delete process.env.PRIVATE_BLOB_READ_WRITE_TOKEN;
-        
-        // Even if the legacy BLOB_READ_WRITE_TOKEN is present, it must fail because 
-        // the explicit PRIVATE token is missing.
-        process.env.BLOB_READ_WRITE_TOKEN = 'legacy_token';
 
-        const request = createMockRequest();
-        const response = await POST(request);
+        // Even when the legacy fallback token is present the route must still fail —
+        // proving the SDK fallback to BLOB_READ_WRITE_TOKEN is not relied upon.
+        process.env.BLOB_READ_WRITE_TOKEN = 'vercel_blob_rw_legacy_token';
+
+        const response = await POST(makeRequest());
         const data = await response.json();
 
         expect(response.status).toBe(500);
         expect(data.error).toBe('CRITICAL: PRIVATE_BLOB_READ_WRITE_TOKEN is missing.');
+        // handleUpload must never be called — the route must fail before reaching the SDK
         expect(handleUpload).not.toHaveBeenCalled();
     });
 
-    it('passes PRIVATE_BLOB_READ_WRITE_TOKEN explicitly to handleUpload as top-level token property', async () => {
-        process.env.PRIVATE_BLOB_READ_WRITE_TOKEN = 'vercel_blob_rw_test_token';
-        
-        // Ensure legacy token is not present
+    it('passes PRIVATE_BLOB_READ_WRITE_TOKEN explicitly as the top-level token to handleUpload', async () => {
+        process.env.PRIVATE_BLOB_READ_WRITE_TOKEN = 'vercel_blob_rw_private_test_token';
+        // Ensure the SDK cannot fall back to the legacy env var
         delete process.env.BLOB_READ_WRITE_TOKEN;
 
-        // Mock handleUpload to just return success without invoking callbacks
         vi.mocked(handleUpload).mockResolvedValueOnce({
             type: 'blob.generate-client-token',
             clientToken: 'test-client-token'
         });
 
-        const request = createMockRequest();
+        const request = makeRequest();
         const response = await POST(request);
-        
-        expect(response.status).toBe(200);
 
-        // Verify that handleUpload was called exactly once
+        expect(response.status).toBe(200);
         expect(handleUpload).toHaveBeenCalledTimes(1);
 
-        // Extract the arguments passed to handleUpload
         const callArgs = vi.mocked(handleUpload).mock.calls[0][0];
 
-        // The critical assertion: 'token' must be explicitly passed at the top level
-        expect(callArgs.token).toBe('vercel_blob_rw_test_token');
+        // Critical: token must be the explicit PRIVATE var, passed at the top level
+        expect(callArgs.token).toBe('vercel_blob_rw_private_test_token');
         expect(callArgs.request).toBe(request);
         expect(callArgs.body).toBeDefined();
         expect(callArgs.onBeforeGenerateToken).toBeDefined();
+    });
+
+    it('does not rely on the SDK fallback to BLOB_READ_WRITE_TOKEN — token is always explicit', async () => {
+        // Set ONLY the legacy env var, NOT the private one.
+        // The route must still fail closed, proving it never lets the SDK auto-discover
+        // BLOB_READ_WRITE_TOKEN as a fallback.
+        delete process.env.PRIVATE_BLOB_READ_WRITE_TOKEN;
+        process.env.BLOB_READ_WRITE_TOKEN = 'vercel_blob_rw_should_never_be_used';
+
+        const response = await POST(makeRequest());
+
+        expect(response.status).toBe(500);
+        expect(handleUpload).not.toHaveBeenCalled();
     });
 });
