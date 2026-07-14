@@ -147,13 +147,15 @@ export async function publishMasterSchema(): Promise<
 
         // 4. Audit log
         try {
-            await (prisma as any).auditLog.create({
+            await prisma.auditLog.create({
                 data: {
-                    userId,
-                    action: "MASTER_SCHEMA_PUBLISHED",
+                    actorUserId: userId,
+                    action: "CREATE",
+                    entityType: "MasterSchema",
                     entityId: schema.id,
-                    details: {
-                        entityType: "MasterSchema",
+                    sourceType: "SYSTEM",
+                    changedFields: ["version", "fieldCount", "mappingCount"],
+                    newData: {
                         version: nextVersion,
                         fieldCount,
                         mappingCount,
@@ -214,13 +216,15 @@ export async function activateMasterSchema(
 
         // Audit log
         try {
-            await (prisma as any).auditLog.create({
+            await prisma.auditLog.create({
                 data: {
-                    userId,
-                    action: "MASTER_SCHEMA_ACTIVATED",
+                    actorUserId: userId,
+                    action: "UPDATE",
+                    entityType: "MasterSchema",
                     entityId: schemaId,
-                    details: {
-                        entityType: "MasterSchema",
+                    sourceType: "SYSTEM",
+                    changedFields: ["isActive"],
+                    newData: {
                         version: target.version,
                         note: "Schema activated. All new LE records will reference this version.",
                     },

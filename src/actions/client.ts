@@ -123,6 +123,7 @@ export async function ensureUserOrg(userId: string, userEmail: string = "") {
                     await tx.comment.updateMany({ where: { userId: existingUserByEmail.id }, data: { userId: userId } });
                     await tx.questionActivity.updateMany({ where: { userId: existingUserByEmail.id }, data: { userId: userId } });
                     await tx.masterFieldNote.updateMany({ where: { createdByUserId: existingUserByEmail.id }, data: { createdByUserId: userId } });
+                    await tx.privateDocumentUploadIntent.updateMany({ where: { initiatedById: existingUserByEmail.id }, data: { initiatedById: userId } });
 
                     // 4. Delete Placeholder
                     await tx.user.delete({

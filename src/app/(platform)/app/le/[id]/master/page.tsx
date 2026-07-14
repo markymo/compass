@@ -43,13 +43,13 @@ export default async function MasterRecordPage({ params }: { params: Promise<{ i
             >
                 <DataSchemaTab
                     leId={id}
-                    masterData={masterData || {}}
-                    customData={customData || {}}
-                    customDefinitions={customDefinitions || []}
+                    masterData={JSON.parse(JSON.stringify(masterData || {}))}
+                    customData={JSON.parse(JSON.stringify(customData || {}))}
+                    customDefinitions={JSON.parse(JSON.stringify(customDefinitions || []))}
                     gleifLastSynced={gleifLastSynced ?? undefined}
-                    nationalRegistryData={nationalRegistryData}
-                    masterFields={masterFields || []}
-                    masterGroups={masterGroups || []}
+                    nationalRegistryData={nationalRegistryData ? JSON.parse(JSON.stringify(nationalRegistryData)) : undefined}
+                    masterFields={JSON.parse(JSON.stringify(masterFields || []))}
+                    masterGroups={JSON.parse(JSON.stringify(masterGroups || []))}
                     categories={dataSort.categories}
                     uncategorizedFields={dataSort.uncategorizedFields}
                     registrationAuthorityId={registrationAuthorityId ?? undefined}
