@@ -189,7 +189,7 @@ export function FieldAttachments({ clientLEId, fieldNo, attachments, isEditable,
 
         try {
             await upload(file.name, file, {
-                access: 'public', // Client Upload requires this flag even if onBeforeGenerateToken forces private
+                access: 'private', // Must match the access level granted by onBeforeGenerateToken
                 handleUploadUrl: '/api/documents/upload',
                 clientPayload: JSON.stringify({ 
                     clientLEId, 
