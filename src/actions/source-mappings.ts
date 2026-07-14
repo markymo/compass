@@ -248,16 +248,14 @@ export async function upsertSourceMapping(input: UpsertMappingInput) {
         try {
             await prisma.auditLog.create({
                 data: {
-                    userId: userId || 'SYSTEM',
-                    action: resolvedId ? 'SOURCE_MAPPING_UPDATE' : 'SOURCE_MAPPING_CREATE',
+                    actorUserId: userId,
+                    action: resolvedId ? 'UPDATE' : 'CREATE',
+                    entityType: 'SourceFieldMapping',
                     entityId: mapping.id,
-                    details: {
-                        entityType: 'SourceFieldMapping',
-                        before: beforeState,
-                        after: { sourceType: data.sourceType, sourcePath: data.sourcePath, targetFieldNo: data.targetFieldNo },
-                        sourceType: input.sourceType,
-                        targetFieldNo: input.targetFieldNo
-                    }
+                    sourceType: 'SYSTEM',
+                    changedFields: ['sourceType', 'sourcePath', 'targetFieldNo'],
+                    oldData: beforeState,
+                    newData: { sourceType: data.sourceType, sourcePath: data.sourcePath, targetFieldNo: data.targetFieldNo }
                 }
             });
         } catch (e) {
@@ -300,16 +298,14 @@ export async function toggleSourceMapping(id: string, isActive: boolean) {
         try {
             await prisma.auditLog.create({
                 data: {
-                    userId: userId || 'SYSTEM',
-                    action: 'SOURCE_MAPPING_TOGGLE',
+                    actorUserId: userId,
+                    action: 'UPDATE',
+                    entityType: 'SourceFieldMapping',
                     entityId: id,
-                    details: {
-                        entityType: 'SourceFieldMapping',
-                        before: { isActive: before.isActive },
-                        after: { isActive },
-                        sourceType: before.sourceType,
-                        targetFieldNo: before.targetFieldNo
-                    }
+                    sourceType: 'SYSTEM',
+                    changedFields: ['isActive'],
+                    oldData: { isActive: before.isActive, sourceType: before.sourceType, targetFieldNo: before.targetFieldNo },
+                    newData: { isActive, sourceType: before.sourceType, targetFieldNo: before.targetFieldNo }
                 }
             });
         } catch (e) {
@@ -337,16 +333,14 @@ export async function deleteSourceMapping(id: string) {
         try {
             await prisma.auditLog.create({
                 data: {
-                    userId: userId || 'SYSTEM',
-                    action: 'SOURCE_MAPPING_DELETE',
+                    actorUserId: userId,
+                    action: 'DELETE',
+                    entityType: 'SourceFieldMapping',
                     entityId: id,
-                    details: {
-                        entityType: 'SourceFieldMapping',
-                        before: before,
-                        after: null,
-                        sourceType: before.sourceType,
-                        targetFieldNo: before.targetFieldNo
-                    }
+                    sourceType: 'SYSTEM',
+                    changedFields: [],
+                    oldData: before,
+                    newData: null
                 }
             });
         } catch (e) {

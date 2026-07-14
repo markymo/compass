@@ -73,9 +73,11 @@ export async function mapGleifPayloadToFieldCandidates(payload: any, evidenceId:
                 let rawValue = null;
 
                 if (mapping.payloadSubtype === 'LEVEL_2_RELATIONSHIPS') {
-                    rawValue = resolveDotPath(payload?.gleifL2, segments);
+                    const pathSegments = segments.length > 0 && segments[0].key === 'gleifL2' ? segments.slice(1) : segments;
+                    rawValue = resolveDotPath(payload?.gleifL2, pathSegments);
                 } else if (mapping.payloadSubtype === 'ELF') {
-                    rawValue = resolveDotPath(payload?.gleifElf, segments);
+                    const pathSegments = segments.length > 0 && segments[0].key === 'gleifElf' ? segments.slice(1) : segments;
+                    rawValue = resolveDotPath(payload?.gleifElf, pathSegments);
                 } else {
                     // LEVEL_1 or legacy
                     rawValue = resolveDotPath(attr, segments);
