@@ -14,6 +14,15 @@ const BuildingIcon = () => (
     </Svg>
 );
 
+const FactoryIcon = () => (
+    <Svg viewBox="0 0 24 24" width={12} height={12} fill="none">
+        <Path d="M12 16h.01" stroke="#64748b" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+        <Path d="M16 16h.01" stroke="#64748b" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+        <Path d="M3 19a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8.5a.5.5 0 0 0-.769-.422l-4.462 2.844A.5.5 0 0 1 15 10.5v-2a.5.5 0 0 0-.769-.422L9.77 10.922A.5.5 0 0 1 9 10.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2z" stroke="#64748b" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+        <Path d="M8 16h.01" stroke="#64748b" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+);
+
 const GlobeIcon = () => (
     <Svg viewBox="0 0 24 24" width={12} height={12} fill="none">
         <Path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z M2 12h20 M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" stroke="#64748b" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
@@ -425,13 +434,13 @@ export const QuestionnairePDF = ({ data, title, exportMetadata }: QuestionnaireP
                             <View style={styles.identityCard}>
                                 {exportMetadata.clientParentName ? (
                                     <View style={styles.coverRow}>
-                                        <View style={styles.iconContainer}><BuildingIcon /></View>
+                                        <View style={styles.iconContainer}><FactoryIcon /></View>
                                         <Text style={styles.coverLabel}>Client</Text>
                                         <Text style={styles.coverValue}>{exportMetadata.clientParentName}</Text>
                                     </View>
                                 ) : (
                                     <View style={styles.coverRow}>
-                                        <View style={styles.iconContainer}><BuildingIcon /></View>
+                                        <View style={styles.iconContainer}><FactoryIcon /></View>
                                         <Text style={styles.coverLabel}>Client</Text>
                                         <Text style={styles.coverValue}>—</Text>
                                     </View>
