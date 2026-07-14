@@ -1672,6 +1672,8 @@ export interface ConsoleQuestion {
      *  Populated by getWorkbench4Data(). Consumed by GroupAnswerRenderer in workbench4.
      *  undefined for all non-group questions — fully backward compatible. */
     masterDataGroupFields?: GroupFieldDetail[];
+    /** The preferred UI layout when rendering a group's fields */
+    masterDataGroupDisplayStyle?: 'LIST' | 'COMPACT' | 'GRID';
     /** For single mapped fields in workbench4. */
     canonicalDisplayModel?: import("@/lib/master-data/field-display-model").FieldDisplayModel;
 };

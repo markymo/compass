@@ -57,20 +57,21 @@ export interface GroupAnswerRendererProps {
     raNameLookup: RaNameLookup;
     /** Optional extra class on the outer wrapper */
     className?: string;
+    /** The layout style to use for rendering the fields */
+    displayStyle?: 'LIST' | 'COMPACT' | 'GRID';
 }
 
-// ── Sub-components ────────────────────────────────────────────────────────────
-
-/** A single group field row */
 function GroupFieldRow({
     field,
     raNameLookup,
     dimmed = false,
+    displayStyle = 'LIST',
 }: {
     field: GroupFieldData;
     raNameLookup: RaNameLookup;
     /** True for isSynced:false rows shown when the expand toggle is on */
     dimmed?: boolean;
+    displayStyle?: 'LIST' | 'COMPACT' | 'GRID';
 }) {
     const { fieldName } = field;
 
@@ -85,15 +86,64 @@ function GroupFieldRow({
         return <span className="text-xs text-slate-300 italic">—</span>;
     };
 
+    const isCompact = displayStyle === 'COMPACT';
+    const isGrid = displayStyle === 'GRID';
+
+    if (isGrid) {
+        return (
+            <div className={cn(
+                "grid grid-cols-[40%_40%_20%] gap-x-2 items-center py-2 border-b border-slate-50 last:border-0 transition-opacity",
+                dimmed && "opacity-40"
+            )}>
+                <div className="font-semibold text-slate-500 uppercase tracking-wider text-[10px] truncate pr-2">
+                    {fieldName}
+                </div>
+                <div className="text-slate-900 text-xs">
+                    {renderValue()}
+                </div>
+                <div className="flex items-center justify-end pr-2">
+                    {!dimmed && field.canonicalDisplayModel?.source && (
+                        <div className="flex items-center gap-1">
+                            {field.hydrated.attachmentCount ? (
+                                <FieldAttachmentIndicator count={field.hydrated.attachmentCount} />
+                            ) : null}
+                            <FieldSourceBadge source={field.canonicalDisplayModel.source} variant="span" className="text-[9px] py-0 px-1 whitespace-nowrap scale-90 origin-right" />
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
+    }
+
     return (
-        <div className={cn("py-3 border-b border-slate-50 last:border-0 transition-opacity", dimmed && "opacity-40")}>
-            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
-                {fieldName}
-            </p>
-            <div className="text-sm text-slate-900">
+        <div className={cn(
+            "transition-opacity",
+            dimmed && "opacity-40",
+            isCompact ? "py-1 border-0" : "py-3 border-b border-slate-50 last:border-0"
+        )}>
+            <div className="flex items-center gap-2 mb-1">
+                <p className={cn(
+                    "font-semibold text-slate-400 uppercase tracking-wider",
+                    isCompact ? "text-[9px]" : "text-[10px]"
+                )}>
+                    {fieldName}
+                </p>
+                {isCompact && !dimmed && field.canonicalDisplayModel?.source && (
+                    <div className="flex items-center gap-1.5">
+                        <FieldSourceBadge source={field.canonicalDisplayModel.source} variant="span" />
+                        {field.hydrated.attachmentCount ? (
+                            <FieldAttachmentIndicator count={field.hydrated.attachmentCount} />
+                        ) : null}
+                    </div>
+                )}
+            </div>
+            <div className={cn(
+                "text-slate-900",
+                isCompact ? "text-xs" : "text-sm"
+            )}>
                 {renderValue()}
             </div>
-            {!dimmed && field.canonicalDisplayModel?.source && (
+            {!isCompact && !dimmed && field.canonicalDisplayModel?.source && (
                 <div className="flex items-center gap-2 mt-1">
                     <FieldSourceBadge source={field.canonicalDisplayModel.source} variant="span" />
                     {field.hydrated.attachmentCount ? (
@@ -112,6 +162,7 @@ export function GroupAnswerRenderer({
     fields,
     raNameLookup,
     className,
+    displayStyle = 'LIST',
 }: GroupAnswerRendererProps) {
     const [showEmpty, setShowEmpty] = useState(false);
 
@@ -139,13 +190,20 @@ export function GroupAnswerRenderer({
                     {groupLabel}
                 </div>
             )}
-            <div className="relative rounded-lg border border-slate-100 bg-white overflow-hidden divide-y divide-slate-50 px-3">
+            <div className={cn(
+                "relative rounded-lg border border-slate-100 bg-white overflow-hidden p-3",
+                displayStyle === 'COMPACT' ? "grid grid-cols-1 gap-y-3" : 
+                displayStyle === 'GRID' ? "flex flex-col px-3 pb-1 pt-8" : "divide-y divide-slate-50"
+            )}>
                 {/* Expand/collapse empty-field toggle — only when hidden fields exist */}
                 {hasHidden && (
                     <button
                         onClick={() => setShowEmpty(v => !v)}
                         title={showEmpty ? `Hide ${empty.length} empty field${empty.length !== 1 ? 's' : ''}` : `Show ${empty.length} empty field${empty.length !== 1 ? 's' : ''}`}
-                        className="absolute top-1.5 right-1.5 z-10 flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-medium text-slate-300 hover:text-slate-500 hover:bg-slate-50 transition-colors"
+                        className={cn(
+                            "absolute top-1.5 right-1.5 z-10 flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-medium text-slate-300 hover:text-slate-500 hover:bg-slate-50 transition-colors",
+                            displayStyle === 'COMPACT' && "bg-white/90 shadow-sm border border-slate-100"
+                        )}
                     >
                         {showEmpty
                             ? <EyeOff className="h-3 w-3" />
@@ -160,6 +218,7 @@ export function GroupAnswerRenderer({
                         field={field}
                         raNameLookup={raNameLookup}
                         dimmed={!field.hydrated.isSynced}
+                        displayStyle={displayStyle}
                     />
                 ))}
             </div>

@@ -58,7 +58,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
                 sourceCategory: resolvedAnswer.sourceCategory,
                 answerState: resolvedAnswer.answerState,
                 notes: question.comments.map((c: any) => `[${c.user?.name || 'User'}]: ${c.text}`).join("\n"),
-                evidencePaths
+                evidencePaths,
+                groupFields: resolvedAnswer.groupFields,
+                groupDisplayStyle: resolvedAnswer.groupDisplayStyle
             };
         }));
 

@@ -8,6 +8,7 @@ import { KycStateService } from "@/lib/kyc/KycStateService";
 import { listAllMasterFields, listAllMasterGroups, listAllMasterGroupsWithItems, getMasterFieldGroup } from "@/services/masterData/definitionService";
 import { getComplexFieldConfig } from "@/lib/master-data/complex-field-config";
 import type { GroupFieldData } from "@/components/client/engagement/group-answer-renderer";
+import { GroupDisplayStyle } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { generateObject } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
@@ -81,6 +82,9 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
     // Build groupFieldMap from already-loaded allGroupsWithItems
     const groupFieldMap = new Map<string, number[]>(
         allGroupsWithItems.map((g: any) => [g.key, g.fieldNos as number[]])
+    );
+    const groupDisplayStyleMap = new Map<string, GroupDisplayStyle>(
+        allGroupsWithItems.map((g: any) => [g.key, g.displayStyle as GroupDisplayStyle])
     );
 
     const relationships = Array.from(new Set(questions.map((q: any) => q.engagementOrgName || "Unknown"))).sort();
@@ -253,6 +257,7 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
                     q.masterDataSource = primarySource || 'MASTER_RECORD';
                     q.masterDataUpdatedAt = latestDate;
                     (q as any).masterDataGroupFields = groupFields;
+                    q.masterDataGroupDisplayStyle = groupDisplayStyleMap.get(q.masterQuestionGroupId) ?? 'LIST';
                 } else {
                     const fieldValues = Object.values(resolvedValues[q.id]);
                     if (fieldValues.length > 0) {
