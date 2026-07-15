@@ -36,6 +36,7 @@ const EXPECTED_KEYS = [
     'TO_PARTY_VALUE',
     'TO_PARTY_VALUE_LIST',
     'TO_COMPANIES_HOUSE_ACTIVE_DIRECTOR_PARTY_VALUE_LIST',
+    'TO_ADDRESS_VALUE',
 ];
 
 // ── Tests ─────────────────────────────────────────────────────────────────────

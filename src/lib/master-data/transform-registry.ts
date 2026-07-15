@@ -51,100 +51,87 @@ export const TRANSFORM_DEFINITIONS: TransformDefinition[] = [
     {
         key: 'DIRECT',
         label: 'Direct',
-        description:
-            'Copies the source value unchanged; for objects, extracts a primitive via common keys (name, value, text).',
+        description: 'Takes a single source value and copies it unchanged. If the source is an object, it attempts to extract a standard text value. If it cannot be transformed, it produces an empty result.',
     },
     {
         key: 'DATE_TO_ISO',
         label: 'Date → ISO (YYYY-MM-DD)',
-        description: 'Parses any date-like string and formats it as YYYY-MM-DD.',
+        description: 'Takes a single date-like string and formats it as YYYY-MM-DD. If the date cannot be understood, it produces an empty result.',
     },
     {
         key: 'DATETIME_TO_ISO',
         label: 'DateTime → ISO',
-        description: 'Parses any date/time string and formats it as a full ISO 8601 timestamp.',
+        description: 'Takes a single date and time string and formats it as a full timestamp. If the time cannot be understood, it produces an empty result.',
     },
     {
         key: 'COUNTRY_TO_NAME',
         label: 'Country Code → Country Name',
-        description:
-            'Converts an ISO 3166-1 alpha-2 country code (e.g. GB) into a human-readable country name (e.g. United Kingdom).',
+        description: 'Takes a single two-letter country code (e.g. GB) and returns the full country name. Unrecognised codes are left unchanged.',
     },
     {
         key: 'COUNTRY_TO_ISO2',
         label: 'Country Name → ISO Code',
-        description:
-            'Converts a country name (e.g. United Kingdom) or ISO code into the canonical two-letter ISO 3166-1 alpha-2 code (e.g. GB).',
+        description: 'Takes a single country name or code and returns the standard two-letter code. Unrecognised names are left unchanged.',
     },
     {
         key: 'ENUM_MAP',
         label: 'Enum Map',
-        description:
-            'Looks the source value up in a fixed key/value map supplied in transformConfig.map; unrecognised values are passed through with a confidence penalty.',
+        description: 'Takes a single value and replaces it using a fixed list of allowed values. Unrecognised values are passed through but marked for review.',
     },
     {
         key: 'FIRST_ARRAY_ITEM',
         label: 'First Array Item',
-        description: 'Takes the first element of a source array and returns it as a string.',
+        description: 'Takes a list of values and extracts only the first item as a single text value. If the list is empty, it produces an empty result.',
     },
     {
         key: 'JOIN_ARRAY',
         label: 'Join Array',
-        description:
-            'Joins all elements of a source array into a single string, separated by the value in transformConfig.separator (default: ", ").',
+        description: 'Takes a list of values and combines them into a single text value, separated by commas. If the list is empty, it produces an empty result.',
     },
     {
         key: 'TO_ADDRESS_OBJECT',
-        label: 'To Address Object',
-        description:
-            'Maps a GLEIF or Companies House address shape into a structured address DTO that is then persisted as a linked Address record.',
+        label: 'To Address Object (Legacy)',
+        description: 'Legacy transform that converts a source address into a standalone address record. Do not use for new mappings.',
     },
     {
         key: 'TO_PARTY_OBJECT',
-        label: 'To Party Object',
-        description:
-            'Maps a single officer or stakeholder object into a typed person or corporate entity DTO.',
+        label: 'To Party Object (Legacy)',
+        description: 'Legacy transform that maps a single source record into a standalone Party record. Do not use for new mappings.',
     },
     {
         key: 'TO_PARTY_LIST',
-        label: 'To Party List',
-        description:
-            'Maps an array of officers or persons with significant control into a collection of person/entity DTOs, one FieldClaim per item.',
+        label: 'To Party List (Legacy)',
+        description: 'Legacy transform that maps a list of source records into separate standalone Party records. Do not use for new mappings.',
     },
     {
         key: 'TO_NAME_HISTORY_LIST',
         label: 'To Name History List',
-        description:
-            'Maps an array of previous names (Companies House or GLEIF format) into a dated name-history collection, one FieldClaim per entry.',
+        description: 'Takes a list of previous names and converts them into a collection of dated name records. Each valid name becomes its own FieldClaim.',
     },
     {
         key: 'TO_CODE_LIST',
         label: 'To Code List',
-        description:
-            'Maps an array of industry codes (e.g. SIC codes) into structured { code, label } objects, looking up descriptions from the configured code system.',
+        description: 'Takes a list of industry codes and converts them into structured records with descriptions. Each valid code becomes its own FieldClaim.',
     },
     {
         key: 'RA_CODE_TO_NAME',
         label: 'RA Code → Authority Name',
-        description:
-            'Converts a GLEIF Registration Authority code (e.g. RA000192) into the authority name stored in the Registry Authorities table (e.g. Registre du Commerce et des Sociétés).',
+        description: 'Takes a single Registration Authority code (e.g. RA000192) and returns the full authority name from the Registry Authorities list. Unrecognised codes are left unchanged.',
     },
     {
         key: 'TO_PARTY_VALUE',
         label: 'To Party',
-        description:
-            'Maps a single source object (e.g. one Companies House officer or PSC) into a structured PartyValue stored in FieldClaim.valueJson. No graph node or edge is created. Supports comma-split name parsing (CH format "SMITH, John"), partial DOB, roles, and source identifiers.',
+        description: 'Takes a single source record and converts it into one Party value. If the record cannot be transformed, it is skipped.',
     },
     {
         key: 'TO_PARTY_VALUE_LIST',
         label: 'To Party List',
-        description:
-            'Maps an array of source objects (e.g. CH officers array, PSC array) into multiple PartyValue claims — one FieldClaim per item, each with its own instanceId, effectiveFrom, effectiveTo, and valueJson. Mirrors the TO_PARTY_LIST fan-out contract.',
+        description: 'Takes a list of source records and converts them into separate Party values. Each valid record becomes its own FieldClaim. Invalid records are skipped.',
     },
     {
         key: 'TO_COMPANIES_HOUSE_ACTIVE_DIRECTOR_PARTY_VALUE_LIST',
         label: 'Companies House Active Directors',
-        description: 'Converts Companies House officer records into embedded PARTY values representing current active directors.',
+        description: 'Takes a list of Companies House officers and converts them into separate Party values. This explicitly filters the list to include only active directors, excluding any who have resigned or are inactive.',
         inputExpectation: 'Companies House officers array.',
         outputShape: 'Multiple embedded PARTY FieldClaims.',
         typicalUse: 'Field 63 Current Directors.',
@@ -158,6 +145,11 @@ export const TRANSFORM_DEFINITIONS: TransformDefinition[] = [
         requiredSourceShape: 'Companies House officers array',
         filterSemantics: 'active directors only',
     },
+    {
+        key: 'TO_ADDRESS_VALUE',
+        label: 'To Address',
+        description: 'Takes a single source address and converts it into a structured Address value. If the address cannot be formatted, it produces an empty result.',
+    }
 ];
 
 /**

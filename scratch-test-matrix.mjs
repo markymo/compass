@@ -1,6 +1,4 @@
-import fs from 'fs';
-
-async function fetchJson(url: string) {
+async function fetchJson(url) {
     try {
         const res = await fetch(url, { headers: { 'Accept': 'application/vnd.api+json' } });
         const is404 = res.status === 404;
@@ -14,7 +12,7 @@ async function fetchJson(url: string) {
     }
 }
 
-async function inspect(lei: string) {
+async function inspect(lei) {
     console.log(`\n\n=== Inspecting LEI: ${lei} ===`);
     const main = await fetchJson(`https://api.gleif.org/api/v1/lei-records/${lei}`);
     const dp = await fetchJson(`https://api.gleif.org/api/v1/lei-records/${lei}/direct-parent`);
@@ -25,7 +23,7 @@ async function inspect(lei: string) {
     console.log(`Main Links:`, links);
 
     console.log(`\nDirect Parent Endpoint HTTP Status: ${dp.status}`);
-    console.log(`Direct Parent Payload Data:`, JSON.stringify(dp.data?.data, null, 2)?.substring(0, 300) + (JSON.stringify(dp.data?.data)?.length > 300 ? '...' : ''));
+    console.log(`Direct Parent Payload Data:`, JSON.stringify(dp.data?.data, null, 2));
 
     console.log(`\nDirect Parent Reporting Exception Endpoint HTTP Status: ${dpre.status}`);
     console.log(`Direct Parent Exception Payload Data:`, JSON.stringify(dpre.data?.data, null, 2));
@@ -34,6 +32,6 @@ async function inspect(lei: string) {
 async function main() {
     await inspect("5493006MHB84DD0ZWV18"); // Alphabet Inc (Exception)
     await inspect("7ZW8QJWVPR4P1J1KQY45"); // Google LLC (Direct Parent)
-    await inspect("2549007H0J602H3GBQ16"); // Try to find an awkward/incomplete case. Let's try some random one. Or just another one. Let's see if 404 is returned when data isn't there.
+    await inspect("2549007H0J602H3GBQ16"); // Missing
 }
 main();
