@@ -7,11 +7,22 @@ import React from 'react';
 import { GroupAnswerRenderer, GroupFieldData } from '../group-answer-renderer';
 
 // Mock dependencies that cause issues in JSDOM tests
+vi.mock('next/server', () => ({
+    NextResponse: vi.fn(),
+    NextRequest: vi.fn(),
+}));
+
 vi.mock('@/components/client/fields/FieldValueRenderer', () => ({
     FieldValueRenderer: () => <div data-testid="field-value-renderer">Mocked Value</div>
 }));
 vi.mock('@/components/client/fields/FieldSourceBadge', () => ({
     FieldSourceBadge: () => <div data-testid="field-source-badge">Mocked Source</div>
+}));
+vi.mock('@/components/shared/FieldAttachmentIndicator', () => ({
+    FieldAttachmentIndicator: () => <div data-testid="field-attachment-indicator">Mocked Indicator</div>
+}));
+vi.mock('@/components/client/fields/FieldAttachments', () => ({
+    FieldAttachments: () => <div data-testid="field-attachments">Mocked Attachments</div>
 }));
 
 const mockFields: GroupFieldData[] = [

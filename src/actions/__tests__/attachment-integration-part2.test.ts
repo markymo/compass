@@ -18,6 +18,10 @@ vi.mock('@vercel/blob', () => ({
     del: vi.fn(),
 }));
 
+vi.mock('next/cache', () => ({
+    revalidatePath: vi.fn(),
+}));
+
 process.env.PRIVATE_BLOB_READ_WRITE_TOKEN = 'test-token';
 
 describe.skipIf(!process.env.DATABASE_URL)('Phase 4 Attachment Lifecycle Integration Part 2', () => {
@@ -99,6 +103,7 @@ describe.skipIf(!process.env.DATABASE_URL)('Phase 4 Attachment Lifecycle Integra
     async function makeIntent(status: 'PENDING' | 'COMPLETED' | 'FAILED' = 'PENDING'): Promise<string> {
         const intent = await prisma.privateDocumentUploadIntent.create({
             data: {
+                id: crypto.randomUUID(),
                 clientLEId,
                 initiatedById: 'test-user-part2',
                 storagePathname: `test-intent-path-${Date.now()}-${Math.random()}`,
@@ -246,6 +251,7 @@ describe.skipIf(!process.env.DATABASE_URL)('Phase 4 Attachment Lifecycle Integra
             await expect(addFieldAttachment({ clientLEId: otherLe.id, fieldNo: 999, attachmentDocumentId: docIdOther.id, idempotencyKey: key }))
                 .rejects.toThrow();
 
+            await prisma.document.delete({ where: { id: docIdOther.id } });
             await prisma.clientLE.delete({ where: { id: otherLe.id } });
             await prisma.legalEntity.delete({ where: { id: realLe2.id } });
         });

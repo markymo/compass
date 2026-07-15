@@ -47,6 +47,9 @@ export async function GET(
         }
 
         if (!stream) {
+            if (document.storageProvider !== "VERCEL_BLOB" && !document.fileUrl) {
+                return new NextResponse("Document is not a downloadable file", { status: 400 });
+            }
             return new NextResponse("Failed to retrieve document stream", { status: 500 });
         }
 

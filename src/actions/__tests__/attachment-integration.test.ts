@@ -17,6 +17,10 @@ vi.mock('@vercel/blob', () => ({
     del: vi.fn(),
 }));
 
+vi.mock('next/cache', () => ({
+    revalidatePath: vi.fn(),
+}));
+
 process.env.PRIVATE_BLOB_READ_WRITE_TOKEN = 'test-token';
 
 describe.skipIf(!process.env.DATABASE_URL)('Phase 4 Attachment Lifecycle Integration', () => {
@@ -236,7 +240,7 @@ describe.skipIf(!process.env.DATABASE_URL)('Phase 4 Attachment Lifecycle Integra
     describe('3. Upload Intent Behaviour & 4. Idempotency', () => {
         it('enforces idempotency on Add with identical key', async () => {
             const docId = await makeDocument('idem-add');
-            const key = 'idem-key-add-1';
+            const key = `idem-key-add-1-${Date.now()}`;
 
             const add1 = await addFieldAttachment({ clientLEId, fieldNo: 999, attachmentDocumentId: docId, idempotencyKey: key });
             testClaims.push(add1.id);
@@ -249,7 +253,7 @@ describe.skipIf(!process.env.DATABASE_URL)('Phase 4 Attachment Lifecycle Integra
 
         it('rejects idempotency key if claim role or field mismatches', async () => {
             const docId = await makeDocument('idem-add-mismatch');
-            const key = 'idem-key-add-mismatch';
+            const key = `idem-key-add-mismatch-${Date.now()}`;
 
             const add1 = await addFieldAttachment({ clientLEId, fieldNo: 999, attachmentDocumentId: docId, idempotencyKey: key });
             testClaims.push(add1.id);
@@ -262,6 +266,7 @@ describe.skipIf(!process.env.DATABASE_URL)('Phase 4 Attachment Lifecycle Integra
         it('handles intents: PENDING -> COMPLETED and duplicate callbacks', async () => {
             const intent = await prisma.privateDocumentUploadIntent.create({
                 data: {
+                    id: crypto.randomUUID(),
                     clientLEId,
                     initiatedById: 'test-user-part1',
                     storagePathname: 'test-intent-path',
@@ -304,13 +309,14 @@ describe.skipIf(!process.env.DATABASE_URL)('Phase 4 Attachment Lifecycle Integra
         it('rejects attachment of a Document owned by another ClientLE', async () => {
             const otherLe = await prisma.clientLE.create({ data: { name: 'Other LE' } });
             const docId = await prisma.document.create({
-                data: { clientLEId: otherLe.id, storageProvider: 'test', storagePathname: 'sec-2', name: 't', fileUrl: 't', fileType: 't' }
+                data: { clientLEId: otherLe.id, storageProvider: 'test', storagePathname: `sec-2-${Date.now()}`, name: 't', fileUrl: 't', fileType: 't' }
             }).then(d => d.id);
 
             testDocs.push(docId);
             await expect(addFieldAttachment({ clientLEId, fieldNo: 999, attachmentDocumentId: docId }))
                 .rejects.toThrow(/does not belong to the requested clientLE/);
 
+            await prisma.document.delete({ where: { id: docId } });
             await prisma.clientLE.delete({ where: { id: otherLe.id } });
         });
     });
