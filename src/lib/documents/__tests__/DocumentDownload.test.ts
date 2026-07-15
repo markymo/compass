@@ -72,7 +72,7 @@ describe('Download API Route', () => {
             id: 'doc-1',
             clientLEId: 'org-1',
             storageProvider: null,
-            fileUrl: 'https://public.blob.vercel-storage.com/old-doc.pdf'
+            fileUrl: null
         } as any);
 
         vi.mocked(ensureApiAuthorization).mockResolvedValueOnce({ userId: 'u-1', user: {} as any });

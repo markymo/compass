@@ -1,0 +1,1086 @@
+[
+  {
+    "fieldNo": 270,
+    "fieldName": "TEST PERSON",
+    "appDataType": "PARTY",
+    "isMultiValue": true,
+    "options": [],
+    "notes": "",
+    "defaultResponse": "",
+    "categoryId": "257fef33-a0ed-43ac-9e5b-39a8b7c739f4",
+    "isActive": true,
+    "order": 999,
+    "createdAt": "2026-07-07T16:34:05.482Z",
+    "updatedAt": "2026-07-14T11:01:09.932Z",
+    "modelField": null,
+    "description": "",
+    "domain": [
+      "Onboarding"
+    ],
+    "fmsbRef": "",
+    "optionSetId": null,
+    "profileConfig": {
+      "displayMask": [
+        "title",
+        "forenames",
+        "surname",
+        "organisationName",
+        "partyType",
+        "partySubType",
+        "contactType",
+        "dateOfBirth.year",
+        "nationality",
+        "countryOfResidence",
+        "placeOfBirth",
+        "correspondenceAddress",
+        "email",
+        "phones",
+        "roles[0].roleTitle",
+        "roles[0].roleType",
+        "roles[0].appointedOn",
+        "roles[0].resignedOn",
+        "roles[0].isActiveRole",
+        "roles[0].natureOfControl"
+      ],
+      "allowedPartyTypes": [
+        "INDIVIDUAL"
+      ]
+    },
+    "allowAttachments": false,
+    "sourceMappings": [],
+    "graphBindings": [],
+    "optionSet": null
+  },
+  {
+    "fieldNo": 272,
+    "fieldName": "TEST PARTY/PERS/ORG",
+    "appDataType": "PARTY",
+    "isMultiValue": true,
+    "options": [],
+    "notes": "",
+    "defaultResponse": "",
+    "categoryId": "257fef33-a0ed-43ac-9e5b-39a8b7c739f4",
+    "isActive": true,
+    "order": 999,
+    "createdAt": "2026-07-13T10:53:11.054Z",
+    "updatedAt": "2026-07-14T11:01:09.932Z",
+    "modelField": null,
+    "description": "",
+    "domain": [
+      "Onboarding"
+    ],
+    "fmsbRef": "",
+    "optionSetId": null,
+    "profileConfig": {
+      "allowedPartyTypes": [
+        "INDIVIDUAL",
+        "ORGANISATION"
+      ],
+      "allowedPartySubTypes": [
+        "PERSON",
+        "CONTACT",
+        "COMPANY",
+        "TRUST",
+        "FUND",
+        "PARTNERSHIP",
+        "GOVERNMENT_BODY",
+        "TEAM",
+        "DISTRIBUTION_LIST",
+        "OTHER"
+      ],
+      "partyPopulationPolicy": "SYSTEM_AND_CURATED"
+    },
+    "allowAttachments": false,
+    "sourceMappings": [],
+    "graphBindings": [],
+    "optionSet": null
+  },
+  {
+    "fieldNo": 49,
+    "fieldName": "Umbrella fund ID",
+    "appDataType": "PARTY",
+    "isMultiValue": true,
+    "options": [],
+    "notes": "",
+    "defaultResponse": "",
+    "categoryId": "20374651-e84a-4b2d-bb77-f7938b757877",
+    "isActive": true,
+    "order": 17,
+    "createdAt": "2026-03-23T09:07:44.586Z",
+    "updatedAt": "2026-07-14T11:01:09.932Z",
+    "modelField": "umbrellaFundId",
+    "description": "",
+    "domain": [
+      "Onboarding"
+    ],
+    "fmsbRef": "",
+    "optionSetId": null,
+    "profileConfig": {
+      "partyPopulationPolicy": "SYSTEM_AND_CURATED"
+    },
+    "allowAttachments": false,
+    "sourceMappings": [],
+    "graphBindings": [],
+    "optionSet": null
+  },
+  {
+    "fieldNo": 37,
+    "fieldName": "Direct parent (>50%)",
+    "appDataType": "PARTY",
+    "isMultiValue": false,
+    "options": [],
+    "notes": "",
+    "defaultResponse": "",
+    "categoryId": "20374651-e84a-4b2d-bb77-f7938b757877",
+    "isActive": true,
+    "order": 4,
+    "createdAt": "2026-03-23T09:07:44.100Z",
+    "updatedAt": "2026-07-14T11:01:09.932Z",
+    "modelField": "directParent",
+    "description": "A Direct Parent as defined by GLEIF, ie the closest fully consolidating parent entity owning >50% of the legal entity, and not being restricted from reporting the relationship due to legal obstacles.  If no direct parent is reported, a reporting exception will be provided.",
+    "domain": [
+      "Onboarding"
+    ],
+    "fmsbRef": "",
+    "optionSetId": null,
+    "profileConfig": {
+      "partyPopulationPolicy": "SYSTEM_ONLY"
+    },
+    "allowAttachments": false,
+    "sourceMappings": [
+      {
+        "id": "e4b34761-d04f-437d-8cf6-3a8d62647cef",
+        "sourceType": "GLEIF",
+        "sourceReference": null,
+        "mappingScope": "BASELINE",
+        "payloadSubtype": null,
+        "sourcePath": "gleifL2.directParent.legalName",
+        "targetFieldNo": 37,
+        "confidenceDefault": 1,
+        "transformType": "DIRECT",
+        "transformConfig": null,
+        "filterConfig": null,
+        "syncMode": "UPSERT_ONLY",
+        "priority": 100,
+        "isActive": true,
+        "notes": null,
+        "version": 1,
+        "createdAt": "2026-06-11T15:50:28.899Z",
+        "updatedAt": "2026-06-11T15:50:28.899Z",
+        "createdByUserId": "ee40aa7a-a869-4fda-bb84-c8afdd9fe24f",
+        "updatedByUserId": "ee40aa7a-a869-4fda-bb84-c8afdd9fe24f"
+      }
+    ],
+    "graphBindings": [],
+    "optionSet": null
+  },
+  {
+    "fieldNo": 40,
+    "fieldName": "Ultimate parent (>50%)",
+    "appDataType": "PARTY",
+    "isMultiValue": false,
+    "options": [],
+    "notes": "",
+    "defaultResponse": "",
+    "categoryId": "20374651-e84a-4b2d-bb77-f7938b757877",
+    "isActive": true,
+    "order": 8,
+    "createdAt": "2026-03-23T09:07:44.229Z",
+    "updatedAt": "2026-07-14T11:01:09.932Z",
+    "modelField": "ultimateParentId",
+    "description": "The Ultimate Parent as defined by GLEIF, ie the most distant fully consolidating parent entity owning >50% of the legal entity, and which is not restricted from reporting the relationship due to legal obstacles.  If no ultimate parent is reported, a reporting exception will be provided.",
+    "domain": [
+      "Onboarding"
+    ],
+    "fmsbRef": "",
+    "optionSetId": null,
+    "profileConfig": {
+      "partyPopulationPolicy": "SYSTEM_ONLY"
+    },
+    "allowAttachments": false,
+    "sourceMappings": [
+      {
+        "id": "867aa28c-999c-436f-b430-b9e541c223b2",
+        "sourceType": "GLEIF",
+        "sourceReference": null,
+        "mappingScope": "BASELINE",
+        "payloadSubtype": null,
+        "sourcePath": "gleifL2.ultimateParent",
+        "targetFieldNo": 40,
+        "confidenceDefault": 1,
+        "transformType": "DIRECT",
+        "transformConfig": null,
+        "filterConfig": null,
+        "syncMode": "UPSERT_ONLY",
+        "priority": 100,
+        "isActive": true,
+        "notes": null,
+        "version": 1,
+        "createdAt": "2026-06-11T16:29:22.284Z",
+        "updatedAt": "2026-06-11T16:29:22.284Z",
+        "createdByUserId": "ee40aa7a-a869-4fda-bb84-c8afdd9fe24f",
+        "updatedByUserId": "ee40aa7a-a869-4fda-bb84-c8afdd9fe24f"
+      }
+    ],
+    "graphBindings": [],
+    "optionSet": null
+  },
+  {
+    "fieldNo": 44,
+    "fieldName": "Fund manager ID",
+    "appDataType": "PARTY",
+    "isMultiValue": false,
+    "options": [],
+    "notes": "",
+    "defaultResponse": "",
+    "categoryId": "20374651-e84a-4b2d-bb77-f7938b757877",
+    "isActive": true,
+    "order": 12,
+    "createdAt": "2026-03-23T09:07:44.385Z",
+    "updatedAt": "2026-07-14T11:01:09.932Z",
+    "modelField": "fundManagerId",
+    "description": "",
+    "domain": [
+      "Onboarding"
+    ],
+    "fmsbRef": "",
+    "optionSetId": null,
+    "profileConfig": {
+      "partyPopulationPolicy": "SYSTEM_AND_CURATED"
+    },
+    "allowAttachments": false,
+    "sourceMappings": [],
+    "graphBindings": [],
+    "optionSet": null
+  },
+  {
+    "fieldNo": 203,
+    "fieldName": "TEST PERSON (Strutured)",
+    "appDataType": "PARTY",
+    "isMultiValue": false,
+    "options": [],
+    "notes": "",
+    "defaultResponse": "",
+    "categoryId": "08d282bd-5e78-4935-8759-8fdba5eea7c8",
+    "isActive": true,
+    "order": 2,
+    "createdAt": "2026-06-11T08:10:14.566Z",
+    "updatedAt": "2026-07-14T11:01:09.932Z",
+    "modelField": null,
+    "description": "",
+    "domain": [
+      "Onboarding"
+    ],
+    "fmsbRef": "",
+    "optionSetId": null,
+    "profileConfig": null,
+    "allowAttachments": false,
+    "sourceMappings": [],
+    "graphBindings": [],
+    "optionSet": null
+  },
+  {
+    "fieldNo": 62,
+    "fieldName": "Ultimate beneficial owners",
+    "appDataType": "PARTY",
+    "isMultiValue": true,
+    "options": [
+      "DIRECTOR",
+      "UBO",
+      "CONTROLLER"
+    ],
+    "notes": "Role = UBO. Can also point to Org.",
+    "defaultResponse": "",
+    "categoryId": "20374651-e84a-4b2d-bb77-f7938b757877",
+    "isActive": true,
+    "order": 1,
+    "createdAt": "2026-03-23T09:07:45.118Z",
+    "updatedAt": "2026-07-14T11:01:09.932Z",
+    "modelField": "role",
+    "description": "List legal and natural persons which are ultimate beneficial shareholders with 25% or more of either voting or economic rights (or both), unless provided with a different threshold level by onboarding firms.  List should correspond to the structure chart, if given,and publically sourced data fields (eg Ultimate parent and Persons of significant control.)\n\nFor legal persons, include legal name, country of incorporation, legal registered address, and name of regulator (if any) and name of debt or equity exchange (if any.)  \n\nFor natural persons, include full name, job title, nationality, date of birth and home address.",
+    "domain": [
+      "Onboarding"
+    ],
+    "fmsbRef": "C6",
+    "optionSetId": null,
+    "profileConfig": {
+      "partyPopulationPolicy": "SYSTEM_ONLY"
+    },
+    "allowAttachments": false,
+    "sourceMappings": [
+      {
+        "id": "00000000-0000-0000-0000-000000000062",
+        "sourceType": "REGISTRATION_AUTHORITY",
+        "sourceReference": "COMPANIES_HOUSE",
+        "mappingScope": "RAW_PAYLOAD",
+        "payloadSubtype": "PSC",
+        "sourcePath": "$",
+        "targetFieldNo": 62,
+        "confidenceDefault": 0.9,
+        "transformType": "TO_PARTY_LIST",
+        "transformConfig": null,
+        "filterConfig": null,
+        "syncMode": "UPSERT_ONLY",
+        "priority": 10,
+        "isActive": true,
+        "notes": "Migrated from null sourceReference. 2026-05-31T22:05:17.494Z",
+        "version": 1,
+        "createdAt": "2026-05-21T13:06:28.424Z",
+        "updatedAt": "2026-05-31T22:05:17.495Z",
+        "createdByUserId": null,
+        "updatedByUserId": null
+      }
+    ],
+    "graphBindings": [],
+    "optionSet": null
+  },
+  {
+    "fieldNo": 63,
+    "fieldName": "Company directors",
+    "appDataType": "PARTY",
+    "isMultiValue": true,
+    "options": [
+      "DIRECTOR",
+      "UBO",
+      "CONTROLLER"
+    ],
+    "notes": "List of company directors stored as embedded PersonOrContact structures with roles[].",
+    "defaultResponse": "",
+    "categoryId": "20374651-e84a-4b2d-bb77-f7938b757877",
+    "isActive": true,
+    "order": 2,
+    "createdAt": "2026-03-23T09:07:45.155Z",
+    "updatedAt": "2026-07-14T11:01:09.932Z",
+    "modelField": "role",
+    "description": "",
+    "domain": [
+      "Onboarding"
+    ],
+    "fmsbRef": "C0",
+    "optionSetId": null,
+    "profileConfig": {
+      "partyPopulationPolicy": "SYSTEM_ONLY"
+    },
+    "allowAttachments": false,
+    "sourceMappings": [
+      {
+        "id": "00000000-0000-0000-0000-000000000063",
+        "sourceType": "REGISTRATION_AUTHORITY",
+        "sourceReference": "COMPANIES_HOUSE",
+        "mappingScope": "RAW_PAYLOAD",
+        "payloadSubtype": "OFFICERS",
+        "sourcePath": "$",
+        "targetFieldNo": 63,
+        "confidenceDefault": 0.9,
+        "transformType": "TO_PARTY_VALUE_LIST",
+        "transformConfig": {
+          "dobYearPath": "date_of_birth.year",
+          "dobMonthPath": "date_of_birth.month",
+          "fullNamePath": "name",
+          "roleTitlePath": "officer_role",
+          "resignedOnPath": "resigned_on",
+          "appointedOnPath": "appointed_on",
+          "nationalityPath": "nationality",
+          "sourceIdentifiers": [
+            {
+              "scheme": "COMPANIES_HOUSE_PERSON_NUMBER",
+              "valuePath": "person_number"
+            }
+          ],
+          "countryOfResidencePath": "country_of_residence"
+        },
+        "filterConfig": {
+          "includeRoles": [
+            {
+              "roleType": "director",
+              "isActiveRole": true
+            }
+          ]
+        },
+        "syncMode": "SNAPSHOT_SYNC",
+        "priority": 10,
+        "isActive": true,
+        "notes": "CH Officers to Field 63 (PERSON_OR_CONTACT). Migrated 2026-06-14.",
+        "version": 1,
+        "createdAt": "2026-05-21T13:06:28.390Z",
+        "updatedAt": "2026-06-14T22:39:17.297Z",
+        "createdByUserId": null,
+        "updatedByUserId": null
+      }
+    ],
+    "graphBindings": [],
+    "optionSet": null
+  },
+  {
+    "fieldNo": 64,
+    "fieldName": "Persons of significant control (public source)",
+    "appDataType": "PARTY",
+    "isMultiValue": true,
+    "options": [
+      "DIRECTOR",
+      "UBO",
+      "CONTROLLER"
+    ],
+    "notes": "Role = CONTROLLER. Can also point to Org.",
+    "defaultResponse": "",
+    "categoryId": "20374651-e84a-4b2d-bb77-f7938b757877",
+    "isActive": true,
+    "order": 3,
+    "createdAt": "2026-03-23T09:07:45.194Z",
+    "updatedAt": "2026-07-14T11:01:09.932Z",
+    "modelField": "role",
+    "description": "Individuals with significant influence to control, manage, or direct the Client, as provided by available publically sourced data.",
+    "domain": [
+      "Onboarding"
+    ],
+    "fmsbRef": "C0",
+    "optionSetId": null,
+    "profileConfig": {
+      "partyPopulationPolicy": "SYSTEM_ONLY"
+    },
+    "allowAttachments": false,
+    "sourceMappings": [
+      {
+        "id": "fe21e90f-058d-43ae-8726-790150c23235",
+        "sourceType": "REGISTRATION_AUTHORITY",
+        "sourceReference": "COMPANIES_HOUSE",
+        "mappingScope": "RAW_PAYLOAD",
+        "payloadSubtype": "PSC",
+        "sourcePath": "$",
+        "targetFieldNo": 64,
+        "confidenceDefault": 1,
+        "transformType": "TO_PARTY_VALUE_LIST",
+        "transformConfig": {
+          "dobYearPath": "date_of_birth.year",
+          "dobMonthPath": "date_of_birth.month",
+          "fullNamePath": "name",
+          "roleTitlePath": "officer_role",
+          "resignedOnPath": "resigned_on",
+          "appointedOnPath": "appointed_on",
+          "nationalityPath": "nationality",
+          "sourceIdentifiers": [
+            {
+              "scheme": "COMPANIES_HOUSE_PERSON_NUMBER",
+              "valuePath": "person_number"
+            }
+          ],
+          "countryOfResidencePath": "country_of_residence"
+        },
+        "filterConfig": null,
+        "syncMode": "UPSERT_ONLY",
+        "priority": 100,
+        "isActive": true,
+        "notes": null,
+        "version": 1,
+        "createdAt": "2026-06-15T08:41:28.303Z",
+        "updatedAt": "2026-06-15T08:41:28.303Z",
+        "createdByUserId": "ee40aa7a-a869-4fda-bb84-c8afdd9fe24f",
+        "updatedByUserId": "ee40aa7a-a869-4fda-bb84-c8afdd9fe24f"
+      }
+    ],
+    "graphBindings": [],
+    "optionSet": null
+  },
+  {
+    "fieldNo": 202,
+    "fieldName": "TEST ORG ",
+    "appDataType": "ORG_REF",
+    "isMultiValue": false,
+    "options": [],
+    "notes": "",
+    "defaultResponse": "",
+    "categoryId": "08d282bd-5e78-4935-8759-8fdba5eea7c8",
+    "isActive": true,
+    "order": 0,
+    "createdAt": "2026-06-11T08:09:58.722Z",
+    "updatedAt": "2026-07-14T11:01:09.932Z",
+    "modelField": null,
+    "description": "",
+    "domain": [
+      "Onboarding"
+    ],
+    "fmsbRef": "",
+    "optionSetId": null,
+    "profileConfig": null,
+    "allowAttachments": true,
+    "sourceMappings": [],
+    "graphBindings": [],
+    "optionSet": null
+  },
+  {
+    "fieldNo": 65,
+    "fieldName": "Full name (individual)",
+    "appDataType": "PARTY",
+    "isMultiValue": true,
+    "options": [],
+    "notes": "",
+    "defaultResponse": "",
+    "categoryId": "08d282bd-5e78-4935-8759-8fdba5eea7c8",
+    "isActive": true,
+    "order": 8,
+    "createdAt": "2026-03-23T09:07:45.233Z",
+    "updatedAt": "2026-07-14T11:01:09.932Z",
+    "modelField": "fullName",
+    "description": "",
+    "domain": [
+      "Onboarding"
+    ],
+    "fmsbRef": "",
+    "optionSetId": null,
+    "profileConfig": {
+      "displayMask": [
+        "title",
+        "forenames",
+        "surname",
+        "email",
+        "phones",
+        "roles[0].roleTitle"
+      ],
+      "allowedPartyTypes": [
+        "INDIVIDUAL",
+        "ORGANISATION"
+      ],
+      "allowedPartySubTypes": [
+        "PERSON",
+        "TEAM",
+        "COMPANY"
+      ]
+    },
+    "allowAttachments": false,
+    "sourceMappings": [],
+    "graphBindings": [],
+    "optionSet": null
+  },
+  {
+    "fieldNo": 204,
+    "fieldName": "TEST PARTY",
+    "appDataType": "PARTY",
+    "isMultiValue": true,
+    "options": [],
+    "notes": "Corrupts new organisation: doeesnt display name etc (ML note - check mask)",
+    "defaultResponse": "",
+    "categoryId": "257fef33-a0ed-43ac-9e5b-39a8b7c739f4",
+    "isActive": true,
+    "order": 5,
+    "createdAt": "2026-06-11T08:10:32.388Z",
+    "updatedAt": "2026-07-14T11:01:09.932Z",
+    "modelField": null,
+    "description": "Test description inline",
+    "domain": [
+      "Onboarding"
+    ],
+    "fmsbRef": "",
+    "optionSetId": null,
+    "profileConfig": {
+      "displayMask": [
+        "dateOfBirth.year",
+        "title",
+        "forenames",
+        "surname",
+        "organisationName",
+        "partyType",
+        "partySubType",
+        "contactType",
+        "fullName",
+        "nationality",
+        "countryOfResidence",
+        "placeOfBirth",
+        "correspondenceAddress",
+        "email",
+        "phones",
+        "roles[0].roleTitle",
+        "roles[0].roleType",
+        "roles[0].appointedOn",
+        "roles[0].resignedOn",
+        "roles[0].isActiveRole",
+        "roles[0].natureOfControl"
+      ],
+      "allowedPartyTypes": [
+        "INDIVIDUAL",
+        "ORGANISATION",
+        "UNKNOWN"
+      ],
+      "allowedPartySubTypes": [
+        "PERSON",
+        "CONTACT",
+        "COMPANY",
+        "TRUST",
+        "FUND",
+        "PARTNERSHIP",
+        "GOVERNMENT_BODY",
+        "TEAM",
+        "DISTRIBUTION_LIST",
+        "OTHER"
+      ]
+    },
+    "allowAttachments": false,
+    "sourceMappings": [],
+    "graphBindings": [],
+    "optionSet": null
+  },
+  {
+    "fieldNo": 155,
+    "fieldName": "Senior Managing Official",
+    "appDataType": "PARTY",
+    "isMultiValue": false,
+    "options": [],
+    "notes": "",
+    "defaultResponse": "Not applicable",
+    "categoryId": "20374651-e84a-4b2d-bb77-f7938b757877",
+    "isActive": true,
+    "order": 22,
+    "createdAt": "2026-06-09T13:56:38.374Z",
+    "updatedAt": "2026-07-14T11:01:09.932Z",
+    "modelField": null,
+    "description": "Where no UBO exists with , a senior offical (typically director) should be designated.  Otherwise leave as Not Applicable.",
+    "domain": [
+      "Onboarding"
+    ],
+    "fmsbRef": "TBC",
+    "optionSetId": null,
+    "profileConfig": {
+      "displayMask": [
+        "title",
+        "forenames",
+        "surname",
+        "email",
+        "phones"
+      ],
+      "allowedPartyTypes": [
+        "INDIVIDUAL"
+      ],
+      "allowedPartySubTypes": [
+        "PERSON"
+      ],
+      "partyPopulationPolicy": "SYSTEM_AND_CURATED"
+    },
+    "allowAttachments": false,
+    "sourceMappings": [],
+    "graphBindings": [
+      {
+        "id": "33f814eb-f765-4e5d-a012-bd7e25797480",
+        "fieldNo": 155,
+        "graphNodeType": "PERSON",
+        "filterEdgeType": null,
+        "filterActiveOnly": true,
+        "writeBackEdgeType": null,
+        "writeBackIsActive": true,
+        "pickerLabel": "Select a person",
+        "pickerConfig": {
+          "subFields": [
+            "placeOfBirth",
+            "dateOfBirth",
+            "primaryNationality",
+            "countryOfResidence"
+          ],
+          "searchFields": [
+            "lastName"
+          ],
+          "displayFields": [
+            "title",
+            "firstName",
+            "lastName",
+            "middleName"
+          ],
+          "projectionMode": "CUSTOM",
+          "projectionFields": [
+            "title",
+            "middleName",
+            "dateOfBirth",
+            "primaryNationality",
+            "officerRole",
+            "isPublicFigure",
+            "occupation",
+            "countryOfResidence",
+            "placeOfBirth",
+            "lastName",
+            "firstName"
+          ]
+        },
+        "allowCreate": true,
+        "isActive": true,
+        "createdAt": "2026-06-09T14:00:53.365Z",
+        "updatedAt": "2026-06-09T14:00:53.365Z"
+      }
+    ],
+    "optionSet": null
+  },
+  {
+    "fieldNo": 36,
+    "fieldName": "Direct parent ID",
+    "appDataType": "ORG_REF",
+    "isMultiValue": false,
+    "options": [],
+    "notes": null,
+    "defaultResponse": null,
+    "categoryId": "08d282bd-5e78-4935-8759-8fdba5eea7c8",
+    "isActive": true,
+    "order": 20,
+    "createdAt": "2026-03-23T09:07:44.060Z",
+    "updatedAt": "2026-07-14T11:01:09.932Z",
+    "modelField": "directParentId",
+    "description": "Test notes from inline edit",
+    "domain": [
+      "Onboarding"
+    ],
+    "fmsbRef": null,
+    "optionSetId": null,
+    "profileConfig": null,
+    "allowAttachments": false,
+    "sourceMappings": [],
+    "graphBindings": [],
+    "optionSet": null
+  },
+  {
+    "fieldNo": 151,
+    "fieldName": "Account Opening Agent",
+    "appDataType": "PARTY",
+    "isMultiValue": true,
+    "options": [],
+    "notes": "",
+    "defaultResponse": "None",
+    "categoryId": "20374651-e84a-4b2d-bb77-f7938b757877",
+    "isActive": true,
+    "order": 23,
+    "createdAt": "2026-06-05T15:03:57.758Z",
+    "updatedAt": "2026-07-14T11:01:09.932Z",
+    "modelField": null,
+    "description": "Identity of a local agent with the legal capacity to act on the legal entity's behalf for ultimate signoff of account opening information.  Do not include general corporate finance advisors, etc, who assist imn completing the information. ",
+    "domain": [
+      "Onboarding"
+    ],
+    "fmsbRef": "C3",
+    "optionSetId": null,
+    "profileConfig": {
+      "displayMask": [
+        "title",
+        "forenames",
+        "surname",
+        "email",
+        "phones"
+      ],
+      "allowedPartyTypes": [
+        "INDIVIDUAL"
+      ],
+      "allowedPartySubTypes": [
+        "PERSON"
+      ],
+      "partyPopulationPolicy": "SYSTEM_AND_CURATED"
+    },
+    "allowAttachments": false,
+    "sourceMappings": [],
+    "graphBindings": [],
+    "optionSet": null
+  },
+  {
+    "fieldNo": 274,
+    "fieldName": "Persons of significant control (other)",
+    "appDataType": "PARTY",
+    "isMultiValue": true,
+    "options": [],
+    "notes": "",
+    "defaultResponse": "None",
+    "categoryId": "20374651-e84a-4b2d-bb77-f7938b757877",
+    "isActive": true,
+    "order": 25,
+    "createdAt": "2026-07-14T08:34:23.332Z",
+    "updatedAt": "2026-07-14T11:01:09.932Z",
+    "modelField": null,
+    "description": "List all persons with significant influence to control, manage, or direct the Client not listed under other questions in this section.  Should include Board of Directors, Executive Board / Managing\nMembers / Partners as per the Client’s legal form.\n\nFor legal persons, include legal name, country of incorporation, legal registered address, and name of regulator (if any) and name of debt or equity exchange (if any.)  \n\nFor natural persons, include full name, job title, nationality, date of birth and home address.",
+    "domain": [
+      "Onboarding"
+    ],
+    "fmsbRef": "C1",
+    "optionSetId": null,
+    "profileConfig": {
+      "partyPopulationPolicy": "SYSTEM_AND_CURATED"
+    },
+    "allowAttachments": false,
+    "sourceMappings": [],
+    "graphBindings": [],
+    "optionSet": null
+  },
+  {
+    "fieldNo": 275,
+    "fieldName": "Indirect / itermediate shareholders (>25%)",
+    "appDataType": "PARTY",
+    "isMultiValue": true,
+    "options": [],
+    "notes": "",
+    "defaultResponse": null,
+    "categoryId": "20374651-e84a-4b2d-bb77-f7938b757877",
+    "isActive": true,
+    "order": 24,
+    "createdAt": "2026-07-14T08:44:48.988Z",
+    "updatedAt": "2026-07-14T11:01:09.932Z",
+    "modelField": null,
+    "description": "List legal and natural persons which are intermediate or indirect shareholders with 25% or more of either voting or economic rights (or both), unless provided with a different threshold level by onboarding firms.  List should correspond to the structure chart, if given,and publically sourced data fields.\n\nFor legal persons, include legal name, country of incorporation, legal registered address, and name of regulator (if any) and name of debt or equity exchange (if any.)  \n\nFor natural persons, include full name, job title, nationality, date of birth and home address.\n\nIntermediate and indirect shareholders listed in other sections do not need to be included here.",
+    "domain": [
+      "Onboarding"
+    ],
+    "fmsbRef": "C5",
+    "optionSetId": null,
+    "profileConfig": null,
+    "allowAttachments": false,
+    "sourceMappings": [],
+    "graphBindings": [],
+    "optionSet": null
+  },
+  {
+    "fieldNo": 217,
+    "fieldName": "Confirmations contact(s)",
+    "appDataType": "PARTY",
+    "isMultiValue": true,
+    "options": [],
+    "notes": "",
+    "defaultResponse": "",
+    "categoryId": "303ca169-c691-4184-b361-7c02a8bd4c28",
+    "isActive": true,
+    "order": 5,
+    "createdAt": "2026-06-11T14:01:09.528Z",
+    "updatedAt": "2026-07-14T11:01:09.932Z",
+    "modelField": null,
+    "description": "It is recommended to provide at least one team email address.",
+    "domain": [
+      "Onboarding"
+    ],
+    "fmsbRef": "",
+    "optionSetId": null,
+    "profileConfig": {
+      "partyPopulationPolicy": "SYSTEM_AND_CURATED"
+    },
+    "allowAttachments": true,
+    "sourceMappings": [],
+    "graphBindings": [],
+    "optionSet": null
+  },
+  {
+    "fieldNo": 104,
+    "fieldName": "SSI callback contact(s)",
+    "appDataType": "PARTY",
+    "isMultiValue": true,
+    "options": [],
+    "notes": "",
+    "defaultResponse": "",
+    "categoryId": "303ca169-c691-4184-b361-7c02a8bd4c28",
+    "isActive": true,
+    "order": 4,
+    "createdAt": "2026-03-23T09:07:46.822Z",
+    "updatedAt": "2026-07-14T11:01:09.932Z",
+    "modelField": "address",
+    "description": "It is suggested to include at least two names and contatc numbers for callback validation of SSIs.",
+    "domain": [
+      "Onboarding"
+    ],
+    "fmsbRef": "",
+    "optionSetId": null,
+    "profileConfig": {
+      "partyPopulationPolicy": "SYSTEM_AND_CURATED"
+    },
+    "allowAttachments": true,
+    "sourceMappings": [],
+    "graphBindings": [],
+    "optionSet": null
+  },
+  {
+    "fieldNo": 95,
+    "fieldName": "Trading contact(s)",
+    "appDataType": "PARTY",
+    "isMultiValue": true,
+    "options": [],
+    "notes": "",
+    "defaultResponse": "",
+    "categoryId": "303ca169-c691-4184-b361-7c02a8bd4c28",
+    "isActive": true,
+    "order": 2,
+    "createdAt": "2026-03-23T09:07:46.428Z",
+    "updatedAt": "2026-07-14T11:01:09.932Z",
+    "modelField": null,
+    "description": "Contact details for authorised dealers.  Attach proof of authority to trade (eg POA, board minute) including any product etc restrictons.",
+    "domain": [
+      "Onboarding"
+    ],
+    "fmsbRef": "",
+    "optionSetId": null,
+    "profileConfig": {
+      "partyPopulationPolicy": "SYSTEM_AND_CURATED"
+    },
+    "allowAttachments": true,
+    "sourceMappings": [],
+    "graphBindings": [],
+    "optionSet": null
+  },
+  {
+    "fieldNo": 105,
+    "fieldName": "Portfolio reconciliation & dispute resolution contact(s)",
+    "appDataType": "PARTY",
+    "isMultiValue": true,
+    "options": [],
+    "notes": "",
+    "defaultResponse": "",
+    "categoryId": "303ca169-c691-4184-b361-7c02a8bd4c28",
+    "isActive": true,
+    "order": 6,
+    "createdAt": "2026-03-23T09:07:46.861Z",
+    "updatedAt": "2026-07-14T11:01:09.932Z",
+    "modelField": "attention",
+    "description": "It is suggested to include at least one team email address and one team telephone number.  Postal address is optional.",
+    "domain": [
+      "Onboarding"
+    ],
+    "fmsbRef": "",
+    "optionSetId": null,
+    "profileConfig": {
+      "partyPopulationPolicy": "SYSTEM_AND_CURATED"
+    },
+    "allowAttachments": true,
+    "sourceMappings": [],
+    "graphBindings": [],
+    "optionSet": null
+  },
+  {
+    "fieldNo": 150,
+    "fieldName": "Authorised signatories",
+    "appDataType": "PARTY",
+    "isMultiValue": true,
+    "options": [],
+    "notes": "",
+    "defaultResponse": "",
+    "categoryId": "20374651-e84a-4b2d-bb77-f7938b757877",
+    "isActive": true,
+    "order": 26,
+    "createdAt": "2026-06-05T15:01:24.182Z",
+    "updatedAt": "2026-07-14T11:01:09.932Z",
+    "modelField": null,
+    "description": "A subset of controlling persons authorised as signatories for general corporate purposes (excluding OTC derivatve dealing - see separate section.)\n\nMay be provided in the form of:\n- Authorised Signatories List\n- Power of Attorney\n- Corporate Resolution\n- Letter of Authorisation (Customer)\n- Board Resolution\n- Signature mandate",
+    "domain": [
+      "Onboarding"
+    ],
+    "fmsbRef": "C2",
+    "optionSetId": null,
+    "profileConfig": {
+      "displayMask": [
+        "title",
+        "forenames",
+        "surname",
+        "email",
+        "phones"
+      ],
+      "allowedPartyTypes": [
+        "INDIVIDUAL"
+      ],
+      "allowedPartySubTypes": [
+        "PERSON"
+      ],
+      "partyPopulationPolicy": "SYSTEM_AND_CURATED"
+    },
+    "allowAttachments": false,
+    "sourceMappings": [],
+    "graphBindings": [],
+    "optionSet": null
+  },
+  {
+    "fieldNo": 136,
+    "fieldName": "TEST MISC.",
+    "appDataType": "PARTY",
+    "isMultiValue": true,
+    "options": [],
+    "notes": "TEST PRIVATE NOTES FROM MDM (EDIT 4/6)",
+    "defaultResponse": "",
+    "categoryId": "08d282bd-5e78-4935-8759-8fdba5eea7c8",
+    "isActive": true,
+    "order": 1,
+    "createdAt": "2026-06-02T22:01:43.795Z",
+    "updatedAt": "2026-07-14T11:01:09.932Z",
+    "modelField": null,
+    "description": "TEST PUBLIC DESCRIPTION FROM MDM (EDIT 4/6)",
+    "domain": [
+      "Onboarding"
+    ],
+    "fmsbRef": "test",
+    "optionSetId": null,
+    "profileConfig": {
+      "partyPopulationPolicy": "SYSTEM_ONLY"
+    },
+    "allowAttachments": false,
+    "sourceMappings": [
+      {
+        "id": "b45baf81-8edc-472d-9c8a-f4e5380321df",
+        "sourceType": "GLEIF",
+        "sourceReference": null,
+        "mappingScope": "BASELINE",
+        "payloadSubtype": "GENERAL",
+        "sourcePath": "entity.legalAddress.language",
+        "targetFieldNo": 136,
+        "confidenceDefault": 1,
+        "transformType": "DIRECT",
+        "transformConfig": null,
+        "filterConfig": null,
+        "syncMode": "UPSERT_ONLY",
+        "priority": 90,
+        "isActive": true,
+        "notes": null,
+        "version": 1,
+        "createdAt": "2026-06-09T13:12:04.906Z",
+        "updatedAt": "2026-06-09T13:28:28.206Z",
+        "createdByUserId": "ee40aa7a-a869-4fda-bb84-c8afdd9fe24f",
+        "updatedByUserId": "ee40aa7a-a869-4fda-bb84-c8afdd9fe24f"
+      }
+    ],
+    "graphBindings": [
+      {
+        "id": "a7609c40-25a9-4570-abe9-5e77a707ba58",
+        "fieldNo": 136,
+        "graphNodeType": "PERSON",
+        "filterEdgeType": null,
+        "filterActiveOnly": true,
+        "writeBackEdgeType": "Helpers",
+        "writeBackIsActive": true,
+        "pickerLabel": "Select a helper",
+        "pickerConfig": {
+          "searchFields": [
+            "firstName",
+            "lastName"
+          ],
+          "displayFields": [
+            "title",
+            "firstName",
+            "lastName"
+          ],
+          "pickerPlaceholder": "Search helpers"
+        },
+        "allowCreate": true,
+        "isActive": true,
+        "createdAt": "2026-06-09T13:51:26.330Z",
+        "updatedAt": "2026-06-09T13:51:26.330Z"
+      }
+    ],
+    "optionSet": null
+  },
+  {
+    "fieldNo": 253,
+    "fieldName": "Signatory - US regulatory representations",
+    "appDataType": "PARTY",
+    "isMultiValue": false,
+    "options": [],
+    "notes": "",
+    "defaultResponse": null,
+    "categoryId": "7226aa8f-87bc-4bbb-bcae-965982c980b9",
+    "isActive": true,
+    "order": 14,
+    "createdAt": "2026-07-05T16:04:16.981Z",
+    "updatedAt": "2026-07-14T11:01:09.932Z",
+    "modelField": null,
+    "description": "",
+    "domain": [
+      "Onboarding"
+    ],
+    "fmsbRef": "",
+    "optionSetId": null,
+    "profileConfig": null,
+    "allowAttachments": false,
+    "sourceMappings": [],
+    "graphBindings": [],
+    "optionSet": null
+  }
+]

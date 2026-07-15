@@ -1,5 +1,5 @@
 import React from "react";
-import { Document, Page, Text, View, StyleSheet, Image, Svg, Path } from "@react-pdf/renderer";
+import { Document, Page, Text, View, StyleSheet, Image, Svg, Path, Polyline } from "@react-pdf/renderer";
 
 // --- Icons ---
 const LandmarkIcon = () => (
@@ -14,10 +14,32 @@ const BuildingIcon = () => (
     </Svg>
 );
 
+const FactoryIcon = () => (
+    <Svg viewBox="0 0 24 24" width={12} height={12} fill="none">
+        <Path d="M12 16h.01" stroke="#64748b" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+        <Path d="M16 16h.01" stroke="#64748b" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+        <Path d="M3 19a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8.5a.5.5 0 0 0-.769-.422l-4.462 2.844A.5.5 0 0 1 15 10.5v-2a.5.5 0 0 0-.769-.422L9.77 10.922A.5.5 0 0 1 9 10.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2z" stroke="#64748b" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+        <Path d="M8 16h.01" stroke="#64748b" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+);
+
 const GlobeIcon = () => (
     <Svg viewBox="0 0 24 24" width={12} height={12} fill="none">
         <Path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z M2 12h20 M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" stroke="#64748b" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
+);
+
+const OnProLogo = () => (
+    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+        <Svg viewBox="0 0 120 120" width={28} height={28} style={{ marginRight: 6 }}>
+            <Polyline points="80,20 20,20 20,105 105,105 105,65" fill="none" stroke="#f97316" strokeWidth={11} />
+            <Polyline points="40,65 65,90 100,20" fill="none" stroke="#f97316" strokeWidth={14} />
+        </Svg>
+        <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
+            <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#f97316', letterSpacing: -1 }}>On</Text>
+            <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#000000', letterSpacing: -1 }}>Pro</Text>
+        </View>
+    </View>
 );
 
 // --- PDF Styles (OnPro Theme) ---
@@ -52,23 +74,6 @@ const styles = StyleSheet.create({
         width: 100,
         height: 'auto',
         marginBottom: 10
-    },
-    wordmarkContainer: {
-        flexDirection: 'row',
-        alignItems: 'baseline',
-        marginBottom: 10
-    },
-    brandName: { 
-        fontSize: 22, 
-        fontWeight: 'bold', 
-        color: '#0f172a', 
-        letterSpacing: -0.5
-    },
-    brandDot: {
-        width: 8,
-        height: 8,
-        backgroundColor: '#f59e0b',
-        marginLeft: 2
     },
     questionnaireTitle: { 
         fontSize: 16, 
@@ -231,9 +236,24 @@ const styles = StyleSheet.create({
         marginBottom: 4 
     },
     evidencePath: { 
-        fontSize: 8, 
-        color: '#f59e0b', // Amber 500
+        fontSize: 9, 
+        color: '#2563eb', 
+        marginBottom: 2 
+    },
+    
+    // Attachments
+    attachmentsHeader: {
+        fontSize: 8,
+        fontWeight: 'bold',
+        color: '#64748b',
+        marginTop: 6,
         marginBottom: 2
+    },
+    attachmentItem: {
+        fontSize: 8,
+        color: '#334155',
+        marginLeft: 6,
+        marginBottom: 1
     },
     
     // Footer / Small meta
@@ -247,6 +267,90 @@ const styles = StyleSheet.create({
     metaFooterText: {
         fontSize: 8,
         color: '#94a3b8'
+    },
+
+    // Group Layouts
+    groupContainerList: {
+        marginTop: 4,
+        marginBottom: 8,
+        borderTop: '1px solid #f1f5f9'
+    },
+    groupRowList: {
+        paddingVertical: 6,
+        borderBottom: '1px solid #f1f5f9'
+    },
+    groupLabelList: {
+        fontSize: 9,
+        color: '#64748b',
+        marginBottom: 2
+    },
+    groupValueList: {
+        fontSize: 10,
+        color: '#0f172a',
+        fontWeight: 'bold'
+    },
+    
+    groupContainerCompact: {
+        marginTop: 4,
+        marginBottom: 8,
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 12
+    },
+    groupItemCompact: {
+        width: '45%',
+        marginBottom: 6
+    },
+    groupLabelCompact: {
+        fontSize: 8,
+        color: '#64748b',
+        marginBottom: 2
+    },
+    groupValueCompact: {
+        fontSize: 9,
+        color: '#0f172a',
+        fontWeight: 'bold'
+    },
+
+    groupContainerGrid: {
+        marginTop: 6,
+        marginBottom: 8,
+        border: '1px solid #e2e8f0',
+        borderRadius: 4,
+        overflow: 'hidden'
+    },
+    groupRowGrid: {
+        flexDirection: 'row',
+        borderBottom: '1px solid #e2e8f0',
+        paddingVertical: 6,
+        paddingHorizontal: 8,
+        alignItems: 'center'
+    },
+    groupRowGridHeader: {
+        backgroundColor: '#f8fafc',
+        borderBottom: '1px solid #e2e8f0'
+    },
+    groupCol1: { width: '40%', paddingRight: 4 },
+    groupCol2: { width: '40%', paddingRight: 4 },
+    groupCol3: { width: '20%', alignItems: 'flex-end' },
+    groupTextGridLabel: {
+        fontSize: 8,
+        color: '#475569',
+        fontWeight: 'bold'
+    },
+    groupTextGridValue: {
+        fontSize: 8,
+        color: '#0f172a',
+        fontWeight: 'bold'
+    },
+    groupBadgeGrid: {
+        backgroundColor: '#fdf4ff',
+        color: '#a21caf',
+        fontSize: 7,
+        paddingVertical: 1,
+        paddingHorizontal: 4,
+        borderRadius: 4,
+        fontWeight: 'bold'
     }
 });
 
@@ -282,6 +386,14 @@ export interface QuestionnairePDFProps {
         sourceTimestamp?: string;
         notes?: string;
         evidencePaths?: string[];
+        groupFields?: {
+            fieldNo: number;
+            label: string;
+            displayValue: string;
+            order: number;
+            sourceLabel?: string;
+        }[];
+        groupDisplayStyle?: 'LIST' | 'COMPACT' | 'GRID';
     }[];
 }
 
@@ -297,10 +409,7 @@ export const QuestionnairePDF = ({ data, title, exportMetadata }: QuestionnaireP
                             {exportMetadata?.onProLogoUrl ? (
                                 <Image src={exportMetadata.onProLogoUrl} style={styles.logo} />
                             ) : (
-                                <View style={styles.wordmarkContainer}>
-                                    <Text style={styles.brandName}>OnPro</Text>
-                                    <View style={styles.brandDot}></View>
-                                </View>
+                                <OnProLogo />
                             )}
                             <Text style={styles.questionnaireTitle}>{title}</Text>
                             <Text style={styles.coverSubtitle}>Supplier Questionnaire Response</Text>
@@ -325,24 +434,24 @@ export const QuestionnairePDF = ({ data, title, exportMetadata }: QuestionnaireP
                             <View style={styles.identityCard}>
                                 {exportMetadata.clientParentName ? (
                                     <View style={styles.coverRow}>
-                                        <View style={styles.iconContainer}><LandmarkIcon /></View>
+                                        <View style={styles.iconContainer}><FactoryIcon /></View>
                                         <Text style={styles.coverLabel}>Client</Text>
                                         <Text style={styles.coverValue}>{exportMetadata.clientParentName}</Text>
                                     </View>
                                 ) : (
                                     <View style={styles.coverRow}>
-                                        <View style={styles.iconContainer}><LandmarkIcon /></View>
+                                        <View style={styles.iconContainer}><FactoryIcon /></View>
                                         <Text style={styles.coverLabel}>Client</Text>
                                         <Text style={styles.coverValue}>—</Text>
                                     </View>
                                 )}
                                 <View style={styles.coverRow}>
-                                    <View style={styles.iconContainer}><BuildingIcon /></View>
+                                    <View style={styles.iconContainer}><LandmarkIcon /></View>
                                     <Text style={styles.coverLabel}>Client Legal Entity</Text>
                                     <Text style={styles.coverValue}>{exportMetadata.clientDisplayName || "Unknown"}</Text>
                                 </View>
                                 <View style={styles.coverRow}>
-                                    <View style={styles.iconContainer}><GlobeIcon /></View>
+                                    <View style={styles.iconContainer}><LandmarkIcon /></View>
                                     <Text style={styles.coverLabel}>Supplier</Text>
                                     <Text style={styles.coverValue}>{exportMetadata.supplierDisplayName || "Unknown"}</Text>
                                 </View>
@@ -395,7 +504,89 @@ export const QuestionnairePDF = ({ data, title, exportMetadata }: QuestionnaireP
                             <Text style={styles.question}>Q{i + 1}: {item.question}</Text>
                         </View>
                         
-                        <Text style={styles.answer}>Answer: {item.answer || "No response recorded"}</Text>
+                        {item.groupFields ? (
+                            item.groupDisplayStyle === 'COMPACT' ? (
+                                <View style={styles.groupContainerCompact}>
+                                    {item.groupFields.map((f: any, idx: number) => (
+                                        <View key={idx} style={styles.groupItemCompact} wrap={false}>
+                                            <Text style={styles.groupLabelCompact}>{f.label}</Text>
+                                            <Text style={styles.groupValueCompact}>{f.displayValue}</Text>
+                                            {f.attachmentFilenames && f.attachmentFilenames.length > 0 && (
+                                                <View>
+                                                    <Text style={styles.attachmentsHeader}>Attachments</Text>
+                                                    {f.attachmentFilenames.map((name: string, aidx: number) => (
+                                                        <Text key={aidx} style={styles.attachmentItem}>• {name}</Text>
+                                                    ))}
+                                                </View>
+                                            )}
+                                        </View>
+                                    ))}
+                                </View>
+                            ) : item.groupDisplayStyle === 'GRID' ? (
+                                <View style={styles.groupContainerGrid}>
+                                    <View style={[styles.groupRowGrid, styles.groupRowGridHeader]} wrap={false}>
+                                        <View style={styles.groupCol1}><Text style={styles.groupTextGridLabel}>Field</Text></View>
+                                        <View style={styles.groupCol2}><Text style={styles.groupTextGridLabel}>Value</Text></View>
+                                        <View style={styles.groupCol3}><Text style={styles.groupTextGridLabel}>Source</Text></View>
+                                    </View>
+                                    {item.groupFields.map((f: any, idx: number) => (
+                                        <View key={idx} style={{ flexDirection: 'column' }} wrap={false}>
+                                            <View style={styles.groupRowGrid}>
+                                                <View style={styles.groupCol1}><Text style={styles.groupTextGridLabel}>{f.label}</Text></View>
+                                                <View style={styles.groupCol2}><Text style={styles.groupTextGridValue}>{f.displayValue}</Text></View>
+                                                <View style={styles.groupCol3}>
+                                                    {f.sourceLabel && (
+                                                        <View style={styles.groupBadgeGrid}>
+                                                            <Text style={{ color: '#a21caf', fontSize: 7 }}>{f.sourceLabel}</Text>
+                                                        </View>
+                                                    )}
+                                                </View>
+                                            </View>
+                                            {f.attachmentFilenames && f.attachmentFilenames.length > 0 && (
+                                                <View style={[styles.groupRowGrid, { borderTopWidth: 0, paddingTop: 0 }]}>
+                                                    <View style={styles.groupCol1}><Text style={styles.groupTextGridLabel}></Text></View>
+                                                    <View style={[styles.groupCol2, { flex: 0, width: '60%' }]}>
+                                                        <Text style={styles.attachmentsHeader}>Attachments</Text>
+                                                        {f.attachmentFilenames.map((name: string, aidx: number) => (
+                                                            <Text key={aidx} style={styles.attachmentItem}>• {name}</Text>
+                                                        ))}
+                                                    </View>
+                                                </View>
+                                            )}
+                                        </View>
+                                    ))}
+                                </View>
+                            ) : (
+                                <View style={styles.groupContainerList}>
+                                    {item.groupFields.map((f: any, idx: number) => (
+                                        <View key={idx} style={styles.groupRowList} wrap={false}>
+                                            <Text style={styles.groupLabelList}>{f.label}</Text>
+                                            <Text style={styles.groupValueList}>{f.displayValue}</Text>
+                                            {f.attachmentFilenames && f.attachmentFilenames.length > 0 && (
+                                                <View>
+                                                    <Text style={styles.attachmentsHeader}>Attachments</Text>
+                                                    {f.attachmentFilenames.map((name: string, aidx: number) => (
+                                                        <Text key={aidx} style={styles.attachmentItem}>• {name}</Text>
+                                                    ))}
+                                                </View>
+                                            )}
+                                        </View>
+                                    ))}
+                                </View>
+                            )
+                        ) : (
+                            <View>
+                                <Text style={styles.answer}>Answer: {item.answer || "No response recorded"}</Text>
+                                {item.attachmentFilenames && item.attachmentFilenames.length > 0 && (
+                                    <View>
+                                        <Text style={styles.attachmentsHeader}>Attachments</Text>
+                                        {item.attachmentFilenames.map((name: string, aidx: number) => (
+                                            <Text key={aidx} style={styles.attachmentItem}>• {name}</Text>
+                                        ))}
+                                    </View>
+                                )}
+                            </View>
+                        )}
                         
                         <View style={styles.provenanceRow}>
                             <View style={styles.statusBadge}>

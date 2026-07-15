@@ -235,6 +235,7 @@ export async function createMasterFieldGroup(data: {
     label: string;
     description?: string;
     category?: string;
+    displayStyle?: 'LIST' | 'COMPACT' | 'GRID';
     order?: number;
 }) {
     try {
@@ -257,6 +258,7 @@ export async function updateMasterFieldGroup(
         label?: string;
         description?: string;
         category?: string;
+        displayStyle?: 'LIST' | 'COMPACT' | 'GRID';
         isActive?: boolean;
         order?: number;
     }

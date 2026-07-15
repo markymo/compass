@@ -6,6 +6,8 @@ import { getCCParties } from "@/actions/cc-party-actions";
 import { CCPartyManager } from "@/components/client/ccc/cc-party-manager";
 import { getCCAddresses } from "@/actions/cc-address-actions";
 import { CCAddressManager } from "@/components/client/ccc/cc-address-manager";
+import { getCCFiles } from "@/actions/cc-file-actions";
+import { CCFileManager } from "@/components/client/ccc/cc-file-manager";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface UserPageProps {
@@ -25,10 +27,11 @@ export default async function UserPage({ params }: UserPageProps) {
         return notFound();
     }
 
-    // Load curated parties and addresses
-    const [curatedParties, curatedAddresses] = await Promise.all([
+    // Load curated parties, addresses, and files
+    const [curatedParties, curatedAddresses, curatedFiles] = await Promise.all([
         getCCParties(id),
-        getCCAddresses(id)
+        getCCAddresses(id),
+        getCCFiles(id)
     ]);
 
     return (
@@ -69,7 +72,11 @@ export default async function UserPage({ params }: UserPageProps) {
                 </TabsContent>
 
                 <TabsContent value="files">
-                    {/* Files tab left blank for now */}
+                    {/* Curated Files Manager */}
+                    <CCFileManager 
+                        clientLEId={id} 
+                        initialFiles={curatedFiles} 
+                    />
                 </TabsContent>
             </Tabs>
         </div>

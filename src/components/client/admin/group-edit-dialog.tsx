@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { createMasterFieldGroup, updateMasterFieldGroup } from "@/actions/master-data-governance";
 
 interface GroupEditDialogProps {
@@ -19,11 +20,19 @@ interface GroupEditDialogProps {
 export function GroupEditDialog({ group, open, onOpenChange }: GroupEditDialogProps) {
     const isEditing = !!group;
     const [loading, setLoading] = useState(false);
-    const [formData, setFormData] = useState({
+    const [formData, setFormData] = useState<{
+        key: string;
+        label: string;
+        category: string;
+        description: string;
+        displayStyle: "LIST" | "COMPACT" | "GRID";
+        order: number;
+    }>({
         key: "",
         label: "",
         category: "",
         description: "",
+        displayStyle: "LIST",
         order: 0
     });
 
@@ -34,6 +43,7 @@ export function GroupEditDialog({ group, open, onOpenChange }: GroupEditDialogPr
                 label: group.label || "",
                 category: group.category || "",
                 description: group.description || "",
+                displayStyle: group.displayStyle || "LIST",
                 order: group.order || 0
             });
         } else {
@@ -42,6 +52,7 @@ export function GroupEditDialog({ group, open, onOpenChange }: GroupEditDialogPr
                 label: "",
                 category: "",
                 description: "",
+                displayStyle: "LIST",
                 order: 0
             });
         }
@@ -113,6 +124,22 @@ export function GroupEditDialog({ group, open, onOpenChange }: GroupEditDialogPr
                             onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                             placeholder="e.g. Identity"
                         />
+                    </div>
+                    <div className="grid gap-2">
+                        <Label htmlFor="displayStyle">Display Style (Question Bank)</Label>
+                        <Select
+                            value={formData.displayStyle}
+                            onValueChange={(val) => setFormData({ ...formData, displayStyle: val as "LIST" | "COMPACT" | "GRID" })}
+                        >
+                            <SelectTrigger>
+                                <SelectValue placeholder="Select display style" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="LIST">List (Default, Loose spacing)</SelectItem>
+                                <SelectItem value="COMPACT">Compact (Single column, Tight spacing)</SelectItem>
+                                <SelectItem value="GRID">Grid (Spreadsheet layout)</SelectItem>
+                            </SelectContent>
+                        </Select>
                     </div>
                     <div className="grid gap-2">
                         <Label htmlFor="order">Display Order</Label>

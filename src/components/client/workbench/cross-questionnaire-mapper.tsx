@@ -3,6 +3,7 @@
 import { isPartyValue, getPartySummary } from "@/lib/master-data/party-value";
 import { isAddressValue, getAddressSummary } from "@/lib/master-data/address-value";
 import { FieldValueRenderer } from "@/components/client/fields/FieldValueRenderer";
+import { FieldAttachments } from "@/components/client/fields/FieldAttachments";
 import { FieldSourceBadge } from "@/components/client/fields/FieldSourceBadge";
 import { FieldAttachmentIndicator } from "@/components/shared/FieldAttachmentIndicator";
 
@@ -891,12 +892,24 @@ function QuestionCard({
                                                     groupLabel=""
                                                     fields={(question as any).masterDataGroupFields as GroupFieldData[]}
                                                     raNameLookup={raNameLookup}
+                                                    displayStyle={question.masterDataGroupDisplayStyle}
                                                     className="py-0.5"
                                                 />
                                             ) : question.canonicalDisplayModel ? (
                                                 <div className="py-0.5">
                                                     {/* TODO: This limit (currently 10) might be made configurable one day. */}
                                                     <FieldValueRenderer field={question.canonicalDisplayModel} itemLimit={10} />
+                                                    {question.canonicalDisplayModel.attachments && question.canonicalDisplayModel.attachments.length > 0 && (
+                                                        <div className="mt-1">
+                                                            <FieldAttachments 
+                                                                clientLEId="read-only"
+                                                                fieldNo={question.canonicalDisplayModel.fieldNo} 
+                                                                attachments={question.canonicalDisplayModel.attachments} 
+                                                                mode="read-only" 
+                                                                isEditable={false} 
+                                                            />
+                                                        </div>
+                                                    )}
                                                 </div>
                                             ) : question.masterDataValue != null && question.masterDataValue !== '' ? (
                                                 Array.isArray(question.masterDataValue) ? (
@@ -927,32 +940,21 @@ function QuestionCard({
                                             }
                                         </span>
 
-                                        <div className="flex items-center gap-1 ml-2 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <div className={cn(
+                                            "flex items-center gap-1 ml-2 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity",
+                                            question.masterDataGroupDisplayStyle === 'COMPACT' && "absolute top-2 right-2 bg-white/90 p-1 rounded shadow-sm border border-slate-100 ml-0"
+                                        )}>
                                             {isGroupAnswer ? (
                                                 /* Group answers: icons non-functional — direct user to Master Data tab */
-                                                <>
-                                                    <button
-                                                        disabled
-                                                        title="Group fields can't be edited here — use the Master Data tab"
-                                                        className="p-1 rounded text-slate-200 cursor-not-allowed"
-                                                    >
-                                                        <Pencil className="h-3.5 w-3.5" />
-                                                    </button>
-                                                    <button
-                                                        disabled
-                                                        title="Group fields can't be inspected here — use the Master Data tab"
-                                                        className="p-1 rounded text-slate-200 cursor-not-allowed"
-                                                    >
-                                                        <PanelLeftOpen className="h-3.5 w-3.5" />
-                                                    </button>
-                                                    <a
-                                                        href={`/app/le/${leId}/master`}
-                                                        title="Open Master Data tab to edit these fields"
-                                                        className="p-1 rounded text-slate-300 hover:text-indigo-500 hover:bg-indigo-50 transition-colors"
-                                                    >
-                                                        <ExternalLink className="h-3.5 w-3.5" />
-                                                    </a>
-                                                </>
+                                                <a
+                                                    href={`/app/le/${leId}/master`}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    title="Manage composite groups in Master Data tab"
+                                                    className="p-1 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                                                >
+                                                    <ExternalLink className="h-3.5 w-3.5" />
+                                                </a>
                                             ) : isComplexValue || isProjectedValue ? (
                                                 /* Complex/Projected values: prevent inline edit -> Master Data tab */
                                                 <>

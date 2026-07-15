@@ -30,6 +30,7 @@ export type HydratedValue = {
     sourceCheckedAt?: Date | null;
     isSynced: boolean; // True if value exists in Master Data
     attachmentCount?: number;
+    attachments?: import("@/lib/master-data/field-display-model").ResolvedAttachment[];
 };
 
 export type ResolverResponse = Record<string, Record<string, HydratedValue>>; // QuestionId -> FieldNo -> Value
@@ -283,7 +284,7 @@ function resolveField(
     ownerScopeId: string | null,
     sourceMappings: BatchSourceMapping[],
     provenanceMap: import("@/lib/kyc/provenance-enricher").ProvenanceMap | null,
-    attachmentCount?: number
+    attachmentsArray?: import("@/lib/kyc/KycStateService").DerivedValue[]
 ): Record<string, HydratedValue> {
     const priorityMap = buildPriorityMap(sourceMappings, fieldNo);
 
@@ -341,7 +342,7 @@ function resolveField(
                 updatedAt: maxAssertedAt,
                 sourceCheckedAt: maxSourceCheckedAt,
                 isSynced: true,
-                ...(attachmentCount !== undefined ? { attachmentCount } : {})
+                ...(attachmentsArray !== undefined ? { attachmentCount: attachmentsArray.length, attachments: mapDerivedAttachments(attachmentsArray) } : {})
             }
         };
     } else {
@@ -361,7 +362,7 @@ function resolveField(
                 updatedAt: derived.assertedAt,
                 sourceCheckedAt: resolveSourceCheckedAt(derived.sourceType || derived.evidenceProvider, derived.sourceReference, derived.assertedAt, provenanceMap),
                 isSynced: true,
-                ...(attachmentCount !== undefined ? { attachmentCount } : {})
+                ...(attachmentsArray !== undefined ? { attachmentCount: attachmentsArray.length, attachments: mapDerivedAttachments(attachmentsArray) } : {})
             }
         };
     }
@@ -509,8 +510,8 @@ export async function resolveMasterDataBatch(input: BatchResolverInput): Promise
         for (const fieldNo of fieldNos) {
             const def = fieldDefMap.get(fieldNo);
             if (!def) continue;
-            const attachmentCount = attachmentsByField?.get(fieldNo)?.length;
-            Object.assign(groupResult, resolveField(fieldNo, def.isMultiValue, claims, ownerScopeId, sourceMappings, provenanceMap, attachmentCount));
+            const attachmentsArr = attachmentsByField?.get(fieldNo);
+            Object.assign(groupResult, resolveField(fieldNo, def.isMultiValue, claims, ownerScopeId, sourceMappings, provenanceMap, attachmentsArr));
         }
         resolvedGroups.set(groupKey, groupResult);
     }
@@ -521,8 +522,8 @@ export async function resolveMasterDataBatch(input: BatchResolverInput): Promise
             if (!resolvedFields.has(q.masterFieldNo)) {
                 const def = fieldDefMap.get(q.masterFieldNo);
                 if (def) {
-                    const attachmentCount = attachmentsByField?.get(q.masterFieldNo)?.length;
-                    resolvedFields.set(q.masterFieldNo, resolveField(q.masterFieldNo, def.isMultiValue, claims, ownerScopeId, sourceMappings, provenanceMap, attachmentCount));
+                    const attachmentsArr = attachmentsByField?.get(q.masterFieldNo);
+                    resolvedFields.set(q.masterFieldNo, resolveField(q.masterFieldNo, def.isMultiValue, claims, ownerScopeId, sourceMappings, provenanceMap, attachmentsArr));
                 }
             }
         }
@@ -1672,6 +1673,8 @@ export interface ConsoleQuestion {
      *  Populated by getWorkbench4Data(). Consumed by GroupAnswerRenderer in workbench4.
      *  undefined for all non-group questions — fully backward compatible. */
     masterDataGroupFields?: GroupFieldDetail[];
+    /** The preferred UI layout when rendering a group's fields */
+    masterDataGroupDisplayStyle?: 'LIST' | 'COMPACT' | 'GRID';
     /** For single mapped fields in workbench4. */
     canonicalDisplayModel?: import("@/lib/master-data/field-display-model").FieldDisplayModel;
 };

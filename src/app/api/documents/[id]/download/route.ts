@@ -27,14 +27,29 @@ export async function GET(
             return new NextResponse("Forbidden", { status: 403 });
         }
 
-        // 2. Ensure it's a new private document
-        if (document.storageProvider !== "VERCEL_BLOB" || !document.storagePathname) {
-            return new NextResponse("This download endpoint only supports private documents.", { status: 400 });
+        // 2. Fetch the document stream
+        let stream: ReadableStream | null = null;
+        let mimeType = document.mimeType || 'application/octet-stream';
+
+        if (document.storageProvider === "VERCEL_BLOB" && document.storagePathname) {
+            // Fetch the private blob using server-side Vercel SDK
+            const result = await get(document.storagePathname, { token: getToken(), access: 'private' });
+            if (result && result.stream) {
+                stream = result.stream as unknown as ReadableStream;
+            }
+        } else if (document.fileUrl) {
+            // Legacy documents stored in public blob or external URL
+            const response = await fetch(document.fileUrl);
+            if (response.ok) {
+                stream = response.body as ReadableStream;
+                mimeType = document.fileType || response.headers.get('content-type') || 'application/octet-stream';
+            }
         }
 
-        // 3. Fetch the private blob using server-side Vercel SDK
-        const result = await get(document.storagePathname, { token: getToken(), access: 'private' });
-        if (!result || !result.stream) {
+        if (!stream) {
+            if (document.storageProvider !== "VERCEL_BLOB" && !document.fileUrl) {
+                return new NextResponse("Document is not a downloadable file", { status: 400 });
+            }
             return new NextResponse("Failed to retrieve document stream", { status: 500 });
         }
 
@@ -42,9 +57,9 @@ export async function GET(
         const encodedFilename = encodeURIComponent(document.name || 'document').replace(/['()]/g, escape).replace(/\*/g, '%2A');
 
         // 5. Stream the document to the client
-        return new NextResponse(result.stream, {
+        return new NextResponse(stream, {
             headers: {
-                'Content-Type': document.mimeType || 'application/octet-stream',
+                'Content-Type': mimeType,
                 'Content-Disposition': `attachment; filename*=UTF-8''${encodedFilename}`,
                 'X-Content-Type-Options': 'nosniff',
                 'Cache-Control': 'private, no-store',

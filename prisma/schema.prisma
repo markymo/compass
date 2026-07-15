@@ -842,12 +842,19 @@ model MasterDataCategory {
   @@map("master_data_categories")
 }
 
+enum GroupDisplayStyle {
+  LIST
+  COMPACT
+  GRID
+}
+
 model MasterFieldGroup {
   id          String                 @id @default(uuid())
   key         String                 @unique
   label       String
   description String?
   category    String?
+  displayStyle GroupDisplayStyle @default(LIST)
   isActive    Boolean                @default(true)
   order       Float                  @default(0)
   createdAt   DateTime               @default(now())

@@ -270,7 +270,7 @@ export function MappingFormDialog({ open, onOpenChange, selectedOption, fieldDef
                targetField?.appDataType === "PERSON_OR_CONTACT";
     }, [transformType, targetField]);
 
-    const transformDescription = getTransformDescription(transformType);
+    const transformDescription = getTransformDescription(isAddressMapping ? "TO_ADDRESS_VALUE" : transformType);
 
     useEffect(() => {
         if (!open) return;
@@ -431,6 +431,11 @@ export function MappingFormDialog({ open, onOpenChange, selectedOption, fieldDef
 
                     {isAddressMapping ? (
                         <>
+                            {transformDescription && (
+                                <p className="text-sm text-muted-foreground leading-snug mb-2 mt-1">
+                                    {transformDescription}
+                                </p>
+                            )}
                             {/* 1. Mapping Editor */}
                             <AddressMappingEditor config={transformConfig} onChangeConfig={setTransformConfig} mappingRootPath={sourcePath} samplePayload={samplePayload} />
 
@@ -569,7 +574,7 @@ export function MappingFormDialog({ open, onOpenChange, selectedOption, fieldDef
                                             </SelectContent>
                                         </Select>
                                         {transformDescription && (
-                                            <p className="text-[11px] text-slate-500 leading-snug">
+                                            <p className="text-sm text-muted-foreground leading-snug">
                                                 {transformDescription}
                                             </p>
                                         )}

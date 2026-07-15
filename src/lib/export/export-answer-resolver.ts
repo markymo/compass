@@ -3,6 +3,17 @@ import { getFieldDetail, enrichPartyReferences, enrichAddressReferences } from "
 import { getSourceDisplayName } from "@/lib/source-display";
 import prisma from "@/lib/prisma";
 
+import { GroupDisplayStyle } from "@prisma/client";
+
+export type ExportGroupField = {
+    fieldNo: number;
+    label: string;
+    displayValue: string;
+    order: number;
+    sourceLabel?: string;
+    attachmentFilenames?: string[];
+};
+
 export interface ExportAnswerResult {
     displayValue: string;
     rawValue: any;
@@ -12,10 +23,15 @@ export interface ExportAnswerResult {
     sourceUserName?: string | null;
     provenanceSummary?: string;
     sourceCategory?: 'REGISTRY' | 'USER' | 'DEFAULT' | 'NO_RESPONSE' | 'SYSTEM';
+    groupFields?: ExportGroupField[];
+    groupDisplayStyle?: GroupDisplayStyle;
+    attachmentFilenames?: string[];
 }
 
 import { toExportText } from "@/lib/export/toExportText";
 import { resolveFieldForDisplay } from "@/lib/master-data/field-interpreter";
+import { getMasterFieldGroup, getMasterFieldDefinition } from "@/services/masterData/definitionService";
+import { resolveMasterDataBatch } from "@/actions/kyc-query";
 
 export async function resolveExportAnswer(
     question: any, 
@@ -33,6 +49,15 @@ export async function resolveExportAnswer(
 
         let derivedValueToDisplay: any = null;
         let primaryDerived: any = null;
+        let attachmentFilenames: string[] = [];
+
+        const attachmentsMap = await KycStateService.resolveAllAttachments({ subjectLeId }, [question.masterFieldNo]);
+        const derivedAttachments = attachmentsMap?.get(question.masterFieldNo) || [];
+        if (derivedAttachments.length > 0) {
+            attachmentFilenames = derivedAttachments
+                .filter(a => a.attachmentDocumentId !== undefined)
+                .map(a => a.documentName || 'Unknown Document');
+        }
 
         if (fieldDetail.isRepeating) {
             const collection = await KycStateService.getAuthoritativeCollection(
@@ -137,7 +162,8 @@ export async function resolveExportAnswer(
                 sourceLabel,
                 sourceTimestamp,
                 sourceUserName,
-                sourceCategory
+                sourceCategory,
+                attachmentFilenames: attachmentFilenames.length > 0 ? attachmentFilenames : undefined
             };
         } else {
             // Check Master Record empty state logic
@@ -188,6 +214,129 @@ export async function resolveExportAnswer(
                     sourceCategory: 'NO_RESPONSE'
                 };
             }
+        }
+    } else if (question.masterQuestionGroupId && subjectLeId && entityId) {
+        const group = await getMasterFieldGroup(question.masterQuestionGroupId);
+        if (group && group.items && group.items.length > 0) {
+            const fieldNos = group.items.map((i: any) => i.fieldNo);
+
+            const [claims, sourceMappings, attachmentsMap] = await Promise.all([
+                prisma.fieldClaim.findMany({
+                    where: {
+                        subjectLeId,
+                        fieldNo: { in: fieldNos },
+                        claimRole: 'VALUE',
+                        status: { in: ['VERIFIED', 'ASSERTED'] },
+                        OR: [{ ownerScopeId: ownerScopeId || null }, { ownerScopeId: null }]
+                    },
+                    orderBy: [{ assertedAt: 'desc' }, { id: 'desc' }]
+                }),
+                (prisma as any).sourceFieldMapping.findMany({
+                    where: { targetFieldNo: { in: fieldNos }, isActive: true }
+                }),
+                KycStateService.resolveAllAttachments({ subjectLeId }, fieldNos)
+            ]);
+
+            const fieldDefMap = new Map();
+            for (const item of group.items) {
+                const def = await getMasterFieldDefinition(item.fieldNo);
+                if (def) {
+                    fieldDefMap.set(def.fieldNo, {
+                        fieldNo: def.fieldNo,
+                        fieldName: def.fieldName,
+                        appDataType: def.appDataType,
+                        isMultiValue: def.isMultiValue,
+                        profileConfig: def.profileConfig
+                    });
+                }
+            }
+
+            const groupFieldMap = new Map();
+            groupFieldMap.set(question.masterQuestionGroupId, fieldNos);
+
+            const batchInput = {
+                subjectLeId,
+                ownerScopeId: ownerScopeId ?? null,
+                questions: [{ questionId: question.id, masterQuestionGroupId: question.masterQuestionGroupId, masterFieldProjectionPath: question.masterFieldProjectionPath }],
+                fieldDefMap,
+                groupFieldMap,
+                claims: claims as any,
+                sourceMappings,
+                attachmentsByField: attachmentsMap,
+                provenanceMap: null,
+            };
+
+            const resolvedValues = await resolveMasterDataBatch(batchInput);
+            const hydratedValues = resolvedValues[question.id] || {};
+
+            const fields: ExportGroupField[] = [];
+            for (const item of group.items) {
+                const hv = hydratedValues[item.fieldNo];
+                const def = fieldDefMap.get(item.fieldNo);
+                if (!def) continue;
+
+                let displayValue = "None";
+                let sourceLabel: string | undefined = undefined;
+                let attachmentFilenames: string[] = [];
+
+                if (hv && hv.value !== null && hv.value !== undefined && hv.value !== "") {
+                    if (hv.attachments && hv.attachments.length > 0) {
+                        attachmentFilenames = hv.attachments.map((a: any) => a.displayName);
+                    }
+                    let parsedDerivedValue = hv.value;
+                    if (Array.isArray(parsedDerivedValue)) {
+                        parsedDerivedValue = parsedDerivedValue.map(v => {
+                            if (typeof v === 'string') {
+                                try { return JSON.parse(v); } catch(e) { return v; }
+                            }
+                            return v;
+                        });
+                    } else if (typeof parsedDerivedValue === 'string') {
+                        try { parsedDerivedValue = JSON.parse(parsedDerivedValue); } catch(e) {}
+                    }
+                    
+                    const valuesToEnrich = Array.isArray(parsedDerivedValue) ? parsedDerivedValue : [parsedDerivedValue];
+                    await enrichPartyReferences(valuesToEnrich);
+                    await enrichAddressReferences(valuesToEnrich);
+
+                    const displayModel = resolveFieldForDisplay(
+                        parsedDerivedValue,
+                        { type: hv.source, reference: hv.sourceReference, timestamp: hv.updatedAt, sourceCheckedAt: hv.sourceCheckedAt, userName: null } as any,
+                        { fieldNo: def.fieldNo, label: def.fieldName, displayState: "HAS_VALUE", appDataType: def.appDataType, profileConfig: def.profileConfig }
+                    );
+                    displayValue = toExportText(displayModel);
+                    sourceLabel = hv.source ? getSourceDisplayName(hv.source, hv.sourceReference || undefined) : undefined;
+                }
+
+                if (displayValue !== "None" && displayValue !== "") {
+                    fields.push({
+                        fieldNo: item.fieldNo,
+                        label: def.fieldName,
+                        displayValue,
+                        order: item.order,
+                        sourceLabel,
+                        attachmentFilenames: attachmentFilenames.length > 0 ? attachmentFilenames : undefined
+                    });
+                }
+            }
+
+            const isEmpty = fields.length === 0;
+            
+            return {
+                displayValue: isEmpty ? "No response recorded" : "Group data",
+                rawValue: fields,
+                answerState: isEmpty ? "NO_RESPONSE" : "HAS_VALUE",
+                sourceCategory: isEmpty ? 'NO_RESPONSE' : 'USER',
+                groupFields: isEmpty ? undefined : fields,
+                groupDisplayStyle: group.displayStyle || 'LIST'
+            };
+        } else {
+            return {
+                displayValue: "No response recorded",
+                rawValue: null,
+                answerState: "NO_RESPONSE",
+                sourceCategory: 'NO_RESPONSE'
+            };
         }
     } else {
         // Unmapped questionnaire answer

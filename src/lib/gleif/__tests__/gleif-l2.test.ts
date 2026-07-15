@@ -279,10 +279,10 @@ describe("fetchGleifL2", () => {
             (url: RequestInfo | URL) => {
                 const s = String(url);
                 if (s.includes("direct-parent-reporting-exception")) {
-                    return mockJsonResponse({ data: { attributes: { exceptionReason: "NATURAL_PERSON" } } });
+                    return mockJsonResponse({ data: { attributes: { reason: "NATURAL_PERSON" } } });
                 }
                 if (s.includes("ultimate-parent-reporting-exception")) {
-                    return mockJsonResponse({ data: { attributes: { exceptionReason: "NON_CONSOLIDATING" } } });
+                    return mockJsonResponse({ data: { attributes: { reason: "NON_CONSOLIDATING" } } });
                 }
                 if (s.includes("/direct-parent") || s.includes("/ultimate-parent")) {
                     return mockNotFound();

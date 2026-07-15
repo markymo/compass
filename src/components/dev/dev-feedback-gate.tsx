@@ -1,7 +1,7 @@
 import { headers } from "next/headers";
 import { FeedbackWidget } from "@/components/dev/feedback-widget";
 
-const ALLOWED_HOSTS = ["localhost", "dev.onpro.tech"];
+const ALLOWED_HOSTS = ["localhost", "dev.onpro.tech", "onpro.tech"];
 
 export async function DevFeedbackGate() {
     const headersList = await headers();

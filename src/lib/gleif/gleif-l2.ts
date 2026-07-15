@@ -128,8 +128,8 @@ async function fetchException(
         );
         if (!res.ok) return null;
         const json = await res.json();
-        // Reason is typically at data.attributes.exceptionReason or similar
-        return json.data?.attributes?.exceptionReason ?? null;
+        // Reason is typically at data.attributes.reason
+        return json.data?.attributes?.reason ?? null;
     } catch {
         return null;
     }

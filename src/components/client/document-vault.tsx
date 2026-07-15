@@ -378,7 +378,7 @@ export function DocumentVault({ leId }: DocumentVaultProps) {
                                     <section className="space-y-3">
                                         <h3 className="font-semibold text-sm text-slate-900 dark:text-slate-100">Actions</h3>
                                         <div className="grid grid-cols-2 gap-3">
-                                            <Button className="w-full text-slate-700 dark:text-slate-300" variant="outline" onClick={() => window.open(selectedDoc.fileUrl, '_blank')}>
+                                            <Button className="w-full text-slate-700 dark:text-slate-300" variant="outline" onClick={() => window.open(`/api/documents/${selectedDoc.id}/download`, '_blank')}>
                                                 <Download className="mr-2 h-4 w-4" /> Download
                                             </Button>
                                             <Button className="w-full text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200" variant="outline" onClick={() => setDeleteDocId(selectedDoc.id)}>
