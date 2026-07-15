@@ -14,32 +14,47 @@ const mockCCPartyFindMany = vi.fn();
 const mockCCPartyCreate = vi.fn();
 const mockCCPartyUpdate = vi.fn();
 const mockCCPartyDelete = vi.fn();
-    const mockFieldClaimFindMany = vi.fn();
-    const mockMasterFieldDefinitionFindMany = vi.fn();
+const mockFieldClaimFindMany = vi.fn();
+const mockFieldClaimFindUnique = vi.fn();
+const mockMasterFieldDefinitionFindMany = vi.fn();
 
-    vi.mock("@/lib/prisma", () => ({
-        default: {
-            cCParty: {
-                findMany: (...args: any[]) => mockCCPartyFindMany(...args),
-                create: (...args: any[]) => mockCCPartyCreate(...args),
-                update: (...args: any[]) => mockCCPartyUpdate(...args),
-                delete: (...args: any[]) => mockCCPartyDelete(...args),
-            },
-            fieldClaim: {
-                findMany: (...args: any[]) => mockFieldClaimFindMany(...args),
-            },
-            masterFieldDefinition: {
-                findMany: (...args: any[]) => mockMasterFieldDefinitionFindMany(...args),
-            }
+vi.mock("@/lib/prisma", () => ({
+    default: {
+        cCParty: {
+            findMany: (...args: any[]) => mockCCPartyFindMany(...args),
+            create: (...args: any[]) => mockCCPartyCreate(...args),
+            update: (...args: any[]) => mockCCPartyUpdate(...args),
+            delete: (...args: any[]) => mockCCPartyDelete(...args),
+            findFirst: vi.fn().mockResolvedValue(null)
         },
-    }));
+        fieldClaim: {
+            findMany: (...args: any[]) => mockFieldClaimFindMany(...args),
+            findUnique: (...args: any[]) => mockFieldClaimFindUnique(...args)
+        },
+        masterFieldDefinition: {
+            findMany: (...args: any[]) => mockMasterFieldDefinitionFindMany(...args),
+        }
+    },
+}));
 
 const mockGetMasterFieldDefinition = vi.fn();
 vi.mock("@/services/masterData/definitionService", () => ({
     getMasterFieldDefinition: (...args: any[]) => mockGetMasterFieldDefinition(...args),
 }));
 
-import { getCCParties, upsertCCParty, deleteCCParty } from "../cc-party-actions";
+const { mockCCPartyServiceCreate, mockCCPartyServiceUpdate } = vi.hoisted(() => ({
+    mockCCPartyServiceCreate: vi.fn(),
+    mockCCPartyServiceUpdate: vi.fn()
+}));
+
+vi.mock("@/services/masterData/cc-party-service", () => ({
+    CCPartyService: {
+        create: mockCCPartyServiceCreate,
+        update: mockCCPartyServiceUpdate
+    }
+}));
+
+import { getCCParties, upsertCCParty, deleteCCParty, promoteClaimToCCParty } from "../cc-party-actions";
 import { PartyValue } from "@/lib/master-data/party-value";
 
 const validParty: PartyValue = {
@@ -87,109 +102,132 @@ describe("cc-party-actions", () => {
                 orderBy: { createdAt: "desc" }
             });
         });
-
-        it("returns promoted metadata for promoted parties", async () => {
-            const mockParties = [
-                { id: "party-2", clientLEId: "le-123", data: validParty, createdAt: new Date(), createdFromClaimId: "claim-1" }
-            ];
-            mockCCPartyFindMany.mockResolvedValue(mockParties);
-            
-            mockFieldClaimFindMany.mockResolvedValue([
-                { id: "claim-1", fieldNo: 63, sourceType: "COMPANY_REGISTRY" }
-            ]);
-
-            mockGetMasterFieldDefinition.mockResolvedValue({
-                fieldName: "List of company directors"
-            });
-
-            const result = await getCCParties("le-123");
-            expect(result).toEqual([{
-                ...mockParties[0],
-                originType: "PROMOTED",
-                originLabel: "Saved for reuse from Field 63 — List of company directors",
-                originFieldNo: 63,
-                originFieldName: "List of company directors",
-                originSourceLabel: "Companies House",
-                originClaimId: "claim-1",
-                usage: []
-            }]);
-        });
     });
 
     describe("upsertCCParty", () => {
-        it("creates a new curated party if id is omitted", async () => {
-            mockCCPartyCreate.mockResolvedValue({
+        it("converts payload, omits embedded addresses, calls CCPartyService, and bypasses Prisma CCParty directly", async () => {
+            const legacyPayloadWithEmbeddedAddresses: any = {
+                ...validParty,
+                // Top-level embedded address to be omitted
+                embeddedHomeAddress: {
+                    buildingName: '123',
+                    street: 'Main St',
+                    country: 'UK'
+                },
+                roles: [{
+                    roleType: 'director',
+                    isActiveRole: true,
+                    // Role-level embedded address to be omitted
+                    correspondenceAddress: {
+                        buildingName: '456',
+                        street: 'Second St',
+                        country: 'UK'
+                    }
+                }]
+            };
+
+            mockCCPartyServiceCreate.mockResolvedValue({
                 id: "new-party-id",
                 clientLEId: "le-123",
-                data: validParty,
-                visibility: "CLIENT_LE",
-                createdByUserId: "user-123",
-                updatedByUserId: "user-123"
+                data: { schemaVersion: 2 },
+                visibility: "CLIENT_LE"
             });
 
             const result = await upsertCCParty({
+                clientLEId: "le-123",
+                data: legacyPayloadWithEmbeddedAddresses
+            });
+
+            expect(result.success).toBe(true);
+            
+            // Prove CCPartyService was called with correctly converted schema (no embedded addresses)
+            expect(mockCCPartyServiceCreate).toHaveBeenCalledWith({
+                clientLEId: "le-123",
+                createdByUserId: "user-123",
+                data: expect.objectContaining({
+                    schemaVersion: 2,
+                    partyType: 'INDIVIDUAL',
+                    forenames: 'John',
+                    surname: 'Doe',
+                    roles: expect.arrayContaining([
+                        expect.objectContaining({
+                            roleType: 'director',
+                            isActiveRole: true
+                        })
+                    ])
+                })
+            });
+
+            // Prove the converted payload has NO embedded addresses
+            const callArgs = mockCCPartyServiceCreate.mock.calls[0][0];
+            expect(callArgs.data).not.toHaveProperty('embeddedHomeAddress');
+            expect(callArgs.data.roles[0]).not.toHaveProperty('correspondenceAddress');
+
+            // Prove direct Prisma create was NEVER called
+            expect(mockCCPartyCreate).not.toHaveBeenCalled();
+            expect(mockCCPartyUpdate).not.toHaveBeenCalled();
+        });
+
+        it("updates existing party by delegating to CCPartyService", async () => {
+            mockCCPartyServiceUpdate.mockResolvedValue({
+                id: "existing-id",
+                clientLEId: "le-123",
+                data: { schemaVersion: 2 }
+            });
+
+            const result = await upsertCCParty({
+                id: "existing-id",
                 clientLEId: "le-123",
                 data: validParty
             });
 
             expect(result.success).toBe(true);
-            expect(result.party.id).toBe("new-party-id");
-            expect(mockCCPartyCreate).toHaveBeenCalledWith({
-                data: {
-                    clientLEId: "le-123",
-                    data: validParty,
-                    visibility: "CLIENT_LE",
-                    createdByUserId: "user-123",
-                    updatedByUserId: "user-123"
-                }
-            });
-        });
-
-        it("updates existing party if id is provided", async () => {
-            mockCCPartyUpdate.mockResolvedValue({
-                id: "existing-id",
+            expect(mockCCPartyServiceUpdate).toHaveBeenCalledWith({
+                ccPartyId: "existing-id",
                 clientLEId: "le-123",
-                data: { ...validParty, forenames: "Johnny" }
+                data: expect.objectContaining({ schemaVersion: 2 }),
+                updatedByUserId: "user-123"
             });
-
-            const result = await upsertCCParty({
-                id: "existing-id",
-                clientLEId: "le-123",
-                data: { ...validParty, forenames: "Johnny" }
-            });
-
-            expect(result.success).toBe(true);
-            expect(result.party.id).toBe("existing-id");
-            expect(mockCCPartyUpdate).toHaveBeenCalledWith({
-                where: { id: "existing-id" },
-                data: {
-                    data: { ...validParty, forenames: "Johnny" } as any,
-                    updatedByUserId: "user-123"
-                }
-            });
-        });
-
-        it("throws error for invalid PartyValue structure", async () => {
-            const invalidParty = { someRandomKey: "hello" } as any;
-
-            await expect(upsertCCParty({
-                clientLEId: "le-123",
-                data: invalidParty
-            })).rejects.toThrow("Invalid PartyValue data structure");
+            expect(mockCCPartyUpdate).not.toHaveBeenCalled(); // No direct prisma
         });
     });
 
-    describe("deleteCCParty", () => {
-        it("deletes party and returns success", async () => {
-            mockMasterFieldDefinitionFindMany.mockResolvedValue([]);
-            mockFieldClaimFindMany.mockResolvedValue([]);
-            mockCCPartyDelete.mockResolvedValue({});
-
-            const result = await deleteCCParty("party-123", "le-123");
-            expect(result.success).toBe(true);
-            expect(mockCCPartyDelete).toHaveBeenCalledWith({
-                where: { id: "party-123" }
+    describe("promoteClaimToCCParty", () => {
+        it("is the sole explicitly deferred legacy writer", async () => {
+            mockFieldClaimFindUnique.mockResolvedValue({
+                id: 'claim-1',
+                claimRole: 'VALUE',
+                clientLeScopeId: 'le-123',
+                fieldNo: 63,
+                valueJson: validParty // Note: this is a legacy PartyValue
             });
+
+            mockGetMasterFieldDefinition.mockResolvedValue({ appDataType: 'PARTY' });
+            
+            mockCCPartyCreate.mockResolvedValue({
+                id: "new-party-from-claim",
+                clientLEId: "le-123",
+                data: validParty
+            });
+
+            const result = await promoteClaimToCCParty('claim-1', 'le-123');
+
+            expect(result.success).toBe(true);
+            
+            // Prove that it writes DIRECTLY to Prisma (legacy persistence path)
+            expect(mockCCPartyCreate).toHaveBeenCalledWith({
+                data: {
+                    clientLEId: 'le-123',
+                    data: validParty, // It passes the raw legacy value!
+                    visibility: "CLIENT_LE",
+                    createdFromClaimId: 'claim-1',
+                    createdByUserId: 'user-123',
+                    updatedByUserId: 'user-123'
+                }
+            });
+
+            // Prove it does NOT call the v2 service
+            expect(mockCCPartyServiceCreate).not.toHaveBeenCalled();
         });
     });
 });

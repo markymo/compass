@@ -254,6 +254,11 @@ describe.skipIf(!process.env.DATABASE_URL)('kyc-manual-update PARTY_REF Smoke Te
             data: {
                 clientLEId,
                 data: {
+                    schemaVersion: 2,
+                    isActiveParty: true,
+                    emails: [],
+                    phones: [],
+                    sourceIdentifiers: [],
                     contactType: "PERSON",
                     partyType: "INDIVIDUAL",
                     forenames: "Fred",
@@ -283,6 +288,11 @@ describe.skipIf(!process.env.DATABASE_URL)('kyc-manual-update PARTY_REF Smoke Te
             data: {
                 clientLEId,
                 data: {
+                    schemaVersion: 2,
+                    isActiveParty: true,
+                    emails: [],
+                    phones: [],
+                    sourceIdentifiers: [],
                     contactType: "PERSON",
                     partyType: "INDIVIDUAL",
                     forenames: "Garry",
@@ -310,6 +320,11 @@ describe.skipIf(!process.env.DATABASE_URL)('kyc-manual-update PARTY_REF Smoke Te
             data: {
                 clientLEId,
                 data: {
+                    schemaVersion: 2,
+                    isActiveParty: true,
+                    emails: [],
+                    phones: [],
+                    sourceIdentifiers: [],
                     contactType: "PERSON",
                     partyType: "INDIVIDUAL",
                     forenames: "Hugo",

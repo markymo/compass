@@ -22,6 +22,12 @@ vi.mock('@/lib/kyc/KycStateService', () => ({
 vi.mock('@/services/masterData/definitionService', () => ({
     getMasterFieldDefinition: vi.fn().mockResolvedValue({ fieldNo: 133, appDataType: 'PARTY', isMultiValue: false })
 }));
+vi.mock('@/services/masterData/cc-party-service', () => ({
+    CCPartyService: {
+        create: vi.fn().mockResolvedValue({ id: 'party-created' }),
+        update: vi.fn().mockResolvedValue({ id: 'party-created' })
+    }
+}));
 
 vi.mock('@/lib/prisma', () => {
     const inst = {

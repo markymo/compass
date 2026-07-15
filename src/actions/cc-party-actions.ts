@@ -158,24 +158,24 @@ export async function upsertCCParty(params: {
     }
 
     try {
+        const { CCPartyService } = await import("@/services/masterData/cc-party-service");
+        const { convertLegacyManualPartyToV2 } = await import("@/services/masterData/cc-party-legacy-adapter");
+        
+        const v2Data = convertLegacyManualPartyToV2(params.data);
+        
         let party;
         if (params.id) {
-            party = await prisma.cCParty.update({
-                where: { id: params.id },
-                data: {
-                    data: params.data as any,
-                    updatedByUserId: identity.userId
-                }
+            party = await CCPartyService.update({
+                ccPartyId: params.id,
+                clientLEId: params.clientLEId,
+                data: v2Data,
+                updatedByUserId: identity.userId
             });
         } else {
-            party = await prisma.cCParty.create({
-                data: {
-                    clientLEId: params.clientLEId,
-                    data: params.data as any,
-                    visibility: "CLIENT_LE",
-                    createdByUserId: identity.userId,
-                    updatedByUserId: identity.userId
-                }
+            party = await CCPartyService.create({
+                clientLEId: params.clientLEId,
+                data: v2Data,
+                createdByUserId: identity.userId
             });
         }
 
