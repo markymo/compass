@@ -21,7 +21,6 @@ describe('Party v2 Schema Definitions', () => {
                 placeOfBirth: 'London',
                 dateOfBirth: { year: 1980, month: 1, day: 1 },
                 roles: [],
-                visibility: { scope: 'CLIENT_LE' },
                 isActiveParty: true,
                 sourceIdentifiers: []
             };
@@ -45,7 +44,6 @@ describe('Party v2 Schema Definitions', () => {
                 placeOfBirth: null,
                 dateOfBirth: null,
                 roles: [],
-                visibility: { scope: 'CLIENT_LE' },
                 isActiveParty: true,
                 sourceIdentifiers: []
             };
@@ -67,7 +65,6 @@ describe('Party v2 Schema Definitions', () => {
                 phones: [{ type: 'LANDLINE', number: '+442071234567' }],
                 correspondenceAddressRef: null,
                 roles: [],
-                visibility: { scope: 'CLIENT_LE' },
                 isActiveParty: true,
                 sourceIdentifiers: []
             };
@@ -87,7 +84,6 @@ describe('Party v2 Schema Definitions', () => {
                 phones: [],
                 correspondenceAddressRef: null,
                 roles: [],
-                visibility: { scope: 'CLIENT_LE' },
                 isActiveParty: true,
                 sourceIdentifiers: []
             };
@@ -111,7 +107,6 @@ describe('Party v2 Schema Definitions', () => {
                 governingLaw: 'England and Wales',
                 legalForm: 'Private Limited Company',
                 roles: [],
-                visibility: { scope: 'CLIENT_LE' },
                 isActiveParty: true,
                 sourceIdentifiers: [{ scheme: 'COMPANIES_HOUSE', value: '12345678' }]
             };
@@ -134,7 +129,6 @@ describe('Party v2 Schema Definitions', () => {
                 governingLaw: null,
                 legalForm: null,
                 roles: [],
-                visibility: { scope: 'CLIENT_LE' },
                 isActiveParty: true,
                 sourceIdentifiers: []
             };

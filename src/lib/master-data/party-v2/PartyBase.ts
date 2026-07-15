@@ -43,7 +43,4 @@ export interface PartyBase {
     roles: PartyRole[];
     sourceIdentifiers: PartyIdentifier[];
     isActiveParty: boolean | null;
-    visibility: {
-        scope: 'CLIENT_LE';
-    };
 }
