@@ -34,8 +34,6 @@ import { type GraphPickerConfig, type ProjectionMode, getDefaultProjectionFields
 import { bindingToBindingForm, bindingFormToPickerConfig, BLANK_BINDING_FORM } from "@/lib/graph/binding-form-helpers";
 import { Checkbox } from "@/components/ui/checkbox";
 
-const PARTY_TYPES = ['INDIVIDUAL', 'ORGANISATION', 'UNKNOWN'];
-const PARTY_SUBTYPES = ['PERSON', 'CONTACT', 'COMPANY', 'TRUST', 'FUND', 'PARTNERSHIP', 'GOVERNMENT_BODY', 'TEAM', 'DISTRIBUTION_LIST', 'OTHER'];
 const SCHEMA_GROUPS = [
     {
         label: 'Identity',
@@ -141,6 +139,8 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
     });
 
     const [isProfileSectionOpen, setIsProfileSectionOpen] = useState(false);
+    const [isSourceOpen, setIsSourceOpen] = useState(true);
+    const [partyTypes, setPartyTypes] = useState({ individual: true, team: true, organisation: true });
 
     // Only reset the form when the panel opens fresh OR the user switches to a different
     // field (different fieldNo). Do NOT reset on every prop re-render caused by router.refresh() —
@@ -165,6 +165,16 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                 profileConfig:   field.profileConfig || null,
                 allowAttachments: field.allowAttachments || false,
             });
+
+            if (field.appDataType === 'PARTY') {
+                const pTypes = field.profileConfig?.allowedPartyTypes;
+                const isUnrestricted = !pTypes || pTypes.length === 0;
+                setPartyTypes({
+                    individual: isUnrestricted || pTypes.includes("INDIVIDUAL"),
+                    organisation: isUnrestricted || pTypes.includes("ORGANISATION"),
+                    team: isUnrestricted || pTypes.includes("TEAM")
+                });
+            }
         }
 
         prevFieldNoRef.current = field?.fieldNo ?? null;
@@ -378,11 +388,40 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
             if (payload.appDataType === 'PARTY' || payload.appDataType === 'ADDRESS') {
                 const hasMapping = field?.sourceMappings?.length > 0;
                 const defaultPolicy = hasMapping ? 'SYSTEM_ONLY' : 'SYSTEM_AND_CURATED';
-                payload.profileConfig = {
-                    partyPopulationPolicy: defaultPolicy,
-                    ...(field.profileConfig || {}), // preserve existing like storageModes
-                    ...(formData.profileConfig || {}) // override with edited options
-                };
+                
+                if (payload.appDataType === 'PARTY') {
+                    if (!partyTypes.individual && !partyTypes.team && !partyTypes.organisation) {
+                        toast.error("A PARTY field must allow at least one Party type.");
+                        setLoading(false);
+                        return;
+                    }
+                    
+                    let nextAllowed: string[] = [];
+                    const isAllSelected = partyTypes.individual && partyTypes.team && partyTypes.organisation;
+                    if (!isAllSelected) {
+                        if (partyTypes.individual) nextAllowed.push("INDIVIDUAL");
+                        if (partyTypes.team) nextAllowed.push("TEAM");
+                        if (partyTypes.organisation) nextAllowed.push("ORGANISATION");
+                    }
+                    
+                    payload.profileConfig = {
+                        ...(field.profileConfig || {}), // preserve existing allowedPartySubTypes and storageModes
+                        ...(formData.profileConfig || {}), // preserve other edited config
+                        partyPopulationPolicy: formData.profileConfig?.partyPopulationPolicy || defaultPolicy
+                    };
+                    
+                    if (isAllSelected) {
+                        delete payload.profileConfig.allowedPartyTypes;
+                    } else {
+                        payload.profileConfig.allowedPartyTypes = nextAllowed;
+                    }
+                } else {
+                    payload.profileConfig = {
+                        partyPopulationPolicy: defaultPolicy,
+                        ...(field.profileConfig || {}), // preserve existing like storageModes
+                        ...(formData.profileConfig || {}) // override with edited options
+                    };
+                }
             }
             // Strip isMultiValue only for types where a collection makes no semantic sense.
             // TEXT, NUMBER, JSONB, SELECT, and all reference types CAN be multi-value
@@ -570,97 +609,102 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                             {isProfileSectionOpen && (
                                 <div className="space-y-4">
                                 <div>
-                                    <Label className="text-xs font-semibold text-indigo-900 mb-2 block">
-                                        {formData.appDataType === 'PARTY' ? 'Party' : 'Address'} value source
-                                    </Label>
-                                    <p className="text-[11px] text-slate-500 mb-2">
-                                        Where are {formData.appDataType === 'PARTY' ? 'parties' : 'addresses'} for this field allowed to come from?
-                                    </p>
-                                    <div className="flex flex-col gap-2">
-                                        {[
-                                            { value: 'SYSTEM_ONLY', label: 'Source only' },
-                                            { value: 'CURATED_ONLY', label: 'Curated only' },
-                                            { value: 'SYSTEM_AND_CURATED', label: 'Source + curated' }
-                                        ].map(policy => {
-                                            const hasMapping = field?.sourceMappings?.length > 0;
-                                            const defaultPolicy = hasMapping ? 'SYSTEM_ONLY' : 'SYSTEM_AND_CURATED';
-                                            const isSelected = (formData.profileConfig?.partyPopulationPolicy || defaultPolicy) === policy.value;
-                                            return (
-                                                <div 
-                                                    key={policy.value}
-                                                    onClick={() => {
-                                                        setFormData({
-                                                            ...formData,
-                                                            profileConfig: { ...formData.profileConfig, partyPopulationPolicy: policy.value }
-                                                        });
-                                                    }}
-                                                    className={`cursor-pointer border rounded-md p-3 flex items-center gap-3 transition-colors ${
-                                                        isSelected 
-                                                            ? 'border-indigo-600 bg-indigo-50 text-indigo-900' 
-                                                            : 'border-slate-200 bg-white hover:border-indigo-300 text-slate-700'
-                                                    }`}
-                                                >
-                                                    <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${isSelected ? 'border-indigo-600' : 'border-slate-300'}`}>
-                                                        {isSelected && <div className="w-2 h-2 rounded-full bg-indigo-600" />}
-                                                    </div>
-                                                    <span className="text-sm font-medium">{policy.label}</span>
-                                                </div>
-                                            );
-                                        })}
+                                    <div 
+                                        className="flex items-center gap-2 cursor-pointer group mb-2"
+                                        onClick={() => setIsSourceOpen(!isSourceOpen)}
+                                    >
+                                        {isSourceOpen ? (
+                                            <ChevronDown className="h-4 w-4 text-indigo-700 transition-transform" />
+                                        ) : (
+                                            <ChevronRight className="h-4 w-4 text-indigo-700 transition-transform" />
+                                        )}
+                                        <Label className="text-xs font-semibold text-indigo-900 cursor-pointer">
+                                            {formData.appDataType === 'PARTY' ? 'Party' : 'Address'} value source
+                                        </Label>
+                                        {!isSourceOpen && (
+                                            <span className="text-[10px] text-slate-500 font-medium ml-2 px-2 py-0.5 bg-slate-100 rounded">
+                                                {(() => {
+                                                    const hasMapping = field?.sourceMappings?.length > 0;
+                                                    const defaultPolicy = hasMapping ? 'SYSTEM_ONLY' : 'SYSTEM_AND_CURATED';
+                                                    const val = formData.profileConfig?.partyPopulationPolicy || defaultPolicy;
+                                                    if (val === 'SYSTEM_ONLY') return 'Source only';
+                                                    if (val === 'CURATED_ONLY') return 'Curated only';
+                                                    return 'Source + curated';
+                                                })()}
+                                            </span>
+                                        )}
                                     </div>
+                                    
+                                    {isSourceOpen && (
+                                        <div className="pl-6">
+                                            <p className="text-[11px] text-slate-500 mb-2">
+                                                Where are {formData.appDataType === 'PARTY' ? 'parties' : 'addresses'} for this field allowed to come from?
+                                            </p>
+                                            <div className="flex flex-col gap-2">
+                                                {[
+                                                    { value: 'SYSTEM_ONLY', label: 'Source only' },
+                                                    { value: 'CURATED_ONLY', label: 'Curated only' },
+                                                    { value: 'SYSTEM_AND_CURATED', label: 'Source + curated' }
+                                                ].map(policy => {
+                                                    const hasMapping = field?.sourceMappings?.length > 0;
+                                                    const defaultPolicy = hasMapping ? 'SYSTEM_ONLY' : 'SYSTEM_AND_CURATED';
+                                                    const isSelected = (formData.profileConfig?.partyPopulationPolicy || defaultPolicy) === policy.value;
+                                                    return (
+                                                        <div 
+                                                            key={policy.value}
+                                                            onClick={() => {
+                                                                setFormData({
+                                                                    ...formData,
+                                                                    profileConfig: { ...formData.profileConfig, partyPopulationPolicy: policy.value }
+                                                                });
+                                                            }}
+                                                            className={`cursor-pointer border rounded-md p-3 flex items-center gap-3 transition-colors ${
+                                                                isSelected 
+                                                                    ? 'border-indigo-600 bg-indigo-50 text-indigo-900' 
+                                                                    : 'border-slate-200 bg-white hover:border-indigo-300 text-slate-700'
+                                                            }`}
+                                                        >
+                                                            <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${isSelected ? 'border-indigo-600' : 'border-slate-300'}`}>
+                                                                {isSelected && <div className="w-2 h-2 rounded-full bg-indigo-600" />}
+                                                            </div>
+                                                            <span className="text-sm font-medium">{policy.label}</span>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
 
                                 {formData.appDataType === 'PARTY' && (
                                     <>
                                         <div className="border-t border-indigo-100 pt-4">
-                                            <Label className="text-xs font-semibold text-indigo-900 mb-2 block">Allowed Party Types</Label>
-                                            <div className="flex flex-wrap gap-2">
-                                                {PARTY_TYPES.map(type => {
-                                                    const isSelected = formData.profileConfig?.allowedPartyTypes?.includes(type);
-                                                    return (
-                                                        <Badge 
-                                                            key={type} 
-                                                            variant={isSelected ? "default" : "outline"}
-                                                            className={`cursor-pointer ${isSelected ? 'bg-indigo-600 hover:bg-indigo-700 text-white' : 'bg-white text-indigo-700 border-indigo-200 hover:bg-indigo-50'}`}
-                                                            onClick={() => {
-                                                                const current = formData.profileConfig?.allowedPartyTypes || [];
-                                                                const next = isSelected ? current.filter((t: string) => t !== type) : [...current, type];
-                                                                setFormData({
-                                                                    ...formData,
-                                                                    profileConfig: { ...formData.profileConfig, allowedPartyTypes: next }
-                                                                });
-                                                            }}
-                                                        >
-                                                            {type}
-                                                        </Badge>
-                                                    );
-                                                })}
-                                            </div>
-                                        </div>
-
-                                        <div>
-                                            <Label className="text-xs font-semibold text-indigo-900 mb-2 block">Allowed Party Subtypes</Label>
-                                            <div className="flex flex-wrap gap-2">
-                                                {PARTY_SUBTYPES.map(type => {
-                                                    const isSelected = formData.profileConfig?.allowedPartySubTypes?.includes(type);
-                                                    return (
-                                                        <Badge 
-                                                            key={type} 
-                                                            variant={isSelected ? "default" : "outline"}
-                                                            className={`cursor-pointer ${isSelected ? 'bg-indigo-600 hover:bg-indigo-700 text-white' : 'bg-white text-indigo-700 border-indigo-200 hover:bg-indigo-50'}`}
-                                                            onClick={() => {
-                                                                const current = formData.profileConfig?.allowedPartySubTypes || [];
-                                                                const next = isSelected ? current.filter((t: string) => t !== type) : [...current, type];
-                                                                setFormData({
-                                                                    ...formData,
-                                                                    profileConfig: { ...formData.profileConfig, allowedPartySubTypes: next }
-                                                                });
-                                                            }}
-                                                        >
-                                                            {type}
-                                                        </Badge>
-                                                    );
-                                                })}
+                                            <Label className="text-xs font-semibold text-indigo-900 mb-3 block">Allowed Party Types</Label>
+                                            <div className="flex flex-row flex-wrap gap-6 pl-2">
+                                                <div className="flex items-center space-x-2">
+                                                    <Checkbox 
+                                                        id="type-individual" 
+                                                        checked={partyTypes.individual}
+                                                        onCheckedChange={(checked) => setPartyTypes({...partyTypes, individual: !!checked})}
+                                                    />
+                                                    <Label htmlFor="type-individual" className="text-sm font-medium cursor-pointer">Individual</Label>
+                                                </div>
+                                                <div className="flex items-center space-x-2">
+                                                    <Checkbox 
+                                                        id="type-team" 
+                                                        checked={partyTypes.team}
+                                                        onCheckedChange={(checked) => setPartyTypes({...partyTypes, team: !!checked})}
+                                                    />
+                                                    <Label htmlFor="type-team" className="text-sm font-medium cursor-pointer">Team</Label>
+                                                </div>
+                                                <div className="flex items-center space-x-2">
+                                                    <Checkbox 
+                                                        id="type-organisation" 
+                                                        checked={partyTypes.organisation}
+                                                        onCheckedChange={(checked) => setPartyTypes({...partyTypes, organisation: !!checked})}
+                                                    />
+                                                    <Label htmlFor="type-organisation" className="text-sm font-medium cursor-pointer">Organisation</Label>
+                                                </div>
                                             </div>
                                         </div>
 
