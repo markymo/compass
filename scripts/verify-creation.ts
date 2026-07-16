@@ -54,7 +54,7 @@ async function main() {
     let instanceReferenceCode1 = parent1.referenceCode;
     const leCode1 = "ABCDE";
     const supCode1 = "XYZUK";
-    const contextualPrefix1 = parent1.referenceCode
+    const contextualPrefix1 = parent1.referenceCode!
         .replace(/_v\d+$/, "")
         .replace(/_(XXXXX)(?=_|$)/, `_${leCode1}`)
         .replace(/_(S{4,})(?=_|$)/, `_${supCode1}`);
@@ -81,7 +81,7 @@ async function main() {
     let instanceReferenceCode2 = parent2.referenceCode;
     const leCode2 = "ABCDE";
     const supCode2 = "XYZUK";
-    const contextualPrefix2 = parent2.referenceCode
+    const contextualPrefix2 = parent2.referenceCode!
         .replace(/_v\d+$/, "")
         .replace(/_(XXXXX)(?=_|$)/, `_${leCode2}`)
         .replace(/_(S{4,})(?=_|$)/, `_${supCode2}`);
