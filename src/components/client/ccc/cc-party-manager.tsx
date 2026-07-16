@@ -230,10 +230,10 @@ export function CCPartyManager({ clientLEId, initialParties }: CCPartyManagerPro
                                         const usage = (party as any).usage;
                                         return (
                                             <TableRow key={party.id} className="hover:bg-slate-50/40 border-b border-slate-100 last:border-0 transition-colors duration-150">
-                                                <TableCell className="py-3 px-5 font-semibold text-slate-800 text-sm">
+                                                <TableCell className="py-3 px-5 font-semibold text-slate-800 text-sm whitespace-normal break-words max-w-[300px]">
                                                     {summary}
                                                 </TableCell>
-                                                <TableCell className="py-3 px-5 text-sm">
+                                                <TableCell className="py-3 px-5 text-sm whitespace-normal">
                                                     <div className="flex flex-col">
                                                         <span className="font-bold text-xs text-slate-500 tracking-wide">
                                                             {party.data.partyType || "UNKNOWN"}
@@ -251,7 +251,7 @@ export function CCPartyManager({ clientLEId, initialParties }: CCPartyManagerPro
                                                         {isActive ? "Active" : "Inactive"}
                                                     </Badge>
                                                 </TableCell>
-                                                <TableCell className="py-3 px-5 text-sm">
+                                                <TableCell className="py-3 px-5 text-sm whitespace-normal">
                                                     <div className="flex flex-col gap-0.5 max-w-[200px]">
                                                         {party.originType === 'PROMOTED' ? (
                                                             <>
@@ -269,7 +269,7 @@ export function CCPartyManager({ clientLEId, initialParties }: CCPartyManagerPro
                                                         )}
                                                     </div>
                                                 </TableCell>
-                                                <TableCell className="py-3 px-5 text-sm">
+                                                <TableCell className="py-3 px-5 text-sm whitespace-normal">
                                                     {usage && usage.length > 0 ? (
                                                         <StandardTooltip 
                                                             dottedUnderline={true}

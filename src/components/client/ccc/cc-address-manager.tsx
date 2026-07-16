@@ -189,10 +189,10 @@ export function CCAddressManager({ clientLEId, initialAddresses }: CCAddressMana
                                         const usage = (address as any).usage;
                                         return (
                                             <TableRow key={address.id} className="hover:bg-slate-50/40 border-b border-slate-100 last:border-0 transition-colors duration-150">
-                                                <TableCell className="py-3 px-5 font-semibold text-slate-800 text-sm">
+                                                <TableCell className="py-3 px-5 font-semibold text-slate-800 text-sm whitespace-normal break-words max-w-[300px]">
                                                     {summary}
                                                 </TableCell>
-                                                <TableCell className="py-3 px-5 text-sm">
+                                                <TableCell className="py-3 px-5 text-sm whitespace-normal">
                                                     <div className="flex flex-col gap-0.5 max-w-[200px]">
                                                         {address.originType === 'PROMOTED' ? (
                                                             <>
@@ -210,7 +210,7 @@ export function CCAddressManager({ clientLEId, initialAddresses }: CCAddressMana
                                                         )}
                                                     </div>
                                                 </TableCell>
-                                                <TableCell className="py-3 px-5 text-sm">
+                                                <TableCell className="py-3 px-5 text-sm whitespace-normal">
                                                     {usage && (usage.partyUsages.length > 0 || usage.fieldUsages.length > 0) ? (
                                                         <div className="flex flex-col gap-1">
                                                             <span className="font-semibold text-xs text-slate-700">

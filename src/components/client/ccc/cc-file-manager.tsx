@@ -65,7 +65,7 @@ export function CCFileManager({ initialFiles }: CCFileManagerProps) {
                                 <TableBody>
                                     {initialFiles.map((file) => (
                                         <TableRow key={file.id} className="hover:bg-slate-50/40 border-b border-slate-100 last:border-0 transition-colors duration-150">
-                                            <TableCell className="py-3 px-5 font-semibold text-slate-800 text-sm">
+                                            <TableCell className="py-3 px-5 font-semibold text-slate-800 text-sm whitespace-normal break-words max-w-[300px]">
                                                 <div className="flex items-center gap-2">
                                                     <File className="h-4 w-4 text-slate-400" />
                                                     <span className="truncate max-w-[300px]" title={file.name}>
@@ -73,12 +73,12 @@ export function CCFileManager({ initialFiles }: CCFileManagerProps) {
                                                     </span>
                                                 </div>
                                             </TableCell>
-                                            <TableCell className="py-3 px-5 text-sm">
+                                            <TableCell className="py-3 px-5 text-sm whitespace-normal">
                                                 <span className="text-xs font-medium text-slate-600 bg-slate-100 px-2 py-1 rounded-md">
                                                     {file.fileType || "UNKNOWN"}
                                                 </span>
                                             </TableCell>
-                                            <TableCell className="py-3 px-5 text-sm">
+                                            <TableCell className="py-3 px-5 text-sm whitespace-normal">
                                                 {file.usage.length > 0 ? (
                                                     <div className="flex flex-col gap-1">
                                                         <span className="font-semibold text-xs text-slate-700">Used in {file.usage.length} field{file.usage.length !== 1 ? 's' : ''}</span>
