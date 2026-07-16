@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { upload } from '@vercel/blob/client';
 import { addFieldAttachment, removeFieldAttachment, replaceFieldAttachment } from '@/actions/attachment-actions';
 import { getUploadIntentStatus } from '@/actions/upload-intent';
+import { MAX_FILE_SIZE, ALLOWED_MIME_TYPES, validateDocumentFile } from '@/lib/documents/upload-constants';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import {
@@ -32,21 +33,7 @@ export interface FieldAttachmentsProps {
     onChange?: () => void;
 }
 
-const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
-const ALLOWED_MIME_TYPES = [
-    'application/pdf', 
-    'image/jpeg', 
-    'image/png', 
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 
-    'application/msword',
-    'application/vnd.ms-excel',
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    'application/vnd.ms-powerpoint',
-    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-    'text/csv',
-    'application/csv',
-    'text/plain'
-];
+// Shared constants are imported from upload-constants.ts
 
 type OperationState = 'IDLE' | 'UPLOADING' | 'PROCESSING' | 'PROCESSING_DELAYED' | 'FAILED';
 
@@ -158,21 +145,13 @@ export function FieldAttachments({ clientLEId, fieldNo, attachments, isEditable,
         if (replaceInputRef.current) replaceInputRef.current.value = '';
     };
 
-    const validateFile = (file: File): string | null => {
-        if (file.size > MAX_FILE_SIZE) {
-            return `File exceeds the 20MB limit.`;
-        }
-        if (!ALLOWED_MIME_TYPES.includes(file.type) && file.type !== '') { // allow empty type to pass to server just in case
-            return `File type ${file.type || 'unknown'} is not supported.`;
-        }
-        return null;
-    };
+    // Validation delegated to validateDocumentFile
 
     const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>, isReplace: boolean, instanceId?: string) => {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        const validationError = validateFile(file);
+        const validationError = validateDocumentFile(file);
         if (validationError) {
             toast.error(validationError);
             e.target.value = '';

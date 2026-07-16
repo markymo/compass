@@ -17,6 +17,7 @@ import { DocumentLibraryItemDTO } from '@/lib/documents/DocumentLibraryDTOs';
 import { formatFileSize, formatFileType, formatDocumentDate, getDocumentIcon, formatDocumentStatus } from '@/lib/documents/document-formatters';
 import { DocumentDetailDrawer } from './DocumentDetailDrawer';
 import { StandardTooltip } from '@/components/ui/standard-tooltip';
+import { LibraryUploader } from './LibraryUploader';
 
 interface FilesLibraryManagerProps {
     clientLEId: string;
@@ -50,7 +51,7 @@ export function FilesLibraryManager({ clientLEId, initialFiles }: FilesLibraryMa
                     <CardTitle className="text-xl font-semibold">Files Library</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <div className="flex items-center mb-6">
+                    <div className="flex items-center justify-between mb-6 gap-4">
                         <div className="relative w-full max-w-sm">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                             <Input
@@ -60,6 +61,7 @@ export function FilesLibraryManager({ clientLEId, initialFiles }: FilesLibraryMa
                                 className="pl-9"
                             />
                         </div>
+                        <LibraryUploader clientLEId={clientLEId} />
                     </div>
 
                     {initialFiles.length === 0 ? (
