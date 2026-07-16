@@ -2,15 +2,13 @@
 
 import React, { useState, useEffect, useTransition } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Search, Plus, MapPin, Loader2 } from "lucide-react";
-import { searchCCAddresses } from "@/actions/cc-address-actions";
+import { Plus, Loader2 } from "lucide-react";
 import { addExistingCCAddressReferenceToField, createCCAddressAndReferenceField } from "@/actions/kyc-manual-update";
 import { AddressValueEditor } from "./AddressValueEditor";
 import { AddressValue } from "./AddressValueViewer";
 import { toast } from "sonner";
-import { Badge } from "@/components/ui/badge";
+import { CCAddressSelector, PartyAddressRef } from "./CCAddressSelector";
 
 interface UnifiedAddressPickerProps {
     clientLEId: string;
@@ -22,9 +20,6 @@ interface UnifiedAddressPickerProps {
 
 export function UnifiedAddressPicker({ clientLEId, fieldNo, trigger, onSuccess, rowId }: UnifiedAddressPickerProps) {
     const [open, setOpen] = useState(false);
-    const [query, setQuery] = useState("");
-    const [results, setResults] = useState<any[]>([]);
-    const [isSearching, startSearchTransition] = useTransition();
     const [isSaving, startSaveTransition] = useTransition();
 
     const [isCreatingNew, setIsCreatingNew] = useState(false);
@@ -33,31 +28,16 @@ export function UnifiedAddressPicker({ clientLEId, fieldNo, trigger, onSuccess, 
     // Reset state on open
     useEffect(() => {
         if (open) {
-            setQuery("");
-            setResults([]);
             setIsCreatingNew(false);
             setNewAddressData(null);
         }
     }, [open]);
 
-    // Handle Search
-    useEffect(() => {
-        if (!open) return;
-        
-        startSearchTransition(async () => {
-            try {
-                const data = await searchCCAddresses(clientLEId, query);
-                setResults(data);
-            } catch (err) {
-                console.error("Search failed", err);
-            }
-        });
-    }, [query, clientLEId, open]);
-
-    const handleSelectExisting = (address: any) => {
+    const handleSelectExisting = (ref: PartyAddressRef | null) => {
+        if (!ref) return; // UnifiedAddressPicker currently doesn't support clearing a field claim here
         startSaveTransition(async () => {
             try {
-                const res = await addExistingCCAddressReferenceToField(clientLEId, fieldNo, address.id, rowId);
+                const res = await addExistingCCAddressReferenceToField(clientLEId, fieldNo, ref.ccAddressId, rowId);
                 if (res.success) {
                     toast.success("Address added successfully");
                     setOpen(false);
@@ -104,17 +84,6 @@ export function UnifiedAddressPicker({ clientLEId, fieldNo, trigger, onSuccess, 
         });
     };
 
-    const formatAddressSummary = (data: AddressValue) => {
-        const parts = [
-            ...(data.addressLines || []),
-            data.locality,
-            data.region,
-            data.postalCode,
-            data.countryName || data.countryCode
-        ].filter(Boolean);
-        return parts.join(", ");
-    };
-
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
@@ -134,68 +103,13 @@ export function UnifiedAddressPicker({ clientLEId, fieldNo, trigger, onSuccess, 
                 </DialogHeader>
 
                 {!isCreatingNew ? (
-                    <div className="space-y-4 pt-2">
-                        <div className="relative">
-                            <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-                            <Input
-                                placeholder="Search existing saved addresses..."
-                                value={query}
-                                onChange={(e) => setQuery(e.target.value)}
-                                className="pl-9 h-10 bg-slate-50 border-slate-200 focus:bg-white"
-                            />
-                            {isSearching && (
-                                <Loader2 className="absolute right-3 top-2.5 h-4 w-4 animate-spin text-slate-400" />
-                            )}
-                        </div>
-
-                        <div className="border border-slate-200 rounded-md overflow-hidden bg-white">
-                            {results.length > 0 ? (
-                                <div className="divide-y divide-slate-100 max-h-[300px] overflow-y-auto">
-                                    {results.map((a) => {
-                                        const summary = formatAddressSummary(a.data);
-                                        
-                                        return (
-                                            <button
-                                                key={a.id}
-                                                className="w-full text-left px-4 py-3 hover:bg-slate-50 flex flex-col gap-1 transition-colors group"
-                                                onClick={() => handleSelectExisting(a)}
-                                                disabled={isSaving}
-                                            >
-                                                <div className="flex items-center justify-between w-full">
-                                                    <div className="flex items-center gap-2">
-                                                        <MapPin className="h-4 w-4 text-slate-400" />
-                                                        <span className="font-medium text-sm text-slate-700 group-hover:text-indigo-700 truncate pr-4">
-                                                            {summary || 'Incomplete Address'}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            ) : (
-                                <div className="p-8 text-center flex flex-col items-center justify-center space-y-2">
-                                    <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 mb-2">
-                                        <Search className="h-5 w-5" />
-                                    </div>
-                                    <p className="text-sm text-slate-500">
-                                        {query ? "No matching addresses found." : "Start typing to search saved addresses."}
-                                    </p>
-                                </div>
-                            )}
-                            
-                            <div className="p-3 border-t border-slate-100 bg-slate-50/50">
-                                <Button 
-                                    variant="outline" 
-                                    className="w-full bg-white shadow-sm border-indigo-200 text-indigo-700 hover:bg-indigo-50"
-                                    onClick={handleCreateNew}
-                                    disabled={isSaving}
-                                >
-                                    <Plus className="h-4 w-4 mr-2" />
-                                    Create new address
-                                </Button>
-                            </div>
-                        </div>
+                    <div className="pt-2">
+                        <CCAddressSelector
+                            clientLEId={clientLEId}
+                            onSelect={handleSelectExisting}
+                            onCreateNew={handleCreateNew}
+                            disabled={isSaving}
+                        />
                     </div>
                 ) : (
                     <div className="space-y-4 pt-4">
