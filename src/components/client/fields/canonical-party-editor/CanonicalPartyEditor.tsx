@@ -5,11 +5,13 @@ import { PartyContactSection } from "./PartyContactSection";
 import { PartyRolesSection } from "./PartyRolesSection";
 import { PartySourceIdentifiersSection } from "./PartySourceIdentifiersSection";
 import { LegacyAddressWarning } from "./LegacyAddressWarning";
+import { PartyAddressSection } from "./PartyAddressSection";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 
 interface CanonicalPartyEditorProps {
+    clientLEId: string;
     formState: CanonicalPartyFormState;
     onChange: (formState: CanonicalPartyFormState) => void;
     previewLabel?: string;
@@ -17,7 +19,7 @@ interface CanonicalPartyEditorProps {
     isNew?: boolean; // Determines if party type is editable
 }
 
-export function CanonicalPartyEditor({ formState, onChange, previewLabel, disabled, isNew = false }: CanonicalPartyEditorProps) {
+export function CanonicalPartyEditor({ clientLEId, formState, onChange, previewLabel, disabled, isNew = false }: CanonicalPartyEditorProps) {
     const handlePartyTypeChange = (newType: CanonicalPartyFormState['partyType']) => {
         if (!isNew) return;
         
@@ -116,6 +118,36 @@ export function CanonicalPartyEditor({ formState, onChange, previewLabel, disabl
             <LegacyAddressWarning state={formState} />
             
             <div className="border-t pt-6">
+                {formState.partyType === 'INDIVIDUAL' && (
+                    <PartyAddressSection
+                        clientLEId={clientLEId}
+                        label="Home Address"
+                        currentRef={formState.homeAddressRef}
+                        onChange={(ref) => setFormState(prev => ({ ...prev, homeAddressRef: ref }))}
+                        disabled={disabled}
+                    />
+                )}
+                {formState.partyType === 'ORGANISATION' && (
+                    <PartyAddressSection
+                        clientLEId={clientLEId}
+                        label="Registered Address"
+                        currentRef={formState.registeredAddressRef}
+                        onChange={(ref) => setFormState(prev => ({ ...prev, registeredAddressRef: ref }))}
+                        disabled={disabled}
+                    />
+                )}
+                {formState.partyType === 'TEAM' && (
+                    <PartyAddressSection
+                        clientLEId={clientLEId}
+                        label="Correspondence Address"
+                        currentRef={formState.correspondenceAddressRef}
+                        onChange={(ref) => setFormState(prev => ({ ...prev, correspondenceAddressRef: ref }))}
+                        disabled={disabled}
+                    />
+                )}
+            </div>
+
+            <div className="border-t pt-6">
                 <PartyIdentitySection 
                     state={formState} 
                     onChange={updates => setFormState(prev => ({ ...prev, identity: { ...prev.identity, ...updates } }))} 
@@ -133,6 +165,7 @@ export function CanonicalPartyEditor({ formState, onChange, previewLabel, disabl
 
             <div className="border-t pt-6">
                 <PartyRolesSection 
+                    clientLEId={clientLEId}
                     state={formState} 
                     onChange={updates => setFormState(prev => ({ ...prev, ...updates }))} 
                     disabled={disabled} 

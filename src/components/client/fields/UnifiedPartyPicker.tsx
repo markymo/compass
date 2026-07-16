@@ -218,6 +218,7 @@ export function UnifiedPartyPicker({ clientLEId, fieldNo, trigger, onSuccess, ro
                     <div className="space-y-4 pt-4">
                         <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
                             <CanonicalPartyEditor
+                                clientLEId={clientLEId}
                                 formState={newPartyData!}
                                 onChange={(val) => setNewPartyData(val)}
                                 disabled={isSaving}

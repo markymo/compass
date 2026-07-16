@@ -5,14 +5,16 @@ import { Label } from "@/components/ui/label";
 import { Plus, Trash2 } from "lucide-react";
 import { CanonicalPartyFormState } from "./state-mappers";
 import { Badge } from "@/components/ui/badge";
+import { PartyAddressSection } from "./PartyAddressSection";
 
 interface PartyRolesSectionProps {
+    clientLEId: string;
     state: CanonicalPartyFormState;
     onChange: (updates: Partial<Pick<CanonicalPartyFormState, 'roles'>>) => void;
     disabled?: boolean;
 }
 
-export function PartyRolesSection({ state, onChange, disabled }: PartyRolesSectionProps) {
+export function PartyRolesSection({ clientLEId, state, onChange, disabled }: PartyRolesSectionProps) {
     const addRole = () => {
         onChange({
             roles: [...state.roles, {
@@ -151,22 +153,25 @@ export function PartyRolesSection({ state, onChange, disabled }: PartyRolesSecti
                         </div>
                     </div>
 
-                    {(role.natureOfControl.length > 0 || role.correspondenceAddressRef) && (
+                    <div className="space-y-2 pt-2 border-t">
+                        <PartyAddressSection
+                            clientLEId={clientLEId}
+                            label="Role Correspondence Address"
+                            currentRef={role.correspondenceAddressRef}
+                            onChange={(ref) => updateRole(role.rowId, { correspondenceAddressRef: ref })}
+                            disabled={disabled}
+                        />
+                    </div>
+
+                    {role.natureOfControl.length > 0 && (
                         <div className="space-y-2 pt-2 border-t">
                             <Label className="text-xs text-gray-500 uppercase font-semibold">Preserved Read-Only Data</Label>
-                            {role.natureOfControl.length > 0 && (
-                                <div className="text-sm flex flex-wrap gap-1">
-                                    <span className="font-medium mr-1">Nature of Control:</span>
-                                    {role.natureOfControl.map((noc, i) => (
-                                        <Badge key={i} variant="secondary">{noc}</Badge>
-                                    ))}
-                                </div>
-                            )}
-                            {role.correspondenceAddressRef && (
-                                <div className="text-sm text-gray-600">
-                                    <span className="font-medium">Address Reference:</span> {role.correspondenceAddressRef.ccAddressId}
-                                </div>
-                            )}
+                            <div className="text-sm flex flex-wrap gap-1">
+                                <span className="font-medium mr-1">Nature of Control:</span>
+                                {role.natureOfControl.map((noc, i) => (
+                                    <Badge key={i} variant="secondary">{noc}</Badge>
+                                ))}
+                            </div>
                         </div>
                     )}
                 </div>

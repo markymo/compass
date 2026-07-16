@@ -1,5 +1,5 @@
 import React from "react";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, CheckCircle2 } from "lucide-react";
 import { CanonicalPartyFormState } from "./state-mappers";
 
 interface LegacyAddressWarningProps {
@@ -21,19 +21,36 @@ export function LegacyAddressWarning({ state }: LegacyAddressWarningProps) {
                     These addresses are not canonical CCAddress references and cannot be edited here.
                     <strong> If you save any changes to this Party, these old-format addresses will NOT be carried into the saved version and will be lost.</strong>
                 </p>
-                <ul className="list-disc pl-5 space-y-1 mt-2 text-amber-900/80">
-                    {state.legacyTopLevelAddressDiagnostics.map((diag, i) => (
-                        <li key={`top-${i}`}>Legacy {diag}</li>
-                    ))}
-                    {state.roles.filter(r => r.legacyEmbeddedAddressDiagnostic).map((role, i) => (
-                        <li key={`role-${i}`}>
-                            Role Address (Legacy {role.legacyEmbeddedAddressDiagnostic})
-                            {role.roleTitle || role.roleType ? ` on ${role.roleTitle || role.roleType}` : ''}
-                        </li>
-                    ))}
+                <ul className="space-y-2 mt-3">
+                    {state.legacyTopLevelAddressDiagnostics.map((diag, i) => {
+                        const isResolved = 
+                            (diag === 'homeAddress' && !!state.homeAddressRef) ||
+                            (diag === 'correspondenceAddress' && !!state.correspondenceAddressRef);
+                        
+                        return (
+                            <li key={`top-${i}`} className="flex items-start gap-2">
+                                {isResolved ? <CheckCircle2 className="w-4 h-4 text-emerald-600 mt-0.5" /> : <div className="w-1.5 h-1.5 rounded-full bg-amber-600 mt-1.5 ml-1" />}
+                                <span className={isResolved ? "line-through text-emerald-700/80" : ""}>Legacy {diag}</span>
+                                {isResolved && <span className="text-emerald-700 text-xs font-medium ml-1">(Resolved)</span>}
+                            </li>
+                        );
+                    })}
+                    {state.roles.filter(r => r.legacyEmbeddedAddressDiagnostic).map((role, i) => {
+                        const isResolved = !!role.correspondenceAddressRef;
+                        return (
+                            <li key={`role-${i}`} className="flex items-start gap-2">
+                                {isResolved ? <CheckCircle2 className="w-4 h-4 text-emerald-600 mt-0.5" /> : <div className="w-1.5 h-1.5 rounded-full bg-amber-600 mt-1.5 ml-1" />}
+                                <span className={isResolved ? "line-through text-emerald-700/80" : ""}>
+                                    Role Address (Legacy {role.legacyEmbeddedAddressDiagnostic})
+                                    {role.roleTitle || role.roleType ? ` on ${role.roleTitle || role.roleType}` : ''}
+                                </span>
+                                {isResolved && <span className="text-emerald-700 text-xs font-medium ml-1">(Resolved)</span>}
+                            </li>
+                        );
+                    })}
                 </ul>
-                <p className="mt-2">
-                    Selecting a genuine saved address reference is the only way to retain an address association (coming in a future update).
+                <p className="mt-4">
+                    Selecting a genuine saved address reference is the only way to retain an address association.
                 </p>
             </div>
         </div>
