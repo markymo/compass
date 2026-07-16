@@ -217,9 +217,7 @@ export function CCPartyManager({ clientLEId, initialParties }: CCPartyManagerPro
                                         <TableHead className="text-xs font-bold text-slate-500 uppercase py-3 px-5 tracking-wider">
                                             Usage
                                         </TableHead>
-                                        <TableHead className="text-xs font-bold text-slate-500 uppercase py-3 px-5 tracking-wider font-mono">
-                                            Scope
-                                        </TableHead>
+
                                         <TableHead className="text-xs font-bold text-slate-500 uppercase py-3 px-5 tracking-wider text-right">
                                             Actions
                                         </TableHead>
@@ -291,9 +289,7 @@ export function CCPartyManager({ clientLEId, initialParties }: CCPartyManagerPro
                                                         <span className="text-xs text-slate-400 italic">Not currently used</span>
                                                     )}
                                                 </TableCell>
-                                                <TableCell className="py-3 px-5 text-xs font-semibold text-slate-400 font-mono">
-                                                    {party.visibility}
-                                                </TableCell>
+
                                                 <TableCell className="py-3 px-5 text-right">
                                                     <div className="flex items-center justify-end gap-1">
                                                         <Button
