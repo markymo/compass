@@ -54,7 +54,15 @@ vi.mock("@/services/masterData/cc-party-service", () => ({
     }
 }));
 
-import { getCCParties, upsertCCParty, deleteCCParty, promoteClaimToCCParty } from "../cc-party-actions";
+import {
+    searchCCParties,
+    getCCParties,
+    getCCParty,
+    upsertCCParty,
+    deleteCCParty,
+    upsertCCPartyV2,
+    promoteClaimToCCParty
+} from "../cc-party-actions";
 import { PartyValue } from "@/lib/master-data/party-value";
 
 const validParty: PartyValue = {
@@ -193,8 +201,6 @@ describe("cc-party-actions", () => {
     });
 
     describe("upsertCCPartyV2", () => {
-        const { upsertCCPartyV2 } = require("../cc-party-actions");
-
         it("validates strict CCPartyData and delegates to CCPartyService", async () => {
             const v2Payload = {
                 schemaVersion: 2,

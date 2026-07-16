@@ -197,9 +197,10 @@ describe.skipIf(!process.env.DATABASE_URL)('Phase 4 Attachment Lifecycle Integra
             const addRes = await addFieldAttachment({ clientLEId, fieldNo: 999, attachmentDocumentId: docId1 });
             testClaims.push(addRes.id);
 
-            const replace1 = await replaceFieldAttachment({ clientLEId, fieldNo: 999, instanceId: addRes.instanceId, attachmentDocumentId: docId2, idempotencyKey: 'idem-rep' });
+            const key = `idem-rep-${Date.now()}`;
+            const replace1 = await replaceFieldAttachment({ clientLEId, fieldNo: 999, instanceId: addRes.instanceId, attachmentDocumentId: docId2, idempotencyKey: key });
             testClaims.push(replace1.id);
-            const replace2 = await replaceFieldAttachment({ clientLEId, fieldNo: 999, instanceId: addRes.instanceId, attachmentDocumentId: docId2, idempotencyKey: 'idem-rep' });
+            const replace2 = await replaceFieldAttachment({ clientLEId, fieldNo: 999, instanceId: addRes.instanceId, attachmentDocumentId: docId2, idempotencyKey: key });
             expect(replace1.id).toBe(replace2.id);
         });
 

@@ -60,7 +60,7 @@ const createBlankPartyForm = (): CanonicalPartyFormState => {
             sourceIdentifiers: [],
             roles: []
         } as any
-    });
+    } as any);
 };
 
 export function CCPartyManager({ clientLEId, initialParties }: CCPartyManagerProps) {
@@ -80,7 +80,7 @@ export function CCPartyManager({ clientLEId, initialParties }: CCPartyManagerPro
 
     const handleEditClick = (party: CCPartyRecord) => {
         setSelectedParty(party);
-        setEditorValue(initialiseCanonicalPartyForm({ party: party.data, legacy: party.legacy }));
+        setEditorValue(initialiseCanonicalPartyForm({ party: party.data, legacy: party.legacy } as any));
         setDialogOpen(true);
     };
 
@@ -117,7 +117,7 @@ export function CCPartyManager({ clientLEId, initialParties }: CCPartyManagerPro
     const handleSave = () => {
         const candidate = buildCCPartyDataFromForm(
             editorValue, 
-            selectedParty ? { party: selectedParty.data, legacy: selectedParty.legacy } : undefined
+            selectedParty ? ({ party: selectedParty.data, legacy: selectedParty.legacy } as any) : undefined
         );
         
         if (!candidate.isValid) {
@@ -217,7 +217,7 @@ export function CCPartyManager({ clientLEId, initialParties }: CCPartyManagerPro
                                 </TableHeader>
                                 <TableBody>
                                     {initialParties.map((party) => {
-                                        const summary = party.data ? getPartyLabel({ party: party.data, legacy: party.legacy || {} }) : "Unknown";
+                                        const summary = party.data ? getPartyLabel({ party: party.data, legacy: party.legacy || {} } as any) : "Unknown";
                                         const isActive = party.data.isActiveParty !== false;
                                         const partySub = party.data.partySubType || party.data.contactType;
                                         const usage = (party as any).usage;
@@ -381,7 +381,7 @@ export function CCPartyManager({ clientLEId, initialParties }: CCPartyManagerPro
                                 onChange={setEditorValue}
                                 disabled={isPending}
                                 isNew={!selectedParty}
-                                previewLabel={(editorValue && getPartyLabel({ party: buildCCPartyDataFromForm(editorValue).data || editorValue as any })) || "Unnamed Party"}
+                                previewLabel={(editorValue && getPartyLabel({ party: buildCCPartyDataFromForm(editorValue).data || editorValue as any } as any)) || "Unnamed Party"}
                             />
                         </div>
                     </div>

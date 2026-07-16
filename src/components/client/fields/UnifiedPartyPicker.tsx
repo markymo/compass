@@ -96,7 +96,7 @@ export function UnifiedPartyPicker({ clientLEId, fieldNo, trigger, onSuccess, ro
             phones: [],
             sourceIdentifiers: []
         };
-        setNewPartyData(initialiseCanonicalPartyForm({ party: blankData as any }));
+        setNewPartyData(initialiseCanonicalPartyForm({ party: blankData as any } as any));
     };
 
     const handleSaveNew = () => {
