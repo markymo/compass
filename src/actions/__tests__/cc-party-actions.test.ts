@@ -54,7 +54,15 @@ vi.mock("@/services/masterData/cc-party-service", () => ({
     }
 }));
 
-import { getCCParties, upsertCCParty, deleteCCParty, promoteClaimToCCParty } from "../cc-party-actions";
+import {
+    searchCCParties,
+    getCCParties,
+    getCCParty,
+    upsertCCParty,
+    deleteCCParty,
+    upsertCCPartyV2,
+    promoteClaimToCCParty
+} from "../cc-party-actions";
 import { PartyValue } from "@/lib/master-data/party-value";
 
 const validParty: PartyValue = {
@@ -189,6 +197,52 @@ describe("cc-party-actions", () => {
                 updatedByUserId: "user-123"
             });
             expect(mockCCPartyUpdate).not.toHaveBeenCalled(); // No direct prisma
+        });
+    });
+
+    describe("upsertCCPartyV2", () => {
+        it("validates strict CCPartyData and delegates to CCPartyService", async () => {
+            const v2Payload = {
+                schemaVersion: 2,
+                partyType: "INDIVIDUAL",
+                forenames: "Alice",
+                surname: "Smith",
+                emails: [],
+                phones: [],
+                roles: [],
+                sourceIdentifiers: [],
+                isActiveParty: true
+            };
+
+            mockCCPartyServiceCreate.mockResolvedValue({
+                id: "v2-party-id",
+                clientLEId: "le-123",
+                data: v2Payload
+            });
+
+            const result = await upsertCCPartyV2({
+                clientLEId: "le-123",
+                data: v2Payload
+            });
+
+            expect(result.success).toBe(true);
+            expect(mockCCPartyServiceCreate).toHaveBeenCalledWith({
+                clientLEId: "le-123",
+                createdByUserId: "user-123",
+                data: v2Payload
+            });
+        });
+
+        it("rejects invalid or legacy payloads", async () => {
+            const legacyPayload = {
+                contactType: "PERSON",
+                forenames: "Alice"
+            };
+
+            await expect(upsertCCPartyV2({
+                clientLEId: "le-123",
+                data: legacyPayload
+            })).rejects.toThrow("Invalid CCPartyData V2 structure");
         });
     });
 

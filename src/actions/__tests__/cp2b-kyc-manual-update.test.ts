@@ -76,7 +76,17 @@ describe('CP2B Action Updates', () => {
             // 2. assertClaim fails (simulating graph rules or other failure)
             mockAssertClaim.mockResolvedValue(null);
 
-            const result = await createCCPartyAndReferenceField('client-1', 1, { partyType: 'INDIVIDUAL' });
+            const v2Payload = {
+                schemaVersion: 2,
+                partyType: 'INDIVIDUAL',
+                forenames: 'Test',
+                isActiveParty: true,
+                emails: [],
+                phones: [],
+                roles: [],
+                sourceIdentifiers: []
+            };
+            const result = await createCCPartyAndReferenceField('client-1', 1, v2Payload);
 
             expect(result.success).toBe(false);
             expect(result.message).toContain('Update failed');

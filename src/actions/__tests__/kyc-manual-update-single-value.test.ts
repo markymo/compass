@@ -91,7 +91,17 @@ describe('addExistingCCPartyReferenceToField & createCCPartyAndReferenceField fo
     });
 
     it('should write single-value created party claim with undefined instanceId and collectionId', async () => {
-        const res = await createCCPartyAndReferenceField('le-123', 133, { contactType: 'PERSON' });
+        const v2Payload = {
+            schemaVersion: 2,
+            partyType: 'INDIVIDUAL',
+            forenames: 'Test',
+            emails: [],
+            phones: [],
+            roles: [],
+            sourceIdentifiers: [],
+            isActiveParty: true
+        };
+        const res = await createCCPartyAndReferenceField('le-123', 133, v2Payload);
         expect(res.success).toBe(true);
 
         expect(FieldClaimService.assertClaim).toHaveBeenCalledWith(expect.objectContaining({
@@ -100,5 +110,11 @@ describe('addExistingCCPartyReferenceToField & createCCPartyAndReferenceField fo
             instanceId: undefined,
             collectionId: undefined
         }));
+    });
+
+    it('should reject legacy V1 payloads', async () => {
+        const res = await createCCPartyAndReferenceField('le-123', 133, { contactType: 'PERSON' });
+        expect(res.success).toBe(false);
+        expect(res.message).toMatch(/Invalid CCPartyData V2/);
     });
 });

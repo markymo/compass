@@ -20,9 +20,10 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { PersonOrContactValueEditor } from "@/components/client/fields/PersonOrContactValueEditor";
-import { PartyValue, getPartySummary } from "@/lib/master-data/party-value";
-import { upsertCCParty, deleteCCParty } from "@/actions/cc-party-actions";
+import { CanonicalPartyEditor } from "@/components/client/fields/canonical-party-editor/CanonicalPartyEditor";
+import { CanonicalPartyFormState, initialiseCanonicalPartyForm, buildCCPartyDataFromForm, EditorSubmissionCandidate } from "@/components/client/fields/canonical-party-editor/state-mappers";
+import { getPartyLabel } from "@/lib/master-data/party-v2/label-helper";
+import { upsertCCPartyV2, deleteCCParty } from "@/actions/cc-party-actions";
 import { Plus, Edit, Trash2, Loader2, Layers, AlertTriangle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -30,7 +31,8 @@ import { toast } from "sonner";
 interface CCPartyRecord {
     id: string;
     clientLEId: string;
-    data: PartyValue;
+    data: any;
+    legacy?: any;
     visibility: string;
     createdAt: Date;
     updatedAt: Date;
@@ -47,27 +49,19 @@ interface CCPartyManagerProps {
     initialParties: CCPartyRecord[];
 }
 
-const createBlankPartyValue = (): PartyValue => ({
-    contactType: "PERSON",
-    partyType: "INDIVIDUAL",
-    partySubType: "PERSON",
-    title: null,
-    forenames: null,
-    surname: null,
-    email: null,
-    phones: [],
-    nationality: [],
-    countryOfResidence: null,
-    dateOfBirth: null,
-    placeOfBirth: null,
-    roles: [],
-    sourceIdentifiers: [],
-    isActiveParty: true,
-    isActivePersonOrContact: true,
-    visibility: {
-        scope: "CLIENT_LE",
-    },
-});
+const createBlankPartyForm = (): CanonicalPartyFormState => {
+    return initialiseCanonicalPartyForm({
+        party: {
+            schemaVersion: 2,
+            partyType: "INDIVIDUAL",
+            isActiveParty: true,
+            emails: [],
+            phones: [],
+            sourceIdentifiers: [],
+            roles: []
+        } as any
+    } as any);
+};
 
 export function CCPartyManager({ clientLEId, initialParties }: CCPartyManagerProps) {
     const router = useRouter();
@@ -75,17 +69,18 @@ export function CCPartyManager({ clientLEId, initialParties }: CCPartyManagerPro
     const [dialogOpen, setDialogOpen] = useState(false);
     const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
     const [selectedParty, setSelectedParty] = useState<CCPartyRecord | null>(null);
-    const [editorValue, setEditorValue] = useState<PartyValue>(createBlankPartyValue());
+    const [editorValue, setEditorValue] = useState<CanonicalPartyFormState>(createBlankPartyForm());
+    const [omissionsContext, setOmissionsContext] = useState<EditorSubmissionCandidate | null>(null);
 
     const handleCreateClick = () => {
         setSelectedParty(null);
-        setEditorValue(createBlankPartyValue());
+        setEditorValue(createBlankPartyForm());
         setDialogOpen(true);
     };
 
     const handleEditClick = (party: CCPartyRecord) => {
         setSelectedParty(party);
-        setEditorValue(JSON.parse(JSON.stringify(party.data))); // Deep copy
+        setEditorValue(initialiseCanonicalPartyForm({ party: party.data, legacy: party.legacy } as any));
         setDialogOpen(true);
     };
 
@@ -94,13 +89,13 @@ export function CCPartyManager({ clientLEId, initialParties }: CCPartyManagerPro
         setConfirmDeleteOpen(true);
     };
 
-    const handleSave = () => {
+    const executeSave = (candidateData: any) => {
         startTransition(async () => {
             try {
-                const res = await upsertCCParty({
+                const res = await upsertCCPartyV2({
                     id: selectedParty?.id,
                     clientLEId,
-                    data: editorValue,
+                    data: candidateData,
                 });
 
                 if (res.success) {
@@ -110,12 +105,32 @@ export function CCPartyManager({ clientLEId, initialParties }: CCPartyManagerPro
                             : "Saved party created successfully"
                     );
                     setDialogOpen(false);
+                    setOmissionsContext(null);
                     router.refresh();
                 }
             } catch (err: any) {
                 toast.error(err.message || "Failed to save saved party");
             }
         });
+    };
+
+    const handleSave = () => {
+        const candidate = buildCCPartyDataFromForm(
+            editorValue, 
+            selectedParty ? ({ party: selectedParty.data, legacy: selectedParty.legacy } as any) : undefined
+        );
+        
+        if (!candidate.isValid) {
+            toast.error("Please fill out all required fields.");
+            return;
+        }
+
+        if (candidate.destructiveOmissions.length > 0) {
+            setOmissionsContext(candidate);
+            return;
+        }
+
+        executeSave(candidate.data);
     };
 
     const handleConfirmDelete = () => {
@@ -202,7 +217,7 @@ export function CCPartyManager({ clientLEId, initialParties }: CCPartyManagerPro
                                 </TableHeader>
                                 <TableBody>
                                     {initialParties.map((party) => {
-                                        const summary = getPartySummary(party.data);
+                                        const summary = party.data ? getPartyLabel({ party: party.data, legacy: party.legacy || {} } as any) : "Unknown";
                                         const isActive = party.data.isActiveParty !== false;
                                         const partySub = party.data.partySubType || party.data.contactType;
                                         const usage = (party as any).usage;
@@ -215,9 +230,6 @@ export function CCPartyManager({ clientLEId, initialParties }: CCPartyManagerPro
                                                     <div className="flex flex-col">
                                                         <span className="font-bold text-xs text-slate-500 tracking-wide">
                                                             {party.data.partyType || "UNKNOWN"}
-                                                        </span>
-                                                        <span className="text-xs text-slate-400 capitalize">
-                                                            {partySub.toLowerCase()}
                                                         </span>
                                                     </div>
                                                 </TableCell>
@@ -280,6 +292,7 @@ export function CCPartyManager({ clientLEId, initialParties }: CCPartyManagerPro
                                                             onClick={() => handleEditClick(party)}
                                                             className="h-8.5 w-8.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition-all duration-150"
                                                             title="Edit saved party"
+                                                            aria-label="Edit saved party"
                                                         >
                                                             <Edit className="h-4 w-4" />
                                                         </Button>
@@ -289,6 +302,7 @@ export function CCPartyManager({ clientLEId, initialParties }: CCPartyManagerPro
                                                             onClick={() => handleDeleteClick(party)}
                                                             className="h-8.5 w-8.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-all duration-150"
                                                             title="Delete saved party"
+                                                            aria-label="Delete saved party"
                                                         >
                                                             <Trash2 className="h-4 w-4" />
                                                         </Button>
@@ -362,10 +376,12 @@ export function CCPartyManager({ clientLEId, initialParties }: CCPartyManagerPro
                         </div>
 
                         <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-sm">
-                            <PersonOrContactValueEditor
-                                value={editorValue}
+                            <CanonicalPartyEditor
+                                formState={editorValue}
                                 onChange={setEditorValue}
                                 disabled={isPending}
+                                isNew={!selectedParty}
+                                previewLabel={(editorValue && getPartyLabel({ party: buildCCPartyDataFromForm(editorValue).data || editorValue as any } as any)) || "Unnamed Party"}
                             />
                         </div>
                     </div>
@@ -389,6 +405,45 @@ export function CCPartyManager({ clientLEId, initialParties }: CCPartyManagerPro
                             ) : (
                                 "Save Changes"
                             )}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Omissions Confirmation Dialog */}
+            <Dialog open={!!omissionsContext} onOpenChange={(open) => !open && setOmissionsContext(null)}>
+                <DialogContent className="max-w-md p-0 overflow-hidden border border-amber-100 shadow-xl rounded-xl">
+                    <div className="p-6 space-y-3">
+                        <div className="flex items-center gap-2.5 text-amber-600">
+                            <div className="p-2 bg-amber-50 rounded-full border border-amber-100">
+                                <AlertTriangle className="h-5 w-5" />
+                            </div>
+                            <DialogTitle className="text-base font-bold">Confirm Address Removal</DialogTitle>
+                        </div>
+                        <DialogDescription className="text-slate-600 text-sm leading-relaxed pl-1">
+                            Saving this party will permanently drop the following legacy embedded addresses. They will be removed from the master record.
+                            <ul className="mt-2 list-disc list-inside text-xs text-slate-500 bg-slate-50 p-2 rounded">
+                                {omissionsContext?.destructiveOmissions.map((o, idx) => (
+                                    <li key={idx}><strong>{o.displayValue}</strong> ({o.addressRole})</li>
+                                ))}
+                            </ul>
+                        </DialogDescription>
+                    </div>
+                    <DialogFooter className="p-4 bg-slate-50/50 border-t border-slate-100 flex items-center justify-end gap-2 rounded-b-xl">
+                        <Button
+                            variant="outline"
+                            onClick={() => setOmissionsContext(null)}
+                            disabled={isPending}
+                            className="border-slate-200 text-slate-700 hover:bg-slate-50 h-9 px-4 text-sm font-semibold rounded-lg"
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={() => omissionsContext && executeSave(omissionsContext.data)}
+                            disabled={isPending}
+                            className="bg-amber-600 hover:bg-amber-700 text-white h-9 px-4 text-sm font-semibold rounded-lg shadow-sm transition-all duration-150"
+                        >
+                            {isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : "Proceed & Drop Addresses"}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
