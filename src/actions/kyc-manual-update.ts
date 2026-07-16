@@ -602,14 +602,16 @@ export async function createCCPartyAndReferenceField(
             enrichedPartyData = enrichCCPartyRolesForField63(clientLE, partyValueData);
         }
 
+        const { isCCPartyData } = await import("@/lib/master-data/party-v2/CCPartyData");
+        if (!isCCPartyData(enrichedPartyData)) {
+            return { success: false, message: "Invalid CCPartyData V2 structure provided" };
+        }
+
         const { CCPartyService } = await import("@/services/masterData/cc-party-service");
-        const { convertLegacyManualPartyToV2 } = await import("@/services/masterData/cc-party-legacy-adapter");
-        
-        const v2Data = convertLegacyManualPartyToV2(enrichedPartyData);
 
         const newParty = await CCPartyService.create({
             clientLEId,
-            data: v2Data,
+            data: enrichedPartyData,
             createdByUserId: identity.userId
         });
 
