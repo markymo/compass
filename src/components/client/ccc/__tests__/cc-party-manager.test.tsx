@@ -19,6 +19,7 @@ import { CCPartyManager } from '../cc-party-manager';
 import { CCPartyData } from '@/lib/master-data/party-v2/CCPartyData';
 import { getPartyLabel } from '@/lib/master-data/party-v2/label-helper';
 import * as actions from '@/actions/cc-party-actions';
+import { toast } from 'sonner';
 import * as matchers from '@testing-library/jest-dom/matchers';
 expect.extend(matchers);
 
@@ -177,13 +178,16 @@ describe('CCPartyManager Integration', () => {
         fireEvent.change(surnameInput, { target: { value: '' } });
 
         // Cannot save individual without name
-        expect(saveButton).toBeDisabled();
+        fireEvent.click(saveButton);
+        expect(toast.error).toHaveBeenCalledWith("Please fill out all required fields.");
         
         // Add a name
         fireEvent.change(forenameInput, { target: { value: 'Jane' } });
         
-        // Now it should be enabled
-        expect(saveButton).not.toBeDisabled();
+        // Now it can save
+        mockUpsertCCPartyV2.mockResolvedValueOnce({ success: true, message: 'OK' });
+        fireEvent.click(saveButton);
+        expect(mockUpsertCCPartyV2).toHaveBeenCalled();
     });
 
     it('maintains stable role identity after deleting a middle role', async () => {

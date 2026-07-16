@@ -7,8 +7,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Search, Plus, User, Building, Loader2 } from "lucide-react";
 import { searchCCParties } from "@/actions/cc-party-actions";
 import { addExistingCCPartyReferenceToField, createCCPartyAndReferenceField } from "@/actions/kyc-manual-update";
-import { PersonOrContactValueEditor } from "./PersonOrContactValueEditor";
-import { PartyValue } from "@/lib/master-data/party-value";
+import { CanonicalPartyEditor } from "./canonical-party-editor/CanonicalPartyEditor";
+import { CanonicalPartyFormState, initialiseCanonicalPartyForm, buildCCPartyDataFromForm } from "./canonical-party-editor/state-mappers";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 
@@ -29,7 +29,7 @@ export function UnifiedPartyPicker({ clientLEId, fieldNo, trigger, onSuccess, ro
     const [isSaving, startSaveTransition] = useTransition();
 
     const [isCreatingNew, setIsCreatingNew] = useState(false);
-    const [newPartyData, setNewPartyData] = useState<PartyValue | null>(null);
+    const [newPartyData, setNewPartyData] = useState<CanonicalPartyFormState | null>(null);
 
     // Reset state on open
     useEffect(() => {
@@ -74,10 +74,10 @@ export function UnifiedPartyPicker({ clientLEId, fieldNo, trigger, onSuccess, ro
 
     const handleCreateNew = () => {
         setIsCreatingNew(true);
-        // Initialize default empty structure
-        setNewPartyData({
+        const blankData = {
+            schemaVersion: 2,
             partyType: "INDIVIDUAL",
-            contactType: "PERSON",
+            isActiveParty: true,
             roles: fieldNo === 63 ? [{
                 roleType: "director",
                 roleTitle: "Director",
@@ -92,27 +92,25 @@ export function UnifiedPartyPicker({ clientLEId, fieldNo, trigger, onSuccess, ro
                 resignedOn: null,
                 natureOfControl: []
             }] : [],
-            title: null,
-            forenames: "",
-            surname: "",
-            email: null,
+            emails: [],
             phones: [],
-            nationality: [],
-            countryOfResidence: null,
-            dateOfBirth: null,
-            placeOfBirth: null,
-            sourceIdentifiers: [],
-            isActivePersonOrContact: null,
-            visibility: { scope: "CLIENT_LE" }
-        } as any);
+            sourceIdentifiers: []
+        };
+        setNewPartyData(initialiseCanonicalPartyForm({ party: blankData as any }));
     };
 
     const handleSaveNew = () => {
         if (!newPartyData) return;
+        
+        const candidate = buildCCPartyDataFromForm(newPartyData);
+        if (!candidate.isValid) {
+            toast.error("Please fill out all required fields.");
+            return;
+        }
 
         startSaveTransition(async () => {
             try {
-                const res = await createCCPartyAndReferenceField(clientLEId, fieldNo, newPartyData, rowId);
+                const res = await createCCPartyAndReferenceField(clientLEId, fieldNo, candidate.data, rowId);
                 if (res.success) {
                     toast.success("New party created and added successfully");
                     setOpen(false);
@@ -219,11 +217,12 @@ export function UnifiedPartyPicker({ clientLEId, fieldNo, trigger, onSuccess, ro
                 ) : (
                     <div className="space-y-4 pt-4">
                         <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
-                            <PersonOrContactValueEditor
-                                value={newPartyData!}
-                                onChange={(val) => setNewPartyData(val as any)}
+                            <CanonicalPartyEditor
+                                formState={newPartyData!}
+                                onChange={(val) => setNewPartyData(val)}
                                 disabled={isSaving}
-                                fieldNo={fieldNo}
+                                isNew={true}
+                                previewLabel={newPartyData?.partyType === "ORGANISATION" ? newPartyData?.identity?.legalName || "Unnamed Organisation" : newPartyData?.partyType === "TEAM" ? newPartyData?.identity?.teamName || "Unnamed Team" : `${newPartyData?.identity?.forenames || ''} ${newPartyData?.identity?.surname || ''}`.trim() || "Unnamed Individual"}
                             />
                         </div>
                         <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 mt-4">
