@@ -1,3 +1,4 @@
+import { AttachmentLifecycleResolver } from "./AttachmentLifecycleResolver";
 import prisma from "@/lib/prisma";
 import { ClaimStatus, FieldClaim, Prisma } from "@prisma/client";
 import { COLLECTION_FIELD_CONFIG } from "./collection-field-config";
@@ -398,23 +399,14 @@ export class KycStateService {
             ]
         });
 
-        // Group by instanceId
-        const instanceGroups: Record<string, FieldClaim[]> = {};
-        for (const c of claims) {
-            const key = c.instanceId || 'default';
-            if (!instanceGroups[key]) instanceGroups[key] = [];
-            instanceGroups[key].push(c);
-        }
+        const histories = AttachmentLifecycleResolver.resolveHistories(claims);
 
         const resultsWithOrder: { derived: DerivedValue; oldestAssertedAt: number; oldestId: string }[] = [];
         
-        for (const key in instanceGroups) {
-            const group = instanceGroups[key];
-            // Since they are ordered by assertedAt desc, the first one is the latest claim for this instance
-            const latestClaim = group[0];
-            
-            // If the latest claim is not a tombstone, the attachment is active
-            if (!this.isTombstone(latestClaim)) {
+        for (const history of histories.values()) {
+            if (!history.isRemoved && history.currentDocumentId) {
+                // The latest event is the current active claim
+                const latestClaim = history.events[history.events.length - 1];
                 const derived = this.mapToDerivedValue(latestClaim);
                 if ((latestClaim as any).attachmentDocument) {
                     const doc = (latestClaim as any).attachmentDocument;
@@ -424,7 +416,7 @@ export class KycStateService {
                     derived.documentCreatedAt = doc.createdAt;
                     derived.documentUploadedBy = doc.uploadedBy?.name;
                 }
-                const oldestClaim = group[group.length - 1];
+                const oldestClaim = history.events[0];
                 resultsWithOrder.push({ derived, oldestAssertedAt: oldestClaim.assertedAt.getTime(), oldestId: oldestClaim.id });
             }
         }
@@ -461,48 +453,41 @@ export class KycStateService {
             orderBy: [{ assertedAt: 'desc' }, { id: 'desc' }],
         });
 
-        // Group by fieldNo -> instanceId -> claims
-        const fieldGroups = new Map<number, Record<string, FieldClaim[]>>();
-        for (const c of allClaims) {
-            let instances = fieldGroups.get(c.fieldNo);
-            if (!instances) {
-                instances = {};
-                fieldGroups.set(c.fieldNo, instances);
-            }
-            const key = c.instanceId || 'default';
-            if (!instances[key]) instances[key] = [];
-            instances[key].push(c);
-        }
+        const histories = AttachmentLifecycleResolver.resolveHistories(allClaims);
 
         for (const fieldNo of fieldNos) {
-            const instances = fieldGroups.get(fieldNo) || {};
-            const resultsWithOrder: { derived: DerivedValue; oldestAssertedAt: number; oldestId: string }[] = [];
-            
-            for (const key in instances) {
-                const group = instances[key];
-                const latestClaim = group[0];
-                
-                if (!this.isTombstone(latestClaim)) {
-                    const derived = this.mapToDerivedValue(latestClaim);
-                    // Pass document info manually since mapToDerivedValue doesn't
-                    if ((latestClaim as any).attachmentDocument) {
-                        const doc = (latestClaim as any).attachmentDocument;
-                        derived.documentName = doc.name;
-                        derived.documentMimeType = doc.mimeType;
-                        derived.documentSizeBytes = doc.sizeBytes?.toString();
-                        derived.documentCreatedAt = doc.createdAt;
-                        derived.documentUploadedBy = doc.uploadedBy?.name;
-                    }
-                    const oldestClaim = group[group.length - 1];
-                    resultsWithOrder.push({ derived, oldestAssertedAt: oldestClaim.assertedAt.getTime(), oldestId: oldestClaim.id });
-                }
-            }
+            result.set(fieldNo, []);
+        }
 
+        const fieldResultsWithOrder = new Map<number, { derived: DerivedValue; oldestAssertedAt: number; oldestId: string }[]>();
+
+        for (const history of histories.values()) {
+            if (!history.isRemoved && history.currentDocumentId) {
+                const latestClaim = history.events[history.events.length - 1];
+                const derived = this.mapToDerivedValue(latestClaim);
+                
+                if ((latestClaim as any).attachmentDocument) {
+                    const doc = (latestClaim as any).attachmentDocument;
+                    derived.documentName = doc.name;
+                    derived.documentMimeType = doc.mimeType;
+                    derived.documentSizeBytes = doc.sizeBytes?.toString();
+                    derived.documentCreatedAt = doc.createdAt;
+                    derived.documentUploadedBy = doc.uploadedBy?.name;
+                }
+
+                const oldestClaim = history.events[0];
+                if (!fieldResultsWithOrder.has(history.fieldNo)) {
+                    fieldResultsWithOrder.set(history.fieldNo, []);
+                }
+                fieldResultsWithOrder.get(history.fieldNo)!.push({ derived, oldestAssertedAt: oldestClaim.assertedAt.getTime(), oldestId: oldestClaim.id });
+            }
+        }
+
+        for (const [fieldNo, resultsWithOrder] of fieldResultsWithOrder.entries()) {
             resultsWithOrder.sort((a, b) => {
                 if (a.oldestAssertedAt !== b.oldestAssertedAt) return a.oldestAssertedAt - b.oldestAssertedAt;
                 return a.oldestId.localeCompare(b.oldestId);
             });
-
             result.set(fieldNo, resultsWithOrder.map(r => r.derived));
         }
 
