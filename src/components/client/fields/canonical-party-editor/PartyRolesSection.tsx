@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Plus, Trash2 } from "lucide-react";
 import { CanonicalPartyFormState } from "./state-mappers";
+import { PartyAddressRef } from "../CCAddressSelector";
 import { Badge } from "@/components/ui/badge";
 import { PartyAddressSection } from "./PartyAddressSection";
 
@@ -12,9 +13,11 @@ interface PartyRolesSectionProps {
     state: CanonicalPartyFormState;
     onChange: (updates: Partial<Pick<CanonicalPartyFormState, 'roles'>>) => void;
     disabled?: boolean;
+    /** Optional callback to trigger address creation, receiving a callback to set the form state with the resulting reference */
+    onRequestCreateAddress?: (onCreated: (ref: PartyAddressRef) => void) => void;
 }
 
-export function PartyRolesSection({ clientLEId, state, onChange, disabled }: PartyRolesSectionProps) {
+export function PartyRolesSection({ clientLEId, state, onChange, disabled, onRequestCreateAddress }: PartyRolesSectionProps) {
     const addRole = () => {
         onChange({
             roles: [...state.roles, {
@@ -157,9 +160,10 @@ export function PartyRolesSection({ clientLEId, state, onChange, disabled }: Par
                         <PartyAddressSection
                             clientLEId={clientLEId}
                             label="Role Correspondence Address"
-                            currentRef={role.correspondenceAddressRef}
+                            currentRef={role.correspondenceAddressRef || null}
                             onChange={(ref) => updateRole(role.rowId, { correspondenceAddressRef: ref })}
                             disabled={disabled}
+                            onCreateAddress={onRequestCreateAddress ? () => onRequestCreateAddress((ref) => updateRole(role.rowId, { correspondenceAddressRef: ref })) : undefined}
                         />
                     </div>
 

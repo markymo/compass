@@ -11,6 +11,8 @@ import { CanonicalPartyEditor } from "./canonical-party-editor/CanonicalPartyEdi
 import { CanonicalPartyFormState, initialiseCanonicalPartyForm, buildCCPartyDataFromForm } from "./canonical-party-editor/state-mappers";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
+import { CreateCCAddressDialog } from "./CreateCCAddressDialog";
+import { PartyAddressRef } from "./CCAddressSelector";
 
 interface UnifiedPartyPickerProps {
     clientLEId: string;
@@ -30,6 +32,7 @@ export function UnifiedPartyPicker({ clientLEId, fieldNo, trigger, onSuccess, ro
 
     const [isCreatingNew, setIsCreatingNew] = useState(false);
     const [newPartyData, setNewPartyData] = useState<CanonicalPartyFormState | null>(null);
+    const [addressCreateContext, setAddressCreateContext] = useState<((ref: PartyAddressRef) => void) | null>(null);
 
     // Reset state on open
     useEffect(() => {
@@ -38,6 +41,7 @@ export function UnifiedPartyPicker({ clientLEId, fieldNo, trigger, onSuccess, ro
             setResults([]);
             setIsCreatingNew(false);
             setNewPartyData(null);
+            setAddressCreateContext(null);
         }
     }, [open]);
 
@@ -125,7 +129,11 @@ export function UnifiedPartyPicker({ clientLEId, fieldNo, trigger, onSuccess, ro
     };
 
     return (
-        <Dialog open={open} onOpenChange={setOpen}>
+        <>
+        <Dialog open={open} onOpenChange={(newOpen) => {
+            setOpen(newOpen);
+            if (!newOpen) setAddressCreateContext(null);
+        }}>
             <DialogTrigger asChild>
                 {trigger || (
                     <Button
@@ -224,6 +232,7 @@ export function UnifiedPartyPicker({ clientLEId, fieldNo, trigger, onSuccess, ro
                                 disabled={isSaving}
                                 isNew={true}
                                 previewLabel={newPartyData?.partyType === "ORGANISATION" ? newPartyData?.identity?.legalName || "Unnamed Organisation" : newPartyData?.partyType === "TEAM" ? newPartyData?.identity?.teamName || "Unnamed Team" : `${newPartyData?.identity?.forenames || ''} ${newPartyData?.identity?.surname || ''}`.trim() || "Unnamed Individual"}
+                                onRequestCreateAddress={(onCreated) => setAddressCreateContext(() => onCreated)}
                             />
                         </div>
                         <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 mt-4">
@@ -247,5 +256,19 @@ export function UnifiedPartyPicker({ clientLEId, fieldNo, trigger, onSuccess, ro
                 )}
             </DialogContent>
         </Dialog>
+
+        <CreateCCAddressDialog
+            clientLEId={clientLEId}
+            open={addressCreateContext !== null}
+            onOpenChange={(open) => {
+                if (!open) setAddressCreateContext(null);
+            }}
+            onSuccess={(ref) => {
+                if (addressCreateContext) {
+                    addressCreateContext(ref);
+                }
+            }}
+        />
+        </>
     );
 }

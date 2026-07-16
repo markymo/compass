@@ -22,6 +22,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { CanonicalPartyEditor } from "@/components/client/fields/canonical-party-editor/CanonicalPartyEditor";
 import { CanonicalPartyFormState, initialiseCanonicalPartyForm, buildCCPartyDataFromForm, EditorSubmissionCandidate } from "@/components/client/fields/canonical-party-editor/state-mappers";
+import { CreateCCAddressDialog } from "@/components/client/fields/CreateCCAddressDialog";
+import { PartyAddressRef } from "@/components/client/fields/CCAddressSelector";
 import { getPartyLabel } from "@/lib/master-data/party-v2/label-helper";
 import { upsertCCPartyV2, deleteCCParty } from "@/actions/cc-party-actions";
 import { Plus, Edit, Trash2, Loader2, Layers, AlertTriangle } from "lucide-react";
@@ -71,6 +73,7 @@ export function CCPartyManager({ clientLEId, initialParties }: CCPartyManagerPro
     const [selectedParty, setSelectedParty] = useState<CCPartyRecord | null>(null);
     const [editorValue, setEditorValue] = useState<CanonicalPartyFormState>(createBlankPartyForm());
     const [omissionsContext, setOmissionsContext] = useState<EditorSubmissionCandidate | null>(null);
+    const [addressCreateContext, setAddressCreateContext] = useState<((ref: PartyAddressRef) => void) | null>(null);
 
     const handleCreateClick = () => {
         setSelectedParty(null);
@@ -383,6 +386,7 @@ export function CCPartyManager({ clientLEId, initialParties }: CCPartyManagerPro
                                 disabled={isPending}
                                 isNew={!selectedParty}
                                 previewLabel={(editorValue && getPartyLabel({ party: buildCCPartyDataFromForm(editorValue).data || editorValue as any } as any)) || "Unnamed Party"}
+                                onRequestCreateAddress={(onCreated) => setAddressCreateContext(() => onCreated)}
                             />
                         </div>
                     </div>
@@ -390,7 +394,10 @@ export function CCPartyManager({ clientLEId, initialParties }: CCPartyManagerPro
                     <DialogFooter className="p-5 border-t border-slate-100 bg-slate-50/50 flex items-center justify-end gap-3 rounded-b-xl">
                         <Button
                             variant="outline"
-                            onClick={() => setDialogOpen(false)}
+                            onClick={() => {
+                                setDialogOpen(false);
+                                setAddressCreateContext(null);
+                            }}
                             disabled={isPending}
                             className="border-slate-200 text-slate-700 hover:bg-slate-50 h-9 px-4 text-sm font-semibold rounded-lg"
                         >
@@ -488,6 +495,19 @@ export function CCPartyManager({ clientLEId, initialParties }: CCPartyManagerPro
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            <CreateCCAddressDialog
+                clientLEId={clientLEId}
+                open={addressCreateContext !== null}
+                onOpenChange={(open) => {
+                    if (!open) setAddressCreateContext(null);
+                }}
+                onSuccess={(ref) => {
+                    if (addressCreateContext) {
+                        addressCreateContext(ref);
+                    }
+                }}
+            />
         </div>
     );
 }

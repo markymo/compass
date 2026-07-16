@@ -103,13 +103,21 @@ export function UnifiedAddressPicker({ clientLEId, fieldNo, trigger, onSuccess, 
                 </DialogHeader>
 
                 {!isCreatingNew ? (
-                    <div className="pt-2">
+                    <div className="pt-2 space-y-4">
                         <CCAddressSelector
                             clientLEId={clientLEId}
                             onSelect={handleSelectExisting}
-                            onCreateNew={handleCreateNew}
                             disabled={isSaving}
                         />
+                        <Button
+                            variant="outline"
+                            className="w-full bg-white shadow-sm border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+                            onClick={handleCreateNew}
+                            disabled={isSaving}
+                        >
+                            <Plus className="h-4 w-4 mr-2" />
+                            Create new address
+                        </Button>
                     </div>
                 ) : (
                     <div className="space-y-4 pt-4">

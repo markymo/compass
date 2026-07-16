@@ -42,6 +42,25 @@ describe("PartyAddressSection", () => {
         expect(screen.getByTestId("mock-ref")).toHaveTextContent("ref-456");
     });
 
+    it("renders Create new address button when onCreateAddress is provided and calls it", () => {
+        const onCreateAddress = vi.fn();
+        render(
+            <PartyAddressSection 
+                clientLEId="client-123"
+                label="Home Address Test"
+                currentRef={null}
+                onChange={vi.fn()}
+                onCreateAddress={onCreateAddress}
+            />
+        );
+
+        const createButton = screen.getByText("Create new address");
+        expect(createButton).toBeInTheDocument();
+
+        createButton.click();
+        expect(onCreateAddress).toHaveBeenCalledTimes(1);
+    });
+
     it("proves that no address mutation action is imported or called from PartyAddressSection", () => {
         const source = fs.readFileSync(path.join(__dirname, '../PartyAddressSection.tsx'), 'utf-8');
         

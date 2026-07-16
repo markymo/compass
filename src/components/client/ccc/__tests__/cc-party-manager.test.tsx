@@ -24,6 +24,15 @@ import * as matchers from '@testing-library/jest-dom/matchers';
 expect.extend(matchers);
 
 const DialogContext = require('react').createContext({ open: false, onOpenChange: () => {} });
+vi.mock("next-auth", () => ({
+    default: vi.fn(() => ({
+        handlers: {},
+        auth: vi.fn(),
+        signIn: vi.fn(),
+        signOut: vi.fn()
+    }))
+}));
+vi.mock("next/server", () => ({ NextResponse: {} }));
 vi.mock('@/components/ui/dialog', () => {
     const React = require('react');
     return {
@@ -319,6 +328,51 @@ describe('CCPartyManager Integration', () => {
         await waitFor(() => {
             expect(mockUpsertCCPartyV2).toHaveBeenCalledTimes(1);
             expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+        });
+    });
+
+    it('orchestrates address creation dialog correctly', async () => {
+        const mockParty = createBaseMockParty();
+        render(<CCPartyManager initialParties={[mockParty as any]} clientLEId={testClientLEId} onClose={vi.fn()} />);
+        
+        // Open Party Editor
+        fireEvent.click(screen.getByRole('button', { name: /Edit saved party/i }));
+        
+        // Open Address Creation Dialog
+        const createAddrBtns = screen.getAllByRole('button', { name: /Create new address/i });
+        fireEvent.click(createAddrBtns[0]); // Home Address
+
+        // Verify the create dialog is open
+        expect(screen.getByText('Create New Address')).toBeInTheDocument();
+
+        // Close the address creation dialog (simulate cancellation)
+        // Since we mocked Dialog, we'll click the Cancel button in CreateCCAddressDialog
+        // Let's find the Cancel button for the address dialog (there might be multiple Cancel buttons)
+        const cancelBtns = screen.getAllByRole('button', { name: /Cancel/i });
+        // The last one is likely the address dialog cancel
+        fireEvent.click(cancelBtns[cancelBtns.length - 1]);
+
+        await waitFor(() => {
+            expect(screen.queryByText('Create New Address')).not.toBeInTheDocument();
+        });
+        
+        // The main Party Editor should still be open
+        expect(screen.getAllByText('John Doe')[0]).toBeInTheDocument();
+        
+        // Re-open Address Creation Dialog
+        fireEvent.click(createAddrBtns[0]);
+        expect(screen.getByText('Create New Address')).toBeInTheDocument();
+
+        // Now, let's test if clearing the stale addressCreateContext works when closing the Party editor
+        // We'll close the Party Editor dialog itself
+        const partyCancelBtn = cancelBtns[0]; // The first one is the Party Editor's Cancel button
+        fireEvent.click(partyCancelBtn);
+        
+        // Both dialogs should disappear
+        await waitFor(() => {
+            // The editor preview label should not be present (there's only 1 John Doe now, in the table)
+            expect(screen.getAllByText('John Doe')).toHaveLength(1);
+            expect(screen.queryByText('Create New Address')).not.toBeInTheDocument();
         });
     });
 });

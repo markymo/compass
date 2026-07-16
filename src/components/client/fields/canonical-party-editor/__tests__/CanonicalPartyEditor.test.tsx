@@ -95,4 +95,32 @@ describe("CanonicalPartyEditor Integrations", () => {
         expect(source).not.toContain('createCCAddress');
         expect(source).not.toContain('@/actions/cc-address-actions');
     });
+    it("updates correct address ref when onRequestCreateAddress callback fires", () => {
+        let createAddressCallback: ((ref: any) => void) | undefined;
+        const onRequestCreateAddress = vi.fn((cb) => {
+            createAddressCallback = cb;
+        });
+
+        render(
+            <CanonicalPartyEditor
+                clientLEId="client-123"
+                formState={mockFormState}
+                onChange={onChange}
+                onRequestCreateAddress={onRequestCreateAddress}
+                isNew={true}
+            />
+        );
+
+        const createButtons = screen.getAllByText("Create new address");
+        fireEvent.click(createButtons[0]);
+
+        expect(onRequestCreateAddress).toHaveBeenCalledTimes(1);
+        expect(createAddressCallback).toBeDefined();
+
+        // Simulate the address being created
+        createAddressCallback!({ ccAddressId: "new-addr-123" });
+        expect(onChange).toHaveBeenCalled();
+        const newState = onChange.mock.calls[0][0];
+        expect(newState.homeAddressRef.ccAddressId).toBe("new-addr-123");
+    });
 });

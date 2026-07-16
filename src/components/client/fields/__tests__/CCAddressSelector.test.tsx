@@ -82,26 +82,6 @@ describe('CCAddressSelector', () => {
         expect(onSelect).toHaveBeenCalledWith(null);
     });
 
-    it('calls onCreateNew when create button is clicked', () => {
-        const onCreateNew = vi.fn();
-        const onSelect = vi.fn();
-        
-        render(<CCAddressSelector clientLEId={testClientLEId} onSelect={onSelect} onCreateNew={onCreateNew} />);
-
-        const createBtn = screen.getByRole('button', { name: /Create new address/i });
-        fireEvent.click(createBtn);
-
-        expect(onCreateNew).toHaveBeenCalled();
-    });
-
-    it('does not render create button if onCreateNew is not provided', () => {
-        const onSelect = vi.fn();
-        
-        render(<CCAddressSelector clientLEId={testClientLEId} onSelect={onSelect} />);
-
-        expect(screen.queryByRole('button', { name: /Create new address/i })).not.toBeInTheDocument();
-    });
-
     it('renders explicit broken reference state for missing addresses', async () => {
         vi.mocked(actions.searchCCAddresses).mockResolvedValueOnce([]); // Empty results
         const onSelect = vi.fn();

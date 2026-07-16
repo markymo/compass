@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { PartyAddressRef } from "../CCAddressSelector";
 import { CanonicalPartyFormState } from "./state-mappers";
 import { PartyIdentitySection } from "./PartyIdentitySection";
 import { PartyContactSection } from "./PartyContactSection";
@@ -17,9 +18,10 @@ interface CanonicalPartyEditorProps {
     previewLabel?: string;
     disabled?: boolean;
     isNew?: boolean; // Determines if party type is editable
+    onRequestCreateAddress?: (onCreated: (ref: PartyAddressRef) => void) => void;
 }
 
-export function CanonicalPartyEditor({ clientLEId, formState, onChange, previewLabel, disabled, isNew = false }: CanonicalPartyEditorProps) {
+export function CanonicalPartyEditor({ clientLEId, formState, onChange, previewLabel, disabled, isNew = false, onRequestCreateAddress }: CanonicalPartyEditorProps) {
     const handlePartyTypeChange = (newType: CanonicalPartyFormState['partyType']) => {
         if (!isNew) return;
         
@@ -46,7 +48,8 @@ export function CanonicalPartyEditor({ clientLEId, formState, onChange, previewL
                 dateOfBirth: { year: "", month: "", day: "" }
             },
             homeAddressRef: null,
-            registeredAddressRef: null
+            registeredAddressRef: null,
+            correspondenceAddressRef: null
         });
     };
 
@@ -125,6 +128,7 @@ export function CanonicalPartyEditor({ clientLEId, formState, onChange, previewL
                         currentRef={formState.homeAddressRef}
                         onChange={(ref) => setFormState(prev => ({ ...prev, homeAddressRef: ref }))}
                         disabled={disabled}
+                        onCreateAddress={onRequestCreateAddress ? () => onRequestCreateAddress((ref) => setFormState(prev => ({ ...prev, homeAddressRef: ref }))) : undefined}
                     />
                 )}
                 {formState.partyType === 'ORGANISATION' && (
@@ -134,6 +138,7 @@ export function CanonicalPartyEditor({ clientLEId, formState, onChange, previewL
                         currentRef={formState.registeredAddressRef}
                         onChange={(ref) => setFormState(prev => ({ ...prev, registeredAddressRef: ref }))}
                         disabled={disabled}
+                        onCreateAddress={onRequestCreateAddress ? () => onRequestCreateAddress((ref) => setFormState(prev => ({ ...prev, registeredAddressRef: ref }))) : undefined}
                     />
                 )}
                 {formState.partyType === 'TEAM' && (
@@ -143,6 +148,7 @@ export function CanonicalPartyEditor({ clientLEId, formState, onChange, previewL
                         currentRef={formState.correspondenceAddressRef}
                         onChange={(ref) => setFormState(prev => ({ ...prev, correspondenceAddressRef: ref }))}
                         disabled={disabled}
+                        onCreateAddress={onRequestCreateAddress ? () => onRequestCreateAddress((ref) => setFormState(prev => ({ ...prev, correspondenceAddressRef: ref }))) : undefined}
                     />
                 )}
             </div>

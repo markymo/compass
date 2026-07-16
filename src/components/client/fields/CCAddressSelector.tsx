@@ -15,7 +15,6 @@ export interface CCAddressSelectorProps {
     clientLEId: string;
     currentRef?: PartyAddressRef | null;
     onSelect: (ref: PartyAddressRef | null, data?: AddressValue) => void;
-    onCreateNew?: () => void;
     disabled?: boolean;
 }
 
@@ -23,7 +22,6 @@ export function CCAddressSelector({
     clientLEId,
     currentRef,
     onSelect,
-    onCreateNew,
     disabled
 }: CCAddressSelectorProps) {
     const [query, setQuery] = useState("");
@@ -156,19 +154,6 @@ export function CCAddressSelector({
                     </div>
                 )}
                 
-                {onCreateNew && (
-                    <div className="p-3 border-t border-slate-100 bg-slate-50/50">
-                        <Button 
-                            variant="outline" 
-                            className="w-full bg-white shadow-sm border-indigo-200 text-indigo-700 hover:bg-indigo-50"
-                            onClick={onCreateNew}
-                            disabled={disabled}
-                        >
-                            <Plus className="h-4 w-4 mr-2" />
-                            Create new address
-                        </Button>
-                    </div>
-                )}
             </div>
         </div>
     );
