@@ -40,6 +40,7 @@ interface CCAddressRecord {
     originFieldName?: string;
     originSourceLabel?: string;
     originClaimId?: string;
+    usage?: import("@/actions/cc-address-usage-resolver").CCAddressUsageSummary;
 }
 
 interface CCAddressManagerProps {
@@ -212,17 +213,24 @@ export function CCAddressManager({ clientLEId, initialAddresses }: CCAddressMana
                                                     </div>
                                                 </TableCell>
                                                 <TableCell className="py-3 px-5 text-sm">
-                                                    {usage && usage.length > 0 ? (
+                                                    {usage && (usage.partyUsages.length > 0 || usage.fieldUsages.length > 0) ? (
                                                         <div className="flex flex-col gap-1">
-                                                            <span className="font-semibold text-xs text-slate-700">Used in {usage.length} field{usage.length !== 1 ? 's' : ''}</span>
+                                                            <span className="font-semibold text-xs text-slate-700">
+                                                                Used by {usage.partyUsages.length} party record{usage.partyUsages.length !== 1 ? 's' : ''}, {usage.fieldUsages.length} field reference{usage.fieldUsages.length !== 1 ? 's' : ''}
+                                                            </span>
                                                             <div className="flex flex-col gap-0.5 mt-0.5">
-                                                                {usage.slice(0, 3).map((u: any) => (
-                                                                    <span key={u.fieldNo} className="text-[10px] text-slate-500 max-w-[180px] truncate" title={`Field ${u.fieldNo} — ${u.fieldName}`}>
-                                                                        Field {u.fieldNo} — {u.fieldName}
+                                                                {usage.partyUsages.slice(0, 2).map((u: any, idx: number) => (
+                                                                    <span key={`p-${idx}`} className="text-[10px] text-slate-500 max-w-[180px] truncate" title={`${u.partyLabel} — ${u.usageKind.replace(/_/g, ' ')}`}>
+                                                                        Party record: {u.partyLabel}
                                                                     </span>
                                                                 ))}
-                                                                {usage.length > 3 && (
-                                                                    <span className="text-[10px] text-slate-400 italic">+{usage.length - 3} more...</span>
+                                                                {usage.fieldUsages.slice(0, Math.max(0, 3 - usage.partyUsages.length)).map((u: any) => (
+                                                                    <span key={`f-${u.fieldNo}`} className="text-[10px] text-slate-500 max-w-[180px] truncate" title={`Field reference ${u.fieldNo} — ${u.fieldName}`}>
+                                                                        Field reference {u.fieldNo} — {u.fieldName}
+                                                                    </span>
+                                                                ))}
+                                                                {(usage.partyUsages.length + usage.fieldUsages.length) > 3 && (
+                                                                    <span className="text-[10px] text-slate-400 italic">+{usage.partyUsages.length + usage.fieldUsages.length - 3} more...</span>
                                                                 )}
                                                             </div>
                                                         </div>
@@ -303,19 +311,35 @@ export function CCAddressManager({ clientLEId, initialAddresses }: CCAddressMana
                                     </div>
                                     <div className="flex items-start gap-1.5">
                                         <span className="font-semibold text-slate-700 min-w-[50px]">Usage:</span>
-                                        {selectedAddress && (selectedAddress as any).usage && (selectedAddress as any).usage.length > 0 ? (
-                                            <div className="flex flex-col gap-0.5">
-                                                <span className="text-xs font-semibold text-indigo-600">
-                                                    Used in {(selectedAddress as any).usage.length} field{(selectedAddress as any).usage.length !== 1 ? 's' : ''}
-                                                </span>
-                                                {(selectedAddress as any).usage.map((u: any) => (
-                                                    <span key={u.fieldNo} className="text-[10px] text-slate-500 max-w-[200px] truncate" title={`Field ${u.fieldNo} — ${u.fieldName}`}>
-                                                        Field {u.fieldNo} — {u.fieldName}
-                                                    </span>
-                                                ))}
+                                        {selectedAddress && selectedAddress.usage && (selectedAddress.usage.partyUsages.length > 0 || selectedAddress.usage.fieldUsages.length > 0) ? (
+                                            <div className="flex flex-col gap-2">
+                                                {selectedAddress.usage.partyUsages.length > 0 && (
+                                                    <div className="flex flex-col gap-0.5">
+                                                        <span className="text-xs font-semibold text-indigo-600">
+                                                            Used by {selectedAddress.usage.partyUsages.length} part{selectedAddress.usage.partyUsages.length !== 1 ? 'ies' : 'y'}
+                                                        </span>
+                                                        {selectedAddress.usage.partyUsages.map((u: any, idx: number) => (
+                                                            <span key={`p-${idx}`} className="text-[10px] text-slate-500 max-w-[200px] truncate" title={`${u.partyLabel} — ${u.usageKind.replace(/_/g, ' ')}`}>
+                                                                {u.partyLabel} <span className="text-slate-400 font-normal">({u.usageKind.replace(/_/g, ' ').toLowerCase()})</span>
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                                {selectedAddress.usage.fieldUsages.length > 0 && (
+                                                    <div className="flex flex-col gap-0.5">
+                                                        <span className="text-xs font-semibold text-indigo-600">
+                                                            Used in {selectedAddress.usage.fieldUsages.length} field{selectedAddress.usage.fieldUsages.length !== 1 ? 's' : ''}
+                                                        </span>
+                                                        {selectedAddress.usage.fieldUsages.map((u: any) => (
+                                                            <span key={`f-${u.fieldNo}`} className="text-[10px] text-slate-500 max-w-[200px] truncate" title={`Field ${u.fieldNo} — ${u.fieldName}`}>
+                                                                Field {u.fieldNo} — {u.fieldName}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                )}
                                             </div>
                                         ) : (
-                                            <span className="text-slate-500 italic">No references yet</span>
+                                            <span className="text-slate-500 italic">Not currently used by any Party or Field</span>
                                         )}
                                     </div>
                                 </div>

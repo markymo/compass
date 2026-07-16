@@ -6,6 +6,7 @@ import { Prisma } from "@prisma/client";
 import { AddressValue, isAddressValue } from "@/lib/master-data/address-value";
 import { revalidatePath } from "next/cache";
 import { getMasterFieldDefinition } from "@/services/masterData/definitionService";
+import { resolveCCAddressUsages, CCAddressUsageSummary } from "./cc-address-usage-resolver";
 
 function extractIds(value: any, idKey: string, foundIds: Set<string> = new Set()): Set<string> {
     if (!value) return foundIds;
@@ -129,7 +130,7 @@ export async function getCCAddresses(clientLEId: string) {
                 ...a,
                 data: a.data as unknown as AddressValue,
                 ...originMetadata,
-                usage: usageMap[a.id] || []
+                usage: usageMap[a.id] || { ccAddressId: a.id, partyUsages: [], fieldUsages: [] }
             };
         });
     } catch (error) {
@@ -195,48 +196,14 @@ export async function upsertCCAddress(params: {
  * Get usage of curated addresses across CC_ADDRESS_REF fields
  * Returns a map of ccAddressId -> Array of { fieldNo, fieldName }
  */
-export async function getCCAddressUsage(clientLEId: string) {
+export async function getCCAddressUsage(clientLEId: string): Promise<Record<string, CCAddressUsageSummary>> {
     const identity = await getIdentity();
     if (!identity?.userId) {
         throw new Error("Unauthorized");
     }
 
     try {
-        const claims = await prisma.fieldClaim.findMany({
-            where: { valueJson: { not: Prisma.AnyNull }, claimRole: 'VALUE' },
-            select: { fieldNo: true, valueJson: true }
-        });
-
-        const usageMap: Record<string, { fieldNo: number; fieldName: string }[]> = {};
-        const defMap = new Map<number, string>();
-
-        for (const claim of claims) {
-            const value = claim.valueJson as any;
-            const addressIds = extractIds(value, 'ccAddressId');
-            for (const addressId of addressIds) {
-                if (!usageMap[addressId]) {
-                    usageMap[addressId] = [];
-                }
-                // Avoid duplicates if multiple claims for the same field point to the same address
-                if (!usageMap[addressId].some(u => u.fieldNo === claim.fieldNo)) {
-                    // Lazy load field definitions only for fields that actually have usage
-                    if (!defMap.has(claim.fieldNo)) {
-                        try {
-                            const def = await getMasterFieldDefinition(claim.fieldNo);
-                            defMap.set(claim.fieldNo, def.fieldName);
-                        } catch (e) {
-                            defMap.set(claim.fieldNo, `Field ${claim.fieldNo}`);
-                        }
-                    }
-                    usageMap[addressId].push({
-                        fieldNo: claim.fieldNo,
-                        fieldName: defMap.get(claim.fieldNo) as string
-                    });
-                }
-            }
-        }
-
-        return usageMap;
+        return await resolveCCAddressUsages(clientLEId);
     } catch (error) {
         console.error("Failed to fetch CC address usage:", error);
         throw new Error("Failed to fetch saved address usage");
@@ -253,18 +220,11 @@ export async function deleteCCAddress(id: string, clientLEId: string) {
     }
 
     try {
-        const claims = await prisma.fieldClaim.findMany({
-            where: { valueJson: { not: Prisma.AnyNull }, claimRole: 'VALUE' },
-            select: { valueJson: true }
-        });
+        const usageMap = await resolveCCAddressUsages(clientLEId, [id]);
+        const usage = usageMap[id];
 
-        const isUsed = claims.some((c: any) => {
-            const val = c.valueJson as any;
-            return extractIds(val, 'ccAddressId').has(id);
-        });
-
-        if (isUsed) {
-            return { success: false, error: "This saved address is used by one or more fields. Remove those references before deleting." };
+        if (usage && (usage.partyUsages.length > 0 || usage.fieldUsages.length > 0)) {
+            return { success: false, error: "This saved address is used. Remove all references before deleting." };
         }
 
         await prisma.cCAddress.delete({
