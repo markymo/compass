@@ -2,7 +2,7 @@
  * @vitest-environment happy-dom
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, cleanup, act } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import { LibraryUploader } from '../LibraryUploader';
 import { upload } from '@vercel/blob/client';
@@ -33,7 +33,6 @@ vi.mock('next/navigation', () => ({
 describe('LibraryUploader', () => {
     beforeEach(() => {
         vi.clearAllMocks();
-        vi.useFakeTimers();
     });
 
     afterEach(() => {
@@ -99,25 +98,17 @@ describe('LibraryUploader', () => {
         const input = document.querySelector('input[type="file"]') as HTMLInputElement;
         
         vi.mocked(upload).mockResolvedValue({} as any);
-        vi.mocked(getUploadIntentStatus).mockResolvedValueOnce({ status: 'pending' })
-                                        .mockResolvedValueOnce({ status: 'completed', attachment: { documentId: 'doc-1' } } as any);
+        vi.mocked(getUploadIntentStatus).mockResolvedValue({ status: 'completed', attachment: { documentId: 'doc-1' } } as any);
 
         const file = new File(['hello'], 'doc.pdf', { type: 'application/pdf' });
-        fireEvent.change(input, { target: { files: [file] } });
-
-        // Wait for upload to trigger processing
-        await waitFor(() => {
-            expect(getUploadIntentStatus).toHaveBeenCalled();
+        
+        await act(async () => {
+            fireEvent.change(input, { target: { files: [file] } });
         });
 
-        // Advance timers to trigger the next poll
-        await vi.runOnlyPendingTimersAsync();
-
-        await waitFor(() => {
-            expect(toast.success).toHaveBeenCalledWith('Document uploaded successfully');
-            expect(mockRefresh).toHaveBeenCalledTimes(1);
-            expect(screen.getByText('Upload Document')).toBeInTheDocument(); // Reset to idle
-        });
+        expect(toast.success).toHaveBeenCalledWith('Document uploaded successfully');
+        expect(mockRefresh).toHaveBeenCalledTimes(1);
+        expect(screen.getByText('Upload Document')).toBeInTheDocument(); // Reset to idle
     });
 
     it('failed upload resets the control and shows an error', async () => {
@@ -127,12 +118,13 @@ describe('LibraryUploader', () => {
         vi.mocked(upload).mockRejectedValue(new Error('Network Error'));
 
         const file = new File(['hello'], 'doc.pdf', { type: 'application/pdf' });
-        fireEvent.change(input, { target: { files: [file] } });
-
-        await waitFor(() => {
-            expect(toast.error).toHaveBeenCalledWith('Network Error');
-            expect(screen.getByText('Upload Document')).toBeInTheDocument();
+        
+        await act(async () => {
+            fireEvent.change(input, { target: { files: [file] } });
         });
+
+        expect(toast.error).toHaveBeenCalledWith('Network Error');
+        expect(screen.getByText('Upload Document')).toBeInTheDocument();
     });
 
     it('failed processing intent resets the control and shows an error', async () => {
@@ -140,18 +132,16 @@ describe('LibraryUploader', () => {
         const input = document.querySelector('input[type="file"]') as HTMLInputElement;
         
         vi.mocked(upload).mockResolvedValue({} as any);
-        vi.mocked(getUploadIntentStatus).mockResolvedValueOnce({ status: 'failed', message: 'Virus detected' });
+        vi.mocked(getUploadIntentStatus).mockResolvedValue({ status: 'failed', message: 'Virus detected' });
 
         const file = new File(['hello'], 'doc.pdf', { type: 'application/pdf' });
-        fireEvent.change(input, { target: { files: [file] } });
-
-        // Advance timers for polling if needed
-        await vi.runOnlyPendingTimersAsync();
-
-        await waitFor(() => {
-            expect(toast.error).toHaveBeenCalledWith('Virus detected');
-            expect(screen.getByText('Upload Document')).toBeInTheDocument();
+        
+        await act(async () => {
+            fireEvent.change(input, { target: { files: [file] } });
         });
+
+        expect(toast.error).toHaveBeenCalledWith('Virus detected');
+        expect(screen.getByText('Upload Document')).toBeInTheDocument();
     });
 
     it('polling timeout or repeated polling failure', async () => {
@@ -161,18 +151,26 @@ describe('LibraryUploader', () => {
         vi.mocked(upload).mockResolvedValue({} as any);
         vi.mocked(getUploadIntentStatus).mockResolvedValue({ status: 'pending' });
 
+        vi.useFakeTimers();
+
         const file = new File(['hello'], 'doc.pdf', { type: 'application/pdf' });
-        fireEvent.change(input, { target: { files: [file] } });
+        
+        await act(async () => {
+            fireEvent.change(input, { target: { files: [file] } });
+        });
 
         // Let it poll 31 times
-        for (let i = 0; i < 32; i++) {
-            await vi.runOnlyPendingTimersAsync();
-        }
-
-        await waitFor(() => {
-            expect(toast.error).toHaveBeenCalledWith('Upload processing timed out. Please check again later.');
-            expect(screen.getByText('Upload Document')).toBeInTheDocument();
+        await act(async () => {
+            for (let i = 0; i < 35; i++) {
+                vi.advanceTimersByTime(2000);
+                await Promise.resolve(); // flush microtasks
+            }
         });
+
+        expect(toast.error).toHaveBeenCalledWith('Upload processing timed out. Please check again later.');
+        expect(screen.getByText('Upload Document')).toBeInTheDocument();
+        
+        vi.useRealTimers();
     });
 
     it('no concurrent second upload while one is active', async () => {
@@ -184,11 +182,12 @@ describe('LibraryUploader', () => {
         vi.mocked(upload).mockImplementation(() => new Promise((resolve) => { resolveUpload = resolve; }));
 
         const file = new File(['hello'], 'doc.pdf', { type: 'application/pdf' });
-        fireEvent.change(input, { target: { files: [file] } });
-
-        await waitFor(() => {
-            expect(screen.getByText(/Uploading/)).toBeInTheDocument();
+        
+        await act(async () => {
+            fireEvent.change(input, { target: { files: [file] } });
         });
+
+        expect(screen.getByText(/Uploading/)).toBeInTheDocument();
 
         // The button should be disabled
         const button = screen.getByRole('button');
@@ -203,6 +202,8 @@ describe('LibraryUploader', () => {
         // Upload should have only been called once
         expect(upload).toHaveBeenCalledTimes(1);
 
-        resolveUpload({});
+        await act(async () => {
+            resolveUpload({});
+        });
     });
 });
