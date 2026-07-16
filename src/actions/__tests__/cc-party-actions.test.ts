@@ -247,7 +247,7 @@ describe("cc-party-actions", () => {
     });
 
     describe("promoteClaimToCCParty", () => {
-        it("is the sole explicitly deferred legacy writer", async () => {
+        it("delegates to CCPartyService with V2 converted payload", async () => {
             mockFieldClaimFindUnique.mockResolvedValue({
                 id: 'claim-1',
                 claimRole: 'VALUE',
@@ -258,30 +258,25 @@ describe("cc-party-actions", () => {
 
             mockGetMasterFieldDefinition.mockResolvedValue({ appDataType: 'PARTY' });
             
-            mockCCPartyCreate.mockResolvedValue({
+            mockCCPartyServiceCreate.mockResolvedValue({
                 id: "new-party-from-claim",
                 clientLEId: "le-123",
-                data: validParty
+                data: { names: [] } // Mock converted data
             });
 
             const result = await promoteClaimToCCParty('claim-1', 'le-123');
 
             expect(result.success).toBe(true);
             
-            // Prove that it writes DIRECTLY to Prisma (legacy persistence path)
-            expect(mockCCPartyCreate).toHaveBeenCalledWith({
-                data: {
-                    clientLEId: 'le-123',
-                    data: validParty, // It passes the raw legacy value!
-                    visibility: "CLIENT_LE",
-                    createdFromClaimId: 'claim-1',
-                    createdByUserId: 'user-123',
-                    updatedByUserId: 'user-123'
-                }
-            });
+            // Prove that it delegates to the canonical service
+            expect(mockCCPartyServiceCreate).toHaveBeenCalledWith(expect.objectContaining({
+                clientLEId: 'le-123',
+                createdByUserId: 'user-123',
+                createdFromClaimId: 'claim-1'
+            }));
 
-            // Prove it does NOT call the v2 service
-            expect(mockCCPartyServiceCreate).not.toHaveBeenCalled();
+            // Prove it does NOT call the raw prisma create anymore
+            expect(mockCCPartyCreate).not.toHaveBeenCalled();
         });
     });
 });

@@ -43,8 +43,7 @@ import { AddressValueEditor } from "../fields/AddressValueEditor";
 import { UnifiedAddressPicker } from "../fields/UnifiedAddressPicker";
 import { isPersonOrContactValue, getPersonOrContactSummary, isValidPartyValue } from "@/lib/master-data/person-or-contact-value";
 import { PersonOrContactValueViewer } from "../fields/PersonOrContactValueViewer";
-import { PersonOrContactValueEditor } from "../fields/PersonOrContactValueEditor";
-import { PartyRefValueEditor } from "../fields/PartyRefValueEditor";
+import { CanonicalPartyEditDialog } from "../fields/CanonicalPartyEditDialog";
 import { UnifiedPartyPicker } from "../fields/UnifiedPartyPicker";
 import { inferClaimValueKind, ClaimValueKind } from "@/lib/master-data/claim-value-resolver";
 import { ExpandableRowItem } from "./expandable-row-item";
@@ -89,6 +88,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
     const [manualReason, setManualReason] = useState("");
     const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
     const [candidateToApply, setCandidateToApply] = useState<any | null>(null);
+    const [partyEditDialogState, setPartyEditDialogState] = useState<{ open: boolean; rowId?: string; ccPartyId?: string; legacyPartyData?: any } | null>(null);
 
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [isCheckingDependencies, setIsCheckingDependencies] = useState(false);
@@ -1317,72 +1317,6 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                                 onCreateNew={() => handleCreateNewNode(graphBindings.find(b => b.isActive)?.graphNodeType || (isPartyRef ? "PERSON" : "ADDRESS"))}
                                                                             />
                                                                         </div>
-                                                                    ) : inferredKind === 'PARTY_REF' ? (
-                                                                        <div className="flex-1 min-w-0 bg-slate-50 p-3 rounded border border-slate-200 space-y-3">
-                                                                            {parsedRowValue?.ccPartyId && (
-                                                                                <SharedResourceUsageNotice
-                                                                                    resourceType="PARTY"
-                                                                                    resourceId={parsedRowValue.ccPartyId}
-                                                                                    clientLEId={clientLEId}
-                                                                                    currentFieldNo={fieldNo}
-                                                                                />
-                                                                            )}
-                                                                            <PersonOrContactValueEditor
-                                                                                value={editingRowValue || { contactType: 'PERSON', roles: [] } as any}
-                                                                                onChange={setEditingRowValue}
-                                                                                disabled={isSaving}
-                                                                                fieldNo={fieldNo}
-                                                                            />
-                                                                            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200/60 bg-slate-50/50">
-                                                                                <Button
-                                                                                    size="sm"
-                                                                                    variant="outline"
-                                                                                    className="h-8 text-xs bg-white text-slate-700 border-slate-200"
-                                                                                    onClick={() => { setEditingRowId(null); setEditingRowValue(""); }}
-                                                                                    disabled={isSaving}
-                                                                                >
-                                                                                    Cancel
-                                                                                </Button>
-                                                                                <Button
-                                                                                    size="sm"
-                                                                                    className="h-8 text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-medium"
-                                                                                    onClick={() => handleInlineEditSave(row)}
-                                                                                    disabled={isSaving || !isValidPartyValue(editingRowValue)}
-                                                                                >
-                                                                                    {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : null}
-                                                                                    Save
-                                                                                </Button>
-                                                                            </div>
-                                                                        </div>
-                                                                    ) : inferredKind === 'EMBEDDED_PARTY' ? (
-                                                                        <div className="flex-1 min-w-0 bg-slate-50 p-3 rounded border border-slate-200 space-y-3">
-                                                                            <PersonOrContactValueEditor
-                                                                                value={editingRowValue || { contactType: 'PERSON', roles: [] } as any}
-                                                                                onChange={setEditingRowValue}
-                                                                                disabled={isSaving}
-                                                                                fieldNo={fieldNo}
-                                                                            />
-                                                                            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200/60 bg-slate-50/50">
-                                                                                <Button
-                                                                                    size="sm"
-                                                                                    variant="outline"
-                                                                                    className="h-8 text-xs bg-white text-slate-700 border-slate-200"
-                                                                                    onClick={() => { setEditingRowId(null); setEditingRowValue(""); }}
-                                                                                    disabled={isSaving}
-                                                                                >
-                                                                                    Cancel
-                                                                                </Button>
-                                                                                <Button
-                                                                                    size="sm"
-                                                                                    className="h-8 text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-medium"
-                                                                                    onClick={() => handleInlineEditSave(row)}
-                                                                                    disabled={isSaving || !isValidPartyValue(editingRowValue)}
-                                                                                >
-                                                                                    {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : null}
-                                                                                    Save
-                                                                                </Button>
-                                                                            </div>
-                                                                        </div>
                                                                     ) : inferredKind === 'ADDRESS_REF' || inferredKind === 'ADDRESS' ? (
                                                                         <div className="flex-1 min-w-0 bg-slate-50 p-3 rounded border border-slate-200 space-y-3">
                                                                             {parsedRowValue?.ccAddressId && (
@@ -1523,11 +1457,18 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                                     onClick={() => {
                                                                                         if (isObjectRef) {
                                                                                             handleEditNode(row);
+                                                                                        } else if (inferredKind === 'PARTY_REF' || inferredKind === 'EMBEDDED_PARTY') {
+                                                                                            const partyData = row.data?.ccParty?.data || row.data?._resolvedData?.ccParty?.data || parsedRowValue;
+                                                                                            const ccPartyId = inferredKind === 'PARTY_REF' ? parsedRowValue?.ccPartyId : undefined;
+                                                                                            setPartyEditDialogState({
+                                                                                                open: true,
+                                                                                                rowId: row.id,
+                                                                                                ccPartyId,
+                                                                                                legacyPartyData: partyData
+                                                                                            });
                                                                                         } else {
                                                                                             setEditingRowId(row.id);
-                                                                                            if (inferredKind === 'PARTY_REF') {
-                                                                                                setEditingRowValue(row.data?.ccParty?.data || row.data?._resolvedData?.ccParty?.data || parsedRowValue);
-                                                                                            } else if (inferredKind === 'ADDRESS_REF') {
+                                                                                            if (inferredKind === 'ADDRESS_REF') {
                                                                                                 setEditingRowValue(row.data?.ccAddress?.data || row.data?._resolvedData?.ccAddress?.data || parsedRowValue);
                                                                                             } else {
                                                                                                 setEditingRowValue(parsedRowValue);
@@ -1634,41 +1575,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                             <Plus className="h-4 w-4 mr-2" />
                                                             Add {graphBindings.find(b => b.isActive)?.pickerLabel?.replace('Select ', '') || (isPartyRef ? "Party" : "Address")}
                                                         </Button>
-                                                    ) : isCuratedPartyRef ? (
-                                                        <div>
-                                                            {!isAddingPerson ? (
-                                                                <Button
-                                                                    variant="outline"
-                                                                    onClick={() => {
-                                                                        setIsAddingPerson(true);
-                                                                        setNewPersonData(null);
-                                                                    }}
-                                                                    className="w-full justify-center bg-indigo-50/50 hover:bg-indigo-50 border-indigo-200 text-indigo-700 border-dashed"
-                                                                >
-                                                                    <Plus className="h-4 w-4 mr-2" />
-                                                                    Add saved party
-                                                                </Button>
-                                                            ) : (
-                                                                <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-3">
-                                                                    <PartyRefValueEditor
-                                                                        value={newPersonData}
-                                                                        onChange={setNewPersonData}
-                                                                        clientLEId={clientLEId}
-                                                                        disabled={isAddingSaving}
-                                                                    />
-                                                                    <div className="flex items-center gap-2 pt-2">
-                                                                        <Button size="sm" onClick={() => handleAddNewEntry(newPersonData)} disabled={isAddingSaving || !newPersonData?.ccPartyId}>
-                                                                            {isAddingSaving ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Save className="w-4 h-4 mr-1" />}
-                                                                            Save
-                                                                        </Button>
-                                                                        <Button size="sm" variant="outline" onClick={() => { setIsAddingPerson(false); setNewPersonData(null); }} disabled={isAddingSaving}>
-                                                                            Cancel
-                                                                        </Button>
-                                                                    </div>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    ) : isPersonOrContactField ? (
+                                                    ) : (isCuratedPartyRef || isPersonOrContactField) ? (
                                                         <div className="pt-2">
                                                             <UnifiedPartyPicker
                                                                 clientLEId={clientLEId}
@@ -2269,27 +2176,19 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                                 />
                                                                             </div>
                                                                         ) : isCuratedPartyRef || isPersonOrContactField ? (
-                                                                             <div className="mt-4 bg-slate-50 p-2 rounded border border-slate-200">
-                                                                                 <PersonOrContactValueEditor
-                                                                                     value={typeof manualValue === 'object' && manualValue ? manualValue : { contactType: 'PERSON', roles: [] } as any}
-                                                                                     onChange={(val) => setManualValue(val as any)}
-                                                                                     disabled={isSaving}
-                                                                                     fieldNo={fieldNo}
-                                                                                 />
-                                                                                <div className="flex items-center gap-2 mt-2">
-                                                                                    <Button
-                                                                                        size="sm"
-                                                                                        className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700"
-                                                                                        onClick={() => {
-                                                                                            setIsEditing(true);
-                                                                                            handleManualSave();
-                                                                                        }}
-                                                                                        disabled={isSaving || !isValidPartyValue(manualValue)}
-                                                                                    >
-                                                                                        {isSaving ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Check className="h-3 w-3 mr-1" />}
-                                                                                        Save
-                                                                                    </Button>
-                                                                                </div>
+                                                                            <div className="mt-4">
+                                                                                <UnifiedPartyPicker
+                                                                                    clientLEId={clientLEId}
+                                                                                    fieldNo={fieldNo}
+                                                                                    onSuccess={async () => {
+                                                                                        setIsEditing(false);
+                                                                                        const refreshed = await getFieldDetail(clientLEId, fieldNo, 'CLIENT_LE', customFieldId);
+                                                                                        setData(refreshed);
+                                                                                        if (onUpdate && refreshed?.current) {
+                                                                                            onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
+                                                                                        }
+                                                                                    }}
+                                                                                />
                                                                             </div>
                                                                         ) : data?.options && data.options.length > 0 ? (
                                                                             <div className="space-y-2">
@@ -2433,12 +2332,27 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                  currentFieldNo={fieldNo}
                                                              />
                                                          )}
-                                                         <PersonOrContactValueEditor
-                                                             value={typeof manualValue === 'object' && manualValue ? manualValue : { contactType: 'PERSON', roles: [] } as any}
-                                                             onChange={(val) => setManualValue(val as any)}
-                                                             disabled={isSaving}
-                                                             fieldNo={fieldNo}
-                                                         />
+                                                         <div className="mt-2 flex items-center justify-between">
+                                                             <span className="text-sm text-slate-600">
+                                                                 Use the canonical editor to update this party's details.
+                                                             </span>
+                                                             <Button
+                                                                 variant="outline"
+                                                                 size="sm"
+                                                                 className="text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+                                                                 onClick={() => {
+                                                                     setPartyEditDialogState({
+                                                                         open: true,
+                                                                         rowId: selectedRowId || undefined,
+                                                                         ccPartyId: parsedAuthoritativeValue?.ccPartyId,
+                                                                         legacyPartyData: parsedAuthoritativeValue
+                                                                     });
+                                                                 }}
+                                                             >
+                                                                 <Pencil className="h-3.5 w-3.5 mr-2" />
+                                                                 Edit Party Details
+                                                             </Button>
+                                                         </div>
                                                      </div>
                                                 ) : isAddressField || isCuratedAddressRef ? (
                                                      <div className="mt-4 bg-slate-50 p-3 rounded-lg border border-slate-200">
@@ -2824,6 +2738,26 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                     </div>
                 </div>
             </SheetContent>
+            
+            {partyEditDialogState && (
+                <CanonicalPartyEditDialog
+                    open={partyEditDialogState.open}
+                    onOpenChange={(open) => setPartyEditDialogState(open ? partyEditDialogState : null)}
+                    clientLEId={clientLEId}
+                    fieldNo={fieldNo}
+                    rowId={partyEditDialogState.rowId}
+                    ccPartyId={partyEditDialogState.ccPartyId}
+                    legacyPartyData={partyEditDialogState.legacyPartyData}
+                    onSuccess={async () => {
+                        const refreshed = await getFieldDetail(clientLEId, fieldNo, 'CLIENT_LE', customFieldId);
+                        setData(refreshed);
+                        if (onUpdate && refreshed?.current) {
+                            onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
+                        }
+                    }}
+                />
+            )}
+
             <NodeCreateDialog
                 open={createDialogOpen}
                 onOpenChange={setCreateDialogOpen}
