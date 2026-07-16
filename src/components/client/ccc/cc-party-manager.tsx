@@ -324,7 +324,7 @@ export function CCPartyManager({ clientLEId, initialParties }: CCPartyManagerPro
 
             {/* Create / Edit Dialog */}
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                <DialogContent className="max-w-4xl h-[85vh] md:h-[80vh] flex flex-col p-0 overflow-hidden border border-slate-100 shadow-xl rounded-xl">
+                <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col p-0 overflow-hidden border border-slate-100 shadow-xl rounded-xl">
                     <DialogHeader className="p-6 border-b border-slate-100/80 bg-white">
                         <DialogTitle className="text-lg font-bold tracking-tight text-slate-900">
                             {selectedParty ? "Edit saved party" : "Add saved party"}

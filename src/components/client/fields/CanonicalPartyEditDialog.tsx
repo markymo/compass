@@ -106,7 +106,7 @@ export function CanonicalPartyEditDialog({
     return (
         <>
             <Dialog open={open} onOpenChange={onOpenChange}>
-                <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-y-auto">
+                <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle>{ccPartyId ? "Edit Saved Party" : "Curate Party"}</DialogTitle>
                     </DialogHeader>

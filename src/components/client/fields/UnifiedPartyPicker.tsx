@@ -145,7 +145,7 @@ export function UnifiedPartyPicker({ clientLEId, fieldNo, trigger, onSuccess, ro
                     </Button>
                 )}
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-y-auto">
+            <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle>{isCreatingNew ? "Create New Party" : "Select or Create Party"}</DialogTitle>
                 </DialogHeader>

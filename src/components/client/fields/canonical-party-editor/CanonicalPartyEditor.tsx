@@ -43,6 +43,7 @@ export function CanonicalPartyEditor({ clientLEId, formState, onChange, previewL
                 surname: null,
                 legalName: null,
                 teamName: null,
+                location: null,
                 nationality: [],
                 placeOfBirth: null,
                 dateOfBirth: { year: "", month: "", day: "" }
@@ -121,6 +122,20 @@ export function CanonicalPartyEditor({ clientLEId, formState, onChange, previewL
             <LegacyAddressWarning state={formState} />
             
             <div className="border-t pt-6">
+                <PartyIdentitySection 
+                    state={formState} 
+                    onChange={updates => setFormState(prev => ({ ...prev, identity: { ...prev.identity, ...updates } }))} 
+                    disabled={disabled} 
+                />
+            </div>
+
+            <div className="border-t pt-6 space-y-6">
+                <PartyContactSection 
+                    state={formState} 
+                    onChange={updates => setFormState(prev => ({ ...prev, ...updates }))} 
+                    disabled={disabled} 
+                />
+
                 {formState.partyType === 'INDIVIDUAL' && (
                     <PartyAddressSection
                         clientLEId={clientLEId}
@@ -141,32 +156,6 @@ export function CanonicalPartyEditor({ clientLEId, formState, onChange, previewL
                         onCreateAddress={onRequestCreateAddress ? () => onRequestCreateAddress((ref) => setFormState(prev => ({ ...prev, registeredAddressRef: ref }))) : undefined}
                     />
                 )}
-                {formState.partyType === 'TEAM' && (
-                    <PartyAddressSection
-                        clientLEId={clientLEId}
-                        label="Correspondence Address"
-                        currentRef={formState.correspondenceAddressRef}
-                        onChange={(ref) => setFormState(prev => ({ ...prev, correspondenceAddressRef: ref }))}
-                        disabled={disabled}
-                        onCreateAddress={onRequestCreateAddress ? () => onRequestCreateAddress((ref) => setFormState(prev => ({ ...prev, correspondenceAddressRef: ref }))) : undefined}
-                    />
-                )}
-            </div>
-
-            <div className="border-t pt-6">
-                <PartyIdentitySection 
-                    state={formState} 
-                    onChange={updates => setFormState(prev => ({ ...prev, identity: { ...prev.identity, ...updates } }))} 
-                    disabled={disabled} 
-                />
-            </div>
-
-            <div className="border-t pt-6">
-                <PartyContactSection 
-                    state={formState} 
-                    onChange={updates => setFormState(prev => ({ ...prev, ...updates }))} 
-                    disabled={disabled} 
-                />
             </div>
 
             <div className="border-t pt-6">
