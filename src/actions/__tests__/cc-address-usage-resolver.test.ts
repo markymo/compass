@@ -1,27 +1,29 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import prisma from "@/lib/prisma";
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { prismaMock } from '@/lib/__mocks__/prisma';
 import { resolveCCAddressUsages } from "../cc-address-usage-resolver";
 import { v4 as uuidv4 } from "uuid";
+
+vi.mock('@/lib/prisma');
+vi.mock('@/services/masterData/definitionService', () => ({
+    getMasterFieldDefinition: vi.fn().mockResolvedValue({ fieldName: 'Mock Field' })
+}));
 
 describe('resolveCCAddressUsages', () => {
     const clientLEId = uuidv4();
 
-    beforeEach(async () => {
-        await prisma.cCParty.deleteMany({ where: { clientLEId } });
-        await prisma.fieldClaim.deleteMany({ where: { clientLeScopeId: clientLEId } });
-        await prisma.cCAddress.deleteMany({ where: { clientLEId } });
-        await prisma.clientLE.upsert({
-            where: { id: clientLEId },
-            update: {},
-            create: { id: clientLEId, name: "Test Client LE" }
-        });
+    beforeEach(() => {
+        vi.clearAllMocks();
     });
 
     it('returns empty summary when no parties or fields exist', async () => {
         const addressId = uuidv4();
-        await prisma.cCAddress.create({
-            data: { id: addressId, clientLEId, visibility: "CLIENT_LE", data: {} }
-        });
+        // @ts-ignore
+        prismaMock.cCAddress.findMany.mockResolvedValue([{ id: addressId, clientLEId }]);
+        // @ts-ignore
+        prismaMock.fieldClaim.findMany.mockResolvedValue([]);
+        // @ts-ignore
+        prismaMock.cCParty.findMany.mockResolvedValue([]);
+
         const summary = await resolveCCAddressUsages(clientLEId, [addressId]);
         expect(summary[addressId].partyUsages).toEqual([]);
         expect(summary[addressId].fieldUsages).toEqual([]);
@@ -29,13 +31,15 @@ describe('resolveCCAddressUsages', () => {
 
     it('extracts INDIVIDUAL homeAddressRef correctly', async () => {
         const addressId = uuidv4();
-        await prisma.cCAddress.create({
-            data: { id: addressId, clientLEId, visibility: "CLIENT_LE", data: {} }
-        });
+        // @ts-ignore
+        prismaMock.cCAddress.findMany.mockResolvedValue([{ id: addressId, clientLEId }]);
+        // @ts-ignore
+        prismaMock.fieldClaim.findMany.mockResolvedValue([]);
 
         const partyId = uuidv4();
-        await prisma.cCParty.create({
-            data: {
+        // @ts-ignore
+        prismaMock.cCParty.findMany.mockResolvedValue([
+            {
                 id: partyId,
                 clientLEId,
                 visibility: "CLIENT_LE",
@@ -51,7 +55,7 @@ describe('resolveCCAddressUsages', () => {
                     dateOfBirth: null
                 }
             }
-        });
+        ]);
 
         const summary = await resolveCCAddressUsages(clientLEId, [addressId]);
         expect(summary[addressId].partyUsages).toHaveLength(1);
@@ -62,13 +66,15 @@ describe('resolveCCAddressUsages', () => {
 
     it('extracts ORGANISATION registeredAddressRef correctly', async () => {
         const addressId = uuidv4();
-        await prisma.cCAddress.create({
-            data: { id: addressId, clientLEId, visibility: "CLIENT_LE", data: {} }
-        });
+        // @ts-ignore
+        prismaMock.cCAddress.findMany.mockResolvedValue([{ id: addressId, clientLEId }]);
+        // @ts-ignore
+        prismaMock.fieldClaim.findMany.mockResolvedValue([]);
 
         const partyId = uuidv4();
-        await prisma.cCParty.create({
-            data: {
+        // @ts-ignore
+        prismaMock.cCParty.findMany.mockResolvedValue([
+            {
                 id: partyId,
                 clientLEId,
                 visibility: "CLIENT_LE",
@@ -80,7 +86,7 @@ describe('resolveCCAddressUsages', () => {
                     registeredAddressRef: { ccAddressId: addressId }
                 }
             }
-        });
+        ]);
 
         const summary = await resolveCCAddressUsages(clientLEId, [addressId]);
         expect(summary[addressId].partyUsages).toHaveLength(1);
@@ -90,13 +96,15 @@ describe('resolveCCAddressUsages', () => {
 
     it('extracts TEAM correspondenceAddressRef correctly', async () => {
         const addressId = uuidv4();
-        await prisma.cCAddress.create({
-            data: { id: addressId, clientLEId, visibility: "CLIENT_LE", data: {} }
-        });
+        // @ts-ignore
+        prismaMock.cCAddress.findMany.mockResolvedValue([{ id: addressId, clientLEId }]);
+        // @ts-ignore
+        prismaMock.fieldClaim.findMany.mockResolvedValue([]);
 
         const partyId = uuidv4();
-        await prisma.cCParty.create({
-            data: {
+        // @ts-ignore
+        prismaMock.cCParty.findMany.mockResolvedValue([
+            {
                 id: partyId,
                 clientLEId,
                 visibility: "CLIENT_LE",
@@ -109,7 +117,7 @@ describe('resolveCCAddressUsages', () => {
                     location: null
                 }
             }
-        });
+        ]);
 
         const summary = await resolveCCAddressUsages(clientLEId, [addressId]);
         expect(summary[addressId].partyUsages).toHaveLength(1);
@@ -119,13 +127,15 @@ describe('resolveCCAddressUsages', () => {
 
     it('extracts ROLE_CORRESPONDENCE_ADDRESS from party roles', async () => {
         const addressId = uuidv4();
-        await prisma.cCAddress.create({
-            data: { id: addressId, clientLEId, visibility: "CLIENT_LE", data: {} }
-        });
+        // @ts-ignore
+        prismaMock.cCAddress.findMany.mockResolvedValue([{ id: addressId, clientLEId }]);
+        // @ts-ignore
+        prismaMock.fieldClaim.findMany.mockResolvedValue([]);
 
         const partyId = uuidv4();
-        await prisma.cCParty.create({
-            data: {
+        // @ts-ignore
+        prismaMock.cCParty.findMany.mockResolvedValue([
+            {
                 id: partyId,
                 clientLEId,
                 visibility: "CLIENT_LE",
@@ -148,7 +158,7 @@ describe('resolveCCAddressUsages', () => {
                     ]
                 }
             }
-        });
+        ]);
 
         const summary = await resolveCCAddressUsages(clientLEId, [addressId]);
         expect(summary[addressId].partyUsages).toHaveLength(1);
@@ -161,13 +171,15 @@ describe('resolveCCAddressUsages', () => {
 
     it('filters out malformed parties gracefully', async () => {
         const addressId = uuidv4();
-        await prisma.cCAddress.create({
-            data: { id: addressId, clientLEId, visibility: "CLIENT_LE", data: {} }
-        });
+        // @ts-ignore
+        prismaMock.cCAddress.findMany.mockResolvedValue([{ id: addressId, clientLEId }]);
+        // @ts-ignore
+        prismaMock.fieldClaim.findMany.mockResolvedValue([]);
 
         const partyId = uuidv4();
-        await prisma.cCParty.create({
-            data: {
+        // @ts-ignore
+        prismaMock.cCParty.findMany.mockResolvedValue([
+            {
                 id: partyId,
                 clientLEId,
                 visibility: "CLIENT_LE",
@@ -180,7 +192,7 @@ describe('resolveCCAddressUsages', () => {
                     }
                 }
             }
-        });
+        ]);
 
         const summary = await resolveCCAddressUsages(clientLEId, [addressId]);
         expect(summary[addressId].partyUsages).toHaveLength(0); // Ignored safely

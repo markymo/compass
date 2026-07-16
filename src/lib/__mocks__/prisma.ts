@@ -42,6 +42,8 @@ const prismaMock = {
     masterFieldGroupItem: modelMock(),  // Group membership actions
     masterFieldDefinition: modelMock(), // Group membership actions / field guards
     document: modelMock(),
+    cCAddress: modelMock(),
+    cCParty: modelMock(),
 }
 
 export { prismaMock }
