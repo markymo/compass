@@ -1,23 +1,27 @@
 import React, { useState } from "react";
+import { PartyAddressRef } from "../CCAddressSelector";
 import { CanonicalPartyFormState } from "./state-mappers";
 import { PartyIdentitySection } from "./PartyIdentitySection";
 import { PartyContactSection } from "./PartyContactSection";
 import { PartyRolesSection } from "./PartyRolesSection";
 import { PartySourceIdentifiersSection } from "./PartySourceIdentifiersSection";
 import { LegacyAddressWarning } from "./LegacyAddressWarning";
+import { PartyAddressSection } from "./PartyAddressSection";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 
 interface CanonicalPartyEditorProps {
+    clientLEId: string;
     formState: CanonicalPartyFormState;
     onChange: (formState: CanonicalPartyFormState) => void;
     previewLabel?: string;
     disabled?: boolean;
     isNew?: boolean; // Determines if party type is editable
+    onRequestCreateAddress?: (onCreated: (ref: PartyAddressRef) => void) => void;
 }
 
-export function CanonicalPartyEditor({ formState, onChange, previewLabel, disabled, isNew = false }: CanonicalPartyEditorProps) {
+export function CanonicalPartyEditor({ clientLEId, formState, onChange, previewLabel, disabled, isNew = false, onRequestCreateAddress }: CanonicalPartyEditorProps) {
     const handlePartyTypeChange = (newType: CanonicalPartyFormState['partyType']) => {
         if (!isNew) return;
         
@@ -39,12 +43,14 @@ export function CanonicalPartyEditor({ formState, onChange, previewLabel, disabl
                 surname: null,
                 legalName: null,
                 teamName: null,
+                location: null,
                 nationality: [],
                 placeOfBirth: null,
                 dateOfBirth: { year: "", month: "", day: "" }
             },
             homeAddressRef: null,
-            registeredAddressRef: null
+            registeredAddressRef: null,
+            correspondenceAddressRef: null
         });
     };
 
@@ -123,16 +129,38 @@ export function CanonicalPartyEditor({ formState, onChange, previewLabel, disabl
                 />
             </div>
 
-            <div className="border-t pt-6">
+            <div className="border-t pt-6 space-y-6">
                 <PartyContactSection 
                     state={formState} 
                     onChange={updates => setFormState(prev => ({ ...prev, ...updates }))} 
                     disabled={disabled} 
                 />
+
+                {formState.partyType === 'INDIVIDUAL' && (
+                    <PartyAddressSection
+                        clientLEId={clientLEId}
+                        label="Home Address"
+                        currentRef={formState.homeAddressRef}
+                        onChange={(ref) => setFormState(prev => ({ ...prev, homeAddressRef: ref }))}
+                        disabled={disabled}
+                        onCreateAddress={onRequestCreateAddress ? () => onRequestCreateAddress((ref) => setFormState(prev => ({ ...prev, homeAddressRef: ref }))) : undefined}
+                    />
+                )}
+                {formState.partyType === 'ORGANISATION' && (
+                    <PartyAddressSection
+                        clientLEId={clientLEId}
+                        label="Registered Address"
+                        currentRef={formState.registeredAddressRef}
+                        onChange={(ref) => setFormState(prev => ({ ...prev, registeredAddressRef: ref }))}
+                        disabled={disabled}
+                        onCreateAddress={onRequestCreateAddress ? () => onRequestCreateAddress((ref) => setFormState(prev => ({ ...prev, registeredAddressRef: ref }))) : undefined}
+                    />
+                )}
             </div>
 
             <div className="border-t pt-6">
                 <PartyRolesSection 
+                    clientLEId={clientLEId}
                     state={formState} 
                     onChange={updates => setFormState(prev => ({ ...prev, ...updates }))} 
                     disabled={disabled} 

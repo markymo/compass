@@ -18,6 +18,7 @@ export type CanonicalPartyFormState = {
         surname: string | null;
         legalName: string | null;
         teamName: string | null;
+        location: string | null;
         nationality: string[];
         placeOfBirth: string | null;
         dateOfBirth: { year: string; month: string; day: string };
@@ -126,6 +127,7 @@ export function initialiseCanonicalPartyForm(
             surname: isIndiv ? (indiv.surname ?? null) : null,
             legalName: isOrg ? (org.legalName ?? null) : null,
             teamName: isTeam ? (team.teamName ?? null) : null,
+            location: isTeam ? (team.location ?? null) : null,
             nationality: isIndiv && indiv.nationality ? [...indiv.nationality] : [],
             placeOfBirth: isIndiv ? (indiv.placeOfBirth ?? null) : null,
             dateOfBirth: {
@@ -263,7 +265,8 @@ export function buildCCPartyDataFromForm(formState: CanonicalPartyFormState, ori
     } else if (formState.partyType === 'TEAM') {
         finalData = {
             ...baseData,
-            teamName: formState.identity.teamName || undefined
+            teamName: formState.identity.teamName || undefined,
+            location: formState.identity.location || undefined
         } as TeamPartyData;
     } else if (formState.partyType === 'ORGANISATION') {
         finalData = {

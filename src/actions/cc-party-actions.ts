@@ -425,16 +425,17 @@ export async function promoteClaimToCCParty(claimId: string, clientLEId: string)
             throw new Error("Claim is already saved for reuse");
         }
 
-        // 3. Create CCParty
-        const party = await prisma.cCParty.create({
-            data: {
-                clientLEId,
-                data: claim.valueJson as any,
-                visibility: "CLIENT_LE",
-                createdFromClaimId: claimId,
-                createdByUserId: identity.userId,
-                updatedByUserId: identity.userId
-            }
+        // 3. Create CCParty via CCPartyService
+        const { CCPartyService } = await import("@/services/masterData/cc-party-service");
+        const { convertLegacyManualPartyToV2 } = await import("@/services/masterData/cc-party-legacy-adapter");
+        
+        const v2Data = convertLegacyManualPartyToV2(claim.valueJson);
+
+        const party = await CCPartyService.create({
+            clientLEId,
+            data: v2Data,
+            createdByUserId: identity.userId,
+            createdFromClaimId: claimId
         });
 
         revalidatePath(`/app/le/${clientLEId}/sources/user`);

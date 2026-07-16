@@ -42,7 +42,16 @@ export function SharedResourceUsageNotice({
                     data = map[resourceId] || [];
                 } else {
                     const map = await getCCAddressUsage(clientLEId);
-                    data = map[resourceId] || [];
+                    const summary = map[resourceId];
+                    if (summary) {
+                        data = [
+                            ...summary.fieldUsages,
+                            ...summary.partyUsages.map((p, idx) => ({
+                                fieldNo: -(idx + 1), // Fake negative ID for React keys to not conflict
+                                fieldName: `Party record: ${p.partyLabel} (${p.usageKind.replace(/_/g, ' ')})`
+                            }))
+                        ];
+                    }
                 }
                 if (isMounted) {
                     setUsages(data);
@@ -117,7 +126,7 @@ export function SharedResourceUsageNotice({
                                 {usages.map(u => (
                                     <div key={u.fieldNo} className="text-xs text-slate-500 flex items-center gap-1.5">
                                         <div className="w-1 h-1 rounded-full bg-slate-300"></div>
-                                        <span>Field {u.fieldNo} &mdash; {u.fieldName}</span>
+                                        <span>{u.fieldNo < 0 ? u.fieldName : `Field reference ${u.fieldNo} \u2014 ${u.fieldName}`}</span>
                                         {u.fieldNo === currentFieldNo && (
                                             <span className="text-[10px] bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded ml-1">Current</span>
                                         )}

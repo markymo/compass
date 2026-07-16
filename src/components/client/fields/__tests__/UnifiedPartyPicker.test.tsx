@@ -21,6 +21,15 @@ import * as matchers from '@testing-library/jest-dom/matchers';
 expect.extend(matchers);
 
 const DialogContext = require('react').createContext({ open: false, onOpenChange: () => {} });
+vi.mock("next-auth", () => ({
+    default: vi.fn(() => ({
+        handlers: {},
+        auth: vi.fn(),
+        signIn: vi.fn(),
+        signOut: vi.fn()
+    }))
+}));
+vi.mock("next/server", () => ({ NextResponse: {} }));
 vi.mock('@/components/ui/dialog', () => {
     const React = require('react');
     return {

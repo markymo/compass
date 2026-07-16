@@ -55,13 +55,24 @@ export function PartyIdentitySection({ state, onChange, disabled }: PartyIdentit
             )}
 
             {isTeam && (
-                <div className="space-y-1">
-                    <Label>Team Name</Label>
-                    <Input
-                        disabled={disabled}
-                        value={state.identity.teamName || ""}
-                        onChange={e => update('teamName', e.target.value)}
-                    />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                        <Label>Team Name</Label>
+                        <Input
+                            disabled={disabled}
+                            value={state.identity.teamName || ""}
+                            onChange={e => update('teamName', e.target.value)}
+                        />
+                    </div>
+                    <div className="space-y-1">
+                        <Label>Location</Label>
+                        <Input
+                            disabled={disabled}
+                            value={state.identity.location || ""}
+                            onChange={e => update('location', e.target.value)}
+                            placeholder="Optional free-text location"
+                        />
+                    </div>
                 </div>
             )}
 
