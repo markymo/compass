@@ -197,10 +197,14 @@ describe.skipIf(!process.env.DATABASE_URL)('kyc-manual-update PARTY_REF Smoke Te
             clientLEId,
             63,
             {
-                contactType: "PERSON",
+                schemaVersion: 2,
                 partyType: "INDIVIDUAL",
                 forenames: "Third",
                 surname: "Party",
+                isActiveParty: true,
+                emails: [],
+                phones: [],
+                sourceIdentifiers: [],
                 roles: [{ roleType: "director" }]
             }
         );
@@ -228,10 +232,14 @@ describe.skipIf(!process.env.DATABASE_URL)('kyc-manual-update PARTY_REF Smoke Te
             clientLEId,
             63,
             {
-                contactType: "PERSON",
+                schemaVersion: 2,
                 partyType: "INDIVIDUAL",
                 forenames: "Eli",
                 surname: "Engles",
+                isActiveParty: true,
+                emails: [],
+                phones: [],
+                sourceIdentifiers: [],
                 roles: []
             }
         );
@@ -254,6 +262,11 @@ describe.skipIf(!process.env.DATABASE_URL)('kyc-manual-update PARTY_REF Smoke Te
             data: {
                 clientLEId,
                 data: {
+                    schemaVersion: 2,
+                    isActiveParty: true,
+                    emails: [],
+                    phones: [],
+                    sourceIdentifiers: [],
                     contactType: "PERSON",
                     partyType: "INDIVIDUAL",
                     forenames: "Fred",
@@ -283,6 +296,11 @@ describe.skipIf(!process.env.DATABASE_URL)('kyc-manual-update PARTY_REF Smoke Te
             data: {
                 clientLEId,
                 data: {
+                    schemaVersion: 2,
+                    isActiveParty: true,
+                    emails: [],
+                    phones: [],
+                    sourceIdentifiers: [],
                     contactType: "PERSON",
                     partyType: "INDIVIDUAL",
                     forenames: "Garry",
@@ -310,6 +328,11 @@ describe.skipIf(!process.env.DATABASE_URL)('kyc-manual-update PARTY_REF Smoke Te
             data: {
                 clientLEId,
                 data: {
+                    schemaVersion: 2,
+                    isActiveParty: true,
+                    emails: [],
+                    phones: [],
+                    sourceIdentifiers: [],
                     contactType: "PERSON",
                     partyType: "INDIVIDUAL",
                     forenames: "Hugo",

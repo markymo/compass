@@ -158,24 +158,24 @@ export async function upsertCCParty(params: {
     }
 
     try {
+        const { CCPartyService } = await import("@/services/masterData/cc-party-service");
+        const { convertLegacyManualPartyToV2 } = await import("@/services/masterData/cc-party-legacy-adapter");
+        
+        const v2Data = convertLegacyManualPartyToV2(params.data);
+        
         let party;
         if (params.id) {
-            party = await prisma.cCParty.update({
-                where: { id: params.id },
-                data: {
-                    data: params.data as any,
-                    updatedByUserId: identity.userId
-                }
+            party = await CCPartyService.update({
+                ccPartyId: params.id,
+                clientLEId: params.clientLEId,
+                data: v2Data,
+                updatedByUserId: identity.userId
             });
         } else {
-            party = await prisma.cCParty.create({
-                data: {
-                    clientLEId: params.clientLEId,
-                    data: params.data as any,
-                    visibility: "CLIENT_LE",
-                    createdByUserId: identity.userId,
-                    updatedByUserId: identity.userId
-                }
+            party = await CCPartyService.create({
+                clientLEId: params.clientLEId,
+                data: v2Data,
+                createdByUserId: identity.userId
             });
         }
 
@@ -189,6 +189,54 @@ export async function upsertCCParty(params: {
         };
     } catch (error) {
         console.error("Failed to upsert CC party:", error);
+        throw new Error("Failed to save saved party");
+    }
+}
+
+/**
+ * Create or update a curated party using the strict V2 schema.
+ */
+export async function upsertCCPartyV2(params: {
+    id?: string;
+    clientLEId: string;
+    data: any; // We type it as any at the API boundary to perform runtime validation
+}) {
+    const identity = await getIdentity();
+    if (!identity?.userId) {
+        throw new Error("Unauthorized");
+    }
+
+    const { isCCPartyData } = await import("@/lib/master-data/party-v2/CCPartyData");
+    if (!isCCPartyData(params.data)) {
+        throw new Error("Invalid CCPartyData V2 structure");
+    }
+
+    try {
+        const { CCPartyService } = await import("@/services/masterData/cc-party-service");
+        
+        let party;
+        if (params.id) {
+            party = await CCPartyService.update({
+                ccPartyId: params.id,
+                clientLEId: params.clientLEId,
+                data: params.data,
+                updatedByUserId: identity.userId
+            });
+        } else {
+            party = await CCPartyService.create({
+                clientLEId: params.clientLEId,
+                data: params.data,
+                createdByUserId: identity.userId
+            });
+        }
+
+        revalidatePath(`/app/le/${params.clientLEId}/sources/user`);
+        return {
+            success: true,
+            party
+        };
+    } catch (error) {
+        console.error("Failed to upsert V2 CC party:", error);
         throw new Error("Failed to save saved party");
     }
 }

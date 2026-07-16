@@ -530,13 +530,17 @@ export async function addExistingCCPartyReferenceToField(
             });
             if (existingParty) {
                 const partyData = existingParty.data as any || {};
-                const enrichedData = enrichCCPartyRolesForField63(clientLE, partyData);
-                
-                if (JSON.stringify(partyData) !== JSON.stringify(enrichedData)) {
-                    await prisma.cCParty.update({
-                        where: { id: ccPartyId },
-                        data: { data: enrichedData }
-                    });
+                if (partyData.schemaVersion === 2) {
+                    const enrichedData = enrichCCPartyRolesForField63(clientLE, partyData);
+                    
+                    if (JSON.stringify(partyData) !== JSON.stringify(enrichedData)) {
+                        const { CCPartyService } = await import("@/services/masterData/cc-party-service");
+                        await CCPartyService.update({
+                            ccPartyId: existingParty.id,
+                            clientLEId: existingParty.clientLEId,
+                            data: enrichedData
+                        });
+                    }
                 }
             }
         }
@@ -598,17 +602,17 @@ export async function createCCPartyAndReferenceField(
             enrichedPartyData = enrichCCPartyRolesForField63(clientLE, partyValueData);
         }
 
-        const newParty = await prisma.$transaction(async (tx: any) => {
-            const party = await tx.cCParty.create({
-                data: {
-                    clientLEId,
-                    data: enrichedPartyData,
-                    visibility: "CLIENT_LE",
-                    createdByUserId: identity.userId,
-                    updatedByUserId: identity.userId
-                }
-            });
-            return party;
+        const { isCCPartyData } = await import("@/lib/master-data/party-v2/CCPartyData");
+        if (!isCCPartyData(enrichedPartyData)) {
+            return { success: false, message: "Invalid CCPartyData V2 structure provided" };
+        }
+
+        const { CCPartyService } = await import("@/services/masterData/cc-party-service");
+
+        const newParty = await CCPartyService.create({
+            clientLEId,
+            data: enrichedPartyData,
+            createdByUserId: identity.userId
         });
 
         const actualRowId = def.isMultiValue ? (rowId || `ccparty_${newParty.id}`) : undefined;

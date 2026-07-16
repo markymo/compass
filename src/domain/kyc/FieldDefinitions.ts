@@ -22,7 +22,13 @@ export type FieldDefinition = {
     notes?: string;
     options?: string[];
     profileConfig?: {
-        allowedPartyTypes?: string[];
+        /**
+         * Admin-facing categories defining allowed Party types.
+         * Valid values: 'INDIVIDUAL', 'TEAM', 'ORGANISATION'.
+         * Any future enforcement must map Party values into these categories,
+         * with TEAM and DISTRIBUTION_LIST Party subtypes classified as the Team category.
+         */
+        allowedPartyTypes?: ('INDIVIDUAL' | 'TEAM' | 'ORGANISATION')[];
         allowedPartySubTypes?: string[];
         storageModes?: string[];
         displayMask?: string[];
