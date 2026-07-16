@@ -31,7 +31,7 @@ export function CCFileManager({ initialFiles }: CCFileManagerProps) {
             </div>
 
             {/* Files List Card */}
-            <Card className="border-slate-200/80 shadow-xs overflow-hidden rounded-xl">
+            <Card className="border-slate-200/80 shadow-xs rounded-xl bg-white">
                 <CardContent className="p-0">
                     {initialFiles.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
@@ -44,7 +44,7 @@ export function CCFileManager({ initialFiles }: CCFileManagerProps) {
                             </p>
                         </div>
                     ) : (
-                        <div className="overflow-x-auto">
+                        <div className="w-full">
                             <Table>
                                 <TableHeader className="bg-slate-50/75 border-b border-slate-100">
                                     <TableRow>

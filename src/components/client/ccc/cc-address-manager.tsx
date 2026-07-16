@@ -144,7 +144,7 @@ export function CCAddressManager({ clientLEId, initialAddresses }: CCAddressMana
             </div>
 
             {/* Addresses List Card */}
-            <Card className="border-slate-200/80 shadow-xs overflow-hidden rounded-xl">
+            <Card className="border-slate-200/80 shadow-xs rounded-xl bg-white">
                 <CardContent className="p-0">
                     {initialAddresses.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
@@ -164,7 +164,7 @@ export function CCAddressManager({ clientLEId, initialAddresses }: CCAddressMana
                             </Button>
                         </div>
                     ) : (
-                        <div className="overflow-x-auto">
+                        <div className="w-full">
                             <Table>
                                 <TableHeader className="bg-slate-50/75 border-b border-slate-100">
                                     <TableRow>
@@ -177,9 +177,7 @@ export function CCAddressManager({ clientLEId, initialAddresses }: CCAddressMana
                                         <TableHead className="text-xs font-bold text-slate-500 uppercase py-3 px-5 tracking-wider">
                                             Usage
                                         </TableHead>
-                                        <TableHead className="text-xs font-bold text-slate-500 uppercase py-3 px-5 tracking-wider font-mono">
-                                            Scope
-                                        </TableHead>
+
                                         <TableHead className="text-xs font-bold text-slate-500 uppercase py-3 px-5 tracking-wider text-right">
                                             Actions
                                         </TableHead>
@@ -238,9 +236,7 @@ export function CCAddressManager({ clientLEId, initialAddresses }: CCAddressMana
                                                         <span className="text-xs text-slate-400 italic">No references yet</span>
                                                     )}
                                                 </TableCell>
-                                                <TableCell className="py-3 px-5 text-xs font-semibold text-slate-400 font-mono">
-                                                    {address.visibility}
-                                                </TableCell>
+
                                                 <TableCell className="py-3 px-5 text-right">
                                                     <div className="flex items-center justify-end gap-1">
                                                         <Button
