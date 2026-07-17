@@ -56,7 +56,7 @@ export class DocumentLibraryService {
         }
 
         // 5. Build DTOs
-        return documents.map(doc => {
+        return documents.map((doc: any) => {
             const currentCount = docCurrentUsages.get(doc.id)?.size || 0;
             const historicalCount = docHistoricalUsages.get(doc.id)?.size || 0;
             
@@ -106,7 +106,7 @@ export class DocumentLibraryService {
             select: { instanceId: true }
         });
 
-        const instanceIds = Array.from(new Set(rawClaimsForDoc.map(c => c.instanceId).filter(Boolean))) as string[];
+        const instanceIds = Array.from(new Set(rawClaimsForDoc.map((c: any) => c.instanceId).filter(Boolean))) as string[];
 
         // 3. Fetch full history for those instances
         const allClaimsForInstances = await prisma.fieldClaim.findMany({
@@ -122,7 +122,7 @@ export class DocumentLibraryService {
         const histories = AttachmentLifecycleResolver.resolveHistories(allClaimsForInstances);
 
         // 4. Resolve field definitions (batch to avoid N+1)
-        const fieldNos = Array.from(new Set(allClaimsForInstances.map(c => c.fieldNo)));
+        const fieldNos: number[] = Array.from(new Set(allClaimsForInstances.map((c: any) => c.fieldNo)));
         const fieldLabels = new Map<number, string>();
         for (const fNo of fieldNos) {
             try {

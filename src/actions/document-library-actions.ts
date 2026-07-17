@@ -11,9 +11,13 @@ export async function getLibraryDocumentDetailsAction(documentId: string, client
     if (!identity?.userId) {
         throw new Error("Unauthorized: Not logged in");
     }
+    const userWithMemberships = {
+        id: identity.userId,
+        memberships: await prisma.membership.findMany({ where: { userId: identity.userId } })
+    };
 
     // Check permissions on the target LE
-    const hasAccess = await can(identity, Action.LE_VIEW_MASTER_DATA, { clientLEId });
+    const hasAccess = await can(userWithMemberships, Action.LE_VIEW_MASTER_DATA, { clientLEId }, prisma);
     if (!hasAccess) {
         throw new Error("Unauthorized: Access denied to Client LE");
     }
