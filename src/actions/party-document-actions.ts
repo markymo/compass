@@ -110,7 +110,7 @@ export async function listPartyDocuments(params: {
         return {
             instanceId: h.instanceId,
             documentId: doc!.id,
-            originalFilename: doc!.originalFilename,
+            originalFilename: doc!.name,
             sizeBytes: doc!.sizeBytes,
             createdAt: doc!.createdAt,
             // also get the upload date from the CCPartyDocument attach event
