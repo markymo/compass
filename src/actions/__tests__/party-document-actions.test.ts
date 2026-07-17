@@ -112,7 +112,7 @@ describe('party-document-actions', () => {
             ]);
 
             (prisma.document.findMany as any).mockResolvedValue([
-                { id: 'doc-1', originalFilename: 'test.pdf', sizeBytes: 1024, createdAt: new Date('2026-07-17T11:00:00Z') }
+                { id: 'doc-1', name: 'test.pdf', sizeBytes: 1024, createdAt: new Date('2026-07-17T11:00:00Z') }
             ]);
 
             const result = await listPartyDocuments({

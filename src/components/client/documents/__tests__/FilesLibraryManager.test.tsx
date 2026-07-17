@@ -181,7 +181,7 @@ describe('FilesLibraryManager', () => {
             status: 'IN_USE' as const,
             usageHistory: [],
             currentUsages: [
-                { type: 'UNKNOWN_FUTURE_TYPE' as any, instanceId: 'inst-1', fieldNo: 1, fieldLabel: 'Should Ignore', attachedAt: '2026-07-16T10:00:00.000Z' }
+                { type: 'UNKNOWN_FUTURE_TYPE' as any, instanceId: 'inst-1', isActive: true, display: { title: 'Used elsewhere' }, attachedAt: '2026-07-16T10:00:00.000Z' }
             ]
         };
         

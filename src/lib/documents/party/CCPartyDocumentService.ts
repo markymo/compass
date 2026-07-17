@@ -45,6 +45,54 @@ export class CCPartyDocumentService {
      * Attaches a new document to a Party.
      * Generates a new instanceId for the lifecycle.
      */
+
+    /**
+     * Resolves active Party attachments for a given list of document IDs within a client LE scope.
+     * Delegates to PartyDocumentLifecycleResolver to resolve the append-only history.
+     */
+    static async getActiveAttachmentsForDocuments(clientLEId: string, documentIds: string[]): Promise<(PartyDocumentHistory & { partyId: string })[]> {
+        if (documentIds.length === 0) return [];
+
+        // 1. Find instance IDs that have ever referenced these documents within this clientLE
+        const recordsReferencingDocs = await prisma.cCPartyDocument.findMany({
+            where: {
+                documentId: { in: documentIds },
+                party: { clientLEId }
+            },
+            select: { instanceId: true }
+        });
+
+        const instanceIds = Array.from(new Set(recordsReferencingDocs.map((c: { instanceId: string }) => c.instanceId)));
+        if (instanceIds.length === 0) return [];
+
+        // 2. Fetch full history for those instances
+        const allRecordsForInstances = await prisma.cCPartyDocument.findMany({
+            where: {
+                instanceId: { in: instanceIds }
+            },
+            orderBy: [{ assertedAt: 'desc' }, { id: 'desc' }]
+        });
+
+        // 3. Delegate to canonical lifecycle resolver
+        const historiesMap = PartyDocumentLifecycleResolver.resolveHistories(allRecordsForInstances);
+        
+        // 4. Return only active ones that currently point to the requested documents
+        const active = Array.from(historiesMap.values()).filter(h => 
+            !h.isRemoved && 
+            h.currentDocumentId && 
+            documentIds.includes(h.currentDocumentId)
+        );
+
+        // Map the partyId back onto the history object for convenience
+        return active.map(h => {
+            const firstEvent = h.events[0];
+            return {
+                ...h,
+                partyId: firstEvent.partyId
+            };
+        });
+    }
+
     static async attachDocument(input: AttachPartyDocumentInput): Promise<CCPartyDocument> {
         await this.validatePartyAndDocumentExists(input.partyId, input.documentId);
         const instanceId = uuidv4();
@@ -169,4 +217,39 @@ export class CCPartyDocumentService {
 
         return latest;
     }
+
+    /**
+     * Resolves complete chronological party document history involving a specific document.
+     */
+    static async getAttachmentHistoryForDocument(documentId: string): Promise<(import('./PartyDocumentLifecycleResolver').PartyDocumentHistory & { partyId: string })[]> {
+        const recordsReferencingDoc = await prisma.cCPartyDocument.findMany({
+            where: { documentId: documentId },
+            select: { instanceId: true }
+        });
+
+        const instanceIds = Array.from(new Set(recordsReferencingDoc.map((c: { instanceId: string }) => c.instanceId)));
+
+        if (instanceIds.length === 0) return [];
+
+        const allRecordsForInstances = await prisma.cCPartyDocument.findMany({
+            where: { instanceId: { in: instanceIds } },
+            orderBy: [{ assertedAt: 'asc' }, { id: 'asc' }],
+            include: { document: true }
+        });
+
+        const histories = PartyDocumentLifecycleResolver.resolveHistories(allRecordsForInstances);
+        
+        const instancePartyMap = new Map<string, string>();
+        for (const record of allRecordsForInstances) {
+            if (!instancePartyMap.has(record.instanceId)) {
+                instancePartyMap.set(record.instanceId, record.partyId);
+            }
+        }
+
+        return Array.from(histories.values()).map(h => ({
+            ...h,
+            partyId: instancePartyMap.get(h.instanceId)!
+        }));
+    }
+
 }

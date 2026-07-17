@@ -1,12 +1,12 @@
+import { DocumentUsageHistoryResolver } from './usage/DocumentUsageHistoryResolver';
 import prisma from '@/lib/prisma';
-import { AttachmentLifecycleResolver } from '@/lib/kyc/AttachmentLifecycleResolver';
 import { DocumentLibraryItemDTO, DocumentDetailDTO, CurrentDocumentUsageDTO, DocumentUsageEventDTO } from './DocumentLibraryDTOs';
-import { getMasterFieldDefinition } from '@/services/masterData/definitionService';
+import { DocumentUsageResolver } from './usage/DocumentUsageResolver';
 
 export class DocumentLibraryService {
     /**
      * Lists all non-deleted documents owned by a Client LE.
-     * Derives current and historical usage authoritatively from the attachment lifecycle.
+     * Uses DocumentUsageResolver to determine current usages.
      */
     static async listLibraryDocuments(clientLEId: string): Promise<DocumentLibraryItemDTO[]> {
         // 1. Fetch all documents for this LE in one batch
@@ -18,51 +18,17 @@ export class DocumentLibraryService {
 
         if (documents.length === 0) return [];
 
-        // 2. Fetch all FILE_ATTACHMENT claims for this LE in one batch
-        const claims = await prisma.fieldClaim.findMany({
-            where: {
-                clientLeScopeId: clientLEId,
-                claimRole: 'FILE_ATTACHMENT',
-                status: { in: ['VERIFIED', 'ASSERTED'] }
-            }
-        });
+        // 2. Fetch usages across the platform
+        const docIds = documents.map((d: { id: string }) => d.id);
+        const usagesMap = await DocumentUsageResolver.resolveActiveUsages(clientLEId, docIds);
 
-        // 3. Resolve lifecycle history per instance
-        const histories = AttachmentLifecycleResolver.resolveHistories(claims);
-
-        // 4. Map instances to documents
-        const docCurrentUsages = new Map<string, Set<string>>();
-        const docHistoricalUsages = new Map<string, Set<string>>();
-
-        for (const [instanceId, history] of histories.entries()) {
-            const usedDocIds = new Set<string>();
-            for (const event of history.events) {
-                if (event.attachmentDocumentId) {
-                    usedDocIds.add(event.attachmentDocumentId);
-                }
-            }
-
-            const activeDocId = (!history.isRemoved && history.currentDocumentId) ? history.currentDocumentId : null;
-
-            for (const docId of usedDocIds) {
-                if (docId === activeDocId) {
-                    if (!docCurrentUsages.has(docId)) docCurrentUsages.set(docId, new Set());
-                    docCurrentUsages.get(docId)!.add(instanceId);
-                } else {
-                    if (!docHistoricalUsages.has(docId)) docHistoricalUsages.set(docId, new Set());
-                    docHistoricalUsages.get(docId)!.add(instanceId);
-                }
-            }
-        }
-
-        // 5. Build DTOs
-        return documents.map((doc: any) => {
-            const currentCount = docCurrentUsages.get(doc.id)?.size || 0;
-            const historicalCount = docHistoricalUsages.get(doc.id)?.size || 0;
+        // 3. Build DTOs
+        return documents.map((doc: { id: string, name: string, mimeType: string | null, sizeBytes: bigint | null, createdAt: Date, uploadedBy: { id: string, name: string | null } | null }) => {
+            const usages = usagesMap.get(doc.id) || [];
+            const currentCount = usages.length;
             
             let status: 'IN_USE' | 'PREVIOUSLY_USED' | 'UNUSED' = 'UNUSED';
             if (currentCount > 0) status = 'IN_USE';
-            else if (historicalCount > 0) status = 'PREVIOUSLY_USED';
 
             return {
                 id: doc.id,
@@ -75,14 +41,14 @@ export class DocumentLibraryService {
                     displayName: doc.uploadedBy.name
                 } : null,
                 currentUsageCount: currentCount,
-                historicalUsageCount: historicalCount,
+                historicalUsageCount: 0, // Not supported in the unified active-only view yet
                 status
             };
         });
     }
 
     /**
-     * Gets detailed metadata and a timeline of usage for a specific document.
+     * Gets detailed metadata and active usage for a specific document.
      */
     static async getDocumentDetails(documentId: string, clientLEId: string): Promise<DocumentDetailDTO> {
         // 1. Fetch document
@@ -95,114 +61,43 @@ export class DocumentLibraryService {
         if (doc.clientLEId !== clientLEId) throw new Error("Unauthorized access to document");
         if (doc.isDeleted) throw new Error("Document is deleted");
 
-        // 2. Find all instances where this document was ever used
-        const rawClaimsForDoc = await prisma.fieldClaim.findMany({
-            where: {
-                attachmentDocumentId: documentId,
-                clientLeScopeId: clientLEId,
-                claimRole: 'FILE_ATTACHMENT',
-                status: { in: ['VERIFIED', 'ASSERTED'] }
-            },
-            select: { instanceId: true }
-        });
+        // 2. Resolve usages
+        const usagesMap = await DocumentUsageResolver.resolveActiveUsages(clientLEId, [documentId]);
+        const historyMap = await DocumentUsageHistoryResolver.resolveHistory(clientLEId, [documentId]);
+        
+        const usages = usagesMap.get(documentId) || [];
+        const history = historyMap.get(documentId) || [];
 
-        const instanceIds = Array.from(new Set(rawClaimsForDoc.map((c: any) => c.instanceId).filter(Boolean))) as string[];
-
-        // 3. Fetch full history for those instances
-        const allClaimsForInstances = await prisma.fieldClaim.findMany({
-            where: {
-                instanceId: { in: instanceIds },
-                clientLeScopeId: clientLEId,
-                claimRole: 'FILE_ATTACHMENT',
-                status: { in: ['VERIFIED', 'ASSERTED'] }
-            },
-            include: { attachmentDocument: true }
-        });
-
-        const histories = AttachmentLifecycleResolver.resolveHistories(allClaimsForInstances);
-
-        // 4. Resolve field definitions (batch to avoid N+1)
-        const fieldNos: number[] = Array.from(new Set(allClaimsForInstances.map((c: any) => c.fieldNo)));
-        const fieldLabels = new Map<number, string>();
-        for (const fNo of fieldNos) {
-            try {
-                const def = await getMasterFieldDefinition(fNo);
-                fieldLabels.set(fNo, def.fieldName);
-            } catch (e) {
-                fieldLabels.set(fNo, `Field ${fNo}`);
-            }
-        }
-
-        // 5. Build usages and events
-        const currentUsages: CurrentDocumentUsageDTO[] = [];
-        const usageHistory: DocumentUsageEventDTO[] = [];
-
-        for (const [instanceId, history] of histories.entries()) {
-            const fieldLabel = fieldLabels.get(history.fieldNo) || `Field ${history.fieldNo}`;
-            
-            // Check if this document is the CURRENT document for this instance
-            if (!history.isRemoved && history.currentDocumentId === documentId) {
-                currentUsages.push({
-                    type: 'MASTER_FIELD',
-                    instanceId,
-                    fieldNo: history.fieldNo,
-                    fieldLabel,
-                    attachedAt: history.events[history.events.length - 1].assertedAt.toISOString()
-                });
-            }
-
-            // Build timeline events for this document in this instance
-            let isActive = false;
-            let lastEventId: string | null = null;
-            let lastEventAttachedAt: Date | null = null;
-
-            for (const claim of history.events) {
-                const isTomb = AttachmentLifecycleResolver.isTombstone(claim);
-                
-                if (claim.attachmentDocumentId === documentId && !isTomb) {
-                    if (!isActive) {
-                        isActive = true;
-                        lastEventId = claim.id;
-                        lastEventAttachedAt = claim.assertedAt;
-                        usageHistory.push({
-                            eventId: claim.id,
-                            type: 'MASTER_FIELD',
-                            instanceId,
-                            fieldNo: claim.fieldNo,
-                            fieldLabel,
-                            action: 'ATTACHED',
-                            timestamp: claim.assertedAt.toISOString()
-                        });
-                    }
-                } else if (isActive) {
-                    // It was active, now it's replaced or removed
-                    isActive = false;
-                    usageHistory.push({
-                        eventId: claim.id,
-                        type: 'MASTER_FIELD',
-                        instanceId,
-                        fieldNo: claim.fieldNo,
-                        fieldLabel,
-                        action: isTomb ? 'REMOVED' : 'REPLACED',
-                        timestamp: claim.assertedAt.toISOString(),
-                        replacementDocumentId: isTomb ? undefined : (claim.attachmentDocumentId || undefined),
-                        replacementFilename: isTomb ? undefined : ((claim as any).attachmentDocument?.name || undefined)
-                    });
-                }
-            }
-        }
-
-        // Sort history newest first
-        usageHistory.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-
-        // 6. Build final DTO
+        // 3. Build DTO
+        const currentUsages: CurrentDocumentUsageDTO[] = usages.map(u => ({
+            type: u.type,
+            instanceId: u.instanceId,
+            attachedAt: u.attachedAt.toISOString(),
+            isActive: u.isActive,
+            display: u.display,
+            metadata: u.metadata
+        }));
+        
+        const usageHistory: DocumentUsageEventDTO[] = history.map(h => ({
+            eventId: h.eventId,
+            type: h.type,
+            instanceId: h.instanceId,
+            action: h.action,
+            timestamp: h.timestamp.toISOString(),
+            replacementDocumentId: h.replacementDocumentId,
+            replacementFilename: h.replacementFilename,
+            display: h.display,
+            metadata: h.metadata
+        }));
+        
         const currentCount = currentUsages.length;
-        // Count instances where it was attached but is NOT current
+        
+        const activeInstanceIds = new Set(currentUsages.map(u => u.instanceId));
+        const distinctHistoricalInstanceIds = new Set(history.map(h => h.instanceId));
+        
         let historicalCount = 0;
-        for (const [instanceId, history] of histories.entries()) {
-            const usedOnce = history.events.some(e => e.attachmentDocumentId === documentId);
-            const isCurrent = !history.isRemoved && history.currentDocumentId === documentId;
-            if (usedOnce && !isCurrent) {
+        for (const inst of distinctHistoricalInstanceIds) {
+            if (!activeInstanceIds.has(inst)) {
                 historicalCount++;
             }
         }
@@ -215,7 +110,7 @@ export class DocumentLibraryService {
             id: doc.id,
             filename: doc.name,
             mimeType: doc.mimeType || 'application/octet-stream',
-            sizeBytes: doc.sizeBytes ? doc.sizeBytes.toString() : '0',
+            sizeBytes: (doc.sizeBytes || BigInt(0)).toString(),
             createdAt: doc.createdAt.toISOString(),
             uploadedBy: doc.uploadedBy ? {
                 id: doc.uploadedBy.id,

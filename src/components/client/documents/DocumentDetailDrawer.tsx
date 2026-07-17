@@ -171,11 +171,11 @@ export function DocumentDetailDrawer({ isOpen, onClose, documentId, clientLEId }
                                                     <span className="text-xs text-gray-500">{formatDocumentDate(event.timestamp)}</span>
                                                 </div>
                                                 <p className="text-sm text-gray-600 mt-1">
-                                                    {event.action === 'ATTACHED' && `Attached to ${event.fieldLabel}`}
-                                                    {event.action === 'REMOVED' && `Removed from ${event.fieldLabel}`}
+                                                    {event.action === 'ATTACHED' && `Attached to ${event.display.title}`}
+                                                    {event.action === 'REMOVED' && `Removed from ${event.display.title}`}
                                                     {event.action === 'REPLACED' && (
                                                         <>
-                                                            Replaced on {event.fieldLabel}
+                                                            Replaced on {event.display.title}
                                                             {event.replacementFilename && <span className="block text-xs text-gray-500 mt-0.5">by {event.replacementFilename}</span>}
                                                         </>
                                                     )}
