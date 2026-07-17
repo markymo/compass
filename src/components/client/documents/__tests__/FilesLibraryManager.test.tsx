@@ -16,6 +16,23 @@ vi.mock('@/actions/document-library-actions', () => ({
     getLibraryDocumentDetailsAction: vi.fn()
 }));
 
+vi.mock("next-auth", () => ({
+    default: vi.fn(() => ({
+        handlers: {},
+        auth: vi.fn(),
+        signIn: vi.fn(),
+        signOut: vi.fn()
+    }))
+}));
+vi.mock("next/server", () => ({ NextResponse: {} }));
+vi.mock("next/navigation", () => ({
+    useRouter: () => ({
+        refresh: vi.fn(),
+        push: vi.fn(),
+        replace: vi.fn()
+    })
+}));
+
 const mockFiles = [
     {
         id: 'doc-1',

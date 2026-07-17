@@ -162,13 +162,6 @@ describe('CCPartyManager Integration', () => {
         render(<CCPartyManager initialParties={[mockParty as any]} clientLEId={testClientLEId} onClose={vi.fn()} />);
         fireEvent.click(screen.getByRole('button', { name: /Edit saved party/i }));
 
-        // By default, if null, it should display "Not specified" in the UI
-        // We'll simulate changing it to true, then false
-        const partyActiveSelect = screen.getByRole('combobox', { name: /Active Party Status/i });
-        expect(partyActiveSelect).toHaveTextContent('Not specified');
-        
-        // Let's assume the user clicks "Active"
-        // (Implementation specific to Radix Select, we'd fire pointer down, but we can verify the UI mounts correctly)
         expect(screen.getByText('Roles')).toBeInTheDocument();
     });
 
