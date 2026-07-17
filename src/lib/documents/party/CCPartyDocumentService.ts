@@ -221,9 +221,9 @@ export class CCPartyDocumentService {
     /**
      * Resolves complete chronological party document history involving a specific document.
      */
-    static async getAttachmentHistoryForDocument(documentId: string): Promise<(import('./PartyDocumentLifecycleResolver').PartyDocumentHistory & { partyId: string })[]> {
+    static async getAttachmentHistoryForDocument(clientLEId: string, documentId: string): Promise<(import('./PartyDocumentLifecycleResolver').PartyDocumentHistory & { partyId: string })[]> {
         const recordsReferencingDoc = await prisma.cCPartyDocument.findMany({
-            where: { documentId: documentId },
+            where: { documentId: documentId, party: { clientLEId } },
             select: { instanceId: true }
         });
 
@@ -232,7 +232,7 @@ export class CCPartyDocumentService {
         if (instanceIds.length === 0) return [];
 
         const allRecordsForInstances = await prisma.cCPartyDocument.findMany({
-            where: { instanceId: { in: instanceIds } },
+            where: { instanceId: { in: instanceIds }, party: { clientLEId } },
             orderBy: [{ assertedAt: 'asc' }, { id: 'asc' }],
             include: { document: true }
         });

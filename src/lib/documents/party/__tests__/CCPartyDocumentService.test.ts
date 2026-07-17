@@ -219,4 +219,17 @@ describe('CCPartyDocumentService', () => {
             documentId: 'doc-missing'
         })).rejects.toThrow(/Document doc-missing not found/);
     });
+
+    it('getAttachmentHistoryForDocument enforces clientLE scope', async () => {
+        (prisma.cCPartyDocument.findMany as any).mockResolvedValueOnce([]); // Mock recordsReferencingDoc empty return
+        
+        await CCPartyDocumentService.getAttachmentHistoryForDocument('le-1', 'doc-1');
+
+        expect(prisma.cCPartyDocument.findMany).toHaveBeenCalledWith(expect.objectContaining({
+            where: expect.objectContaining({
+                documentId: 'doc-1',
+                party: { clientLEId: 'le-1' }
+            })
+        }));
+    });
 });

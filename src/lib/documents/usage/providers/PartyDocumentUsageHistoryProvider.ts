@@ -7,7 +7,7 @@ import { Prisma } from '@prisma/client';
 
 export class PartyDocumentUsageHistoryProvider implements DocumentUsageHistoryProvider {
     async getHistoricalEvents(clientLEId: string, documentId: string): Promise<DocumentUsageHistoryEvent[]> {
-        const histories = await CCPartyDocumentService.getAttachmentHistoryForDocument(documentId);
+        const histories = await CCPartyDocumentService.getAttachmentHistoryForDocument(clientLEId, documentId);
         if (histories.length === 0) return [];
 
         const partyIds = Array.from(new Set(histories.map(h => h.partyId)));
@@ -16,7 +16,7 @@ export class PartyDocumentUsageHistoryProvider implements DocumentUsageHistoryPr
         });
 
         const partyMap = new Map<string, { id: string, partyType: string, data: Prisma.JsonValue }>(
-            parties.map((p: any) => [p.id, p])
+            parties.map((p: { id: string, partyType: string, data: Prisma.JsonValue }) => [p.id, p] as const)
         );
 
         const events: DocumentUsageHistoryEvent[] = [];

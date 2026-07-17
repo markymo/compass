@@ -62,8 +62,10 @@ export class DocumentLibraryService {
         if (doc.isDeleted) throw new Error("Document is deleted");
 
         // 2. Resolve usages
-        const usagesMap = await DocumentUsageResolver.resolveActiveUsages(clientLEId, [documentId]);
-        const historyMap = await DocumentUsageHistoryResolver.resolveHistory(clientLEId, [documentId]);
+        const [usagesMap, historyMap] = await Promise.all([
+            DocumentUsageResolver.resolveActiveUsages(clientLEId, [documentId]),
+            DocumentUsageHistoryResolver.resolveHistory(clientLEId, [documentId])
+        ]);
         
         const usages = usagesMap.get(documentId) || [];
         const history = historyMap.get(documentId) || [];
