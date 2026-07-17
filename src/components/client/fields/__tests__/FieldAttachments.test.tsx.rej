@@ -1,0 +1,74 @@
+--- src/components/client/fields/__tests__/FieldAttachments.test.tsx
++++ src/components/client/fields/__tests__/FieldAttachments.test.tsx
+@@ -192,7 +192,7 @@
+         render(<FieldAttachments clientLEId="le-1" fieldNo={1} attachments={mockAttachments} isEditable={true} mode="manage" />);
+ 
+         await act(async () => {
+-            fireEvent.pointerDown(screen.getByTestId('replace-trigger').querySelector('button')!);
++            fireEvent.pointerDown(screen.getByRole('button', { name: /Replace attachment/i }));
+         });
+         await act(async () => {
+             fireEvent.click(screen.getByText('Upload Document'));
+@@ -219,7 +219,7 @@
+         render(<FieldAttachments clientLEId="le-1" fieldNo={1} attachments={mockAttachments} isEditable={true} mode="manage" />);
+ 
+         await act(async () => {
+-            fireEvent.pointerDown(screen.getByTestId('replace-trigger').querySelector('button')!);
++            fireEvent.pointerDown(screen.getByRole('button', { name: /Replace attachment/i }));
+         });
+         await act(async () => {
+             fireEvent.click(screen.getByText('Choose from Library'));
+@@ -241,7 +241,7 @@
+         render(<FieldAttachments clientLEId="le-1" fieldNo={1} attachments={[]} isEditable={true} mode="manage" />);
+         
+         await act(async () => {
+-            fireEvent.pointerDown(screen.getByTestId('add-trigger').querySelector('button')!);
++            fireEvent.pointerDown(screen.getByRole('button', { name: /Add attachment/i }));
+         });
+         await act(async () => {
+             fireEvent.click(screen.getByText('Choose from Library'));
+@@ -264,7 +264,7 @@
+         render(<FieldAttachments clientLEId="le-1" fieldNo={1} attachments={[]} isEditable={true} mode="manage" />);
+         
+         await act(async () => {
+-            fireEvent.pointerDown(screen.getByTestId('add-trigger').querySelector('button')!);
++            fireEvent.pointerDown(screen.getByRole('button', { name: /Add attachment/i }));
+         });
+         await act(async () => {
+             fireEvent.click(screen.getByText('Choose from Library'));
+@@ -274,7 +274,7 @@
+ 
+         // Try again
+         await act(async () => {
+-            fireEvent.pointerDown(screen.getByTestId('add-trigger').querySelector('button')!);
++            fireEvent.pointerDown(screen.getByRole('button', { name: /Add attachment/i }));
+         });
+         await act(async () => {
+             fireEvent.click(screen.getByText('Choose from Library'));
+@@ -288,7 +288,7 @@
+         
+         // Open first time
+         await act(async () => {
+-            fireEvent.pointerDown(screen.getByTestId('add-trigger').querySelector('button')!);
++            fireEvent.pointerDown(screen.getByRole('button', { name: /Add attachment/i }));
+         });
+         await act(async () => {
+             fireEvent.click(screen.getByText('Choose from Library'));
+@@ -302,7 +302,7 @@
+ 
+         // Open second time
+         await act(async () => {
+-            const addBtn = screen.getByTestId('add-trigger');
++            const addBtn = screen.getByRole('button', { name: /Add attachment/i });
+             // If it's already open, this might close it, so check first
+             if (addBtn.getAttribute('data-state') !== 'open') {
+                 fireEvent.pointerDown(addBtn);
+@@ -321,7 +321,7 @@
+         render(<FieldAttachments clientLEId="le-1" fieldNo={1} attachments={[]} isEditable={true} mode="manage" />);
+         
+         await act(async () => {
+-            fireEvent.pointerDown(screen.getByTestId('add-trigger').querySelector('button')!);
++            fireEvent.pointerDown(screen.getByRole('button', { name: /Add attachment/i }));
+         });
+         await act(async () => {
+             fireEvent.click(screen.getByText('Choose from Library'));

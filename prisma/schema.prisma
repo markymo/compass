@@ -82,6 +82,7 @@ model User {
   assignedMasterFields          MasterFieldAssignment[]       @relation("AssignedMasterFields")
   masterFieldNotes              MasterFieldNote[]
   privateDocumentUploadIntents  PrivateDocumentUploadIntent[]
+  ccPartyDocumentsAsserted      CCPartyDocument[]
 }
 
 model Organization {
@@ -303,6 +304,7 @@ model Document {
   sharedWith                  FIEngagement[]               @relation("SharedDocuments")
   fieldClaimsAsAttachment     FieldClaim[]                 @relation("FieldClaimAttachmentDocument")
   privateDocumentUploadIntent PrivateDocumentUploadIntent?
+  ccPartyDocuments            CCPartyDocument[]
 }
 
 model Query {
@@ -849,17 +851,17 @@ enum GroupDisplayStyle {
 }
 
 model MasterFieldGroup {
-  id          String                 @id @default(uuid())
-  key         String                 @unique
-  label       String
-  description String?
-  category    String?
-  displayStyle GroupDisplayStyle @default(LIST)
-  isActive    Boolean                @default(true)
-  order       Float                  @default(0)
-  createdAt   DateTime               @default(now())
-  updatedAt   DateTime               @updatedAt
-  items       MasterFieldGroupItem[]
+  id           String                 @id @default(uuid())
+  key          String                 @unique
+  label        String
+  description  String?
+  category     String?
+  displayStyle GroupDisplayStyle      @default(LIST)
+  isActive     Boolean                @default(true)
+  order        Float                  @default(0)
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
+  items        MasterFieldGroupItem[]
 
   @@index([isActive, order])
   @@index([category])
@@ -1322,9 +1324,36 @@ model CCParty {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
-  clientLE ClientLE @relation(fields: [clientLEId], references: [id], onDelete: Cascade)
+  clientLE       ClientLE          @relation(fields: [clientLEId], references: [id], onDelete: Cascade)
+  partyDocuments CCPartyDocument[]
 
   @@map("cc_parties")
+}
+
+enum CCPartyDocumentOperation {
+  ATTACH
+  REPLACE
+  REMOVE
+}
+
+model CCPartyDocument {
+  id             String                   @id @default(uuid())
+  partyId        String
+  documentId     String
+  instanceId     String
+  operation      CCPartyDocumentOperation @default(ATTACH)
+  idempotencyKey String?                  @unique
+  assertedAt     DateTime                 @default(now())
+  assertedById   String?
+
+  party          CCParty  @relation(fields: [partyId], references: [id], onDelete: Restrict)
+  document       Document @relation(fields: [documentId], references: [id], onDelete: Restrict)
+  assertedByUser User?    @relation(fields: [assertedById], references: [id])
+
+  @@index([partyId, instanceId, assertedAt, id])
+  @@index([documentId, assertedAt])
+  @@index([partyId, assertedAt])
+  @@map("cc_party_documents")
 }
 
 model CCAddress {

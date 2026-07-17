@@ -395,6 +395,7 @@ export function CCPartyManager({ clientLEId, initialParties }: CCPartyManagerPro
                         <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-sm">
                             <CanonicalPartyEditor
                                 clientLEId={clientLEId}
+                                partyId={selectedParty?.id}
                                 formState={editorValue}
                                 onChange={setEditorValue}
                                 disabled={isPending}

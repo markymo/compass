@@ -1,0 +1,16 @@
+--- src/components/client/fields/FieldAttachments.tsx
++++ src/components/client/fields/FieldAttachments.tsx
+@@ -348,9 +348,7 @@
+                                 {opState === 'IDLE' && (
+                                     <DropdownMenu>
+                                         <DropdownMenuTrigger asChild>
+-                                            <div className="inline-block" data-testid="replace-trigger">
+-                                                <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-blue-600 focus:ring-blue-500" disabled={isBusy}>
+-                                                    <Replace className="w-4 h-4" />
+-                                                    <span className="sr-only">Replace attachment</span>
+-                                                </Button>
+-                                            </div>
++                                            <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-blue-600 focus:ring-blue-500" title="Replace attachment" disabled={isBusy}>
++                                                <Replace className="w-4 h-4" />
++                                                <span className="sr-only">Replace attachment</span>
++                                            </Button>

@@ -43,54 +43,56 @@ model VerificationToken {
 }
 
 model User {
-  id                            String                  @id @default(uuid())
-  email                         String                  @unique
+  id                            String                        @id @default(uuid())
+  email                         String                        @unique
   name                          String?
   description                   String?
-  createdAt                     DateTime                @default(now())
+  createdAt                     DateTime                      @default(now())
   password                      String?
   emailVerified                 DateTime?
   image                         String?
-  isDemoActor                   Boolean                 @default(false)
+  isDemoActor                   Boolean                       @default(false)
   jobTitle                      String?
   notificationPrefs             Json?
   phone                         String?
-  preferences                   Json                    @default("{}")
+  preferences                   Json                          @default("{}")
   accounts                      Account[]
-  assignedTodos                 AdminTodo[]             @relation("AssignedTodos")
-  createdTodos                  AdminTodo[]             @relation("CreatedTodos")
+  assignedTodos                 AdminTodo[]                   @relation("AssignedTodos")
+  createdTodos                  AdminTodo[]                   @relation("CreatedTodos")
   adminComments                 AdminTodoComment[]
   auditLogs                     AuditLog[]
   comments                      Comment[]
-  uploadedDocuments             Document[]              @relation("UploadedDocuments")
+  uploadedDocuments             Document[]                    @relation("UploadedDocuments")
   engagementActivities          EngagementActivity[]
   leActivities                  LEActivity[]
   memberships                   Membership[]
-  questionsApproved             Question[]              @relation("QuestionsApprovedBy")
-  questionsAssignedBy           Question[]              @relation("QuestionsAssignedBy")
-  assignedQuestions             Question[]              @relation("AssignedQuestions")
-  questionsReleased             Question[]              @relation("QuestionsReleasedBy")
-  questionsShared               Question[]              @relation("QuestionsSharedBy")
-  supplierNotesUpdated          Question[]              @relation("SupplierNoteUpdatedBy")
+  questionsApproved             Question[]                    @relation("QuestionsApprovedBy")
+  questionsAssignedBy           Question[]                    @relation("QuestionsAssignedBy")
+  assignedQuestions             Question[]                    @relation("AssignedQuestions")
+  questionsReleased             Question[]                    @relation("QuestionsReleasedBy")
+  questionsShared               Question[]                    @relation("QuestionsSharedBy")
+  supplierNotesUpdated          Question[]                    @relation("SupplierNoteUpdatedBy")
   activities                    QuestionActivity[]
   sessions                      Session[]
-  graphEdgesModified            ClientLEGraphEdge[]     @relation("GraphEdgeModifiedBy")
-  graphNodesModified            ClientLEGraphNode[]     @relation("GraphNodeModifiedBy")
-  assignedFeedback              FeedbackNote[]          @relation("FeedbackAssignedTo")
+  graphEdgesModified            ClientLEGraphEdge[]           @relation("GraphEdgeModifiedBy")
+  graphNodesModified            ClientLEGraphNode[]           @relation("GraphNodeModifiedBy")
+  assignedFeedback              FeedbackNote[]                @relation("FeedbackAssignedTo")
   verifiedClaims                FieldClaim[]
-  masterFieldAssignmentsCreated MasterFieldAssignment[] @relation("MasterFieldAssignmentsCreated")
-  assignedMasterFields          MasterFieldAssignment[] @relation("AssignedMasterFields")
+  masterFieldAssignmentsCreated MasterFieldAssignment[]       @relation("MasterFieldAssignmentsCreated")
+  assignedMasterFields          MasterFieldAssignment[]       @relation("AssignedMasterFields")
   masterFieldNotes              MasterFieldNote[]
+  privateDocumentUploadIntents  PrivateDocumentUploadIntent[]
 }
 
 model Organization {
-  id                     String                  @id @default(uuid())
+  id                     String                         @id @default(uuid())
   name                   String
+  shortCode              String?                        @unique
   types                  OrgType[]
   domain                 String?
   logoUrl                String?
   description            String?
-  status                 String                  @default("ACTIVE")
+  status                 String                         @default("ACTIVE")
   metadata               Json?
   ownedLEs               ClientLEOwner[]
   customFieldDefinitions CustomFieldDefinition[]
@@ -99,10 +101,11 @@ model Organization {
   invitations            Invitation[]
   memberships            Membership[]
   questionnaires         Questionnaire[]
-  ownedQuestionnaires    Questionnaire[]         @relation("OwnedQuestionnaires")
-  ownedClaims            FieldClaim[]            @relation("OrganizationOwnerScope")
-  claims                 FieldClaim[]            @relation("OrganizationSubject")
-  referencedInClaims     FieldClaim[]            @relation("OrganizationValue")
+  ownedQuestionnaires    Questionnaire[]                @relation("OwnedQuestionnaires")
+  ownedClaims            FieldClaim[]                   @relation("OrganizationOwnerScope")
+  claims                 FieldClaim[]                   @relation("OrganizationSubject")
+  referencedInClaims     FieldClaim[]                   @relation("OrganizationValue")
+  visibilityGrants       QuestionnaireVisibilityGrant[]
 }
 
 model Membership {
@@ -110,6 +113,7 @@ model Membership {
   userId         String
   organizationId String?
   clientLEId     String?
+  fiEngagementId String?
   role           String
   permissions    Json?
   createdAt      DateTime      @default(now())
@@ -117,8 +121,7 @@ model Membership {
   clientLE       ClientLE?     @relation(fields: [clientLEId], references: [id], onDelete: Cascade)
   organization   Organization? @relation(fields: [organizationId], references: [id])
   user           User          @relation(fields: [userId], references: [id])
-
-  @@unique([userId, organizationId, clientLEId])
+  fiEngagement   FIEngagement? @relation(fields: [fiEngagementId], references: [id], onDelete: Cascade)
 }
 
 model MasterSchema {
@@ -147,6 +150,7 @@ model CustomFieldDefinition {
   label        String
   dataType     String
   description  String?
+  isDeleted    Boolean      @default(false)
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
   organization Organization @relation(fields: [orgId], references: [id])
@@ -167,40 +171,45 @@ model StandingDataSection {
 }
 
 model ClientLE {
-  id                     String                  @id @default(uuid())
-  name                   String
-  description            String?
-  jurisdiction           String?
-  status                 String                  @default("ACTIVE")
-  isDeleted              Boolean                 @default(false)
-  createdAt              DateTime                @default(now())
-  updatedAt              DateTime                @updatedAt
-  lei                    String?                 @unique
-  gleifData              Json?
-  gleifFetchedAt         DateTime?
-  nationalRegistryData   Json?
-  registryFetchedAt      DateTime?
-  billingDetails         Json?
-  customData             Json?
-  dueDate                DateTime?
-  legalEntityId          String?
-  legalEntity            LegalEntity?            @relation(fields: [legalEntityId], references: [id])
-  owners                 ClientLEOwner[]
-  records                ClientLERecord[]
-  documents              Document[]
-  fiEngagements          FIEngagement[]
-  invitations            Invitation[]
-  leActivities           LEActivity[]
-  memberships            Membership[]
-  standingDataSections   StandingDataSection[]
-  graphEdges             ClientLEGraphEdge[]
-  graphNodes             ClientLEGraphNode[]
-  masterFieldAssignments MasterFieldAssignment[]
-  masterFieldNotes       MasterFieldNote[]
-  registryReferences     RegistryReference[]
-  enrichmentRuns         EnrichmentRun[]
-  registrySourcePayloads RegistrySourcePayload[]
-  registryBaselineExtracts RegistryBaselineExtract[]
+  id                           String                        @id @default(uuid())
+  shortCode                    String?                       @unique
+  name                         String
+  description                  String?
+  jurisdiction                 String?
+  status                       String                        @default("ACTIVE")
+  isDeleted                    Boolean                       @default(false)
+  createdAt                    DateTime                      @default(now())
+  updatedAt                    DateTime                      @updatedAt
+  lei                          String?                       @unique
+  gleifData                    Json?
+  gleifFetchedAt               DateTime?
+  nationalRegistryData         Json?
+  registryFetchedAt            DateTime?
+  billingDetails               Json?
+  customData                   Json?
+  dueDate                      DateTime?
+  legalEntityId                String?
+  legalEntity                  LegalEntity?                  @relation(fields: [legalEntityId], references: [id])
+  owners                       ClientLEOwner[]
+  records                      ClientLERecord[]
+  documents                    Document[]
+  fiEngagements                FIEngagement[]
+  invitations                  Invitation[]
+  leActivities                 LEActivity[]
+  memberships                  Membership[]
+  standingDataSections         StandingDataSection[]
+  graphEdges                   ClientLEGraphEdge[]
+  graphNodes                   ClientLEGraphNode[]
+  masterFieldAssignments       MasterFieldAssignment[]
+  masterFieldNotes             MasterFieldNote[]
+  registryReferences           RegistryReference[]
+  enrichmentRuns               EnrichmentRun[]
+  registrySourcePayloads       RegistrySourcePayload[]
+  registryBaselineExtracts     RegistryBaselineExtract[]
+  ccParties                    CCParty[]
+  ccAddresses                  CCAddress[]
+  commonQuestionnaires         Questionnaire[]               @relation("ClientCommonQuestionnaires")
+  privateDocumentUploadIntents PrivateDocumentUploadIntent[]
 
   @@index([legalEntityId])
 }
@@ -242,6 +251,7 @@ model FIEngagement {
   clientLE               ClientLE             @relation(fields: [clientLEId], references: [id], onDelete: Cascade)
   org                    Organization         @relation(fields: [fiOrgId], references: [id])
   invitations            Invitation[]
+  memberships            Membership[]
   queries                Query[]
   questionnaireInstances Questionnaire[]      @relation("QuestionnaireInstance")
   questionnaires         Questionnaire[]      @relation("FIEngagementToQuestionnaire")
@@ -262,27 +272,37 @@ model EngagementActivity {
 }
 
 model Document {
-  id                     String         @id @default(uuid())
-  clientLEId             String
-  name                   String
-  fileUrl                String
-  fileType               String
-  kbSize                 Int?
-  docType                String?
-  metadata               Json?
-  isVerified             Boolean        @default(false)
-  isDeleted              Boolean        @default(false)
-  createdAt              DateTime       @default(now())
-  updatedAt              DateTime       @updatedAt
-  masterFieldKey         String?
-  prefilledForQuestionId String?
-  questionId             String?
-  uploadedById           String?
-  clientLE               ClientLE       @relation(fields: [clientLEId], references: [id], onDelete: Cascade)
-  prefilledForQuestion   Question?      @relation("PrefilledQuestionDocuments", fields: [prefilledForQuestionId], references: [id])
-  question               Question?      @relation("QuestionDocuments", fields: [questionId], references: [id])
-  uploadedBy             User?          @relation("UploadedDocuments", fields: [uploadedById], references: [id])
-  sharedWith             FIEngagement[] @relation("SharedDocuments")
+  id         String   @id @default(uuid())
+  clientLEId String
+  name       String
+  fileUrl    String
+  fileType   String
+  kbSize     Int?
+  docType    String?
+  metadata   Json?
+  isVerified Boolean  @default(false)
+  isDeleted  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Phase 3: Immutable Binary Identity & Private Storage
+  storageProvider String?
+  storagePathname String? @unique
+  sizeBytes       BigInt?
+  mimeType        String?
+  checksum        String?
+
+  masterFieldKey              String?
+  prefilledForQuestionId      String?
+  questionId                  String?
+  uploadedById                String?
+  clientLE                    ClientLE                     @relation(fields: [clientLEId], references: [id], onDelete: Cascade)
+  prefilledForQuestion        Question?                    @relation("PrefilledQuestionDocuments", fields: [prefilledForQuestionId], references: [id])
+  question                    Question?                    @relation("QuestionDocuments", fields: [questionId], references: [id])
+  uploadedBy                  User?                        @relation("UploadedDocuments", fields: [uploadedById], references: [id])
+  sharedWith                  FIEngagement[]               @relation("SharedDocuments")
+  fieldClaimsAsAttachment     FieldClaim[]                 @relation("FieldClaimAttachmentDocument")
+  privateDocumentUploadIntent PrivateDocumentUploadIntent?
 }
 
 model Query {
@@ -298,32 +318,50 @@ model Query {
 }
 
 model Questionnaire {
-  id               String                 @id @default(uuid())
+  id               String                         @id @default(uuid())
   fiOrgId          String
   name             String
-  status           String                 @default("DRAFT")
-  isDeleted        Boolean                @default(false)
+  description      String?                        @db.VarChar(160)
+  status           String                         @default("DRAFT")
+  isDeleted        Boolean                        @default(false)
   fileName         String?
   fileType         String?
   fileContent      Bytes?
   mappings         Json?
-  createdAt        DateTime               @default(now())
-  updatedAt        DateTime               @updatedAt
+  createdAt        DateTime                       @default(now())
+  updatedAt        DateTime                       @updatedAt
   extractedContent Json?
   rawText          String?
   processingLogs   Json?
   fiEngagementId   String?
   ownerOrgId       String?
-  isGlobal         Boolean                @default(false)
+  isGlobal         Boolean                        @default(false)
   dueDate          DateTime?
+  lockedAt         DateTime?
+  kind             QuestionnaireKind?
+  functionalCode   String?
+  referenceCode    String?
   fileUrl          String?
-  isTemplate       Boolean                @default(false)
+  isTemplate       Boolean                        @default(false)
+  /// Lineage: the questionnaire this record was directly derived from (clone, assign, promote, lateral share).
+  /// Null for original / uploaded / manually-created questionnaires.
+  /// ancestry only — no inheritance, sync, or merge semantics.
+  sourceId         String?
+  /// Visibility: controls who can discover/reference this Reference Snapshot.
+  /// Only meaningful for kind = REFERENCE_SNAPSHOT. Working Copies and Engagement Questionnaires are always private.
+  visibility       QuestionnaireVisibility        @default(PRIVATE)
   questions        Question[]
-  fiEngagement     FIEngagement?          @relation("QuestionnaireInstance", fields: [fiEngagementId], references: [id], onDelete: Cascade)
-  fiOrg            Organization           @relation(fields: [fiOrgId], references: [id])
-  ownerOrg         Organization?          @relation("OwnedQuestionnaires", fields: [ownerOrgId], references: [id])
+  fiEngagement     FIEngagement?                  @relation("QuestionnaireInstance", fields: [fiEngagementId], references: [id], onDelete: Cascade)
+  fiOrg            Organization                   @relation(fields: [fiOrgId], references: [id])
+  ownerOrg         Organization?                  @relation("OwnedQuestionnaires", fields: [ownerOrgId], references: [id])
+  source           Questionnaire?                 @relation("QuestionnaireLineage", fields: [sourceId], references: [id], onDelete: SetNull)
+  derivedVersions  Questionnaire[]                @relation("QuestionnaireLineage")
   versions         QuestionnaireVersion[]
-  engagements      FIEngagement[]         @relation("FIEngagementToQuestionnaire")
+  engagements      FIEngagement[]                 @relation("FIEngagementToQuestionnaire")
+  visibilityGrants QuestionnaireVisibilityGrant[]
+  commonForClients ClientLE[]                     @relation("ClientCommonQuestionnaires")
+
+  @@index([referenceCode])
 }
 
 model Question {
@@ -352,11 +390,13 @@ model Question {
   prefilledValue              String?
   releasedAt                  DateTime?
   releasedByUserId            String?
+  releaseProvenance           Json?
   sharedAt                    DateTime?
   sharedByUserId              String?
   supplierNote                String?
   supplierNoteUpdatedAt       DateTime?
   supplierNoteUpdatedByUserId String?
+  masterFieldProjectionPath   String?
   comments                    Comment[]
   prefilledDocuments          Document[]             @relation("PrefilledQuestionDocuments")
   documents                   Document[]             @relation("QuestionDocuments")
@@ -505,7 +545,6 @@ model Invitation {
   @@index([sentToEmail])
 }
 
-
 model LEActivity {
   id        String   @id @default(uuid())
   leId      String
@@ -527,6 +566,10 @@ model LegalEntity {
   updatedAt               DateTime            @updatedAt
   localRegistrationNumber String?
   name                    String?
+  jurisdiction            String? // GLEIF entity.jurisdiction / CH country
+  legalForm               String? // GLEIF legalForm.id / CH legal_form text
+  entityStatus            String? // GLEIF entity.status: "ACTIVE" | "INACTIVE" etc
+  countryOfIncorporation  String? // GLEIF country of incorporation (ISO alpha-2)
   clientLEs               ClientLE[]
   graphNodes              ClientLEGraphNode[]
   documents               DocumentRegistry[]
@@ -609,12 +652,18 @@ model Address {
 
 model Person {
   id                 String              @id @default(uuid())
+  title              String? // e.g. "Mr", "Dr" — CH + user input
   firstName          String?
-  lastName           String?
   middleName         String?
+  lastName           String?
   dateOfBirth        DateTime?
   placeOfBirth       String?
   primaryNationality String?
+  /// Officer role from source system (CH: "director", "secretary", "llp-member" etc).
+  /// Stored as raw free-text string — no enum. May later migrate to edge attribute.
+  officerRole        String?
+  occupation         String? // Free-text occupation (CH: "Company Director")
+  countryOfResidence String? // ISO 3166-1 alpha-2 or country name
   isPublicFigure     Boolean             @default(false)
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
@@ -625,59 +674,71 @@ model Person {
   @@map("persons")
 }
 
+enum ClaimRole {
+  VALUE
+  FILE_ATTACHMENT
+}
+
 model FieldClaim {
-  id               String            @id @default(uuid())
-  fieldNo          Int
-  subjectLeId      String?
-  subjectPersonId  String?
-  subjectOrgId     String?
-  collectionId     String?
-  instanceId       String?
-  valueText        String?
-  valueNumber      Decimal?
-  valueDate        DateTime?
-  valueJson        Json?
-  valuePersonId    String?
-  valueLeId        String?
-  valueOrgId       String?
-  valueDocId       String?
-  status           ClaimStatus       @default(ASSERTED)
-  ownerScopeId     String?
-  sourceType       SourceType
-  sourceReference  String?
-  evidenceId       String?
-  assertedAt       DateTime          @default(now())
-  supersedesId     String?
-  effectiveFrom    DateTime?
-  effectiveTo      DateTime?
-  confidenceScore  Float?
-  verifiedByUserId String?
-  verifiedAt       DateTime?
-  subjectAddressId String?
-  valueAddressId   String?
-  evidence         EvidenceStore?    @relation(fields: [evidenceId], references: [id])
-  ownerScope       Organization?     @relation("OrganizationOwnerScope", fields: [ownerScopeId], references: [id])
-  subjectAddress   Address?          @relation("AddressSubject", fields: [subjectAddressId], references: [id])
-  subjectLe        LegalEntity?      @relation("LegalEntitySubject", fields: [subjectLeId], references: [id])
-  subjectOrg       Organization?     @relation("OrganizationSubject", fields: [subjectOrgId], references: [id])
-  subjectPerson    Person?           @relation("PersonSubject", fields: [subjectPersonId], references: [id])
-  supersedes       FieldClaim?       @relation("Lineage", fields: [supersedesId], references: [id])
-  supersededBy     FieldClaim[]      @relation("Lineage")
-  valueAddress     Address?          @relation("AddressValue", fields: [valueAddressId], references: [id])
-  valueDoc         DocumentRegistry? @relation(fields: [valueDocId], references: [id])
-  valueLe          LegalEntity?      @relation("LegalEntityValue", fields: [valueLeId], references: [id])
-  valueOrg         Organization?     @relation("OrganizationValue", fields: [valueOrgId], references: [id])
-  valuePerson      Person?           @relation("PersonValue", fields: [valuePersonId], references: [id])
-  verifiedBy       User?             @relation(fields: [verifiedByUserId], references: [id])
+  id                   String            @id @default(uuid())
+  fieldNo              Int
+  subjectLeId          String?
+  subjectPersonId      String?
+  subjectOrgId         String?
+  collectionId         String?
+  instanceId           String?
+  valueText            String?
+  valueNumber          Decimal?
+  valueDate            DateTime?
+  valueJson            Json?
+  valuePersonId        String?
+  valueLeId            String?
+  valueOrgId           String?
+  valueDocId           String?
+  attachmentDocumentId String?
+  idempotencyKey       String?           @unique
+  claimRole            ClaimRole         @default(VALUE)
+  status               ClaimStatus       @default(ASSERTED)
+  ownerScopeId         String?
+  clientLeScopeId      String?
+  sourceType           SourceType
+  sourceReference      String?
+  evidenceId           String?
+  assertedAt           DateTime          @default(now())
+  supersedesId         String?
+  effectiveFrom        DateTime?
+  effectiveTo          DateTime?
+  confidenceScore      Float?
+  verifiedByUserId     String?
+  verifiedAt           DateTime?
+  subjectAddressId     String?
+  valueAddressId       String?
+  attachmentDocument   Document?         @relation("FieldClaimAttachmentDocument", fields: [attachmentDocumentId], references: [id], onDelete: Restrict)
+  evidence             EvidenceStore?    @relation(fields: [evidenceId], references: [id])
+  ownerScope           Organization?     @relation("OrganizationOwnerScope", fields: [ownerScopeId], references: [id])
+  subjectAddress       Address?          @relation("AddressSubject", fields: [subjectAddressId], references: [id])
+  subjectLe            LegalEntity?      @relation("LegalEntitySubject", fields: [subjectLeId], references: [id])
+  subjectOrg           Organization?     @relation("OrganizationSubject", fields: [subjectOrgId], references: [id])
+  subjectPerson        Person?           @relation("PersonSubject", fields: [subjectPersonId], references: [id])
+  supersedes           FieldClaim?       @relation("Lineage", fields: [supersedesId], references: [id])
+  supersededBy         FieldClaim[]      @relation("Lineage")
+  valueAddress         Address?          @relation("AddressValue", fields: [valueAddressId], references: [id])
+  valueDoc             DocumentRegistry? @relation(fields: [valueDocId], references: [id])
+  valueLe              LegalEntity?      @relation("LegalEntityValue", fields: [valueLeId], references: [id])
+  valueOrg             Organization?     @relation("OrganizationValue", fields: [valueOrgId], references: [id])
+  valuePerson          Person?           @relation("PersonValue", fields: [valuePersonId], references: [id])
+  verifiedBy           User?             @relation(fields: [verifiedByUserId], references: [id])
 
   @@index([subjectLeId, fieldNo])
+  @@index([clientLeScopeId])
   @@index([subjectPersonId, fieldNo])
   @@index([subjectOrgId, fieldNo])
   @@index([subjectAddressId, fieldNo])
   @@index([ownerScopeId])
+  @@index([attachmentDocumentId])
   @@index([fieldNo])
   @@index([supersedesId])
-  @@index([subjectLeId, ownerScopeId, fieldNo, collectionId])
+  @@index([subjectLeId, ownerScopeId, fieldNo, collectionId, claimRole])
   @@index([collectionId, instanceId])
   @@map("field_claims")
 }
@@ -689,6 +750,7 @@ model MasterFieldDefinition {
   isMultiValue       Boolean                   @default(false)
   options            String[]                  @default([])
   notes              String?
+  defaultResponse    String?
   categoryId         String?
   isActive           Boolean                   @default(true)
   order              Float                     @default(0)
@@ -699,6 +761,8 @@ model MasterFieldDefinition {
   domain             String[]                  @default(["Onboarding"])
   fmsbRef            String?                   @db.VarChar(15)
   optionSetId        String?
+  profileConfig      Json?
+  allowAttachments   Boolean                   @default(true)
   masterDataCategory MasterDataCategory?       @relation(fields: [categoryId], references: [id])
   optionSet          MasterDataOptionSet?      @relation(fields: [optionSetId], references: [id])
   graphBindings      MasterFieldGraphBinding[]
@@ -730,6 +794,12 @@ model MasterFieldGraphBinding {
   writeBackIsActive Boolean               @default(true)
   /// UI hint: overrides the generic picker label shown to the user
   pickerLabel       String?
+  /// Optional picker display/search configuration, validated against NODE_FIELD_REGISTRY.
+  /// Null means legacy/default picker behaviour — displayLabel and subLabel are hardcoded.
+  /// Not yet consumed by the picker UI (Phase 3+).
+  /// Shape: { displayFields?, subFields?, searchFields?, pickerPlaceholder? }
+  /// All fieldKey values must be valid for the binding's graphNodeType.
+  pickerConfig      Json?
   /// Whether the user can create a new graph node inline from the picker
   allowCreate       Boolean               @default(true)
   isActive          Boolean               @default(true)
@@ -757,13 +827,25 @@ model MasterDataOptionSet {
 }
 
 model MasterDataCategory {
-  id          String                  @id @default(uuid())
-  key         String                  @unique
-  displayName String
-  order       Float                   @default(0)
-  fields      MasterFieldDefinition[]
+  id            String                  @id @default(uuid())
+  key           String                  @unique
+  displayName   String
+  order         Float                   @default(0)
+  /// Retirement columns — set by retireMasterDataCategory(). Key is never changed.
+  isActive      Boolean                 @default(true)
+  archivedAt    DateTime?
+  archivedById  String?
+  archiveReason String?
+  fields        MasterFieldDefinition[]
 
+  @@index([isActive, order])
   @@map("master_data_categories")
+}
+
+enum GroupDisplayStyle {
+  LIST
+  COMPACT
+  GRID
 }
 
 model MasterFieldGroup {
@@ -772,6 +854,7 @@ model MasterFieldGroup {
   label       String
   description String?
   category    String?
+  displayStyle GroupDisplayStyle @default(LIST)
   isActive    Boolean                @default(true)
   order       Float                  @default(0)
   createdAt   DateTime               @default(now())
@@ -804,7 +887,10 @@ model MasterFieldGroupItem {
 model SourceFieldMapping {
   id                String                @id @default(uuid())
   sourceType        SourceType
-  sourceReference   String? // e.g. RA000585
+  /// For REGISTRATION_AUTHORITY: mandatory. Stores RegistryAuthority.mappingSourceKey
+  /// (e.g. "COMPANIES_HOUSE", "RA000192") — NOT the GLEIF RA code directly.
+  /// Engine resolves: run.registrationAuthorityId → authority.mappingSourceKey ?? authorityId → this field.
+  sourceReference   String?
   mappingScope      MappingScope          @default(BASELINE)
   payloadSubtype    PayloadSubtype?       @default(GENERAL)
   sourcePath        String
@@ -812,6 +898,8 @@ model SourceFieldMapping {
   confidenceDefault Float                 @default(1.0)
   transformType     MappingTransformType  @default(DIRECT)
   transformConfig   Json?
+  filterConfig      Json?
+  syncMode          String                @default("UPSERT_ONLY")
   priority          Int                   @default(100)
   isActive          Boolean               @default(true)
   notes             String?
@@ -828,7 +916,6 @@ model SourceFieldMapping {
   @@map("source_field_mappings")
 }
 
-
 model SourceSamplePayload {
   id         String     @id @default(uuid())
   sourceType SourceType
@@ -842,19 +929,24 @@ model SourceSamplePayload {
 }
 
 model RegistryAuthority {
-  id             String              @id
-  registryKey    String              @unique
-  name           String
-  countryCode    String?
-  jurisdiction   String?
-  lookupStrategy String?
-  apiType        String?
-  baseUrl        String?
-  isActive       Boolean             @default(true)
-  notes          String?
-  createdAt      DateTime            @default(now())
-  updatedAt      DateTime            @updatedAt
-  references     RegistryReference[]
+  id               String              @id
+  registryKey      String              @unique // Connector routing key — do not use in SourceFieldMapping
+  /// Groups RA codes that share one connector and one payload schema under a canonical source identity.
+  /// Used as SourceFieldMapping.sourceReference for REGISTRATION_AUTHORITY mappings.
+  /// e.g. RA000585, RA000586, RA000587 all set mappingSourceKey = "COMPANIES_HOUSE".
+  /// Single-RA authorities leave this null; the engine falls back to id (the GLEIF RA code).
+  mappingSourceKey String?             @map("mapping_source_key") // non-unique: multiple RAs may share the same value
+  name             String
+  countryCode      String?
+  jurisdiction     String?
+  lookupStrategy   String?
+  apiType          String?
+  baseUrl          String?
+  isActive         Boolean             @default(true)
+  notes            String?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  references       RegistryReference[]
 
   @@map("registry_authorities")
 }
@@ -923,18 +1015,18 @@ model EnrichmentRun {
 }
 
 model RegistrySourcePayload {
-  id               String          @id @default(uuid())
-  legalEntityId    String
-  enrichmentRunId  String
-  sourceType       SourceType
-  sourceReference  String // e.g. RA000585
-  externalId       String? // The company number / identifier at the source
-  payloadSubtype   PayloadSubtype
-  payload          Json
-  isLatest         Boolean         @default(true)
-  createdAt        DateTime        @default(now())
-  clientLE         ClientLE        @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
-  enrichmentRun    EnrichmentRun   @relation(fields: [enrichmentRunId], references: [id], onDelete: Cascade)
+  id              String         @id @default(uuid())
+  legalEntityId   String
+  enrichmentRunId String
+  sourceType      SourceType
+  sourceReference String // e.g. RA000585
+  externalId      String? // The company number / identifier at the source
+  payloadSubtype  PayloadSubtype
+  payload         Json
+  isLatest        Boolean        @default(true)
+  createdAt       DateTime       @default(now())
+  clientLE        ClientLE       @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
+  enrichmentRun   EnrichmentRun  @relation(fields: [enrichmentRunId], references: [id], onDelete: Cascade)
 
   @@index([legalEntityId, sourceType, isLatest])
   @@index([sourceReference, externalId])
@@ -959,8 +1051,6 @@ model RegistryBaselineExtract {
   @@index([legalEntityId, extractedAt])
   @@map("registry_baseline_extracts")
 }
-
-
 
 model ClientLEGraphNode {
   id               String              @id @default(uuid())
@@ -1020,12 +1110,41 @@ enum QuestionStatus {
   RELEASED
 }
 
+enum QuestionnaireKind {
+  WORKING_COPY
+  REFERENCE_SNAPSHOT
+  ENGAGEMENT_QUESTIONNAIRE
+  COMMON_QUESTIONNAIRE
+}
+
+enum QuestionnaireVisibility {
+  PRIVATE
+  RESTRICTED
+  GLOBAL
+}
+
+/// Grants visibility of a RESTRICTED Reference Snapshot to a specific organisation.
+/// Does not grant create/copy permissions — those are controlled by the Action/Role system.
+model QuestionnaireVisibilityGrant {
+  id              String   @id @default(uuid())
+  questionnaireId String
+  organizationId  String
+  createdAt       DateTime @default(now())
+
+  questionnaire Questionnaire @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
+  organization  Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([questionnaireId, organizationId])
+  @@index([organizationId])
+}
+
 enum OrgType {
   CLIENT
   FI
   SYSTEM
   LAW_FIRM
   SUPPLIER
+  OTHER
 }
 
 enum RecordStatus {
@@ -1096,8 +1215,21 @@ enum MappingTransformType {
   FIRST_ARRAY_ITEM
   JOIN_ARRAY
   TO_ADDRESS_OBJECT
+  TO_ADDRESS_VALUE
   TO_PARTY_OBJECT
   TO_PARTY_LIST
+  TO_NAME_HISTORY_LIST
+  TO_CODE_LIST
+  TO_PERSON_OR_CONTACT_VALUE
+  TO_PERSON_OR_CONTACT_LIST
+  TO_PARTY_VALUE
+  TO_PARTY_VALUE_LIST
+  TO_COMPANIES_HOUSE_ACTIVE_DIRECTOR_PARTY_VALUE_LIST
+  /// Converts a GLEIF Registration Authority code (e.g. RA000192) to the
+  /// human-readable name stored in the registry_authorities table.
+  /// Lookup is pre-loaded at enrichment time; applyTransform receives it
+  /// via transformConfig.raNameLookup (plain Record<string, string>).
+  RA_CODE_TO_NAME
 }
 
 enum SyncStatus {
@@ -1118,6 +1250,9 @@ enum PayloadSubtype {
   PSC
   FILINGS
   SHAREHOLDERS
+  LEVEL_1
+  LEVEL_2_RELATIONSHIPS
+  ELF
 }
 
 enum EnrichmentStatus {
@@ -1146,7 +1281,7 @@ model AuditLog {
   newData       Json?
   actorUserId   String?
   user          User?       @relation(fields: [actorUserId], references: [id])
-  sourceType    String      // UI, IMPORT, SYSTEM
+  sourceType    String // UI, IMPORT, SYSTEM
   correlationId String?
   createdAt     DateTime    @default(now())
 
@@ -1154,13 +1289,14 @@ model AuditLog {
   @@index([correlationId])
   @@index([createdAt])
 }
-model AdminMomentumObservation {
-  id          String   @id @default(uuid())
-  createdAt   DateTime @default(now())
 
-  scopeType   String   // "GLOBAL" or "CATEGORY"
-  scopeKey    String   // "GLOBAL" or category id/key
-  scopeName   String?
+model AdminMomentumObservation {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+
+  scopeType String // "GLOBAL" or "CATEGORY"
+  scopeKey  String // "GLOBAL" or category id/key
+  scopeName String?
 
   totalFields Int
   described   Int
@@ -1168,9 +1304,68 @@ model AdminMomentumObservation {
   complete    Int
   actionsLeft Int
 
-  source      String   // "MANUAL"
+  source String // "MANUAL"
 
   @@index([scopeType, scopeKey, createdAt])
   @@index([createdAt])
   @@map("admin_momentum_observations")
+}
+
+model CCParty {
+  id                 String   @id @default(uuid())
+  clientLEId         String
+  data               Json
+  visibility         String   @default("CLIENT_LE")
+  createdFromClaimId String?
+  createdByUserId    String?
+  updatedByUserId    String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  clientLE ClientLE @relation(fields: [clientLEId], references: [id], onDelete: Cascade)
+
+  @@map("cc_parties")
+}
+
+model CCAddress {
+  id                 String   @id @default(uuid())
+  clientLEId         String
+  data               Json
+  visibility         String   @default("CLIENT_LE")
+  createdFromClaimId String?
+  createdByUserId    String?
+  updatedByUserId    String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  clientLE ClientLE @relation(fields: [clientLEId], references: [id], onDelete: Cascade)
+
+  @@map("cc_addresses")
+}
+
+enum PrivateDocumentUploadStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+model PrivateDocumentUploadIntent {
+  id               String                      @id
+  clientLEId       String
+  initiatedById    String
+  storagePathname  String                      @unique
+  originalFilename String
+  declaredMimeType String?
+  status           PrivateDocumentUploadStatus @default(PENDING)
+  documentId       String?                     @unique
+  createdAt        DateTime                    @default(now())
+  completedAt      DateTime?
+  failureReason    String?
+
+  clientLE    ClientLE  @relation(fields: [clientLEId], references: [id])
+  initiatedBy User      @relation(fields: [initiatedById], references: [id])
+  document    Document? @relation(fields: [documentId], references: [id])
+
+  @@index([clientLEId, status])
+  @@index([initiatedById, createdAt])
 }
