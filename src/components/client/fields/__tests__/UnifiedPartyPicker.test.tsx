@@ -76,6 +76,10 @@ vi.mock('@/actions/cc-party-actions', () => ({
     searchCCParties: vi.fn().mockResolvedValue([])
 }));
 
+vi.mock('@/actions/cc-address-actions', () => ({
+    searchCCAddresses: vi.fn().mockResolvedValue([])
+}));
+
 
 const mockToastError = vi.fn();
 vi.mock('sonner', () => ({
@@ -104,7 +108,6 @@ describe('UnifiedPartyPicker', () => {
 
         // Editor is rendered
         expect(screen.getByText(/Party Type/i)).toBeInTheDocument();
-        expect(screen.getByText(/Status:/i)).toBeInTheDocument();
     });
 
     it('uses valid V2 defaults (INDIVIDUAL, isActiveParty: true) and submits correctly', async () => {

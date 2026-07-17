@@ -65,23 +65,6 @@ export function CanonicalPartyEditor({ clientLEId, formState, onChange, previewL
                 <div className="flex items-center justify-between">
                     <div>
                         <h2 className="text-lg font-bold text-gray-800">{previewLabel}</h2>
-                        <div className="text-sm text-gray-500 mt-1">
-                            Status: 
-                            <select
-                                aria-label="Active Party Status"
-                                disabled={disabled}
-                                className="ml-2 bg-transparent border-b border-gray-300 focus:outline-none focus:border-blue-500"
-                                value={formState.isActiveParty === null ? "unspecified" : formState.isActiveParty ? "active" : "inactive"}
-                                onChange={e => {
-                                    const val = e.target.value;
-                                    setFormState(prev => ({ ...prev, isActiveParty: val === "unspecified" ? null : val === "active" }));
-                                }}
-                            >
-                                <option value="unspecified">Not specified</option>
-                                <option value="active">Active</option>
-                                <option value="inactive">Inactive</option>
-                            </select>
-                        </div>
                     </div>
                 </div>
 

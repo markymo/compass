@@ -1,0 +1,32 @@
+--- src/lib/documents/__tests__/DocumentLibraryService.test.ts
++++ src/lib/documents/__tests__/DocumentLibraryService.test.ts
+@@ -165,5 +165,29 @@
+             expect(result.usageHistory[0].replacementDocumentId).toBe('other-doc');
+             expect(result.usageHistory[1].action).toBe('ATTACHED');
+         });
++
++        it('maintains parity between list and detail usage counts', async () => {
++            const doc = makeDoc({ id: 'doc-parity' });
++            const inst1 = 'inst-1'; // replaced -> historical
++            const inst2 = 'inst-2'; // active -> current
++            
++            const c1 = makeClaim({ instanceId: inst1, attachmentDocumentId: 'doc-parity', assertedAt: new Date('2026-01-01') });
++            const c2 = makeClaim({ instanceId: inst1, attachmentDocumentId: 'other-doc', assertedAt: new Date('2026-01-02') });
++            const c3 = makeClaim({ instanceId: inst2, attachmentDocumentId: 'doc-parity', assertedAt: new Date('2026-01-01') });
++            
++            prismaMock.document.findMany.mockResolvedValueOnce([doc]);
++            prismaMock.fieldClaim.findMany.mockResolvedValueOnce([c1, c2, c3]);
++            const listResults = await DocumentLibraryService.listLibraryDocuments('le-1');
++            
++            prismaMock.document.findUnique.mockResolvedValueOnce(doc);
++            prismaMock.fieldClaim.findMany
++                .mockResolvedValueOnce([{ instanceId: inst1 }, { instanceId: inst2 }])
++                .mockResolvedValueOnce([c1, c2, c3]);
++                
++            const detailResult = await DocumentLibraryService.getDocumentDetails('doc-parity', 'le-1');
++            
++            expect(listResults[0].currentUsageCount).toBe(detailResult.currentUsages.length);
++            expect(listResults[0].historicalUsageCount).toBe(detailResult.historicalUsageCount);
++        });
+     });
+ });

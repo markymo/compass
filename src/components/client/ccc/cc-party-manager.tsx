@@ -26,9 +26,16 @@ import { CreateCCAddressDialog } from "@/components/client/fields/CreateCCAddres
 import { PartyAddressRef } from "@/components/client/fields/CCAddressSelector";
 import { getPartyLabel } from "@/lib/master-data/party-v2/label-helper";
 import { upsertCCPartyV2, deleteCCParty } from "@/actions/cc-party-actions";
-import { Plus, Edit, Trash2, Loader2, Layers, AlertTriangle } from "lucide-react";
+import { Plus, Edit, Trash2, Loader2, Layers, AlertTriangle, MoreHorizontal } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { StandardTooltip } from "@/components/ui/standard-tooltip";
 
 interface CCPartyRecord {
     id: string;
@@ -171,7 +178,7 @@ export function CCPartyManager({ clientLEId, initialParties }: CCPartyManagerPro
             </div>
 
             {/* Parties List Card */}
-            <Card className="border-slate-200/80 shadow-xs overflow-hidden rounded-xl">
+            <Card className="border-slate-200/80 shadow-xs rounded-xl bg-white">
                 <CardContent className="p-0">
                     {initialParties.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
@@ -191,7 +198,7 @@ export function CCPartyManager({ clientLEId, initialParties }: CCPartyManagerPro
                             </Button>
                         </div>
                     ) : (
-                        <div className="overflow-x-auto">
+                        <div className="w-full">
                             <Table>
                                 <TableHeader className="bg-slate-50/75 border-b border-slate-100">
                                     <TableRow>
@@ -199,7 +206,7 @@ export function CCPartyManager({ clientLEId, initialParties }: CCPartyManagerPro
                                             Name
                                         </TableHead>
                                         <TableHead className="text-xs font-bold text-slate-500 uppercase py-3 px-5 tracking-wider">
-                                            Type / Subtype
+                                            Type
                                         </TableHead>
                                         <TableHead className="text-xs font-bold text-slate-500 uppercase py-3 px-5 tracking-wider">
                                             Status
@@ -210,9 +217,7 @@ export function CCPartyManager({ clientLEId, initialParties }: CCPartyManagerPro
                                         <TableHead className="text-xs font-bold text-slate-500 uppercase py-3 px-5 tracking-wider">
                                             Usage
                                         </TableHead>
-                                        <TableHead className="text-xs font-bold text-slate-500 uppercase py-3 px-5 tracking-wider font-mono">
-                                            Scope
-                                        </TableHead>
+
                                         <TableHead className="text-xs font-bold text-slate-500 uppercase py-3 px-5 tracking-wider text-right">
                                             Actions
                                         </TableHead>
@@ -222,14 +227,13 @@ export function CCPartyManager({ clientLEId, initialParties }: CCPartyManagerPro
                                     {initialParties.map((party) => {
                                         const summary = party.data ? getPartyLabel({ party: party.data, legacy: party.legacy || {} } as any) : "Unknown";
                                         const isActive = party.data.isActiveParty !== false;
-                                        const partySub = party.data.partySubType || party.data.contactType;
                                         const usage = (party as any).usage;
                                         return (
                                             <TableRow key={party.id} className="hover:bg-slate-50/40 border-b border-slate-100 last:border-0 transition-colors duration-150">
-                                                <TableCell className="py-3 px-5 font-semibold text-slate-800 text-sm">
+                                                <TableCell className="py-3 px-5 font-semibold text-slate-800 text-sm whitespace-normal break-words max-w-[300px]">
                                                     {summary}
                                                 </TableCell>
-                                                <TableCell className="py-3 px-5 text-sm">
+                                                <TableCell className="py-3 px-5 text-sm whitespace-normal">
                                                     <div className="flex flex-col">
                                                         <span className="font-bold text-xs text-slate-500 tracking-wide">
                                                             {party.data.partyType || "UNKNOWN"}
@@ -247,7 +251,7 @@ export function CCPartyManager({ clientLEId, initialParties }: CCPartyManagerPro
                                                         {isActive ? "Active" : "Inactive"}
                                                     </Badge>
                                                 </TableCell>
-                                                <TableCell className="py-3 px-5 text-sm">
+                                                <TableCell className="py-3 px-5 text-sm whitespace-normal">
                                                     <div className="flex flex-col gap-0.5 max-w-[200px]">
                                                         {party.originType === 'PROMOTED' ? (
                                                             <>
@@ -265,28 +269,27 @@ export function CCPartyManager({ clientLEId, initialParties }: CCPartyManagerPro
                                                         )}
                                                     </div>
                                                 </TableCell>
-                                                <TableCell className="py-3 px-5 text-sm">
+                                                <TableCell className="py-3 px-5 text-sm whitespace-normal">
                                                     {usage && usage.length > 0 ? (
-                                                        <div className="flex flex-col gap-1">
-                                                            <span className="font-semibold text-xs text-slate-700">Used in {usage.length} field{usage.length !== 1 ? 's' : ''}</span>
-                                                            <div className="flex flex-col gap-0.5 mt-0.5">
-                                                                {usage.slice(0, 3).map((u: any) => (
-                                                                    <span key={u.fieldNo} className="text-[10px] text-slate-500 max-w-[180px] truncate" title={`Field ${u.fieldNo} — ${u.fieldName}`}>
-                                                                        Field {u.fieldNo} — {u.fieldName}
-                                                                    </span>
-                                                                ))}
-                                                                {usage.length > 3 && (
-                                                                    <span className="text-[10px] text-slate-400 italic">+{usage.length - 3} more...</span>
-                                                                )}
-                                                            </div>
-                                                        </div>
+                                                        <StandardTooltip 
+                                                            dottedUnderline={true}
+                                                            content={
+                                                                <div className="flex flex-col gap-1 text-left">
+                                                                    {usage.map((u: any) => (
+                                                                        <span key={u.fieldNo} className="text-xs">
+                                                                            Field {u.fieldNo} — {u.fieldName}
+                                                                        </span>
+                                                                    ))}
+                                                                </div>
+                                                            }
+                                                        >
+                                                            <span className="font-semibold text-xs text-slate-700 cursor-default">Used in {usage.length} field{usage.length !== 1 ? 's' : ''}</span>
+                                                        </StandardTooltip>
                                                     ) : (
-                                                        <span className="text-xs text-slate-400 italic">No references yet</span>
+                                                        <span className="text-xs text-slate-400 italic">Not currently used</span>
                                                     )}
                                                 </TableCell>
-                                                <TableCell className="py-3 px-5 text-xs font-semibold text-slate-400 font-mono">
-                                                    {party.visibility}
-                                                </TableCell>
+
                                                 <TableCell className="py-3 px-5 text-right">
                                                     <div className="flex items-center justify-end gap-1">
                                                         <Button
@@ -299,16 +302,27 @@ export function CCPartyManager({ clientLEId, initialParties }: CCPartyManagerPro
                                                         >
                                                             <Edit className="h-4 w-4" />
                                                         </Button>
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            onClick={() => handleDeleteClick(party)}
-                                                            className="h-8.5 w-8.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-all duration-150"
-                                                            title="Delete saved party"
-                                                            aria-label="Delete saved party"
-                                                        >
-                                                            <Trash2 className="h-4 w-4" />
-                                                        </Button>
+                                                        <DropdownMenu>
+                                                            <DropdownMenuTrigger asChild>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    className="h-8.5 w-8.5 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-md transition-all duration-150"
+                                                                    aria-label="More actions"
+                                                                >
+                                                                    <MoreHorizontal className="h-4 w-4" />
+                                                                </Button>
+                                                            </DropdownMenuTrigger>
+                                                            <DropdownMenuContent align="end" className="w-40">
+                                                                <DropdownMenuItem
+                                                                    onClick={() => handleDeleteClick(party)}
+                                                                    className="text-rose-600 focus:text-rose-700 focus:bg-rose-50 cursor-pointer"
+                                                                >
+                                                                    <Trash2 className="h-4 w-4 mr-2" />
+                                                                    Delete
+                                                                </DropdownMenuItem>
+                                                            </DropdownMenuContent>
+                                                        </DropdownMenu>
                                                     </div>
                                                 </TableCell>
                                             </TableRow>
