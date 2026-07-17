@@ -2,8 +2,8 @@ import React from 'react';
 import { FileText, Image, Sheet, File } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
-export function formatFileSize(sizeBytes: string | undefined): string {
-    if (!sizeBytes) return '0 B';
+export function formatFileSize(sizeBytes: string | number | bigint | undefined | null): string {
+    if (sizeBytes == null || sizeBytes === '') return '0 B';
     const bytes = Number(sizeBytes);
     if (isNaN(bytes)) return '0 B';
     

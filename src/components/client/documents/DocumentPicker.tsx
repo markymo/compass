@@ -20,11 +20,12 @@ export interface DocumentPickerProps {
     mode: PickerMode;
 }
 
-function formatBytes(bytes: number | null) {
+function formatBytes(bytes: number | bigint | null) {
     if (bytes === null) return 'Unknown';
-    if (bytes < 1024) return `${bytes} B`;
-    else if (bytes < 1048576) return `${Math.round(bytes / 1024)} KB`;
-    else return `${(bytes / 1048576).toFixed(1)} MB`;
+    const numBytes = Number(bytes);
+    if (numBytes < 1024) return `${numBytes} B`;
+    else if (numBytes < 1048576) return `${Math.round(numBytes / 1024)} KB`;
+    else return `${(numBytes / 1048576).toFixed(1)} MB`;
 }
 
 export function DocumentPicker({ isOpen, onClose, documents, onSelect, disabledDocumentIds = [], mode }: DocumentPickerProps) {
