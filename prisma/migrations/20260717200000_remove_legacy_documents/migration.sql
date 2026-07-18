@@ -1,6 +1,5 @@
 -- Drop references to Legacy Documents before deleting them to satisfy RESTRICT foreign key constraints
 UPDATE "PrivateDocumentUploadIntent" SET "documentId" = NULL WHERE "documentId" IN (SELECT id FROM "Document" WHERE "storageProvider" IS NULL);
-UPDATE "Questionnaire" SET "sourceDocumentId" = NULL WHERE "sourceDocumentId" IN (SELECT id FROM "Document" WHERE "storageProvider" IS NULL);
 UPDATE "field_claims" SET "attachmentDocumentId" = NULL WHERE "attachmentDocumentId" IN (SELECT id FROM "Document" WHERE "storageProvider" IS NULL);
 DELETE FROM "cc_party_documents" WHERE "documentId" IN (SELECT id FROM "Document" WHERE "storageProvider" IS NULL);
 
