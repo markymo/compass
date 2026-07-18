@@ -2,8 +2,6 @@
 
 import { DocumentPicker, PickerMode } from "@/components/client/documents/DocumentPicker";
 import { listLibraryDocumentsAction, DocumentPickerItem } from "@/actions/document-library-actions";
-"use client"
-
 import {
     Dialog,
     DialogContent,
