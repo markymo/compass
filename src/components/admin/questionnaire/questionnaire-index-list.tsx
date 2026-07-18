@@ -25,7 +25,7 @@ export interface QuestionnaireIndexItem {
     createdAt: Date;
     mappings: unknown | null;
     fileName: string | null;
-    fileUrl: string | null;
+    
     ownerOrgId: string | null;
     fiEngagementId: string | null;
     kind: string | null;
@@ -148,7 +148,7 @@ function VisibilityIcon({ visibility, kind }: { visibility: string | null; kind:
 // ── Name / Source cell with overflow tooltip ──────────────────────────────────
 
 function NameCell({ q }: { q: QuestionnaireIndexItem }) {
-    const isFileBased = !!q.fileUrl;
+    const isFileBased = true;
     const displayName = isFileBased && q.name === "Untitled Questionnaire" ? q.fileName : q.name;
     const subText = isFileBased
         ? `Source: ${q.fileName} • Uploaded ${formatDistanceToNow(new Date(q.createdAt), { addSuffix: true })}`
@@ -287,7 +287,7 @@ export function QuestionnaireIndexList({ items }: { items: QuestionnaireIndexIte
                             </TableRow>
                         ) : (
                             filtered.map((q) => {
-                                const isFileBased = !!q.fileUrl;
+                                const isFileBased = true;
                                 const isSourceDoc = q.status === "UPLOADED";
                                 const type = classify(q);
 
@@ -360,9 +360,9 @@ export function QuestionnaireIndexList({ items }: { items: QuestionnaireIndexIte
                                         {/* Actions */}
                                         <TableCell className="text-right">
                                             <div className="flex items-center justify-end gap-2">
-                                                {isFileBased && q.fileUrl && (
+                                                {isFileBased && (
                                                     <Button variant="ghost" size="sm" asChild className="hover:bg-blue-50 hover:text-blue-600">
-                                                        <a href={q.fileUrl} target="_blank" rel="noopener noreferrer" title="View Source File">
+                                                        <a href={`/api/questionnaires/${q.id}/download`} target="_blank" rel="noopener noreferrer" title="View Source File">
                                                             Source
                                                         </a>
                                                     </Button>

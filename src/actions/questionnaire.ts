@@ -627,7 +627,7 @@ export async function extractRawText(id: string, images?: string[]) {
         await appendProcessingLog(id, msg, stage, level);
     };
 
-    if (!q.fileContent && !q.fileUrl) {
+    if (!q.fileContent) {
         if (!images || images.length === 0) {
             await logger("No file content or URL found to extract.", "INIT", "ERROR");
             return { success: false, error: "NO_FILE", status: "NO_FILE" };
@@ -1261,7 +1261,7 @@ export async function assignQuestionnaireToEngagement(
                 isGlobal: false,
                 isTemplate: false,
                 kind: "ENGAGEMENT_QUESTIONNAIRE",
-                fileUrl: template.fileUrl,
+                
                 fileName: template.fileName,
                 fileType: template.fileType,
                 sourceId: templateId, // lineage: derived from this template
@@ -1427,7 +1427,7 @@ export async function shareQuestionnaireLaterally(sourceQuestionnaireId: string,
                     isTemplate: false,
                     kind: "ENGAGEMENT_QUESTIONNAIRE",
                     ownerOrgId: source.ownerOrgId,
-                    fileUrl: source.fileUrl,
+                    
                     fileName: source.fileName,
                     fileType: source.fileType,
                     sourceId: sourceQuestionnaireId, // lineage: derived from this engagement questionnaire

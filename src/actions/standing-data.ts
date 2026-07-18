@@ -104,7 +104,6 @@ export async function updateStandingDataSection(leId: string, category: string, 
 export async function attachDocumentToMasterField(
     leId: string,
     fieldKey: string,
-    fileUrl: string,
     fileName: string,
     fileSize?: number
 ) {
@@ -116,7 +115,6 @@ export async function attachDocumentToMasterField(
             data: {
                 clientLEId: leId,
                 name: fileName,
-                fileUrl: fileUrl,
                 fileType: fileName.split('.').pop() || 'unknown',
                 kbSize: fileSize ? Math.round(fileSize / 1024) : null,
                 docType: 'EVIDENCE',
@@ -125,7 +123,6 @@ export async function attachDocumentToMasterField(
         });
 
         revalidatePath(`/app/le/${leId}/master`);
-        revalidatePath(`/app/le/${leId}/sources/vault`);
         return { success: true, document };
     } catch (error: any) {
         console.error("[attachDocumentToMasterField]", error);

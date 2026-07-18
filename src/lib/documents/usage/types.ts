@@ -1,4 +1,4 @@
-export type DocumentUsageType = 'FIELD_ATTACHMENT' | 'PARTY_DOCUMENT';
+export type DocumentUsageType = 'FIELD_ATTACHMENT' | 'PARTY_DOCUMENT' | 'QUESTION_ATTACHMENT';
 
 export interface DocumentUsage {
     documentId: string;
@@ -13,6 +13,8 @@ export interface DocumentUsage {
     metadata: {
         fieldNo?: number;
         partyId?: string;
+        questionId?: string;
+        questionnaireId?: string;
     };
 }
 
@@ -32,5 +34,7 @@ export interface DocumentUsageHistoryEvent {
     metadata: {
         fieldNo?: number;
         partyId?: string;
+        questionId?: string;
+        questionnaireId?: string;
     };
 }

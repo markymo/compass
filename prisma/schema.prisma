@@ -274,14 +274,10 @@ model EngagementActivity {
 
 model Document {
   id         String   @id @default(uuid())
-  clientLEId String
+  clientLEId String?
+  ownerOrgId String?
   name       String
-  fileUrl    String
-  fileType   String
-  kbSize     Int?
-  docType    String?
   metadata   Json?
-  isVerified Boolean  @default(false)
   isDeleted  Boolean  @default(false)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
@@ -292,18 +288,17 @@ model Document {
   sizeBytes       BigInt?
   mimeType        String?
   checksum        String?
-
-  masterFieldKey              String?
   prefilledForQuestionId      String?
   questionId                  String?
   uploadedById                String?
-  clientLE                    ClientLE                     @relation(fields: [clientLEId], references: [id], onDelete: Cascade)
+  clientLE                    ClientLE?                    @relation(fields: [clientLEId], references: [id], onDelete: Cascade)
   prefilledForQuestion        Question?                    @relation("PrefilledQuestionDocuments", fields: [prefilledForQuestionId], references: [id])
   question                    Question?                    @relation("QuestionDocuments", fields: [questionId], references: [id])
   uploadedBy                  User?                        @relation("UploadedDocuments", fields: [uploadedById], references: [id])
   sharedWith                  FIEngagement[]               @relation("SharedDocuments")
   fieldClaimsAsAttachment     FieldClaim[]                 @relation("FieldClaimAttachmentDocument")
   privateDocumentUploadIntent PrivateDocumentUploadIntent?
+  questionnairesAsSource      Questionnaire[]              @relation("QuestionnaireSourceDocument")
   ccPartyDocuments            CCPartyDocument[]
 }
 
@@ -328,7 +323,8 @@ model Questionnaire {
   isDeleted        Boolean                        @default(false)
   fileName         String?
   fileType         String?
-  fileContent      Bytes?
+  sourceDocumentId String?
+  sourceDocument   Document?                      @relation("QuestionnaireSourceDocument", fields: [sourceDocumentId], references: [id], onDelete: Restrict)
   mappings         Json?
   createdAt        DateTime                       @default(now())
   updatedAt        DateTime                       @updatedAt
@@ -343,7 +339,6 @@ model Questionnaire {
   kind             QuestionnaireKind?
   functionalCode   String?
   referenceCode    String?
-  fileUrl          String?
   isTemplate       Boolean                        @default(false)
   /// Lineage: the questionnaire this record was directly derived from (clone, assign, promote, lateral share).
   /// Null for original / uploaded / manually-created questionnaires.
@@ -574,7 +569,6 @@ model LegalEntity {
   countryOfIncorporation  String? // GLEIF country of incorporation (ISO alpha-2)
   clientLEs               ClientLE[]
   graphNodes              ClientLEGraphNode[]
-  documents               DocumentRegistry[]
   claims                  FieldClaim[]        @relation("LegalEntitySubject")
   referencedInClaims      FieldClaim[]        @relation("LegalEntityValue")
 
@@ -597,25 +591,6 @@ model EvidenceStore {
   @@map("evidence_store")
 }
 
-model DocumentRegistry {
-  id                 String            @id @default(uuid())
-  legalEntityId      String
-  ownerType          DocumentOwnerType
-  ownerId            String
-  fieldNo            Int
-  filePath           String
-  fileName           String
-  mimeType           String
-  uploadedAt         DateTime          @default(now())
-  uploadedBy         String
-  legalEntity        LegalEntity       @relation(fields: [legalEntityId], references: [id], onDelete: Cascade)
-  referencedInClaims FieldClaim[]
-
-  @@index([legalEntityId])
-  @@index([ownerType, ownerId])
-  @@index([fieldNo])
-  @@map("document_registry")
-}
 
 model FeedbackNote {
   id           String    @id @default(uuid())
@@ -696,7 +671,6 @@ model FieldClaim {
   valuePersonId        String?
   valueLeId            String?
   valueOrgId           String?
-  valueDocId           String?
   attachmentDocumentId String?
   idempotencyKey       String?           @unique
   claimRole            ClaimRole         @default(VALUE)
@@ -725,7 +699,6 @@ model FieldClaim {
   supersedes           FieldClaim?       @relation("Lineage", fields: [supersedesId], references: [id])
   supersededBy         FieldClaim[]      @relation("Lineage")
   valueAddress         Address?          @relation("AddressValue", fields: [valueAddressId], references: [id])
-  valueDoc             DocumentRegistry? @relation(fields: [valueDocId], references: [id])
   valueLe              LegalEntity?      @relation("LegalEntityValue", fields: [valueLeId], references: [id])
   valueOrg             Organization?     @relation("OrganizationValue", fields: [valueOrgId], references: [id])
   valuePerson          Person?           @relation("PersonValue", fields: [valuePersonId], references: [id])

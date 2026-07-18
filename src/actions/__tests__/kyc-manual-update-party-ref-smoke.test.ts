@@ -37,6 +37,9 @@ vi.mock('@/services/masterData/definitionService', async (importOriginal) => {
                 if (fieldNo === 125) {
                     return { fieldNo: 125, appDataType: 'PARTY_REF', categoryId: 'cat', isMultiValue: false, isActive: true, allowAttachments: false };
                 }
+                if (fieldNo === 63) {
+                    return { fieldNo: 63, appDataType: 'PARTY', categoryId: 'cat', isMultiValue: true, isActive: true, allowAttachments: false, profileConfig: { partyPopulationPolicy: 'SYSTEM_AND_CURATED' } };
+                }
                 throw e;
             }
             if (fieldNo === 63) {

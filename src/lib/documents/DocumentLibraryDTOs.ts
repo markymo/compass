@@ -1,4 +1,4 @@
-export type DocumentUsageType = 'FIELD_ATTACHMENT' | 'PARTY_DOCUMENT';
+export type DocumentUsageType = 'FIELD_ATTACHMENT' | 'PARTY_DOCUMENT' | 'QUESTION_ATTACHMENT';
 
 export interface DocumentUploaderDTO {
     id: string;

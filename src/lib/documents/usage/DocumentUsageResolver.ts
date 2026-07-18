@@ -1,6 +1,7 @@
 import { DocumentUsage } from './types';
 import { FieldAttachmentUsageProvider } from './providers/FieldAttachmentUsageProvider';
 import { PartyDocumentUsageProvider } from './providers/PartyDocumentUsageProvider';
+import { QuestionDocumentUsageProvider } from './providers/QuestionDocumentUsageProvider';
 
 export class DocumentUsageResolver {
     /**
@@ -22,7 +23,8 @@ export class DocumentUsageResolver {
         // Explicitly construct providers to avoid complex plugin registry
         const providers = [
             new FieldAttachmentUsageProvider(),
-            new PartyDocumentUsageProvider()
+            new PartyDocumentUsageProvider(),
+            new QuestionDocumentUsageProvider()
         ];
 
         // Query all providers in parallel

@@ -37,17 +37,10 @@ export async function GET(
             if (result && result.stream) {
                 stream = result.stream as unknown as ReadableStream;
             }
-        } else if (document.fileUrl) {
-            // Legacy documents stored in public blob or external URL
-            const response = await fetch(document.fileUrl);
-            if (response.ok) {
-                stream = response.body as ReadableStream;
-                mimeType = document.fileType || response.headers.get('content-type') || 'application/octet-stream';
-            }
         }
 
         if (!stream) {
-            if (document.storageProvider !== "VERCEL_BLOB" && !document.fileUrl) {
+            if (document.storageProvider !== "VERCEL_BLOB") {
                 return new NextResponse("Document is not a downloadable file", { status: 400 });
             }
             return new NextResponse("Failed to retrieve document stream", { status: 500 });

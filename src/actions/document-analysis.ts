@@ -1,4 +1,6 @@
 "use server";
+import { DocumentService } from "@/lib/documents/DocumentService";
+
 
 import prisma from "@/lib/prisma";
 import { DocumentKnowledgeExtractorService } from "@/services/ai/DocumentKnowledgeExtractorService";
@@ -27,30 +29,16 @@ export async function analyzeDocument(documentId: string) {
             return { success: false, error: "Document not found" };
         }
 
-        if (!document.fileUrl) {
-            return { success: false, error: "Document has no file URL" };
+        // 2. Fetch the File Content via unified DocumentService
+        // No clientLEId check here since it's just an internal AI pipeline, 
+        // but we could pass it if we had it in context.
+        const { buffer, mimeType: docMimeType } = await DocumentService.getBuffer(documentId);
+
+        let mimeType = docMimeType || 'application/octet-stream';
+        // Fallback for PDFs just in case
+        if (document.name.endsWith('.pdf') && mimeType === 'application/octet-stream') {
+             mimeType = 'application/pdf';
         }
-
-        // Check if extraction already exists (provenance check)
-        // If meta.extractedKnowledge exists, we could return early.
-        // But for development iteration, let's allow re-analysis.
-
-        // 2. Fetch the File Content (Assume public read access for blob, or authenticated fetch)
-        // If Vercel Blob is public, fetch works. If stored elsewhere, adapt.
-        const response = await fetch(document.fileUrl);
-        if (!response.ok) {
-            console.error(`[Analysis] Failed to fetch file from ${document.fileUrl}`);
-            return { success: false, error: "Failed to download document content" };
-        }
-
-        const arrayBuffer = await response.arrayBuffer();
-        const buffer = Buffer.from(arrayBuffer);
-
-        // 3. Ingest Parsing (PDF/Docx -> Text)
-        // Similar to questionnaire ingest logic
-        let mimeType = document.fileType || response.headers.get("content-type") || "application/octet-stream";
-        // Override for PDF based on filename for reliability
-        if (document.name.endsWith('.pdf')) mimeType = 'application/pdf';
 
         const ingestionResult = await ingestionService.processDocument(buffer, mimeType, document.name);
 
@@ -58,8 +46,6 @@ export async function analyzeDocument(documentId: string) {
         const knowledge = await extractorService.extract(ingestionResult);
 
         // 5. Store Provenance
-        // We update the Document metadata. This is the "Knowledge Base Entry" linked to the source.
-        // We preserve existing metadata and merge the new knowledge.
         const updatedMetadata = {
             ...(document.metadata as object || {}),
             extractedKnowledge: knowledge,
@@ -71,12 +57,7 @@ export async function analyzeDocument(documentId: string) {
         await prisma.document.update({
             where: { id: documentId },
             data: {
-                metadata: updatedMetadata,
-                // Optional: Update docType if AI is confident
-                docType: (knowledge.documentType.toUpperCase().includes('IDENTITY') ? 'IDENTITY' :
-                    knowledge.documentType.toUpperCase().includes('FINANCIAL') ? 'FINANCIAL' :
-                        knowledge.documentType.toUpperCase().includes('CORPORATE') ? 'CORPORATE' :
-                            document.docType) || "OTHER"
+                metadata: updatedMetadata
             }
         });
 

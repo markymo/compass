@@ -291,7 +291,6 @@ export async function getBoardQuestions(engagementId: string) {
                 id: d.id,
                 name: d.name,
                 fileType: d.fileType,
-                fileUrl: d.fileUrl,
                 kbSize: d.kbSize
             })) : [],
             masterFieldNo: q.masterFieldNo,
@@ -866,53 +865,38 @@ export async function updateAnswer(questionId: string, answer: string) {
  * Can be called either from onUploadCompleted (Vercel Blob) or directly from
  * the client after a successful blob upload (more reliable in local dev).
  */
-export async function attachDocumentToQuestion(questionId: string, fileUrl: string, fileName: string, fileSize?: number) {
+export async function attachDocumentToQuestion(questionId: string, documentId: string) {
     try { await ensureQuestionNotReferenceSnapshot(questionId); } catch(e: any) { return { success: false, error: e.message }; }
     const identity = await getIdentity();
     if (!identity?.userId) return { success: false, error: "Unauthorized" };
     const { userId } = identity;
 
     try {
-        // Fetch question with BOTH engagement relations:
-        // 1. Many-to-many (engagements) — used for templates
-        // 2. Direct (fiEngagement via fiEngagementId) — used for instantiated questionnaires
-        const questionData = await prisma.question.findUnique({
-            where: { id: questionId },
-            include: {
-                questionnaire: {
-                    include: {
-                        engagements: true,      // many-to-many relation
-                        fiEngagement: true,      // direct QuestionnaireInstance relation
-                    }
-                }
-            }
+        // Find the document and verify it exists
+        let document = await prisma.document.findUnique({
+            where: { id: documentId }
         });
 
-        if (!questionData) return { success: false, error: "Question not found" };
-
-        // Try both relations to find the linked engagement
-        const engagementFromM2M = (questionData.questionnaire as any).engagements?.[0];
-        const engagementFromDirect = (questionData.questionnaire as any).fiEngagement;
-        const clientLEId =
-            engagementFromM2M?.clientLEId ??
-            engagementFromDirect?.clientLEId ??
-            null;
-
-        if (!clientLEId) {
-            console.error("attachDocumentToQuestion: could not resolve clientLEId for question", questionId,
-                { m2m: engagementFromM2M, direct: engagementFromDirect });
-            return { success: false, error: "Client LE context missing for document" };
+        // If not found, it might be an intentId from a fresh upload
+        if (!document) {
+            const intent = await prisma.privateDocumentUploadIntent.findUnique({
+                where: { id: documentId },
+                include: { document: true }
+            });
+            if (intent?.document) {
+                document = intent.document;
+            }
         }
 
-        // Create the Document and link it to the Question
-        const document = await prisma.document.create({
+        if (!document) {
+            return { success: false, error: "Document not found" };
+        }
+
+        // Link document to the Question
+        const updatedDocument = await prisma.document.update({
+            where: { id: document.id },
             data: {
-                name: fileName,
-                fileUrl: fileUrl,
-                fileType: fileName.split('.').pop() || 'unknown',
-                kbSize: fileSize ? Math.round(fileSize / 1024) : null,
-                clientLEId: clientLEId,
-                questionId: questionId,
+                questionId: questionId
             }
         });
 
@@ -1434,7 +1418,6 @@ export async function getEngagementEvidenceDocuments(engagementId: string) {
                     select: {
                         id: true,
                         name: true,
-                        fileUrl: true,
                         fileType: true,
                         kbSize: true,
                         createdAt: true,

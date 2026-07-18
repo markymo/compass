@@ -5,9 +5,7 @@ import { getIdentity } from "@/lib/auth";
 import { can, Action, UserWithMemberships } from "@/lib/auth/permissions";
 import prisma from "@/lib/prisma";
 import { KycWriteService } from "@/services/kyc/KycWriteService";
-import { DocumentService } from "@/services/kyc/DocumentService";
 import { ModuleValidator } from "@/services/kyc/ModuleValidator";
-import { DocumentRegistrySchema } from "@/domain/kyc/schemas/DocumentRegistrySchema";
 
 // Types
 export type KycActionState = {
@@ -19,7 +17,6 @@ export type KycActionState = {
 
 // Services
 const kycService = new KycWriteService();
-const docService = new DocumentService();
 const validator = new ModuleValidator();
 
 /**
@@ -193,47 +190,3 @@ export async function validateKycModule(clientLEId: string, moduleName: string):
 /**
  * DOCUMENT UPLOAD
  */
-export async function uploadKycDocument(formData: FormData): Promise<KycActionState> {
-    try {
-        const file = formData.get('file') as File;
-        const legalEntityId = formData.get('legalEntityId') as string;
-        const ownerType = formData.get('ownerType') as string;
-        const ownerId = formData.get('ownerId') as string;
-        const fieldNoStr = formData.get('fieldNo') as string;
-
-        if (!file || !legalEntityId || !fieldNoStr) {
-            return { success: false, message: "Missing required fields" };
-        }
-
-        const { userId } = await ensureKycAuthorization(legalEntityId);
-
-        const docId = await docService.uploadDocument({
-            legalEntityId,
-            ownerType: ownerType as any,
-            ownerId,
-            fieldNo: parseInt(fieldNoStr),
-            // Pass properties of the file, not the file object if the service expects a path/stream (Service Mocks S3 for now)
-            // The service signature we implemented in Phase 2C was:
-            // check DocumentService.ts -> it takes { fileName, mimeType ... } and mocks S3.
-            // It does NOT strictly take a 'File' stream yet because we haven't implemented real S3.
-            // So we just pass names.
-            fileName: file.name,
-            mimeType: file.type,
-            filePath: `uploads/${file.name}`, // Mock path
-            uploadedBy: userId
-        });
-
-        // Link logic? The Doc Service creates the Registry Entry. 
-        // But referencing the Doc ID in the target field (e.g. Field 100) 
-        // must be done separately via updateKycField? 
-        // OR the UI does: 1. Upload returns ID -> 2. Update Field with ID.
-        // This is the cleanest pattern.
-
-        revalidatePath(`/app/le/${legalEntityId}`);
-        return { success: true, data: { documentId: docId } };
-
-    } catch (error: any) {
-        console.error("Upload failed:", error);
-        return { success: false, message: error.message };
-    }
-}

@@ -113,8 +113,8 @@ describe.skipIf(!process.env.DATABASE_URL)('Phase 4 Attachment Lifecycle Integra
                 storagePathname: uniquePathname,
                 uploadedById: 'test-user-part1',
                 name: 'test.pdf',
-                fileUrl: `http://test.com/${uniquePathname}`,
-                fileType: 'application/pdf',
+                
+                
             }
         });
         testDocs.push(doc.id);
@@ -309,7 +309,7 @@ describe.skipIf(!process.env.DATABASE_URL)('Phase 4 Attachment Lifecycle Integra
         it('rejects attachment of a Document owned by another ClientLE', async () => {
             const otherLe = await prisma.clientLE.create({ data: { name: 'Other LE' } });
             const docId = await prisma.document.create({
-                data: { clientLEId: otherLe.id, storageProvider: 'test', storagePathname: `sec-2-${Date.now()}`, name: 't', fileUrl: 't', fileType: 't' }
+                data: { clientLEId: otherLe.id, storageProvider: 'test', storagePathname: `sec-2-${Date.now()}`, name: 't',   }
             }).then(d => d.id);
 
             testDocs.push(docId);

@@ -50,12 +50,6 @@ export function SourcesSubNav({ leId, jurisdiction, registryName }: SourcesSubNa
             isActive: (path: string) => path.startsWith(`${baseUrl}/knowledge`)
         },
         */
-        {
-            label: "Document Vault",
-            href: `${baseUrl}/vault`,
-            icon: Lock,
-            isActive: (path: string) => path.startsWith(`${baseUrl}/vault`)
-        }
     ];
 
     return (

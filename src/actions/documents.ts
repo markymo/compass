@@ -5,33 +5,6 @@ import { revalidatePath } from "next/cache";
 import { del } from '@vercel/blob';
 import { getIdentity } from "@/lib/auth";
 
-/**
- * Save Document Metadata after Vercel Blob Upload
- */
-export async function uploadDocument(clientLEId: string, data: { name: string, type: string, fileUrl: string, docType?: string, kbSize?: number }) {
-    try {
-        const identity = await getIdentity();
-        if (!identity) return { success: false, error: "Unauthenticated" };
-
-        const doc = await prisma.document.create({
-            data: {
-                clientLEId,
-                name: data.name,
-                fileType: data.type,
-                fileUrl: data.fileUrl,
-                kbSize: data.kbSize || 0,
-                docType: data.docType || "UNCATEGORIZED",
-                isVerified: false,
-                uploadedById: identity.userId
-            }
-        });
-        revalidatePath(`/app/le/${clientLEId}`);
-        return { success: true, document: doc };
-    } catch (error) {
-        console.error("Failed to upload document:", error);
-        return { success: false, error: "Database error during upload" };
-    }
-}
 
 /**
  * Get all active documents for a Client LE (The Vault).
@@ -141,11 +114,6 @@ export async function revokeDocumentAccess(documentId: string, engagementId: str
 export async function deleteDocument(documentId: string) {
     try {
         const doc = await prisma.document.findUnique({ where: { id: documentId } });
-
-        if (doc && doc.fileUrl.includes('public.blob.vercel-storage.com')) {
-            // Attempt to delete from blob storage
-            try { await del(doc.fileUrl); } catch (e) { console.warn("Failed to delete blob", e) }
-        }
 
         await prisma.document.update({
             where: { id: documentId },
