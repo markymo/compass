@@ -18,7 +18,7 @@ import { mapDerivedAttachments } from "@/lib/kyc/attachments";
 import { FieldClaimService } from "@/lib/kyc/FieldClaimService";
 import { getComplexFieldConfig } from "@/lib/master-data/complex-field-config";
 import { toExportText } from "@/lib/export/toExportText";
-import { resolveFieldForDisplay } from "@/lib/master-data/field-interpreter";
+import { resolveFieldForDisplay, resolveFieldCollectionForDisplay } from "@/lib/master-data/field-interpreter";
 import { compareAndLogShadowRender } from "@/lib/master-data/shadow-logger";
 import { FieldDisplayModel } from "@/lib/master-data/field-display-model";
 
@@ -708,12 +708,20 @@ export async function getFullMasterData(clientLEId: string) {
             if (val !== null && val !== undefined) {
                 if (Array.isArray(val)) {
                     if (val.length > 0) {
-                        // For ccParty we unwrap to data for legacy UI logic, for Address we keep the wrapper
-                        valueToSet = val.map((c: any) => resolvePartyRef(c.value));
+                        // Preserve the full collection envelope shape exactly as resolveMasterDataBatch does
+                        valueToSet = val.map((c: any) => ({
+                            value: resolvePartyRef(c.value),
+                            source: c.sourceType ? {
+                                type: c.sourceType,
+                                reference: c.sourceReference || null,
+                                timestamp: c.assertedAt || null,
+                                sourceCheckedAt: c.sourceCheckedAt || null
+                            } : undefined,
+                            instanceId: c.instanceId
+                        }));
+                        // Field-level source is handled natively by resolveFieldCollectionForDisplay, but we track
+                        // the primary source type for badge evaluation fallbacks
                         sourceToSet = val[0].isScoped ? 'USER_INPUT' : (val[0].evidenceProvider || val[0].sourceType || 'MASTER_RECORD');
-                        sourceRefToSet = val[0].isScoped ? val[0].sourceReference || undefined : undefined;
-                        timestampToSet = val[0].assertedAt || undefined;
-                        sourceCheckedAtToSet = val[0].sourceCheckedAt || undefined;
                     }
                 } else {
                     valueToSet = resolvePartyRef(val.value);
@@ -724,9 +732,9 @@ export async function getFullMasterData(clientLEId: string) {
                 }
             }
 
-            const interpreterState = resolveFieldForDisplay(valueToSet, null, {
-                isMultiValue: def.isMultiValue
-            } as any).state;
+            const interpreterState = def.isMultiValue 
+                ? resolveFieldCollectionForDisplay(valueToSet || [], { isMultiValue: true } as any).state
+                : resolveFieldForDisplay(valueToSet, null, { isMultiValue: false } as any).state;
             const hasValue = interpreterState === 'POPULATED' || interpreterState === 'EXPLICIT_NONE';
             const mappedSources = mappingsByField.get(def.fieldNo) || [];
             const hasMapping = mappedSources.length > 0;
@@ -781,26 +789,47 @@ export async function getFullMasterData(clientLEId: string) {
                 userName: null
             } : null;
 
-            const displayModel = resolveFieldForDisplay(
-                valueToSet,
-                rawSource,
-                {
-                    fieldNo: def.fieldNo,
-                    label: def.fieldName,
-                    defaultText: def.defaultResponse || undefined,
-                    displayState,
-                    isEditable: true,
-                    isMultiValue: def.isMultiValue,
-                    appDataType: def.appDataType,
-                    profileConfig: def.profileConfig as { displayMask?: string[] } | undefined,
-                    codeSystem: (() => {
-                        const cfg = getComplexFieldConfig(def.fieldNo);
-                        return cfg?.kind === 'STRUCTURED_COLLECTION' ? (cfg as any).codeSystem : undefined;
-                    })(),
-                    allowAttachments: def.allowAttachments,
-                    attachments: mapDerivedAttachments(resolvedAttachments.get(def.fieldNo) || [])
-                }
-            );
+            const displayModel = def.isMultiValue ? 
+                resolveFieldCollectionForDisplay(
+                    valueToSet || [],
+                    {
+                        fieldNo: def.fieldNo,
+                        label: def.fieldName,
+                        defaultText: def.defaultResponse || undefined,
+                        displayState,
+                        isEditable: true,
+                        isMultiValue: true,
+                        appDataType: def.appDataType,
+                        profileConfig: def.profileConfig as { displayMask?: string[] } | undefined,
+                        codeSystem: (() => {
+                            const cfg = getComplexFieldConfig(def.fieldNo);
+                            return cfg?.kind === 'STRUCTURED_COLLECTION' ? (cfg as any).codeSystem : undefined;
+                        })(),
+                        allowAttachments: def.allowAttachments,
+                        attachments: mapDerivedAttachments(resolvedAttachments.get(def.fieldNo) || []),
+                        clientLEId
+                    }
+                ) : resolveFieldForDisplay(
+                    valueToSet,
+                    rawSource,
+                    {
+                        fieldNo: def.fieldNo,
+                        label: def.fieldName,
+                        defaultText: def.defaultResponse || undefined,
+                        displayState,
+                        isEditable: true,
+                        isMultiValue: false,
+                        appDataType: def.appDataType,
+                        profileConfig: def.profileConfig as { displayMask?: string[] } | undefined,
+                        codeSystem: (() => {
+                            const cfg = getComplexFieldConfig(def.fieldNo);
+                            return cfg?.kind === 'STRUCTURED_COLLECTION' ? (cfg as any).codeSystem : undefined;
+                        })(),
+                        allowAttachments: def.allowAttachments,
+                        attachments: mapDerivedAttachments(resolvedAttachments.get(def.fieldNo) || []),
+                        clientLEId
+                    }
+                );
 
             const oldFormattedDisplayValue = toExportText(displayModel);
 

@@ -95,7 +95,9 @@ export function normaliseCCPartyData(source: any): NormalisedPartyReadModel | nu
     // Determine derived partyType
     let derivedType = legacyVal.partyType;
     if (!source.partyType) {
-        if (legacyVal.organisationName || legacyVal.companyName || legacyVal.legalName) derivedType = 'ORGANISATION';
+        if (legacyVal.metadata_type === 'LEGAL_ENTITY') derivedType = 'ORGANISATION';
+        else if (legacyVal.metadata_type === 'PERSON') derivedType = 'INDIVIDUAL';
+        else if (legacyVal.organisationName || legacyVal.companyName || legacyVal.legalName) derivedType = 'ORGANISATION';
         else if (legacyVal.contactType === 'PERSON') derivedType = 'INDIVIDUAL';
         else if (legacyVal.contactType === 'CONTACT') derivedType = 'INDIVIDUAL';
         else derivedType = 'UNKNOWN';

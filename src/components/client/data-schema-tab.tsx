@@ -859,16 +859,43 @@ function MasterFieldDisplay({ label, fieldNo, value, formattedDisplayValue, sour
                         </div>
                         <div className="flex flex-col gap-2 w-full">
                             <div className="flex flex-col w-full divide-y divide-slate-100 border border-slate-200 rounded-md bg-white shadow-sm overflow-hidden">
-                                {value.slice(0, 18).map((party: any, idx: number) => {
-                                    let parsed = party;
-                                    if (typeof party === 'string' && (party.startsWith('{') || party.startsWith('['))) { try { parsed = JSON.parse(party); } catch {} }
-                                    const partyVal = parsed?.ccParty?.data || parsed?._resolvedData?.ccParty?.data || parsed;
-                                    return (
-                                        <div key={idx} className="px-3 py-2 flex items-center min-h-[48px] min-w-0">
-                                            <PersonOrContactValueViewer value={partyVal} layout="row" displayMask={fieldDef?.profileConfig?.displayMask} />
-                                        </div>
-                                    );
-                                })}
+                                {(() => {
+                                    if (canonicalDisplayModel?.value.kind === 'collection') {
+                                        return canonicalDisplayModel.value.items.slice(0, 18).map((item, idx) => (
+                                            <div key={idx} className="px-3 py-2 flex items-center justify-between min-h-[48px] min-w-0">
+                                                <div className="flex-1 min-w-0 pr-4">
+                                                    {(item.value.kind === 'party' || item.value.kind === 'partyRef') ? (
+                                                        <PersonOrContactValueViewer 
+                                                            value={item.value.kind === 'partyRef' ? item.value.resolved : item.value.data} 
+                                                            partyLabel={(item.value as any).partyLabel}
+                                                            layout="row" 
+                                                            displayMask={fieldDef?.profileConfig?.displayMask} 
+                                                        />
+                                                    ) : (
+                                                        <span className="text-slate-400 italic">—</span>
+                                                    )}
+                                                </div>
+                                                {item.source && (
+                                                    <div className="shrink-0">
+                                                        <FieldSourceBadge source={item.source} showLastValidated={false} />
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ));
+                                    }
+                                    
+                                    // Fallback to legacy raw rendering if canonical model is absent
+                                    return value.slice(0, 18).map((party: any, idx: number) => {
+                                        let parsed = party;
+                                        if (typeof party === 'string' && (party.startsWith('{') || party.startsWith('['))) { try { parsed = JSON.parse(party); } catch {} }
+                                        const partyVal = parsed?.ccParty?.data || parsed?._resolvedData?.ccParty?.data || parsed;
+                                        return (
+                                            <div key={idx} className="px-3 py-2 flex items-center min-h-[48px] min-w-0">
+                                                <PersonOrContactValueViewer value={partyVal} layout="row" displayMask={fieldDef?.profileConfig?.displayMask} />
+                                            </div>
+                                        );
+                                    });
+                                })()}
                             </div>
                             {value.length > 18 && (
                                 <div className="text-[11px] text-slate-500 font-medium mt-1 px-1 flex items-center gap-1 group-hover:text-blue-600 transition-colors">

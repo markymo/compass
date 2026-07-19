@@ -174,9 +174,16 @@ export function isPartyValue(value: any): value is PartyValue {
     let matches = false;
     if ('contactType' in value && VALID_TYPES.has(value.contactType)) {
         matches = true;
-    } else if ('forenames' in value || 'surname' in value || 'roles' in value || 'firstName' in value || 'lastName' in value || 'organisationName' in value || 'displayName' in value || 'partyType' in value) {
+    } else if ('forenames' in value || 'surname' in value || 'roles' in value || 'firstName' in value || 'lastName' in value || 'organisationName' in value || 'displayName' in value || 'partyType' in value || 'metadata_type' in value || 'name' in value) {
         // Automatically inject the missing discriminant so the editor works
-        if (!('contactType' in value)) value.contactType = 'PERSON';
+        if (!('contactType' in value)) {
+            if (value.metadata_type === 'LEGAL_ENTITY' || value.organisationName || value.companyName || value.legalName || ('name' in value && !('firstName' in value))) {
+                value.contactType = 'CONTACT';
+                value.partyType = 'ORGANISATION';
+            } else {
+                value.contactType = 'PERSON';
+            }
+        }
         matches = true;
     }
 
