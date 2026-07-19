@@ -114,6 +114,7 @@ export function CanonicalPartyEditDialog({
                         <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
                             <CanonicalPartyEditor
                                 clientLEId={clientLEId}
+                                partyId={ccPartyId || undefined}
                                 formState={formState}
                                 onChange={setFormState}
                                 disabled={isSaving}

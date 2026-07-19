@@ -25,3 +25,39 @@ export async function getLibraryDocumentDetailsAction(documentId: string, client
     // The service internally verifies the document belongs to clientLEId
     return DocumentLibraryService.getDocumentDetails(documentId, clientLEId);
 }
+
+export type DocumentPickerItem = {
+    id: string;
+    fileName: string;
+    mimeType: string | null;
+    sizeBytes: number | null;
+    createdAt: string;
+};
+
+export async function listLibraryDocumentsAction(clientLEId: string): Promise<DocumentPickerItem[]> {
+    const identity = await getIdentity();
+    if (!identity?.userId) {
+        throw new Error("Unauthorized: Not logged in");
+    }
+    const userWithMemberships = {
+        id: identity.userId,
+        memberships: await prisma.membership.findMany({ where: { userId: identity.userId } })
+    };
+
+    // Check permissions on the target LE
+    const hasAccess = await can(userWithMemberships, Action.LE_VIEW_MASTER_DATA, { clientLEId }, prisma);
+    if (!hasAccess) {
+        throw new Error("Unauthorized: Access denied to Client LE");
+    }
+
+    const docs = await DocumentLibraryService.listLibraryDocuments(clientLEId);
+    
+    // Return transport-safe projection
+    return docs.map(d => ({
+        id: d.id,
+        fileName: d.filename,
+        mimeType: d.mimeType || null,
+        sizeBytes: d.sizeBytes ? parseInt(d.sizeBytes, 10) : null,
+        createdAt: d.createdAt
+    }));
+}

@@ -815,7 +815,7 @@ export class KycStateService {
             (claim as any).valuePerson ??
             (claim as any).valueLe ??
             (claim as any).valueOrg ??
-            claim.valueDocId ??
+            
             (claim as any).attachmentDocumentId;
 
         return {

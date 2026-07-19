@@ -11,6 +11,10 @@ import { getUploadIntentStatus } from '@/actions/upload-intent';
 import { MAX_FILE_SIZE, ALLOWED_MIME_TYPES, validateDocumentFile } from '@/lib/documents/upload-constants';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Library, Upload } from 'lucide-react';
+import { DocumentPicker, PickerMode } from '@/components/client/documents/DocumentPicker';
+import { listLibraryDocumentsAction, DocumentPickerItem } from '@/actions/document-library-actions';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -47,6 +51,11 @@ export function FieldAttachments({ clientLEId, fieldNo, attachments, isEditable,
     const [removingInstanceId, setRemovingInstanceId] = useState<string | null>(null);
     const pollAttempts = useRef(0);
     const router = useRouter();
+
+    const [pickerOpen, setPickerOpen] = useState(false);
+    const [pickerMode, setPickerMode] = useState<PickerMode | null>(null);
+    const [libraryDocs, setLibraryDocs] = useState<DocumentPickerItem[] | null>(null);
+    const [isLoadingLibrary, setIsLoadingLibrary] = useState(false);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const replaceInputRef = useRef<HTMLInputElement>(null);
@@ -143,6 +152,66 @@ export function FieldAttachments({ clientLEId, fieldNo, attachments, isEditable,
         pollAttempts.current = 0;
         if (fileInputRef.current) fileInputRef.current.value = '';
         if (replaceInputRef.current) replaceInputRef.current.value = '';
+    };
+
+    const openPicker = async (mode: PickerMode) => {
+        setPickerMode(mode);
+        setPickerOpen(true);
+        setIsLoadingLibrary(true);
+        setLibraryDocs(null);
+        
+        try {
+            const docs = await listLibraryDocumentsAction(clientLEId);
+            setLibraryDocs(docs);
+        } catch (error: any) {
+            toast.error(error.message || 'Failed to load library documents');
+            setPickerOpen(false);
+            setPickerMode(null);
+        } finally {
+            setIsLoadingLibrary(false);
+        }
+    };
+
+    const handleLibrarySelect = async (doc: DocumentPickerItem) => {
+        if (!pickerMode) return;
+        
+        const mode = pickerMode;
+        
+        setPickerOpen(false);
+        setPickerMode(null);
+        setOpState('PROCESSING');
+        setOpType(mode.type === 'ADD' ? 'add' : 'replace');
+        setTargetInstanceId(mode.type === 'REPLACE' ? mode.instanceId : null);
+        setErrorMsg(null);
+
+        try {
+            const idempotencyKey = crypto.randomUUID();
+            if (mode.type === 'REPLACE') {
+                await replaceFieldAttachment({
+                    clientLEId,
+                    fieldNo,
+                    instanceId: mode.instanceId,
+                    attachmentDocumentId: doc.id,
+                    idempotencyKey
+                });
+                toast.success('Attachment replaced successfully');
+            } else {
+                await addFieldAttachment({
+                    clientLEId,
+                    fieldNo,
+                    attachmentDocumentId: doc.id,
+                    idempotencyKey
+                });
+                toast.success('Document attached successfully');
+            }
+            
+            resetState();
+            router.refresh();
+            onChange?.();
+        } catch (actionErr: any) {
+            setOpState('FAILED');
+            setErrorMsg(actionErr.message || 'Failed to attach document to the field');
+        }
     };
 
     // Validation delegated to validateDocumentFile
@@ -269,18 +338,35 @@ export function FieldAttachments({ clientLEId, fieldNo, attachments, isEditable,
 
                                 {isEditable && mode === 'manage' && (
                                     <>
-                                        <button 
-                                            onClick={() => {
-                                                setTargetInstanceId(att.instanceId);
-                                                replaceInputRef.current?.click();
-                                            }}
-                                            className={cn("p-1 text-slate-400 hover:text-blue-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 rounded", isBusy && "opacity-50 pointer-events-none")}
-                                            title="Replace attachment"
-                                            disabled={isBusy}
-                                            aria-label="Replace attachment"
-                                        >
-                                            <Replace className="w-4 h-4" />
-                                        </button>
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-7 w-7 text-slate-400 hover:text-blue-600 focus:ring-blue-500"
+                                                    title="Replace attachment"
+                                                    disabled={isBusy}
+                                                >
+                                                    {isLoadingLibrary && opType === 'replace' && targetInstanceId === att.instanceId ? <Loader2 className="w-4 h-4 animate-spin" /> : <Replace className="w-4 h-4" />}
+                                                    <span className="sr-only">Replace attachment</span>
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end">
+                                                <DropdownMenuItem onSelect={() => {
+                                                    setTargetInstanceId(att.instanceId);
+                                                    replaceInputRef.current?.click();
+                                                }}>
+                                                    <Upload className="w-4 h-4 mr-2" />
+                                                    Upload Document
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem onSelect={() => {
+                                                    openPicker({ type: 'REPLACE', instanceId: att.instanceId });
+                                                }}>
+                                                    <Library className="w-4 h-4 mr-2" />
+                                                    Choose from Library
+                                                </DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
 
                                         <AlertDialog>
                                             <AlertDialogTrigger asChild>
@@ -394,21 +480,8 @@ export function FieldAttachments({ clientLEId, fieldNo, attachments, isEditable,
                     
                     {opType !== 'replace' && (
                         <div className="flex flex-col gap-2 w-full">
-                            <label htmlFor={`file-upload-${fieldNo}`} className={cn("inline-block", isBusy && "opacity-50 pointer-events-none")}>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-8 gap-1.5 text-xs font-medium text-slate-600 border-dashed w-full sm:w-auto"
-                                    asChild
-                                    disabled={isBusy}
-                                >
-                                    <span>
-                                        <Paperclip className="w-3.5 h-3.5" />
-                                        Add attachment
-                                    </span>
-                                </Button>
-                            </label>
                             
+
                             {/* Inline State for Add */}
                             {opType === 'add' && opState !== 'IDLE' && (
                                 <div className="bg-slate-50 border rounded px-3 py-2 flex flex-wrap items-center justify-between gap-2" role="status" aria-live="polite">
@@ -419,10 +492,16 @@ export function FieldAttachments({ clientLEId, fieldNo, attachments, isEditable,
                                                 <span className="text-slate-600">Uploading {Math.round(uploadProgress)}%</span>
                                             </>
                                         )}
-                                        {opState === 'PROCESSING' && (
+                                        {isLoadingLibrary && (
+                                            <>
+                                                <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-500" />
+                                                <span className="text-slate-600">Loading documents...</span>
+                                            </>
+                                        )}
+                                        {opState === 'PROCESSING' && !isLoadingLibrary && (
                                             <>
                                                 <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-500" />
-                                                <span className="text-slate-600">Upload complete. OnPro is processing...</span>
+                                                <span className="text-slate-600">OnPro is processing...</span>
                                             </>
                                         )}
                                         {opState === 'PROCESSING_DELAYED' && (
@@ -456,6 +535,36 @@ export function FieldAttachments({ clientLEId, fieldNo, attachments, isEditable,
                             )}
 
                             {opState === 'IDLE' && (
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-8 gap-1.5 text-xs font-medium text-slate-600 border-dashed w-full sm:w-auto"
+                                            disabled={isBusy}
+                                        >
+                                            <span>
+                                                {isLoadingLibrary && opType === 'add' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Paperclip className="w-3.5 h-3.5" />}
+                                                {isLoadingLibrary && opType === 'add' ? 'Loading...' : 'Add attachment'}
+                                            </span>
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="start">
+                                        <DropdownMenuItem onSelect={() => fileInputRef.current?.click()}>
+                                            <Upload className="w-4 h-4 mr-2" />
+                                            Upload Document
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onSelect={() => {
+                                            openPicker({ type: 'ADD' });
+                                        }}>
+                                            <Library className="w-4 h-4 mr-2" />
+                                            Choose from Library
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            )}
+
+                            {opState === 'IDLE' && (
                                 <p className="text-[10px] text-slate-400">
                                     PDF, Office documents, CSV, TXT, JPG or PNG. Maximum 20 MB.
                                 </p>
@@ -463,6 +572,17 @@ export function FieldAttachments({ clientLEId, fieldNo, attachments, isEditable,
                         </div>
                     )}
                 </div>
+            )}
+
+            {pickerOpen && pickerMode && libraryDocs && (
+                <DocumentPicker
+                    isOpen={pickerOpen}
+                    onClose={() => { setPickerOpen(false); setPickerMode(null); }}
+                    documents={libraryDocs}
+                    onSelect={handleLibrarySelect}
+                    disabledDocumentIds={attachments.map(a => a.documentId)}
+                    mode={pickerMode}
+                />
             )}
         </div>
     );

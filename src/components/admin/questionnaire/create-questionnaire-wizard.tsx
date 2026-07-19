@@ -144,12 +144,9 @@ export function CreateQuestionnaireWizard({ sourceDocuments, allQuestionnaires =
         try {
             const blob = await upload(file.name, file, { access: 'public', handleUploadUrl: '/api/upload' });
 
-            const result = await uploadSourceDocument({
-                name: file.name,
-                type: file.type,
-                fileUrl: blob.url,
-                size: file.size
-            });
+            const formData = new FormData();
+            formData.append("file", file);
+            const result = await uploadSourceDocument(formData);
 
             if (result.success && result.questionnaireId) {
                 setUploadStatus("success");
@@ -253,7 +250,7 @@ export function CreateQuestionnaireWizard({ sourceDocuments, allQuestionnaires =
                                 <UploadCloud className="h-4 w-4 mr-2" /> Upload File
                             </TabsTrigger>
                             <TabsTrigger value="existing" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
-                                <Search className="h-4 w-4 mr-2" /> Draft from Vault
+                                <Search className="h-4 w-4 mr-2" /> Draft from Library
                             </TabsTrigger>
                             <TabsTrigger value="clone" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
                                 <Copy className="h-4 w-4 mr-2" /> Clone
@@ -342,7 +339,7 @@ export function CreateQuestionnaireWizard({ sourceDocuments, allQuestionnaires =
                             <div className="space-y-4 flex flex-col h-full">
                                 <div className="text-center space-y-2 mb-2">
                                     <h3 className="text-lg font-medium text-slate-800">Draft from Uploaded Source</h3>
-                                    <p className="text-sm text-slate-500">Run the AI extraction engine on a source document that has already been securely uploaded to the vault.</p>
+                                    <p className="text-sm text-slate-500">Run the AI extraction engine on a source document that has already been securely uploaded to the library.</p>
                                 </div>
 
                                 <div className="flex-1 bg-white border border-slate-200 rounded-xl overflow-y-auto">

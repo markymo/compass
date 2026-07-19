@@ -92,8 +92,8 @@ describe.skipIf(!process.env.DATABASE_URL)('Phase 4 Attachment Lifecycle Integra
                 storagePathname: uniquePathname,
                 uploadedById: 'test-user-part2',
                 name: 'test.pdf',
-                fileUrl: `http://test.com/${uniquePathname}`,
-                fileType: 'application/pdf',
+                
+                
             }
         });
         testDocs.push(doc.id);
@@ -235,13 +235,13 @@ describe.skipIf(!process.env.DATABASE_URL)('Phase 4 Attachment Lifecycle Integra
                     name: 'other',
                     clientLEId: otherLe.id,
                     uploadedById: 'test-user-part2',
-                    docType: 'EVIDENCE',
-                    isVerified: false,
+                    
+                    
                     isDeleted: false,
                     storageProvider: 'VERCEL_BLOB',
                     storagePathname: `test/other-${Date.now()}.pdf`,
-                    fileUrl: '',
-                    fileType: 'application/pdf',
+                    
+                    
                     sizeBytes: 1000,
                     checksum: 'abc'
                 }

@@ -11,7 +11,7 @@
 export type FieldDefinition = {
     fieldNo: number;
     fieldName: string;
-    model: string; // Legacy: Prisma model name
+    model?: string; // Legacy: Prisma model name
     field: string | null; // Legacy: Prisma field name
     appDataType: 'TEXT' | 'NUMBER' | 'DATE' | 'DATETIME' | 'PERSON_REF' | 'PARTY_REF' | 'ORG_REF' | 'ADDRESS_REF' | 'DOCUMENT_REF' | 'JSONB' | 'ADDRESS' | 'PARTY';
     dataType: 'string' | 'integer' | 'boolean' | 'date' | 'datetime' | 'jsonb' | 'document'; // Legacy
@@ -732,7 +732,6 @@ export const FIELD_DEFINITIONS: Record<number, FieldDefinition> = {
     56: {
         fieldNo: 56,
         fieldName: 'Constitutional and formation documents',
-        model: 'DocumentRegistry',
         field: null,
         appDataType: 'DOCUMENT_REF',
         dataType: 'document',
@@ -786,7 +785,6 @@ export const FIELD_DEFINITIONS: Record<number, FieldDefinition> = {
     60: {
         fieldNo: 60,
         fieldName: 'Certificate of incorporation',
-        model: 'DocumentRegistry',
         field: null,
         appDataType: 'DOCUMENT_REF',
         dataType: 'document',
@@ -797,7 +795,6 @@ export const FIELD_DEFINITIONS: Record<number, FieldDefinition> = {
     61: {
         fieldNo: 61,
         fieldName: 'Memorandum and articles of association',
-        model: 'DocumentRegistry',
         field: null,
         appDataType: 'DOCUMENT_REF',
         dataType: 'document',
@@ -971,7 +968,6 @@ export const FIELD_DEFINITIONS: Record<number, FieldDefinition> = {
     74: {
         fieldNo: 74,
         fieldName: 'Ownership structure chart',
-        model: 'DocumentRegistry',
         field: null,
         appDataType: 'DOCUMENT_REF',
         dataType: 'document',
@@ -1072,7 +1068,6 @@ export const FIELD_DEFINITIONS: Record<number, FieldDefinition> = {
     82: {
         fieldNo: 82,
         fieldName: 'Recent financial report',
-        model: 'DocumentRegistry',
         field: null,
         appDataType: 'DOCUMENT_REF',
         dataType: 'document',
@@ -1095,7 +1090,6 @@ export const FIELD_DEFINITIONS: Record<number, FieldDefinition> = {
     84: {
         fieldNo: 84,
         fieldName: 'Prospectus',
-        model: 'DocumentRegistry',
         field: null,
         appDataType: 'DOCUMENT_REF',
         dataType: 'document',
@@ -1225,7 +1219,6 @@ export const FIELD_DEFINITIONS: Record<number, FieldDefinition> = {
     95: {
         fieldNo: 95,
         fieldName: 'List of authorised traders',
-        model: 'DocumentRegistry',
         field: null,
         appDataType: 'DOCUMENT_REF',
         dataType: 'document',

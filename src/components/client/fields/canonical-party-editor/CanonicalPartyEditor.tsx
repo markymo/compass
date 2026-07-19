@@ -1,10 +1,12 @@
 import React, { useState } from "react";
+import { Paperclip } from "lucide-react";
 import { PartyAddressRef } from "../CCAddressSelector";
 import { CanonicalPartyFormState } from "./state-mappers";
 import { PartyIdentitySection } from "./PartyIdentitySection";
 import { PartyContactSection } from "./PartyContactSection";
 import { PartyRolesSection } from "./PartyRolesSection";
 import { PartySourceIdentifiersSection } from "./PartySourceIdentifiersSection";
+import { PartyDocumentsSection } from "./PartyDocumentsSection";
 import { LegacyAddressWarning } from "./LegacyAddressWarning";
 import { PartyAddressSection } from "./PartyAddressSection";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -13,6 +15,7 @@ import { Input } from "@/components/ui/input";
 
 interface CanonicalPartyEditorProps {
     clientLEId: string;
+    partyId?: string;
     formState: CanonicalPartyFormState;
     onChange: (formState: CanonicalPartyFormState) => void;
     previewLabel?: string;
@@ -21,7 +24,9 @@ interface CanonicalPartyEditorProps {
     onRequestCreateAddress?: (onCreated: (ref: PartyAddressRef) => void) => void;
 }
 
-export function CanonicalPartyEditor({ clientLEId, formState, onChange, previewLabel, disabled, isNew = false, onRequestCreateAddress }: CanonicalPartyEditorProps) {
+export function CanonicalPartyEditor({ clientLEId, partyId, formState, onChange, previewLabel, disabled, isNew = false, onRequestCreateAddress }: CanonicalPartyEditorProps) {
+    const [docCount, setDocCount] = useState<number>(0);
+
     const handlePartyTypeChange = (newType: CanonicalPartyFormState['partyType']) => {
         if (!isNew) return;
         
@@ -66,6 +71,18 @@ export function CanonicalPartyEditor({ clientLEId, formState, onChange, previewL
                     <div>
                         <h2 className="text-lg font-bold text-gray-800">{previewLabel}</h2>
                     </div>
+                    {docCount > 0 && (
+                        <div 
+                            className="flex items-center text-sm text-gray-600 bg-gray-100 px-3 py-1.5 rounded-md cursor-pointer hover:bg-gray-200 transition-colors"
+                            onClick={() => {
+                                document.getElementById('party-documents-section')?.scrollIntoView({ behavior: 'smooth' });
+                            }}
+                            title="Scroll to documents"
+                        >
+                            <Paperclip className="w-4 h-4 mr-2 text-gray-500" />
+                            {docCount} Document{docCount !== 1 ? 's' : ''} attached
+                        </div>
+                    )}
                 </div>
 
                 <div className="space-y-2">
@@ -153,6 +170,17 @@ export function CanonicalPartyEditor({ clientLEId, formState, onChange, previewL
             {formState.sourceIdentifiers.length > 0 && (
                 <div className="border-t pt-6">
                     <PartySourceIdentifiersSection identifiers={formState.sourceIdentifiers} />
+                </div>
+            )}
+
+            {partyId && (
+                <div className="border-t pt-6" id="party-documents-section">
+                    <PartyDocumentsSection
+                        clientLEId={clientLEId}
+                        partyId={partyId}
+                        disabled={disabled}
+                        onCountLoaded={setDocCount}
+                    />
                 </div>
             )}
         </div>

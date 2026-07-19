@@ -1,9 +1,10 @@
 "use server";
+import { DocumentService } from "@/lib/documents/DocumentService";
+
 
 import { getIdentity } from "@/lib/auth";
 import { DocumentIngestionService } from "@/services/ingestion/DocumentIngestionService";
 import { QuestionnaireExtractorService } from "@/services/ai/QuestionnaireExtractorService";
-import { put } from "@vercel/blob";
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { EvidenceProvider } from "@prisma/client";
@@ -24,51 +25,19 @@ export async function uploadAndExtractQuestionnaire(formData: FormData, clientLE
     console.log(`[Upload] Starting ingestion for ${file.name}`);
 
     try {
-        // 1. Upload to Vercel Blob (Preserve Original)
-        // Note: In non-edge runtime, we can read buffer directly
         const buffer = Buffer.from(await file.arrayBuffer());
 
-        const blob = await put(`questionnaires/${clientLEId}/${Date.now()}-${file.name}`, file, {
-            access: 'public',
+        // 1. Upload to Private Vercel Blob and create canonical Document
+        const document = await DocumentService.uploadServerSideDocument({
+            file,
+            filename: file.name,
+            mimeType: file.type || 'application/pdf',
+            uploadedById: identity.userId,
+            clientLEId: clientLEId,
+            pathPrefix: `questionnaires/${clientLEId}`
         });
 
 
-        console.log(`[Upload] Blob stored at ${blob.url}`);
-
-        // 2. Create Document Registry Record (Phase 2 Model)
-        // We link it to the LEGAL ENTITY of the ClientLE (Bridge lookup)
-        const clientLE = await prisma.clientLE.findUnique({
-            where: { id: clientLEId }
-        });
-
-        // Resolve Owner (LegalEntity)
-        let ownerId = clientLE?.legalEntityId;
-
-        // Safety Fallback: If no Phase 2 LE exists yet, we can't create a DocumentRegistry record easily
-        // because it foreign keys to LegalEntity. 
-        // BUT, the user requirement said "Use DocumentRegistry".
-        // If we ignore this for checking and just use ClientLE ID context for now or create a placeholder LE?
-        // Let's assume the LE exists (Migration Phase 2). If not, we might fail or need a fallback.
-
-        let docRegistryId = "PENDING_LE_MIGRATION";
-
-        if (ownerId) {
-            const doc = await prisma.documentRegistry.create({
-                data: {
-                    legalEntityId: ownerId,
-                    ownerType: "LEGAL_ENTITY",
-                    ownerId: ownerId,
-                    fieldNo: 0, // Questionnaire Generic
-                    filePath: blob.url,
-                    fileName: file.name, // Use original name from file object
-                    mimeType: file.type,
-                    uploadedBy: identity.userId
-                }
-            });
-            docRegistryId = doc.id;
-        } else {
-            console.warn("[Upload] Warning: ClientLE has no linked LegalEntity. Skipping DocumentRegistry creation.");
-        }
 
         // 3. Ingest Parsing
         const ingestionResult = await ingestionService.processDocument(buffer, file.type, file.name);
@@ -80,9 +49,9 @@ export async function uploadAndExtractQuestionnaire(formData: FormData, clientLE
         const evidenceId = await evidenceService.normalizeEvidence(
             {
                 fileName: file.name,
-                fileUrl: blob.url,
                 mimeType: file.type,
-                docRegistryId,
+                documentId: document.id,
+                storagePathname: document.storagePathname!,
                 ingestionMeta: {
                     strategy: ingestionResult.strategy,
                     quality: ingestionResult.quality,
@@ -99,7 +68,7 @@ export async function uploadAndExtractQuestionnaire(formData: FormData, clientLE
         return {
             success: true,
             evidenceId,
-            docRegistryId,
+            documentId: document.id,
             questionCount: structure.length,
             structure
         };

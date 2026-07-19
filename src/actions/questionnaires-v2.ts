@@ -86,7 +86,6 @@ export async function getQuestionnairesV2(): Promise<{
             updatedAt: true,
             createdAt: true,
             fileName: true,
-            fileUrl: true,
             processingLogs: true,
             fiOrg: { select: { name: true } },
             ownerOrgId: true,

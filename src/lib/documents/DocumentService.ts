@@ -1,7 +1,7 @@
 import prisma from "@/lib/prisma";
-import { get, del } from "@vercel/blob";
+import { get, put, del } from "@vercel/blob";
 import * as crypto from "crypto";
-import { Prisma } from "@prisma/client";
+import { Prisma, Document } from "@prisma/client";
 
 const getToken = () => {
     const token = process.env.PRIVATE_BLOB_READ_WRITE_TOKEN;
@@ -16,9 +16,10 @@ export class DocumentService {
      * Helper to verify integrity of an existing document against the trusted context.
      */
     private static verifyExistingIntegrity(existingDoc: any, params: any) {
-        const { clientLEId, uploadedById, storagePathname } = params;
+        const { clientLEId, ownerOrgId, uploadedById, storagePathname } = params;
         if (
-            existingDoc.clientLEId !== clientLEId ||
+            (existingDoc.clientLEId || null) !== (clientLEId || null) ||
+            (existingDoc.ownerOrgId || null) !== (ownerOrgId || null) ||
             existingDoc.uploadedById !== uploadedById ||
             existingDoc.storageProvider !== "VERCEL_BLOB" ||
             existingDoc.storagePathname !== storagePathname
@@ -29,96 +30,40 @@ export class DocumentService {
     }
 
     /**
-     * Verifies a completed client upload, calculates exact size and checksum from the stream,
-     * and persists the immutable Document record.
-     * 
-     * Idempotent: Can safely handle duplicate callbacks and concurrent races.
+     * The single authoritative implementation for creating immutable Document records.
      */
-    static async verifyAndPersistPrivateUpload(params: {
+    static async createImmutableDocument(params: {
         storagePathname: string;
         originalFilename: string;
-        clientLEId: string;
+        clientLEId?: string;
+        ownerOrgId?: string;
         uploadedById: string;
+        sizeBytes: bigint;
+        mimeType: string;
+        checksum: string;
         intentId?: string;
-    }) {
-        const { storagePathname, originalFilename, clientLEId, uploadedById, intentId } = params;
+    }): Promise<Document> {
+        const { storagePathname, originalFilename, clientLEId, ownerOrgId, uploadedById, sizeBytes, mimeType, checksum, intentId } = params;
 
-        if (intentId) {
-            const intent = await prisma.privateDocumentUploadIntent.findUnique({ where: { id: intentId } });
-            if (!intent) {
-                throw new Error("Upload intent not found");
-            }
-            if (intent.status === 'FAILED') {
-                throw new Error("Intent is not in PENDING state (rejected/terminal)");
-            }
-            if (intent.storagePathname !== storagePathname) {
-                throw new Error("Pathname mismatch");
-            }
-            if (intent.clientLEId !== clientLEId) {
-                throw new Error("Client context mismatch");
-            }
-            if (intent.initiatedById !== uploadedById) {
-                throw new Error("Uploader mismatch");
-            }
-        }
-
-        // 1. Idempotency Check: Already processed?
-        const existingDoc = await prisma.document.findUnique({
-            where: { storagePathname }
-        });
-        
-        if (existingDoc) {
-            console.log(`[DocumentService] Callback delivered again for already persisted document: ${storagePathname}`);
-            DocumentService.verifyExistingIntegrity(existingDoc, params);
-            return existingDoc;
+        if (!clientLEId && !ownerOrgId) {
+            throw new Error("A Document must belong to either a clientLEId or an ownerOrgId.");
         }
 
         try {
-            // 2. Retrieve the private blob stream using the specific private token
-            const result = await get(storagePathname, { token: getToken(), access: 'private' });
-            if (!result || !result.stream) {
-                throw new Error("Failed to retrieve uploaded blob stream from Vercel.");
-            }
-
-            // 3. Compute exact size and SHA-256 checksum from the chunked stream
-            let sizeBytes = BigInt(0);
-            const hash = crypto.createHash("sha256");
-
-            // Process stream incrementally without accumulating into a single memory buffer
-            const reader = result.stream.getReader();
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                if (value) {
-                    sizeBytes += BigInt(value.length);
-                    hash.update(value);
-                }
-            }
-            
-            const checksum = hash.digest("hex");
-            const mimeType = result.blob.contentType || "application/octet-stream";
-
-            // 4. Create the immutable Document inside a Prisma transaction
-            const document = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+            return await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
                 const doc = await tx.document.create({
                     data: {
                         name: originalFilename,
                         clientLEId,
+                        ownerOrgId,
                         uploadedById,
-                        docType: "EVIDENCE",
-                        isVerified: false,
                         isDeleted: false,
                         
-                        // Phase 3 Immutable Storage Identity
                         storageProvider: "VERCEL_BLOB",
                         storagePathname,
                         sizeBytes,
                         mimeType,
                         checksum,
-                        
-                        // Legacy fields
-                        fileUrl: "",
-                        fileType: mimeType,
                     }
                 });
 
@@ -135,11 +80,7 @@ export class DocumentService {
 
                 return doc;
             });
-
-            return document;
-
         } catch (error) {
-            // 5. Race Condition Conflict handling
             if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
                 console.log(`[DocumentService] Race condition: Another handler successfully persisted ${storagePathname}.`);
                 const winner = await prisma.document.findUnique({ where: { storagePathname } });
@@ -148,23 +89,165 @@ export class DocumentService {
                     return winner;
                 }
             }
+            throw error;
+        }
+    }
 
-            console.error("[DocumentService] Failed to persist private upload. Attempting compensating cleanup.", error);
+    /**
+     * Verifies a completed client upload, calculates exact size and checksum from the stream,
+     * and persists the immutable Document record.
+     */
+    static async verifyAndPersistPrivateUpload(params: {
+        storagePathname: string;
+        originalFilename: string;
+        clientLEId?: string;
+        ownerOrgId?: string;
+        uploadedById: string;
+        intentId?: string;
+    }) {
+        const { storagePathname, intentId, clientLEId, ownerOrgId, uploadedById } = params;
+
+        if (intentId) {
+            const intent = await prisma.privateDocumentUploadIntent.findUnique({ where: { id: intentId } });
+            if (!intent) throw new Error("Upload intent not found");
+            if (intent.status === 'FAILED') throw new Error("Intent is not in PENDING state");
+            if (intent.storagePathname !== storagePathname) throw new Error("Pathname mismatch");
+            if (intent.clientLEId !== clientLEId) throw new Error("Client context mismatch");
+            if (intent.initiatedById !== uploadedById) throw new Error("Uploader mismatch");
+        }
+
+        const existingDoc = await prisma.document.findUnique({ where: { storagePathname } });
+        if (existingDoc) {
+            console.log(`[DocumentService] Callback delivered again for already persisted document: ${storagePathname}`);
+            DocumentService.verifyExistingIntegrity(existingDoc, params);
+            return existingDoc;
+        }
+
+        try {
+            const result = await get(storagePathname, { token: getToken(), access: 'private' });
+            if (!result || !result.stream) throw new Error("Failed to retrieve uploaded blob stream from Vercel.");
+
+            let sizeBytes = BigInt(0);
+            const hash = crypto.createHash("sha256");
+
+            const reader = result.stream.getReader();
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                if (value) {
+                    sizeBytes += BigInt(value.length);
+                    hash.update(value);
+                }
+            }
             
-            // 6. Compensating deletion of the orphaned blob ONLY if we didn't just lose a race
+            const checksum = hash.digest("hex");
+            const mimeType = result.blob.contentType || "application/octet-stream";
+
+            return await DocumentService.createImmutableDocument({
+                ...params,
+                sizeBytes,
+                mimeType,
+                checksum,
+            });
+
+        } catch (error) {
+            console.error("[DocumentService] Failed to persist private upload. Attempting compensating cleanup.", error);
             try {
                 await del(storagePathname, { token: getToken() });
             } catch (cleanupError) {
                 console.error("[DocumentService] CRITICAL: Compensating cleanup failed for orphaned blob:", storagePathname, cleanupError);
             }
-
             throw new Error(`Upload verification failed: ${(error as Error).message}`);
         }
     }
 
     /**
-     * Marks an upload intent as failed.
+     * Uploads a document securely from a server-side process, bypassing the intent/webhook flow
+     * but maintaining the same immutable persistence invariants.
      */
+    static async uploadServerSideDocument(params: {
+        file: File | Blob | Buffer;
+        filename: string;
+        mimeType: string;
+        uploadedById: string;
+        clientLEId?: string;
+        ownerOrgId?: string;
+        pathPrefix: string;
+    }) {
+        const { file, filename, mimeType, uploadedById, clientLEId, ownerOrgId, pathPrefix } = params;
+        
+        let buffer: Buffer;
+        if (Buffer.isBuffer(file)) {
+            buffer = file;
+        } else if ('arrayBuffer' in file) {
+            buffer = Buffer.from(await file.arrayBuffer());
+        } else {
+            throw new Error("Unsupported file type");
+        }
+
+        const sizeBytes = BigInt(buffer.length);
+        const checksum = crypto.createHash('sha256').update(buffer).digest('hex');
+        
+        const timestamp = Date.now();
+        const safeName = filename.replace(/[^a-zA-Z0-9.-]/g, '_');
+        const pathname = `${pathPrefix}/${timestamp}-${safeName}`;
+
+        const blob = await put(pathname, buffer, {
+            access: 'private',
+            token: getToken(),
+            contentType: mimeType,
+        });
+
+        try {
+            return await DocumentService.createImmutableDocument({
+                storagePathname: blob.pathname,
+                originalFilename: filename,
+                clientLEId,
+                ownerOrgId,
+                uploadedById,
+                sizeBytes,
+                mimeType,
+                checksum
+            });
+        } catch (error) {
+            console.error("[DocumentService] Failed to persist server-side document. Cleaning up blob.");
+            await del(blob.pathname, { token: getToken() });
+            throw error;
+        }
+    }
+
+    /**
+     * Centralized method to securely read a document's buffer.
+     */
+    static async getBuffer(documentId: string, context?: { clientLEId?: string; ownerOrgId?: string }) {
+        const doc = await prisma.document.findUnique({ where: { id: documentId } });
+        if (!doc) throw new Error("Document not found");
+        if (!doc.storagePathname) throw new Error("Document missing storagePathname");
+
+        if (context) {
+            if (context.clientLEId && doc.clientLEId !== context.clientLEId) {
+                throw new Error("Unauthorized: clientLEId mismatch");
+            }
+            if (context.ownerOrgId && doc.ownerOrgId !== context.ownerOrgId) {
+                throw new Error("Unauthorized: ownerOrgId mismatch");
+            }
+        }
+
+        const res = await get(doc.storagePathname, { token: getToken(), access: 'private' });
+        if (!res || !res.stream) throw new Error("Failed to fetch stream");
+
+        const reader = res.stream.getReader();
+        const chunks = [];
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            chunks.push(value);
+        }
+        const buffer = Buffer.concat(chunks);
+        
+        return { buffer, mimeType: doc.mimeType || "application/octet-stream" };
+    }
+
     static async markPrivateUploadFailed(intentId: string, failureReason: string) {
         await prisma.privateDocumentUploadIntent.update({
             where: { id: intentId },

@@ -1,5 +1,7 @@
 "use client"
 
+import { DocumentPicker, PickerMode } from "@/components/client/documents/DocumentPicker";
+import { listLibraryDocumentsAction, DocumentPickerItem } from "@/actions/document-library-actions";
 import {
     Dialog,
     DialogContent,
@@ -13,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Bot, User, Send, History, MessageSquare, Sparkles, Lock, Unlock, Loader2, Database, UserPlus, Paperclip, FileText, Download, Trash2, Check, Share2, CheckCircle, CheckCircle2, AlertTriangle } from "lucide-react";
+import { Bot, User, Send, History, MessageSquare, Sparkles, Lock, Unlock, Loader2, Database, UserPlus, Paperclip, FileText, Download, Trash2, Check, Share2, CheckCircle, CheckCircle2, AlertTriangle, Upload, Library } from "lucide-react";
 import { QuestionTask } from "./question-card";
 import { cn } from "@/lib/utils";
 import {
@@ -53,6 +55,62 @@ export function QuestionDetailDialog({ open, onOpenChange, task, clientLEId }: Q
     const [teamMembers, setTeamMembers] = useState<any[]>([]);
     const [fieldData, setFieldData] = useState<FieldDetailData | null>(null);
     const [isLoadingField, setIsLoadingField] = useState(false);
+
+    const [pickerOpen, setPickerOpen] = useState(false);
+    const [pickerMode, setPickerMode] = useState<PickerMode | null>(null);
+    const [libraryDocs, setLibraryDocs] = useState<DocumentPickerItem[] | null>(null);
+    const [isLoadingLibrary, setIsLoadingLibrary] = useState(false);
+
+    const handleOpenPicker = async () => {
+        if (!clientLEId) return;
+        setPickerMode({ type: 'ADD' });
+        setPickerOpen(true);
+        setIsLoadingLibrary(true);
+        setLibraryDocs(null);
+
+        try {
+            const docs = await listLibraryDocumentsAction(clientLEId);
+            setLibraryDocs(docs);
+        } catch (error: any) {
+            toast.error(error.message || 'Failed to load library documents');
+            setPickerOpen(false);
+            setPickerMode(null);
+        } finally {
+            setIsLoadingLibrary(false);
+        }
+    };
+
+    const handleLibrarySelect = async (doc: DocumentPickerItem) => {
+        if (!pickerMode) return;
+        
+        setPickerOpen(false);
+        setPickerMode(null);
+        setIsUploadingFile(true);
+
+        try {
+            const res = await attachDocumentToQuestion(task!.id, doc.id);
+            if (!res.success) {
+                toast.error(`Failed to attach: ${res.error}`);
+                return;
+            }
+
+            setLocalDocuments(prev => [
+                ...prev,
+                {
+                    id: doc.id,
+                    name: doc.fileName,
+                    fileType: doc.mimeType?.split('/').pop() || doc.fileName.split('.').pop() || 'file',
+                    kbSize: doc.sizeBytes ? Math.round(doc.sizeBytes / 1024) : null,
+                }
+            ]);
+            toast.success("Document attached from library");
+            router.refresh();
+        } catch (e: any) {
+            toast.error(e.message || "Unknown error attaching document");
+        } finally {
+            setIsUploadingFile(false);
+        }
+    };
 
     // Optimistic Activities
     const [localActivities, setLocalActivities] = useState<any[]>([]);
@@ -495,7 +553,7 @@ export function QuestionDetailDialog({ open, onOpenChange, task, clientLEId }: Q
                                                     </div>
                                                     <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
                                                         <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-indigo-600" asChild>
-                                                            <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer">
+                                                            <a href={`/api/documents/${doc.id}/download`} target="_blank" rel="noopener noreferrer">
                                                                 <Download className="h-3 w-3" />
                                                             </a>
                                                         </Button>
@@ -505,7 +563,7 @@ export function QuestionDetailDialog({ open, onOpenChange, task, clientLEId }: Q
                                         </div>
                                     )}
 
-                                    {/* Uploader */}
+                                    {/* Uploader & Library Picker */}
                                     {!isLocked && (
                                         <div className="flex flex-col gap-2">
                                             <input
@@ -519,23 +577,22 @@ export function QuestionDetailDialog({ open, onOpenChange, task, clientLEId }: Q
 
                                                     setIsUploadingFile(true);
                                                     try {
-                                                        // Step 1: Upload file to Vercel Blob storage
-                                                        // We pass an empty clientPayload here since we'll call
-                                                        // attachDocumentToQuestion directly (more reliable than onUploadCompleted)
+                                                        const intentId = crypto.randomUUID();
+                                                        
+                                                        // 1. Upload file via private blob store
                                                         const newBlob = await upload(file.name, file, {
-                                                            access: 'public',
-                                                            handleUploadUrl: '/api/upload',
+                                                            access: 'private',
+                                                            handleUploadUrl: '/api/documents/upload',
+                                                            clientPayload: JSON.stringify({
+                                                                clientLEId,
+                                                                intentId,
+                                                                mimeType: file.type
+                                                            })
                                                         });
 
-                                                        // Step 2: Directly call the server action to link the doc to the DB.
-                                                        // This is more reliable than the Vercel Blob onUploadCompleted callback
-                                                        // which does not fire reliably in local development.
-                                                        const res = await attachDocumentToQuestion(
-                                                            task.id,
-                                                            newBlob.url,
-                                                            file.name,
-                                                            file.size
-                                                        );
+                                                        // 2. The intentId is passed to attachDocumentToQuestion
+                                                        // which will resolve the documentId created by the upload webhook.
+                                                        const res = await attachDocumentToQuestion(task.id, intentId);
 
                                                         if (!res.success) {
                                                             console.error("DB link failed:", res.error);
@@ -547,34 +604,69 @@ export function QuestionDetailDialog({ open, onOpenChange, task, clientLEId }: Q
                                                         setLocalDocuments(prev => [
                                                             ...prev,
                                                             {
-                                                                id: (res as any).document?.id || newBlob.url,
+                                                                id: (res as any).document?.id || intentId,
                                                                 name: file.name,
-                                                                fileUrl: newBlob.url,
-                                                                fileType: file.name.split('.').pop() || 'file',
+                                                                fileType: file.type.split('/').pop() || file.name.split('.').pop() || 'file',
                                                                 kbSize: Math.round(file.size / 1024),
                                                             }
                                                         ]);
                                                         toast.success("Document attached");
                                                         router.refresh(); // Sync server-side Documents tab
-                                                    } catch (error) {
-                                                        console.error("Upload error", error);
-                                                        toast.error("Failed to upload document");
+                                                    } catch (error: any) {
+                                                        console.error("Upload error:", error);
+                                                        toast.error(error.message || "Upload failed");
                                                     } finally {
                                                         setIsUploadingFile(false);
-                                                        // Reset input
                                                         e.target.value = '';
                                                     }
                                                 }}
                                             />
-                                            <Button
-                                                variant="outline"
-                                                className="w-full border-dashed"
-                                                disabled={isUploadingFile}
-                                                onClick={() => document.getElementById(`file-upload-${task.id}`)?.click()}
-                                            >
-                                                {isUploadingFile ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Paperclip className="h-4 w-4 mr-2" />}
-                                                {isUploadingFile ? "Uploading..." : "Attach Document"}
-                                            </Button>
+
+                                            <div className="flex items-center gap-2">
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            className="w-full h-8 border-dashed border-slate-300 text-slate-500 hover:text-indigo-600 hover:border-indigo-300 hover:bg-indigo-50/50 bg-transparent flex items-center justify-center gap-2"
+                                                            disabled={isUploadingFile}
+                                                        >
+                                                            {isUploadingFile ? (
+                                                                <>
+                                                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                                                    Uploading...
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <Paperclip className="h-4 w-4" />
+                                                                    Attach Document...
+                                                                </>
+                                                            )}
+                                                        </Button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent align="end" className="w-[200px]">
+                                                        <DropdownMenuItem 
+                                                            onSelect={() => document.getElementById(`file-upload-${task.id}`)?.click()}
+                                                            className="flex items-center gap-2 cursor-pointer"
+                                                        >
+                                                            <Upload className="h-4 w-4 text-slate-500" />
+                                                            <span>Upload from Computer</span>
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem 
+                                                            onSelect={handleOpenPicker}
+                                                            className="flex items-center gap-2 cursor-pointer"
+                                                            disabled={isLoadingLibrary}
+                                                        >
+                                                            {isLoadingLibrary ? (
+                                                                <Loader2 className="h-4 w-4 text-slate-500 animate-spin" />
+                                                            ) : (
+                                                                <Library className="h-4 w-4 text-slate-500" />
+                                                            )}
+                                                            <span>Choose from Library</span>
+                                                        </DropdownMenuItem>
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
+                                            </div>
                                         </div>
                                     )}
                                     {isLocked && localDocuments.length === 0 && (
@@ -698,6 +790,17 @@ export function QuestionDetailDialog({ open, onOpenChange, task, clientLEId }: Q
                 <DialogFooter className="hidden">
                     {/* Hiding default footer as we have inline actions */}
                 </DialogFooter>
+
+                {pickerOpen && pickerMode && libraryDocs && (
+                    <DocumentPicker
+                        isOpen={pickerOpen}
+                        onClose={() => { setPickerOpen(false); setPickerMode(null); }}
+                        documents={libraryDocs}
+                        onSelect={handleLibrarySelect}
+                        disabledDocumentIds={localDocuments.map(d => d.id)}
+                        mode={pickerMode}
+                    />
+                )}
             </DialogContent>
         </Dialog>
     );

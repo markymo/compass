@@ -1,8 +1,10 @@
 "use server";
-
+import { put } from "@vercel/blob";
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { isSystemAdmin } from "./security";
+import { DocumentService } from "@/lib/documents/DocumentService";
+import { getIdentity } from "@/lib/auth";
 
 // 1. Export re-export or just use local one? 
 // The plan said refactor from admin.ts, so let's import it.
@@ -167,34 +169,38 @@ export async function getAllQuestionnaires() {
     });
 }
 
-interface UploadMetadata {
-    name: string;
-    type: string;
-    fileUrl: string;
-    size: number;
-}
-
-// 6. Save Uploaded Source Document Metadata
-export async function uploadSourceDocument(data: UploadMetadata) {
+// 6. Save Uploaded Source Document directly to DB bytes
+export async function uploadSourceDocument(formData: FormData) {
     const isAdmin = await isSystemAdmin();
     if (!isAdmin) return { success: false, error: "Unauthorized" };
 
-    if (!data.fileUrl) return { success: false, error: "No file URL provided" };
+    const file = formData.get("file") as File;
+    if (!file) return { success: false, error: "No file provided" };
 
     try {
-        // 1. Get System Org ID (Default Owner since uploaded by Admin)
         const sysOrg = await bootstrapSystemOrg();
+        const identity = await getIdentity();
+        const uploadedById = identity?.userId || "system";
 
-        // 2. Save File Metadata to Database
+        // 1. Upload to private Vercel Blob and create canonical Document record
+        const document = await DocumentService.uploadServerSideDocument({
+            file,
+            filename: file.name,
+            mimeType: file.type || 'application/pdf',
+            uploadedById,
+            ownerOrgId: sysOrg.id,
+            pathPrefix: `questionnaires/${sysOrg.id}`
+        });
+
+        // 3. Create Questionnaire linked to Document
         const questionnaire = await prisma.questionnaire.create({
             data: {
-                name: data.name.replace(/\.[^/.]+$/, ""), // Strip extension
-                fileName: data.name,
-                fileType: data.type,
-                fileUrl: data.fileUrl,
-                fiOrgId: sysOrg.id, // For now, assign to system
+                name: file.name.replace(/\.[^/.]+$/, ""), // Strip extension
+                fileName: file.name,
+                sourceDocumentId: document.id,
+                fiOrgId: sysOrg.id,
                 ownerOrgId: sysOrg.id,
-                status: "UPLOADED" // Distinct status for raw files
+                status: "UPLOADED"
             }
         });
 

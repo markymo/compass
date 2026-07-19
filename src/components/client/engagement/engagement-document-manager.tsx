@@ -27,7 +27,6 @@ interface SharedDocument {
 interface EvidenceDocument {
     id: string;
     name: string;
-    fileUrl: string;
     fileType: string;
     kbSize: number | null;
     createdAt: Date;
@@ -48,7 +47,6 @@ interface EngagementDocumentManagerProps {
     evidenceDocuments?: EvidenceQuestion[];
 }
 
-import { VaultPicker } from "./vault-picker";
 
 const statusColors: Record<string, string> = {
     UNMAPPED: "bg-slate-100 text-slate-600 border-slate-200",
@@ -106,7 +104,7 @@ export function EngagementDocumentManager({ engagementId, documents, evidenceDoc
                         </TabsList>
                         <Button size="sm" onClick={() => setIsPickerOpen(true)} className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white h-8 text-xs">
                             <Plus className="h-3.5 w-3.5" />
-                            Share from Vault
+                            Select Documents
                         </Button>
                     </div>
                 </div>
@@ -172,7 +170,7 @@ export function EngagementDocumentManager({ engagementId, documents, evidenceDoc
                                                     </div>
                                                     <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
                                                         <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-indigo-600" asChild>
-                                                            <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer">
+                                                            <a href={`/api/documents/${doc.id}/download`} target="_blank" rel="noopener noreferrer">
                                                                 <Download className="h-3.5 w-3.5" />
                                                             </a>
                                                         </Button>
@@ -194,9 +192,9 @@ export function EngagementDocumentManager({ engagementId, documents, evidenceDoc
                             {documents.length === 0 ? (
                                 <div className="text-center py-12">
                                     <ShieldCheck className="h-10 w-10 mx-auto text-indigo-200 mb-3" />
-                                    <h3 className="font-medium text-slate-900">Digital Vault Secure</h3>
+                                    <h3 className="font-medium text-slate-900">Document Sharing Secure</h3>
                                     <p className="text-slate-500 text-sm mb-4 max-w-sm mx-auto">
-                                        No documents have been shared yet. Use the "Share from Vault" button to grant access to certified documents.
+                                        No documents have been shared yet. Use the "Select Documents" button to grant access to certified documents.
                                     </p>
                                     <Button variant="outline" onClick={() => setIsPickerOpen(true)}>
                                         Select Documents
@@ -243,11 +241,7 @@ export function EngagementDocumentManager({ engagementId, documents, evidenceDoc
                 </TabsContent>
             </Tabs>
 
-            <VaultPicker
-                engagementId={engagementId}
-                isOpen={isPickerOpen}
-                onClose={() => setIsPickerOpen(false)}
-            />
+            
         </div>
     );
 }

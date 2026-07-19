@@ -41,7 +41,17 @@ run("npx prisma generate");
 // Run migrations on Preview automatically
 if (vercelEnv === "preview") {
     console.log("Running Preview migrations (migrate deploy)…");
-    runWithRetry("npx prisma migrate deploy", 3);
+    try {
+        runWithRetry("npx prisma migrate deploy", 3);
+    } catch (error) {
+        console.log("Migration failed. Attempting to resolve known failed migration 20260717200000_remove_legacy_documents...");
+        try {
+            run("npx prisma migrate resolve --rolled-back 20260717200000_remove_legacy_documents");
+            runWithRetry("npx prisma migrate deploy", 1);
+        } catch (resolveError) {
+            throw error; // throw original error
+        }
+    }
 
     // Seed automatically for 'dev' branch or if forced
     if (process.env.VERCEL_GIT_COMMIT_REF === "dev" || process.env.SEED_PREVIEW === "true") {

@@ -7,7 +7,6 @@ import { getMasterFieldDefinition } from "@/services/masterData/definitionServic
 export interface CCFileRecord {
     id: string;
     name: string;
-    fileUrl: string;
     fileType: string;
     createdAt: Date;
     usage: { fieldNo: number; fieldName: string }[];
@@ -52,7 +51,7 @@ export async function getCCFiles(clientLEId: string): Promise<CCFileRecord[]> {
             docMap.set(doc.id, {
                 id: doc.id,
                 name: doc.name,
-                fileUrl: doc.fileUrl,
+                
                 fileType: doc.fileType,
                 createdAt: doc.createdAt,
                 usage: []
@@ -83,7 +82,7 @@ export async function getCCFiles(clientLEId: string): Promise<CCFileRecord[]> {
             docMap.set(doc.id, {
                 id: doc.id,
                 name: doc.name,
-                fileUrl: doc.fileUrl,
+                
                 fileType: doc.fileType,
                 createdAt: doc.createdAt,
                 usage: []

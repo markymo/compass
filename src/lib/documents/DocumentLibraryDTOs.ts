@@ -1,4 +1,4 @@
-export type DocumentUsageType = 'MASTER_FIELD';
+export type DocumentUsageType = 'FIELD_ATTACHMENT' | 'PARTY_DOCUMENT' | 'QUESTION_ATTACHMENT';
 
 export interface DocumentUploaderDTO {
     id: string;
@@ -8,21 +8,34 @@ export interface DocumentUploaderDTO {
 export interface CurrentDocumentUsageDTO {
     type: DocumentUsageType;
     instanceId: string;
-    fieldNo: number;
-    fieldLabel: string;
     attachedAt: string;
+    isActive: boolean;
+    display: {
+        title: string;
+        subtitle?: string;
+    };
+    metadata: {
+        fieldNo?: number;
+        partyId?: string;
+    };
 }
 
 export interface DocumentUsageEventDTO {
     eventId: string;
     type: DocumentUsageType;
     instanceId: string;
-    fieldNo: number;
-    fieldLabel: string;
     action: 'ATTACHED' | 'REPLACED' | 'REMOVED';
     timestamp: string;
     replacementDocumentId?: string;
     replacementFilename?: string;
+    display: {
+        title: string;
+        subtitle?: string;
+    };
+    metadata: {
+        fieldNo?: number;
+        partyId?: string;
+    };
 }
 
 export interface DocumentLibraryItemDTO {

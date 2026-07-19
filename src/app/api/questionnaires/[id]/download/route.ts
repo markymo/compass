@@ -12,17 +12,14 @@ export async function GET(
         where: { id },
     });
 
-    if (!questionnaire || (!questionnaire.fileContent && !questionnaire.fileUrl)) {
+    if (!questionnaire || !questionnaire.fileContent) {
         return new NextResponse("File not found", { status: 404 });
     }
 
-    if (!questionnaire.fileContent && questionnaire.fileUrl) {
-        return NextResponse.redirect(questionnaire.fileUrl);
-    }
 
     // 2. Prepare headers
     const headers = new Headers();
-    headers.set("Content-Type", questionnaire.fileType || "application/octet-stream");
+    headers.set("Content-Type", "application/pdf");
     headers.set("Content-Disposition", `inline; filename="${questionnaire.fileName}"`);
 
     // 3. Return the file

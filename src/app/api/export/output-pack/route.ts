@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { DocumentService } from "@/lib/documents/DocumentService";
 // @ts-ignore: types are outdated for archiver v7 ESM
 import { ZipArchive } from "archiver";
 import { PassThrough } from "stream";
@@ -91,7 +92,7 @@ export async function POST(req: NextRequest) {
                 questionnaireName: qName,
                 questionRef: qRef,
                 generatedPath,
-                fileUrl: d.fileUrl
+                storagePathname: d.storagePathname
             };
         });
 
@@ -244,14 +245,7 @@ NOTE: This export pack includes Questionnaire PDFs and Original Native Evidence.
             const batch = documentsForManifest.slice(i, i + BATCH_SIZE);
             await Promise.all(batch.map(async (doc: any) => {
                 try {
-                    if (!doc.fileUrl) {
-                        throw new Error("Missing fileUrl");
-                    }
-                    const res = await fetch(doc.fileUrl);
-                    if (!res.ok) {
-                        throw new Error(`Failed to fetch: ${res.statusText}`);
-                    }
-                    const buffer = Buffer.from(await res.arrayBuffer());
+                    const { buffer } = await DocumentService.getBuffer(doc.id, { clientLEId: engagement.clientLE?.id });
                     archive.append(buffer, { name: doc.generatedPath });
                 } catch (error: any) {
                     console.error(`Failed to download document ${doc.id}:`, error);
@@ -260,7 +254,7 @@ NOTE: This export pack includes Questionnaire PDFs and Original Native Evidence.
                     const dirPath = pathParts.join('/');
                     const errorPath = `${dirPath}/_ERROR_DOWNLOADING_${filename}.txt`;
                     archive.append(
-                        `Error downloading file from URL: ${doc.fileUrl}\nReason: ${error.message}\n`,
+                        `Error downloading file from storagePathname: ${doc.storagePathname}\nReason: ${error.message}\n`,
                         { name: errorPath }
                     );
                 }
