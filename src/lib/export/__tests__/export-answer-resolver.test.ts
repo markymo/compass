@@ -17,12 +17,14 @@ vi.mock('@/actions/kyc-query', () => ({
     resolveMasterDataBatch: vi.fn(),
     enrichPartyReferences: vi.fn().mockImplementation(async (arr) => {
         for (const item of arr) {
-            if (item?.ccPartyId) item._resolvedData = { ccParty: { data: { name: `Mocked Party ${item.ccPartyId}` } } };
+            const target = item?.value && item?.source ? item.value : item;
+            if (target?.ccPartyId) target._resolvedData = { ccParty: { data: { companyName: `Mocked Party ${target.ccPartyId}` } } };
         }
     }),
     enrichAddressReferences: vi.fn().mockImplementation(async (arr) => {
         for (const item of arr) {
-            if (item?.ccAddressId) item._resolvedData = { ccAddress: { data: { addressLines: [`Mocked Address ${item.ccAddressId}`] } } };
+            const target = item?.value && item?.source ? item.value : item;
+            if (target?.ccAddressId) target._resolvedData = { ccAddress: { data: { addressLines: [`Mocked Address ${target.ccAddressId}`] } } };
         }
     }),
 }));

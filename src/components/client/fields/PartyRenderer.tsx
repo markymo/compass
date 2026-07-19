@@ -16,6 +16,7 @@ export function PartyRenderer({ value, layout = "compact", className }: PartyRen
                     value={value.data} 
                     layout={layout} 
                     displayMask={value.displayMask} 
+                    partyLabel={value.partyLabel}
                 />
             </div>
         );
@@ -29,6 +30,7 @@ export function PartyRenderer({ value, layout = "compact", className }: PartyRen
                     value={value.resolved} 
                     layout={layout} 
                     displayMask={value.displayMask} 
+                    partyLabel={value.partyLabel}
                 />
             </div>
         );

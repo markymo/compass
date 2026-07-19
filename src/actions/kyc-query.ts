@@ -76,7 +76,14 @@ export async function resolveMasterData(
                                     collection[0].assertedAt as Date
                                 );
                                 response[q.questionId][fieldNo] = {
-                                    value: collection.map((c: any) => c.value),
+                                    value: collection.map((c: any) => ({
+                                        value: c.value,
+                                        source: {
+                                            type: c.isScoped ? 'USER_INPUT' : (c.sourceType || c.evidenceProvider || 'MASTER_RECORD'),
+                                            reference: c.sourceReference ?? null,
+                                            timestamp: c.assertedAt
+                                        }
+                                    })),
                                     source: collection[0].isScoped ? 'USER_INPUT' : (collection[0].evidenceProvider || 'MASTER_RECORD'),
                                     sourceReference: collection[0].sourceReference ?? null,
                                     updatedAt: maxUpdatedAt,
@@ -122,7 +129,14 @@ export async function resolveMasterData(
                 );
 
                 if (collection.length > 0) {
-                    const vals = collection.map((c: any) => c.value);
+                    const vals = collection.map((c: any) => ({
+                        value: c.value,
+                        source: {
+                            type: c.isScoped ? 'USER_INPUT' : (c.sourceType || c.evidenceProvider || 'MASTER_RECORD'),
+                            reference: c.sourceReference ?? null,
+                            timestamp: c.assertedAt
+                        }
+                    }));
                     console.log(`[resolveMasterData] Field ${q.masterFieldNo} is multi-value. Values:`, vals);
                     const maxUpdatedAt = collection.reduce(
                         (max: Date, c: any) => (c.assertedAt > max ? c.assertedAt : max),
@@ -314,7 +328,14 @@ function resolveField(
             const winner = KycStateService.pickWinner(group, ownerScopeId ?? undefined, priorityMap);
             if (winner && !KycStateService.isTombstone(winner)) {
                 const derived = KycStateService.mapToDerivedValue(winner, ownerScopeId ?? undefined);
-                values.push(derived.value);
+                values.push({
+                    value: derived.value,
+                    source: {
+                        type: derived.isScoped ? 'USER_INPUT' : (derived.sourceType || derived.evidenceProvider || 'MASTER_RECORD'),
+                        reference: derived.sourceReference ?? null,
+                        timestamp: derived.assertedAt
+                    }
+                });
                 if (!firstDerived) firstDerived = derived;
                 if (!maxAssertedAt || derived.assertedAt > maxAssertedAt) maxAssertedAt = derived.assertedAt;
                 
@@ -375,18 +396,23 @@ function resolveField(
  */
 export async function enrichPartyReferences(values: any[]) {
     const ccPartyIds = new Set<string>();
+    const isEnvelope = (val: any) => val && typeof val === 'object' && 'value' in val && 'source' in val && val.source && 'type' in val.source;
 
     // 1. Scan for IDs
     for (const v of values) {
         if (!v) continue;
         if (Array.isArray(v)) {
             for (const item of v) {
-                if (item && typeof item === 'object' && item.ccPartyId) {
-                    ccPartyIds.add(item.ccPartyId);
+                const target = isEnvelope(item) ? item.value : item;
+                if (target && typeof target === 'object' && target.ccPartyId) {
+                    ccPartyIds.add(target.ccPartyId);
                 }
             }
-        } else if (typeof v === 'object' && v.ccPartyId) {
-            ccPartyIds.add(v.ccPartyId);
+        } else {
+            const target = isEnvelope(v) ? v.value : v;
+            if (target && typeof target === 'object' && target.ccPartyId) {
+                ccPartyIds.add(target.ccPartyId);
+            }
         }
     }
 
@@ -403,21 +429,25 @@ export async function enrichPartyReferences(values: any[]) {
         if (!v) continue;
         if (Array.isArray(v)) {
             for (const item of v) {
-                if (item && typeof item === 'object' && item.ccPartyId) {
-                    const party = partyMap.get(item.ccPartyId);
+                const target = isEnvelope(item) ? item.value : item;
+                if (target && typeof target === 'object' && target.ccPartyId) {
+                    const party = partyMap.get(target.ccPartyId);
                     if (party) {
-                        item.ccParty = party;
-                        item.resolvedSummary = getPartySummary((party as any).data);
-                        item.resolvedType = (party as any).data?.partySubType || (party as any).data?.partyType;
+                        target.ccParty = party;
+                        target.resolvedSummary = getPartySummary((party as any).data);
+                        target.resolvedType = (party as any).data?.partySubType || (party as any).data?.partyType;
                     }
                 }
             }
-        } else if (typeof v === 'object' && v.ccPartyId) {
-            const party = partyMap.get(v.ccPartyId);
-            if (party) {
-                v.ccParty = party;
-                v.resolvedSummary = getPartySummary((party as any).data);
-                v.resolvedType = (party as any).data?.partySubType || (party as any).data?.partyType;
+        } else {
+            const target = isEnvelope(v) ? v.value : v;
+            if (target && typeof target === 'object' && target.ccPartyId) {
+                const party = partyMap.get(target.ccPartyId);
+                if (party) {
+                    target.ccParty = party;
+                    target.resolvedSummary = getPartySummary((party as any).data);
+                    target.resolvedType = (party as any).data?.partySubType || (party as any).data?.partyType;
+                }
             }
         }
     }
@@ -425,17 +455,22 @@ export async function enrichPartyReferences(values: any[]) {
 
 export async function enrichAddressReferences(values: any[]) {
     const ccAddressIds = new Set<string>();
+    const isEnvelope = (val: any) => val && typeof val === 'object' && 'value' in val && 'source' in val && val.source && 'type' in val.source;
 
     for (const v of values) {
         if (!v) continue;
         if (Array.isArray(v)) {
             for (const item of v) {
-                if (item && typeof item === 'object' && item.ccAddressId) {
-                    ccAddressIds.add(item.ccAddressId);
+                const target = isEnvelope(item) ? item.value : item;
+                if (target && typeof target === 'object' && target.ccAddressId) {
+                    ccAddressIds.add(target.ccAddressId);
                 }
             }
-        } else if (typeof v === 'object' && v.ccAddressId) {
-            ccAddressIds.add(v.ccAddressId);
+        } else {
+            const target = isEnvelope(v) ? v.value : v;
+            if (target && typeof target === 'object' && target.ccAddressId) {
+                ccAddressIds.add(target.ccAddressId);
+            }
         }
     }
 
@@ -462,21 +497,23 @@ export async function enrichAddressReferences(values: any[]) {
         if (!v) continue;
         if (Array.isArray(v)) {
             for (const item of v) {
-                if (item && typeof item === 'object' && item.ccAddressId) {
-                    const address = addressMap.get(item.ccAddressId);
+                const target = isEnvelope(item) ? item.value : item;
+                if (target && typeof target === 'object' && target.ccAddressId) {
+                    const address = addressMap.get(target.ccAddressId);
                     if (address) {
-                        item._resolvedData = item._resolvedData || {};
-                        item._resolvedData.ccAddress = address;
-                        item.resolvedSummary = getSummary((address as any).data);
+                        target.ccAddress = address;
+                        target.resolvedSummary = getSummary((address as any).data);
                     }
                 }
             }
-        } else if (typeof v === 'object' && v.ccAddressId) {
-            const address = addressMap.get(v.ccAddressId);
-            if (address) {
-                v._resolvedData = v._resolvedData || {};
-                v._resolvedData.ccAddress = address;
-                v.resolvedSummary = getSummary((address as any).data);
+        } else {
+            const target = isEnvelope(v) ? v.value : v;
+            if (target && typeof target === 'object' && target.ccAddressId) {
+                const address = addressMap.get(target.ccAddressId);
+                if (address) {
+                    target.ccAddress = address;
+                    target.resolvedSummary = getSummary((address as any).data);
+                }
             }
         }
     }
@@ -530,11 +567,19 @@ export async function resolveMasterDataBatch(input: BatchResolverInput): Promise
     }
 
     // Phase 2: Bulk-enrich PARTY_REF and ADDRESS_REF before any projection is applied
+    const isEnvelope = (val: any) => val && typeof val === 'object' && 'value' in val && 'source' in val && val.source && 'type' in val.source;
+    
     const parseValue = (val: any) => {
         if (Array.isArray(val)) {
             return val.map(v => {
-                if (typeof v === 'string' && (v.startsWith('{') || v.startsWith('['))) {
-                    try { return JSON.parse(v); } catch (e) { return v; }
+                const envelope = isEnvelope(v);
+                const target = envelope ? v.value : v;
+                if (typeof target === 'string' && (target.startsWith('{') || target.startsWith('['))) {
+                    try { 
+                        const parsed = JSON.parse(target);
+                        if (envelope) { v.value = parsed; return v; }
+                        return parsed;
+                    } catch (e) { return v; }
                 }
                 return v;
             });

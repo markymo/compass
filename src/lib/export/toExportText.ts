@@ -83,10 +83,10 @@ function exportValue(val: ResolvedFieldValue): string {
             }
 
             // Fallback to summary (now natively handles Organisation names and displayMasks)
-            return val.summary;
+            return ('partyLabel' in val && val.partyLabel) ? val.partyLabel : val.summary;
         }
 
-        return val.summary; // Fallback for unresolved ref
+        return ('partyLabel' in val && val.partyLabel) ? val.partyLabel : val.summary; // Fallback for unresolved ref
     }
 
     return "";

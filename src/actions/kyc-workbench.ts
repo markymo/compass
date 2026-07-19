@@ -14,7 +14,7 @@ import { generateObject } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
 import { z } from 'zod';
 import { ensureQuestionNotReferenceSnapshot } from "./questionnaire";
-import { resolveFieldForDisplay } from "@/lib/master-data/field-interpreter";
+import { resolveFieldForDisplay, resolveFieldCollectionForDisplay } from "@/lib/master-data/field-interpreter";
 
 export interface Workbench4Data {
     questions: ConsoleQuestion[];
@@ -228,19 +228,26 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
                         const cfg = getComplexFieldConfig(fieldNo);
                         const codeSystem = cfg && 'codeSystem' in cfg ? (cfg as any).codeSystem : undefined;
 
-                        const canonicalDisplayModel = hydratedVal ? resolveFieldForDisplay(
-                            hydratedVal.value,
-                            hydratedVal.source ? { type: hydratedVal.source as any, reference: hydratedVal.sourceReference, timestamp: hydratedVal.updatedAt ?? null, sourceCheckedAt: hydratedVal.sourceCheckedAt ?? null } : null,
-                            {
-                                fieldNo,
-                                label: def.fieldName ? `F${fieldNo} ${def.fieldName}` : `F${fieldNo}`,
-                                displayState: hydratedVal.isSynced ? 'HAS_VALUE' : 'CHECKED_NO_DATA',
-                                appDataType: def.appDataType,
-                                profileConfig: def.profileConfig,
-                                isMultiValue: def.isMultiValue,
-                                codeSystem,
-                                attachments: hydratedVal.attachments
-                            }
+                        const isMulti = def.isMultiValue;
+                        const metadata = {
+                            fieldNo,
+                            label: def.fieldName ? `F${fieldNo} ${def.fieldName}` : `F${fieldNo}`,
+                            displayState: hydratedVal.isSynced ? 'HAS_VALUE' : 'CHECKED_NO_DATA' as any,
+                            appDataType: def.appDataType,
+                            profileConfig: def.profileConfig,
+                            isMultiValue: isMulti,
+                            codeSystem,
+                            attachments: hydratedVal.attachments
+                        };
+
+                        const canonicalDisplayModel = hydratedVal ? (
+                            isMulti && Array.isArray(hydratedVal.value)
+                                ? resolveFieldCollectionForDisplay(hydratedVal.value, metadata)
+                                : resolveFieldForDisplay(
+                                    hydratedVal.value,
+                                    hydratedVal.source ? { type: hydratedVal.source as any, reference: hydratedVal.sourceReference, timestamp: hydratedVal.updatedAt ?? null, sourceCheckedAt: hydratedVal.sourceCheckedAt ?? null } : null,
+                                    metadata
+                                )
                         ) : undefined;
 
                         groupFields.push({
@@ -271,19 +278,24 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
                         const cfg = getComplexFieldConfig(q.masterFieldNo);
                         const codeSystem = cfg && 'codeSystem' in cfg ? (cfg as any).codeSystem : undefined;
 
-                        q.canonicalDisplayModel = resolveFieldForDisplay(
-                            fv.value,
-                            fv.source ? { type: fv.source as any, reference: fv.sourceReference, timestamp: fv.updatedAt ?? null, sourceCheckedAt: fv.sourceCheckedAt ?? null } : null,
-                            {
-                                fieldNo: q.masterFieldNo,
-                                label: def?.fieldName || '',
-                                displayState: fv.isSynced ? 'HAS_VALUE' : 'CHECKED_NO_DATA',
-                                appDataType: def?.appDataType || 'JSON',
-                                isMultiValue: def?.isMultiValue || false,
-                                codeSystem,
-                                attachments: fv.attachments
-                            }
-                        );
+                        const isMulti = def?.isMultiValue || false;
+                        const metadata = {
+                            fieldNo: q.masterFieldNo,
+                            label: def?.fieldName || '',
+                            displayState: fv.isSynced ? 'HAS_VALUE' : 'CHECKED_NO_DATA' as any,
+                            appDataType: def?.appDataType || 'JSON',
+                            isMultiValue: isMulti,
+                            codeSystem,
+                            attachments: fv.attachments
+                        };
+
+                        q.canonicalDisplayModel = (isMulti && Array.isArray(fv.value))
+                            ? resolveFieldCollectionForDisplay(fv.value, metadata)
+                            : resolveFieldForDisplay(
+                                fv.value,
+                                fv.source ? { type: fv.source as any, reference: fv.sourceReference, timestamp: fv.updatedAt ?? null, sourceCheckedAt: fv.sourceCheckedAt ?? null } : null,
+                                metadata
+                            );
                     }
                 }
             }

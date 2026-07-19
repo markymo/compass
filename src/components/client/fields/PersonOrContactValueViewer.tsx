@@ -14,6 +14,7 @@ interface PersonOrContactValueViewerProps {
     value: any;
     layout?: "compact" | "detailed" | "row";
     displayMask?: string[];
+    partyLabel?: string;
 }
 
 // ── Role type badge colour ────────────────────────────────────────────────────
@@ -116,7 +117,7 @@ function RoleRow({ role, displayMask, index = 0 }: { role: PersonOrContactRole, 
     );
 }
 
-export function PersonOrContactValueViewer({ value, layout = "compact", displayMask }: PersonOrContactValueViewerProps) {
+export function PersonOrContactValueViewer({ value, layout = "compact", displayMask, partyLabel }: PersonOrContactValueViewerProps) {
     if (!isPersonOrContactValue(value)) {
         if (value && typeof value === 'object' && 'ccPartyId' in value) {
             return <span className="text-slate-400 italic">Unresolved Party</span>;
@@ -127,7 +128,7 @@ export function PersonOrContactValueViewer({ value, layout = "compact", displayM
     const poc = value as PersonOrContactValue;
 
     if (layout === "compact") {
-        const summary = getPersonOrContactSummary(poc);
+        const summary = partyLabel || getPersonOrContactSummary(poc);
         return (
             <span className="text-sm text-slate-900 font-medium">
                 {summary || <span className="text-slate-400 italic">—</span>}
@@ -139,17 +140,19 @@ export function PersonOrContactValueViewer({ value, layout = "compact", displayM
     const showField = (key: string) => isFieldPermittedByMask(key, displayMask);
 
     // Primary Text Resolution Logic (used for both row and detailed views)
-    let primaryText = "";
-    if (showField('displayName') && poc.displayName) {
-        primaryText = poc.displayName;
-    } else if (showField('organisationName') && poc.organisationName) {
-        primaryText = poc.organisationName;
-    } else {
-        const titleParts = [];
-        if (showField('title') && poc.title) titleParts.push(poc.title);
-        if (showField('forenames') && poc.forenames) titleParts.push(poc.forenames);
-        if (showField('surname') && poc.surname) titleParts.push(poc.surname);
-        primaryText = titleParts.join(' ');
+    let primaryText = partyLabel || "";
+    if (!primaryText) {
+        if (showField('displayName') && poc.displayName) {
+            primaryText = poc.displayName;
+        } else if (showField('organisationName') && poc.organisationName) {
+            primaryText = poc.organisationName;
+        } else {
+            const titleParts = [];
+            if (showField('title') && poc.title) titleParts.push(poc.title);
+            if (showField('forenames') && poc.forenames) titleParts.push(poc.forenames);
+            if (showField('surname') && poc.surname) titleParts.push(poc.surname);
+            primaryText = titleParts.join(' ');
+        }
     }
 
     if (layout === "row") {

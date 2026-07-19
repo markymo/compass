@@ -47,7 +47,8 @@ export function normaliseCCPartyData(source: any): NormalisedPartyReadModel | nu
     }
 
     // LEGACY ADAPTATION
-    if (!isPartyValue(src)) {
+    // Allow partial shapes that have at least some name fields, since legacy DB records might lack contactType
+    if (!isPartyValue(src) && !src.organisationName && !src.legalName && !src.displayName && !src.companyName && !src.name && !src.forenames && !src.firstName && !src.surname && !src.lastName) {
         diagnostics.push({
             type: 'ERROR',
             code: 'UNSUPPORTED_SHAPE',
@@ -56,7 +57,7 @@ export function normaliseCCPartyData(source: any): NormalisedPartyReadModel | nu
         return null; // Must not invent a valid party
     }
 
-    const legacyVal = src as PartyValue;
+    const legacyVal = src as any;
 
     // Normalise basic arrays and fields
     const emails: string[] = [];
@@ -94,10 +95,11 @@ export function normaliseCCPartyData(source: any): NormalisedPartyReadModel | nu
     // Determine derived partyType
     let derivedType = legacyVal.partyType;
     if (!source.partyType) {
-        if (legacyVal.contactType === 'PERSON') derivedType = 'INDIVIDUAL';
+        if (legacyVal.organisationName || legacyVal.companyName || legacyVal.legalName) derivedType = 'ORGANISATION';
+        else if (legacyVal.contactType === 'PERSON') derivedType = 'INDIVIDUAL';
         else if (legacyVal.contactType === 'CONTACT') derivedType = 'INDIVIDUAL';
         else derivedType = 'UNKNOWN';
-        diagnostics.push({ type: 'INFO', code: 'INFERRED_PARTY_TYPE', message: `Inferred partyType ${derivedType} from contactType ${legacyVal.contactType}` });
+        diagnostics.push({ type: 'INFO', code: 'INFERRED_PARTY_TYPE', message: `Inferred partyType ${derivedType} from context` });
     }
 
     const baseParty = {

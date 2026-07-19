@@ -167,7 +167,7 @@ describe('resolveMasterDataBatch', () => {
         expect(result['q4']['20'].value).toHaveLength(2);
         // Ensure legacy string value is not present
         const values: any[] = result['q4']['20'].value;
-        expect(values.every((v: any) => typeof v === 'object' && v.code)).toBe(true);
+        expect(values.every((v: any) => typeof v.value === 'object' && v.value.code)).toBe(true);
         expect(result['q4']['20'].isSynced).toBe(true);
     });
 
@@ -595,11 +595,9 @@ describe('resolveMasterDataBatch', () => {
 
         expect(result['q19']['3'].value).toMatchObject({
             ccAddressId: 'addr-123',
-            _resolvedData: {
-                ccAddress: expect.objectContaining({
-                    data: { locality: 'London', postalCode: 'W1' }
-                })
-            },
+            ccAddress: expect.objectContaining({
+                data: { locality: 'London', postalCode: 'W1' }
+            }),
             resolvedSummary: expect.any(String)
         });
     });
