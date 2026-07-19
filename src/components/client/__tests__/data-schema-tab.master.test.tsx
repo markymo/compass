@@ -78,6 +78,7 @@ describe('DataSchemaTab - /master rendering boundary', () => {
         const categories = [
             {
                 id: 'cat-1',
+                key: 'cat-1',
                 displayName: 'Test Category',
                 fields: [
                     { fieldNo: 62, fieldName: 'Ultimate Beneficial Owners', appDataType: 'PARTY', isMultiValue: true }
@@ -157,6 +158,7 @@ describe('DataSchemaTab - /master rendering boundary', () => {
         const categories = [
             {
                 id: 'cat-2',
+                key: 'cat-2',
                 displayName: 'Test Category 2',
                 fields: [
                     { fieldNo: 63, fieldName: 'Mixed Parties', appDataType: 'PARTY', isMultiValue: true }
