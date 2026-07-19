@@ -66,13 +66,13 @@ export function normaliseCCPartyData(source: any): NormalisedPartyReadModel | nu
         diagnostics.push({ type: 'INFO', code: 'EMAIL_CONVERTED_TO_ARRAY', message: 'Legacy single email converted to emails array.' });
     }
 
-    const phones: PartyPhone[] = Array.isArray(legacyVal.phones) ? legacyVal.phones.filter(p => p && p.number) : [];
-    const sourceIdentifiers: PartyIdentifier[] = Array.isArray(legacyVal.sourceIdentifiers) ? legacyVal.sourceIdentifiers.filter(s => s && s.scheme && s.value) : [];
+    const phones: PartyPhone[] = Array.isArray(legacyVal.phones) ? legacyVal.phones.filter((p: any) => p && p.number) : [];
+    const sourceIdentifiers: PartyIdentifier[] = Array.isArray(legacyVal.sourceIdentifiers) ? legacyVal.sourceIdentifiers.filter((s: any) => s && s.scheme && s.value) : [];
     
     // Normalise roles
     const roles: PartyRole[] = [];
     if (Array.isArray(legacyVal.roles)) {
-        legacyVal.roles.forEach(r => {
+        legacyVal.roles.forEach((r: any) => {
             if (r) {
                 roles.push({
                     roleTitle: r.roleTitle ?? null,
