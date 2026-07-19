@@ -906,7 +906,17 @@ export function applyTransform(
                         (cfg2.resignedOnPath ? resolveFromItem(cfg2.resignedOnPath, item) : null) ??
                         item.resigned_on ?? item.ceased_on ?? null;
 
-                    const rowKey = buildPersonOrContactRowKey(appointedOn, res.value);
+                    // Standardise authoritative row-key propagation for CP5C
+                    // Prefer machine identifiers over fragile heuristic composites
+                    let rowKey = resolveFromItem('links.self', item) || item.nodeId;
+                    
+                    if (!rowKey) {
+                        rowKey = buildPersonOrContactRowKey(appointedOn, res.value);
+                    } else if (typeof rowKey === 'string' && rowKey.startsWith('/')) {
+                        // Normalize Companies House URIs by removing leading slashes
+                        rowKey = rowKey.substring(1);
+                    }
+
                     rowKeys.push(rowKey);
 
                     // We add rowKey to the item temporarily so KycWriteService can use it,

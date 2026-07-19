@@ -99,6 +99,7 @@ describe('KycWriteService.updateField — multi-value tombstone-aware idempotenc
 
         // evaluateOverwrite: getAuthoritativeValue returns null → "no existing record" → allowed
         (KycStateService.getAuthoritativeValue as any).mockResolvedValue(null);
+        (KycStateService.getAuthoritativeCollection as any).mockResolvedValue([]);
 
         // sourceFieldMapping — no rows (evaluateOverwrite falls through to allowed)
         (prismaMock.sourceFieldMapping as any).findMany = vi.fn().mockResolvedValue([]);

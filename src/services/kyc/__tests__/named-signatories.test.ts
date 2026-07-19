@@ -91,6 +91,7 @@ function makePersonCandidate(personId = PERSON_ID, nodeId = NODE_ID) {
 function setupWriteServiceMocks(fieldDef: typeof FIELD_125_DEF, existingClaim: any = null) {
     (getMasterFieldDefinition as any).mockResolvedValue(fieldDef);
     (KycStateService.getAuthoritativeValue as any).mockResolvedValue(null);
+    (KycStateService.getAuthoritativeCollection as any).mockResolvedValue([]);
     (prismaMock.sourceFieldMapping as any).findMany = vi.fn().mockResolvedValue([]);
     (prismaMock.fieldClaim.findFirst as any).mockResolvedValue(existingClaim);
     (FieldClaimService.assertClaim as any).mockResolvedValue({ id: 'new-claim-1' });

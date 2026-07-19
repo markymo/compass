@@ -9,6 +9,7 @@ import {
     ProvenanceSource,
 } from '@/domain/kyc/types/ProvenanceTypes';
 import { createMetaEntry, MetaEntry } from '@/domain/kyc/schemas/MetaSchema';
+import { canonicaliseClaimValueForComparison, valuesAreCanonicallyEqual } from '@/lib/kyc/canonical-comparison';
 import { Prisma } from '@prisma/client';
 import { FieldCandidate } from './normalization/types';
 import { KycLoader } from './KycLoader';
@@ -18,6 +19,7 @@ import { SourceType, ClaimStatus } from '@prisma/client';
 import { APP_DATA_TYPES, isKnownAppDataType } from '@/lib/master-data/field-types';
 import { getComplexFieldConfig } from '@/lib/master-data/complex-field-config';
 import { getFallbackPriority, USER_INPUT_PRIORITY } from '@/lib/kyc/source-priority-config';
+import { buildScopedInstanceId } from '@/lib/kyc/id-scoping';
 
 const loader = new KycLoader();
 
@@ -69,19 +71,47 @@ export class KycWriteService {
                 const item = candidate.value[i];
 
                 // Prefer a stable rowKey from the candidate (e.g. from TO_PARTY_LIST).
-                // Fall back to the ephemeral key only when no stable key was provided,
-                // and log a warning so these are easy to identify and fix.
                 const stableKey = candidate.rowKeys?.[i] || item?.rowKey;
                 let rowId: string;
+                
                 if (stableKey) {
-                    rowId = stableKey;
+                    const scopedId = buildScopedInstanceId({
+                        sourceSystemKey: candidate.source,
+                        sourceStreamKey: candidate.sourceKey,
+                        rawRowKey: stableKey
+                    });
+
+                    // Legacy Transition Strategy: Look for the unscoped ID first
+                    const unscopedExists = await prisma.fieldClaim.findFirst({
+                        where: {
+                            subjectLeId: entityId,
+                            fieldNo: candidate.fieldNo,
+                            claimRole: 'VALUE',
+                            instanceId: stableKey,
+                            sourceType: candidate.source as any
+                        },
+                        select: { id: true }
+                    });
+
+                    if (unscopedExists) {
+                        rowId = stableKey; // Continue using legacy compatibility alias
+                        console.log(`[KycWriteService] Transition Strategy: Legacy unscoped ID "${stableKey}" found for ${candidate.source}. Reusing as compatibility alias.`);
+                    } else {
+                        rowId = scopedId; // Use new scoped ID
+                    }
                 } else {
-                    rowId = `auto_${Date.now()}_${i}`;
-                    console.warn(
-                        `[KycWriteService] No stable rowKey for fieldNo=${candidate.fieldNo} item[${i}]. ` +
-                        `Using ephemeral instanceId="${rowId}". Re-enrichment will create duplicate rows. ` +
-                        `Provide candidate.rowKeys[${i}] to fix.`
-                    );
+                    // FAIL-SAFE: Missing stable key for automated feed MUST skip, not fallback.
+                    if (candidate.source !== 'USER_INPUT') {
+                        console.error(
+                            `[KycWriteService] FATAL MAPPING ERROR: Missing stable rowKey for fieldNo=${candidate.fieldNo} item[${i}] from ${candidate.source}. ` +
+                            `Cannot safely append without duplicating. Skipping this row.`
+                        );
+                        overallSuccess = false;
+                        continue;
+                    } else {
+                        // Truly manual anonymous rows can use ephemeral IDs
+                        rowId = `user_${Date.now()}_${i}`;
+                    }
                 }
 
                 processedRowIds.add(rowId);
@@ -354,19 +384,20 @@ export class KycWriteService {
 
         // 3. Check for Idempotency (Material Change Check)
         if (def.isMultiValue && rowId) {
-            // For repeating collection fields, idempotency is per-instanceId.
-            // We fetch the most recent claim for this instanceId (tombstone or value)
-            // and branch explicitly rather than relying on the valueJson filter.
-            //
-            // IMPORTANT: also scope the lookup to the expected collectionId.
-            // Without this, old claims written with collectionId=null (e.g. SIC claims
-            // written while isMultiValue was incorrectly false in the DB) would match,
-            // block the write of the correctly-tagged collectionId='SIC_CODES' claim,
-            // and leave the collection permanently empty after isMultiValue is corrected.
             const complexCfgForIdempotency = getComplexFieldConfig(fieldNo);
             const expectedCollectionId = def.isMultiValue
                 ? (complexCfgForIdempotency?.collectionId ?? `FIELD_${fieldNo}`)
                 : undefined;
+
+            const currentCollection = await KycStateService.getAuthoritativeCollection(
+                { subjectLeId: resolvedEntityId },
+                fieldNo,
+                undefined,
+                undefined,
+                expectedCollectionId
+            );
+            
+            const existingDerived = (currentCollection || []).find(c => c.instanceId === rowId);
 
             const existingInstance = await prisma.fieldClaim.findFirst({
                 where: {
@@ -374,15 +405,10 @@ export class KycWriteService {
                     fieldNo,
                     claimRole: 'VALUE',
                     instanceId: rowId,
-                    // Scope to the expected collectionId so mis-tagged historical claims
-                    // (collectionId=null) are not treated as idempotent matches.
                     collectionId: expectedCollectionId ?? null,
-                    valueJson: { not: Prisma.JsonNull }
                 },
-                // Include node-reference fields so we can run graph edge write-back
-                // even when the claim itself is idempotently skipped.
                 select: { id: true, valueJson: true, sourceType: true, valuePersonId: true, valueLeId: true, valueAddressId: true },
-                orderBy: { assertedAt: 'desc' } // most recent state first
+                orderBy: { assertedAt: 'desc' }
             });
 
             if (existingInstance) {
@@ -392,58 +418,50 @@ export class KycWriteService {
                     (existingInstance.valueJson as Record<string, any>).tombstone === true;
 
                 if (isTombstone && existingInstance.sourceType === SourceType.USER_INPUT) {
-                    // User explicitly removed this item. Do not resurrect via re-enrichment.
                     console.log(`[KycWriteService] User exclusion: instanceId="${rowId}" was tombstoned by USER_INPUT for Field ${fieldNo}. Skipping re-enrichment.`);
                     return true;
                 }
 
-                if (!isTombstone) {
-                    // A non-tombstone value claim already exists for this instanceId+collectionId — skip
-                    // the FieldClaim write, but still ensure the graph edge exists.
-                    //
-                    // WHY: the FieldClaim may have been written before a MasterFieldGraphBinding was
-                    // configured, leaving the node with no DIRECTOR/PSC edge. Re-enrichment and manual
-                    // re-saves must be able to backfill the edge without re-writing the claim.
-                    // performEdgeWriteback is a pure upsert — safe to call unconditionally.
-                    // clientLEId is already resolved in scope (line ~159).
-                    if (clientLEId) {
-                        await this.performEdgeWriteback(
-                            fieldNo,
-                            clientLEId,
-                            existingInstance.valuePersonId ?? undefined,
-                            existingInstance.valueLeId ?? undefined,
-                            existingInstance.valueAddressId ?? undefined,
-                            provenance.source as string,
-                        );
+                if (existingDerived && valuesAreCanonicallyEqual(existingDerived.value, value)) {
+                    const incomingSourceType = (provenance.source as any) === 'USER_INPUT' ? 'USER_INPUT'
+                        : (provenance.source as any) === 'GLEIF' ? 'GLEIF'
+                        : (provenance.source as any) === 'REGISTRATION_AUTHORITY' ? 'REGISTRATION_AUTHORITY'
+                        : 'SYSTEM_DERIVED';
+                        
+                    if (existingDerived.sourceType === incomingSourceType) {
+                        if (clientLEId) {
+                            await this.performEdgeWriteback(
+                                fieldNo,
+                                clientLEId,
+                                existingInstance.valuePersonId ?? undefined,
+                                existingInstance.valueLeId ?? undefined,
+                                existingInstance.valueAddressId ?? undefined,
+                                provenance.source as string,
+                            );
+                        }
+                        console.log(`[KycWriteService] Idempotency: instanceId="${rowId}" collectionId="${expectedCollectionId}" already has an identical authoritative value claim for Field ${fieldNo}. Skipping claim write.`);
+                        return true;
                     }
-                    console.log(`[KycWriteService] Idempotency: instanceId="${rowId}" collectionId="${expectedCollectionId}" already has a value claim for Field ${fieldNo}. Skipping claim write.`);
-                    return true;
+                } else if (!isTombstone && !existingDerived) {
+                     // Failsafe
                 }
-
-                // Tombstone exists but it is NOT a USER_INPUT tombstone (e.g. system-emitted).
-                // Allow re-enrichment to write a fresh value claim over a system tombstone.
-                console.log(`[KycWriteService] Non-USER_INPUT tombstone found for instanceId="${rowId}" (sourceType=${existingInstance.sourceType}). Allowing re-enrichment.`);
             }
         } else {
-            const derived = await KycStateService.getAuthoritativeValue(
+            const authoritativeState = await KycStateService.getAuthoritativeValue(
                 { subjectLeId: resolvedEntityId },
                 fieldNo
             );
-            if (derived && this.valuesAreEqual(derived.value, value)) {
-                // Only skip if the incoming source matches the current winner's source.
-                // If sources differ (e.g. GLEIF claim exists but RA is incoming with same text),
-                // we MUST still write the claim so pickWinner has both sources to rank.
-                // Without this, a higher-priority source with identical text would never
-                // get a FieldClaim and the lower-priority source would win permanently.
+
+            if (authoritativeState && valuesAreCanonicallyEqual(authoritativeState.value, value)) {
                 const incomingSourceType = (provenance.source as any) === 'USER_INPUT' ? 'USER_INPUT'
                     : (provenance.source as any) === 'GLEIF' ? 'GLEIF'
                     : (provenance.source as any) === 'REGISTRATION_AUTHORITY' ? 'REGISTRATION_AUTHORITY'
                     : 'SYSTEM_DERIVED';
-                if (derived.sourceType === incomingSourceType) {
-                    console.log(`[KycWriteService] Idempotency check: Value AND source identical for Field ${fieldNo} (${incomingSourceType}). Skipping.`);
+                
+                if (authoritativeState.sourceType === incomingSourceType) {
+                    console.log(`[KycWriteService] Idempotency: Value AND source identical for Field ${fieldNo}. Skipping.`);
                     return true;
                 }
-                console.log(`[KycWriteService] Idempotency: same value but different source (existing=${derived.sourceType}, incoming=${incomingSourceType}) — writing claim for Field ${fieldNo} to establish provenance.`);
             }
         }
 
@@ -995,10 +1013,25 @@ export class KycWriteService {
         entityType: 'LEGAL_ENTITY' | 'CLIENT_LE' = 'LEGAL_ENTITY'
     ): Promise<{ allowed: boolean; reason: string }> {
         // Resolve authoritative state via KycStateService
-        const derived = await KycStateService.getAuthoritativeValue(
-            { subjectLeId: entityId },
-            def.fieldNo
-        );
+        let derived: any = null;
+        
+        if (def.isMultiValue && rowId) {
+            const complexCfg = getComplexFieldConfig(def.fieldNo);
+            const expectedCollectionId = complexCfg?.collectionId ?? `FIELD_${def.fieldNo}`;
+            const collection = await KycStateService.getAuthoritativeCollection(
+                { subjectLeId: entityId },
+                def.fieldNo,
+                undefined,
+                undefined,
+                expectedCollectionId
+            );
+            derived = (collection || []).find(c => c.instanceId === rowId) || null;
+        } else {
+            derived = await KycStateService.getAuthoritativeValue(
+                { subjectLeId: entityId },
+                def.fieldNo
+            );
+        }
 
         if (!derived) return { allowed: true, reason: 'No existing record' };
 

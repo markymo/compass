@@ -45,6 +45,7 @@ vi.mock('@/lib/kyc/KycStateService', () => ({
     KycStateService: {
         resolveAllFields: vi.fn(),
         getAuthoritativeValue: vi.fn().mockResolvedValue(null),
+        getAuthoritativeCollection: vi.fn().mockResolvedValue([]),
     }
 }));
 
@@ -94,7 +95,7 @@ describe('Repeating FieldClaim Semantics', () => {
         const FieldClaimService = await import('@/lib/kyc/FieldClaimService');
         expect(FieldClaimService.FieldClaimService.assertClaim).toHaveBeenCalledWith(expect.objectContaining({
             collectionId: 'FIELD_999',
-            instanceId: 'dir_1'
+            instanceId: 'COMPANIES_HOUSE::ch_123::dir_1'
         }));
     });
 

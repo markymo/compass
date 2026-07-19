@@ -61,10 +61,13 @@ describe('Filter Layer & Snapshot Sync', () => {
             evidenceId: 'ev-1'
         };
 
-        // Existing claims: 'ch_active_dir' and 'ch_resigned_dir'
+        // Existing claims: 'ch_active_dir' and 'ch_resigned_dir' (using scoped IDs for the test to match buildScopedInstanceId)
+        const scopedActiveDir = 'REGISTRATION_AUTHORITY::COMPANIES_HOUSE::ch_active_dir';
+        const scopedResignedDir = 'REGISTRATION_AUTHORITY::COMPANIES_HOUSE::ch_resigned_dir';
+        
         const existingClaims = [
-            { instanceId: 'ch_active_dir', sourceType: 'REGISTRATION_AUTHORITY', collectionId: 'OFFICERS', valueJson: {} },
-            { instanceId: 'ch_resigned_dir', sourceType: 'REGISTRATION_AUTHORITY', collectionId: 'OFFICERS', valueJson: {} }
+            { instanceId: scopedActiveDir, sourceType: 'REGISTRATION_AUTHORITY', collectionId: 'OFFICERS', valueJson: {} },
+            { instanceId: scopedResignedDir, sourceType: 'REGISTRATION_AUTHORITY', collectionId: 'OFFICERS', valueJson: {} }
         ];
 
         (prismaMock.fieldClaim.findMany as any).mockResolvedValue(existingClaims);
@@ -75,7 +78,7 @@ describe('Filter Layer & Snapshot Sync', () => {
         // Should only emit tombstone for 'ch_resigned_dir'
         expect(FieldClaimService.emitTombstone).toHaveBeenCalledTimes(1);
         expect(FieldClaimService.emitTombstone).toHaveBeenCalledWith(
-            { subjectLeId: 'le-1' }, 63, 'OFFICERS', 'ch_resigned_dir', null, 'REGISTRATION_AUTHORITY'
+            { subjectLeId: 'le-1' }, 63, 'OFFICERS', scopedResignedDir, null, 'REGISTRATION_AUTHORITY'
         );
     });
 

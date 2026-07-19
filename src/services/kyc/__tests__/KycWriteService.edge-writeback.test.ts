@@ -124,15 +124,20 @@ describe('KycWriteService.performEdgeWriteback — graph edge regression', () =>
         // Field 63 definition
         (getMasterFieldDefinition as any).mockResolvedValue(FIELD_63_DEF);
 
+        // evaluateOverwrite — allowed
+        (KycStateService.getAuthoritativeValue as any).mockResolvedValue(null);
+        (KycStateService.getAuthoritativeCollection as any).mockResolvedValue([]);
+        (prismaMock.sourceFieldMapping as any).findMany = vi.fn().mockResolvedValue([]);
+        
+        (prismaMock as any).person = {
+            findFirst: vi.fn().mockResolvedValue(null),
+            create: vi.fn().mockResolvedValue({ id: PERSON_ID }),
+        };
+
         // complex-field-config: field 63 → DIRECTORS collection
         (getComplexFieldConfig as any).mockImplementation((no: number) =>
             no === FIELD_NO ? { collectionId: 'DIRECTORS', kind: 'GRAPH_RELATIONSHIP_COLLECTION' } : undefined
         );
-
-        // evaluateOverwrite — allowed
-        (KycStateService.getAuthoritativeValue as any).mockResolvedValue(null);
-        (prismaMock.sourceFieldMapping as any).findMany = vi.fn().mockResolvedValue([]);
-
         // FieldClaimService.assertClaim
         (FieldClaimService.assertClaim as any).mockResolvedValue({ id: 'new-claim-1' });
 
@@ -219,9 +224,9 @@ describe('KycWriteService.performEdgeWriteback — graph edge regression', () =>
 
     it('EW-2 [regression]: existing non-tombstone claim + active binding → edge write-back still runs', async () => {
         // Simulate: FieldClaim exists (from before the binding was set up)
-        (prismaMock.fieldClaim as any).findFirst = vi.fn().mockResolvedValue(
-            makeExistingDirectorClaim()
-        );
+        const claim = makeExistingDirectorClaim();
+        (KycStateService.getAuthoritativeCollection as any).mockResolvedValue([{ ...claim, value: claim.valueJson }]);
+        (prismaMock.fieldClaim as any).findFirst = vi.fn().mockResolvedValue(claim);
 
         const result = await (service as any).updateField(
             CLIENT_LE_ID,
@@ -309,9 +314,9 @@ describe('KycWriteService.performEdgeWriteback — graph edge regression', () =>
     // ── EW-5: Edge already exists → upsert still called (idempotent)
 
     it('EW-5: existing claim + existing edge → upsert called (idempotent, no error)', async () => {
-        (prismaMock.fieldClaim as any).findFirst = vi.fn().mockResolvedValue(
-            makeExistingDirectorClaim()
-        );
+        const claim = makeExistingDirectorClaim();
+        (KycStateService.getAuthoritativeCollection as any).mockResolvedValue([{ ...claim, value: claim.valueJson }]);
+        (prismaMock.fieldClaim as any).findFirst = vi.fn().mockResolvedValue(claim);
         // Edge already exists — upsert is idempotent
         (prismaMock as any).clientLEGraphEdge.upsert = vi.fn().mockResolvedValue({
             id: 'edge-1',
@@ -335,9 +340,9 @@ describe('KycWriteService.performEdgeWriteback — graph edge regression', () =>
     // ── EW-6: Edge write-back failure is swallowed — updateField still returns true
 
     it('EW-6: edge write-back failure is caught and swallowed — updateField returns true', async () => {
-        (prismaMock.fieldClaim as any).findFirst = vi.fn().mockResolvedValue(
-            makeExistingDirectorClaim()
-        );
+        const claim = makeExistingDirectorClaim();
+        (KycStateService.getAuthoritativeCollection as any).mockResolvedValue([{ ...claim, value: claim.valueJson }]);
+        (prismaMock.fieldClaim as any).findFirst = vi.fn().mockResolvedValue(claim);
         // Simulate DB failure in edge upsert
         (prismaMock as any).clientLEGraphEdge.upsert = vi.fn().mockRejectedValue(
             new Error('Unique constraint violation')
@@ -359,13 +364,13 @@ describe('KycWriteService.performEdgeWriteback — graph edge regression', () =>
     // ── EW-7: Existing claim has no valuePersonId (e.g. JSONB-only) → no edge
 
     it('EW-7: existing claim with null valuePersonId/valueLeId → edge write-back skipped gracefully', async () => {
-        (prismaMock.fieldClaim as any).findFirst = vi.fn().mockResolvedValue(
-            makeExistingDirectorClaim({
-                valuePersonId: null,
-                valueLeId: null,
-                valueAddressId: null,
-            })
-        );
+        const claim = makeExistingDirectorClaim({
+            valuePersonId: null,
+            valueLeId: null,
+            valueAddressId: null,
+        });
+        (KycStateService.getAuthoritativeCollection as any).mockResolvedValue([{ ...claim, value: claim.valueJson }]);
+        (prismaMock.fieldClaim as any).findFirst = vi.fn().mockResolvedValue(claim);
 
         const result = await (service as any).updateField(
             CLIENT_LE_ID,

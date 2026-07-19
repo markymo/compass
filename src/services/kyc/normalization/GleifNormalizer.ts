@@ -128,6 +128,7 @@ export async function mapGleifPayloadToFieldCandidates(payload: any, evidenceId:
                 candidates.push({
                     fieldNo: targetFieldNo,
                     value: transformed.value,
+                    rowKeys: transformed.rowKeys,
                     source: 'GLEIF',
                     evidenceId,
                     confidence
