@@ -243,7 +243,7 @@ function parseAnyValue(val: any, displayMask?: string[], codeSystem?: string, ap
         // Attempt to format as a known structured collection row first
         // This ensures that explicit structural formats (like Field 5 - Previous Names)
         // are not erroneously caught by the generic Party sniffer simply because they have a "name" property.
-        if (fieldNo !== undefined) {
+        if (appDataType !== 'PARTY' && fieldNo !== undefined) {
             const formatted = formatStructuredCollectionRow(fieldNo, val);
             if (formatted.handled) {
                 const displayStr = formatted.secondary 
