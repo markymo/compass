@@ -2,10 +2,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { DocumentUsageResolver } from '../DocumentUsageResolver';
 import { FieldAttachmentUsageProvider } from '../providers/FieldAttachmentUsageProvider';
 import { PartyDocumentUsageProvider } from '../providers/PartyDocumentUsageProvider';
+import { QuestionDocumentUsageProvider } from '../providers/QuestionDocumentUsageProvider';
 import { DocumentUsage } from '../types';
 
 vi.mock('../providers/FieldAttachmentUsageProvider');
 vi.mock('../providers/PartyDocumentUsageProvider');
+vi.mock('../providers/QuestionDocumentUsageProvider');
 
 describe('DocumentUsageResolver', () => {
     beforeEach(() => {
@@ -38,6 +40,7 @@ describe('DocumentUsageResolver', () => {
 
         (FieldAttachmentUsageProvider.prototype.getActiveUsages as any).mockResolvedValue([fieldUsage]);
         (PartyDocumentUsageProvider.prototype.getActiveUsages as any).mockResolvedValue([partyUsage]);
+        (QuestionDocumentUsageProvider.prototype.getActiveUsages as any).mockResolvedValue([]);
 
         const result = await DocumentUsageResolver.resolveActiveUsages(clientLEId, [docId]);
 
@@ -54,6 +57,7 @@ describe('DocumentUsageResolver', () => {
 
         (FieldAttachmentUsageProvider.prototype.getActiveUsages as any).mockResolvedValue([]);
         (PartyDocumentUsageProvider.prototype.getActiveUsages as any).mockResolvedValue([]);
+        (QuestionDocumentUsageProvider.prototype.getActiveUsages as any).mockResolvedValue([]);
 
         const result = await DocumentUsageResolver.resolveActiveUsages(clientLEId, [docId]);
 
@@ -93,6 +97,8 @@ describe('DocumentUsageResolver', () => {
         (PartyDocumentUsageProvider.prototype.getActiveUsages as any).mockImplementation(async (c: string, docs: string[]) => {
             return docs.includes(docId2) ? [partyUsage] : [];
         });
+
+        (QuestionDocumentUsageProvider.prototype.getActiveUsages as any).mockResolvedValue([]);
 
         const result = await DocumentUsageResolver.resolveActiveUsages(clientLEId, [docId1, docId2]);
 
