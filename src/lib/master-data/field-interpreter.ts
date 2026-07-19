@@ -32,6 +32,68 @@ export interface RawFieldSource {
     userName?: string | null;
 }
 
+export interface CollectionItemEnvelope {
+    value: any;
+    source: RawFieldSource | null;
+}
+
+export function resolveFieldCollectionForDisplay(
+    items: CollectionItemEnvelope[],
+    metadata: FieldInterpreterMetadata
+): FieldDisplayModel {
+    if (!items || items.length === 0) {
+        return resolveFieldForDisplay([], null, metadata);
+    }
+
+    const state = resolveState(metadata.displayState, items);
+    
+    // We parse each envelope individually to preserve per-item provenance
+    const resolvedItems = items.map(envelope => {
+        let innerVal = envelope.value;
+        if (typeof innerVal === 'string' && (innerVal.startsWith('{') || innerVal.startsWith('['))) {
+            try { innerVal = JSON.parse(innerVal); } catch (e) {}
+        }
+        return {
+            value: parseAnyValue(innerVal, metadata.profileConfig?.displayMask, metadata.codeSystem, metadata.appDataType, metadata.fieldNo),
+            source: envelope.source ? (resolveSource(envelope.source, 'POPULATED') ?? undefined) : undefined
+        };
+    });
+
+    let fieldSource: FieldSource | null = null;
+    const sources = resolvedItems.map(i => i.source).filter(Boolean) as FieldSource[];
+    if (sources.length > 0) {
+        const uniqueIdentities = new Set(sources.map(s => `${s.type}:${s.reference ?? ''}`));
+        if (uniqueIdentities.size === 1) {
+            fieldSource = sources[0];
+        } else {
+            // MULTI_SOURCE for mixed/multiple provenances
+            fieldSource = { type: 'MULTI_SOURCE', label: 'Multiple sources', colorKey: 'SYSTEM', category: 'SYSTEM' };
+        }
+    }
+
+    const resolvedValue: ResolvedFieldValue = {
+        kind: 'collection',
+        items: resolvedItems
+    };
+
+    return {
+        fieldNo: metadata.fieldNo,
+        label: metadata.label,
+        description: metadata.description,
+        category: metadata.category,
+        state,
+        value: resolvedValue,
+        source: fieldSource,
+        textSummary: generateTextSummary(resolvedValue, metadata.defaultText),
+        defaultText: metadata.defaultText,
+        isEditable: metadata.isEditable ?? false,
+        isMultiValue: true,
+        attachments: metadata.attachments || [],
+        allowAttachments: metadata.allowAttachments ?? false,
+        clientLEId: metadata.clientLEId,
+    };
+}
+
 export function resolveFieldForDisplay(
     rawValue: any,
     rawSource: RawFieldSource | null,
@@ -114,6 +176,9 @@ function resolveValue(
     return parseAnyValue(parsedValue, displayMask, codeSystem, appDataType, fieldNo);
 }
 
+import { normaliseCCPartyData as normalisePartyReadModel } from './party-v2/normaliser';
+import { getPartyLabel } from './party-v2/label-helper';
+
 function parseAnyValue(val: any, displayMask?: string[], codeSystem?: string, appDataType?: string, fieldNo?: number): ResolvedFieldValue {
     if (val === null || val === undefined) return { kind: 'empty' };
 
@@ -153,10 +218,14 @@ function parseAnyValue(val: any, displayMask?: string[], codeSystem?: string, ap
     if (typeof val === 'object') {
         if (val.ccPartyId) {
             const resolvedParty = val.ccParty?.data || val._resolvedData?.ccParty?.data;
+            const norm = normalisePartyReadModel(resolvedParty || val);
+            const partyLabel = norm ? getPartyLabel(norm) : `ID:${val.ccPartyId.slice(0, 8)}…`;
+            
             return {
                 kind: 'partyRef',
                 refId: val.ccPartyId,
                 summary: resolvedParty ? getPartySummary(resolvedParty, displayMask) : `ID:${val.ccPartyId.slice(0, 8)}…`,
+                partyLabel,
                 resolved: resolvedParty,
                 displayMask
             };
@@ -170,14 +239,21 @@ function parseAnyValue(val: any, displayMask?: string[], codeSystem?: string, ap
                 resolved: resolvedAddress
             };
         }
-        if (isPartyValue(val)) {
-            return {
-                kind: 'party',
-                data: val as any,
-                summary: getPartySummary(val, displayMask),
-                displayMask
-            };
+        
+        // Attempt canonical Party normalisation for embedded values
+        if (appDataType === 'PARTY' || isPartyValue(val) || ('contactType' in val) || ('forenames' in val) || ('firstName' in val)) {
+            const norm = normalisePartyReadModel(val);
+            if (norm) {
+                return {
+                    kind: 'party',
+                    data: val as any,
+                    summary: getPartySummary(val as any, displayMask),
+                    partyLabel: getPartyLabel(norm),
+                    displayMask
+                };
+            }
         }
+
         if (isAddressValue(val)) {
             return {
                 kind: 'address',

@@ -67,7 +67,16 @@ export async function resolveExportAnswer(
                 snapshotDate
             );
             if (collection && collection.length > 0) {
-                derivedValueToDisplay = collection.map(c => c.value);
+                derivedValueToDisplay = collection.map(c => ({
+                    value: c.value,
+                    source: {
+                        type: c.sourceType as any,
+                        reference: c.sourceReference,
+                        timestamp: c.assertedAt,
+                        sourceCheckedAt: c.sourceCheckedAt || c.assertedAt,
+                        userName: null
+                    }
+                }));
                 primaryDerived = collection[0];
             }
         } else {
@@ -88,8 +97,15 @@ export async function resolveExportAnswer(
             let parsedDerivedValue = derivedValueToDisplay;
             if (Array.isArray(parsedDerivedValue)) {
                 parsedDerivedValue = parsedDerivedValue.map(v => {
-                    if (typeof v === 'string') {
-                        try { return JSON.parse(v); } catch (e) { return v; }
+                    const rawVal = v && typeof v === 'object' && 'value' in v && 'source' in v ? v.value : v;
+                    if (typeof rawVal === 'string') {
+                        try { 
+                            const parsed = JSON.parse(rawVal); 
+                            if (v && typeof v === 'object' && 'value' in v && 'source' in v) {
+                                return { ...v, value: parsed };
+                            }
+                            return parsed;
+                        } catch (e) { return v; }
                     }
                     return v;
                 });
@@ -104,23 +120,33 @@ export async function resolveExportAnswer(
             await enrichPartyReferences(valuesToEnrich);
             await enrichAddressReferences(valuesToEnrich);
 
-            const displayModel = resolveFieldForDisplay(
-                derivedValueToDisplay,
-                {
-                    type: primaryDerived.sourceType as any,
-                    reference: primaryDerived.sourceReference,
-                    timestamp: primaryDerived.assertedAt,
-                    sourceCheckedAt: primaryDerived.sourceCheckedAt || primaryDerived.assertedAt,
-                    userName: null
-                },
-                {
-                    fieldNo: question.masterFieldNo,
-                    label: "Export Field", // Not used by toExportText, but required by metadata
-                    displayState: "HAS_VALUE",
-                    appDataType: fieldDetail.dataType,
-                    profileConfig: fieldDetail.profileConfig
-                }
-            );
+            const meta = {
+                fieldNo: question.masterFieldNo,
+                label: "Export Field", // Not used by toExportText, but required by metadata
+                displayState: "HAS_VALUE" as any,
+                appDataType: fieldDetail.dataType,
+                profileConfig: fieldDetail.profileConfig,
+                isMultiValue: fieldDetail.isRepeating
+            };
+
+            let displayModel;
+            if (fieldDetail.isRepeating && Array.isArray(derivedValueToDisplay)) {
+                // We know it's an array of CollectionItemEnvelopes
+                const { resolveFieldCollectionForDisplay } = await import('@/lib/master-data/field-interpreter');
+                displayModel = resolveFieldCollectionForDisplay(derivedValueToDisplay, meta);
+            } else {
+                displayModel = resolveFieldForDisplay(
+                    derivedValueToDisplay,
+                    {
+                        type: primaryDerived.sourceType as any,
+                        reference: primaryDerived.sourceReference,
+                        timestamp: primaryDerived.assertedAt,
+                        sourceCheckedAt: primaryDerived.sourceCheckedAt || primaryDerived.assertedAt,
+                        userName: null
+                    },
+                    meta
+                );
+            }
             const displayValue = toExportText(displayModel);
             
             // Resolve provenance from canonical model
