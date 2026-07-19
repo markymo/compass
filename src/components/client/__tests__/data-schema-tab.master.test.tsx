@@ -20,6 +20,12 @@ vi.mock('@/components/ui/tooltip', () => ({
     TooltipContent: ({ children }: any) => <div data-testid="tooltip-content">{children}</div>,
 }));
 
+vi.mock('next/navigation', () => ({
+    useRouter: () => ({ push: vi.fn(), replace: vi.fn(), prefetch: vi.fn(), back: vi.fn() }),
+    usePathname: () => '/master',
+    useSearchParams: () => new URLSearchParams(),
+}));
+
 describe('DataSchemaTab - /master rendering boundary', () => {
     it('renders Field 62 repeated legacy Companies House Party objects using canonical model (no blanks, no unknown RA)', () => {
         // Construct canonical model simulating getFullMasterData output after our fix
