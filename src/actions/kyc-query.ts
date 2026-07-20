@@ -12,7 +12,7 @@ import { getPartySummary } from "@/lib/master-data/party-value";
 import { resolveFieldForDisplay } from "@/lib/master-data/field-interpreter";
 import { resolveSourceCheckedAt } from "@/lib/kyc/provenance-enricher";
 import { ResolvedAttachment } from "@/lib/master-data/field-display-model";
-import { mapDerivedAttachments } from "@/lib/kyc/attachments";
+import { resolveAmalgamatedAttachments } from "@/lib/kyc/attachments";
 // KycLoader is deprecated in favor of KycStateService
 
 export type ResolverRequest = {
@@ -258,7 +258,7 @@ export type BatchResolverInput = {
     /** The provenance map containing EnrichmentRun and GLEIF dates (pre-loaded) */
     provenanceMap: import("@/lib/kyc/provenance-enricher").ProvenanceMap | null;
     /** Map of fieldNo to its resolved attachments (pre-loaded) */
-    attachmentsByField?: Map<number, import("@/lib/kyc/KycStateService").DerivedValue[]>;
+    attachmentsByField?: Map<number, import("@/lib/master-data/field-display-model").ResolvedAttachment[]>;
 };
 
 /**
@@ -299,7 +299,7 @@ function resolveField(
     ownerScopeId: string | null,
     sourceMappings: BatchSourceMapping[],
     provenanceMap: import("@/lib/kyc/provenance-enricher").ProvenanceMap | null,
-    attachmentsArray?: import("@/lib/kyc/KycStateService").DerivedValue[]
+    attachmentsArray?: import("@/lib/master-data/field-display-model").ResolvedAttachment[]
 ): Record<string, HydratedValue> {
     const priorityMap = buildPriorityMap(sourceMappings, fieldNo);
 
@@ -364,7 +364,7 @@ function resolveField(
                 updatedAt: maxAssertedAt,
                 sourceCheckedAt: maxSourceCheckedAt,
                 isSynced: true,
-                ...(attachmentsArray !== undefined ? { attachmentCount: attachmentsArray.length, attachments: mapDerivedAttachments(attachmentsArray) } : {})
+                ...(attachmentsArray !== undefined ? { attachmentCount: attachmentsArray.length, attachments: attachmentsArray } : {})
             }
         };
     } else {
@@ -384,7 +384,7 @@ function resolveField(
                 updatedAt: derived.assertedAt,
                 sourceCheckedAt: resolveSourceCheckedAt(derived.sourceType || derived.evidenceProvider, derived.sourceReference, derived.assertedAt, provenanceMap),
                 isSynced: true,
-                ...(attachmentsArray !== undefined ? { attachmentCount: attachmentsArray.length, attachments: mapDerivedAttachments(attachmentsArray) } : {})
+                ...(attachmentsArray !== undefined ? { attachmentCount: attachmentsArray.length, attachments: attachmentsArray } : {})
             }
         };
     }
@@ -829,21 +829,23 @@ export async function getFieldDetail(
             });
 
             // Resolve values and attachments in batch
-            const [resolvedValuesMap, resolvedAttachmentsMap, allSourceMappings] = await Promise.all([
+            const [resolvedValuesMap, allSourceMappings] = await Promise.all([
                 KycStateService.resolveAllFields(
                     { subjectLeId, clientLEId: entityType === 'CLIENT_LE' ? entityId : undefined },
                     requestedFields,
                     ownerScopeId
-                ),
-                KycStateService.resolveAllAttachments(
-                    { subjectLeId, clientLEId: entityType === 'CLIENT_LE' ? entityId : undefined },
-                    defs.filter(d => d.allowAttachments).map(d => d.fieldNo)
                 ),
                 (prisma as any).sourceFieldMapping.findMany({
                     where: { targetFieldNo: { in: group.items.map(i => i.fieldNo) }, isActive: true },
                     select: { targetFieldNo: true, sourceType: true, sourceReference: true, priority: true }
                 })
             ]);
+            
+            const resolvedAttachmentsMap = await resolveAmalgamatedAttachments(
+                { subjectLeId, clientLEId: entityType === 'CLIENT_LE' ? entityId : undefined },
+                defs.filter(d => d.allowAttachments).map(d => d.fieldNo),
+                resolvedValuesMap
+            );
             
             let clientLEForSource: any = null;
             if (entityType === 'CLIENT_LE') {
@@ -859,8 +861,7 @@ export async function getFieldDetail(
                 const cfg = getComplexFieldConfig(item.fieldNo);
                 const codeSystem = cfg && 'codeSystem' in cfg ? cfg.codeSystem : undefined;
 
-                const derivedAttachments = resolvedAttachmentsMap.get(item.fieldNo) || [];
-                const mappedAttachments = mapDerivedAttachments(derivedAttachments);
+                const mappedAttachments = resolvedAttachmentsMap.get(item.fieldNo) || [];
                 
                 const resolvedVal = resolvedValuesMap.get(item.fieldNo);
 
@@ -1648,7 +1649,13 @@ export async function getFieldDetail(
     }
 
     // Phase FD-1: Attach canonical display model to root current value
-    const derivedAttachments = def?.allowAttachments ? await KycStateService.getAuthoritativeAttachments({ subjectLeId }, fieldNo) : [];
+    const resolvedValuesMap = new Map();
+    if (result.current?.value) {
+        resolvedValuesMap.set(fieldNo, { value: result.current.value } as any);
+    }
+    const amalgamatedAttachmentsMap = def?.allowAttachments 
+        ? await resolveAmalgamatedAttachments({ subjectLeId }, [fieldNo], resolvedValuesMap)
+        : new Map();
     
     const metadataForDisplay = {
         fieldNo: result.fieldNo ?? 0,
@@ -1659,7 +1666,7 @@ export async function getFieldDetail(
         isMultiValue: result.isRepeating,
         codeSystem: result.codeSystem,
         allowAttachments: def?.allowAttachments,
-        attachments: mapDerivedAttachments(derivedAttachments)
+        attachments: amalgamatedAttachmentsMap.get(fieldNo) || []
     };
 
     if (result.current) {

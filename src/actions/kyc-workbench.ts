@@ -6,6 +6,8 @@ import { fetchProvenanceMap } from "@/lib/kyc/provenance-enricher";
 import { fetchRaNameLookup } from "@/lib/kyc/source-label.server";
 import { KycStateService } from "@/lib/kyc/KycStateService";
 import { listAllMasterFields, listAllMasterGroups, listAllMasterGroupsWithItems, getMasterFieldGroup } from "@/services/masterData/definitionService";
+import { extractCanonicalPartyIds } from "@/lib/master-data/party-value";
+import { resolveAmalgamatedAttachments } from "@/lib/kyc/attachments";
 import { getComplexFieldConfig } from "@/lib/master-data/complex-field-config";
 import type { GroupFieldData } from "@/components/client/engagement/group-answer-renderer";
 import { GroupDisplayStyle } from "@prisma/client";
@@ -55,7 +57,7 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
     const subjectLeId = clientLE?.legalEntityId;
 
     // Load all claims + all source mappings in parallel (2 queries, no waterfall)
-    const [allClaims, allSourceMappings, allAttachmentsByField] = subjectLeId
+    const [allClaims, allSourceMappings] = subjectLeId
         ? await Promise.all([
             prisma.fieldClaim.findMany({
                 where: {
@@ -69,10 +71,9 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
             (prisma as any).sourceFieldMapping.findMany({
                 where: { isActive: true },
                 select: { targetFieldNo: true, sourceType: true, sourceReference: true, priority: true }
-            }),
-            KycStateService.resolveAllAttachments({ subjectLeId }, allFields.map((f: any) => f.fieldNo))
+            })
         ])
-        : [[], [], new Map()] as [any[], any[], Map<number, import("@/lib/kyc/KycStateService").DerivedValue[]>];
+        : [[], []] as [any[], any[]];
         
     // Build fieldDefMap from already-loaded allFields
     const fieldDefMap = new Map<number, { fieldNo: number; fieldName: string; appDataType: string; isMultiValue: boolean; profileConfig?: any; defaultResponse?: string | null }>(
@@ -120,10 +121,29 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
             claims: allClaims as any,
             sourceMappings: allSourceMappings,
             provenanceMap,
-            attachmentsByField: allAttachmentsByField,
+            attachmentsByField: undefined,
         };
 
         resolvedValues = await resolveMasterDataBatch(batchInput);
+
+        const resolvedValuesMap = new Map();
+        for (const hvMap of Object.values(resolvedValues)) {
+            for (const [fNo, hv] of Object.entries(hvMap)) {
+                resolvedValuesMap.set(Number(fNo), { value: hv.value });
+            }
+        }
+        const fieldsWithAttachments = allFields.filter((f: any) => f.allowAttachments).map((f: any) => f.fieldNo);
+        const resolvedAttachments = await resolveAmalgamatedAttachments({ subjectLeId, clientLEId: leId }, fieldsWithAttachments, resolvedValuesMap);
+
+        for (const hvMap of Object.values(resolvedValues)) {
+            for (const [fNo, hv] of Object.entries(hvMap)) {
+                const atts = resolvedAttachments.get(Number(fNo));
+                if (atts) {
+                    hv.attachmentCount = atts.length;
+                    hv.attachments = atts;
+                }
+            }
+        }
     }
 
     const masterFields = allFields.map((def: any) => {

@@ -14,7 +14,7 @@ import { generateText } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
 import { KycStateService } from "@/lib/kyc/KycStateService";
 import { enrichAddressReferences } from "@/actions/kyc-query";
-import { mapDerivedAttachments } from "@/lib/kyc/attachments";
+import { resolveAmalgamatedAttachments } from "@/lib/kyc/attachments";
 import { FieldClaimService } from "@/lib/kyc/FieldClaimService";
 import { getComplexFieldConfig } from "@/lib/master-data/complex-field-config";
 import { toExportText } from "@/lib/export/toExportText";
@@ -646,9 +646,10 @@ export async function getFullMasterData(clientLEId: string) {
         );
 
         const fieldsWithAttachments = allFields.filter(f => f.allowAttachments).map(f => f.fieldNo);
-        const resolvedAttachments = await KycStateService.resolveAllAttachments(
+        const resolvedAttachments = await resolveAmalgamatedAttachments(
             { subjectLeId, clientLEId: clientLE.id },
-            fieldsWithAttachments
+            fieldsWithAttachments,
+            resolved
         );
 
         const ccPartyIds = new Set<string>();
@@ -778,7 +779,7 @@ export async function getFullMasterData(clientLEId: string) {
                             return cfg?.kind === 'STRUCTURED_COLLECTION' ? (cfg as any).codeSystem : undefined;
                         })(),
                         allowAttachments: def.allowAttachments,
-                        attachments: mapDerivedAttachments(resolvedAttachments.get(def.fieldNo) || []),
+                        attachments: resolvedAttachments.get(def.fieldNo) || [],
                         clientLEId
                     }
                 ) : resolveFieldForDisplay(
@@ -798,7 +799,7 @@ export async function getFullMasterData(clientLEId: string) {
                             return cfg?.kind === 'STRUCTURED_COLLECTION' ? (cfg as any).codeSystem : undefined;
                         })(),
                         allowAttachments: def.allowAttachments,
-                        attachments: mapDerivedAttachments(resolvedAttachments.get(def.fieldNo) || []),
+                        attachments: resolvedAttachments.get(def.fieldNo) || [],
                         clientLEId
                     }
                 );

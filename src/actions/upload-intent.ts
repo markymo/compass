@@ -40,14 +40,14 @@ export async function getUploadIntentStatus(intentId: string): Promise<UploadInt
     if (intent.status === 'COMPLETED' && intent.document) {
         const doc = intent.document;
         const attachment: ResolvedAttachment = {
-            instanceId: '', // Instance ID will be generated when the FieldClaim is created
             documentId: doc.id,
             displayName: doc.name || 'Untitled Document',
             mimeType: doc.mimeType,
             sizeBytes: doc.sizeBytes?.toString() || null,
             lifecycleCreatedAt: new Date().toISOString(), // Will be properly set by the field claim
             currentDocumentCreatedAt: doc.createdAt.toISOString(),
-            uploadedBy: doc.uploadedBy ? { displayName: doc.uploadedBy.name } : undefined
+            uploadedBy: doc.uploadedBy ? { displayName: doc.uploadedBy.name } : undefined,
+            provenance: []
         };
         return { status: 'completed', attachment };
     }

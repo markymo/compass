@@ -40,6 +40,62 @@ export class CCPartyDocumentService {
         // Return only the active (non-removed) documents
         return Array.from(historiesMap.values()).filter(h => !h.isRemoved);
     }
+    /**
+     * Batch resolves active documents for multiple Parties, optionally scoped to a client LE.
+     * Includes full Document payload for each active attachment.
+     */
+    static async resolvePartyDocumentsBatch(
+        partyIds: string[],
+        clientLEId?: string
+    ): Promise<Map<string, (PartyDocumentHistory & { document: any })[]>> {
+        if (partyIds.length === 0) return new Map();
+
+        const documents = await prisma.cCPartyDocument.findMany({
+            where: {
+                partyId: { in: partyIds },
+                ...(clientLEId ? { party: { clientLEId } } : {})
+            },
+            include: {
+                document: { include: { uploadedBy: true } },
+                party: { select: { data: true } }
+            },
+            orderBy: [{ assertedAt: 'desc' }, { id: 'desc' }],
+        });
+
+        // Resolve histories per party
+        // PartyDocumentLifecycleResolver.resolveHistories expects a flat array of CCPartyDocument.
+        // We'll group them by partyId, then run the resolver on each group, 
+        // or just run it on the whole array (resolveHistories groups by instanceId, not partyId, but instanceIds are unique anyway).
+        const historiesMap = PartyDocumentLifecycleResolver.resolveHistories(documents);
+
+        // Fetching the document payloads.
+        // Wait, we already included `document` in the query!
+        // We just need to attach it to the returned active histories.
+
+        const activeByParty = new Map<string, (PartyDocumentHistory & { document: any })[]>();
+        
+        for (const history of historiesMap.values()) {
+            if (history.isRemoved) continue;
+            
+            // Get the latest event that has the document
+            const latestEvent = history.events[0]; // Wait, events are newest to oldest in history.events!
+            // According to PartyDocumentLifecycleResolver, events are ordered newest to oldest.
+            
+            const docData = (latestEvent as any).document;
+            if (!docData) continue;
+            
+            const partyId = latestEvent.partyId;
+            if (!activeByParty.has(partyId)) {
+                activeByParty.set(partyId, []);
+            }
+            activeByParty.get(partyId)!.push({
+                ...history,
+                document: docData
+            });
+        }
+
+        return activeByParty;
+    }
 
     /**
      * Attaches a new document to a Party.

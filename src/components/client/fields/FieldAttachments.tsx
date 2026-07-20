@@ -308,21 +308,33 @@ export function FieldAttachments({ clientLEId, fieldNo, attachments, isEditable,
     return (
         <div className={`mt-2 flex flex-col gap-2 ${className || ''}`}>
             {attachments.map(att => {
-                const isReplacingThis = opType === 'replace' && targetInstanceId === att.instanceId;
-                const isRemovingThis = removingInstanceId === att.instanceId;
+                const fieldProv = att.provenance.find(p => p.type === 'FIELD') as Extract<typeof att.provenance[0], {type: 'FIELD'}> | undefined;
+                const fieldInstanceId = fieldProv?.fieldAttachmentInstanceId;
+                
+                const isReplacingThis = opType === 'replace' && targetInstanceId === fieldInstanceId;
+                const isRemovingThis = removingInstanceId === fieldInstanceId;
                 const showRowState = isReplacingThis && opState !== 'IDLE';
 
                 return (
-                    <div key={att.instanceId} className="flex flex-col border rounded-md bg-white overflow-hidden">
+                    <div key={att.documentId} className="flex flex-col border rounded-md bg-white overflow-hidden">
                         <div className="flex items-center justify-between p-2 text-sm">
-                            <div className="flex items-center gap-2 overflow-hidden" title={att.displayName || 'Document'}>
-                                <FileText className="w-4 h-4 text-slate-400 shrink-0" />
-                                <span className="truncate font-medium text-slate-700">{att.displayName}</span>
-                                {att.sizeBytes && (
-                                    <span className="text-xs text-slate-400 shrink-0">
-                                        {Math.round(parseInt(att.sizeBytes, 10) / 1024)} KB
-                                    </span>
-                                )}
+                            <div className="flex flex-col gap-1 overflow-hidden" title={att.displayName || 'Document'}>
+                                <div className="flex items-center gap-2">
+                                    <FileText className="w-4 h-4 text-slate-400 shrink-0" />
+                                    <span className="truncate font-medium text-slate-700">{att.displayName}</span>
+                                    {att.sizeBytes && (
+                                        <span className="text-xs text-slate-400 shrink-0">
+                                            {Math.round(parseInt(att.sizeBytes, 10) / 1024)} KB
+                                        </span>
+                                    )}
+                                </div>
+                                {att.provenance.map((prov, i) => (
+                                    <div key={i} className="flex items-center gap-1 text-[10px] text-slate-500 pl-6">
+                                        {prov.type === 'PARTY' ? (
+                                            <span className="bg-slate-100 px-1.5 py-0.5 rounded text-slate-600">Attached to Party: {prov.partyName}</span>
+                                        ) : null}
+                                    </div>
+                                ))}
                             </div>
                             
                             <div className="flex items-center gap-1 shrink-0 ml-2">
@@ -336,7 +348,7 @@ export function FieldAttachments({ clientLEId, fieldNo, attachments, isEditable,
                                     <Download className="w-4 h-4" />
                                 </a>
 
-                                {isEditable && mode === 'manage' && (
+                                {isEditable && mode === 'manage' && fieldInstanceId && (
                                     <>
                                         <DropdownMenu>
                                             <DropdownMenuTrigger asChild>
@@ -347,20 +359,20 @@ export function FieldAttachments({ clientLEId, fieldNo, attachments, isEditable,
                                                     title="Replace attachment"
                                                     disabled={isBusy}
                                                 >
-                                                    {isLoadingLibrary && opType === 'replace' && targetInstanceId === att.instanceId ? <Loader2 className="w-4 h-4 animate-spin" /> : <Replace className="w-4 h-4" />}
+                                                    {isLoadingLibrary && opType === 'replace' && targetInstanceId === fieldInstanceId ? <Loader2 className="w-4 h-4 animate-spin" /> : <Replace className="w-4 h-4" />}
                                                     <span className="sr-only">Replace attachment</span>
                                                 </Button>
                                             </DropdownMenuTrigger>
                                             <DropdownMenuContent align="end">
                                                 <DropdownMenuItem onSelect={() => {
-                                                    setTargetInstanceId(att.instanceId);
+                                                    setTargetInstanceId(fieldInstanceId!);
                                                     replaceInputRef.current?.click();
                                                 }}>
                                                     <Upload className="w-4 h-4 mr-2" />
                                                     Upload Document
                                                 </DropdownMenuItem>
                                                 <DropdownMenuItem onSelect={() => {
-                                                    openPicker({ type: 'REPLACE', instanceId: att.instanceId });
+                                                    openPicker({ type: 'REPLACE', instanceId: fieldInstanceId! });
                                                 }}>
                                                     <Library className="w-4 h-4 mr-2" />
                                                     Choose from Library
@@ -391,7 +403,7 @@ export function FieldAttachments({ clientLEId, fieldNo, attachments, isEditable,
                                                     <AlertDialogAction 
                                                         onClick={(e) => {
                                                             e.preventDefault();
-                                                            handleRemove(att.instanceId);
+                                                            handleRemove(fieldInstanceId!);
                                                         }}
                                                         disabled={isRemovingThis}
                                                         className="bg-red-600 hover:bg-red-700"
