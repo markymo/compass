@@ -87,6 +87,17 @@ export async function updateAccountSettings(data: {
         const user = await findUser(identity);
         if (!user) return { success: false, error: "User not found" };
 
+        if (data.preferences && data.preferences.timezone !== undefined) {
+            const { validateTimezone } = await import("@/lib/date-utils");
+            const tz = data.preferences.timezone;
+            if (!validateTimezone(tz)) {
+                return { success: false, error: "Invalid timezone selected." };
+            }
+            if (!tz || tz.trim() === '' || tz.toUpperCase() === 'UTC') {
+                data.preferences.timezone = "UTC";
+            }
+        }
+
         const updatedUser = await (prisma.user as any).update({
             where: { id: user.id },
             data: {

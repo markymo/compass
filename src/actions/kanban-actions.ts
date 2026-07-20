@@ -290,8 +290,8 @@ export async function getBoardQuestions(engagementId: string) {
             documents: q.documents ? q.documents.map((d: any) => ({
                 id: d.id,
                 name: d.name,
-                fileType: d.fileType,
-                kbSize: d.kbSize
+                fileType: d.mimeType || 'unknown',
+                kbSize: d.sizeBytes ? Math.round(Number(d.sizeBytes) / 1024) : null
             })) : [],
             masterFieldNo: q.masterFieldNo,
             customFieldDefinitionId: (q as any).customFieldDefinitionId,
@@ -1418,15 +1418,26 @@ export async function getEngagementEvidenceDocuments(engagementId: string) {
                     select: {
                         id: true,
                         name: true,
-                        fileType: true,
-                        kbSize: true,
+                        mimeType: true,
+                        sizeBytes: true,
                         createdAt: true,
                     }
                 }
             }
         });
 
-        return { success: true, documents: questions };
+        const mappedQuestions = questions.map((q: any) => ({
+            ...q,
+            documents: q.documents.map((d: any) => ({
+                id: d.id,
+                name: d.name,
+                fileType: d.mimeType || 'unknown',
+                kbSize: d.sizeBytes ? Math.round(Number(d.sizeBytes) / 1024) : null,
+                createdAt: d.createdAt
+            }))
+        }));
+
+        return { success: true, documents: mappedQuestions };
     } catch (e) {
         console.error("Evidence documents fetch error:", e);
         return { success: false, error: "Failed to fetch evidence documents", documents: [] };

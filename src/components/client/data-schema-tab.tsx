@@ -13,6 +13,8 @@ import { refreshRegistryReferenceAction } from "@/actions/registry";
 import { FieldProposal, ProvenanceSource } from "@/domain/kyc/types/ProposalTypes";
 import { cn } from "@/lib/utils";
 import { getSourceDisplayName } from "@/lib/source-display";
+import { formatSystemDateTime, formatBusinessDate } from "@/lib/date-utils";
+import { useSession } from "next-auth/react";
 import { FieldDetailPanel } from "./inspection/field-detail-panel";
 import { PersonOrContactValueViewer } from "./fields/PersonOrContactValueViewer";
 import { FieldSourceBadge } from "./fields/FieldSourceBadge";
@@ -81,6 +83,7 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
     const [autoCollapseProgress, setAutoCollapseProgress] = useState(100); // 100→0 over 6s
     const collapseTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+    const { data: session } = useSession();
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
@@ -319,7 +322,7 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                                     <div className="font-medium text-sm">Global LEI Index (GLEIF)</div>
                                     <div className="text-xs text-slate-500">
                                         {lastRefreshed
-                                            ? <>Last synced: <span className="font-medium text-slate-700">{lastRefreshed.toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" })}</span> at <span className="font-medium text-slate-700">{lastRefreshed.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}</span></>
+                                            ? <>Last synced: <span className="font-medium text-slate-700">{formatSystemDateTime(lastRefreshed, (session?.user as any)?.timezone || 'UTC')}</span></>
                                             : "Never synced"}
                                     </div>
                                 </div>
@@ -350,7 +353,7 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                                         <div className="font-medium text-sm">{nationalRegistryData.authorityName} - {nationalRegistryData.localRegistrationNumber}</div>
                                         <div className="text-xs text-slate-500">
                                             {nationalRegistryData.lastSyncSucceededAt
-                                                ? <>Last synced: <span className="font-medium text-slate-700">{new Date(nationalRegistryData.lastSyncSucceededAt).toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" })}</span> at <span className="font-medium text-slate-700">{new Date(nationalRegistryData.lastSyncSucceededAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}</span></>
+                                                ? <>Last synced: <span className="font-medium text-slate-700">{formatSystemDateTime(nationalRegistryData.lastSyncSucceededAt, (session?.user as any)?.timezone || 'UTC')}</span></>
                                                 : "Never synced"}
                                             {nationalRegistryData.lastSyncStatus === "FAILED" && <span className="ml-2 text-red-500 font-medium">Sync Failed</span>}
                                         </div>
@@ -989,7 +992,7 @@ function MasterFieldDisplay({ label, fieldNo, value, formattedDisplayValue, sour
 
 export function formatGraphValue(val: any): string {
     if (val === null || val === undefined || val === '') return '';
-    if (val instanceof Date) return val.toLocaleDateString();
+    if (val instanceof Date) return formatBusinessDate(val.toISOString()) || val.toLocaleDateString();
     if (typeof val === 'boolean') return val ? 'Yes' : 'No';
 
     let parsedVal = val;
@@ -1027,9 +1030,9 @@ export function formatGraphValue(val: any): string {
         
         return JSON.stringify(parsedVal);
     }
-    if (typeof parsedVal === 'string' && parsedVal.match(/^\d{4}-\d{2}-\d{2}T/)) {
+    if (typeof parsedVal === 'string' && parsedVal.match(/^\d{4}-\d{2}-\d{2}/)) {
         const d = new Date(parsedVal);
-        if (!isNaN(d.getTime())) return d.toLocaleDateString();
+        if (!isNaN(d.getTime())) return formatBusinessDate(parsedVal) || parsedVal;
     }
     return String(parsedVal);
 }

@@ -1,9 +1,13 @@
+"use client";
+
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { FieldSource } from "@/lib/master-data/field-display-model";
 import { getSourceDisplayName } from "@/lib/source-display";
 import { SOURCE_PALETTE } from "@/lib/master-data/source-palette";
 import { StandardTooltip } from "@/components/ui/standard-tooltip";
+import { useSession } from "next-auth/react";
+import { formatSystemDateTime } from "@/lib/date-utils";
 
 export interface FieldSourceBadgeProps {
     source?: FieldSource | null;
@@ -36,6 +40,7 @@ export function FieldSourceBadge({
     variant = 'badge',
     wrapperClassName
 }: FieldSourceBadgeProps) {
+    const { data: session } = useSession();
     if (!source && !legacySourceType) {
         return null;
     }
@@ -109,7 +114,7 @@ export function FieldSourceBadge({
                 <div className="flex flex-col text-[10px] text-slate-400 border-l border-slate-200 pl-2 leading-tight justify-center">
                     <StandardTooltip content="Based on the most recent successful sync of the mapped external source.">
                         <span className="whitespace-nowrap">
-                            Last validated: {new Date(source.lastValidatedAt).toLocaleString()}
+                            Last validated: {formatSystemDateTime(source.lastValidatedAt, (session?.user as any)?.timezone || 'UTC')}
                         </span>
                     </StandardTooltip>
                 </div>

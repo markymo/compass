@@ -3,6 +3,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
+import { formatSystemDateTime } from "@/lib/date-utils";
 import { Input } from "@/components/ui/input";
 import { updateQuestionnaireFile, toggleQuestionnaireStatus, updateQuestionnaireName, updateQuestionnaireDescription, toggleQuestionnaireGlobal } from "@/actions/questionnaire";
 import { addToReferenceLibrary, createWorkingCopy, previewPublishReferenceSnapshot } from "@/actions/questionnaires-v2";
@@ -84,6 +86,7 @@ interface QuestionnaireManagerProps {
 
 export function QuestionnaireManager({ questionnaire: initialQ, masterFields, lineage }: QuestionnaireManagerProps) {
     const router = useRouter();
+    const { data: session } = useSession();
 
     // --- State ---
     const [questionnaire, setQuestionnaire] = useState(initialQ);
@@ -666,7 +669,7 @@ export function QuestionnaireManager({ questionnaire: initialQ, masterFields, li
                                                 )}
                                             >
                                                 <span className="text-slate-500 shrink-0 tabular-nums">
-                                                    {new Date(log.timestamp).toLocaleTimeString()}
+                                                    {formatSystemDateTime(log.timestamp, (session?.user as any)?.timezone || 'UTC')}
                                                 </span>
                                                 <div className="flex items-center gap-2">
                                                     {isLatest && extracting && (
@@ -832,10 +835,7 @@ export function QuestionnaireManager({ questionnaire: initialQ, masterFields, li
                                                             {child.fiEngagement?.org?.name ?? "—"}
                                                         </td>
                                                         <td className="px-4 py-2 text-slate-500 text-xs">
-                                                            {new Date(child.createdAt).toLocaleString(undefined, {
-                                                                year: "numeric", month: "short", day: "numeric",
-                                                                hour: "2-digit", minute: "2-digit",
-                                                            })}
+                                                            {formatSystemDateTime(child.createdAt, (session?.user as any)?.timezone || 'UTC')}
                                                         </td>
                                                         <td className="px-4 py-2">
                                                             <Badge variant="outline" className="text-[10px] bg-white">

@@ -52,20 +52,33 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                 // @ts-ignore
                 session.user.isDemoActor = token.isDemoActor;
 
-                // Check System Admin Status
+                // Check System Admin Status and Timezone Preference
                 try {
-                    const sysAdmin = await prisma.membership.findFirst({
-                        where: {
-                            userId: token.sub,
-                            organization: { types: { has: "SYSTEM" } }
-                        }
-                    });
+                    const [sysAdmin, dbUser] = await Promise.all([
+                        prisma.membership.findFirst({
+                            where: {
+                                userId: token.sub,
+                                organization: { types: { has: "SYSTEM" } }
+                            }
+                        }),
+                        prisma.user.findUnique({
+                            where: { id: token.sub },
+                            select: { preferences: true }
+                        })
+                    ]);
                     // @ts-ignore
                     session.user.isSystemAdmin = !!sysAdmin;
+                    
+                    // @ts-ignore - inject dynamically fetched timezone
+                    const { resolveSystemTimezone } = require("@/lib/date-utils");
+                    (session.user as any).timezone = resolveSystemTimezone(dbUser?.preferences);
+                        
                 } catch (e: any) {
                     // Downgrade to console.warn to prevent Next.js dev overlay from throwing fatal errors 
                     // during Neon serverless pooler cold-starts.
                     console.warn(`[auth] Transient connection delay evaluating SysAdmin: ${e.message?.substring(0, 80)}...`);
+                    // @ts-ignore
+                    session.user.timezone = "UTC";
                 }
             }
             return session;

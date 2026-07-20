@@ -266,11 +266,37 @@ export default function AccountSettingsPage() {
                         <CardHeader>
                             <div className="flex items-center gap-2">
                                 <Sparkles className="h-5 w-5 text-purple-500" />
-                                <CardTitle>Personalization</CardTitle>
+                                <CardTitle>Personalization & Regional</CardTitle>
                             </div>
-                            <CardDescription>Add a touch of magic to your workflow.</CardDescription>
+                            <CardDescription>Customize your workflow and regional settings.</CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-6">
+                            <div className="flex items-center justify-between space-x-2">
+                                <div className="flex flex-col space-y-1">
+                                    <Label htmlFor="timezone-select" className="font-medium">System Timezone</Label>
+                                    <span className="text-[13px] text-muted-foreground">Used for system timestamps (e.g. audit logs). Defaults to UTC.</span>
+                                </div>
+                                <div className="w-[180px]">
+                                    <select 
+                                        id="timezone-select"
+                                        className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                                        value={preferences.timezone || 'UTC'}
+                                        onChange={async (e) => {
+                                            const val = e.target.value;
+                                            await updatePreference("timezone", val);
+                                            toast.success("Timezone updated.");
+                                        }}
+                                    >
+                                        <option value="UTC">UTC (Default)</option>
+                                        <option value="Europe/London">Europe/London</option>
+                                        <option value="America/New_York">America/New_York</option>
+                                        <option value="Europe/Paris">Europe/Paris</option>
+                                        <option value="Asia/Tokyo">Asia/Tokyo</option>
+                                        <option value="Australia/Sydney">Australia/Sydney</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
                             <div className="flex items-center justify-between space-x-2">
                                 <div className="flex flex-col space-y-1">
                                     <Label htmlFor="whimsy-mode" className="font-medium inline-flex items-center gap-2">

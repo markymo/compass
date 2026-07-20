@@ -1,5 +1,6 @@
 import React from "react";
 import { Document, Page, Text, View, StyleSheet, Image, Svg, Path, Polyline } from "@react-pdf/renderer";
+import { formatSystemDateTime, formatBusinessDate } from "@/lib/date-utils";
 
 // --- Icons ---
 const LandmarkIcon = () => (
@@ -368,6 +369,7 @@ export interface QuestionnairePDFProps {
         onProLogoUrl?: string;
         exportFormatVersion: string;
         applicationVersion: string;
+        timezone?: string;
         summaryStats?: {
             totalQuestions: number;
             answered: number;
@@ -419,9 +421,9 @@ export const QuestionnairePDF = ({ data, title, exportMetadata }: QuestionnaireP
                             {exportMetadata && (
                                 <>
                                     {exportMetadata.summaryStats?.dueDate && (
-                                        <Text style={styles.metaText}>Due Date: {new Date(exportMetadata.summaryStats.dueDate).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</Text>
+                                        <Text style={styles.metaText}>Due Date: {formatBusinessDate(exportMetadata.summaryStats.dueDate)}</Text>
                                     )}
-                                    <Text style={styles.metaText}>Generated: {new Date(exportMetadata.generatedAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</Text>
+                                    <Text style={styles.metaText}>Generated: {formatSystemDateTime(exportMetadata.generatedAt, exportMetadata.timezone || 'UTC')}</Text>
                                     <Text style={styles.metaText}>By: {exportMetadata.generatedBy}</Text>
                                     <Text style={styles.metaText}>Ref: {exportMetadata.exportId.split('-')[0]}</Text>
                                 </>
@@ -487,7 +489,7 @@ export const QuestionnairePDF = ({ data, title, exportMetadata }: QuestionnaireP
                                         {exportMetadata.summaryStats.dueDate && (
                                             <View style={[styles.summaryRow, { marginTop: 8 }]}>
                                                 <Text style={styles.summaryLabel}>Due Date</Text>
-                                                <Text style={styles.summaryValue}>{new Date(exportMetadata.summaryStats.dueDate).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</Text>
+                                                <Text style={styles.summaryValue}>{formatBusinessDate(exportMetadata.summaryStats.dueDate)}</Text>
                                             </View>
                                         )}
                                     </View>
@@ -593,7 +595,7 @@ export const QuestionnairePDF = ({ data, title, exportMetadata }: QuestionnaireP
                                 <Text style={styles.statusBadgeText}>{item.status}</Text>
                             </View>
                             {item.sourceLabel && <Text style={styles.provenanceText}>Source: {item.sourceLabel}</Text>}
-                            {item.sourceTimestamp && <Text style={styles.provenanceText}>Last validated: {new Date(item.sourceTimestamp).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'})}</Text>}
+                            {item.sourceTimestamp && <Text style={styles.provenanceText}>Last validated: {formatSystemDateTime(item.sourceTimestamp, exportMetadata?.timezone || 'UTC')}</Text>}
                         </View>
                         
                         {item.evidencePaths && item.evidencePaths.length > 0 && (
