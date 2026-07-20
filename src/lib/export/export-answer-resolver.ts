@@ -249,7 +249,7 @@ export async function resolveExportAnswer(
             const [claims, sourceMappings, attachmentsMap] = await Promise.all([
                 prisma.fieldClaim.findMany({
                     where: {
-                        subjectLeId,
+                        subjectLeId: subjectLeId || '',
                         fieldNo: { in: fieldNos },
                         claimRole: 'VALUE',
                         status: { in: ['VERIFIED', 'ASSERTED'] },
@@ -281,7 +281,7 @@ export async function resolveExportAnswer(
             groupFieldMap.set(question.masterQuestionGroupId, fieldNos);
 
             const batchInput = {
-                subjectLeId,
+                subjectLeId: subjectLeId || '',
                 ownerScopeId: ownerScopeId ?? null,
                 questions: [{ questionId: question.id, masterQuestionGroupId: question.masterQuestionGroupId, masterFieldProjectionPath: question.masterFieldProjectionPath }],
                 fieldDefMap,
