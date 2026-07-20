@@ -48,7 +48,7 @@ export function CanonicalPartyEditDialog({
                 ? legacyPartyData // If it's a PARTY_REF, legacyPartyData might already be the fetched CCParty data or legacy adapter converted
                 : convertLegacyManualPartyToV2(legacyPartyData || {});
 
-            setFormState(initialiseCanonicalPartyForm({ party: { data: v2Data } as any } as any));
+            setFormState(initialiseCanonicalPartyForm({ party: v2Data } as any));
         } else {
             setFormState(null);
             setAddressCreateContext(null);
