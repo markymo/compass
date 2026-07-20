@@ -20,16 +20,22 @@ vi.mock("@/lib/prisma", () => ({
     }
 }));
 
-vi.mock("@/lib/kyc/KycStateService", () => ({
-    KycStateService: {
-        resolveScopeId: vi.fn().mockResolvedValue("scope-1"),
-        pickWinner: vi.fn(),
-        isTombstone: vi.fn().mockReturnValue(false),
-        mapToDerivedValue: vi.fn(),
-        getAuthoritativeValue: vi.fn().mockResolvedValue(null),
-        getAuthoritativeCollection: vi.fn().mockResolvedValue([]),
-    }
-}));
+vi.mock("@/lib/kyc/KycStateService", async (importOriginal) => {
+    const actual = await importOriginal<any>();
+    return {
+        KycStateService: {
+            ...actual.KycStateService,
+            evaluateSyncAttempt: actual.KycStateService.evaluateSyncAttempt,
+            calculateDisplayState: actual.KycStateService.calculateDisplayState,
+            resolveScopeId: vi.fn().mockResolvedValue("scope-1"),
+            pickWinner: vi.fn(),
+            isTombstone: vi.fn().mockReturnValue(false),
+            mapToDerivedValue: vi.fn(),
+            getAuthoritativeValue: vi.fn().mockResolvedValue(null),
+            getAuthoritativeCollection: vi.fn().mockResolvedValue([]),
+        }
+    };
+});
 
 vi.mock("@/services/masterData/definitionService", () => ({
     getMasterFieldDefinition: vi.fn()
