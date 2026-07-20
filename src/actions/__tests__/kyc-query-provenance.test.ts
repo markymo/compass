@@ -9,21 +9,27 @@ vi.mock('@/services/masterData/definitionService', () => ({
     getMasterFieldGroup: vi.fn(),
 }));
 
-vi.mock('@/lib/kyc/KycStateService', () => ({
-    KycStateService: {
-        resolveScopeId: vi.fn().mockResolvedValue('test-scope'),
-        getAuthoritativeValue: vi.fn().mockResolvedValue({
-            value: 'Test Value',
-            sourceType: 'COMPANIES_HOUSE',
-            sourceReference: 'CH_123',
-            assertedAt: new Date('2026-01-01T00:00:00Z'),
-            sourceCheckedAt: new Date('2026-07-03T00:00:00Z'),
-            confidenceScore: 1.0,
-            claimId: 'claim_1'
-        }),
-        getAuthoritativeCollection: vi.fn().mockResolvedValue(null),
-    }
-}));
+vi.mock('@/lib/kyc/KycStateService', async (importOriginal) => {
+    const actual = await importOriginal() as any;
+    return {
+        KycStateService: {
+            ...actual.KycStateService,
+            evaluateSyncAttempt: actual.KycStateService.evaluateSyncAttempt,
+            calculateDisplayState: actual.KycStateService.calculateDisplayState,
+            resolveScopeId: vi.fn().mockResolvedValue('test-scope'),
+            getAuthoritativeValue: vi.fn().mockResolvedValue({
+                value: 'Test Value',
+                sourceType: 'COMPANIES_HOUSE',
+                sourceReference: 'CH_123',
+                assertedAt: new Date('2026-01-01T00:00:00Z'),
+                sourceCheckedAt: new Date('2026-07-03T00:00:00Z'),
+                confidenceScore: 1.0,
+                claimId: 'claim_1'
+            }),
+            getAuthoritativeCollection: vi.fn().mockResolvedValue(null),
+        }
+    };
+});
 
 vi.mock('@/lib/prisma', () => ({
     default: {

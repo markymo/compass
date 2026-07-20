@@ -63,6 +63,78 @@ export class KycStateService {
     }
 
     /**
+     * Shared utility for deriving the canonical display state.
+     * Enforces the agreed canonical hierarchy:
+     * 1. HAS_VALUE (Authoritative claim)
+     * 2. CHECKED_NO_DATA (Applicable source evaluated, returned no value)
+     * 3. DEFAULT_RESPONSE (No applicable evaluation, default configured)
+     * 4. MAPPED_NOT_CHECKED (Applicable mapping exists, not evaluated)
+     * 5. UNMAPPED_NO_RESPONSE
+     */
+    static calculateDisplayState(args: {
+        hasValue: boolean;
+        hasApplicableMapping: boolean;
+        hasApplicableEvaluationAttempt: boolean;
+        defaultText?: string;
+    }): "HAS_VALUE" | "CHECKED_NO_DATA" | "DEFAULT_RESPONSE" | "MAPPED_NOT_CHECKED" | "UNMAPPED_NO_RESPONSE" {
+        if (args.hasValue) return "HAS_VALUE";
+        if (args.hasApplicableMapping && args.hasApplicableEvaluationAttempt) return "CHECKED_NO_DATA";
+        if (args.defaultText !== undefined && args.defaultText !== null) return "DEFAULT_RESPONSE";
+        if (args.hasApplicableMapping && !args.hasApplicableEvaluationAttempt) return "MAPPED_NOT_CHECKED";
+        return "UNMAPPED_NO_RESPONSE";
+    }
+
+    /**
+     * Shared mapping-evaluation helper.
+     * Distinguishes:
+     * - mapping exists globally
+     * - applicable mapping was actually evaluated
+     */
+    static evaluateSyncAttempt(
+        clientLE: { gleifFetchedAt?: Date | null; registryReferences?: Array<any> | null } | null | undefined,
+        mappings: Array<{ sourceType: string; sourceReference: string | null }>
+    ): { hasApplicableMapping: boolean; hasApplicableEvaluationAttempt: boolean; evaluatedSourceBadge: string | null; evaluatedSourceTimestamp: Date | null } {
+        if (!mappings || mappings.length === 0) {
+            return { hasApplicableMapping: false, hasApplicableEvaluationAttempt: false, evaluatedSourceBadge: null, evaluatedSourceTimestamp: null };
+        }
+
+        const hasApplicableMapping = true; 
+        
+        let hasApplicableEvaluationAttempt = false;
+        let evaluatedSourceBadge: string | null = null;
+        let evaluatedSourceTimestamp: Date | null = null;
+
+        if (clientLE) {
+            for (const mapping of mappings) {
+                if (mapping.sourceType === "GLEIF" && clientLE.gleifFetchedAt) {
+                    hasApplicableEvaluationAttempt = true;
+                    evaluatedSourceBadge = "GLEIF";
+                    evaluatedSourceTimestamp = clientLE.gleifFetchedAt;
+                    break;
+                }
+                if (mapping.sourceType === "REGISTRATION_AUTHORITY" || mapping.sourceType === "COMPANIES_HOUSE") {
+                    if (clientLE.registryReferences && clientLE.registryReferences.length > 0) {
+                        const matchingRef = clientLE.registryReferences.find((r: any) => {
+                            if (mapping.sourceReference === "ALL") return true;
+                            if (!mapping.sourceReference && r.authority?.registryKey) return false;
+                            if (mapping.sourceReference === r.authority?.registryKey) return true;
+                            return false;
+                        });
+                        if (matchingRef) {
+                            hasApplicableEvaluationAttempt = true;
+                            evaluatedSourceBadge = mapping.sourceReference || mapping.sourceType;
+                            evaluatedSourceTimestamp = matchingRef.lastSyncSucceededAt || matchingRef.createdAt;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        return { hasApplicableMapping, hasApplicableEvaluationAttempt, evaluatedSourceBadge, evaluatedSourceTimestamp };
+    }
+
+    /**
      * Pre-loads SourceFieldMapping priority values for all unique
      * (sourceType, sourceReference) combinations present in a claim set.
      *

@@ -334,7 +334,8 @@ export async function resolveExportAnswer(
                     );
                     displayValue = toExportText(displayModel);
                     sourceLabel = hv.source ? getSourceDisplayName(hv.source, hv.sourceReference || undefined) : undefined;
-                    sourceTimestamp = displayModel.source?.lastValidatedAt || displayModel.source?.timestamp || hv.updatedAt || null;
+                    const rawTimestamp = displayModel.source?.lastValidatedAt || displayModel.source?.timestamp || hv.updatedAt || null;
+                    sourceTimestamp = rawTimestamp ? (rawTimestamp instanceof Date ? rawTimestamp.toISOString() : new Date(rawTimestamp).toISOString()) : null;
                 }
 
                 if (displayValue !== "None" && displayValue !== "") {

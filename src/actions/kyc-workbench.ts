@@ -50,7 +50,7 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
     // Fast path to get current values — also pre-loads claims for batch resolver
     const clientLE = await prisma.clientLE.findUnique({
         where: { id: leId },
-        select: { legalEntityId: true, customData: true }
+        include: { registryReferences: { include: { authority: true } } }
     });
     const subjectLeId = clientLE?.legalEntityId;
 
@@ -75,8 +75,8 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
         : [[], [], new Map()] as [any[], any[], Map<number, import("@/lib/kyc/KycStateService").DerivedValue[]>];
         
     // Build fieldDefMap from already-loaded allFields
-    const fieldDefMap = new Map<number, { fieldNo: number; fieldName: string; appDataType: string; isMultiValue: boolean; profileConfig?: any }>(
-        allFields.map((f: any) => [f.fieldNo, { fieldNo: f.fieldNo, fieldName: f.fieldName ?? '', appDataType: f.appDataType, isMultiValue: f.isMultiValue, profileConfig: f.profileConfig }])
+    const fieldDefMap = new Map<number, { fieldNo: number; fieldName: string; appDataType: string; isMultiValue: boolean; profileConfig?: any; defaultResponse?: string | null }>(
+        allFields.map((f: any) => [f.fieldNo, { fieldNo: f.fieldNo, fieldName: f.fieldName ?? '', appDataType: f.appDataType, isMultiValue: f.isMultiValue, profileConfig: f.profileConfig, defaultResponse: f.defaultResponse }])
     );
 
     // Build groupFieldMap from already-loaded allGroupsWithItems
@@ -128,13 +128,29 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
 
     const masterFields = allFields.map((def: any) => {
         const hv = resolvedValues[`F_${def.fieldNo}`]?.[def.fieldNo];
+        
+        let displayState: "HAS_VALUE" | "CHECKED_NO_DATA" | "DEFAULT_RESPONSE" | "MAPPED_NOT_CHECKED" | "UNMAPPED_NO_RESPONSE" = "UNMAPPED_NO_RESPONSE";
+        let defaultText = def.defaultResponse;
+        if (hv) {
+            const mappingsForField = allSourceMappings.filter((m: any) => m.targetFieldNo === def.fieldNo);
+            const evalResult = KycStateService.evaluateSyncAttempt(clientLE, mappingsForField);
+            displayState = KycStateService.calculateDisplayState({
+                hasValue: hv.isSynced,
+                hasApplicableMapping: evalResult.hasApplicableMapping,
+                hasApplicableEvaluationAttempt: evalResult.hasApplicableEvaluationAttempt,
+                defaultText
+            });
+        }
+
         return {
             fieldNo: def.fieldNo,
             label: def.fieldName,
             category: def.masterDataCategory?.displayName ?? "Uncategorized",
             dataType: def.appDataType,
             currentValue: hv ? hv.value : null,
-            attachmentCount: hv?.attachmentCount ?? 0
+            attachmentCount: hv?.attachmentCount ?? 0,
+            displayState,
+            defaultText
         };
     });
 
@@ -229,10 +245,20 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
                         const codeSystem = cfg && 'codeSystem' in cfg ? (cfg as any).codeSystem : undefined;
 
                         const isMulti = def.isMultiValue;
+                        const mappingsForField = allSourceMappings.filter((m: any) => m.targetFieldNo === fieldNo);
+                        const evalResult = KycStateService.evaluateSyncAttempt(clientLE, mappingsForField);
+                        const displayState = KycStateService.calculateDisplayState({
+                            hasValue: hydratedVal.isSynced,
+                            hasApplicableMapping: evalResult.hasApplicableMapping,
+                            hasApplicableEvaluationAttempt: evalResult.hasApplicableEvaluationAttempt,
+                            defaultText: def.defaultResponse ?? undefined
+                        });
+
                         const metadata = {
                             fieldNo,
                             label: def.fieldName ? `F${fieldNo} ${def.fieldName}` : `F${fieldNo}`,
-                            displayState: hydratedVal.isSynced ? 'HAS_VALUE' : 'CHECKED_NO_DATA' as any,
+                            displayState: displayState,
+                            defaultText: def.defaultResponse ?? undefined,
                             appDataType: def.appDataType,
                             profileConfig: def.profileConfig,
                             isMultiValue: isMulti,
@@ -279,10 +305,20 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
                         const codeSystem = cfg && 'codeSystem' in cfg ? (cfg as any).codeSystem : undefined;
 
                         const isMulti = def?.isMultiValue || false;
+                        const mappingsForField = allSourceMappings.filter((m: any) => m.targetFieldNo === q.masterFieldNo);
+                        const evalResult = KycStateService.evaluateSyncAttempt(clientLE, mappingsForField);
+                        const displayState = KycStateService.calculateDisplayState({
+                            hasValue: fv.isSynced,
+                            hasApplicableMapping: evalResult.hasApplicableMapping,
+                            hasApplicableEvaluationAttempt: evalResult.hasApplicableEvaluationAttempt,
+                            defaultText: def?.defaultResponse ?? undefined
+                        });
+
                         const metadata = {
                             fieldNo: q.masterFieldNo,
                             label: def?.fieldName || '',
-                            displayState: fv.isSynced ? 'HAS_VALUE' : 'CHECKED_NO_DATA' as any,
+                            displayState: displayState,
+                            defaultText: def?.defaultResponse ?? undefined,
                             appDataType: def?.appDataType || 'JSON',
                             isMultiValue: isMulti,
                             codeSystem,
