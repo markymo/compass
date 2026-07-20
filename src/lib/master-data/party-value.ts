@@ -371,8 +371,8 @@ export function getPartyDisplayProjection(value: any, displayMask?: string[], fa
     let primaryText = "";
     if (showField('displayName') && poc.displayName) {
         primaryText = poc.displayName;
-    } else if ((showField('organisationName') || showField('legalName')) && (poc.organisationName || poc.legalName)) {
-        primaryText = poc.organisationName || poc.legalName;
+    } else if ((showField('organisationName') || showField('legalName')) && (poc.organisationName || (poc as any).legalName)) {
+        primaryText = poc.organisationName || (poc as any).legalName;
     } else {
         const titleParts = [];
         if (showField('title') && poc.title) titleParts.push(poc.title);
