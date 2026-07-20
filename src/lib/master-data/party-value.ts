@@ -14,6 +14,7 @@
  */
 
 // ── Core value object ──────────────────────────────────────────────────────────
+import { getAddressSummary } from './address-value';
 
 export interface PartyRefValue {
     ccPartyId: string;
@@ -340,5 +341,100 @@ export function isRenderableActiveDirectorParty(value: any): boolean {
     });
 
     return hasActiveDirector;
+}
+
+// ── Display Projection ──────────────────────────────────────────────────────────
+
+export interface PartyDisplayProjection {
+    primaryText: string;
+    secondaryParts: string[];
+    addressText: string;
+}
+
+/**
+ * Returns a full presentation-neutral projection of the Party value, preserving 
+ * canonical /master UI formatting (name, role, DOB, email, address) while 
+ * strictly honoring the displayMask. 
+ */
+export function getPartyDisplayProjection(value: any, displayMask?: string[], fallbackPartyLabel?: string): PartyDisplayProjection {
+    let poc = value;
+    if (value && typeof value === 'object' && value.ccPartyId) {
+        poc = value.ccParty?.data || value._resolvedData?.ccParty?.data;
+    }
+    
+    if (!isPartyValue(poc)) {
+        return { primaryText: fallbackPartyLabel || "", secondaryParts: [], addressText: "" };
+    }
+
+    const showField = (key: string) => isFieldPermittedByMask(key, displayMask);
+
+    let primaryText = "";
+    if (showField('displayName') && poc.displayName) {
+        primaryText = poc.displayName;
+    } else if (showField('organisationName') && poc.organisationName) {
+        primaryText = poc.organisationName;
+    } else {
+        const titleParts = [];
+        if (showField('title') && poc.title) titleParts.push(poc.title);
+        if (showField('forenames') && poc.forenames) titleParts.push(poc.forenames);
+        if (showField('surname') && poc.surname) titleParts.push(poc.surname);
+        primaryText = titleParts.join(' ');
+    }
+    
+    if (!primaryText && fallbackPartyLabel) {
+        primaryText = fallbackPartyLabel;
+    }
+
+    const secondaryParts: string[] = [];
+    if (showField('roles') && Array.isArray(poc.roles) && poc.roles.length > 0) {
+        const r = poc.roles[0];
+        let roleStr = r.roleTitle || r.roleType || "";
+        const dates = [];
+        if (r.appointedOn) dates.push(`Appointed ${r.appointedOn}`);
+        if (r.resignedOn) dates.push(`Resigned ${r.resignedOn}`);
+        if (dates.length > 0) roleStr += ` (${dates.join(' · ')})`;
+        if (roleStr) secondaryParts.push(roleStr);
+    }
+    
+    if (showField('dateOfBirth') && poc.dateOfBirth) {
+        const dobStr = formatPartialDob(poc.dateOfBirth, displayMask);
+        if (dobStr) secondaryParts.push(`DOB: ${dobStr}`);
+    }
+    
+    if (showField('email') && poc.email) {
+        secondaryParts.push(poc.email);
+    }
+
+    let addressText = "";
+    if (showField('correspondenceAddress') && poc.correspondenceAddress) {
+        const summary = getAddressSummary(poc.correspondenceAddress);
+        if (summary) addressText = summary;
+    }
+
+    return {
+        primaryText: primaryText.trim(),
+        secondaryParts,
+        addressText
+    };
+}
+
+export function formatPartialDob(
+    dob: { year: number | null; month: number | null; day: number | null } | null | undefined,
+    displayMask?: string[]
+): string | null {
+    if (!dob) return null;
+    const parts: string[] = [];
+    
+    if (dob.day && isFieldPermittedByMask('dateOfBirth.day', displayMask)) parts.push(String(dob.day));
+    
+    if (dob.month && isFieldPermittedByMask('dateOfBirth.month', displayMask)) {
+        const date = new Date(2000, dob.month - 1, 1);
+        const monthName = date.toLocaleString('default', { month: 'long' });
+        parts.push(monthName);
+    }
+    
+    if (dob.year && isFieldPermittedByMask('dateOfBirth.year', displayMask)) parts.push(String(dob.year));
+    
+    return parts.length > 0 ? parts.join(' ') : null;
 }
 
