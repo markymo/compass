@@ -26,6 +26,10 @@ vi.mock('next/navigation', () => ({
     useSearchParams: () => new URLSearchParams(),
 }));
 
+vi.mock('@/actions/system', () => ({
+    getRegistryAuthorityNamesMap: vi.fn(() => Promise.resolve({})),
+}));
+
 describe('DataSchemaTab - /master rendering boundary', () => {
     it('renders Field 62 repeated legacy Companies House Party objects using canonical model (no blanks, no unknown RA)', () => {
         // Construct canonical model simulating getFullMasterData output after our fix
