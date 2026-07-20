@@ -38,10 +38,13 @@ vi.mock('@/lib/prisma', () => ({
     default: {
         fieldClaim: {
             findUnique: vi.fn(),
-            findMany: vi.fn()
+            findMany: vi.fn().mockResolvedValue([])
         },
         sourceFieldMapping: {
-            findMany: vi.fn()
+            findMany: vi.fn().mockResolvedValue([])
+        },
+        cCPartyDocument: {
+            findMany: vi.fn().mockResolvedValue([])
         }
     }
 }));
@@ -54,6 +57,8 @@ describe('Export Answer Resolver', () => {
             dataType: 'string',
             profileConfig: {}
         } as any);
+        // Default to no attachments to avoid undefined maps in test
+        vi.mocked(KycStateService.resolveAllAttachments).mockResolvedValue(new Map());
     });
 
     it('1. released mapped answer uses snapshotDate to remain frozen', async () => {
@@ -364,8 +369,10 @@ describe('Export Answer Resolver', () => {
 
             const mockAttachments = new Map();
             mockAttachments.set(100, [{
+                instanceId: 'c1',
                 attachmentDocumentId: 'doc-1',
-                documentName: 'file1.pdf'
+                documentName: 'file1.pdf',
+                assertedAt: new Date()
             }]);
             vi.mocked(KycStateService.resolveAllAttachments).mockResolvedValue(mockAttachments);
 
@@ -405,7 +412,14 @@ describe('Export Answer Resolver', () => {
 
             vi.mocked(prisma.fieldClaim.findMany).mockResolvedValue([]);
             vi.mocked((prisma as any).sourceFieldMapping.findMany).mockResolvedValue([]);
-            vi.mocked(KycStateService.resolveAllAttachments).mockResolvedValue(new Map());
+            const mockAttachments = new Map();
+            mockAttachments.set(1, [{
+                instanceId: 'g1',
+                attachmentDocumentId: 'doc-group',
+                documentName: 'group-file.pdf',
+                assertedAt: new Date()
+            }]);
+            vi.mocked(KycStateService.resolveAllAttachments).mockResolvedValue(mockAttachments);
 
             const res = await resolveExportAnswer(question, "le-1", "scope-1", "entity-1");
             
@@ -528,7 +542,7 @@ describe('Export Answer Resolver', () => {
              } as any);
              
              const attachmentsMap = new Map();
-             attachmentsMap.set(100, [{ documentName: 'test.pdf', attachmentDocumentId: 'doc-1' }]);
+             attachmentsMap.set(100, [{ instanceId: 'c1', documentName: 'test.pdf', attachmentDocumentId: 'doc-1', assertedAt: new Date() }]);
              vi.mocked(KycStateService.resolveAllAttachments).mockResolvedValue(attachmentsMap);
              
              const res = await resolveExportAnswer(question, undefined, "scope-att", "entity-att");
