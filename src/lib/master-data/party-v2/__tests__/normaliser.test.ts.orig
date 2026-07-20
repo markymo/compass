@@ -133,36 +133,4 @@ describe('normaliseCCPartyData', () => {
         expect((result!.party as any).forenames).toBe('Alice');
         expect((result!.party as any).surname).toBe('Wonderland');
     });
-
-    it('should adapt GLEIF relationship payload (legalName with LEI and optional fields)', () => {
-        const gleifPayload = {
-            lei: '529900L73GEWN1O5NH84',
-            legalName: 'JAGUAR LAND ROVER AUTOMOTIVE PLC',
-            legalFormId: 'B6ES',
-            registeredAt: 'RA000585'
-        };
-
-        const result = normaliseCCPartyData(gleifPayload);
-        expect(result).not.toBeNull();
-        expect(result!.generation).toBe('LEGACY');
-        expect(result!.party.partyType).toBe('ORGANISATION');
-        expect((result!.party as any).legalName).toBe('JAGUAR LAND ROVER AUTOMOTIVE PLC');
-        
-        // Check that LEI was extracted into sourceIdentifiers
-        expect(result!.party.sourceIdentifiers).toContainEqual({ scheme: 'LEI', value: '529900L73GEWN1O5NH84' });
-    });
-
-    it('should adapt GLEIF relationship payload (legalName without LEI and missing optional fields)', () => {
-        const gleifPayload = {
-            legalName: 'SOME PARENT COMPANY'
-        };
-
-        const result = normaliseCCPartyData(gleifPayload);
-        expect(result).not.toBeNull();
-        expect(result!.generation).toBe('LEGACY');
-        expect(result!.party.partyType).toBe('ORGANISATION');
-        expect((result!.party as any).legalName).toBe('SOME PARENT COMPANY');
-        
-        expect(result!.party.sourceIdentifiers).toHaveLength(0);
-    });
 });

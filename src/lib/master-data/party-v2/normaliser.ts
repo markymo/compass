@@ -69,6 +69,14 @@ export function normaliseCCPartyData(source: any): NormalisedPartyReadModel | nu
     const phones: PartyPhone[] = Array.isArray(legacyVal.phones) ? legacyVal.phones.filter((p: any) => p && p.number) : [];
     const sourceIdentifiers: PartyIdentifier[] = Array.isArray(legacyVal.sourceIdentifiers) ? legacyVal.sourceIdentifiers.filter((s: any) => s && s.scheme && s.value) : [];
     
+    if (legacyVal.lei && typeof legacyVal.lei === 'string' && legacyVal.lei.trim() !== '') {
+        const leiVal = legacyVal.lei.trim();
+        if (!sourceIdentifiers.some(s => s.scheme === 'LEI' && s.value === leiVal)) {
+            sourceIdentifiers.push({ scheme: 'LEI', value: leiVal });
+            diagnostics.push({ type: 'INFO', code: 'LEI_MAPPED', message: 'Mapped top-level lei to LEI source identifier.' });
+        }
+    }
+    
     // Normalise roles
     const roles: PartyRole[] = [];
     if (Array.isArray(legacyVal.roles)) {
@@ -123,7 +131,7 @@ export function normaliseCCPartyData(source: any): NormalisedPartyReadModel | nu
     let party: CCPartyData | null = null;
 
     if (derivedType === 'ORGANISATION') {
-        const legalName = legacyVal.organisationName || legacyVal.displayName || (legacyVal as any).companyName || (legacyVal as any).name || '';
+        const legalName = legacyVal.organisationName || legacyVal.displayName || legacyVal.legalName || (legacyVal as any).companyName || (legacyVal as any).name || '';
         
         if (legalName.trim() === '') {
             diagnostics.push({ type: 'ERROR', code: 'MISSING_LEGAL_NAME', message: 'Organisation has no legal name.' });

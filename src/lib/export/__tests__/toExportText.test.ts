@@ -103,6 +103,20 @@ describe('toExportText', () => {
             };
             expect(toExportText(field)).toBe('Acme Corp');
         });
+
+        it('handles Field 40 GLEIF ultimate parent correctly without [Structured value]', () => {
+            const field: FieldDisplayModel = {
+                ...baseField,
+                state: 'POPULATED',
+                value: { 
+                    kind: 'party', 
+                    data: { partyType: 'ORGANISATION', legalName: 'JAGUAR LAND ROVER AUTOMOTIVE PLC', sourceIdentifiers: [{ scheme: 'LEI', value: '529900L73GEWN1O5NH84' }] } as any, 
+                    summary: 'JAGUAR LAND ROVER AUTOMOTIVE PLC'
+                }
+            };
+            // The default party projection typically yields just the summary (or name) unless a display mask is specified
+            expect(toExportText(field)).toBe('JAGUAR LAND ROVER AUTOMOTIVE PLC');
+        });
     });
 
     describe('ADDRESS Handling', () => {

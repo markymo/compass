@@ -250,7 +250,7 @@ export function getPartySummary(v: PartyValue, displayMask?: string[]): string {
     const isUnknown = v.partyType === 'UNKNOWN';
 
     let name = '';
-    const permittedOrgName = !isMasked('organisationName') ? (v.organisationName || (v as any).companyName || (v as any).name) : null;
+    const permittedOrgName = !isMasked('organisationName') && !isMasked('legalName') ? (v.organisationName || (v as any).companyName || (v as any).name || (v as any).legalName) : null;
     const permittedDisplayName = !isMasked('displayName') ? v.displayName : null;
     const permittedForenames = !isMasked('forenames') ? (v.forenames || (v as any).firstName) : null;
     const permittedSurname = !isMasked('surname') ? (v.surname || (v as any).lastName) : null;
@@ -371,8 +371,8 @@ export function getPartyDisplayProjection(value: any, displayMask?: string[], fa
     let primaryText = "";
     if (showField('displayName') && poc.displayName) {
         primaryText = poc.displayName;
-    } else if (showField('organisationName') && poc.organisationName) {
-        primaryText = poc.organisationName;
+    } else if ((showField('organisationName') || showField('legalName')) && (poc.organisationName || poc.legalName)) {
+        primaryText = poc.organisationName || poc.legalName;
     } else {
         const titleParts = [];
         if (showField('title') && poc.title) titleParts.push(poc.title);
