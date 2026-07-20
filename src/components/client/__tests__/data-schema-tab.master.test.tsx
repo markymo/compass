@@ -84,6 +84,7 @@ describe('DataSchemaTab - /master rendering boundary', () => {
                 id: 'cat-1',
                 key: 'cat-1',
                 displayName: 'Test Category',
+                icon: () => <svg data-testid="dummy-icon" />,
                 fields: [
                     { fieldNo: 62, fieldName: 'Ultimate Beneficial Owners', appDataType: 'PARTY', isMultiValue: true }
                 ]
@@ -150,7 +151,7 @@ describe('DataSchemaTab - /master rendering boundary', () => {
                                 source: { type: 'COMPANIES_HOUSE', label: 'Companies House', colorKey: 'REGISTRY' }
                             },
                             {
-                                value: { kind: 'party', partyLabel: 'Manual Party', resolved: { name: 'Manual Party' } },
+                                value: { kind: 'partyRef', partyLabel: 'Manual Party', resolved: { name: 'Manual Party' } },
                                 source: { type: 'USER_INPUT', label: 'User input', colorKey: 'USER' }
                             }
                         ]
@@ -164,6 +165,7 @@ describe('DataSchemaTab - /master rendering boundary', () => {
                 id: 'cat-2',
                 key: 'cat-2',
                 displayName: 'Test Category 2',
+                icon: () => <svg data-testid="dummy-icon" />,
                 fields: [
                     { fieldNo: 63, fieldName: 'Mixed Parties', appDataType: 'PARTY', isMultiValue: true }
                 ]
