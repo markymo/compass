@@ -43,7 +43,7 @@ export async function resolveExportAnswer(
     const snapshotDate = isReleased ? question.releasedAt : undefined;
     const releasedByName = question.releasedByUser?.name || question.releasedByUser?.email || null;
 
-    if (question.masterFieldNo && subjectLeId && entityId) {
+    if (question.masterFieldNo && entityId) {
         // Fetch field detail first
         const fieldDetail = await getFieldDetail(entityId, question.masterFieldNo, "CLIENT_LE");
 
@@ -51,7 +51,7 @@ export async function resolveExportAnswer(
         let primaryDerived: any = null;
         let attachmentFilenames: string[] = [];
 
-        const attachmentsMap = await KycStateService.resolveAllAttachments({ subjectLeId }, [question.masterFieldNo]);
+        const attachmentsMap = await KycStateService.resolveAllAttachments({ subjectLeId, clientLEId: entityId }, [question.masterFieldNo]);
         const derivedAttachments = attachmentsMap?.get(question.masterFieldNo) || [];
         if (derivedAttachments.length > 0) {
             attachmentFilenames = derivedAttachments
@@ -241,7 +241,7 @@ export async function resolveExportAnswer(
                 };
             }
         }
-    } else if (question.masterQuestionGroupId && subjectLeId && entityId) {
+    } else if (question.masterQuestionGroupId && entityId) {
         const group = await getMasterFieldGroup(question.masterQuestionGroupId);
         if (group && group.items && group.items.length > 0) {
             const fieldNos = group.items.map((i: any) => i.fieldNo);
@@ -260,7 +260,7 @@ export async function resolveExportAnswer(
                 (prisma as any).sourceFieldMapping.findMany({
                     where: { targetFieldNo: { in: fieldNos }, isActive: true }
                 }),
-                KycStateService.resolveAllAttachments({ subjectLeId }, fieldNos)
+                KycStateService.resolveAllAttachments({ subjectLeId, clientLEId: entityId }, fieldNos)
             ]);
 
             const fieldDefMap = new Map();
