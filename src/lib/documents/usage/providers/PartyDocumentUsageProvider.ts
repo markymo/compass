@@ -14,28 +14,31 @@ export class PartyDocumentUsageProvider implements DocumentUsageProvider {
         
         const parties = await prisma.cCParty.findMany({
             where: { id: { in: partyIds } },
-            select: { id: true, partyType: true, data: true }
+            select: { id: true, data: true }
         });
         
-        const partyMap = new Map<string, any>(parties.map((p: { id: string, partyType: string, data: any }) => [p.id, p]));
+        const partyMap = new Map<string, any>(parties.map((p: { id: string, data: any }) => [p.id, p]));
 
         for (const history of activeHistories) {
             const party = partyMap.get(history.partyId);
             
             let partyName = 'Unknown Party';
             let partyTitle = 'Organisation';
-            if (party) {
-                if (party.partyType === 'INDIVIDUAL') partyTitle = 'Individual';
-                else if (party.partyType === 'TEAM') partyTitle = 'Team';
-                else if (party.partyType === 'ORGANISATION') partyTitle = 'Organisation';
+            if (party && party.data && typeof party.data === 'object') {
+                const pData = party.data;
+                const contactType = pData.contactType;
+                const pType = pData.partyType || (contactType === 'PERSON' ? 'INDIVIDUAL' : 'ORGANISATION');
+
+                if (pType === 'INDIVIDUAL') partyTitle = 'Individual';
+                else if (pType === 'TEAM') partyTitle = 'Team';
+                else if (pType === 'ORGANISATION') partyTitle = 'Organisation';
                 
-                if (party.data && typeof party.data === 'object') {
-                    
-                    if (party.partyType === 'INDIVIDUAL') {
-                        partyName = `${(party.data as { name?: string, firstName?: string, lastName?: string }).firstName || ''} ${(party.data as { name?: string, firstName?: string, lastName?: string }).lastName || ''}`.trim() || partyName;
-                    } else {
-                        partyName = (party.data as { name?: string, firstName?: string, lastName?: string }).name || partyName;
-                    }
+                if (pType === 'INDIVIDUAL') {
+                    const first = pData.firstName || pData.forenames || '';
+                    const last = pData.lastName || pData.surname || '';
+                    partyName = `${first} ${last}`.trim() || partyName;
+                } else {
+                    partyName = pData.legalName || pData.organisationName || pData.name || pData.companyName || partyName;
                 }
             }
 
