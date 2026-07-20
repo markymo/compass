@@ -1,6 +1,6 @@
 import { FieldDisplayModel, ResolvedFieldValue } from "@/lib/master-data/field-display-model";
 import { getAddressSummary, isAddressValue } from "@/lib/master-data/address-value";
-import { getPartySummary } from "@/lib/master-data/party-value";
+import { getPartySummary, getPartyDisplayProjection } from "@/lib/master-data/party-value";
 
 /**
  * Safely converts a canonical FieldDisplayModel into text for export.
@@ -50,43 +50,22 @@ function exportValue(val: ResolvedFieldValue): string {
     if (val.kind === 'party' || val.kind === 'partyRef') {
         const data = val.kind === 'party' ? val.data : val.resolved;
         const displayMask = val.displayMask;
+        const partyLabel = 'partyLabel' in val ? val.partyLabel : undefined;
 
         if (data) {
-            if (Array.isArray(displayMask) && displayMask.length > 0) {
-                // Apply strict display mask to prevent data leakage
-                const resolvePath = (obj: any, path: string) => {
-                    const parts = path.replace(/\[(\w+)\]/g, '.$1').split('.');
-                    let current = obj;
-                    for (const part of parts) {
-                        if (current === null || current === undefined) return undefined;
-                        current = current[part];
-                    }
-                    return current;
-                };
-
-                const visibleParts = displayMask.map(field => {
-                    const v = resolvePath(data, field);
-                    if (v === null || v === undefined || v === "") return null;
-                    if (typeof v === 'object') {
-                        if (isAddressValue(v)) {
-                            return getAddressSummary(v);
-                        }
-                        // Intentionally preserve safe placeholder for unknown nested objects
-                        return "[Structured value]";
-                    }
-                    return String(v);
-                }).filter(Boolean);
-
-                if (visibleParts.length > 0) {
-                    return visibleParts.join(", ");
-                }
+            const proj = getPartyDisplayProjection(data, displayMask, partyLabel);
+            
+            const lines: string[] = [];
+            if (proj.primaryText) lines.push(proj.primaryText);
+            if (proj.secondaryParts.length > 0) lines.push(proj.secondaryParts.join(' · '));
+            if (proj.addressText) lines.push(proj.addressText);
+            
+            if (lines.length > 0) {
+                return lines.join('\n');
             }
-
-            // Fallback to summary (now natively handles Organisation names and displayMasks)
-            return ('partyLabel' in val && val.partyLabel) ? val.partyLabel : val.summary;
         }
 
-        return ('partyLabel' in val && val.partyLabel) ? val.partyLabel : val.summary; // Fallback for unresolved ref
+        return partyLabel || val.summary; // Fallback for unresolved ref or empty data
     }
 
     return "";
