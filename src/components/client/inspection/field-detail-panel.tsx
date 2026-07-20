@@ -14,6 +14,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import { Loader2, History, Database, Edit, CheckCircle, CheckCircle2, AlertTriangle, Paperclip, FileText, Download, X, User as UserIcon, Pencil, Check, Trash2, Plus, Lock, Save, Link2Off, ArrowRightLeft } from "lucide-react";
 import { getFieldDetail, FieldDetailData } from "@/actions/kyc-query";
+import { formatSystemDateTime } from "@/lib/date-utils";
+import { useSession } from "next-auth/react";
 import { checkCustomFieldDependencies, softDeleteCustomField, DependencyReport } from "@/actions/master-data-governance";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useRouter } from "next/navigation";
@@ -83,6 +85,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
     const [data, setData] = useState<FieldDetailData | null>(null);
     const [loading, setLoading] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
+    const { data: session } = useSession();
 
     const [manualValue, setManualValue] = useState<any>("");
     const [manualReason, setManualReason] = useState("");
@@ -2578,7 +2581,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                 <div className="absolute -left-1.5 top-1.5 h-3 w-3 rounded-full border border-white bg-slate-300 ring-4 ring-white" />
                                                 <div className="flex flex-col gap-1">
                                                     <div className="flex items-center gap-2 text-xs text-slate-500">
-                                                        <span>{new Date(item.timestamp).toLocaleString()}</span>
+                                                        <span>{formatSystemDateTime(item.timestamp, (session?.user as any)?.timezone || 'UTC')}</span>
                                                         <span>•</span>
                                                         <span className="font-medium text-slate-700">{item.assertedByUserName || item.actorId || "System"}</span>
                                                     </div>
@@ -2700,7 +2703,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                     <div className="flex items-center gap-3 text-[10px] text-slate-400">
                                                         <span className="flex items-center gap-1">
                                                             <History className="w-3 h-3" />
-                                                            {new Date(candidate.timestamp).toLocaleDateString()}
+                                                            {formatSystemDateTime(candidate.timestamp, (session?.user as any)?.timezone || 'UTC')}
                                                         </span>
                                                         {candidate.confidence !== null && (
                                                             <span className="flex items-center gap-1">

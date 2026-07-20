@@ -54,6 +54,7 @@
     "verify*.ts",
     "patch*.ts",
     "run*.ts",
-    "get*.ts"
+    "get*.ts",
+    "trace*.ts"
   ]
 }

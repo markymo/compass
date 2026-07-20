@@ -26,7 +26,7 @@ const UserPreferencesContext = createContext<UserPreferencesContextType | undefi
 export function UserPreferencesProvider({ children }: { children: React.ReactNode }) {
     const [preferences, setPreferences] = useState<UserPreferences>({});
     const [isLoading, setIsLoading] = useState(true);
-    const { data: session } = useSession();
+    const { data: session, update: updateSession } = useSession();
 
     useEffect(() => {
         const fetchPrefs = async () => {
@@ -68,6 +68,15 @@ export function UserPreferencesProvider({ children }: { children: React.ReactNod
             toast.error(res.error || "Failed to save preference");
             // Rollback on failure
             setPreferences(preferences);
+        } else if (key === 'timezone') {
+            // Force NextAuth to refresh its token in the browser immediately
+            if (typeof updateSession === 'function') {
+                updateSession();
+            } else if (typeof window !== 'undefined') {
+                // fallback for some next-auth versions
+                const { getSession } = await import("next-auth/react");
+                await getSession();
+            }
         }
     };
 

@@ -1,6 +1,11 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { FieldSourceBadge, FieldSourceBadgeProps } from '../FieldSourceBadge';
 import { FieldSource } from '@/lib/master-data/field-display-model';
+import { useSession } from 'next-auth/react';
+
+vi.mock('next-auth/react', () => ({
+    useSession: vi.fn(() => ({ data: { user: { timezone: 'UTC' } } }))
+}));
 
 describe('FieldSourceBadge', () => {
     // Helper to extract className from the returned React element
@@ -91,5 +96,26 @@ describe('FieldSourceBadge', () => {
             const inner = element?.props?.children;
             expect(inner?.props?.className).toContain('bg-purple-100');
         });
+        describe('Timezone formatting', () => {
+        const mockLastValidatedAt = '2026-07-20T12:29:00Z'; // UTC time
+
+        it('formats lastValidatedAt in UTC when session timezone is UTC', () => {
+            vi.mocked(useSession).mockReturnValue({ data: { user: { timezone: 'UTC' } } } as any);
+            const children = getChildrenStr({ 
+                source: { type: 'USER_INPUT', lastValidatedAt: mockLastValidatedAt }, 
+                showLastValidated: true 
+            });
+            expect(children).toContain('12:29 UTC');
+        });
+
+        it('formats lastValidatedAt in BST when session timezone is Europe/London', () => {
+            vi.mocked(useSession).mockReturnValue({ data: { user: { timezone: 'Europe/London' } } } as any);
+            const children = getChildrenStr({ 
+                source: { type: 'USER_INPUT', lastValidatedAt: mockLastValidatedAt }, 
+                showLastValidated: true 
+            });
+            expect(children).toContain('13:29 BST');
+        });
     });
+});
 });

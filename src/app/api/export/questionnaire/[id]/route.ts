@@ -8,6 +8,7 @@ import { sanitizeFilename } from "@/lib/export/path-builder";
 import { v4 as uuidv4 } from "uuid";
 import { resolveExportAnswer } from "@/lib/export/export-answer-resolver";
 import { resolveQuestionnaireContext } from "@/lib/kyc/engagement-context";
+import { resolveSystemTimezone } from "@/lib/date-utils";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> | { id: string } }) {
     try {
@@ -98,6 +99,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         const exportId = uuidv4();
         const generatedAt = new Date().toISOString();
         const generatedBy = user?.name || user?.email || identity?.userId || "System";
+        const timezone = resolveSystemTimezone(user?.preferences);
 
         const qPdfElement = React.createElement(QuestionnairePDF, {
             title: questionnaire.name,
@@ -109,6 +111,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
                 applicationVersion: "0.1.0",
                 generatedBy,
                 generatedAt,
+                timezone,
                 exportId,
                 summaryStats
             },
