@@ -7,6 +7,8 @@ import {
     isFieldPermittedByMask,
     type PersonOrContactValue,
     type PersonOrContactRole,
+    getPartyDisplayProjection,
+    formatPartialDob
 } from "@/lib/master-data/person-or-contact-value";
 import { getAddressSummary } from "@/lib/master-data/address-value";
 
@@ -59,25 +61,6 @@ function Field({ label, value: v }: { label: string; value: React.ReactNode }) {
     );
 }
 
-function formatPartialDob(
-    dob: { year: number | null; month: number | null; day: number | null } | null | undefined,
-    displayMask?: string[]
-): string | null {
-    if (!dob) return null;
-    const parts: string[] = [];
-    
-    if (dob.day && isFieldPermittedByMask('dateOfBirth.day', displayMask)) parts.push(String(dob.day));
-    
-    if (dob.month && isFieldPermittedByMask('dateOfBirth.month', displayMask)) {
-        const date = new Date(2000, dob.month - 1, 1);
-        const monthName = date.toLocaleString('default', { month: 'long' });
-        parts.push(monthName);
-    }
-    
-    if (dob.year && isFieldPermittedByMask('dateOfBirth.year', displayMask)) parts.push(String(dob.year));
-    
-    return parts.length > 0 ? parts.join(' ') : null;
-}
 
 function RoleRow({ role, displayMask, index = 0 }: { role: PersonOrContactRole, displayMask?: string[], index?: number }) {
     const showRoleField = (key: string) => isFieldPermittedByMask(`roles[${index}].${key}`, displayMask);
@@ -136,64 +119,25 @@ export function PersonOrContactValueViewer({ value, layout = "compact", displayM
         );
     }
 
+    const proj = getPartyDisplayProjection(poc, displayMask, partyLabel);
     const dob = formatPartialDob(poc.dateOfBirth, displayMask);
     const showField = (key: string) => isFieldPermittedByMask(key, displayMask);
-
-    // Primary Text Resolution Logic (used for both row and detailed views)
-    let primaryText = partyLabel || "";
-    if (!primaryText) {
-        if (showField('displayName') && poc.displayName) {
-            primaryText = poc.displayName;
-        } else if (showField('organisationName') && poc.organisationName) {
-            primaryText = poc.organisationName;
-        } else {
-            const titleParts = [];
-            if (showField('title') && poc.title) titleParts.push(poc.title);
-            if (showField('forenames') && poc.forenames) titleParts.push(poc.forenames);
-            if (showField('surname') && poc.surname) titleParts.push(poc.surname);
-            primaryText = titleParts.join(' ');
-        }
-    }
+    const primaryText = proj.primaryText;
 
     if (layout === "row") {
-        // Secondary text pieces
-        const secondaryParts = [];
-        if (showField('roles') && poc.roles?.length > 0) {
-            const r = poc.roles[0];
-            let roleStr = r.roleTitle || r.roleType;
-            const dates = [];
-            if (r.appointedOn) dates.push(`Appointed ${r.appointedOn}`);
-            if (r.resignedOn) dates.push(`Resigned ${r.resignedOn}`);
-            if (dates.length > 0) roleStr += ` (${dates.join(' · ')})`;
-            if (roleStr) secondaryParts.push(roleStr);
-        }
-        
-        if (showField('dateOfBirth') && dob) {
-            secondaryParts.push(`DOB: ${dob}`);
-        }
-        
-        if (showField('email') && poc.email) {
-            secondaryParts.push(poc.email);
-        }
-
-        let addressStr = "";
-        if (showField('correspondenceAddress') && poc.correspondenceAddress) {
-            addressStr = getAddressSummary(poc.correspondenceAddress);
-        }
-
         return (
             <div className="flex flex-col min-w-0">
                 <span className="text-sm font-medium text-slate-900 truncate">
-                    {primaryText}
+                    {proj.primaryText}
                 </span>
-                {secondaryParts.length > 0 && (
+                {proj.secondaryParts.length > 0 && (
                     <span className="text-xs text-slate-500 truncate mt-0.5">
-                        {secondaryParts.join(' · ')}
+                        {proj.secondaryParts.join(' · ')}
                     </span>
                 )}
-                {addressStr && (
+                {proj.addressText && (
                     <span className="text-[11px] text-slate-400 truncate mt-0.5">
-                        {addressStr}
+                        {proj.addressText}
                     </span>
                 )}
             </div>

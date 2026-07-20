@@ -284,38 +284,4 @@ describe('field-interpreter', () => {
         }
         expect(result.textSummary).toBe('[Structured value]');
     });
-
-    describe('Field 40 / Field 37 GLEIF Ultimate/Direct Parent (Legacy Party fallback)', () => {
-        it('resolves Field 40 GLEIF ultimate parent payload correctly', () => {
-            const rawValue = {
-                lei: "529900L73GEWN1O5NH84",
-                legalName: "JAGUAR LAND ROVER AUTOMOTIVE PLC",
-                legalFormId: "B6ES",
-                registeredAt: "RA000585"
-            };
-            const meta = { ...defaultMeta, fieldNo: 40, appDataType: 'PARTY' };
-            const result = resolveFieldForDisplay(rawValue, null, meta);
-
-            expect(result.state).toBe('POPULATED');
-            expect(result.value.kind).toBe('party');
-            if (result.value.kind === 'party') {
-                expect(result.value.summary).toBe('JAGUAR LAND ROVER AUTOMOTIVE PLC');
-                // The normaliser produces sourceIdentifiers, but resolveFieldForDisplay stores the raw payload in .data
-            }
-            expect(result.textSummary).toBe('JAGUAR LAND ROVER AUTOMOTIVE PLC');
-        });
-
-        it('resolves Field 37 direct parent payload similarly', () => {
-            const rawValue = {
-                lei: "12345678901234567890",
-                legalName: "PARENT COMPANY PLC",
-            };
-            const meta = { ...defaultMeta, fieldNo: 37, appDataType: 'PARTY' };
-            const result = resolveFieldForDisplay(rawValue, null, meta);
-
-            expect(result.state).toBe('POPULATED');
-            expect(result.value.kind).toBe('party');
-            expect(result.textSummary).toBe('PARENT COMPANY PLC');
-        });
-    });
 });

@@ -49,22 +49,13 @@ describe('toExportText', () => {
     });
 
     describe('PARTY Handling', () => {
-        it('handles PARTY without displayMask using summary', () => {
+        it('handles PARTY without displayMask using projection', () => {
             const field: FieldDisplayModel = {
                 ...baseField,
                 state: 'POPULATED',
-                value: { kind: 'party', data: {} as any, summary: 'Acme Corp (123456) [UK]' }
+                value: { kind: 'party', data: { organisationName: 'Acme Corp', roles: [{ roleTitle: 'Director' }] } as any, summary: 'Acme Corp (Director)' }
             };
-            expect(toExportText(field)).toBe('Acme Corp (123456) [UK]');
-        });
-
-        it('INTENTIONAL FIX: retrieves companyName natively using getPartySummary', () => {
-            const field: FieldDisplayModel = {
-                ...baseField,
-                state: 'POPULATED',
-                value: { kind: 'party', data: { companyName: 'Acme Corp' } as any, summary: 'Acme Corp' }
-            };
-            expect(toExportText(field)).toBe('Acme Corp');
+            expect(toExportText(field)).toBe('Acme Corp\nDirector');
         });
 
         it('handles PARTY with displayMask', () => {
@@ -73,12 +64,12 @@ describe('toExportText', () => {
                 state: 'POPULATED',
                 value: { 
                     kind: 'party', 
-                    data: { companyName: 'Acme Corp', registrationNumber: '123' } as any, 
+                    data: { organisationName: 'Acme Corp', roles: [{ roleTitle: 'Director' }] } as any, 
                     summary: 'Ignored Summary',
-                    displayMask: ['companyName', 'registrationNumber']
+                    displayMask: ['organisationName', 'roles']
                 }
             };
-            expect(toExportText(field)).toBe('Acme Corp, 123');
+            expect(toExportText(field)).toBe('Acme Corp\nDirector');
         });
 
         it('handles embedded Address objects within a displayMask', () => {
@@ -88,17 +79,15 @@ describe('toExportText', () => {
                 value: { 
                     kind: 'party', 
                     data: { 
-                        companyName: 'Acme Corp', 
-                        registeredAddress: { addressLines: ['123 Street'], countryCode: 'US' } 
+                        organisationName: 'Acme Corp', 
+                        correspondenceAddress: { addressLines: ['123 Street'], countryCode: 'US' } 
                     } as any, 
                     summary: 'Ignored',
-                    displayMask: ['companyName', 'registeredAddress']
+                    displayMask: ['organisationName', 'correspondenceAddress']
                 }
             };
-            // US resolves to United States internally if passed through getAddressSummary (the test harness exposed this)
-            // but we aren't mocking COUNTRY_CODES so we should expect standard resolution. 
             // The country code logic maps 'US' to 'United States'
-            expect(toExportText(field)).toBe('Acme Corp, 123 Street, United States');
+            expect(toExportText(field)).toBe('Acme Corp\n123 Street, United States');
         });
         
         it('skips missing fields in displayMask', () => {
@@ -107,29 +96,26 @@ describe('toExportText', () => {
                 state: 'POPULATED',
                 value: { 
                     kind: 'party', 
-                    data: { companyName: 'Acme Corp' } as any, 
+                    data: { organisationName: 'Acme Corp' } as any, 
                     summary: 'Ignored',
-                    displayMask: ['companyName', 'missingField']
+                    displayMask: ['organisationName', 'missingField']
                 }
             };
             expect(toExportText(field)).toBe('Acme Corp');
         });
-        
-        it('preserves safe placeholder [Structured value] for unknown nested objects within PARTY mask', () => {
+
+        it('handles Field 40 GLEIF ultimate parent correctly without [Structured value]', () => {
             const field: FieldDisplayModel = {
                 ...baseField,
                 state: 'POPULATED',
                 value: { 
                     kind: 'party', 
-                    data: { 
-                        companyName: 'Acme Corp', 
-                        someRandomObject: { foo: 'bar' } 
-                    } as any, 
-                    summary: 'Ignored',
-                    displayMask: ['companyName', 'someRandomObject']
+                    data: { partyType: 'ORGANISATION', legalName: 'JAGUAR LAND ROVER AUTOMOTIVE PLC', sourceIdentifiers: [{ scheme: 'LEI', value: '529900L73GEWN1O5NH84' }] } as any, 
+                    summary: 'JAGUAR LAND ROVER AUTOMOTIVE PLC'
                 }
             };
-            expect(toExportText(field)).toBe('Acme Corp, [Structured value]');
+            // The default party projection typically yields just the summary (or name) unless a display mask is specified
+            expect(toExportText(field)).toBe('JAGUAR LAND ROVER AUTOMOTIVE PLC');
         });
     });
 
