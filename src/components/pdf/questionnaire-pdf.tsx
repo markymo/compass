@@ -344,16 +344,27 @@ const styles = StyleSheet.create({
         color: '#0f172a',
         fontWeight: 'bold'
     },
-    groupBadgeGrid: {
+    groupBadge: {
         backgroundColor: '#fdf4ff',
-        color: '#a21caf',
-        fontSize: 7,
         paddingVertical: 1,
         paddingHorizontal: 4,
-        borderRadius: 4,
+        borderRadius: 4
+    },
+    groupBadgeText: {
+        color: '#a21caf',
+        fontSize: 7,
         fontWeight: 'bold'
     }
 });
+
+const GroupFieldSourceBadge = ({ sourceLabel, style }: { sourceLabel?: string, style?: any }) => {
+    if (!sourceLabel) return null;
+    return (
+        <View style={[styles.groupBadge, style]}>
+            <Text style={styles.groupBadgeText}>{sourceLabel}</Text>
+        </View>
+    );
+};
 
 export interface QuestionnairePDFProps {
     title: string;
@@ -513,6 +524,7 @@ export const QuestionnairePDF = ({ data, title, exportMetadata }: QuestionnaireP
                                         <View key={idx} style={styles.groupItemCompact} wrap={false}>
                                             <Text style={styles.groupLabelCompact}>{f.label}</Text>
                                             <Text style={styles.groupValueCompact}>{f.displayValue}</Text>
+                                            <GroupFieldSourceBadge sourceLabel={f.sourceLabel} style={{ alignSelf: 'flex-start', marginTop: 2 }} />
                                             {f.attachmentFilenames && f.attachmentFilenames.length > 0 && (
                                                 <View>
                                                     <Text style={styles.attachmentsHeader}>Attachments</Text>
@@ -537,11 +549,7 @@ export const QuestionnairePDF = ({ data, title, exportMetadata }: QuestionnaireP
                                                 <View style={styles.groupCol1}><Text style={styles.groupTextGridLabel}>{f.label}</Text></View>
                                                 <View style={styles.groupCol2}><Text style={styles.groupTextGridValue}>{f.displayValue}</Text></View>
                                                 <View style={styles.groupCol3}>
-                                                    {f.sourceLabel && (
-                                                        <View style={styles.groupBadgeGrid}>
-                                                            <Text style={{ color: '#a21caf', fontSize: 7 }}>{f.sourceLabel}</Text>
-                                                        </View>
-                                                    )}
+                                                    <GroupFieldSourceBadge sourceLabel={f.sourceLabel} />
                                                 </View>
                                             </View>
                                             {f.attachmentFilenames && f.attachmentFilenames.length > 0 && (
@@ -564,6 +572,7 @@ export const QuestionnairePDF = ({ data, title, exportMetadata }: QuestionnaireP
                                         <View key={idx} style={styles.groupRowList} wrap={false}>
                                             <Text style={styles.groupLabelList}>{f.label}</Text>
                                             <Text style={styles.groupValueList}>{f.displayValue}</Text>
+                                            <GroupFieldSourceBadge sourceLabel={f.sourceLabel} style={{ alignSelf: 'flex-start', marginTop: 2 }} />
                                             {f.attachmentFilenames && f.attachmentFilenames.length > 0 && (
                                                 <View>
                                                     <Text style={styles.attachmentsHeader}>Attachments</Text>
