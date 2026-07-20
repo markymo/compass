@@ -208,6 +208,23 @@ describe('toExportText', () => {
             };
             expect(toExportText(field)).toBe('• Addr 1\n• Party 1');
         });
+
+        it('handles Field 20 structured collections correctly', () => {
+            const field: FieldDisplayModel = {
+                ...baseField,
+                state: 'POPULATED',
+                value: {
+                    kind: 'collection',
+                    items: [
+                        { value: { kind: 'scalar', display: '35110 — Production of electricity', rawValue: { code: '35110', label: 'Production of electricity' } } },
+                        { value: { kind: 'scalar', display: '41100 — Development of building projects', rawValue: { code: '41100', label: 'Development of building projects' } } }
+                    ]
+                }
+            };
+            const result = toExportText(field);
+            expect(result).toBe('• 35110 — Production of electricity\n• 41100 — Development of building projects');
+            expect(result).not.toContain('[Structured value]');
+        });
     });
 
     describe('Fixes', () => {

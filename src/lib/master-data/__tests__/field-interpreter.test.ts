@@ -230,6 +230,46 @@ describe('field-interpreter', () => {
         expect(result.textSummary).toBe('CENTRICA (LW) LIMITED (3 Mar 2006 → 8 Oct 2009)');
     });
 
+    it('resolves Field 20 structured collection row correctly (code + label)', () => {
+        const rawValue = { 
+            code: "35110",
+            label: "Production of electricity"
+        };
+        const metaWithFieldNo = { ...defaultMeta, fieldNo: 20 };
+        const result = resolveFieldForDisplay(rawValue, null, metaWithFieldNo);
+
+        expect(result.state).toBe('POPULATED');
+        expect(result.value.kind).toBe('scalar');
+        if (result.value.kind === 'scalar') {
+            expect(result.value.display).toBe('35110 — Production of electricity');
+        }
+    });
+
+    it('resolves Field 20 structured collection row correctly (code only)', () => {
+        const rawValue = { code: "35110" };
+        const metaWithFieldNo = { ...defaultMeta, fieldNo: 20 };
+        const result = resolveFieldForDisplay(rawValue, null, metaWithFieldNo);
+
+        expect(result.state).toBe('POPULATED');
+        expect(result.value.kind).toBe('scalar');
+        if (result.value.kind === 'scalar') {
+            expect(result.value.display).toBe('35110');
+        }
+    });
+
+    it('resolves Field 20 structured collection row correctly (label only)', () => {
+        const rawValue = { label: "Production of electricity" };
+        const metaWithFieldNo = { ...defaultMeta, fieldNo: 20 };
+        const result = resolveFieldForDisplay(rawValue, null, metaWithFieldNo);
+
+        expect(result.state).toBe('POPULATED');
+        expect(result.value.kind).toBe('scalar');
+        if (result.value.kind === 'scalar') {
+            expect(result.value.display).toBe('Production of electricity');
+        }
+    });
+
+
     it('falls back to [Structured value] when fieldNo formatter returns handled: false', () => {
         const rawValue = { 
             unknownKey: "value" 
