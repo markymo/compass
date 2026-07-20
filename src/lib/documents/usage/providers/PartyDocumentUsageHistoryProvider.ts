@@ -15,8 +15,8 @@ export class PartyDocumentUsageHistoryProvider implements DocumentUsageHistoryPr
             where: { id: { in: partyIds } }
         });
 
-        const partyMap = new Map<string, { id: string, partyType: string, data: Prisma.JsonValue }>(
-            parties.map((p: { id: string, partyType: string, data: Prisma.JsonValue }) => [p.id, p] as const)
+        const partyMap = new Map<string, { id: string, data: Prisma.JsonValue }>(
+            parties.map((p: { id: string, data: Prisma.JsonValue }) => [p.id, p] as const)
         );
 
         const events: DocumentUsageHistoryEvent[] = [];
@@ -27,16 +27,22 @@ export class PartyDocumentUsageHistoryProvider implements DocumentUsageHistoryPr
 
             let partyTitle = 'Organisation';
             let partyName = 'Unknown Party';
-            if (party.partyType === 'INDIVIDUAL') partyTitle = 'Individual';
-            else if (party.partyType === 'TEAM') partyTitle = 'Team';
-            else if (party.partyType === 'ORGANISATION') partyTitle = 'Organisation';
             
-            if (party.data && typeof party.data === 'object') {
-                const data = party.data as { name?: string, firstName?: string, lastName?: string };
-                if (party.partyType === 'INDIVIDUAL') {
-                    partyName = `${data.firstName || ''} ${data.lastName || ''}`.trim() || partyName;
+            if (party.data && typeof party.data === 'object' && !Array.isArray(party.data)) {
+                const pData = party.data as any;
+                const contactType = pData.contactType;
+                const pType = pData.partyType || (contactType === 'PERSON' ? 'INDIVIDUAL' : 'ORGANISATION');
+
+                if (pType === 'INDIVIDUAL') partyTitle = 'Individual';
+                else if (pType === 'TEAM') partyTitle = 'Team';
+                else if (pType === 'ORGANISATION') partyTitle = 'Organisation';
+
+                if (pType === 'INDIVIDUAL') {
+                    const first = pData.firstName || pData.forenames || '';
+                    const last = pData.lastName || pData.surname || '';
+                    partyName = `${first} ${last}`.trim() || partyName;
                 } else {
-                    partyName = data.name || partyName;
+                    partyName = pData.legalName || pData.organisationName || pData.name || pData.companyName || partyName;
                 }
             }
 
