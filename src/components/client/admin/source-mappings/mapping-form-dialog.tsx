@@ -292,7 +292,7 @@ export function MappingFormDialog({ open, onOpenChange, selectedOption, fieldDef
 
     // Load sample payload for preview
     useEffect(() => {
-        if (!open || !isAddressMapping) {
+        if (!open) {
             setSamplePayload(null);
             return;
         }
@@ -308,11 +308,11 @@ export function MappingFormDialog({ open, onOpenChange, selectedOption, fieldDef
 
                 if (selectedOption.sourceType === "GLEIF") {
                     const { fetchLiveGleifRecord } = await import("@/actions/gleif-live");
-                    const res = await fetchLiveGleifRecord(query);
+                    const res = await fetchLiveGleifRecord(query, payloadSubtype);
                     if (res.success) setSamplePayload(res.payload);
                 } else if (selectedOption.sourceType === "REGISTRATION_AUTHORITY") {
                     const { fetchLiveRegistryRecord } = await import("@/actions/registry-live");
-                    const res = await fetchLiveRegistryRecord(query, selectedOption.sourceReference || "COMPANIES_HOUSE");
+                    const res = await fetchLiveRegistryRecord(query, selectedOption.sourceReference || "COMPANIES_HOUSE", payloadSubtype);
                     if (res.success) setSamplePayload(res.payload);
                 }
             } catch (err) {
@@ -323,7 +323,7 @@ export function MappingFormDialog({ open, onOpenChange, selectedOption, fieldDef
         };
 
         fetchSample();
-    }, [open, isAddressMapping, selectedOption, resolvedDefaults]);
+    }, [open, selectedOption, resolvedDefaults, payloadSubtype]);
 
     const previewAddress = useMemo(() => {
         const config = transformConfig || {};
@@ -503,6 +503,26 @@ export function MappingFormDialog({ open, onOpenChange, selectedOption, fieldDef
                                 />
                                 <p className="text-[10px] text-slate-400">Dot-notation path relative to payload root.</p>
                             </div>
+
+                            {loadingSample ? (
+                                <div className="flex items-center gap-2 text-xs text-slate-400 py-1">
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                    <span>Resolving live sample data...</span>
+                                </div>
+                            ) : samplePayload ? (
+                                <div className="grid gap-1 bg-slate-50 dark:bg-zinc-900/50 p-2.5 rounded-lg border border-slate-100 dark:border-zinc-800">
+                                    <Label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Sample Data at Path</Label>
+                                    <pre className="font-mono text-[10px] text-slate-600 dark:text-zinc-400 overflow-auto max-h-[120px] whitespace-pre-wrap">
+                                        {(() => {
+                                            if (!sourcePath) return "Enter a source path...";
+                                            const rootValue = resolvePathString(samplePayload, sourcePath);
+                                            if (rootValue === null || rootValue === undefined) return `No node found at path: ${sourcePath}`;
+                                            return JSON.stringify(rootValue, null, 2);
+                                        })()}
+                                    </pre>
+                                </div>
+                            ) : null}
+
 
                             {isPersonOrContactMapping && (
                                 <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900 rounded-lg p-4 space-y-2">

@@ -736,49 +736,21 @@ export async function getFullMasterData(clientLEId: string) {
                 ? resolveFieldCollectionForDisplay(valueToSet || [], { isMultiValue: true } as any).state
                 : resolveFieldForDisplay(valueToSet, null, { isMultiValue: false } as any).state;
             const hasValue = interpreterState === 'POPULATED' || interpreterState === 'EXPLICIT_NONE';
-            const mappedSources = mappingsByField.get(def.fieldNo) || [];
-            const hasMapping = mappedSources.length > 0;
+            const mappingsForField = allMappings.filter((m: any) => m.targetFieldNo === def.fieldNo);
+            const evalResult = KycStateService.evaluateSyncAttempt(clientLE, mappingsForField);
             
-            let hasEvaluationAttempt = false;
-            let evaluatedSourceBadge = "";
-            
-            if (hasMapping) {
-                if (mappedSources.includes("GLEIF") && clientLE.gleifFetchedAt) {
-                    hasEvaluationAttempt = true;
-                    evaluatedSourceBadge = "GLEIF";
-                    sourceCheckedAtToSet = sourceCheckedAtToSet || clientLE.gleifFetchedAt;
-                } else if (mappedSources.includes("REGISTRATION_AUTHORITY") && clientLE.registryReferences?.some((r: any) => r.lastSyncSucceededAt || r.lastSyncStatus)) {
-                    hasEvaluationAttempt = true;
-                    evaluatedSourceBadge = "REGISTRATION_AUTHORITY";
-                    const ref = clientLE.registryReferences.find((r: any) => r.lastSyncSucceededAt);
-                    if (ref) sourceCheckedAtToSet = sourceCheckedAtToSet || ref.lastSyncSucceededAt;
-                } else if (mappedSources.includes("COMPANIES_HOUSE") && clientLE.registryReferences?.some((r: any) => r.authority?.name?.includes("Companies House"))) {
-                    hasEvaluationAttempt = true;
-                    evaluatedSourceBadge = "COMPANIES_HOUSE";
-                    const ref = clientLE.registryReferences.find((r: any) => r.authority?.name?.includes("Companies House"));
-                    if (ref?.lastSyncSucceededAt) sourceCheckedAtToSet = sourceCheckedAtToSet || ref.lastSyncSucceededAt;
-                } else if (clientLE.gleifFetchedAt || clientLE.registryReferences?.length > 0) {
-                    // Fallback: If it's mapped to some automated source and we've done general enrichment
-                    hasEvaluationAttempt = true;
-                }
-                
-                if (!evaluatedSourceBadge && mappedSources.length > 0) {
-                    evaluatedSourceBadge = mappedSources[0];
-                }
-            }
+            const displayState = KycStateService.calculateDisplayState({
+                hasValue,
+                hasApplicableMapping: evalResult.hasApplicableMapping,
+                hasApplicableEvaluationAttempt: evalResult.hasApplicableEvaluationAttempt,
+                defaultText: def.defaultResponse ?? undefined
+            });
 
-            let displayState: "HAS_VALUE" | "MAPPED_NOT_CHECKED" | "CHECKED_NO_DATA" | "DEFAULT_RESPONSE" | "UNMAPPED_NO_RESPONSE" = "UNMAPPED_NO_RESPONSE";
-
-            if (hasValue) {
-                displayState = "HAS_VALUE";
-            } else if (hasMapping && !hasEvaluationAttempt) {
-                displayState = "MAPPED_NOT_CHECKED";
-                sourceToSet = evaluatedSourceBadge || undefined;
-            } else if (hasMapping && hasEvaluationAttempt) {
-                displayState = "CHECKED_NO_DATA";
-                sourceToSet = evaluatedSourceBadge || undefined;
-            } else if (def.defaultResponse) {
-                displayState = "DEFAULT_RESPONSE";
+            if (!hasValue && evalResult.evaluatedSourceBadge) {
+                sourceToSet = evalResult.evaluatedSourceBadge;
+                if (evalResult.evaluatedSourceTimestamp) {
+                    sourceCheckedAtToSet = sourceCheckedAtToSet || evalResult.evaluatedSourceTimestamp;
+                }
             }
 
             const rawSource = sourceToSet ? {

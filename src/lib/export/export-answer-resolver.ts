@@ -11,6 +11,7 @@ export type ExportGroupField = {
     displayValue: string;
     order: number;
     sourceLabel?: string;
+    sourceTimestamp?: string | null;
     attachmentFilenames?: string[];
 };
 
@@ -303,6 +304,7 @@ export async function resolveExportAnswer(
 
                 let displayValue = "None";
                 let sourceLabel: string | undefined = undefined;
+                let sourceTimestamp: string | null = null;
                 let attachmentFilenames: string[] = [];
 
                 if (hv && hv.value !== null && hv.value !== undefined && hv.value !== "") {
@@ -332,6 +334,8 @@ export async function resolveExportAnswer(
                     );
                     displayValue = toExportText(displayModel);
                     sourceLabel = hv.source ? getSourceDisplayName(hv.source, hv.sourceReference || undefined) : undefined;
+                    const rawTimestamp = displayModel.source?.lastValidatedAt || displayModel.source?.timestamp || hv.updatedAt || null;
+                    sourceTimestamp = rawTimestamp ? (rawTimestamp instanceof Date ? rawTimestamp.toISOString() : new Date(rawTimestamp).toISOString()) : null;
                 }
 
                 if (displayValue !== "None" && displayValue !== "") {
@@ -341,6 +345,7 @@ export async function resolveExportAnswer(
                         displayValue,
                         order: item.order,
                         sourceLabel,
+                        sourceTimestamp,
                         attachmentFilenames: attachmentFilenames.length > 0 ? attachmentFilenames : undefined
                     });
                 }

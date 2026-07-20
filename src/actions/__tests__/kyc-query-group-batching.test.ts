@@ -4,9 +4,13 @@ import { KycStateService } from '@/lib/kyc/KycStateService';
 import * as masterDataHelpers from '@/services/masterData/definitionService';
 
 // Mock KycStateService
-vi.mock('@/lib/kyc/KycStateService', () => {
+vi.mock('@/lib/kyc/KycStateService', async (importOriginal) => {
+    const actual = await importOriginal() as any;
     return {
         KycStateService: {
+            ...actual.KycStateService,
+            evaluateSyncAttempt: actual.KycStateService.evaluateSyncAttempt,
+            calculateDisplayState: actual.KycStateService.calculateDisplayState,
             resolveAllFields: vi.fn(),
             resolveAllAttachments: vi.fn(),
             getAuthoritativeValue: vi.fn(),

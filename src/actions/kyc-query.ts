@@ -695,6 +695,7 @@ export interface FieldDetailData {
     category?: string;
     profileConfig?: FieldDefinition['profileConfig'];
     hasActiveSourceMappings?: boolean;
+    hasMapping?: boolean;
     modelField?: string;
     options?: Array<string | { label: string; value: string }>;
     notes?: string;
@@ -782,7 +783,8 @@ export async function getFieldDetail(
 
         if (entityType === 'CLIENT_LE') {
             const clientLE = await prisma.clientLE.findUnique({
-                where: { id: entityId }
+                where: { id: entityId },
+                include: { registryReferences: { include: { authority: true } } }
             });
             subjectLeId = clientLE?.legalEntityId || "";
             ownerScopeId = (await KycStateService.resolveScopeId(entityId)) || undefined;
@@ -827,7 +829,7 @@ export async function getFieldDetail(
             });
 
             // Resolve values and attachments in batch
-            const [resolvedValuesMap, resolvedAttachmentsMap] = await Promise.all([
+            const [resolvedValuesMap, resolvedAttachmentsMap, allSourceMappings] = await Promise.all([
                 KycStateService.resolveAllFields(
                     { subjectLeId, clientLEId: entityType === 'CLIENT_LE' ? entityId : undefined },
                     requestedFields,
@@ -836,8 +838,20 @@ export async function getFieldDetail(
                 KycStateService.resolveAllAttachments(
                     { subjectLeId, clientLEId: entityType === 'CLIENT_LE' ? entityId : undefined },
                     defs.filter(d => d.allowAttachments).map(d => d.fieldNo)
-                )
+                ),
+                (prisma as any).sourceFieldMapping.findMany({
+                    where: { targetFieldNo: { in: group.items.map(i => i.fieldNo) }, isActive: true },
+                    select: { targetFieldNo: true, sourceType: true, sourceReference: true, priority: true }
+                })
             ]);
+            
+            let clientLEForSource: any = null;
+            if (entityType === 'CLIENT_LE') {
+                clientLEForSource = await prisma.clientLE.findUnique({
+                    where: { id: entityId },
+                    include: { registryReferences: { include: { authority: true } } }
+                });
+            }
 
             for (let i = 0; i < group.items.length; i++) {
                 const item = group.items[i];
@@ -849,6 +863,9 @@ export async function getFieldDetail(
                 const mappedAttachments = mapDerivedAttachments(derivedAttachments);
                 
                 const resolvedVal = resolvedValuesMap.get(item.fieldNo);
+
+                const mappingsForField = allSourceMappings.filter((m: any) => m.targetFieldNo === item.fieldNo);
+                const evalResult = KycStateService.evaluateSyncAttempt(clientLEForSource, mappingsForField);
 
                 if (def.isMultiValue) {
                     const collection = (resolvedVal as any[]) || [];
@@ -864,6 +881,12 @@ export async function getFieldDetail(
                             updatedAt: maxUpdatedAt,
                             isSynced: true,
                         };
+                        const displayState = KycStateService.calculateDisplayState({
+                            hasValue: hydrated.isSynced,
+                            hasApplicableMapping: evalResult.hasApplicableMapping,
+                            hasApplicableEvaluationAttempt: evalResult.hasApplicableEvaluationAttempt,
+                            defaultText: def.defaultResponse ?? undefined
+                        });
                         groupFields.push({
                             fieldNo: item.fieldNo,
                             fieldName: def.fieldName,
@@ -877,7 +900,8 @@ export async function getFieldDetail(
                                 {
                                     fieldNo: item.fieldNo,
                                     label: def.fieldName,
-                                    displayState: hydrated.isSynced ? 'HAS_VALUE' : 'CHECKED_NO_DATA',
+                                    displayState,
+                                    defaultText: def.defaultResponse ?? undefined,
                                     appDataType: def.appDataType,
                                     profileConfig: def.profileConfig ? (def.profileConfig as any) : undefined,
                                     isMultiValue: def.isMultiValue,
@@ -892,6 +916,12 @@ export async function getFieldDetail(
                     } else {
                         // Empty collection — still emit a row so order is preserved;
                         // GroupAnswerRenderer hides isSynced:false rows
+                        const displayState = KycStateService.calculateDisplayState({
+                            hasValue: false,
+                            hasApplicableMapping: evalResult.hasApplicableMapping,
+                            hasApplicableEvaluationAttempt: evalResult.hasApplicableEvaluationAttempt,
+                            defaultText: def.defaultResponse ?? undefined
+                        });
                         groupFields.push({
                             fieldNo: item.fieldNo,
                             fieldName: def.fieldName,
@@ -905,7 +935,8 @@ export async function getFieldDetail(
                                 {
                                     fieldNo: item.fieldNo,
                                     label: def.fieldName,
-                                    displayState: 'CHECKED_NO_DATA',
+                                    displayState,
+                                    defaultText: def.defaultResponse ?? undefined,
                                     appDataType: def.appDataType,
                                     profileConfig: def.profileConfig ? (def.profileConfig as any) : undefined,
                                     isMultiValue: def.isMultiValue,
@@ -926,6 +957,12 @@ export async function getFieldDetail(
                             updatedAt: derived.assertedAt,
                             isSynced: true,
                         };
+                        const displayState = KycStateService.calculateDisplayState({
+                            hasValue: hydrated.isSynced,
+                            hasApplicableMapping: evalResult.hasApplicableMapping,
+                            hasApplicableEvaluationAttempt: evalResult.hasApplicableEvaluationAttempt,
+                            defaultText: def.defaultResponse ?? undefined
+                        });
                         groupFields.push({
                             fieldNo: item.fieldNo,
                             fieldName: def.fieldName,
@@ -939,7 +976,8 @@ export async function getFieldDetail(
                                 {
                                     fieldNo: item.fieldNo,
                                     label: def.fieldName,
-                                    displayState: hydrated.isSynced ? 'HAS_VALUE' : 'CHECKED_NO_DATA',
+                                    displayState,
+                                    defaultText: def.defaultResponse ?? undefined,
                                     appDataType: def.appDataType,
                                     profileConfig: def.profileConfig ? (def.profileConfig as any) : undefined,
                                     isMultiValue: def.isMultiValue,
@@ -952,6 +990,12 @@ export async function getFieldDetail(
                         groupValues[def.fieldName] = hydrated.value;
                         if (derived.assertedAt > latestTimestamp) latestTimestamp = derived.assertedAt;
                     } else {
+                        const displayState = KycStateService.calculateDisplayState({
+                            hasValue: false,
+                            hasApplicableMapping: evalResult.hasApplicableMapping,
+                            hasApplicableEvaluationAttempt: evalResult.hasApplicableEvaluationAttempt,
+                            defaultText: def.defaultResponse ?? undefined
+                        });
                         groupFields.push({
                             fieldNo: item.fieldNo,
                             fieldName: def.fieldName,
@@ -965,7 +1009,8 @@ export async function getFieldDetail(
                                 {
                                     fieldNo: item.fieldNo,
                                     label: def.fieldName,
-                                    displayState: 'CHECKED_NO_DATA',
+                                    displayState,
+                                    defaultText: def.defaultResponse ?? undefined,
                                     appDataType: def.appDataType,
                                     profileConfig: def.profileConfig ? (def.profileConfig as any) : undefined,
                                     isMultiValue: def.isMultiValue,
@@ -1405,11 +1450,6 @@ export async function getFieldDetail(
         select: { sourceType: true, sourceReference: true, priority: true },
         orderBy: { priority: 'asc' }
     });
-    const hasMapping = fieldMappings.length > 0;
-    
-    let hasEvaluationAttempt = false;
-    let evaluatedSourceBadge = "";
-    let evaluatedSourceTimestamp: Date | null = null;
     
     let clientLEForSource: any = null;
     if (entityType === 'CLIENT_LE') {
@@ -1419,41 +1459,8 @@ export async function getFieldDetail(
         });
     }
 
-    if (hasMapping && clientLEForSource) {
-        // Iterate in priority order to find the highest-priority synced source
-        for (const mapping of fieldMappings) {
-            if (mapping.sourceType === "GLEIF" && clientLEForSource.gleifFetchedAt) {
-                hasEvaluationAttempt = true;
-                evaluatedSourceBadge = "GLEIF";
-                evaluatedSourceTimestamp = clientLEForSource.gleifFetchedAt;
-                break;
-            }
-            if (mapping.sourceType === "REGISTRATION_AUTHORITY" || mapping.sourceType === "COMPANIES_HOUSE") {
-                const refs = clientLEForSource.registryReferences || [];
-                    // Find a reference that matches this specific mapping
-                    // If sourceReference is null, any RA ref that has been synced counts
-                    const matchingRef = refs.find((r: any) => {
-                        const hasSync = !!(r.lastSyncSucceededAt || r.lastSyncStatus);
-                        if (!hasSync) return false;
-                        if (!mapping.sourceReference) return true; // generic mapping matches any synced RA
-                        // Specific RA match
-                        if (mapping.sourceReference === "COMPANIES_HOUSE" && r.authority?.name?.includes("Companies House")) return true;
-                        if (mapping.sourceReference === r.authority?.registryKey) return true;
-                        return false;
-                    });
-                    
-                    if (matchingRef) {
-                        hasEvaluationAttempt = true;
-                        evaluatedSourceBadge = mapping.sourceReference || mapping.sourceType;
-                        evaluatedSourceTimestamp = matchingRef.lastSyncSucceededAt || matchingRef.createdAt; // Fallback to createdAt if lastSyncSucceededAt is null
-                        break;
-                    }
-                }
-            }
-        }
+    const evalResult = KycStateService.evaluateSyncAttempt(clientLEForSource, fieldMappings);
 
-    let displayState: "HAS_VALUE" | "MAPPED_NOT_CHECKED" | "CHECKED_NO_DATA" | "DEFAULT_RESPONSE" | "UNMAPPED_NO_RESPONSE" = "UNMAPPED_NO_RESPONSE";
-    
     // Rely on the canonical field interpreter to determine if this value is actually empty,
     // avoiding JS quirks like Date objects falsely evaluating as empty plain objects.
     const derivedValueForCheck = def?.isMultiValue && rows ? rows.map((r: any) => r.value) : derived?.value;
@@ -1462,17 +1469,14 @@ export async function getFieldDetail(
     } as any).state;
     const hasValue = interpreterState === 'POPULATED' || interpreterState === 'EXPLICIT_NONE';
     
-    if (hasValue) {
-        displayState = "HAS_VALUE";
-    } else if (hasEvaluationAttempt) {
-        displayState = "CHECKED_NO_DATA";
-    } else if ((def as any)?.defaultResponse) {
-        displayState = "DEFAULT_RESPONSE";
-    } else if (hasMapping && !hasEvaluationAttempt) {
-        displayState = "MAPPED_NOT_CHECKED";
-    }
+    const displayState = KycStateService.calculateDisplayState({
+        hasValue,
+        hasApplicableMapping: evalResult.hasApplicableMapping,
+        hasApplicableEvaluationAttempt: evalResult.hasApplicableEvaluationAttempt,
+        defaultText: (def as any)?.defaultResponse ?? undefined
+    });
 
-    let finalSourceBadgeForEmpty = (!hasValue && (displayState === 'MAPPED_NOT_CHECKED' || displayState === 'CHECKED_NO_DATA') && evaluatedSourceBadge) ? evaluatedSourceBadge : undefined;
+    let finalSourceBadgeForEmpty = (!hasValue && (displayState === 'MAPPED_NOT_CHECKED' || displayState === 'CHECKED_NO_DATA') && evalResult.evaluatedSourceBadge) ? evalResult.evaluatedSourceBadge : undefined;
 
     const result = {
         fieldNo,
@@ -1481,7 +1485,8 @@ export async function getFieldDetail(
         dataType: def?.appDataType || 'string',
         category: (def as any)?.masterDataCategory?.displayName || undefined,
         profileConfig: (def as any)?.profileConfig || undefined,
-        hasActiveSourceMappings: hasMapping,
+        hasActiveSourceMappings: fieldMappings.length > 0,
+        hasMapping: evalResult.hasApplicableMapping,
         modelField: (def as any).modelField || undefined,
         // Prefer options from the linked MasterDataOptionSet (admin-managed dropdown list).
         // The optionSet.options field is a Json array of {label, value} objects.
@@ -1515,14 +1520,14 @@ export async function getFieldDetail(
             confidence: derived.confidenceScore || 1.0,
             claimId: derived.claimId,
             isPromotedToCCC: promotedClaimIds.has(derived.claimId),
-            sourceCheckedAt: derived.sourceCheckedAt || evaluatedSourceTimestamp
+            sourceCheckedAt: derived.sourceCheckedAt || evalResult.evaluatedSourceTimestamp
         } : (finalSourceBadgeForEmpty ? {
             value: null,
             source: finalSourceBadgeForEmpty as ProvenanceSource,
-            timestamp: evaluatedSourceTimestamp,
+            timestamp: evalResult.evaluatedSourceTimestamp,
             confidence: null,
             isPromotedToCCC: false,
-            sourceCheckedAt: sourceSyncDerivedLastValidatedAt || evaluatedSourceTimestamp
+            sourceCheckedAt: sourceSyncDerivedLastValidatedAt || evalResult.evaluatedSourceTimestamp
         } : null),
         displayState,
         defaultResponse: (def as any)?.defaultResponse || undefined,

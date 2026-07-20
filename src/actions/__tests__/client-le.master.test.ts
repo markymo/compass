@@ -14,14 +14,14 @@ vi.mock('@/lib/prisma', () => ({
                 registryReferences: [
                     {
                         lastSyncSucceededAt: new Date('2026-07-06T00:00:00Z'),
-                        authority: { id: 'auth-1', registryKey: 'GB_COMPANIES_HOUSE', name: 'Companies House' }
+                        authority: { id: 'auth-1', registryKey: 'COMPANIES_HOUSE', name: 'Companies House' }
                     }
                 ]
             }) 
         },
         clientLEOwner: { findFirst: vi.fn().mockResolvedValue({ partyId: 'org-1' }) },
         customFieldDefinition: { findMany: vi.fn().mockResolvedValue([]) },
-        sourceFieldMapping: { findMany: vi.fn().mockResolvedValue([{ targetFieldNo: 3, sourceType: 'COMPANIES_HOUSE', sourceReference: 'CH_123', priority: 1 }]) },
+        sourceFieldMapping: { findMany: vi.fn().mockResolvedValue([{ targetFieldNo: 3, sourceType: 'COMPANIES_HOUSE', sourceReference: 'COMPANIES_HOUSE', priority: 1 }]) },
         cCParty: { findMany: vi.fn().mockResolvedValue([{ id: 'p-123', data: { contactType: 'PERSON', forenames: 'Manual', surname: 'Party' } }]) },
         $queryRaw: vi.fn().mockResolvedValue([]),
     }
@@ -35,22 +35,28 @@ vi.mock('@/actions/security', () => ({
     getUserFIOrg: vi.fn().mockResolvedValue(null)
 }));
 
-vi.mock('@/lib/kyc/KycStateService', () => ({
-    KycStateService: {
-        resolveScopeId: vi.fn().mockResolvedValue('test-scope'),
-        resolveAllAttachments: vi.fn().mockResolvedValue(new Map()),
-        resolveAllFields: vi.fn().mockResolvedValue(new Map([
-            [3, {
-                value: 'Test Value',
-                sourceType: 'COMPANIES_HOUSE',
-                sourceReference: 'COMPANIES_HOUSE',
-                assertedAt: new Date('2026-01-01T00:00:00Z'),
-                sourceCheckedAt: new Date('2026-07-06T00:00:00Z'),
-                isScoped: false
-            }]
-        ])),
-    }
-}));
+vi.mock('@/lib/kyc/KycStateService', async (importOriginal) => {
+    const actual = await importOriginal<any>();
+    return {
+        KycStateService: {
+            ...actual.KycStateService,
+            evaluateSyncAttempt: actual.KycStateService.evaluateSyncAttempt,
+            calculateDisplayState: actual.KycStateService.calculateDisplayState,
+            resolveScopeId: vi.fn().mockResolvedValue('test-scope'),
+            resolveAllAttachments: vi.fn().mockResolvedValue(new Map()),
+            resolveAllFields: vi.fn().mockResolvedValue(new Map([
+                [3, {
+                    value: 'Test Value',
+                    sourceType: 'COMPANIES_HOUSE',
+                    sourceReference: 'COMPANIES_HOUSE',
+                    assertedAt: new Date('2026-01-01T00:00:00Z'),
+                    sourceCheckedAt: new Date('2026-07-06T00:00:00Z'),
+                    isScoped: false
+                }]
+            ])),
+        }
+    };
+});
 
 vi.mock('@/services/masterData/definitionService', () => ({
     listAllMasterFields: vi.fn().mockResolvedValue([
