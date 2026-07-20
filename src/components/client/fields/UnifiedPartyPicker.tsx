@@ -13,6 +13,8 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { CreateCCAddressDialog } from "./CreateCCAddressDialog";
 import { PartyAddressRef } from "./CCAddressSelector";
+import { getPartyName } from "@/lib/master-data/party-value";
+import type { V2PartyType } from "@/lib/master-data/party-v2/CCPartyData";
 
 interface UnifiedPartyPickerProps {
     clientLEId: string;
@@ -21,9 +23,10 @@ interface UnifiedPartyPickerProps {
     onSuccess?: () => void;
     // For repeating fields, we might need a rowId, but usually 'add' creates a new row if undefined
     rowId?: string;
+    allowedPartyTypes?: V2PartyType[];
 }
 
-export function UnifiedPartyPicker({ clientLEId, fieldNo, trigger, onSuccess, rowId }: UnifiedPartyPickerProps) {
+export function UnifiedPartyPicker({ clientLEId, fieldNo, trigger, onSuccess, rowId, allowedPartyTypes }: UnifiedPartyPickerProps) {
     const [open, setOpen] = useState(false);
     const [query, setQuery] = useState("");
     const [results, setResults] = useState<any[]>([]);
@@ -51,7 +54,7 @@ export function UnifiedPartyPicker({ clientLEId, fieldNo, trigger, onSuccess, ro
         
         startSearchTransition(async () => {
             try {
-                const data = await searchCCParties(clientLEId, query);
+                const data = await searchCCParties(clientLEId, query, allowedPartyTypes);
                 setResults(data);
             } catch (err) {
                 console.error("Search failed", err);
@@ -78,9 +81,18 @@ export function UnifiedPartyPicker({ clientLEId, fieldNo, trigger, onSuccess, ro
 
     const handleCreateNew = () => {
         setIsCreatingNew(true);
+        let defaultPartyType = "INDIVIDUAL";
+        if (allowedPartyTypes && !allowedPartyTypes.includes('INDIVIDUAL')) {
+            if (allowedPartyTypes.includes('ORGANISATION')) {
+                defaultPartyType = "ORGANISATION";
+            } else if (allowedPartyTypes.includes('TEAM')) {
+                defaultPartyType = "TEAM";
+            }
+        }
+
         const blankData = {
             schemaVersion: 2,
-            partyType: "INDIVIDUAL",
+            partyType: defaultPartyType,
             isActiveParty: true,
             roles: fieldNo === 63 ? [{
                 roleType: "director",
@@ -169,9 +181,7 @@ export function UnifiedPartyPicker({ clientLEId, fieldNo, trigger, onSuccess, ro
                             {results.length > 0 ? (
                                 <div className="divide-y divide-slate-100 max-h-[300px] overflow-y-auto">
                                     {results.map((p) => {
-                                        const name = p.data.partyType === 'ORGANISATION' ? p.data.name : 
-                                            p.data.contactType === 'PERSON' ? `${p.data.forenames || ''} ${p.data.surname || ''}`.trim() : 
-                                            p.data.partyType === 'INDIVIDUAL' ? `${p.data.forenames || ''} ${p.data.surname || ''}`.trim() : 'Unknown';
+                                        const name = getPartyName(p.data);
                                         
                                         return (
                                             <button
@@ -209,17 +219,19 @@ export function UnifiedPartyPicker({ clientLEId, fieldNo, trigger, onSuccess, ro
                                 </div>
                             )}
                             
-                            <div className="p-3 border-t border-slate-100 bg-slate-50/50">
-                                <Button 
-                                    variant="outline" 
-                                    className="w-full bg-white shadow-sm border-indigo-200 text-indigo-700 hover:bg-indigo-50"
-                                    onClick={handleCreateNew}
-                                    disabled={isSaving}
-                                >
-                                    <Plus className="h-4 w-4 mr-2" />
-                                    Create new person / organisation
-                                </Button>
-                            </div>
+                            {(!allowedPartyTypes || allowedPartyTypes.length > 0) && (
+                                <div className="p-3 border-t border-slate-100 bg-slate-50/50">
+                                    <Button 
+                                        variant="outline" 
+                                        className="w-full bg-white shadow-sm border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+                                        onClick={handleCreateNew}
+                                        disabled={isSaving}
+                                    >
+                                        <Plus className="h-4 w-4 mr-2" />
+                                        Create new {(!allowedPartyTypes || allowedPartyTypes.length > 1) ? 'person / organisation' : allowedPartyTypes[0].toLowerCase()}
+                                    </Button>
+                                </div>
+                            )}
                         </div>
                     </div>
                 ) : (
@@ -231,6 +243,7 @@ export function UnifiedPartyPicker({ clientLEId, fieldNo, trigger, onSuccess, ro
                                 onChange={(val) => setNewPartyData(val)}
                                 disabled={isSaving}
                                 isNew={true}
+                                allowedPartyTypes={allowedPartyTypes}
                                 previewLabel={newPartyData?.partyType === "ORGANISATION" ? newPartyData?.identity?.legalName || "Unnamed Organisation" : newPartyData?.partyType === "TEAM" ? newPartyData?.identity?.teamName || "Unnamed Team" : `${newPartyData?.identity?.forenames || ''} ${newPartyData?.identity?.surname || ''}`.trim() || "Unnamed Individual"}
                                 onRequestCreateAddress={(onCreated) => setAddressCreateContext(() => onCreated)}
                             />

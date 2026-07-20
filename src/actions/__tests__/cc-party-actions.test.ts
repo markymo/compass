@@ -279,4 +279,52 @@ describe("cc-party-actions", () => {
             expect(mockCCPartyCreate).not.toHaveBeenCalled();
         });
     });
+
+    describe("searchCCParties", () => {
+        const mockParties = [
+            { id: "1", clientLEId: "le-123", data: { schemaVersion: 2, partyType: "ORGANISATION", legalName: "Acme Corp" } },
+            { id: "2", clientLEId: "le-123", data: { schemaVersion: 2, partyType: "TEAM", teamName: "Alpha Team" } },
+            { id: "3", clientLEId: "le-123", data: { schemaVersion: 2, partyType: "INDIVIDUAL", forenames: "John", surname: "Doe" } },
+            { id: "4", clientLEId: "le-123", data: { contactType: "PERSON", forenames: "Legacy", surname: "Person" } }
+        ];
+
+        beforeEach(() => {
+            mockCCPartyFindMany.mockResolvedValue(mockParties as any);
+        });
+
+        it("returns all eligible parties for empty query when allowedPartyTypes is undefined", async () => {
+            const result = await searchCCParties("le-123", "");
+            expect(result).toHaveLength(4);
+        });
+
+        it("filters out forbidden party types even on empty query", async () => {
+            const result = await searchCCParties("le-123", "", ["ORGANISATION", "TEAM"]);
+            expect(result).toHaveLength(2);
+            expect(result.map((r: any) => r.id)).toEqual(["1", "2"]);
+        });
+
+        it("returns empty array immediately if allowedPartyTypes is strictly []", async () => {
+            const result = await searchCCParties("le-123", "", []);
+            expect(result).toHaveLength(0);
+            expect(mockCCPartyFindMany).not.toHaveBeenCalled();
+        });
+
+        it("matches organisations by legalName", async () => {
+            const result = await searchCCParties("le-123", "acme");
+            expect(result).toHaveLength(1);
+            expect(result[0].id).toBe("1");
+        });
+
+        it("matches teams by teamName", async () => {
+            const result = await searchCCParties("le-123", "alpha");
+            expect(result).toHaveLength(1);
+            expect(result[0].id).toBe("2");
+        });
+
+        it("matches legacy persons by forenames/surname mapping them to INDIVIDUAL filter", async () => {
+            const result = await searchCCParties("le-123", "legacy", ["INDIVIDUAL"]);
+            expect(result).toHaveLength(1);
+            expect(result[0].id).toBe("4");
+        });
+    });
 });

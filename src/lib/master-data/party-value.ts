@@ -15,6 +15,7 @@
 
 // ── Core value object ──────────────────────────────────────────────────────────
 import { getAddressSummary } from './address-value';
+import type { CCPartyData } from './party-v2/CCPartyData';
 
 export interface PartyRefValue {
     ccPartyId: string;
@@ -282,6 +283,32 @@ export function getPartySummary(v: PartyValue, displayMask?: string[]): string {
 
     const summary = roleLabel ? `${name} (${roleLabel})` : name;
     return summary.trim() !== '' ? summary.trim() : '';
+}
+
+/**
+ * Returns the purely canonical name representation for a party, ignoring roles.
+ * Suitable for searching and plain identity labels.
+ */
+export function getPartyName(v: PartyValue | CCPartyData): string {
+    if (!v) return '';
+
+    // V2 Schema Support
+    if (v && typeof v === 'object' && 'schemaVersion' in v && (v as CCPartyData).schemaVersion === 2) {
+        if (v.partyType === 'ORGANISATION') return (v as any).legalName || '';
+        if (v.partyType === 'TEAM') return (v as any).teamName || '';
+        if (v.partyType === 'INDIVIDUAL') {
+            const ind = v as any;
+            return [ind.title, ind.forenames, ind.surname].filter(Boolean).join(' ');
+        }
+    }
+
+    // V1 / Legacy Support
+    const pv = v as PartyValue;
+    if (pv.partyType === 'ORGANISATION' || pv.contactType === 'CONTACT') {
+        return pv.displayName || pv.organisationName || (pv as any).companyName || (pv as any).legalName || (pv as any).name || '';
+    }
+
+    return [pv.title, pv.forenames, pv.surname].filter(Boolean).join(' ') || (pv as any).name || '';
 }
 
 /**

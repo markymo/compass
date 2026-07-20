@@ -3,7 +3,9 @@
 import { getIdentity } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
-import { PartyValue, isPartyValue } from "@/lib/master-data/party-value";
+import { CCPartyService } from "@/services/masterData/cc-party-service";
+import type { V2PartyType } from "@/lib/master-data/party-v2/CCPartyData";
+import { PartyValue, isPartyValue, getPartyName } from "@/lib/master-data/party-value";
 import { revalidatePath } from "next/cache";
 import { getMasterFieldDefinition } from "@/services/masterData/definitionService";
 
@@ -297,10 +299,14 @@ export async function getCCPartyUsage(clientLEId: string) {
 /**
  * Search curated parties for a client LE (used by UnifiedPartyPicker)
  */
-export async function searchCCParties(clientLEId: string, query: string) {
+export async function searchCCParties(clientLEId: string, query: string, allowedPartyTypes?: V2PartyType[]) {
     const identity = await getIdentity();
     if (!identity?.userId) {
         throw new Error("Unauthorized");
+    }
+
+    if (allowedPartyTypes && allowedPartyTypes.length === 0) {
+        return [];
     }
 
     try {
@@ -319,15 +325,19 @@ export async function searchCCParties(clientLEId: string, query: string) {
             const data = p.data as any;
             if (!data) return false;
             
-            const matchesName = 
-                (data.partyType === 'ORGANISATION' && data.name?.toLowerCase().includes(queryLower)) ||
-                (data.partyType === 'INDIVIDUAL' && 
-                 ((data.forenames || '') + ' ' + (data.surname || '')).toLowerCase().includes(queryLower)) ||
-                // Legacy PERSON structure
-                (data.contactType === 'PERSON' && 
-                 ((data.forenames || '') + ' ' + (data.surname || '')).toLowerCase().includes(queryLower));
-
-            return matchesName;
+            // 1. Eligibility Filter
+            if (allowedPartyTypes) {
+                const pType = data.partyType ?? (data.contactType === 'PERSON' ? 'INDIVIDUAL' : 'INDIVIDUAL');
+                if (!allowedPartyTypes.includes(pType as V2PartyType)) {
+                    return false;
+                }
+            }
+            
+            // 2. Canonical Match Filter
+            if (!query) return true;
+            
+            const name = getPartyName(data).toLowerCase();
+            return name.includes(queryLower);
         });
 
         return filtered.map((p: any) => ({

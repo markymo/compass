@@ -203,4 +203,34 @@ describe('UnifiedPartyPicker', () => {
             expect(onOk).toHaveBeenCalled();
         });
     });
+
+    describe("allowedPartyTypes enforcement", () => {
+        it("respects allowedPartyTypes when rendering Create New defaults", async () => {
+            render(<UnifiedPartyPicker clientLEId="le-1" fieldNo={64} allowedPartyTypes={["ORGANISATION"]} />);
+            
+            // Wait for picker to load, open it
+            fireEvent.click(screen.getByRole('button', { name: /Add Party \/ Contact/i }));
+            
+            // Wait for Create New button
+            const createBtn = await screen.findByRole('button', { name: /create new organisation/i });
+            fireEvent.click(createBtn);
+            
+            // CanonicalPartyEditor should now be visible and the selected type should be ORGANISATION
+            const orgRadio = screen.getByLabelText(/organisation/i) as HTMLInputElement;
+            expect(orgRadio).toBeInTheDocument();
+            // It should be the default because INDIVIDUAL was omitted
+            
+            const indRadio = screen.queryByLabelText(/individual/i);
+            expect(indRadio).not.toBeInTheDocument();
+        });
+
+        it("disables Create New flow if allowedPartyTypes is strictly empty", async () => {
+            render(<UnifiedPartyPicker clientLEId="le-1" fieldNo={64} allowedPartyTypes={[]} />);
+            fireEvent.click(screen.getByRole('button', { name: /Add Party \/ Contact/i }));
+            
+            await waitFor(() => {
+                expect(screen.queryByRole('button', { name: /create new/i })).not.toBeInTheDocument();
+            });
+        });
+    });
 });
