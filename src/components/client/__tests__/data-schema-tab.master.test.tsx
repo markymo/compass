@@ -105,10 +105,10 @@ describe('DataSchemaTab - /master rendering boundary', () => {
         );
 
         // 1. Assert four visible Party labels
-        expect(screen.getByText('Alice Smith')).toBeInTheDocument();
-        expect(screen.getByText('Bob Jones')).toBeInTheDocument();
-        expect(screen.getByText('Charlie Brown')).toBeInTheDocument();
-        expect(screen.getByText('Diana Prince')).toBeInTheDocument();
+        expect(screen.getByText('Alice Smith')).toBeTruthy();
+        expect(screen.getByText('Bob Jones')).toBeTruthy();
+        expect(screen.getByText('Charlie Brown')).toBeTruthy();
+        expect(screen.getByText('Diana Prince')).toBeTruthy();
 
         // 2. Zero "—" placeholders for those Party rows
         const placeholders = screen.queryAllByText('—');
@@ -186,8 +186,8 @@ describe('DataSchemaTab - /master rendering boundary', () => {
         );
 
         // Both rows render with canonical labels
-        expect(screen.getByText('Embedded Source')).toBeInTheDocument();
-        expect(screen.getByText('Manual Party')).toBeInTheDocument();
+        expect(screen.getByText('Embedded Source')).toBeTruthy();
+        expect(screen.getByText('Manual Party')).toBeTruthy();
 
         // Field-level provenance is Multiple sources
         expect(screen.getAllByText('Multiple sources').length).toBeGreaterThan(0);
