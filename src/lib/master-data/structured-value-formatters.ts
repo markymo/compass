@@ -64,8 +64,24 @@ export function formatPersonOrContactRow(row: any): StructuredValueFormatResult 
     return { handled: true, primary, secondary };
 }
 
+export function formatIndustryCodeRow(row: any): StructuredValueFormatResult {
+    const code = row.code;
+    const label = row.label;
+
+    if (code && label) {
+        return { handled: true, primary: `${code} — ${label}`, secondary: null };
+    } else if (code) {
+        return { handled: true, primary: String(code), secondary: null };
+    } else if (label) {
+        return { handled: true, primary: String(label), secondary: null };
+    }
+
+    return { handled: false };
+}
+
 const FIELD_ROW_FORMATTERS: Record<number, (row: any) => StructuredValueFormatResult> = {
     5: formatNameHistoryRow,
+    20: formatIndustryCodeRow,
     63: formatPersonOrContactRow,
 };
 
