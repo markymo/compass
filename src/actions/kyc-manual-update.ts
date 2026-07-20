@@ -515,6 +515,23 @@ export async function addExistingCCPartyReferenceToField(
 
         const { PrismaClient } = await import('@prisma/client');
         const prisma = new PrismaClient();
+        
+        // Field Profile Config Validation
+        const allowedPartyTypes = (def.profileConfig as any)?.allowedPartyTypes as Array<'INDIVIDUAL'|'ORGANISATION'|'TEAM'> | undefined;
+        
+        if (allowedPartyTypes !== undefined) {
+            const existingParty = await prisma.cCParty.findUnique({
+                where: { id: ccPartyId }
+            });
+            if (!existingParty) {
+                 return { success: false, message: "Party not found." };
+            }
+            const data = existingParty.data as any;
+            const pType = data.partyType ?? (data.contactType === 'PERSON' ? 'INDIVIDUAL' : 'INDIVIDUAL');
+            if (!allowedPartyTypes.includes(pType)) {
+                 return { success: false, message: `Field ${fieldNo} does not allow party type ${pType}` };
+            }
+        }
 
         if (fieldNo === 63) {
             const clientLE = await prisma.clientLE.findUnique({
@@ -605,6 +622,15 @@ export async function createCCPartyAndReferenceField(
         const { isCCPartyData } = await import("@/lib/master-data/party-v2/CCPartyData");
         if (!isCCPartyData(enrichedPartyData)) {
             return { success: false, message: "Invalid CCPartyData V2 structure provided" };
+        }
+        
+        // Field Profile Config Validation
+        const allowedPartyTypes = (def.profileConfig as any)?.allowedPartyTypes as Array<'INDIVIDUAL'|'ORGANISATION'|'TEAM'> | undefined;
+        if (allowedPartyTypes !== undefined) {
+             const pType = enrichedPartyData.partyType;
+             if (!allowedPartyTypes.includes(pType as any)) {
+                  return { success: false, message: `Field ${fieldNo} does not allow party type ${pType}` };
+             }
         }
 
         const { CCPartyService } = await import("@/services/masterData/cc-party-service");

@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { applyManualOverride } from '../kyc-manual-update';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { applyManualOverride, createCCPartyAndReferenceField, addExistingCCPartyReferenceToField } from '../kyc-manual-update';
 import { KycWriteService } from '@/services/kyc/KycWriteService';
 import prisma from '@/lib/prisma';
 import { isValidFieldNo } from '@/domain/kyc/FieldDefinitions';
@@ -43,6 +43,22 @@ vi.mock('@/domain/kyc/FieldDefinitions', () => ({
 vi.mock('@/domain/kyc/FieldGroups', () => ({
     FIELD_GROUPS: {}
 }));
+vi.mock('@prisma/client', async (importOriginal) => {
+    const actual = await importOriginal() as any;
+    return {
+        ...actual,
+        PrismaClient: vi.fn()
+    };
+});
+vi.mock('@/lib/master-data/party-v2/CCPartyData', () => ({
+    isCCPartyData: vi.fn()
+}));
+vi.mock('@/services/masterData/cc-party-service', () => ({
+    CCPartyService: {
+        create: vi.fn(),
+        update: vi.fn()
+    }
+}));
 
 describe('applyManualOverride Routing Logic', () => {
 
@@ -84,6 +100,104 @@ describe('applyManualOverride Routing Logic', () => {
 
         expect(FieldClaimService.assertClaim).not.toHaveBeenCalled();
         expect(prisma.clientLE.update).toHaveBeenCalled();
+    });
+});
+
+describe('Party Eligibility Validation in kyc-manual-update', () => {
+    let mockPrisma: any;
+    let mockGetMasterFieldDefinition: any;
+
+    beforeEach(async () => {
+        vi.clearAllMocks();
+        
+        // Mock getIdentity
+        vi.mocked(getIdentity).mockResolvedValue({ userId: 'test-user' } as any);
+        
+        // We'll override the global mocks for our specific tests
+        const { getMasterFieldDefinition } = await import('@/services/masterData/definitionService');
+        mockGetMasterFieldDefinition = getMasterFieldDefinition as any;
+        
+        mockPrisma = {
+            cCParty: {
+                findUnique: vi.fn(),
+                delete: vi.fn(),
+                update: vi.fn()
+            },
+            clientLE: {
+                findUnique: vi.fn().mockResolvedValue({ id: 'le-123' })
+            }
+        };
+
+        const { PrismaClient } = await import('@prisma/client');
+        vi.mocked(PrismaClient).mockImplementation(function() { return mockPrisma; } as any);
+        
+        const { isCCPartyData } = await import('@/lib/master-data/party-v2/CCPartyData');
+        vi.mocked(isCCPartyData).mockReturnValue(true);
+        
+        const { CCPartyService } = await import('@/services/masterData/cc-party-service');
+        vi.mocked(CCPartyService.create).mockResolvedValue({ id: 'new-party-123' } as any);
+    });
+
+    afterEach(() => {
+        mockGetMasterFieldDefinition.mockResolvedValue({ fieldNo: 1, appDataType: 'TEXT' });
+    });
+
+    it('creating a forbidden party type is rejected', async () => {
+        mockGetMasterFieldDefinition.mockResolvedValue({
+            fieldNo: 64,
+            fieldName: 'Test Field',
+            profileConfig: { allowedPartyTypes: ['INDIVIDUAL'] }
+        });
+
+        const result = await createCCPartyAndReferenceField('le-123', 64, { partyType: 'ORGANISATION' });
+        expect(result.success).toBe(false);
+        expect(result.message).toContain('does not allow party type ORGANISATION');
+    });
+
+    it('linking an existing forbidden party type is rejected', async () => {
+        mockGetMasterFieldDefinition.mockResolvedValue({
+            fieldNo: 64,
+            fieldName: 'Test Field',
+            profileConfig: { allowedPartyTypes: ['TEAM'] }
+        });
+
+        mockPrisma.cCParty.findUnique.mockResolvedValue({
+            id: 'party-123',
+            data: { partyType: 'INDIVIDUAL' }
+        });
+
+        const result = await addExistingCCPartyReferenceToField('le-123', 64, 'party-123');
+        expect(result.success).toBe(false);
+        expect(result.message).toContain('does not allow party type INDIVIDUAL');
+    });
+
+    it('undefined configuration permits valid canonical party types', async () => {
+        mockGetMasterFieldDefinition.mockResolvedValue({
+            fieldNo: 64,
+            fieldName: 'Test Field',
+            profileConfig: {} // undefined allowedPartyTypes
+        });
+
+        mockPrisma.cCParty.findUnique.mockResolvedValue({
+            id: 'party-123',
+            data: { partyType: 'ORGANISATION' }
+        });
+        
+        // This should pass the allowedPartyTypes check and fail further down (e.g. updateFieldManually fails due to missing Prisma mocks for field claims), but success: false with a DIFFERENT error means it passed the check.
+        const result = await addExistingCCPartyReferenceToField('le-123', 64, 'party-123');
+        expect(result.message || '').not.toContain('does not allow party type');
+    });
+
+    it('an explicit empty array rejects all types', async () => {
+        mockGetMasterFieldDefinition.mockResolvedValue({
+            fieldNo: 64,
+            fieldName: 'Test Field',
+            profileConfig: { allowedPartyTypes: [] } // strictly empty
+        });
+
+        const result = await createCCPartyAndReferenceField('le-123', 64, { partyType: 'ORGANISATION' });
+        expect(result.success).toBe(false);
+        expect(result.message).toContain('does not allow party type ORGANISATION');
     });
 });
 

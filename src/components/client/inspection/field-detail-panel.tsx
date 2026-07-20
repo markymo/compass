@@ -1583,6 +1583,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                             <UnifiedPartyPicker
                                                                 clientLEId={clientLEId}
                                                                 fieldNo={fieldNo}
+                                                                allowedPartyTypes={data?.profileConfig?.allowedPartyTypes}
                                                                 onSuccess={async () => {
                                                                     setNewEntryValue("");
                                                                     const refreshed = await getFieldDetail(clientLEId, fieldNo, 'CLIENT_LE', customFieldId);

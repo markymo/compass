@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Paperclip } from "lucide-react";
 import { PartyAddressRef } from "../CCAddressSelector";
 import { CanonicalPartyFormState } from "./state-mappers";
+import type { V2PartyType } from "@/lib/master-data/party-v2/CCPartyData";
 import { PartyIdentitySection } from "./PartyIdentitySection";
 import { PartyContactSection } from "./PartyContactSection";
 import { PartyRolesSection } from "./PartyRolesSection";
@@ -22,9 +23,10 @@ interface CanonicalPartyEditorProps {
     disabled?: boolean;
     isNew?: boolean; // Determines if party type is editable
     onRequestCreateAddress?: (onCreated: (ref: PartyAddressRef) => void) => void;
+    allowedPartyTypes?: V2PartyType[];
 }
 
-export function CanonicalPartyEditor({ clientLEId, partyId, formState, onChange, previewLabel, disabled, isNew = false, onRequestCreateAddress }: CanonicalPartyEditorProps) {
+export function CanonicalPartyEditor({ clientLEId, partyId, formState, onChange, previewLabel, disabled, isNew = false, onRequestCreateAddress, allowedPartyTypes }: CanonicalPartyEditorProps) {
     const [docCount, setDocCount] = useState<number>(0);
 
     const handlePartyTypeChange = (newType: CanonicalPartyFormState['partyType']) => {
@@ -93,18 +95,24 @@ export function CanonicalPartyEditor({ clientLEId, partyId, formState, onChange,
                         onValueChange={(val: any) => handlePartyTypeChange(val)}
                         className="flex gap-4"
                     >
-                        <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="INDIVIDUAL" id="type-indiv" />
-                            <Label htmlFor="type-indiv" className={(!isNew && formState.partyType !== 'INDIVIDUAL') ? 'text-gray-400' : ''}>Individual</Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="ORGANISATION" id="type-org" />
-                            <Label htmlFor="type-org" className={(!isNew && formState.partyType !== 'ORGANISATION') ? 'text-gray-400' : ''}>Organisation</Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="TEAM" id="type-team" />
-                            <Label htmlFor="type-team" className={(!isNew && formState.partyType !== 'TEAM') ? 'text-gray-400' : ''}>Team</Label>
-                        </div>
+                        {(!allowedPartyTypes || allowedPartyTypes.includes('INDIVIDUAL')) && (
+                            <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="INDIVIDUAL" id="type-indiv" />
+                                <Label htmlFor="type-indiv" className={(!isNew && formState.partyType !== 'INDIVIDUAL') ? 'text-gray-400' : ''}>Individual</Label>
+                            </div>
+                        )}
+                        {(!allowedPartyTypes || allowedPartyTypes.includes('ORGANISATION')) && (
+                            <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="ORGANISATION" id="type-org" />
+                                <Label htmlFor="type-org" className={(!isNew && formState.partyType !== 'ORGANISATION') ? 'text-gray-400' : ''}>Organisation</Label>
+                            </div>
+                        )}
+                        {(!allowedPartyTypes || allowedPartyTypes.includes('TEAM')) && (
+                            <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="TEAM" id="type-team" />
+                                <Label htmlFor="type-team" className={(!isNew && formState.partyType !== 'TEAM') ? 'text-gray-400' : ''}>Team</Label>
+                            </div>
+                        )}
                     </RadioGroup>
                 </div>
 

@@ -6,7 +6,8 @@ import { getMasterFieldDefinition, getMasterFieldGroup } from "@/services/master
 import { ProvenanceSource } from "@/domain/kyc/types/ProvenanceTypes";
 import prisma from "@/lib/prisma";
 import { getComplexFieldConfig } from "@/lib/master-data/complex-field-config";
-import { FieldClaim } from "@prisma/client";
+import { MasterFieldDefinition, FieldClaim } from "@prisma/client";
+import { FieldDefinition } from "@/domain/kyc/FieldDefinitions";
 import { getPartySummary } from "@/lib/master-data/party-value";
 import { resolveFieldForDisplay } from "@/lib/master-data/field-interpreter";
 import { resolveSourceCheckedAt } from "@/lib/kyc/provenance-enricher";
@@ -692,7 +693,7 @@ export interface FieldDetailData {
     isRepeating: boolean;
     dataType: string;
     category?: string;
-    profileConfig?: any;
+    profileConfig?: FieldDefinition['profileConfig'];
     hasActiveSourceMappings?: boolean;
     modelField?: string;
     options?: Array<string | { label: string; value: string }>;

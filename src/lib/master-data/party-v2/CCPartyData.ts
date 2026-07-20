@@ -3,6 +3,7 @@ import { TeamPartyData, isTeamPartyData } from './TeamPartyData';
 import { OrganisationPartyData, isOrganisationPartyData } from './OrganisationPartyData';
 
 export type CCPartyData = IndividualPartyData | TeamPartyData | OrganisationPartyData;
+export type V2PartyType = CCPartyData['partyType'];
 
 export function isCCPartyData(value: any): value is CCPartyData {
     if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
