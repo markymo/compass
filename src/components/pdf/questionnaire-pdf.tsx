@@ -357,11 +357,18 @@ const styles = StyleSheet.create({
     }
 });
 
-const GroupFieldSourceBadge = ({ sourceLabel, style }: { sourceLabel?: string, style?: any }) => {
+const GroupFieldSourceBadge = ({ sourceLabel, sourceTimestamp, timezone, style }: { sourceLabel?: string, sourceTimestamp?: string | null, timezone?: string, style?: any }) => {
     if (!sourceLabel) return null;
     return (
-        <View style={[styles.groupBadge, style]}>
-            <Text style={styles.groupBadgeText}>{sourceLabel}</Text>
+        <View style={[{ flexDirection: 'row', alignItems: 'center', gap: 4 }, style]}>
+            <View style={styles.groupBadge}>
+                <Text style={styles.groupBadgeText}>{sourceLabel}</Text>
+            </View>
+            {sourceTimestamp && (
+                <Text style={{ fontSize: 7, color: '#64748b' }}>
+                    {formatSystemDateTime(sourceTimestamp, timezone || 'UTC')}
+                </Text>
+            )}
         </View>
     );
 };
@@ -405,6 +412,7 @@ export interface QuestionnairePDFProps {
             displayValue: string;
             order: number;
             sourceLabel?: string;
+            sourceTimestamp?: string | null;
         }[];
         groupDisplayStyle?: 'LIST' | 'COMPACT' | 'GRID';
     }[];
@@ -524,7 +532,7 @@ export const QuestionnairePDF = ({ data, title, exportMetadata }: QuestionnaireP
                                         <View key={idx} style={styles.groupItemCompact} wrap={false}>
                                             <Text style={styles.groupLabelCompact}>{f.label}</Text>
                                             <Text style={styles.groupValueCompact}>{f.displayValue}</Text>
-                                            <GroupFieldSourceBadge sourceLabel={f.sourceLabel} style={{ alignSelf: 'flex-start', marginTop: 2 }} />
+                                            <GroupFieldSourceBadge sourceLabel={f.sourceLabel} sourceTimestamp={f.sourceTimestamp} timezone={exportMetadata?.timezone} style={{ alignSelf: 'flex-start', marginTop: 2 }} />
                                             {f.attachmentFilenames && f.attachmentFilenames.length > 0 && (
                                                 <View>
                                                     <Text style={styles.attachmentsHeader}>Attachments</Text>
@@ -549,7 +557,7 @@ export const QuestionnairePDF = ({ data, title, exportMetadata }: QuestionnaireP
                                                 <View style={styles.groupCol1}><Text style={styles.groupTextGridLabel}>{f.label}</Text></View>
                                                 <View style={styles.groupCol2}><Text style={styles.groupTextGridValue}>{f.displayValue}</Text></View>
                                                 <View style={styles.groupCol3}>
-                                                    <GroupFieldSourceBadge sourceLabel={f.sourceLabel} />
+                                                    <GroupFieldSourceBadge sourceLabel={f.sourceLabel} sourceTimestamp={f.sourceTimestamp} timezone={exportMetadata?.timezone} />
                                                 </View>
                                             </View>
                                             {f.attachmentFilenames && f.attachmentFilenames.length > 0 && (
@@ -572,7 +580,7 @@ export const QuestionnairePDF = ({ data, title, exportMetadata }: QuestionnaireP
                                         <View key={idx} style={styles.groupRowList} wrap={false}>
                                             <Text style={styles.groupLabelList}>{f.label}</Text>
                                             <Text style={styles.groupValueList}>{f.displayValue}</Text>
-                                            <GroupFieldSourceBadge sourceLabel={f.sourceLabel} style={{ alignSelf: 'flex-start', marginTop: 2 }} />
+                                            <GroupFieldSourceBadge sourceLabel={f.sourceLabel} sourceTimestamp={f.sourceTimestamp} timezone={exportMetadata?.timezone} style={{ alignSelf: 'flex-start', marginTop: 2 }} />
                                             {f.attachmentFilenames && f.attachmentFilenames.length > 0 && (
                                                 <View>
                                                     <Text style={styles.attachmentsHeader}>Attachments</Text>

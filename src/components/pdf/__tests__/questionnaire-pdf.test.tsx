@@ -13,14 +13,17 @@ describe('QuestionnairePDF', () => {
         return false;
     };
 
-    // better helper to find GroupFieldSourceBadge by looking at the type or props
-    const findBadge = (node: any, sourceLabel: string): boolean => {
+    const findBadge = (node: any, sourceLabel: string, sourceTimestamp?: string): boolean => {
         if (!node) return false;
-        if (Array.isArray(node)) return node.some(n => findBadge(n, sourceLabel));
+        if (Array.isArray(node)) return node.some(n => findBadge(n, sourceLabel, sourceTimestamp));
         if (node.type?.name === 'GroupFieldSourceBadge') {
-            return node.props.sourceLabel === sourceLabel;
+            const labelMatch = node.props.sourceLabel === sourceLabel;
+            if (sourceTimestamp !== undefined) {
+                return labelMatch && node.props.sourceTimestamp === sourceTimestamp;
+            }
+            return labelMatch;
         }
-        if (node.props && node.props.children) return findBadge(node.props.children, sourceLabel);
+        if (node.props && node.props.children) return findBadge(node.props.children, sourceLabel, sourceTimestamp);
         return false;
     };
 
@@ -135,5 +138,27 @@ describe('QuestionnairePDF', () => {
         // The normal source label is rendered as a standard Text node, not GroupFieldSourceBadge
         expect(findBadge(element, 'Normal Source')).toBe(false);
         expect(findText(element, 'Normal Source')).toBe(true);
+    });
+
+    it('renders sourceTimestamp for group fields using formatSystemDateTime', () => {
+        const testDate = '2026-07-20T12:00:00Z';
+        const data = [{
+            id: '1',
+            status: 'VERIFIED',
+            question: 'Group Q',
+            answer: 'Group data',
+            groupDisplayStyle: 'LIST' as const,
+            groupFields: [{
+                fieldNo: 1,
+                label: 'Field 1',
+                displayValue: 'Val 1',
+                order: 1,
+                sourceLabel: 'Source',
+                sourceTimestamp: testDate
+            }]
+        }];
+        
+        const element = QuestionnairePDF({ title: 'Test PDF', exportMetadata: { timezone: 'UTC', exportId: '123' } as any, data });
+        expect(findBadge(element, 'Source', testDate)).toBe(true);
     });
 });
