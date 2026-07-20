@@ -27,6 +27,11 @@ describe('FieldClaimService Attachment Writes', () => {
             id: 'new-claim-id',
             ...args.data
         }));
+
+        // Mock masterFieldGraphBinding for graph write-back
+        (prismaMock as any).masterFieldGraphBinding = {
+            findFirst: vi.fn().mockResolvedValue(null)
+        };
     });
 
     describe('addAttachment', () => {

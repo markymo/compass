@@ -240,8 +240,33 @@ function parseAnyValue(val: any, displayMask?: string[], codeSystem?: string, ap
             };
         }
         
+        // Attempt to format as a known structured collection row first
+        // This ensures that explicit structural formats (like Field 5 - Previous Names)
+        // are not erroneously caught by the generic Party sniffer simply because they have a "name" property.
+        if (appDataType !== 'PARTY' && fieldNo !== undefined) {
+            const formatted = formatStructuredCollectionRow(fieldNo, val);
+            if (formatted.handled) {
+                const displayStr = formatted.secondary 
+                    ? `${formatted.primary} (${formatted.secondary})`
+                    : formatted.primary || '';
+                return {
+                    kind: 'scalar',
+                    display: displayStr,
+                    rawValue: val
+                };
+            }
+        }
+        
         // Attempt canonical Party normalisation for embedded values
-        if (appDataType === 'PARTY' || isPartyValue(val) || ('contactType' in val) || ('forenames' in val) || ('firstName' in val)) {
+        let isParty = false;
+        if (appDataType === 'PARTY') {
+            if (typeof val === 'object' && val !== null) isPartyValue(val); // run for normalisation mutations
+            isParty = true;
+        } else if (isPartyValue(val) || ('contactType' in val) || ('forenames' in val) || ('firstName' in val)) {
+            isParty = true;
+        }
+
+        if (isParty) {
             const norm = normalisePartyReadModel(val);
             if (norm) {
                 return {
@@ -260,21 +285,6 @@ function parseAnyValue(val: any, displayMask?: string[], codeSystem?: string, ap
                 data: val as any,
                 summary: getAddressSummary(val)
             };
-        }
-        
-        // Attempt to format as a known structured collection row
-        if (fieldNo !== undefined) {
-            const formatted = formatStructuredCollectionRow(fieldNo, val);
-            if (formatted.handled) {
-                const displayStr = formatted.secondary 
-                    ? `${formatted.primary} (${formatted.secondary})`
-                    : formatted.primary || '';
-                return {
-                    kind: 'scalar',
-                    display: displayStr,
-                    rawValue: val
-                };
-            }
         }
 
         // Unrecognized object

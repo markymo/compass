@@ -79,3 +79,5 @@ if (vercelEnv === "production") {
 
 // Build Next
 run("npx next build");
+
+// Trigger redeploy
