@@ -250,7 +250,7 @@ export function getPartySummary(v: PartyValue, displayMask?: string[]): string {
     const isUnknown = v.partyType === 'UNKNOWN';
 
     let name = '';
-    const permittedOrgName = !isMasked('organisationName') && !isMasked('legalName') ? (v.organisationName || (v as any).companyName || (v as any).name || (v as any).legalName) : null;
+    const permittedOrgName = !isMasked('organisationName') || !isMasked('legalName') ? (v.organisationName || (v as any).companyName || (v as any).name || (v as any).legalName) : null;
     const permittedDisplayName = !isMasked('displayName') ? v.displayName : null;
     const permittedForenames = !isMasked('forenames') ? (v.forenames || (v as any).firstName) : null;
     const permittedSurname = !isMasked('surname') ? (v.surname || (v as any).lastName) : null;
