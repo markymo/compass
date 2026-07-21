@@ -308,7 +308,8 @@ export function FieldAttachments({ clientLEId, fieldNo, attachments, isEditable,
     return (
         <div className={`mt-2 flex flex-col gap-2 ${className || ''}`}>
             {attachments.map(att => {
-                const fieldProv = att.provenance.find(p => p.type === 'FIELD') as Extract<typeof att.provenance[0], {type: 'FIELD'}> | undefined;
+                const provenance = att.provenance ?? [];
+                const fieldProv = provenance.find(p => p.type === 'FIELD') as Extract<typeof provenance[0], {type: 'FIELD'}> | undefined;
                 const fieldInstanceId = fieldProv?.fieldAttachmentInstanceId;
                 
                 const isReplacingThis = opType === 'replace' && targetInstanceId === fieldInstanceId;
