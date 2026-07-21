@@ -16,7 +16,11 @@ vi.mock('@/components/client/fields/FieldValueRenderer', () => ({
     FieldValueRenderer: () => <div data-testid="field-value-renderer">Mocked Value</div>
 }));
 vi.mock('@/components/client/fields/FieldSourceBadge', () => ({
-    FieldSourceBadge: () => <div data-testid="field-source-badge">Mocked Source</div>
+    FieldSourceBadge: (props: any) => (
+        <div data-testid="field-source-badge" data-show-last-validated={props.showLastValidated} data-timestamp={props.source?.lastValidatedAt}>
+            Mocked Source
+        </div>
+    )
 }));
 vi.mock('@/components/shared/FieldAttachmentIndicator', () => ({
     FieldAttachmentIndicator: () => <div data-testid="field-attachment-indicator">Mocked Indicator</div>
@@ -118,5 +122,41 @@ describe('GroupAnswerRenderer', () => {
         
         // The textual content/order should be identical, only styles differ
         expect(listText).toBe(compactText);
+    });
+
+    describe('Timestamps and Source Badges', () => {
+        it('passes showLastValidated=true to FieldSourceBadge for each grouped child field', () => {
+            const timestampedFields = [
+                {
+                    ...mockFields[0],
+                    canonicalDisplayModel: {
+                        ...mockFields[0].canonicalDisplayModel,
+                        source: { type: 'USER_INPUT', lastValidatedAt: '2026-07-20T10:00:00Z' } as any
+                    }
+                },
+                {
+                    ...mockFields[1],
+                    canonicalDisplayModel: {
+                        ...mockFields[1].canonicalDisplayModel,
+                        source: { type: 'REGISTRATION_AUTHORITY', lastValidatedAt: '2026-07-21T11:00:00Z' } as any
+                    }
+                }
+            ];
+
+            const { getAllByTestId } = render(
+                <GroupAnswerRenderer groupLabel="Test Group" fields={timestampedFields} raNameLookup={{}} displayStyle="LIST" />
+            );
+
+            const badges = getAllByTestId('field-source-badge');
+            expect(badges.length).toBe(2);
+
+            // Prove that grouped child field renders its own timestamp
+            // Prove that different repeated items display different timestamps
+            expect(badges[0].getAttribute('data-show-last-validated')).toBe('true');
+            expect(badges[0].getAttribute('data-timestamp')).toBe('2026-07-20T10:00:00Z');
+
+            expect(badges[1].getAttribute('data-show-last-validated')).toBe('true');
+            expect(badges[1].getAttribute('data-timestamp')).toBe('2026-07-21T11:00:00Z');
+        });
     });
 });
