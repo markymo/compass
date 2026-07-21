@@ -33,6 +33,7 @@ import { toExportText } from "@/lib/export/toExportText";
 import { resolveFieldForDisplay } from "@/lib/master-data/field-interpreter";
 import { getMasterFieldGroup, getMasterFieldDefinition } from "@/services/masterData/definitionService";
 import { resolveMasterDataBatch } from "@/actions/kyc-query";
+import { resolveAmalgamatedAttachments } from "@/lib/kyc/attachments";
 
 export async function resolveExportAnswer(
     question: any, 
@@ -51,14 +52,6 @@ export async function resolveExportAnswer(
         let derivedValueToDisplay: any = null;
         let primaryDerived: any = null;
         let attachmentFilenames: string[] = [];
-
-        const attachmentsMap = await KycStateService.resolveAllAttachments({ subjectLeId, clientLEId: entityId }, [question.masterFieldNo]);
-        const derivedAttachments = attachmentsMap?.get(question.masterFieldNo) || [];
-        if (derivedAttachments.length > 0) {
-            attachmentFilenames = derivedAttachments
-                .filter(a => a.attachmentDocumentId !== undefined)
-                .map(a => a.documentName || 'Unknown Document');
-        }
 
         if (fieldDetail.isRepeating) {
             const collection = await KycStateService.getAuthoritativeCollection(
@@ -91,6 +84,21 @@ export async function resolveExportAnswer(
                 derivedValueToDisplay = derived.value;
                 primaryDerived = derived;
             }
+        }
+        
+        let resolvedValuesMap = new Map();
+        if (fieldDetail.isRepeating && Array.isArray(derivedValueToDisplay)) {
+             resolvedValuesMap.set(question.masterFieldNo, derivedValueToDisplay);
+        } else if (primaryDerived) {
+             resolvedValuesMap.set(question.masterFieldNo, primaryDerived);
+        }
+
+        const attachmentsMap = await resolveAmalgamatedAttachments({ subjectLeId, clientLEId: entityId }, [question.masterFieldNo], resolvedValuesMap);
+        const derivedAttachments = attachmentsMap?.get(question.masterFieldNo) || [];
+        if (derivedAttachments.length > 0) {
+            attachmentFilenames = derivedAttachments
+                .filter(a => a.documentId !== undefined)
+                .map(a => a.displayName || 'Unknown Document');
         }
 
         if (primaryDerived && derivedValueToDisplay !== null && derivedValueToDisplay !== undefined && derivedValueToDisplay !== "" && (!Array.isArray(derivedValueToDisplay) || derivedValueToDisplay.length > 0)) {
@@ -247,7 +255,7 @@ export async function resolveExportAnswer(
         if (group && group.items && group.items.length > 0) {
             const fieldNos = group.items.map((i: any) => i.fieldNo);
 
-            const [claims, sourceMappings, attachmentsMap] = await Promise.all([
+            const [claims, sourceMappings] = await Promise.all([
                 prisma.fieldClaim.findMany({
                     where: {
                         subjectLeId: subjectLeId || '',
@@ -260,8 +268,7 @@ export async function resolveExportAnswer(
                 }),
                 (prisma as any).sourceFieldMapping.findMany({
                     where: { targetFieldNo: { in: fieldNos }, isActive: true }
-                }),
-                KycStateService.resolveAllAttachments({ subjectLeId, clientLEId: entityId }, fieldNos)
+                })
             ]);
 
             const fieldDefMap = new Map();
@@ -289,12 +296,18 @@ export async function resolveExportAnswer(
                 groupFieldMap,
                 claims: claims as any,
                 sourceMappings,
-                attachmentsByField: attachmentsMap,
+                attachmentsByField: undefined,
                 provenanceMap: null,
             };
 
             const resolvedValues = await resolveMasterDataBatch(batchInput);
             const hydratedValues = resolvedValues[question.id] || {};
+
+            const resolvedValuesMap = new Map();
+            for (const [fieldNo, hydrated] of Object.entries(hydratedValues)) {
+                resolvedValuesMap.set(Number(fieldNo), { value: (hydrated as any).value });
+            }
+            const attachmentsMap = await resolveAmalgamatedAttachments({ subjectLeId, clientLEId: entityId }, fieldNos, resolvedValuesMap);
 
             const fields: ExportGroupField[] = [];
             for (const item of group.items) {
@@ -308,8 +321,9 @@ export async function resolveExportAnswer(
                 let attachmentFilenames: string[] = [];
 
                 if (hv && hv.value !== null && hv.value !== undefined && hv.value !== "") {
-                    if (hv.attachments && hv.attachments.length > 0) {
-                        attachmentFilenames = hv.attachments.map((a: any) => a.displayName);
+                    const attachments = attachmentsMap.get(item.fieldNo) || [];
+                    if (attachments.length > 0) {
+                        attachmentFilenames = attachments.map((a: any) => a.displayName);
                     }
                     let parsedDerivedValue = hv.value;
                     if (Array.isArray(parsedDerivedValue)) {

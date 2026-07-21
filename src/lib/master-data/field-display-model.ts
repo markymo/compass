@@ -29,8 +29,11 @@ export interface FieldDisplayModel {
     clientLEId?: string;
 }
 
+export type AttachmentProvenance = 
+    | { type: 'FIELD'; fieldNo: number; fieldAttachmentInstanceId: string }
+    | { type: 'PARTY'; partyId: string; partyName: string; partyDocumentInstanceId: string };
+
 export interface ResolvedAttachment {
-    instanceId: string;
     documentId: string;
     displayName: string;
     mimeType: string | null;
@@ -38,6 +41,7 @@ export interface ResolvedAttachment {
     lifecycleCreatedAt: string;
     currentDocumentCreatedAt: string;
     uploadedBy?: { displayName: string | null };
+    provenance: AttachmentProvenance[];
 }
 
 // Discriminated Union for exhaustive type checking on the UI side

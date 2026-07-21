@@ -210,7 +210,7 @@ export async function upsertCCPartyV2(params: {
 
     const { isCCPartyData } = await import("@/lib/master-data/party-v2/CCPartyData");
     if (!isCCPartyData(params.data)) {
-        throw new Error("Invalid CCPartyData V2 structure");
+        throw new Error(`Invalid CCPartyData V2 structure. Payload: ${JSON.stringify(params.data)}`);
     }
 
     try {

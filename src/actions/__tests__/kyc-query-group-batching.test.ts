@@ -138,7 +138,8 @@ describe('getFieldDetail - Group Path Batching', () => {
         expect((f101.canonicalDisplayModel.value as any).rawValue).toBe('val1');
         expect(f101.canonicalDisplayModel.allowAttachments).toBe(true);
         expect(f101.canonicalDisplayModel.attachments).toHaveLength(1);
-        expect(f101.canonicalDisplayModel.attachments[0].instanceId).toBe('inst_1');
+        expect(f101.canonicalDisplayModel.attachments[0].provenance[0].type).toBe('FIELD');
+        expect((f101.canonicalDisplayModel.attachments[0].provenance[0] as any).fieldAttachmentInstanceId).toBe('inst_1');
 
         const f102 = result.groupFields!.find(f => f.fieldNo === 102)!;
         expect(f102.canonicalDisplayModel.value).toEqual({

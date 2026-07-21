@@ -52,13 +52,17 @@ vi.mock('next/navigation', () => ({
 global.crypto.randomUUID = () => 'test-uuid-1234';
 
 const mockAttachment: ResolvedAttachment = {
-    instanceId: 'inst-1',
     documentId: 'doc-1',
     displayName: 'Test Doc.pdf',
     mimeType: 'application/pdf',
     sizeBytes: '1024',
     lifecycleCreatedAt: '2023-01-01T00:00:00Z',
-    currentDocumentCreatedAt: '2023-01-01T00:00:00Z'
+    currentDocumentCreatedAt: '2023-01-01T00:00:00Z',
+    provenance: [{
+        type: "FIELD",
+        fieldNo: 1,
+        fieldAttachmentInstanceId: "inst-1"
+    }]
 };
 
 describe('FieldAttachments UI', () => {
@@ -97,6 +101,25 @@ describe('FieldAttachments UI', () => {
         expect(screen.queryByTitle('Replace attachment')).not.toBeInTheDocument();
         expect(screen.queryByTitle('Remove attachment')).not.toBeInTheDocument();
         expect(screen.queryByText('Attach Document')).not.toBeInTheDocument();
+    });
+
+    it('renders PARTY-only attachment with download but no Remove/Replace', () => {
+        const partyAttachment: ResolvedAttachment = {
+            documentId: 'doc-party',
+            displayName: 'Party Doc.pdf',
+            mimeType: 'application/pdf',
+            sizeBytes: '2048',
+            lifecycleCreatedAt: '2023-01-01T00:00:00Z',
+            currentDocumentCreatedAt: '2023-01-01T00:00:00Z',
+            provenance: [{ type: 'PARTY', partyId: 'p1', partyName: 'John Doe', partyDocumentInstanceId: 'inst-p1' }]
+        };
+
+        render(<FieldAttachments clientLEId="le-1" fieldNo={1} attachments={[partyAttachment]} isEditable={true} mode="manage" />);
+
+        expect(screen.getByText('Attached to Party: John Doe')).toBeInTheDocument();
+        expect(screen.getByTitle('Download')).toBeInTheDocument();
+        expect(screen.queryByTitle('Replace attachment')).not.toBeInTheDocument();
+        expect(screen.queryByTitle('Remove attachment')).not.toBeInTheDocument();
     });
 
     it('indicator mode shows correct valid count and hides if zero', () => {

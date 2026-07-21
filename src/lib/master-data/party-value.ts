@@ -25,6 +25,51 @@ export function isPartyRefValue(value: any): value is PartyRefValue {
     return value && typeof value === 'object' && typeof value.ccPartyId === 'string';
 }
 
+/**
+ * Extracts canonical ccPartyId references from scalar, repeated, and structured/grouped field values.
+ * Uses explicit structural checks rather than arbitrary deep JSON scanning.
+ */
+export function extractCanonicalPartyIds(value: any): string[] {
+    const ids = new Set<string>();
+    
+    if (!value) return [];
+    
+    // 1. Scalar Party reference
+    if (isPartyRefValue(value) && value.ccPartyId) {
+        ids.add(value.ccPartyId);
+    } 
+    // Fallback if the object itself is a resolved CCParty wrapping its ID
+    else if (typeof value === 'object' && typeof value.ccPartyId === 'string' && value.ccPartyId) {
+        ids.add(value.ccPartyId);
+    }
+    
+    // 2. Repeated values (Collection fields)
+    if (Array.isArray(value)) {
+        for (const item of value) {
+            // Arrays might contain scalars or composite objects
+            extractCanonicalPartyIds(item).forEach(id => ids.add(id));
+        }
+    }
+    // 3. Composite / Grouped rows (e.g. structured collection row where a member is a party)
+    else if (typeof value === 'object' && value !== null && !isPartyValue(value)) {
+        // Only inspect immediate top-level members of the structured row
+        for (const key of Object.keys(value)) {
+            const member = value[key];
+            if (isPartyRefValue(member) && member.ccPartyId) {
+                ids.add(member.ccPartyId);
+            } else if (Array.isArray(member)) {
+                for (const item of member) {
+                    if (isPartyRefValue(item) && item.ccPartyId) {
+                        ids.add(item.ccPartyId);
+                    }
+                }
+            }
+        }
+    }
+    
+    return Array.from(ids);
+}
+
 
 
 export interface PartyValue {
