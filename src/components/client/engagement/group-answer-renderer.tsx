@@ -108,7 +108,7 @@ function GroupFieldRow({
                             {field.hydrated.attachmentCount ? (
                                 <FieldAttachmentIndicator count={field.hydrated.attachmentCount} />
                             ) : null}
-                            <FieldSourceBadge source={field.canonicalDisplayModel.source} variant="span" className="text-[9px] py-0 px-1 whitespace-nowrap scale-90 origin-right" />
+                            <FieldSourceBadge source={field.canonicalDisplayModel.source} variant="span" showLastValidated={true} className="text-[9px] py-0 px-1 whitespace-nowrap scale-90 origin-right" />
                         </div>
                     )}
                 </div>
@@ -142,7 +142,7 @@ function GroupFieldRow({
                 </p>
                 {isCompact && !dimmed && field.canonicalDisplayModel?.source && (
                     <div className="flex items-center gap-1.5">
-                        <FieldSourceBadge source={field.canonicalDisplayModel.source} variant="span" />
+                        <FieldSourceBadge source={field.canonicalDisplayModel.source} variant="span" showLastValidated={true} />
                         {field.hydrated.attachmentCount ? (
                             <FieldAttachmentIndicator count={field.hydrated.attachmentCount} />
                         ) : null}
@@ -157,7 +157,7 @@ function GroupFieldRow({
             </div>
             {!isCompact && !dimmed && field.canonicalDisplayModel?.source && (
                 <div className="flex items-center gap-2 mt-1">
-                    <FieldSourceBadge source={field.canonicalDisplayModel.source} variant="span" />
+                    <FieldSourceBadge source={field.canonicalDisplayModel.source} variant="span" showLastValidated={true} />
                     {field.hydrated.attachmentCount ? (
                         <FieldAttachmentIndicator count={field.hydrated.attachmentCount} />
                     ) : null}

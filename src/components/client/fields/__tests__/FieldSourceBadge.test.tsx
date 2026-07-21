@@ -110,11 +110,39 @@ describe('FieldSourceBadge', () => {
 
         it('formats lastValidatedAt in BST when session timezone is Europe/London', () => {
             vi.mocked(useSession).mockReturnValue({ data: { user: { timezone: 'Europe/London' } } } as any);
-            const children = getChildrenStr({ 
-                source: { type: 'USER_INPUT', lastValidatedAt: mockLastValidatedAt }, 
-                showLastValidated: true 
+            const children = getChildrenStr({
+                source: { type: 'USER_INPUT', lastValidatedAt: mockLastValidatedAt },
+                showLastValidated: true
             });
             expect(children).toContain('13:29 BST');
+        });
+
+        it('renders generalized tooltip text', () => {
+            vi.mocked(useSession).mockReturnValue({ data: { user: { timezone: 'UTC' } } } as any);
+            const children = getChildrenStr({
+                source: { type: 'USER_INPUT', lastValidatedAt: mockLastValidatedAt },
+                showLastValidated: true
+            });
+            expect(children).toContain('Based on the latest validation recorded for this value.');
+            expect(children).toContain('Last validated:');
+        });
+
+        it('does not render timestamp text when lastValidatedAt is absent', () => {
+            const children = getChildrenStr({
+                source: { type: 'USER_INPUT' }, // No lastValidatedAt
+                showLastValidated: true
+            });
+            expect(children).not.toContain('Last validated:');
+        });
+
+        it('existing scalar-field timestamp behaviour remains unchanged (shows when true, hides when false)', () => {
+            const source = { type: 'USER_INPUT', lastValidatedAt: mockLastValidatedAt };
+
+            const withTimestamp = getChildrenStr({ source, showLastValidated: true });
+            expect(withTimestamp).toContain('Last validated:');
+
+            const withoutTimestamp = getChildrenStr({ source, showLastValidated: false });
+            expect(withoutTimestamp).not.toContain('Last validated:');
         });
     });
 });

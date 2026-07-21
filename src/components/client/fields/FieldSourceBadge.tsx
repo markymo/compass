@@ -112,7 +112,7 @@ export function FieldSourceBadge({
             <div className="flex items-center gap-2">
                 {element}
                 <div className="flex flex-col text-[10px] text-slate-400 border-l border-slate-200 pl-2 leading-tight justify-center">
-                    <StandardTooltip content="Based on the most recent successful sync of the mapped external source.">
+                    <StandardTooltip content="Based on the latest validation recorded for this value.">
                         <span className="whitespace-nowrap">
                             Last validated: {formatSystemDateTime(source.lastValidatedAt, (session?.user as any)?.timezone || 'UTC')}
                         </span>
