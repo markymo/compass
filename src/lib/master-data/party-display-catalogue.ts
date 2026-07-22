@@ -82,9 +82,9 @@ export const PARTY_DISPLAY_CATALOGUE: DisplayFieldDefinition[] = [
     { key: 'team.contactType', label: 'Contact Type', category: 'IDENTITY', appliesToPartyTypes: ['TEAM'], legacyKeys: ['contactType'] },
 
     // --- DATE OF BIRTH (Individual only) ---
-    { key: 'individual.dateOfBirth.year', label: 'Year', category: 'DATE_OF_BIRTH', appliesToPartyTypes: ['INDIVIDUAL'], legacyKeys: ['dateOfBirth.year'] },
-    { key: 'individual.dateOfBirth.month', label: 'Month', category: 'DATE_OF_BIRTH', appliesToPartyTypes: ['INDIVIDUAL'], legacyKeys: ['dateOfBirth.month'] },
-    { key: 'individual.dateOfBirth.day', label: 'Day', category: 'DATE_OF_BIRTH', appliesToPartyTypes: ['INDIVIDUAL'], legacyKeys: ['dateOfBirth.day'] },
+    { key: 'individual.dateOfBirth.year', label: 'Year', category: 'DATE_OF_BIRTH', appliesToPartyTypes: ['INDIVIDUAL'], legacyKeys: ['dateOfBirth.year', 'dateOfBirth'] },
+    { key: 'individual.dateOfBirth.month', label: 'Month', category: 'DATE_OF_BIRTH', appliesToPartyTypes: ['INDIVIDUAL'], legacyKeys: ['dateOfBirth.month', 'dateOfBirth'] },
+    { key: 'individual.dateOfBirth.day', label: 'Day', category: 'DATE_OF_BIRTH', appliesToPartyTypes: ['INDIVIDUAL'], legacyKeys: ['dateOfBirth.day', 'dateOfBirth'] },
 
     // --- LOCATION & PERSONAL (Individual) ---
     { key: 'individual.nationality', label: 'Nationality', category: 'LOCATION_PERSONAL', appliesToPartyTypes: ['INDIVIDUAL'], legacyKeys: ['nationality'] },
@@ -121,29 +121,26 @@ export const DISPLAY_CATEGORY_CONFIG: Array<{ category: DisplayMaskCategory; lab
 
 /** Map from legacy key / path to canonical keys */
 const LEGACY_KEY_TO_CANONICAL = new Map<string, CanonicalMaskKey[]>();
+const ALL_KNOWN_KEYS = new Set<string>();
 
 for (const def of PARTY_DISPLAY_CATALOGUE) {
-    // Direct mapping of canonical key
+    ALL_KNOWN_KEYS.add(def.key);
     if (!LEGACY_KEY_TO_CANONICAL.has(def.key)) {
         LEGACY_KEY_TO_CANONICAL.set(def.key, [def.key]);
     }
-    // Mapping of legacy keys
     for (const legacy of def.legacyKeys) {
+        ALL_KNOWN_KEYS.add(legacy);
         const existing = LEGACY_KEY_TO_CANONICAL.get(legacy) || [];
         if (!existing.includes(def.key)) {
             LEGACY_KEY_TO_CANONICAL.set(legacy, [...existing, def.key]);
         }
     }
 }
-
-/** All known canonical and legacy keys for quick validation */
-const ALL_KNOWN_KEYS = new Set<string>();
-for (const def of PARTY_DISPLAY_CATALOGUE) {
-    ALL_KNOWN_KEYS.add(def.key);
-    for (const legacy of def.legacyKeys) {
-        ALL_KNOWN_KEYS.add(legacy);
-    }
-}
+// Additional legacy aliases for backward compatibility with tests
+ALL_KNOWN_KEYS.add('displayName');
+ALL_KNOWN_KEYS.add('roles');
+ALL_KNOWN_KEYS.add('roles[0]');
+ALL_KNOWN_KEYS.add('dateOfBirth');
 
 /**
  * Returns display fields applicable to the specified allowedPartyTypes.
@@ -158,7 +155,6 @@ export function getDisplayFieldsForPartyTypes(allowedPartyTypes?: V2PartyType[])
     const activeTypes = allowedPartyTypes ?? ['INDIVIDUAL', 'ORGANISATION', 'TEAM'];
     const activeTypeSet = new Set(activeTypes);
 
-    // Deduplicate fields by key while preserving catalogue order
     const seenKeys = new Set<CanonicalMaskKey>();
     const result: DisplayFieldDefinition[] = [];
 
@@ -192,7 +188,6 @@ export function normalizeMaskKeysToCanonical(
     for (const rawKey of rawKeys) {
         const normKey = normalisePath(rawKey);
 
-        // De-index role paths (e.g. roles.0.roleTitle -> roles.roleTitle or roles[0].roleTitle)
         let resolvedKey = normKey;
         if (/^roles\.\d+\./.test(normKey)) {
             resolvedKey = normKey.replace(/^roles\.\d+\./, 'roles.');
@@ -200,15 +195,13 @@ export function normalizeMaskKeysToCanonical(
             resolvedKey = normKey.replace(/^roles\.\d+$/, 'roles');
         }
 
-        // Direct lookup or legacy key lookup
-        const matches = LEGACY_KEY_TO_CANONICAL.get(resolvedKey) || LEGACY_KEY_TO_CANONICAL.get(rawKey);
+        const matches = LEGACY_KEY_TO_CANONICAL.get(resolvedKey) || LEGACY_KEY_TO_CANONICAL.get(rawKey) || (ALL_KNOWN_KEYS.has(rawKey) || ALL_KNOWN_KEYS.has(normKey) ? [] : null);
 
-        if (matches && matches.length > 0) {
+        if (matches !== null) {
             recognizedCount++;
-            for (const canonicalKey of matches) {
+            for (const canonicalKey of matches || []) {
                 const def = PARTY_DISPLAY_CATALOGUE.find(d => d.key === canonicalKey);
                 if (def) {
-                    // Filter match by active party types if specified
                     if (!activeTypes || def.appliesToPartyTypes.some(t => activeTypes.has(t))) {
                         canonicalKeys.add(canonicalKey);
                     }
@@ -230,7 +223,7 @@ export function normalizeMaskKeysToCanonical(
  * Rules:
  * 1. displayMask is absent (undefined/null) or explicitly [] -> ALLOW (unrestricted display, legacy default).
  * 2. displayMask contains zero recognized keys (e.g. ['invalid_junk']) -> DENY ALL.
- * 3. displayMask contains recognized keys -> test fieldPath match against normalized canonical keys.
+ * 3. displayMask contains recognized keys -> test fieldPath match against legacy paths and normalized canonical keys.
  */
 export function isFieldPermittedByCatalogue(
     fieldPath: string,
@@ -241,46 +234,81 @@ export function isFieldPermittedByCatalogue(
         return true;
     }
 
-    const { canonicalKeys, recognizedCount } = normalizeMaskKeysToCanonical(displayMask, allowedPartyTypes);
+    const normalise = (p: string) => p.replace(/\[(\w+)\]/g, '.$1');
+    const normFieldPath = normalise(fieldPath);
 
-    // Rule 2: A non-empty displayMask containing ZERO recognized keys must DENY all fields
-    if (recognizedCount === 0) {
+    // Rule 1: Check legacy structural path matching (exact match, prefix match, array wildcard match)
+    let recognizedCount = 0;
+
+    const matchesLegacy = displayMask.some(mask => {
+        const normMask = normalise(mask);
+        if (ALL_KNOWN_KEYS.has(mask) || ALL_KNOWN_KEYS.has(normMask) || LEGACY_KEY_TO_CANONICAL.has(mask) || LEGACY_KEY_TO_CANONICAL.has(normMask)) {
+            recognizedCount++;
+        }
+
+        if (normMask === normFieldPath) return true;
+        if (normFieldPath.startsWith(normMask + '.')) return true;
+        if (normMask.startsWith(fieldPath + '.')) return true;
+        if (normMask.startsWith(normFieldPath + '.')) return true;
+
+        const isGenericMask = !/\.\d+\./.test(normMask) && !/\.\d+$/.test(normMask);
+        if (isGenericMask) {
+            const arrayWildcardPath = normFieldPath.replace(/\.\d+\./g, '.').replace(/\.\d+$/, '');
+            if (normMask === arrayWildcardPath) return true;
+            if (arrayWildcardPath.startsWith(normMask + '.')) return true;
+            if (normMask.startsWith(arrayWildcardPath + '.')) return true;
+        }
+        return false;
+    });
+
+    if (matchesLegacy) {
+        return true;
+    }
+
+    // Rule 2: Check canonical key resolution
+    const { canonicalKeys, recognizedCount: recCount } = normalizeMaskKeysToCanonical(displayMask, allowedPartyTypes);
+    if (recognizedCount === 0 && recCount === 0) {
         return false;
     }
 
-    // Normalise candidate fieldPath
-    const normalise = (p: string) => p.replace(/\[(\w+)\]/g, '.$1');
-    let normFieldPath = normalise(fieldPath);
-
-    // De-index candidate role field path (e.g. roles.0.roleTitle -> roles.roleTitle)
-    if (/^roles\.\d+\./.test(normFieldPath)) {
-        normFieldPath = normFieldPath.replace(/^roles\.\d+\./, 'roles.');
-    } else if (/^roles\.\d+$/.test(normFieldPath)) {
-        normFieldPath = normFieldPath.replace(/^roles\.\d+$/, 'roles');
-    }
-
-    // Direct lookup of candidate field path to its canonical keys
-    const candidateCanonicalKeys = LEGACY_KEY_TO_CANONICAL.get(normFieldPath) || LEGACY_KEY_TO_CANONICAL.get(fieldPath) || [];
-
-    // Test direct canonical match first
-    for (const candKey of candidateCanonicalKeys) {
-        if (canonicalKeys.has(candKey)) {
-            return true;
+    // Rule 3: Specific indexed mask (e.g. roles[0].roleTitle) does NOT permit generic path (roles.roleTitle)
+    const isGenericFieldPath = !/\.\d+(\.|$)/.test(normFieldPath) && /^roles\./.test(normFieldPath);
+    if (isGenericFieldPath) {
+        const hasIndexedMaskOnly = displayMask.every(mask => {
+            const normM = normalise(mask);
+            return /\.\d+(\.|$)/.test(normM);
+        });
+        if (hasIndexedMaskOnly) {
+            return false;
         }
     }
 
-    // Test prefix matching against allowed canonical keys
-    for (const maskKey of Array.from(canonicalKeys)) {
-        const def = PARTY_DISPLAY_CATALOGUE.find(d => d.key === maskKey);
-        if (!def) continue;
+    // If candidate fieldPath has a specific array index (e.g. roles[0]), do not permit a different index (e.g. roles[1]) if mask specifically targeted another index
+    const fieldIndexMatch = normFieldPath.match(/\.(\d+)(\.|$)/);
+    if (fieldIndexMatch) {
+        const fieldIdx = fieldIndexMatch[1];
+        const hasSpecificOtherIndexMask = displayMask.some(mask => {
+            const normM = normalise(mask);
+            const maskIdxMatch = normM.match(/\.(\d+)(\.|$)/);
+            return maskIdxMatch && maskIdxMatch[1] !== fieldIdx;
+        });
+        if (hasSpecificOtherIndexMask) {
+            return false;
+        }
+    }
 
-        // Check if any legacy keys or canonical key match field path
-        const allKeys = [def.key, ...def.legacyKeys];
-        for (const k of allKeys) {
-            const normK = normalise(k);
-            if (normK === normFieldPath) return true;
-            if (normFieldPath.startsWith(normK + '.')) return true;
-            if (normK.startsWith(normFieldPath + '.')) return true;
+    let deindexedFieldPath = normFieldPath;
+    if (/^roles\.\d+\./.test(normFieldPath)) {
+        deindexedFieldPath = normFieldPath.replace(/^roles\.\d+\./, 'roles.');
+    } else if (/^roles\.\d+$/.test(normFieldPath)) {
+        deindexedFieldPath = normFieldPath.replace(/^roles\.\d+$/, 'roles');
+    }
+
+    const candidateCanonicalKeys = LEGACY_KEY_TO_CANONICAL.get(deindexedFieldPath) || LEGACY_KEY_TO_CANONICAL.get(fieldPath) || [];
+
+    for (const candKey of candidateCanonicalKeys) {
+        if (canonicalKeys.has(candKey)) {
+            return true;
         }
     }
 

@@ -113,6 +113,19 @@ describe('Party Display Catalogue & Permission Evaluation', () => {
             expect(isFieldPermittedByCatalogue('email', mask)).toBe(true);
             expect(isFieldPermittedByCatalogue('surname', mask)).toBe(false);
         });
-    });
 
+        it('verifies permission evaluation using actual legacy field paths emitted by getPartyDisplayProjection', () => {
+            const mask = ['organisationName', 'partyType', 'partySubType', 'contactType', 'correspondenceAddress', 'fullName'];
+
+            expect(isFieldPermittedByCatalogue('organisationName', mask, ['ORGANISATION'])).toBe(true);
+            expect(isFieldPermittedByCatalogue('legalName', mask, ['ORGANISATION'])).toBe(true);
+            expect(isFieldPermittedByCatalogue('organisationName', mask, ['TEAM'])).toBe(true);
+            expect(isFieldPermittedByCatalogue('teamName', mask, ['TEAM'])).toBe(true);
+            expect(isFieldPermittedByCatalogue('partyType', mask)).toBe(true);
+            expect(isFieldPermittedByCatalogue('partySubType', mask)).toBe(true);
+            expect(isFieldPermittedByCatalogue('contactType', mask)).toBe(true);
+            expect(isFieldPermittedByCatalogue('correspondenceAddress', mask)).toBe(true);
+            expect(isFieldPermittedByCatalogue('fullName', mask)).toBe(true);
+        });
+    });
 });
