@@ -33,57 +33,9 @@ import { getNodeFields, getDisplayableFields, getSearchableFields, type NodeType
 import { type GraphPickerConfig, type ProjectionMode, getDefaultProjectionFields } from "@/lib/graph/picker-config";
 import { bindingToBindingForm, bindingFormToPickerConfig, BLANK_BINDING_FORM } from "@/lib/graph/binding-form-helpers";
 import { Checkbox } from "@/components/ui/checkbox";
+import { getDisplayFieldsForPartyTypes, DISPLAY_CATEGORY_CONFIG, type DisplayFieldDefinition } from "@/lib/master-data/party-display-catalogue";
+import type { V2PartyType } from "@/lib/master-data/party-v2/CCPartyData";
 
-const SCHEMA_GROUPS = [
-    {
-        label: 'Identity',
-        fields: [
-            { path: 'title', label: 'Title' },
-            { path: 'forenames', label: 'Forenames' },
-            { path: 'surname', label: 'Surname' },
-            { path: 'organisationName', label: 'Organisation Name' },
-            { path: 'partyType', label: 'Party Type' },
-            { path: 'partySubType', label: 'Party Subtype' },
-            { path: 'contactType', label: 'Contact Type' },
-            { path: 'fullName', label: 'Full name (derived)', deEmphasise: true }
-        ]
-    },
-    {
-        label: 'Date of Birth',
-        fields: [
-            { path: 'dateOfBirth.year', label: 'Year' },
-            { path: 'dateOfBirth.month', label: 'Month' },
-            { path: 'dateOfBirth.day', label: 'Day' },
-        ]
-    },
-    {
-        label: 'Location / Personal Details',
-        fields: [
-            { path: 'nationality', label: 'Nationality' },
-            { path: 'countryOfResidence', label: 'Country of Residence' },
-            { path: 'placeOfBirth', label: 'Place of Birth' },
-            { path: 'correspondenceAddress', label: 'Correspondence Address' },
-        ]
-    },
-    {
-        label: 'Contact',
-        fields: [
-            { path: 'email', label: 'Email' },
-            { path: 'phones', label: 'Phones' },
-        ]
-    },
-    {
-        label: 'Role Context',
-        fields: [
-            { path: 'roles[0].roleTitle', label: 'Role Title' },
-            { path: 'roles[0].roleType', label: 'Role Type' },
-            { path: 'roles[0].appointedOn', label: 'Appointed On' },
-            { path: 'roles[0].resignedOn', label: 'Resigned On' },
-            { path: 'roles[0].isActiveRole', label: 'Is Active Role' },
-            { path: 'roles[0].natureOfControl', label: 'Nature of Control' },
-        ]
-    }
-];
 
 interface FieldDetailSheetProps {
     field: any;
@@ -710,36 +662,70 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
 
                                         <div>
                                             <Label className="text-xs font-semibold text-indigo-900 mb-2 block">Display Mask</Label>
-                                            <div className="text-[10px] text-indigo-600 mb-2">Order of selection determines display order.</div>
-                                            <div className="flex flex-col gap-4">
-                                                {SCHEMA_GROUPS.map(group => (
-                                                    <div key={group.label} className="bg-indigo-50/50 p-2 rounded border border-indigo-100">
-                                                        <div className="text-[10px] font-bold text-indigo-800 uppercase tracking-wider mb-2">{group.label}</div>
-                                                        <div className="flex flex-wrap gap-2">
-                                                            {group.fields.map(f => {
-                                                                const isSelected = formData.profileConfig?.displayMask?.includes(f.path);
-                                                                return (
-                                                                    <Badge 
-                                                                        key={f.path} 
-                                                                        variant={isSelected ? "default" : "outline"}
-                                                                        className={`cursor-pointer ${f.deEmphasise && !isSelected ? 'opacity-60' : ''} ${isSelected ? 'bg-indigo-600 hover:bg-indigo-700 text-white' : 'bg-white text-indigo-700 border-indigo-200 hover:bg-indigo-50'}`}
-                                                                        onClick={() => {
-                                                                            const current = formData.profileConfig?.displayMask || [];
-                                                                            const next = isSelected ? current.filter((p: string) => p !== f.path) : [...current, f.path];
-                                                                            setFormData({
-                                                                                ...formData,
-                                                                                profileConfig: { ...formData.profileConfig, displayMask: next }
-                                                                            });
-                                                                        }}
-                                                                    >
-                                                                        {f.label}
-                                                                    </Badge>
-                                                                );
-                                                            })}
-                                                        </div>
+                                            <div className="text-[10px] text-indigo-600 mb-2">Order of selection determines display order. Available options are filtered by allowed party types.</div>
+                                            {(() => {
+                                                let allowedTypes: V2PartyType[] | undefined = undefined;
+                                                if (!partyTypes.individual && !partyTypes.organisation && !partyTypes.team) {
+                                                    allowedTypes = []; // explicitly empty selection
+                                                } else if (partyTypes.individual && partyTypes.organisation && partyTypes.team) {
+                                                    allowedTypes = undefined; // unrestricted
+                                                } else {
+                                                    allowedTypes = [];
+                                                    if (partyTypes.individual) allowedTypes.push("INDIVIDUAL");
+                                                    if (partyTypes.organisation) allowedTypes.push("ORGANISATION");
+                                                    if (partyTypes.team) allowedTypes.push("TEAM");
+                                                }
+
+                                                const availableFields = getDisplayFieldsForPartyTypes(allowedTypes);
+                                                if (availableFields.length === 0) {
+                                                    return <div className="text-xs text-amber-700 italic p-2 bg-amber-50 rounded border border-amber-200">No allowed party types selected. Select at least one party type above to configure the display mask.</div>;
+                                                }
+
+                                                const groups = DISPLAY_CATEGORY_CONFIG.map(cat => ({
+                                                    label: cat.label,
+                                                    fields: availableFields.filter(f => f.category === cat.category)
+                                                })).filter(g => g.fields.length > 0);
+
+                                                const currentMask = formData.profileConfig?.displayMask || [];
+
+                                                return (
+                                                    <div className="flex flex-col gap-4">
+                                                        {groups.map(group => (
+                                                            <div key={group.label} className="bg-indigo-50/50 p-2 rounded border border-indigo-100">
+                                                                <div className="text-[10px] font-bold text-indigo-800 uppercase tracking-wider mb-2">{group.label}</div>
+                                                                <div className="flex flex-wrap gap-2">
+                                                                    {group.fields.map(f => {
+                                                                        const isSelected = currentMask.some((p: string) => p === f.key || f.legacyKeys.includes(p));
+                                                                        return (
+                                                                            <Badge 
+                                                                                key={f.key} 
+                                                                                variant={isSelected ? "default" : "outline"}
+                                                                                className={`cursor-pointer ${f.deEmphasise && !isSelected ? 'opacity-60' : ''} ${isSelected ? 'bg-indigo-600 hover:bg-indigo-700 text-white' : 'bg-white text-indigo-700 border-indigo-200 hover:bg-indigo-50'}`}
+                                                                                onClick={() => {
+                                                                                    let next: string[];
+                                                                                    if (isSelected) {
+                                                                                        // Remove key and its legacy aliases
+                                                                                        next = currentMask.filter((p: string) => p !== f.key && !f.legacyKeys.includes(p));
+                                                                                    } else {
+                                                                                        // Add canonical key non-destructively
+                                                                                        next = [...currentMask, f.key];
+                                                                                    }
+                                                                                    setFormData({
+                                                                                        ...formData,
+                                                                                        profileConfig: { ...formData.profileConfig, displayMask: next }
+                                                                                    });
+                                                                                }}
+                                                                            >
+                                                                                {f.label}
+                                                                            </Badge>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            </div>
+                                                        ))}
                                                     </div>
-                                                ))}
-                                            </div>
+                                                );
+                                            })()}
                                             {formData.profileConfig?.displayMask && formData.profileConfig.displayMask.length > 0 && (
                                                 <div className="mt-2 p-2 bg-white rounded border border-indigo-100 text-xs font-mono text-indigo-800">
                                                     {formData.profileConfig.displayMask.join(', ')}

@@ -260,29 +260,12 @@ export function isPartyValue(value: any): value is PartyValue {
 
 // ── Display helpers ────────────────────────────────────────────────────────────
 
-export function isFieldPermittedByMask(fieldPath: string, displayMask?: string[]): boolean {
-    if (!Array.isArray(displayMask) || displayMask.length === 0) return true;
+import { isFieldPermittedByCatalogue } from './party-display-catalogue';
 
-    const normalise = (p: string) => p.replace(/\[(\w+)\]/g, '.$1');
-    const normFieldPath = normalise(fieldPath);
-
-    return displayMask.some(mask => {
-        const normMask = normalise(mask);
-        if (normMask === normFieldPath) return true;
-        if (normFieldPath.startsWith(normMask + '.')) return true;
-        if (normMask.startsWith(normFieldPath + '.')) return true;
-        // Also support generic array masks e.g. mask 'roles.roleTitle' matches 'roles.0.roleTitle'
-        // But do NOT treat 'roles.0.roleTitle' as a wildcard mask.
-        const isGenericMask = !/\.\d+\./.test(normMask) && !/\.\d+$/.test(normMask);
-        if (isGenericMask) {
-            const arrayWildcardPath = normFieldPath.replace(/\.\d+\./g, '.').replace(/\.\d+$/, '');
-            if (normMask === arrayWildcardPath) return true;
-            if (arrayWildcardPath.startsWith(normMask + '.')) return true;
-            if (normMask.startsWith(arrayWildcardPath + '.')) return true;
-        }
-        return false;
-    });
+export function isFieldPermittedByMask(fieldPath: string, displayMask?: string[], allowedPartyTypes?: any[]): boolean {
+    return isFieldPermittedByCatalogue(fieldPath, displayMask, allowedPartyTypes);
 }
+
 
 /**
  * Returns a human-readable one-line summary for compact display.
