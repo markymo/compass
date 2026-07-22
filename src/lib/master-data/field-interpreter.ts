@@ -1,4 +1,4 @@
-import { FieldDisplayModel, ResolvedFieldValue, FieldSource } from './field-display-model';
+import { FieldDisplayModel, ResolvedFieldValue, FieldSource, ResolvedAttachment } from './field-display-model';
 import { getSourceDisplayName } from '@/lib/source-display';
 import { isPartyValue, getPartySummary } from './party-value';
 import { isAddressValue, getAddressSummary } from './address-value';

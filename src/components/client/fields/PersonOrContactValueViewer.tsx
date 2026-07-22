@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { Paperclip } from "lucide-react";
 import {
     isPersonOrContactValue,
     getPersonOrContactSummary,
@@ -17,6 +18,7 @@ interface PersonOrContactValueViewerProps {
     layout?: "compact" | "detailed" | "row";
     displayMask?: string[];
     partyLabel?: string;
+    attachments?: import("@/lib/master-data/field-display-model").ResolvedAttachment[];
 }
 
 // ── Role type badge colour ────────────────────────────────────────────────────
