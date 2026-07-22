@@ -369,13 +369,13 @@ export async function resolveExportAnswer(
                         isMultiValue: def.isMultiValue
                     };
 
-                    const primarySource: RawFieldSource = {
+                    const primarySource: RawFieldSource | null = hv.source ? {
                         type: hv.source,
                         reference: hv.sourceReference,
                         timestamp: hv.updatedAt,
                         sourceCheckedAt: hv.sourceCheckedAt,
                         userName: null
-                    };
+                    } : null;
 
                     const { displayModel, displayValue: resolvedText } = await resolveCanonicalFieldDisplay({
                         derivedValue: hv.value,
