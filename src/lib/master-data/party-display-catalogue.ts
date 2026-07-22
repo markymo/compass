@@ -237,7 +237,7 @@ export function isFieldPermittedByCatalogue(
     const normalise = (p: string) => p.replace(/\[(\w+)\]/g, '.$1');
     const normFieldPath = normalise(fieldPath);
 
-    // Rule 1: Check legacy structural path matching (exact match, prefix match, array wildcard match)
+    // Rule 1: Check structural path matching
     let recognizedCount = 0;
 
     const matchesLegacy = displayMask.some(mask => {
@@ -248,16 +248,17 @@ export function isFieldPermittedByCatalogue(
 
         if (normMask === normFieldPath) return true;
         if (normFieldPath.startsWith(normMask + '.')) return true;
-        if (normMask.startsWith(fieldPath + '.')) return true;
         if (normMask.startsWith(normFieldPath + '.')) return true;
 
-        const isGenericMask = !/\.\d+\./.test(normMask) && !/\.\d+$/.test(normMask);
+        // Generic mask (e.g. roles.roleTitle) permits indexed paths (e.g. roles.0.roleTitle)
+        const isGenericMask = !/\.\d+(\.|$)/.test(normMask);
         if (isGenericMask) {
-            const arrayWildcardPath = normFieldPath.replace(/\.\d+\./g, '.').replace(/\.\d+$/, '');
-            if (normMask === arrayWildcardPath) return true;
-            if (arrayWildcardPath.startsWith(normMask + '.')) return true;
-            if (normMask.startsWith(arrayWildcardPath + '.')) return true;
+            const deindexedFieldPath = normFieldPath.replace(/\.\d+\./g, '.').replace(/\.\d+$/, '');
+            if (normMask === deindexedFieldPath) return true;
+            if (deindexedFieldPath.startsWith(normMask + '.')) return true;
+            if (normMask.startsWith(deindexedFieldPath + '.')) return true;
         }
+
         return false;
     });
 
@@ -269,32 +270,6 @@ export function isFieldPermittedByCatalogue(
     const { canonicalKeys, recognizedCount: recCount } = normalizeMaskKeysToCanonical(displayMask, allowedPartyTypes);
     if (recognizedCount === 0 && recCount === 0) {
         return false;
-    }
-
-    // Rule 3: Specific indexed mask (e.g. roles[0].roleTitle) does NOT permit generic path (roles.roleTitle)
-    const isGenericFieldPath = !/\.\d+(\.|$)/.test(normFieldPath) && /^roles\./.test(normFieldPath);
-    if (isGenericFieldPath) {
-        const hasIndexedMaskOnly = displayMask.every(mask => {
-            const normM = normalise(mask);
-            return /\.\d+(\.|$)/.test(normM);
-        });
-        if (hasIndexedMaskOnly) {
-            return false;
-        }
-    }
-
-    // If candidate fieldPath has a specific array index (e.g. roles[0]), do not permit a different index (e.g. roles[1]) if mask specifically targeted another index
-    const fieldIndexMatch = normFieldPath.match(/\.(\d+)(\.|$)/);
-    if (fieldIndexMatch) {
-        const fieldIdx = fieldIndexMatch[1];
-        const hasSpecificOtherIndexMask = displayMask.some(mask => {
-            const normM = normalise(mask);
-            const maskIdxMatch = normM.match(/\.(\d+)(\.|$)/);
-            return maskIdxMatch && maskIdxMatch[1] !== fieldIdx;
-        });
-        if (hasSpecificOtherIndexMask) {
-            return false;
-        }
     }
 
     let deindexedFieldPath = normFieldPath;
@@ -314,3 +289,4 @@ export function isFieldPermittedByCatalogue(
 
     return false;
 }
+
