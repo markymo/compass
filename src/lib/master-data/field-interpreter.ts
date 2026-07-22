@@ -1,4 +1,4 @@
-import { FieldDisplayModel, ResolvedFieldValue, FieldSource } from './field-display-model';
+import { FieldDisplayModel, ResolvedFieldValue, FieldSource, ResolvedAttachment } from './field-display-model';
 import { getSourceDisplayName } from '@/lib/source-display';
 import { isPartyValue, getPartySummary } from './party-value';
 import { isAddressValue, getAddressSummary } from './address-value';
@@ -35,6 +35,7 @@ export interface RawFieldSource {
 export interface CollectionItemEnvelope {
     value: any;
     source: RawFieldSource | null;
+    instanceId?: string;
 }
 
 export function resolveFieldCollectionForDisplay(
@@ -48,14 +49,45 @@ export function resolveFieldCollectionForDisplay(
     const state = resolveState(metadata.displayState, items);
     
     // We parse each envelope individually to preserve per-item provenance
-    const resolvedItems = items.map(envelope => {
+    const resolvedItems = items.map((envelope, idx) => {
         let innerVal = envelope.value;
         if (typeof innerVal === 'string' && (innerVal.startsWith('{') || innerVal.startsWith('['))) {
             try { innerVal = JSON.parse(innerVal); } catch (e) {}
         }
+        const val = parseAnyValue(innerVal, metadata.profileConfig?.displayMask, metadata.codeSystem, metadata.appDataType, metadata.fieldNo);
+
+        let itemAttachments: ResolvedAttachment[] | undefined;
+        let ccPartyId: string | undefined;
+        let partyNameStr: string | undefined;
+
+        if (val.kind === 'partyRef') {
+            ccPartyId = val.refId;
+            partyNameStr = val.partyLabel;
+        } else if (val.kind === 'party') {
+            ccPartyId = (val.data as any)?.id || (val.data as any)?.ccPartyId || (innerVal as any)?.ccPartyId || (innerVal as any)?.id || (innerVal as any)?.partyId;
+            const pd = val.data;
+            partyNameStr = val.partyLabel || getPartySummary(pd) || [pd?.forenames, pd?.surname].filter(Boolean).join(' ') || pd?.organisationName || pd?.displayName || undefined;
+        }
+
+        if (metadata.attachments && metadata.attachments.length > 0) {
+            const matched = metadata.attachments.filter(att =>
+                att.provenance?.some(p => {
+                    if (p.type !== 'PARTY') return false;
+                    if (ccPartyId && p.partyId === ccPartyId) return true;
+                    if (partyNameStr && p.partyName && p.partyName.trim().toLowerCase() === partyNameStr.trim().toLowerCase()) return true;
+                    return false;
+                })
+            );
+            if (matched.length > 0) {
+                itemAttachments = matched;
+            }
+        }
+
         return {
-            value: parseAnyValue(innerVal, metadata.profileConfig?.displayMask, metadata.codeSystem, metadata.appDataType, metadata.fieldNo),
-            source: envelope.source ? (resolveSource(envelope.source, 'POPULATED') ?? undefined) : undefined
+            stableKey: envelope.instanceId || `item-${idx}`,
+            value: val,
+            source: envelope.source ? (resolveSource(envelope.source, 'POPULATED') ?? undefined) : undefined,
+            attachments: itemAttachments
         };
     });
 

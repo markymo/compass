@@ -6,9 +6,10 @@ export interface PartyRendererProps {
     value: Extract<ResolvedFieldValue, { kind: 'party' | 'partyRef' }>;
     layout?: "compact" | "row" | "detailed";
     className?: string;
+    attachments?: import("@/lib/master-data/field-display-model").ResolvedAttachment[];
 }
 
-export function PartyRenderer({ value, layout = "compact", className }: PartyRendererProps) {
+export function PartyRenderer({ value, layout = "compact", className, attachments }: PartyRendererProps) {
     if (value.kind === 'party') {
         return (
             <div className={className}>
@@ -17,6 +18,7 @@ export function PartyRenderer({ value, layout = "compact", className }: PartyRen
                     layout={layout} 
                     displayMask={value.displayMask} 
                     partyLabel={value.partyLabel}
+                    attachments={attachments}
                 />
             </div>
         );
@@ -31,6 +33,7 @@ export function PartyRenderer({ value, layout = "compact", className }: PartyRen
                     layout={layout} 
                     displayMask={value.displayMask} 
                     partyLabel={value.partyLabel}
+                    attachments={attachments}
                 />
             </div>
         );

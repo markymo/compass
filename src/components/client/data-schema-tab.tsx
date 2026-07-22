@@ -834,7 +834,17 @@ function MasterFieldDisplay({ label, fieldNo, value, formattedDisplayValue, sour
                 {isRepeatingParty && isArrayValue ? (
                     <>
                         <div className="flex justify-between items-start w-full">
-                            <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">{value.length} Items</span>
+                            <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">{value.length} Items</span>
+                                {canonicalDisplayModel?.allowAttachments && (
+                                    <FieldAttachments 
+                                        clientLEId={canonicalDisplayModel.clientLEId || ''}
+                                        fieldNo={canonicalDisplayModel.fieldNo}
+                                        attachments={(canonicalDisplayModel.attachments || []).filter(a => a.provenance?.some(p => p.type === 'FIELD'))}
+                                        mode="indicator" 
+                                    />
+                                )}
+                            </div>
                             <div className="flex items-center gap-2">
                                 {(resolvedState === "HAS_VALUE" || resolvedState === "MAPPED_NOT_CHECKED" || resolvedState === "CHECKED_NO_DATA") && (canonicalDisplayModel?.source || source) && (
                                     <FieldSourceBadge source={canonicalDisplayModel?.source} showLastValidated={true} legacySourceType={source} legacySourceReference={sourceReference} legacyRaId={registrationAuthorityId} />
@@ -873,6 +883,7 @@ function MasterFieldDisplay({ label, fieldNo, value, formattedDisplayValue, sour
                                                             partyLabel={(item.value as any).partyLabel}
                                                             layout="row" 
                                                             displayMask={fieldDef?.profileConfig?.displayMask} 
+                                                            attachments={item.attachments}
                                                         />
                                                     ) : (
                                                         <span className="text-slate-400 italic">—</span>
@@ -937,7 +948,7 @@ function MasterFieldDisplay({ label, fieldNo, value, formattedDisplayValue, sour
                                             <FieldAttachments 
                                                 clientLEId={canonicalDisplayModel.clientLEId || ''}
                                                 fieldNo={canonicalDisplayModel.fieldNo}
-                                                attachments={canonicalDisplayModel.attachments || []}
+                                                attachments={(canonicalDisplayModel.attachments || []).filter(a => a.provenance?.some(p => p.type === 'FIELD'))}
                                                 mode="indicator" 
                                             />
                                         )}

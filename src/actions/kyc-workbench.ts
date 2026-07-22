@@ -139,7 +139,7 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
             for (const [fNo, hv] of Object.entries(hvMap)) {
                 const atts = resolvedAttachments.get(Number(fNo));
                 if (atts) {
-                    hv.attachmentCount = atts.length;
+                    hv.attachmentCount = atts.filter(a => a.provenance?.some(p => p.type === 'FIELD')).length;
                     hv.attachments = atts;
                 }
             }
