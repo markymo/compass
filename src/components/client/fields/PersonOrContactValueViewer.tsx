@@ -1,7 +1,8 @@
 "use client";
 
 import React from "react";
-import { Paperclip } from "lucide-react";
+import { Paperclip, FileText } from "lucide-react";
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import {
     isPersonOrContactValue,
     getPersonOrContactSummary,
@@ -102,6 +103,39 @@ function RoleRow({ role, displayMask, index = 0 }: { role: PersonOrContactRole, 
     );
 }
 
+function PartyAttachmentIndicator({ attachments, partyName }: { attachments: import("@/lib/master-data/field-display-model").ResolvedAttachment[]; partyName: string }) {
+    if (!attachments || attachments.length === 0) return null;
+
+    return (
+        <TooltipProvider delayDuration={150}>
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <div 
+                        className="inline-flex items-center gap-1 text-slate-500 hover:text-slate-700 text-xs font-medium shrink-0 cursor-default"
+                        aria-label={`${attachments.length} document${attachments.length === 1 ? '' : 's'} attached to ${partyName}`}
+                    >
+                        <Paperclip className="h-3.5 w-3.5 text-slate-400" />
+                        <span>{attachments.length}</span>
+                    </div>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-xs bg-slate-900 text-white border-slate-800 p-2 max-w-xs shadow-md">
+                    <div className="font-semibold mb-1 text-[11px] text-slate-300">
+                        {attachments.length === 1 ? 'Attached document:' : `${attachments.length} Attached documents:`}
+                    </div>
+                    <ul className="space-y-1">
+                        {attachments.map(att => (
+                            <li key={att.documentId} className="flex items-center gap-1.5 truncate">
+                                <FileText className="w-3 h-3 text-slate-400 shrink-0" />
+                                <span className="truncate">{att.displayName}</span>
+                            </li>
+                        ))}
+                    </ul>
+                </TooltipContent>
+            </Tooltip>
+        </TooltipProvider>
+    );
+}
+
 export function PersonOrContactValueViewer({ value, layout = "compact", displayMask, partyLabel, attachments }: PersonOrContactValueViewerProps) {
     if (!isPersonOrContactValue(value)) {
         if (value && typeof value === 'object' && 'ccPartyId' in value) {
@@ -118,14 +152,7 @@ export function PersonOrContactValueViewer({ value, layout = "compact", displayM
             <span className="inline-flex items-center gap-1.5 text-sm text-slate-900 font-medium">
                 {summary || <span className="text-slate-400 italic">—</span>}
                 {attachments && attachments.length > 0 && (
-                    <span 
-                        className="inline-flex items-center gap-1 text-slate-400 text-xs font-medium shrink-0"
-                        title={`${attachments.length} document${attachments.length === 1 ? '' : 's'} attached to ${summary || 'Party'}`}
-                        aria-label={`${attachments.length} document${attachments.length === 1 ? '' : 's'} attached to ${summary || 'Party'}`}
-                    >
-                        <Paperclip className="h-3.5 w-3.5 text-slate-400" />
-                        <span>{attachments.length}</span>
-                    </span>
+                    <PartyAttachmentIndicator attachments={attachments} partyName={summary || 'Party'} />
                 )}
             </span>
         );
@@ -144,14 +171,7 @@ export function PersonOrContactValueViewer({ value, layout = "compact", displayM
                         {proj.primaryText}
                     </span>
                     {attachments && attachments.length > 0 && (
-                        <div 
-                            className="inline-flex items-center gap-1 text-slate-400 text-xs font-medium shrink-0"
-                            title={`${attachments.length} document${attachments.length === 1 ? '' : 's'} attached to ${proj.primaryText || 'Party'}`}
-                            aria-label={`${attachments.length} document${attachments.length === 1 ? '' : 's'} attached to ${proj.primaryText || 'Party'}`}
-                        >
-                            <Paperclip className="h-3.5 w-3.5 text-slate-400" />
-                            <span>{attachments.length}</span>
-                        </div>
+                        <PartyAttachmentIndicator attachments={attachments} partyName={proj.primaryText || 'Party'} />
                     )}
                 </div>
                 {proj.secondaryParts.length > 0 && (

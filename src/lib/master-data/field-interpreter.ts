@@ -58,15 +58,25 @@ export function resolveFieldCollectionForDisplay(
 
         let itemAttachments: ResolvedAttachment[] | undefined;
         let ccPartyId: string | undefined;
+        let partyNameStr: string | undefined;
+
         if (val.kind === 'partyRef') {
             ccPartyId = val.refId;
+            partyNameStr = val.partyLabel;
         } else if (val.kind === 'party') {
-            ccPartyId = (val.data as any)?.id || (innerVal?.ccPartyId);
+            ccPartyId = (val.data as any)?.id || (val.data as any)?.ccPartyId || (innerVal as any)?.ccPartyId || (innerVal as any)?.id || (innerVal as any)?.partyId;
+            const pd = val.data;
+            partyNameStr = val.partyLabel || getPartySummary(pd) || [pd?.forenames, pd?.surname].filter(Boolean).join(' ') || pd?.organisationName || pd?.displayName || undefined;
         }
 
-        if (ccPartyId && metadata.attachments && metadata.attachments.length > 0) {
+        if (metadata.attachments && metadata.attachments.length > 0) {
             const matched = metadata.attachments.filter(att =>
-                att.provenance?.some(p => p.type === 'PARTY' && p.partyId === ccPartyId)
+                att.provenance?.some(p => {
+                    if (p.type !== 'PARTY') return false;
+                    if (ccPartyId && p.partyId === ccPartyId) return true;
+                    if (partyNameStr && p.partyName && p.partyName.trim().toLowerCase() === partyNameStr.trim().toLowerCase()) return true;
+                    return false;
+                })
             );
             if (matched.length > 0) {
                 itemAttachments = matched;

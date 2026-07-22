@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ResolvedAttachment } from '@/lib/master-data/field-display-model';
 import { cn } from '@/lib/utils';
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 import { Paperclip, Loader2, X, Download, FileText, RefreshCw, AlertCircle, Replace } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { upload } from '@vercel/blob/client';
@@ -296,10 +297,29 @@ export function FieldAttachments({ clientLEId, fieldNo, attachments, isEditable,
     if (mode === 'indicator') {
         if (!attachments?.length) return null;
         return (
-            <div className={cn("inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-slate-100 border border-slate-200 text-xs font-medium text-slate-600", className)} title={`${attachments.length} attachment${attachments.length === 1 ? '' : 's'}`}>
-                <Paperclip className="w-3.5 h-3.5 text-slate-400" />
-                <span>{attachments.length}</span>
-            </div>
+            <TooltipProvider delayDuration={150}>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <div className={cn("inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-slate-100 border border-slate-200 text-xs font-medium text-slate-600 cursor-default", className)}>
+                            <Paperclip className="w-3.5 h-3.5 text-slate-400" />
+                            <span>{attachments.length}</span>
+                        </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="text-xs bg-slate-900 text-white border-slate-800 p-2 max-w-xs shadow-md">
+                        <div className="font-semibold mb-1 text-[11px] text-slate-300">
+                            {attachments.length === 1 ? 'Field document:' : `${attachments.length} Field documents:`}
+                        </div>
+                        <ul className="space-y-1">
+                            {attachments.map(att => (
+                                <li key={att.documentId} className="flex items-center gap-1.5 truncate">
+                                    <FileText className="w-3 h-3 text-slate-400 shrink-0" />
+                                    <span className="truncate">{att.displayName}</span>
+                                </li>
+                            ))}
+                        </ul>
+                    </TooltipContent>
+                </Tooltip>
+            </TooltipProvider>
         );
     }
 
