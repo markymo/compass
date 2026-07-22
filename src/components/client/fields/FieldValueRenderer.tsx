@@ -22,7 +22,7 @@ export function FieldValueRenderer({ field, layout, itemLimit, className, client
                     return <span className={className}>{field.value.display}</span>;
                 }
                 if (field.value.kind === 'party' || field.value.kind === 'partyRef') {
-                    return <PartyRenderer value={field.value} layout={layout} className={className} />;
+                    return <PartyRenderer value={field.value} layout={layout} className={className} attachments={field.attachments} />;
                 }
                 if (field.value.kind === 'address' || field.value.kind === 'addressRef') {
                     return <AddressRenderer value={field.value} layout={layout} className={className} />;

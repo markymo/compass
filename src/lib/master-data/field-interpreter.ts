@@ -35,6 +35,7 @@ export interface RawFieldSource {
 export interface CollectionItemEnvelope {
     value: any;
     source: RawFieldSource | null;
+    instanceId?: string;
 }
 
 export function resolveFieldCollectionForDisplay(
@@ -48,14 +49,35 @@ export function resolveFieldCollectionForDisplay(
     const state = resolveState(metadata.displayState, items);
     
     // We parse each envelope individually to preserve per-item provenance
-    const resolvedItems = items.map(envelope => {
+    const resolvedItems = items.map((envelope, idx) => {
         let innerVal = envelope.value;
         if (typeof innerVal === 'string' && (innerVal.startsWith('{') || innerVal.startsWith('['))) {
             try { innerVal = JSON.parse(innerVal); } catch (e) {}
         }
+        const val = parseAnyValue(innerVal, metadata.profileConfig?.displayMask, metadata.codeSystem, metadata.appDataType, metadata.fieldNo);
+
+        let itemAttachments: ResolvedAttachment[] | undefined;
+        let ccPartyId: string | undefined;
+        if (val.kind === 'partyRef') {
+            ccPartyId = val.refId;
+        } else if (val.kind === 'party') {
+            ccPartyId = (val.data as any)?.id || (innerVal?.ccPartyId);
+        }
+
+        if (ccPartyId && metadata.attachments && metadata.attachments.length > 0) {
+            const matched = metadata.attachments.filter(att =>
+                att.provenance?.some(p => p.type === 'PARTY' && p.partyId === ccPartyId)
+            );
+            if (matched.length > 0) {
+                itemAttachments = matched;
+            }
+        }
+
         return {
-            value: parseAnyValue(innerVal, metadata.profileConfig?.displayMask, metadata.codeSystem, metadata.appDataType, metadata.fieldNo),
-            source: envelope.source ? (resolveSource(envelope.source, 'POPULATED') ?? undefined) : undefined
+            stableKey: envelope.instanceId || `item-${idx}`,
+            value: val,
+            source: envelope.source ? (resolveSource(envelope.source, 'POPULATED') ?? undefined) : undefined,
+            attachments: itemAttachments
         };
     });
 

@@ -7,7 +7,7 @@ import { FieldValueRenderer } from "./FieldValueRenderer";
 export const COLLECTION_PREVIEW_LIMIT = 18;
 
 export interface CollectionRendererProps {
-    items: Array<{ value: ResolvedFieldValue; source?: FieldSource }>;
+    items: Array<{ value: ResolvedFieldValue; source?: FieldSource; attachments?: import("@/lib/master-data/field-display-model").ResolvedAttachment[] }>;
     fieldSource: FieldSource | null;
     collectionLayout?: "inline" | "block";
     itemLimit?: number;
@@ -29,7 +29,7 @@ export function CollectionRenderer({
     const hiddenCount = items.length - itemLimit;
 
     // Helper to render an individual item using the FieldValueRenderer
-    const renderItem = (item: { value: ResolvedFieldValue; source?: FieldSource }, idx: number, layoutHint: "row" | "compact") => {
+    const renderItem = (item: { value: ResolvedFieldValue; source?: FieldSource; attachments?: import("@/lib/master-data/field-display-model").ResolvedAttachment[] }, idx: number, layoutHint: "row" | "compact") => {
         const syntheticField: FieldDisplayModel = {
             state: 'POPULATED',
             value: item.value,
@@ -40,7 +40,7 @@ export function CollectionRenderer({
             isEditable: false,
             isMultiValue: false,
             allowAttachments: false,
-            attachments: []
+            attachments: item.attachments || []
         };
 
         return (

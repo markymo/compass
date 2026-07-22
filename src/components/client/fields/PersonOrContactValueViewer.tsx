@@ -100,7 +100,7 @@ function RoleRow({ role, displayMask, index = 0 }: { role: PersonOrContactRole, 
     );
 }
 
-export function PersonOrContactValueViewer({ value, layout = "compact", displayMask, partyLabel }: PersonOrContactValueViewerProps) {
+export function PersonOrContactValueViewer({ value, layout = "compact", displayMask, partyLabel, attachments }: PersonOrContactValueViewerProps) {
     if (!isPersonOrContactValue(value)) {
         if (value && typeof value === 'object' && 'ccPartyId' in value) {
             return <span className="text-slate-400 italic">Unresolved Party</span>;
@@ -113,8 +113,18 @@ export function PersonOrContactValueViewer({ value, layout = "compact", displayM
     if (layout === "compact") {
         const summary = partyLabel || getPersonOrContactSummary(poc);
         return (
-            <span className="text-sm text-slate-900 font-medium">
+            <span className="inline-flex items-center gap-1.5 text-sm text-slate-900 font-medium">
                 {summary || <span className="text-slate-400 italic">—</span>}
+                {attachments && attachments.length > 0 && (
+                    <span 
+                        className="inline-flex items-center gap-1 text-slate-400 text-xs font-medium shrink-0"
+                        title={`${attachments.length} document${attachments.length === 1 ? '' : 's'} attached to ${summary || 'Party'}`}
+                        aria-label={`${attachments.length} document${attachments.length === 1 ? '' : 's'} attached to ${summary || 'Party'}`}
+                    >
+                        <Paperclip className="h-3.5 w-3.5 text-slate-400" />
+                        <span>{attachments.length}</span>
+                    </span>
+                )}
             </span>
         );
     }
@@ -127,9 +137,21 @@ export function PersonOrContactValueViewer({ value, layout = "compact", displayM
     if (layout === "row") {
         return (
             <div className="flex flex-col min-w-0">
-                <span className="text-sm font-medium text-slate-900 truncate">
-                    {proj.primaryText}
-                </span>
+                <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="text-sm font-medium text-slate-900 truncate">
+                        {proj.primaryText}
+                    </span>
+                    {attachments && attachments.length > 0 && (
+                        <div 
+                            className="inline-flex items-center gap-1 text-slate-400 text-xs font-medium shrink-0"
+                            title={`${attachments.length} document${attachments.length === 1 ? '' : 's'} attached to ${proj.primaryText || 'Party'}`}
+                            aria-label={`${attachments.length} document${attachments.length === 1 ? '' : 's'} attached to ${proj.primaryText || 'Party'}`}
+                        >
+                            <Paperclip className="h-3.5 w-3.5 text-slate-400" />
+                            <span>{attachments.length}</span>
+                        </div>
+                    )}
+                </div>
                 {proj.secondaryParts.length > 0 && (
                     <span className="text-xs text-slate-500 truncate mt-0.5">
                         {proj.secondaryParts.join(' · ')}

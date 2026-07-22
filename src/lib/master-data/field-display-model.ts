@@ -44,6 +44,13 @@ export interface ResolvedAttachment {
     provenance: AttachmentProvenance[];
 }
 
+export interface FieldDisplayItem {
+    stableKey?: string;
+    value: ResolvedFieldValue;
+    source?: FieldSource;
+    attachments?: ResolvedAttachment[];
+}
+
 // Discriminated Union for exhaustive type checking on the UI side
 export type ResolvedFieldValue =
     | { kind: 'empty' }
@@ -53,7 +60,7 @@ export type ResolvedFieldValue =
     | { kind: 'partyRef'; refId: string; summary: string; partyLabel: string; resolved?: import('./party-value').PartyValue; displayMask?: string[] }
     | { kind: 'addressRef'; refId: string; summary: string; resolved?: import('./address-value').AddressValue }
     | { kind: 'codeList'; items: Array<{ code: string; label: string; source?: FieldSource }>; codeSystem?: string }
-    | { kind: 'collection'; items: Array<{ value: ResolvedFieldValue; source?: FieldSource }> };
+    | { kind: 'collection'; items: FieldDisplayItem[] };
 
 // Canonical Source
 export interface FieldSource {
