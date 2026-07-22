@@ -296,18 +296,24 @@ export function FieldAttachments({ clientLEId, fieldNo, attachments, isEditable,
 
     if (mode === 'indicator') {
         if (!attachments?.length) return null;
+        const count = attachments.length;
+        const label = `${count} attachment${count === 1 ? '' : 's'}`;
         return (
             <TooltipProvider delayDuration={150}>
                 <Tooltip>
                     <TooltipTrigger asChild>
-                        <div className={cn("inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-slate-100 border border-slate-200 text-xs font-medium text-slate-600 cursor-default", className)}>
+                        <div
+                            className={cn("inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-slate-100 border border-slate-200 text-xs font-medium text-slate-600 cursor-default", className)}
+                            aria-label={label}
+                            title={label}
+                        >
                             <Paperclip className="w-3.5 h-3.5 text-slate-400" />
-                            <span>{attachments.length}</span>
+                            <span>{count}</span>
                         </div>
                     </TooltipTrigger>
                     <TooltipContent side="top" className="text-xs bg-slate-900 text-white border-slate-800 p-2 max-w-xs shadow-md">
                         <div className="font-semibold mb-1 text-[11px] text-slate-300">
-                            {attachments.length === 1 ? 'Field document:' : `${attachments.length} Field documents:`}
+                            {count === 1 ? 'Field document:' : `${count} Field documents:`}
                         </div>
                         <ul className="space-y-1">
                             {attachments.map(att => (

@@ -124,9 +124,21 @@ describe('FieldAttachments UI', () => {
 
     it('indicator mode shows correct valid count and hides if zero', () => {
         const { rerender, container } = render(<FieldAttachments clientLEId="le-1" fieldNo={1} attachments={[mockAttachment, mockAttachment]} isEditable={true} mode="indicator" />);
+        const indicator = screen.getByLabelText('2 attachments');
+        expect(indicator).toBeInTheDocument();
         expect(screen.getByTitle('2 attachments')).toBeInTheDocument();
         expect(screen.getByText('2')).toBeInTheDocument();
 
+        // Non-interactive checks
+        expect(indicator.tagName).not.toBe('BUTTON');
+        expect(indicator.tagName).not.toBe('A');
+        expect(indicator).not.toHaveAttribute('tabindex');
+
+        // Singular check
+        rerender(<FieldAttachments clientLEId="le-1" fieldNo={1} attachments={[mockAttachment]} isEditable={true} mode="indicator" />);
+        expect(screen.getByLabelText('1 attachment')).toBeInTheDocument();
+
+        // Zero check
         rerender(<FieldAttachments clientLEId="le-1" fieldNo={1} attachments={[]} isEditable={true} mode="indicator" />);
         expect(container.firstChild).toBeNull();
     });
