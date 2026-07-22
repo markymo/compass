@@ -554,7 +554,329 @@ describe('Export Answer Resolver', () => {
              );
         });
     });
-});
 
-}
-);
+    describe('Composite Group Resolution and Canonical Pipeline (Regression Coverage)', () => {
+        it('1. repeating PARTY field inside composite group renders party name/details instead of [Structured value]', async () => {
+            const question = { id: 'q-group-1', status: 'DRAFT', masterQuestionGroupId: 'group-directors' };
+            const { getMasterFieldGroup, getMasterFieldDefinition } = await import('@/services/masterData/definitionService');
+            const { resolveMasterDataBatch } = await import('@/actions/kyc-query');
+
+            vi.mocked(getMasterFieldGroup).mockResolvedValue({
+                key: 'group-directors',
+                displayStyle: 'LIST',
+                items: [{ fieldNo: 60, order: 1 }]
+            } as any);
+
+            vi.mocked(getMasterFieldDefinition).mockResolvedValue({
+                fieldNo: 60,
+                fieldName: 'Directors',
+                appDataType: 'PARTY',
+                isMultiValue: true,
+                profileConfig: { displayMask: ['forenames', 'surname', 'roles'] }
+            } as any);
+
+            vi.mocked(resolveMasterDataBatch).mockResolvedValue({
+                [question.id]: {
+                    60: {
+                        value: [
+                            {
+                                value: {
+                                    partyType: 'INDIVIDUAL',
+                                    forenames: 'Jane',
+                                    surname: 'Doe',
+                                    roles: [{ roleTitle: 'Director' }]
+                                },
+                                source: { type: 'COMPANIES_HOUSE', reference: 'CH' }
+                            }
+                        ],
+                        source: 'COMPANIES_HOUSE',
+                        sourceReference: 'CH',
+                        updatedAt: new Date('2026-07-01')
+                    }
+                }
+            } as any);
+
+            vi.mocked(prisma.fieldClaim.findMany).mockResolvedValue([]);
+            vi.mocked((prisma as any).sourceFieldMapping.findMany).mockResolvedValue([]);
+
+            const res = await resolveExportAnswer(question, "le-1", "scope-1", "entity-1");
+
+            expect(res.groupFields).toBeDefined();
+            expect(res.groupFields?.length).toBe(1);
+            expect(res.groupFields?.[0].displayValue).not.toContain('[Structured value]');
+            expect(res.groupFields?.[0].displayValue).toContain('Jane Doe');
+            expect(res.groupFields?.[0].displayValue).toContain('Director');
+        });
+
+        it('2. collection envelope with stringified JSON in envelope.value is parsed correctly', async () => {
+            const question = { id: 'q-group-json', status: 'DRAFT', masterQuestionGroupId: 'group-json' };
+            const { getMasterFieldGroup, getMasterFieldDefinition } = await import('@/services/masterData/definitionService');
+            const { resolveMasterDataBatch } = await import('@/actions/kyc-query');
+
+            vi.mocked(getMasterFieldGroup).mockResolvedValue({
+                key: 'group-json',
+                displayStyle: 'LIST',
+                items: [{ fieldNo: 60, order: 1 }]
+            } as any);
+
+            vi.mocked(getMasterFieldDefinition).mockResolvedValue({
+                fieldNo: 60,
+                fieldName: 'Directors',
+                appDataType: 'PARTY',
+                isMultiValue: true
+            } as any);
+
+            vi.mocked(resolveMasterDataBatch).mockResolvedValue({
+                [question.id]: {
+                    60: {
+                        value: [
+                            {
+                                value: JSON.stringify({
+                                    partyType: 'INDIVIDUAL',
+                                    forenames: 'Alice',
+                                    surname: 'Smith',
+                                    roles: [{ roleTitle: 'Director' }]
+                                }),
+                                source: { type: 'COMPANIES_HOUSE' }
+                            }
+                        ],
+                        source: 'COMPANIES_HOUSE',
+                        updatedAt: new Date('2026-07-01')
+                    }
+                }
+            } as any);
+
+            vi.mocked(prisma.fieldClaim.findMany).mockResolvedValue([]);
+            vi.mocked((prisma as any).sourceFieldMapping.findMany).mockResolvedValue([]);
+
+            const res = await resolveExportAnswer(question, "le-1", "scope-1", "entity-1");
+
+            expect(res.groupFields?.[0].displayValue).not.toContain('[Structured value]');
+            expect(res.groupFields?.[0].displayValue).toContain('Alice Smith');
+        });
+
+        it('3. multiple parties in composite group render as multiple collection items', async () => {
+            const question = { id: 'q-group-multi', status: 'DRAFT', masterQuestionGroupId: 'group-multi-directors' };
+            const { getMasterFieldGroup, getMasterFieldDefinition } = await import('@/services/masterData/definitionService');
+            const { resolveMasterDataBatch } = await import('@/actions/kyc-query');
+
+            vi.mocked(getMasterFieldGroup).mockResolvedValue({
+                key: 'group-multi-directors',
+                displayStyle: 'LIST',
+                items: [{ fieldNo: 60, order: 1 }]
+            } as any);
+
+            vi.mocked(getMasterFieldDefinition).mockResolvedValue({
+                fieldNo: 60,
+                fieldName: 'Board Members',
+                appDataType: 'PARTY',
+                isMultiValue: true
+            } as any);
+
+            vi.mocked(resolveMasterDataBatch).mockResolvedValue({
+                [question.id]: {
+                    60: {
+                        value: [
+                            {
+                                value: { partyType: 'INDIVIDUAL', forenames: 'Jane', surname: 'Doe' },
+                                source: { type: 'COMPANIES_HOUSE' }
+                            },
+                            {
+                                value: { partyType: 'INDIVIDUAL', forenames: 'John', surname: 'Smith' },
+                                source: { type: 'COMPANIES_HOUSE' }
+                            }
+                        ],
+                        source: 'COMPANIES_HOUSE',
+                        updatedAt: new Date('2026-07-01')
+                    }
+                }
+            } as any);
+
+            vi.mocked(prisma.fieldClaim.findMany).mockResolvedValue([]);
+            vi.mocked((prisma as any).sourceFieldMapping.findMany).mockResolvedValue([]);
+
+            const res = await resolveExportAnswer(question, "le-1", "scope-1", "entity-1");
+
+            expect(res.groupFields?.[0].displayValue).toContain('Jane Doe');
+            expect(res.groupFields?.[0].displayValue).toContain('John Smith');
+            expect(res.groupFields?.[0].displayValue).toContain('•');
+        });
+
+        it('4. item-level source/provenance remains available in the resulting display model', async () => {
+            const { resolveCanonicalFieldDisplay } = await import('../export-answer-resolver');
+
+            const derivedValue = [
+                {
+                    value: { partyType: 'INDIVIDUAL', forenames: 'Jane', surname: 'Doe' },
+                    source: { type: 'COMPANIES_HOUSE', reference: 'COMPANIES_HOUSE' }
+                },
+                {
+                    value: { partyType: 'INDIVIDUAL', forenames: 'John', surname: 'Smith' },
+                    source: { type: 'GLEIF', reference: 'GLEIF' }
+                }
+            ];
+
+            const { displayModel } = await resolveCanonicalFieldDisplay({
+                derivedValue,
+                primarySource: null,
+                meta: { fieldNo: 60, label: 'Directors', appDataType: 'PARTY', isMultiValue: true }
+            });
+
+            expect(displayModel.value.kind).toBe('collection');
+            if (displayModel.value.kind === 'collection') {
+                expect(displayModel.value.items.length).toBe(2);
+                expect(displayModel.value.items[0].source?.label).toBe('Companies House');
+                expect(displayModel.value.items[1].source?.label).toBe('GLEIF');
+            }
+        });
+
+        it('5. standalone repeating PARTY field continues to render correctly', async () => {
+            const question = { status: 'DRAFT', masterFieldNo: 60 };
+
+            vi.mocked(getFieldDetail).mockResolvedValue({
+                isRepeating: true,
+                dataType: 'PARTY',
+                displayState: 'HAS_VALUE'
+            } as any);
+
+            vi.mocked(KycStateService.getAuthoritativeCollection).mockResolvedValue([
+                {
+                    value: { partyType: 'INDIVIDUAL', forenames: 'Robert', surname: 'Brown' },
+                    sourceType: 'COMPANIES_HOUSE',
+                    sourceReference: null,
+                    assertedAt: new Date('2026-07-01')
+                }
+            ] as any);
+
+            const res = await resolveExportAnswer(question, "le-standalone", "scope-s", "entity-standalone");
+
+            expect(res.displayValue).not.toContain('[Structured value]');
+            expect(res.displayValue).toContain('Robert Brown');
+            expect(res.answerState).toBe('HAS_VALUE');
+        });
+
+        it('6. non-PARTY repeating structured datatype inside composite group uses collection path correctly', async () => {
+            const question = { id: 'q-group-sic', status: 'DRAFT', masterQuestionGroupId: 'group-sic' };
+            const { getMasterFieldGroup, getMasterFieldDefinition } = await import('@/services/masterData/definitionService');
+            const { resolveMasterDataBatch } = await import('@/actions/kyc-query');
+
+            vi.mocked(getMasterFieldGroup).mockResolvedValue({
+                key: 'group-sic',
+                displayStyle: 'LIST',
+                items: [{ fieldNo: 20, order: 1 }]
+            } as any);
+
+            vi.mocked(getMasterFieldDefinition).mockResolvedValue({
+                fieldNo: 20,
+                fieldName: 'Nature of Business',
+                appDataType: 'JSONB',
+                isMultiValue: true,
+                codeSystem: 'SIC_2007_UK'
+            } as any);
+
+            vi.mocked(resolveMasterDataBatch).mockResolvedValue({
+                [question.id]: {
+                    20: {
+                        value: [
+                            {
+                                value: { code: '35110', label: 'Production of electricity' },
+                                source: { type: 'COMPANIES_HOUSE' }
+                            },
+                            {
+                                value: { code: '41100', label: 'Development of building projects' },
+                                source: { type: 'COMPANIES_HOUSE' }
+                            }
+                        ],
+                        source: 'COMPANIES_HOUSE',
+                        updatedAt: new Date('2026-07-01')
+                    }
+                }
+            } as any);
+
+            vi.mocked(prisma.fieldClaim.findMany).mockResolvedValue([]);
+            vi.mocked((prisma as any).sourceFieldMapping.findMany).mockResolvedValue([]);
+
+            const res = await resolveExportAnswer(question, "le-1", "scope-1", "entity-1");
+
+            expect(res.groupFields?.[0].displayValue).not.toContain('[Structured value]');
+            expect(res.groupFields?.[0].displayValue).toContain('35110 — Production of electricity');
+            expect(res.groupFields?.[0].displayValue).toContain('41100 — Development of building projects');
+        });
+
+        it('7. scalar fields inside the same composite group remain unchanged', async () => {
+            const question = { id: 'q-group-mixed', status: 'DRAFT', masterQuestionGroupId: 'group-mixed' };
+            const { getMasterFieldGroup, getMasterFieldDefinition } = await import('@/services/masterData/definitionService');
+            const { resolveMasterDataBatch } = await import('@/actions/kyc-query');
+
+            vi.mocked(getMasterFieldGroup).mockResolvedValue({
+                key: 'group-mixed',
+                displayStyle: 'LIST',
+                items: [
+                    { fieldNo: 1, order: 1 },
+                    { fieldNo: 60, order: 2 }
+                ]
+            } as any);
+
+            vi.mocked(getMasterFieldDefinition).mockImplementation(async (fieldNo: number) => {
+                if (fieldNo === 1) {
+                    return { fieldNo: 1, fieldName: 'Company Name', appDataType: 'TEXT', isMultiValue: false } as any;
+                }
+                return { fieldNo: 60, fieldName: 'Directors', appDataType: 'PARTY', isMultiValue: true } as any;
+            });
+
+            vi.mocked(resolveMasterDataBatch).mockResolvedValue({
+                [question.id]: {
+                    1: { value: 'Acme Ltd', source: 'USER_INPUT', updatedAt: new Date('2026-07-01') },
+                    60: {
+                        value: [
+                            {
+                                value: { partyType: 'INDIVIDUAL', forenames: 'Jane', surname: 'Doe' },
+                                source: { type: 'COMPANIES_HOUSE' }
+                            }
+                        ],
+                        source: 'COMPANIES_HOUSE',
+                        updatedAt: new Date('2026-07-01')
+                    }
+                }
+            } as any);
+
+            vi.mocked(prisma.fieldClaim.findMany).mockResolvedValue([]);
+            vi.mocked((prisma as any).sourceFieldMapping.findMany).mockResolvedValue([]);
+
+            const res = await resolveExportAnswer(question, "le-1", "scope-1", "entity-1");
+
+            expect(res.groupFields?.length).toBe(2);
+            expect(res.groupFields?.[0].label).toBe('Company Name');
+            expect(res.groupFields?.[0].displayValue).toBe('Acme Ltd');
+            expect(res.groupFields?.[1].label).toBe('Directors');
+            expect(res.groupFields?.[1].displayValue).toContain('Jane Doe');
+        });
+
+        it('8. malformed JSON fails gracefully without throwing', async () => {
+            const { resolveCanonicalFieldDisplay } = await import('../export-answer-resolver');
+
+            const res1 = await resolveCanonicalFieldDisplay({
+                derivedValue: '{malformed-json-str',
+                primarySource: null,
+                meta: { fieldNo: 1, label: 'Test', appDataType: 'TEXT', isMultiValue: false }
+            });
+
+            expect(res1.displayValue).toBe('{malformed-json-str');
+
+            const res2 = await resolveCanonicalFieldDisplay({
+                derivedValue: [
+                    {
+                        value: '{malformed-json-item',
+                        source: { type: 'COMPANIES_HOUSE' }
+                    }
+                ],
+                primarySource: null,
+                meta: { fieldNo: 60, label: 'Directors', appDataType: 'PARTY', isMultiValue: true }
+            });
+
+            expect(res2.displayValue).toBeDefined();
+            expect(res2.displayValue).not.toContain('[Structured value]');
+        });
+    });
+});
+});
