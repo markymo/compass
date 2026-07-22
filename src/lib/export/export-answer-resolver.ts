@@ -30,10 +30,76 @@ export interface ExportAnswerResult {
 }
 
 import { toExportText } from "@/lib/export/toExportText";
-import { resolveFieldForDisplay } from "@/lib/master-data/field-interpreter";
+import { resolveFieldForDisplay, resolveFieldCollectionForDisplay, RawFieldSource, FieldInterpreterMetadata } from "@/lib/master-data/field-interpreter";
+import { FieldDisplayModel } from "@/lib/master-data/field-display-model";
 import { getMasterFieldGroup, getMasterFieldDefinition } from "@/services/masterData/definitionService";
 import { resolveMasterDataBatch } from "@/actions/kyc-query";
 import { resolveAmalgamatedAttachments } from "@/lib/kyc/attachments";
+
+export function parseStructuredJsonValues(derivedValue: any): any {
+    if (Array.isArray(derivedValue)) {
+        return derivedValue.map(v => {
+            if (v && typeof v === 'object' && 'value' in v && 'source' in v) {
+                // Collection envelope shape: { value, source, ... }
+                const rawVal = v.value;
+                if (typeof rawVal === 'string' && (rawVal.startsWith('{') || rawVal.startsWith('['))) {
+                    try {
+                        return { ...v, value: JSON.parse(rawVal) };
+                    } catch (e) {
+                        return v;
+                    }
+                }
+                return v;
+            } else if (typeof v === 'string' && (v.startsWith('{') || v.startsWith('['))) {
+                try {
+                    return JSON.parse(v);
+                } catch (e) {
+                    return v;
+                }
+            }
+            return v;
+        });
+    } else if (typeof derivedValue === 'string' && (derivedValue.startsWith('{') || derivedValue.startsWith('['))) {
+        try {
+            return JSON.parse(derivedValue);
+        } catch (e) {
+            return derivedValue;
+        }
+    }
+    return derivedValue;
+}
+
+export interface CanonicalFieldDisplayInput {
+    derivedValue: any;
+    primarySource: RawFieldSource | null;
+    meta: FieldInterpreterMetadata;
+}
+
+export async function resolveCanonicalFieldDisplay(input: CanonicalFieldDisplayInput): Promise<{
+    displayModel: FieldDisplayModel;
+    displayValue: string;
+    parsedDerivedValue: any;
+}> {
+    const { derivedValue, primarySource, meta } = input;
+    const parsedDerivedValue = parseStructuredJsonValues(derivedValue);
+
+    const valuesToEnrich = Array.isArray(parsedDerivedValue) ? parsedDerivedValue : [parsedDerivedValue];
+    await enrichPartyReferences(valuesToEnrich);
+    await enrichAddressReferences(valuesToEnrich);
+
+    const isRepeating = Boolean(meta.isMultiValue);
+    const isCollection = isRepeating || Array.isArray(parsedDerivedValue);
+
+    let displayModel: FieldDisplayModel;
+    if (isCollection && Array.isArray(parsedDerivedValue)) {
+        displayModel = resolveFieldCollectionForDisplay(parsedDerivedValue, meta);
+    } else {
+        displayModel = resolveFieldForDisplay(parsedDerivedValue, primarySource, meta);
+    }
+
+    const displayValue = toExportText(displayModel);
+    return { displayModel, displayValue, parsedDerivedValue };
+}
 
 export async function resolveExportAnswer(
     question: any, 
@@ -102,33 +168,6 @@ export async function resolveExportAnswer(
         }
 
         if (primaryDerived && derivedValueToDisplay !== null && derivedValueToDisplay !== undefined && derivedValueToDisplay !== "" && (!Array.isArray(derivedValueToDisplay) || derivedValueToDisplay.length > 0)) {
-            // Parse structured JSON string(s) into objects BEFORE enrichment
-            let parsedDerivedValue = derivedValueToDisplay;
-            if (Array.isArray(parsedDerivedValue)) {
-                parsedDerivedValue = parsedDerivedValue.map(v => {
-                    const rawVal = v && typeof v === 'object' && 'value' in v && 'source' in v ? v.value : v;
-                    if (typeof rawVal === 'string') {
-                        try { 
-                            const parsed = JSON.parse(rawVal); 
-                            if (v && typeof v === 'object' && 'value' in v && 'source' in v) {
-                                return { ...v, value: parsed };
-                            }
-                            return parsed;
-                        } catch (e) { return v; }
-                    }
-                    return v;
-                });
-            } else if (typeof parsedDerivedValue === 'string') {
-                try {
-                    parsedDerivedValue = JSON.parse(parsedDerivedValue);
-                } catch (e) {}
-            }
-            derivedValueToDisplay = parsedDerivedValue;
-
-            const valuesToEnrich = Array.isArray(derivedValueToDisplay) ? derivedValueToDisplay : [derivedValueToDisplay];
-            await enrichPartyReferences(valuesToEnrich);
-            await enrichAddressReferences(valuesToEnrich);
-
             const meta = {
                 fieldNo: question.masterFieldNo,
                 label: "Export Field", // Not used by toExportText, but required by metadata
@@ -138,25 +177,20 @@ export async function resolveExportAnswer(
                 isMultiValue: fieldDetail.isRepeating
             };
 
-            let displayModel;
-            if (fieldDetail.isRepeating && Array.isArray(derivedValueToDisplay)) {
-                // We know it's an array of CollectionItemEnvelopes
-                const { resolveFieldCollectionForDisplay } = await import('@/lib/master-data/field-interpreter');
-                displayModel = resolveFieldCollectionForDisplay(derivedValueToDisplay, meta);
-            } else {
-                displayModel = resolveFieldForDisplay(
-                    derivedValueToDisplay,
-                    {
-                        type: primaryDerived.sourceType as any,
-                        reference: primaryDerived.sourceReference,
-                        timestamp: primaryDerived.assertedAt,
-                        sourceCheckedAt: primaryDerived.sourceCheckedAt || primaryDerived.assertedAt,
-                        userName: null
-                    },
-                    meta
-                );
-            }
-            const displayValue = toExportText(displayModel);
+            const primarySource: RawFieldSource = {
+                type: primaryDerived.sourceType as any,
+                reference: primaryDerived.sourceReference,
+                timestamp: primaryDerived.assertedAt,
+                sourceCheckedAt: primaryDerived.sourceCheckedAt || primaryDerived.assertedAt,
+                userName: null
+            };
+
+            const { displayModel, displayValue, parsedDerivedValue } = await resolveCanonicalFieldDisplay({
+                derivedValue: derivedValueToDisplay,
+                primarySource,
+                meta
+            });
+            derivedValueToDisplay = parsedDerivedValue;
             
             // Resolve provenance from canonical model
             let sourceLabel = displayModel.source?.label || primaryDerived.sourceType;
@@ -325,29 +359,32 @@ export async function resolveExportAnswer(
                     if (attachments.length > 0) {
                         attachmentFilenames = attachments.map((a: any) => a.displayName);
                     }
-                    let parsedDerivedValue = hv.value;
-                    if (Array.isArray(parsedDerivedValue)) {
-                        parsedDerivedValue = parsedDerivedValue.map(v => {
-                            if (typeof v === 'string') {
-                                try { return JSON.parse(v); } catch(e) { return v; }
-                            }
-                            return v;
-                        });
-                    } else if (typeof parsedDerivedValue === 'string') {
-                        try { parsedDerivedValue = JSON.parse(parsedDerivedValue); } catch(e) {}
-                    }
-                    
-                    const valuesToEnrich = Array.isArray(parsedDerivedValue) ? parsedDerivedValue : [parsedDerivedValue];
-                    await enrichPartyReferences(valuesToEnrich);
-                    await enrichAddressReferences(valuesToEnrich);
 
-                    const displayModel = resolveFieldForDisplay(
-                        parsedDerivedValue,
-                        { type: hv.source, reference: hv.sourceReference, timestamp: hv.updatedAt, sourceCheckedAt: hv.sourceCheckedAt, userName: null } as any,
-                        { fieldNo: def.fieldNo, label: def.fieldName, displayState: "HAS_VALUE", appDataType: def.appDataType, profileConfig: def.profileConfig }
-                    );
-                    displayValue = toExportText(displayModel);
-                    sourceLabel = hv.source ? getSourceDisplayName(hv.source, hv.sourceReference || undefined) : undefined;
+                    const meta = {
+                        fieldNo: def.fieldNo,
+                        label: def.fieldName,
+                        displayState: "HAS_VALUE" as const,
+                        appDataType: def.appDataType,
+                        profileConfig: def.profileConfig,
+                        isMultiValue: def.isMultiValue
+                    };
+
+                    const primarySource: RawFieldSource = {
+                        type: hv.source,
+                        reference: hv.sourceReference,
+                        timestamp: hv.updatedAt,
+                        sourceCheckedAt: hv.sourceCheckedAt,
+                        userName: null
+                    };
+
+                    const { displayModel, displayValue: resolvedText } = await resolveCanonicalFieldDisplay({
+                        derivedValue: hv.value,
+                        primarySource,
+                        meta
+                    });
+
+                    displayValue = resolvedText;
+                    sourceLabel = displayModel.source?.label || (hv.source ? getSourceDisplayName(hv.source, hv.sourceReference || undefined) : undefined);
                     const rawTimestamp = displayModel.source?.lastValidatedAt || displayModel.source?.timestamp || hv.updatedAt || null;
                     sourceTimestamp = rawTimestamp ? (rawTimestamp instanceof Date ? rawTimestamp.toISOString() : new Date(rawTimestamp).toISOString()) : null;
                 }
@@ -386,27 +423,15 @@ export async function resolveExportAnswer(
     } else {
         // Unmapped questionnaire answer
         if (question.answer) {
-            let parsedAnswer = question.answer;
-            if (typeof parsedAnswer === 'string') {
-                try {
-                    parsedAnswer = JSON.parse(parsedAnswer);
-                } catch (e) { }
-            }
-
-            const valuesToEnrich = [parsedAnswer];
-            await enrichPartyReferences(valuesToEnrich);
-            await enrichAddressReferences(valuesToEnrich);
-
-            const displayModel = resolveFieldForDisplay(
-                parsedAnswer,
-                null,
-                {
+            const { displayModel, displayValue, parsedDerivedValue: parsedAnswer } = await resolveCanonicalFieldDisplay({
+                derivedValue: question.answer,
+                primarySource: null,
+                meta: {
                     fieldNo: -1,
                     label: "Unmapped Question",
                     displayState: "HAS_VALUE"
                 }
-            );
-            const displayValue = toExportText(displayModel);
+            });
             if (displayValue.trim() === "") {
                 return {
                     displayValue: "No response recorded",
