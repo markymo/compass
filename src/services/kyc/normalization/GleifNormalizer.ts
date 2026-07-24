@@ -111,7 +111,12 @@ export async function mapGleifPayloadToFieldCandidates(payload: any, evidenceId:
                     ? { ...(mapping.transformConfig ?? {}), raNameLookup }
                     : mapping.transformConfig;
 
-                const transformed = applyTransform(rawValue, mapping.transformType, effectiveConfig);
+                let effectiveTransform = mapping.transformType;
+                if ((effectiveTransform === 'DIRECT' || !effectiveTransform) && mapping.payloadSubtype === 'LEVEL_2_RELATIONSHIPS' && rawValue && typeof rawValue === 'object' && !Array.isArray(rawValue)) {
+                    effectiveTransform = 'TO_PARTY_ORGANISATION';
+                }
+
+                const transformed = applyTransform(rawValue, effectiveTransform, effectiveConfig);
 
                 if (transformed.value == null) continue;
 

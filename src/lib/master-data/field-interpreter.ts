@@ -3,6 +3,7 @@ import { getSourceDisplayName } from '@/lib/source-display';
 import { isPartyValue, getPartySummary } from './party-value';
 import { isAddressValue, getAddressSummary } from './address-value';
 import { formatStructuredCollectionRow } from './structured-value-formatters';
+import { FIELD_DEFINITIONS } from '@/domain/kyc/FieldDefinitions';
 
 export interface FieldInterpreterMetadata {
     fieldNo: number;
@@ -222,6 +223,30 @@ function parseAnyValue(val: any, displayMask?: string[], codeSystem?: string, ap
         return { kind: 'scalar', display, rawValue: val.toISOString() };
     }
 
+    // Metadata-driven historical scalar fallback for Organisation-only PARTY fields
+    if (appDataType === 'PARTY' && typeof val === 'string' && val.trim() !== '') {
+        const fDef = fieldNo ? FIELD_DEFINITIONS[fieldNo] : undefined;
+        const allowed = fDef?.profileConfig?.allowedPartyTypes;
+        if (Array.isArray(allowed) && allowed.length === 1 && allowed[0] === 'ORGANISATION') {
+            val = {
+                schemaVersion: 2,
+                partyType: 'ORGANISATION',
+                legalName: val.trim(),
+                emails: [],
+                phones: [],
+                roles: [],
+                sourceIdentifiers: [],
+                registeredAddressRef: null,
+                incorporatedIn: null,
+                registrationNumber: null,
+                governingLaw: null,
+                legalForm: null,
+                knownAs: null,
+                isActiveParty: null
+            };
+        }
+    }
+
     if (Array.isArray(val)) {
         if (val.length === 0) return { kind: 'empty' };
         
@@ -294,7 +319,7 @@ function parseAnyValue(val: any, displayMask?: string[], codeSystem?: string, ap
         if (appDataType === 'PARTY') {
             if (typeof val === 'object' && val !== null) isPartyValue(val); // run for normalisation mutations
             isParty = true;
-        } else if (isPartyValue(val) || ('contactType' in val) || ('forenames' in val) || ('firstName' in val)) {
+        } else if (val && typeof val === 'object' && (isPartyValue(val) || ('contactType' in val) || ('forenames' in val) || ('firstName' in val))) {
             isParty = true;
         }
 

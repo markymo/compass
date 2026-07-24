@@ -27,6 +27,10 @@ export type CanonicalMaskKey =
     | 'organisation.partyType'
     | 'organisation.partySubType'
     | 'organisation.contactType'
+    | 'organisation.incorporatedIn'
+    | 'organisation.registrationNumber'
+    | 'organisation.legalForm'
+    | 'organisation.lei'
     | 'organisation.correspondenceAddress'
     | 'team.teamName'
     | 'team.partyType'
@@ -74,6 +78,10 @@ export const PARTY_DISPLAY_CATALOGUE: DisplayFieldDefinition[] = [
     { key: 'organisation.partyType', label: 'Party Type', category: 'IDENTITY', appliesToPartyTypes: ['ORGANISATION'], legacyKeys: ['partyType'] },
     { key: 'organisation.partySubType', label: 'Party Subtype', category: 'IDENTITY', appliesToPartyTypes: ['ORGANISATION'], legacyKeys: ['partySubType'] },
     { key: 'organisation.contactType', label: 'Contact Type', category: 'IDENTITY', appliesToPartyTypes: ['ORGANISATION'], legacyKeys: ['contactType'] },
+    { key: 'organisation.incorporatedIn', label: 'Incorporation Jurisdiction', category: 'ORGANISATION_DETAILS', appliesToPartyTypes: ['ORGANISATION'], legacyKeys: ['incorporatedIn', 'jurisdiction'] },
+    { key: 'organisation.registrationNumber', label: 'Registration Number', category: 'ORGANISATION_DETAILS', appliesToPartyTypes: ['ORGANISATION'], legacyKeys: ['registrationNumber', 'registeredAs'] },
+    { key: 'organisation.legalForm', label: 'Legal Form Code', category: 'ORGANISATION_DETAILS', appliesToPartyTypes: ['ORGANISATION'], legacyKeys: ['legalForm', 'legalFormId'] },
+    { key: 'organisation.lei', label: 'LEI Identifier', category: 'ORGANISATION_DETAILS', appliesToPartyTypes: ['ORGANISATION'], legacyKeys: ['lei'] },
 
     // --- TEAM IDENTITY ---
     { key: 'team.teamName', label: 'Team Name', category: 'IDENTITY', appliesToPartyTypes: ['TEAM'], legacyKeys: ['teamName', 'organisationName'] },

@@ -442,6 +442,45 @@ describe('TO_PARTY_VALUE transform guard for empty/anonymous values', () => {
     });
 });
 
+describe('TO_PARTY_ORGANISATION transform', () => {
+    it('normalises GleifL2Entity summary into canonical OrganisationPartyData', () => {
+        const rawGleifL2 = {
+            lei: '529900L73GEWN1O5NH84',
+            legalName: 'JAGUAR LAND ROVER AUTOMOTIVE PLC',
+            jurisdiction: 'GB',
+            legalFormId: 'B6ES',
+            registeredAs: '06477691',
+            entityStatus: 'ACTIVE',
+            registrationStatus: 'ISSUED'
+        };
+
+        const result = applyTransform(rawGleifL2, 'TO_PARTY_ORGANISATION');
+        expect(result.confidencePenalty).toBe(0);
+        expect(result.value).toEqual({
+            schemaVersion: 2,
+            partyType: 'ORGANISATION',
+            legalName: 'JAGUAR LAND ROVER AUTOMOTIVE PLC',
+            incorporatedIn: 'GB',
+            registrationNumber: '06477691',
+            legalForm: 'B6ES',
+            governingLaw: null,
+            knownAs: null,
+            emails: [],
+            phones: [],
+            roles: [],
+            sourceIdentifiers: [{ scheme: 'LEI', value: '529900L73GEWN1O5NH84' }],
+            registeredAddressRef: null,
+            isActiveParty: true
+        });
+    });
+
+    it('returns null with penalty 1 when legalName is missing', () => {
+        const result = applyTransform({ lei: '123' }, 'TO_PARTY_ORGANISATION');
+        expect(result.value).toBeNull();
+        expect(result.confidencePenalty).toBe(1);
+    });
+});
+
 describe('Phase 1B: Datatype Compatibility & Normalisation', () => {
     it('COMPAT-1: normalises legacy PERSON values to INDIVIDUAL / PERSON', () => {
         const legacyVal = {

@@ -450,6 +450,31 @@ export function getPartyDisplayProjection(value: any, displayMask?: string[], fa
         if (dates.length > 0) roleStr += ` (${dates.join(' · ')})`;
         if (roleStr) secondaryParts.push(roleStr);
     }
+
+    // Organisation secondary parts (only when displayMask is explicitly provided)
+    if (displayMask && displayMask.length > 0) {
+        const incorporatedIn = (poc as any).incorporatedIn || (poc as any).jurisdiction || (poc as any).countryOfResidence;
+        if ((showField('incorporatedIn') || showField('jurisdiction')) && incorporatedIn) {
+            secondaryParts.push(`Inc: ${incorporatedIn}`);
+        }
+
+        const regNo = (poc as any).registrationNumber || (poc as any).registeredAs;
+        if ((showField('registrationNumber') || showField('registeredAs')) && regNo) {
+            secondaryParts.push(`Reg: ${regNo}`);
+        }
+
+        // Derive LEI from sourceIdentifiers array
+        const sourceIds: Array<{ scheme: string; value: string }> = Array.isArray((poc as any).sourceIdentifiers) ? (poc as any).sourceIdentifiers : [];
+        const leiId = sourceIds.find((s: any) => s && (s.scheme === 'LEI' || s.scheme === 'GLEIF_LEI'))?.value || (poc as any).lei;
+        if ((showField('lei') || showField('sourceIdentifiers')) && leiId) {
+            secondaryParts.push(`LEI: ${leiId}`);
+        }
+
+        const legalForm = (poc as any).legalForm || (poc as any).legalFormId;
+        if ((showField('legalForm') || showField('legalFormId')) && legalForm) {
+            secondaryParts.push(`Form: ${legalForm}`);
+        }
+    }
     
     if (showField('dateOfBirth') && poc.dateOfBirth) {
         const dobStr = formatPartialDob(poc.dateOfBirth, displayMask);
