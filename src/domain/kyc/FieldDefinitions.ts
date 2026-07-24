@@ -496,12 +496,16 @@ export const FIELD_DEFINITIONS: Record<number, FieldDefinition> = {
         fieldName: 'Direct parent',
         model: 'RelationshipProfile',
         field: 'directParent',
-        appDataType: 'TEXT',
+        appDataType: 'PARTY',
         dataType: 'string',
         isMultiValue: false,
         isRepeating: false,
         dbTable: 'relationship_profiles',
         dbColumn: 'directParent',
+        profileConfig: {
+            allowedPartyTypes: ['ORGANISATION'],
+            displayMask: ['organisation.legalName', 'organisation.registrationNumber', 'organisation.incorporatedIn', 'organisation.lei']
+        }
     },
     38: {
         fieldNo: 38,
@@ -546,12 +550,16 @@ export const FIELD_DEFINITIONS: Record<number, FieldDefinition> = {
         fieldName: 'Ultimate parent',
         model: 'RelationshipProfile',
         field: 'ultimateParent',
-        appDataType: 'TEXT',
+        appDataType: 'PARTY',
         dataType: 'string',
         isMultiValue: false,
         isRepeating: false,
         dbTable: 'relationship_profiles',
         dbColumn: 'ultimateParent',
+        profileConfig: {
+            allowedPartyTypes: ['ORGANISATION'],
+            displayMask: ['organisation.legalName', 'organisation.registrationNumber', 'organisation.incorporatedIn', 'organisation.lei']
+        }
     },
     42: {
         fieldNo: 42,

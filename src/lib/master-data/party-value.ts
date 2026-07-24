@@ -260,29 +260,12 @@ export function isPartyValue(value: any): value is PartyValue {
 
 // ── Display helpers ────────────────────────────────────────────────────────────
 
-export function isFieldPermittedByMask(fieldPath: string, displayMask?: string[]): boolean {
-    if (!Array.isArray(displayMask) || displayMask.length === 0) return true;
+import { isFieldPermittedByCatalogue } from './party-display-catalogue';
 
-    const normalise = (p: string) => p.replace(/\[(\w+)\]/g, '.$1');
-    const normFieldPath = normalise(fieldPath);
-
-    return displayMask.some(mask => {
-        const normMask = normalise(mask);
-        if (normMask === normFieldPath) return true;
-        if (normFieldPath.startsWith(normMask + '.')) return true;
-        if (normMask.startsWith(normFieldPath + '.')) return true;
-        // Also support generic array masks e.g. mask 'roles.roleTitle' matches 'roles.0.roleTitle'
-        // But do NOT treat 'roles.0.roleTitle' as a wildcard mask.
-        const isGenericMask = !/\.\d+\./.test(normMask) && !/\.\d+$/.test(normMask);
-        if (isGenericMask) {
-            const arrayWildcardPath = normFieldPath.replace(/\.\d+\./g, '.').replace(/\.\d+$/, '');
-            if (normMask === arrayWildcardPath) return true;
-            if (arrayWildcardPath.startsWith(normMask + '.')) return true;
-            if (normMask.startsWith(arrayWildcardPath + '.')) return true;
-        }
-        return false;
-    });
+export function isFieldPermittedByMask(fieldPath: string, displayMask?: string[], allowedPartyTypes?: any[]): boolean {
+    return isFieldPermittedByCatalogue(fieldPath, displayMask, allowedPartyTypes);
 }
+
 
 /**
  * Returns a human-readable one-line summary for compact display.
@@ -466,6 +449,31 @@ export function getPartyDisplayProjection(value: any, displayMask?: string[], fa
         if (r.resignedOn) dates.push(`Resigned ${r.resignedOn}`);
         if (dates.length > 0) roleStr += ` (${dates.join(' · ')})`;
         if (roleStr) secondaryParts.push(roleStr);
+    }
+
+    // Organisation secondary parts (only when displayMask is explicitly provided)
+    if (displayMask && displayMask.length > 0) {
+        const incorporatedIn = (poc as any).incorporatedIn || (poc as any).jurisdiction || (poc as any).countryOfResidence;
+        if ((showField('incorporatedIn') || showField('jurisdiction')) && incorporatedIn) {
+            secondaryParts.push(`Inc: ${incorporatedIn}`);
+        }
+
+        const regNo = (poc as any).registrationNumber || (poc as any).registeredAs;
+        if ((showField('registrationNumber') || showField('registeredAs')) && regNo) {
+            secondaryParts.push(`Reg: ${regNo}`);
+        }
+
+        // Derive LEI from sourceIdentifiers array
+        const sourceIds: Array<{ scheme: string; value: string }> = Array.isArray((poc as any).sourceIdentifiers) ? (poc as any).sourceIdentifiers : [];
+        const leiId = sourceIds.find((s: any) => s && (s.scheme === 'LEI' || s.scheme === 'GLEIF_LEI'))?.value || (poc as any).lei;
+        if ((showField('lei') || showField('sourceIdentifiers')) && leiId) {
+            secondaryParts.push(`LEI: ${leiId}`);
+        }
+
+        const legalForm = (poc as any).legalForm || (poc as any).legalFormId;
+        if ((showField('legalForm') || showField('legalFormId')) && legalForm) {
+            secondaryParts.push(`Form: ${legalForm}`);
+        }
     }
     
     if (showField('dateOfBirth') && poc.dateOfBirth) {

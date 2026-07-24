@@ -1,0 +1,6 @@
+# Ignore root-level scratch files
+/*.js
+/*.ts
+!src/**/*
+!prisma/**/*
+!scripts/**/*

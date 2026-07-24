@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "prisma generate && next build",
     "start": "next start",
-    "lint": "eslint",
+    "lint": "eslint src",
     "prisma:generate": "prisma generate",
     "db:migrate:dev": "prisma migrate dev",
     "db:migrate:deploy": "prisma migrate deploy",
@@ -18,8 +18,8 @@
     "db:seed:option-sets": "ts-node -O '{\"module\":\"commonjs\"}' scripts/seed-option-sets.ts",
     "gleif:generate-elf": "ts-node -O '{\"module\":\"commonjs\"}' scripts/generate-elf-codes.ts",
     "vercel:build": "node scripts/vercel-build.mjs",
-    "test": "vitest run",
-    "test:watch": "vitest",
+    "test": "NODE_OPTIONS=\"--experimental-require-module\" vitest run --fileParallelism=false",
+    "test:watch": "NODE_OPTIONS=\"--experimental-require-module\" vitest",
     "typecheck": "tsc --noEmit",
     "test:permissions": "vitest run src/lib/auth/__tests__/permissions.test.ts",
     "test:ci": "npm run typecheck && npm run test"
@@ -89,7 +89,7 @@
     "zod": "^4.1.13"
   },
   "devDependencies": {
-    "@asamuzakjp/css-color": "^2.8.2",
+    "@asamuzakjp/css-color": "^4.1.2",
     "@tailwindcss/postcss": "^4",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",
