@@ -23,9 +23,10 @@ import { Badge } from "@/components/ui/badge";
 import { AddressValueEditor } from "@/components/client/fields/AddressValueEditor";
 import { AddressValue, getAddressSummary } from "@/components/client/fields/AddressValueViewer";
 import { upsertCCAddress, deleteCCAddress } from "@/actions/cc-address-actions";
-import { Plus, Edit, Trash2, Loader2, Layers, AlertTriangle } from "lucide-react";
+import { Plus, Edit, Trash2, Loader2, Layers, AlertTriangle, MapPin } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { StandardTooltip } from "@/components/ui/standard-tooltip";
 
 interface CCAddressRecord {
     id: string;
@@ -127,20 +128,23 @@ export function CCAddressManager({ clientLEId, initialAddresses }: CCAddressMana
     };
 
     return (
-        <div className="space-y-6 mt-10">
+        <div className="space-y-6">
             {/* Header Action Row */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div className="space-y-1">
-                    <h3 className="text-base font-bold tracking-tight text-slate-800">
-                        Addresses
-                    </h3>
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                <div className="flex items-center gap-2.5 text-slate-800">
+                    <MapPin className="h-5 w-5 text-slate-500" />
+                    <h2 className="text-lg font-semibold tracking-tight text-slate-900">Addresses</h2>
                 </div>
-                <Button
-                    onClick={handleCreateClick}
-                    className="bg-indigo-600 text-white hover:bg-indigo-700 font-semibold text-sm flex items-center gap-1.5 shadow-sm transition-all duration-150 rounded-lg h-9 px-4"
-                >
-                    <Plus className="h-4 w-4" /> Address
-                </Button>
+                <StandardTooltip content="Add Address">
+                    <Button
+                        onClick={handleCreateClick}
+                        size="icon"
+                        className="bg-indigo-600 text-white hover:bg-indigo-700 font-semibold shadow-xs rounded-lg h-9 w-9"
+                        aria-label="Add Address"
+                    >
+                        <Plus className="h-4 w-4" />
+                    </Button>
+                </StandardTooltip>
             </div>
 
             {/* Addresses List Card */}

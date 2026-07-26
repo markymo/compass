@@ -6,5 +6,5 @@ interface CCCPageProps {
 
 export default async function CCCPage({ params }: CCCPageProps) {
     const { id } = await params;
-    redirect(`/app/le/${id}/sources/user`);
+    redirect(`/app/le/${id}/sources/user-parties`);
 }

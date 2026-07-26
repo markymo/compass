@@ -2,20 +2,22 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Upload, Loader2 } from 'lucide-react';
+import { Upload, Loader2, Plus } from 'lucide-react';
 import { upload } from '@vercel/blob/client';
 import { getUploadIntentStatus } from '@/actions/upload-intent';
 import { validateDocumentFile, ALLOWED_MIME_TYPES } from '@/lib/documents/upload-constants';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
+import { StandardTooltip } from '@/components/ui/standard-tooltip';
 
 export interface LibraryUploaderProps {
     clientLEId: string;
+    iconOnly?: boolean;
 }
 
 type UploadState = 'IDLE' | 'UPLOADING' | 'PROCESSING';
 
-export function LibraryUploader({ clientLEId }: LibraryUploaderProps) {
+export function LibraryUploader({ clientLEId, iconOnly = false }: LibraryUploaderProps) {
     const [opState, setOpState] = useState<UploadState>('IDLE');
     const [progress, setProgress] = useState(0);
     const [activeIntentId, setActiveIntentId] = useState<string | null>(null);
@@ -65,12 +67,12 @@ export function LibraryUploader({ clientLEId }: LibraryUploaderProps) {
                 }
             }
         };
-        
+
         poll();
-        
+
         return () => {
             isSubscribed = false;
-            clearTimeout(timeoutId);
+            if (timeoutId) clearTimeout(timeoutId);
         };
     }, [activeIntentId, opState, router]);
 
@@ -83,44 +85,48 @@ export function LibraryUploader({ clientLEId }: LibraryUploaderProps) {
     };
 
     const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (opState !== 'IDLE') return;
         const file = e.target.files?.[0];
         if (!file) return;
 
         const validationError = validateDocumentFile(file);
         if (validationError) {
             toast.error(validationError);
-            e.target.value = '';
             return;
         }
 
-        const newIntentId = crypto.randomUUID();
-        const storagePathname = `private-documents/${clientLEId}/${newIntentId}/${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-        
-        setOpState('UPLOADING');
-        setProgress(0);
-        setActiveIntentId(newIntentId);
-        pollAttempts.current = 0;
-
         try {
-            await upload(storagePathname, file, {
-                access: 'private',
-                handleUploadUrl: '/api/documents/upload',
-                clientPayload: JSON.stringify({ 
-                    clientLEId, 
-                    intentId: newIntentId,
-                    mimeType: file.type
-                }),
-                onUploadProgress: (evt) => {
-                    setProgress(evt.percentage);
-                }
+            setOpState('UPLOADING');
+            setProgress(0);
+
+            const blob: any = await upload(file.name, file, {
+                access: 'public',
+                handleUploadUrl: `/api/documents/upload-intent?clientLEId=${clientLEId}`,
+                onUploadProgress: (progressEvent) => {
+                    setProgress(progressEvent.percentage);
+                },
             });
 
             setOpState('PROCESSING');
-            
-        } catch (error: any) {
-            console.error('Upload failed:', error);
-            toast.error(error.message || 'Failed to upload document');
+            if (blob?.clientPayload) {
+                try {
+                    const parsed = JSON.parse(blob.clientPayload);
+                    if (parsed.intentId) {
+                        setActiveIntentId(parsed.intentId);
+                    } else {
+                        toast.error('Upload response missing tracking details');
+                        resetState();
+                    }
+                } catch {
+                    toast.error('Malformed payload received from upload handler');
+                    resetState();
+                }
+            } else {
+                toast.error('Upload response missing payload');
+                resetState();
+            }
+        } catch (err: any) {
+            console.error("Upload error", err);
+            toast.error(err.message || 'Failed to upload document');
             resetState();
         }
     };
@@ -137,30 +143,47 @@ export function LibraryUploader({ clientLEId }: LibraryUploaderProps) {
                 disabled={isBusy}
                 accept={ALLOWED_MIME_TYPES.join(',')}
             />
-            <Button
-                variant="default"
-                disabled={isBusy}
-                onClick={() => fileInputRef.current?.click()}
-            >
-                {opState === 'IDLE' && (
-                    <>
-                        <Upload className="w-4 h-4 mr-2" />
-                        Upload Document
-                    </>
-                )}
-                {opState === 'UPLOADING' && (
-                    <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Uploading {Math.round(progress)}%…
-                    </>
-                )}
-                {opState === 'PROCESSING' && (
-                    <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Processing…
-                    </>
-                )}
-            </Button>
+            {iconOnly ? (
+                <StandardTooltip content="Upload Document">
+                    <Button
+                        variant="default"
+                        size="icon"
+                        disabled={isBusy}
+                        onClick={() => fileInputRef.current?.click()}
+                        className="bg-indigo-600 text-white hover:bg-indigo-700 font-semibold shadow-xs rounded-lg h-9 w-9"
+                        aria-label="Upload Document"
+                    >
+                        {opState === 'IDLE' && <Plus className="h-4 w-4" />}
+                        {opState === 'UPLOADING' && <Loader2 className="h-4 w-4 animate-spin" />}
+                        {opState === 'PROCESSING' && <Loader2 className="h-4 w-4 animate-spin" />}
+                    </Button>
+                </StandardTooltip>
+            ) : (
+                <Button
+                    variant="default"
+                    disabled={isBusy}
+                    onClick={() => fileInputRef.current?.click()}
+                >
+                    {opState === 'IDLE' && (
+                        <>
+                            <Upload className="w-4 h-4 mr-2" />
+                            Upload Document
+                        </>
+                    )}
+                    {opState === 'UPLOADING' && (
+                        <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Uploading {Math.round(progress)}%…
+                        </>
+                    )}
+                    {opState === 'PROCESSING' && (
+                        <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Processing…
+                        </>
+                    )}
+                </Button>
+            )}
         </>
     );
 }

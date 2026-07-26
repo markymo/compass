@@ -181,6 +181,7 @@ export async function upsertCCParty(params: {
             });
         }
 
+        revalidatePath(`/app/le/${params.clientLEId}/sources/user-parties`);
         revalidatePath(`/app/le/${params.clientLEId}/sources/user`);
         return {
             success: true,
@@ -232,6 +233,7 @@ export async function upsertCCPartyV2(params: {
             });
         }
 
+        revalidatePath(`/app/le/${params.clientLEId}/sources/user-parties`);
         revalidatePath(`/app/le/${params.clientLEId}/sources/user`);
         return {
             success: true,
@@ -378,6 +380,7 @@ export async function deleteCCParty(id: string, clientLEId: string) {
             where: { id }
         });
 
+        revalidatePath(`/app/le/${clientLEId}/sources/user-parties`);
         revalidatePath(`/app/le/${clientLEId}/sources/user`);
         return { success: true };
     } catch (error: any) {
@@ -448,6 +451,7 @@ export async function promoteClaimToCCParty(claimId: string, clientLEId: string)
             createdFromClaimId: claimId
         });
 
+        revalidatePath(`/app/le/${clientLEId}/sources/user-parties`);
         revalidatePath(`/app/le/${clientLEId}/sources/user`);
         return { success: true, party };
     } catch (error) {
