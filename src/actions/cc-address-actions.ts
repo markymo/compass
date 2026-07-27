@@ -178,6 +178,7 @@ export async function upsertCCAddress(params: {
             });
         }
 
+        revalidatePath(`/app/le/${params.clientLEId}/sources/user-addresses`);
         revalidatePath(`/app/le/${params.clientLEId}/sources/user`);
         return {
             success: true,
@@ -231,6 +232,7 @@ export async function deleteCCAddress(id: string, clientLEId: string) {
             where: { id }
         });
 
+        revalidatePath(`/app/le/${clientLEId}/sources/user-addresses`);
         revalidatePath(`/app/le/${clientLEId}/sources/user`);
         return { success: true };
     } catch (error: any) {
@@ -342,6 +344,7 @@ export async function saveAddressForReuse(claimId: string, clientLEId: string) {
             }
         });
 
+        revalidatePath(`/app/le/${clientLEId}/sources/user-addresses`);
         revalidatePath(`/app/le/${clientLEId}/sources/user`);
         revalidatePath(`/app/le/${clientLEId}/workbench4`);
 

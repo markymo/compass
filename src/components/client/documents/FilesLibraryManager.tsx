@@ -9,10 +9,10 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, Info, Download, ChevronRight } from 'lucide-react';
+import { Search, Info, Download, ChevronRight, FileText } from 'lucide-react';
 import { DocumentLibraryItemDTO } from '@/lib/documents/DocumentLibraryDTOs';
 import { formatFileSize, formatFileType, formatDocumentDate, getDocumentIcon, formatDocumentStatus } from '@/lib/documents/document-formatters';
 import { DocumentDetailDrawer } from './DocumentDetailDrawer';
@@ -46,11 +46,17 @@ export function FilesLibraryManager({ clientLEId, initialFiles }: FilesLibraryMa
 
     return (
         <div className="space-y-6">
-            <Card className="shadow-sm">
-                <CardHeader className="pb-4">
-                    <CardTitle className="text-xl font-semibold">Files Library</CardTitle>
-                </CardHeader>
-                <CardContent>
+            {/* Header Action Row */}
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                <div className="flex items-center gap-2.5 text-slate-800">
+                    <FileText className="h-5 w-5 text-slate-500" />
+                    <h2 className="text-lg font-semibold tracking-tight text-slate-900">Files</h2>
+                </div>
+                <LibraryUploader clientLEId={clientLEId} iconOnly />
+            </div>
+
+            <Card className="border-slate-200/80 shadow-xs rounded-xl bg-white">
+                <CardContent className="p-6">
                     <div className="flex items-center justify-between mb-6 gap-4">
                         <div className="relative w-full max-w-sm">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -61,7 +67,6 @@ export function FilesLibraryManager({ clientLEId, initialFiles }: FilesLibraryMa
                                 className="pl-9"
                             />
                         </div>
-                        <LibraryUploader clientLEId={clientLEId} />
                     </div>
 
                     {initialFiles.length === 0 ? (

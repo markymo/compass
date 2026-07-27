@@ -73,7 +73,7 @@ describe('LibraryUploader', () => {
         vi.mocked(upload).mockImplementation(async (path, file, options: any) => {
             progressCallback = options.onUploadProgress;
             progressCallback({ percentage: 45 });
-            return {} as any;
+            return { clientPayload: JSON.stringify({ intentId: 'intent-1' }) } as any;
         });
         
         // Mock polling to not immediately resolve
@@ -97,7 +97,7 @@ describe('LibraryUploader', () => {
         render(<LibraryUploader clientLEId="le-1" />);
         const input = document.querySelector('input[type="file"]') as HTMLInputElement;
         
-        vi.mocked(upload).mockResolvedValue({} as any);
+        vi.mocked(upload).mockResolvedValue({ clientPayload: JSON.stringify({ intentId: 'intent-1' }) } as any);
         vi.mocked(getUploadIntentStatus).mockResolvedValue({ status: 'completed', attachment: { documentId: 'doc-1' } } as any);
 
         const file = new File(['hello'], 'doc.pdf', { type: 'application/pdf' });
@@ -131,7 +131,7 @@ describe('LibraryUploader', () => {
         render(<LibraryUploader clientLEId="le-1" />);
         const input = document.querySelector('input[type="file"]') as HTMLInputElement;
         
-        vi.mocked(upload).mockResolvedValue({} as any);
+        vi.mocked(upload).mockResolvedValue({ clientPayload: JSON.stringify({ intentId: 'intent-1' }) } as any);
         vi.mocked(getUploadIntentStatus).mockResolvedValue({ status: 'failed', message: 'Virus detected' });
 
         const file = new File(['hello'], 'doc.pdf', { type: 'application/pdf' });
@@ -148,7 +148,7 @@ describe('LibraryUploader', () => {
         render(<LibraryUploader clientLEId="le-1" />);
         const input = document.querySelector('input[type="file"]') as HTMLInputElement;
         
-        vi.mocked(upload).mockResolvedValue({} as any);
+        vi.mocked(upload).mockResolvedValue({ clientPayload: JSON.stringify({ intentId: 'intent-1' }) } as any);
         vi.mocked(getUploadIntentStatus).mockResolvedValue({ status: 'pending' });
 
         vi.useFakeTimers();
@@ -203,7 +203,7 @@ describe('LibraryUploader', () => {
         expect(upload).toHaveBeenCalledTimes(1);
 
         await act(async () => {
-            resolveUpload({});
+            resolveUpload({ clientPayload: JSON.stringify({ intentId: 'intent-1' }) });
         });
     });
 });

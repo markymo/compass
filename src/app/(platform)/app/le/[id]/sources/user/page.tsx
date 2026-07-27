@@ -6,5 +6,5 @@ interface UserPageProps {
 
 export default async function UserPage({ params }: UserPageProps) {
     const { id } = await params;
-    redirect(`/app/le/${id}/sources/user/parties`);
+    redirect(`/app/le/${id}/sources/user-parties`);
 }

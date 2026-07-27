@@ -25,12 +25,14 @@ import { bootstrapSystemOrg } from '../admin';
 
 // ── Mocks ────────────────────────────────────────────────────────────────────
 
+let testUserId = 'multi-org-test-user';
+
 vi.mock('@/actions/security', () => ({
     isSystemAdmin: vi.fn().mockResolvedValue(false),
 }));
 
 vi.mock('@/lib/auth', () => ({
-    getIdentity: vi.fn().mockResolvedValue({ userId: 'multi-org-test-user' }),
+    getIdentity: vi.fn().mockImplementation(async () => ({ userId: testUserId })),
 }));
 
 vi.mock('@/lib/auth/permissions', () => ({
@@ -66,42 +68,43 @@ describe.skipIf(!process.env.DATABASE_URL)('searchAvailableQuestionnaires — en
         const sysOrg = await bootstrapSystemOrg();
         sysOrgId = sysOrg.id;
 
+        const rand = Math.floor(Math.random() * 100000);
+        testUserId = `multi-org-user-${Date.now()}-${rand}`;
+
         // Create Org A and Org B
         const orgA = await prisma.organization.create({
-            data: { name: 'ENG_CTX_ORG_A', shortCode: 'ECTXA', types: ['FI'] },
+            data: { name: `ENG_CTX_ORG_A_${rand}`, shortCode: `ECA${rand}`, types: ['FI'] },
         });
         orgAId = orgA.id;
         orgCleanup.push(orgA.id);
 
         const orgB = await prisma.organization.create({
-            data: { name: 'ENG_CTX_ORG_B', shortCode: 'ECTXB', types: ['FI'] },
+            data: { name: `ENG_CTX_ORG_B_${rand}`, shortCode: `ECB${rand}`, types: ['FI'] },
         });
         orgBId = orgB.id;
         orgCleanup.push(orgB.id);
 
         // User exists + two memberships: Org A first (oldest), then Org B
-        await prisma.user.upsert({
-            where: { id: 'multi-org-test-user' },
-            create: { id: 'multi-org-test-user', email: 'multiorg@example.com', name: 'Multi Org User' },
-            update: {},
+        await prisma.user.create({
+            data: { id: testUserId, email: `${testUserId}@example.com`, name: 'Multi Org User' },
         });
 
         // Org A membership — created first so it is the "oldest" for fallback
         const mbrA = await prisma.membership.create({
-            data: { userId: 'multi-org-test-user', organizationId: orgAId, role: 'ADMIN' },
+            data: { userId: testUserId, organizationId: orgAId, role: 'ADMIN' },
         });
         membershipCleanup.push(mbrA.id);
 
         // Small delay to ensure Org B membership has a later createdAt
-        await new Promise(r => setTimeout(r, 10));
+        await new Promise(r => setTimeout(r, 20));
 
         const mbrB = await prisma.membership.create({
-            data: { userId: 'multi-org-test-user', organizationId: orgBId, role: 'ADMIN' },
+            data: { userId: testUserId, organizationId: orgBId, role: 'ADMIN' },
         });
         membershipCleanup.push(mbrB.id);
 
         // Create a ClientLE and an engagement with fiOrgId = Org B
-        const le = await prisma.clientLE.create({ data: { name: 'ENG_CTX_LE', shortCode: 'ECTXLE' } });
+        const le = await prisma.clientLE.create({ data: { name: `ENG_CTX_LE_${rand}`, shortCode: `ECL${rand}` } });
         leCleanup.push(le.id);
 
         const eng = await prisma.fIEngagement.create({
@@ -112,7 +115,7 @@ describe.skipIf(!process.env.DATABASE_URL)('searchAvailableQuestionnaires — en
 
         // Engagement membership for the user
         const mbrEng = await prisma.membership.create({
-            data: { userId: 'multi-org-test-user', fiEngagementId: eng.id, role: 'ADMIN' },
+            data: { userId: testUserId, fiEngagementId: eng.id, role: 'ADMIN' },
         });
         membershipCleanup.push(mbrEng.id);
 
@@ -156,6 +159,9 @@ describe.skipIf(!process.env.DATABASE_URL)('searchAvailableQuestionnaires — en
         }
         for (const id of orgCleanup) {
             try { await prisma.organization.delete({ where: { id } }); } catch { /* ignore */ }
+        }
+        if (testUserId) {
+            try { await prisma.user.delete({ where: { id: testUserId } }); } catch { /* ignore */ }
         }
     });
 

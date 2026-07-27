@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { resolveFieldForDisplay, FieldInterpreterMetadata } from '../field-interpreter';
+import { getPartyDisplayProjection } from '../party-value';
+import { toExportText } from '@/lib/export/toExportText';
 
 describe('field-interpreter', () => {
     const defaultMeta: FieldInterpreterMetadata = {
@@ -316,6 +318,74 @@ describe('field-interpreter', () => {
             expect(result.state).toBe('POPULATED');
             expect(result.value.kind).toBe('party');
             expect(result.textSummary).toBe('PARENT COMPANY PLC');
+        });
+
+        it('metadata-driven fallback resolves historical scalar string for Field 37 as kind party', () => {
+            const scalarVal = "JAGUAR LAND ROVER AUTOMOTIVE PLC";
+            const meta = { ...defaultMeta, fieldNo: 37, appDataType: 'PARTY' };
+            const result = resolveFieldForDisplay(scalarVal, null, meta);
+
+            expect(result.state).toBe('POPULATED');
+            expect(result.value.kind).toBe('party');
+            if (result.value.kind === 'party') {
+                expect(result.value.partyLabel).toBe('JAGUAR LAND ROVER AUTOMOTIVE PLC');
+            }
+        });
+    });
+
+    describe('Field 63 (List of company directors) Regression Suite', () => {
+        it('REGRESSION: Field 63 PARTY_REF to an Individual remains completely unchanged across interpreter, projection, and export', () => {
+            const directorPartyRef = {
+                ccPartyId: 'p-123',
+                _resolvedData: {
+                    ccParty: {
+                        data: {
+                            partyType: 'INDIVIDUAL',
+                            forenames: 'John',
+                            surname: 'Smith',
+                            roles: [{ roleTitle: 'Director', appointedOn: '2020-01-01' }]
+                        }
+                    }
+                }
+            };
+
+            const field63Meta: FieldInterpreterMetadata = {
+                fieldNo: 63,
+                label: 'List of company directors',
+                appDataType: 'PARTY',
+                profileConfig: {
+                    displayMask: ['forenames', 'surname', 'roles']
+                }
+            };
+
+            // 1. Interpreter resolution
+            const model = resolveFieldForDisplay(directorPartyRef, null, field63Meta);
+            expect(model.state).toBe('POPULATED');
+            expect(model.value.kind).toBe('partyRef');
+            if (model.value.kind === 'partyRef') {
+                expect(model.value.summary).toBe('John Smith (Director)');
+                expect(model.value.partyLabel).toBe('John Smith');
+            }
+
+            // 2. Projection contract (with roles enabled in displayMask)
+            const projWithRoles = getPartyDisplayProjection(directorPartyRef, ['forenames', 'surname', 'roles']);
+            expect(projWithRoles.primaryText).toBe('John Smith');
+            expect(projWithRoles.secondaryParts).toEqual(['Director (Appointed 2020-01-01)']);
+            expect(projWithRoles.addressText).toBe('');
+
+            // 3. Projection contract (with roles masked out)
+            const projWithoutRoles = getPartyDisplayProjection(directorPartyRef, ['forenames', 'surname']);
+            expect(projWithoutRoles.primaryText).toBe('John Smith');
+            expect(projWithoutRoles.secondaryParts).toEqual([]);
+
+            // 4. Export text resolution
+            const exportText = toExportText({
+                state: model.state,
+                value: model.value,
+                defaultText: model.defaultText,
+                profileConfig: field63Meta.profileConfig
+            });
+            expect(exportText).toBe('John Smith\nDirector (Appointed 2020-01-01)');
         });
     });
 });

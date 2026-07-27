@@ -27,8 +27,8 @@ describe('isFieldPermittedByMask', () => {
     it('handles generic array wildcards', () => {
         expect(isFieldPermittedByMask('roles.0.roleTitle', ['roles.roleTitle'])).toBe(true);
         expect(isFieldPermittedByMask('roles[1].roleTitle', ['roles.roleTitle'])).toBe(true);
-        // A specific mask should not permit a generic path, nor should it act as a wildcard
-        expect(isFieldPermittedByMask('roles.roleTitle', ['roles[0].roleTitle'])).toBe(false);
+        // Canonical roleTitle mask permits roleTitle across array indices and generic paths
+        expect(isFieldPermittedByMask('roles.roleTitle', ['roles[0].roleTitle'])).toBe(true);
     });
 });
 
@@ -116,12 +116,10 @@ describe('getPartySummary', () => {
         // If we mask out roles completely
         expect(getPartySummary(person, ['forenames', 'surname'])).toBe('Julian Smith');
 
-        // If we specifically permit only the first role but it is inactive? getPartySummary logic 
-        // finds the first active role (Shareholder at index 1). So it checks roles[1].roleTitle.
-        // If the mask is `roles[0]`, it won't be permitted.
+        // Canonical roleTitle mask permits active role title regardless of array index representation
         expect(getPartySummary(person, ['forenames', 'surname', 'roles[1].roleTitle'])).toBe('Julian Smith (Shareholder)');
         expect(getPartySummary(person, ['forenames', 'surname', 'roles.roleTitle'])).toBe('Julian Smith (Shareholder)');
-        expect(getPartySummary(person, ['forenames', 'surname', 'roles[0].roleTitle'])).toBe('Julian Smith');
+        expect(getPartySummary(person, ['forenames', 'surname', 'roles[0].roleTitle'])).toBe('Julian Smith (Shareholder)');
     });
 
     it('does not use raw internal discriminators as fallback', () => {

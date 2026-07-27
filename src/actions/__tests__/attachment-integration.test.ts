@@ -6,6 +6,8 @@ import { getUploadIntentStatus } from '../upload-intent';
 import { DocumentService } from '@/lib/documents/DocumentService';
 import { head, get, del } from '@vercel/blob';
 
+import { invalidateDefinitionCache } from '@/services/masterData/definitionService';
+
 // Mock auth
 vi.mock('@/lib/auth', () => ({
     getIdentity: vi.fn().mockResolvedValue({ userId: 'test-user-id' }),
@@ -59,6 +61,8 @@ describe.skipIf(!process.env.DATABASE_URL)('Phase 4 Attachment Lifecycle Integra
     });
 
     beforeEach(async () => {
+        invalidateDefinitionCache();
+
         // Setup user
         await prisma.user.upsert({
             where: { id: 'test-user-part1' },
@@ -77,6 +81,8 @@ describe.skipIf(!process.env.DATABASE_URL)('Phase 4 Attachment Lifecycle Integra
             create: { fieldNo: 998, fieldName: 'testNoAttachment', isActive: true, allowAttachments: false, appDataType: 'TEXT' },
             update: { allowAttachments: false }
         });
+
+        invalidateDefinitionCache();
 
         // Setup LegalEntity & ClientLE
         const realLe = await prisma.legalEntity.create({ data: { name: 'Integration Test LegalEntity', reference: `integration-test-${Date.now()}-${Math.random()}` } });
@@ -264,12 +270,13 @@ describe.skipIf(!process.env.DATABASE_URL)('Phase 4 Attachment Lifecycle Integra
         });
 
         it('handles intents: PENDING -> COMPLETED and duplicate callbacks', async () => {
+            const intentPath = `test-intent-path-${Date.now()}-${Math.random()}`;
             const intent = await prisma.privateDocumentUploadIntent.create({
                 data: {
                     id: crypto.randomUUID(),
                     clientLEId,
                     initiatedById: 'test-user-part1',
-                    storagePathname: 'test-intent-path',
+                    storagePathname: intentPath,
                     originalFilename: 'test.pdf',
                 }
             });
@@ -278,19 +285,19 @@ describe.skipIf(!process.env.DATABASE_URL)('Phase 4 Attachment Lifecycle Integra
             // Complete it
             const doc = await DocumentService.verifyAndPersistPrivateUpload({
                 intentId: intent.id,
-                storagePathname: 'test-intent-path',
+                storagePathname: intentPath,
                 originalFilename: 'test.pdf',
                 clientLEId,
                 uploadedById: 'test-user-part1'
             });
             testDocs.push(doc.id);
 
-            expect(doc.storagePathname).toBe('test-intent-path');
+            expect(doc.storagePathname).toBe(intentPath);
 
             // Duplicate callback returns the same document without error
             const doc2 = await DocumentService.verifyAndPersistPrivateUpload({
                 intentId: intent.id,
-                storagePathname: 'test-intent-path',
+                storagePathname: intentPath,
                 originalFilename: 'test.pdf',
                 clientLEId,
                 uploadedById: 'test-user-part1'

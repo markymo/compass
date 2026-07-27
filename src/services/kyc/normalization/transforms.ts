@@ -9,6 +9,7 @@
 import { SicCodeMapper } from '@/domain/registry/utils/SicCodeMapper';
 import { isValidPartyValue } from '@/lib/master-data/party-value';
 import { COUNTRY_CODES, COUNTRY_NAMES, resolveCountry } from '@/lib/master-data/countries';
+import type { OrganisationPartyData } from '@/lib/master-data/party-v2/OrganisationPartyData';
 
 export type TransformResult = {
     value: any;
@@ -61,7 +62,8 @@ type TransformType =
     | 'TO_PARTY_VALUE'
     | 'TO_PARTY_VALUE_LIST'
     | 'TO_PERSON_OR_CONTACT_VALUE' // Legacy compatibility alias
-    | 'TO_PERSON_OR_CONTACT_LIST'; // Legacy compatibility alias
+    | 'TO_PERSON_OR_CONTACT_LIST' // Legacy compatibility alias
+    | 'TO_PARTY_ORGANISATION'; // Ingestion transform for GLEIF / organisation relationship summaries
 
 /**
  * Builds a deterministic row key for a PERSON_OR_CONTACT claim.
@@ -963,6 +965,44 @@ export function applyTransform(
             });
 
             return { value: activeList, confidencePenalty: res.confidencePenalty, rowKeys: activeRowKeys };
+        }
+
+        case 'TO_PARTY_ORGANISATION': {
+            if (value == null || typeof value !== 'object' || Array.isArray(value)) {
+                return { value: null, confidencePenalty: 1 };
+            }
+
+            const legalName = value.legalName || value.name || value.organisationName || '';
+            if (!legalName || String(legalName).trim() === '') {
+                return { value: null, confidencePenalty: 1 };
+            }
+
+            const lei = value.lei || value.id || null;
+            const sourceIdentifiers: Array<{ scheme: string; value: string }> = Array.isArray(value.sourceIdentifiers)
+                ? [...value.sourceIdentifiers]
+                : [];
+            if (lei && !sourceIdentifiers.some((s: any) => (s.scheme === 'LEI' || s.scheme === 'GLEIF_LEI') && s.value === String(lei).trim())) {
+                sourceIdentifiers.push({ scheme: 'LEI', value: String(lei).trim() });
+            }
+
+            const orgPartyData: OrganisationPartyData = {
+                schemaVersion: 2,
+                partyType: 'ORGANISATION',
+                legalName: String(legalName).trim(),
+                incorporatedIn: value.jurisdiction || value.incorporatedIn || null,
+                registrationNumber: value.registeredAs || value.registrationNumber || null,
+                legalForm: value.legalFormId || value.legalForm || null,
+                governingLaw: null,
+                knownAs: null,
+                emails: [],
+                phones: [],
+                roles: [],
+                sourceIdentifiers,
+                registeredAddressRef: null,
+                isActiveParty: value.entityStatus ? value.entityStatus === 'ACTIVE' : null
+            };
+
+            return { value: orgPartyData, confidencePenalty: 0 };
         }
 
         default:

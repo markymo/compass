@@ -111,4 +111,45 @@ describe('getPartyDisplayProjection', () => {
         const proj = getPartyDisplayProjection(value, undefined, 'Fallback Name');
         expect(proj.primaryText).toBe('Fallback Name');
     });
+
+    it('projects canonical Organisation details (incorporation jurisdiction, registration number, LEI) with restrained default mask', () => {
+        const orgPartyData = {
+            schemaVersion: 2,
+            partyType: 'ORGANISATION',
+            legalName: 'JAGUAR LAND ROVER AUTOMOTIVE PLC',
+            incorporatedIn: 'GB',
+            registrationNumber: '06477691',
+            legalForm: 'B6ES',
+            sourceIdentifiers: [{ scheme: 'LEI', value: '529900L73GEWN1O5NH84' }]
+        };
+
+        const mask = ['organisation.legalName', 'organisation.registrationNumber', 'organisation.incorporatedIn', 'organisation.lei'];
+        const proj = getPartyDisplayProjection(orgPartyData, mask);
+
+        expect(proj.primaryText).toBe('JAGUAR LAND ROVER AUTOMOTIVE PLC');
+        expect(proj.secondaryParts).toEqual([
+            'Inc: GB',
+            'Reg: 06477691',
+            'LEI: 529900L73GEWN1O5NH84'
+        ]);
+        // Form: B6ES is omitted because organisation.legalForm is not in default mask
+        expect(proj.secondaryParts).not.toContain('Form: B6ES');
+    });
+
+    it('includes legalForm in projection when organisation.legalForm is explicitly in mask', () => {
+        const orgPartyData = {
+            schemaVersion: 2,
+            partyType: 'ORGANISATION',
+            legalName: 'JAGUAR LAND ROVER AUTOMOTIVE PLC',
+            incorporatedIn: 'GB',
+            registrationNumber: '06477691',
+            legalForm: 'B6ES',
+            sourceIdentifiers: [{ scheme: 'LEI', value: '529900L73GEWN1O5NH84' }]
+        };
+
+        const mask = ['organisation.legalName', 'organisation.registrationNumber', 'organisation.incorporatedIn', 'organisation.lei', 'organisation.legalForm'];
+        const proj = getPartyDisplayProjection(orgPartyData, mask);
+
+        expect(proj.secondaryParts).toContain('Form: B6ES');
+    });
 });
