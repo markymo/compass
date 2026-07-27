@@ -85,6 +85,7 @@ export function LibraryUploader({ clientLEId, iconOnly = false }: LibraryUploade
     };
 
     const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (opState !== 'IDLE') return;
         const file = e.target.files?.[0];
         if (!file) return;
 

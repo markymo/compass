@@ -5,7 +5,6 @@ import { useSession } from "next-auth/react";
 import { X, UserCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { signOut } from "next-auth/react";
-import { AuthSessionProvider } from "@/components/providers/session-provider";
 
 function DemoBannerContent() {
     const { data: session } = useSession();
@@ -55,9 +54,5 @@ function DemoBannerContent() {
 }
 
 export function DemoBanner() {
-    return (
-        <AuthSessionProvider>
-            <DemoBannerContent />
-        </AuthSessionProvider>
-    );
+    return <DemoBannerContent />;
 }

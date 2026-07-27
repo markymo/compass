@@ -44,7 +44,9 @@ import {
     Loader2,
     Lock,
     Share2,
-    ExternalLink
+    ExternalLink,
+    LayoutGrid,
+    Rows
 } from "lucide-react";
 import { useSearchParams, usePathname, useRouter } from "next/navigation";
 import { FieldDetailPanel } from "../inspection/field-detail-panel";
@@ -54,6 +56,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { usePreferences } from "@/components/providers/user-preferences-provider";
 
 interface Props {
     leId: string;
@@ -135,6 +138,7 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
     const searchParams = useSearchParams();
     const pathname = usePathname();
     const router = useRouter();
+    const { preferences, updatePreference } = usePreferences();
 
     // Initialize from URL or defaults
     const [data, setData] = useState<Workbench4Data>(initialData);
@@ -144,6 +148,16 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
     const [mappingTypeFilter, setMappingTypeFilter] = useState<string>(searchParams.get("m") || "ALL"); // ALL, MAPPED, UNMAPPED
     const [catFilter, setCatFilter] = useState<string>(searchParams.get("cat") || "ALL");
     const [pinnedIds, setPinnedIds] = useState<Set<string>>(new Set());
+
+    const urlView = searchParams.get("view");
+    const viewMode = ((urlView === "flow" || urlView === "classic")
+        ? urlView
+        : (preferences as any)?.workbenchCardView || "classic") as "classic" | "flow";
+
+    const handleViewChange = (mode: "classic" | "flow") => {
+        updateUrl({ view: mode });
+        updatePreference("workbenchCardView", mode);
+    };
 
     const isAutoFiltered = useMemo(() => {
         return searchParams.get("rel") || searchParams.get("q") || searchParams.get("s") || searchParams.get("cat") || searchParams.get("m");
@@ -425,11 +439,41 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
                 </div>
             </div>
 
-            {/* Results Counters */}
+            {/* Results Counters & View Switcher */}
             <div className="flex items-center justify-between px-2">
                 <div className="text-sm text-slate-500">
                     Showing <span className="font-semibold text-slate-900">{filteredQuestions.length}</span> questions
                     {mappingTypeFilter !== "ALL" && ` (${mappingTypeFilter.toLowerCase()})`}
+                </div>
+                <div className="flex items-center gap-1 bg-slate-100/80 p-1 rounded-lg border border-slate-200/60">
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        className={cn(
+                            "h-7 px-2.5 text-xs font-medium gap-1.5 transition-all",
+                            viewMode === "classic"
+                                ? "bg-white text-slate-900 shadow-sm border border-slate-200/80 font-semibold"
+                                : "text-slate-500 hover:text-slate-800"
+                        )}
+                        onClick={() => handleViewChange("classic")}
+                    >
+                        <LayoutGrid className="h-3.5 w-3.5" />
+                        Classic
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        className={cn(
+                            "h-7 px-2.5 text-xs font-medium gap-1.5 transition-all",
+                            viewMode === "flow"
+                                ? "bg-white text-slate-900 shadow-sm border border-slate-200/80 font-semibold"
+                                : "text-slate-500 hover:text-slate-800"
+                        )}
+                        onClick={() => handleViewChange("flow")}
+                    >
+                        <Rows className="h-3.5 w-3.5" />
+                        Flow
+                    </Button>
                 </div>
             </div>
 
@@ -477,6 +521,7 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
                         }}
                         disabled={isPending}
                         isPinned={pinnedIds.has(q.id)}
+                        viewMode={viewMode}
                     />
                 ))}
 
@@ -623,7 +668,8 @@ function QuestionCard({
     onRenameCustomField,
     onStatusChange,
     disabled,
-    isPinned
+    isPinned,
+    viewMode = "classic"
 }: {
     question: ConsoleQuestion;
     leId: string;
@@ -638,6 +684,7 @@ function QuestionCard({
     onStatusChange: (newStatus: string) => void;
     disabled?: boolean;
     isPinned?: boolean;
+    viewMode?: "classic" | "flow";
 }) {
     const isMapped = !!(question.masterFieldNo || question.masterQuestionGroupId || (question as any).customFieldDefinitionId);
     const isGroupAnswer = !!(question.masterQuestionGroupId && (question as any).masterDataGroupFields?.length > 0);
@@ -765,6 +812,391 @@ function QuestionCard({
         }
     };
 
+    const renderAnswerContent = () => (
+        <div className="flex flex-col gap-1.5 pt-2 border-t border-slate-50">
+            <div className="flex items-start gap-2">
+                <span className="text-indigo-400 font-bold text-sm shrink-0 mt-0.5">A:</span>
+
+                {isEditing ? (
+                    <div className="flex items-center gap-2 w-full">
+                        <Input
+                            value={editValue}
+                            onChange={(e) => setEditValue(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleSaveEdit();
+                                if (e.key === 'Escape') handleCancelEdit();
+                            }}
+                            className="text-sm h-9 flex-1"
+                            autoFocus
+                            disabled={isSaving}
+                            placeholder="Enter value..."
+                        />
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-green-600 hover:bg-green-50 shrink-0"
+                            onClick={handleSaveEdit}
+                            disabled={isSaving}
+                        >
+                            <Check className="h-4 w-4" />
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-slate-400 hover:bg-slate-100 shrink-0"
+                            onClick={handleCancelEdit}
+                            disabled={isSaving}
+                        >
+                            <X className="h-4 w-4" />
+                        </Button>
+                    </div>
+                ) : (
+                    <div className="text-sm text-slate-700 bg-slate-50/50 px-2 py-1.5 rounded border border-slate-100/50 w-full font-medium relative flex items-center">
+                        <span className="flex-1">
+                            {question.masterQuestionGroupId && (question as any).masterDataGroupFields?.length > 0 ? (
+                                <GroupAnswerRenderer
+                                    groupLabel=""
+                                    fields={(question as any).masterDataGroupFields as GroupFieldData[]}
+                                    raNameLookup={raNameLookup}
+                                    displayStyle={question.masterDataGroupDisplayStyle}
+                                    className="py-0.5"
+                                />
+                            ) : question.canonicalDisplayModel ? (
+                                <div className="py-0.5">
+                                    <FieldValueRenderer field={question.canonicalDisplayModel} itemLimit={10} />
+                                    {question.canonicalDisplayModel.attachments && question.canonicalDisplayModel.attachments.length > 0 && (
+                                        <div className="mt-1">
+                                            <FieldAttachments 
+                                                clientLEId="read-only"
+                                                fieldNo={question.canonicalDisplayModel.fieldNo} 
+                                                attachments={question.canonicalDisplayModel.attachments} 
+                                                mode="read-only" 
+                                                isEditable={false} 
+                                            />
+                                        </div>
+                                    )}
+                                </div>
+                            ) : question.masterDataValue != null && question.masterDataValue !== '' ? (
+                                Array.isArray(question.masterDataValue) ? (
+                                    <ul className="list-disc pl-4 space-y-1 m-0 text-slate-800">
+                                        {question.masterDataValue.slice(0, 10).map((val: any, i: any) => (
+                                            <li key={i} className="marker:text-slate-800">
+                                                {formatAnswerValue(val)}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                ) : typeof question.masterDataValue === 'object' && !isPartyValue(question.masterDataValue) && !isAddressValue(question.masterDataValue) && !('ccAddressId' in (question.masterDataValue as any)) && !('ccPartyId' in (question.masterDataValue as any)) ? (
+                                    <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]">
+                                        {Object.entries(question.masterDataValue).map(([fNo, val]) => (
+                                            <div key={fNo} className="flex flex-col">
+                                                <span className="text-slate-400 font-bold uppercase tracking-tighter text-[9px]">Field {fNo}</span>
+                                                <span className="text-slate-700 font-semibold truncate">
+                                                    {Array.isArray(val) ? val.map(formatPartyLabel).join(', ') : formatPartyLabel(val)}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    formatAnswerValue(question.masterDataValue)
+                                )
+                            ) : isMapped
+                                ? <span className="italic text-slate-400">No value yet — click ✏️ to add</span>
+                                : <span className="italic text-slate-300">Map a master field to enable answers</span>
+                            }
+                        </span>
+
+                        <div className={cn(
+                            "flex items-center gap-1 ml-2 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity",
+                            question.masterDataGroupDisplayStyle === 'COMPACT' && "absolute top-2 right-2 bg-white/90 p-1 rounded shadow-sm border border-slate-100 ml-0"
+                        )}>
+                            {isGroupAnswer ? (
+                                <a
+                                    href={`/app/le/${leId}/master`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    title="Manage composite groups in Master Data tab"
+                                    className="p-1 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                                >
+                                    <ExternalLink className="h-3.5 w-3.5" />
+                                </a>
+                            ) : isComplexValue || isProjectedValue ? (
+                                <>
+                                    <button
+                                        disabled
+                                        title={isProjectedValue ? "Projected values can't be edited inline — use the Master Data tab" : "Complex mapped answers must be edited in Master Data"}
+                                        className="p-1 rounded text-slate-200 cursor-not-allowed"
+                                    >
+                                        <Pencil className="h-3.5 w-3.5" />
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            const fNo = question.masterFieldNo || 0;
+                                            const customId = (question as any).customFieldDefinitionId;
+                                            onInspect(fNo, question.text, customId);
+                                        }}
+                                        title="View history & details"
+                                        className="p-1 rounded text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+                                    >
+                                        <PanelLeftOpen className="h-3.5 w-3.5" />
+                                    </button>
+                                    <a
+                                        href={`/app/le/${leId}/master`}
+                                        title="Complex mapped answers must be edited in Master Data"
+                                        className="p-1 rounded text-slate-300 hover:text-indigo-500 hover:bg-indigo-50 transition-colors"
+                                    >
+                                        <ExternalLink className="h-3.5 w-3.5" />
+                                    </a>
+                                </>
+                            ) : (
+                                <>
+                                    <button
+                                        onClick={handleStartEdit}
+                                        disabled={!isMapped || question.status === 'RELEASED'}
+                                        title={question.status === 'RELEASED' ? "Cannot edit released questions" : isMapped ? "Edit value" : "Map a field first"}
+                                        className={cn(
+                                            "p-1 rounded transition-colors",
+                                            (isMapped && question.status !== 'RELEASED')
+                                                ? "text-indigo-500 hover:bg-indigo-50 hover:text-indigo-700"
+                                                : "text-slate-300 cursor-not-allowed"
+                                        )}
+                                    >
+                                        <Pencil className="h-3.5 w-3.5" />
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            const fNo = question.masterFieldNo || 0;
+                                            const customId = (question as any).customFieldDefinitionId;
+                                            onInspect(fNo, question.text, customId);
+                                        }}
+                                        title="View history & details"
+                                        className="p-1 rounded text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+                                    >
+                                        <PanelLeftOpen className="h-3.5 w-3.5" />
+                                    </button>
+                                </>
+                            )}
+                        </div>
+                    </div>
+                )}
+            </div>
+            {!isEditing && !isGroupAnswer && (
+                question.canonicalDisplayModel?.source ? (
+                    <div className="flex items-center gap-3 pl-6 mt-1 text-[10px] font-medium">
+                        <FieldSourceBadge source={question.canonicalDisplayModel.source} showLastValidated={true} variant="span" />
+                        {question.masterFieldNo && masterFields.find(f => f.fieldNo === question.masterFieldNo)?.attachmentCount ? (
+                            <FieldAttachmentIndicator count={masterFields.find(f => f.fieldNo === question.masterFieldNo)?.attachmentCount} />
+                        ) : null}
+                    </div>
+                ) : (question.masterDataSource || question.masterDataUpdatedAt) ? (
+                    <div className="flex items-center gap-3 pl-6 text-[10px] text-slate-400 font-medium">
+                        {question.masterDataSource && (
+                            <div className="flex items-center gap-1 bg-slate-100/50 px-1.5 py-0.5 rounded border border-slate-200/50">
+                                <span className="opacity-60 uppercase tracking-wide">Source:</span>
+                                <span className="text-slate-600 font-bold uppercase">{question.masterDataSource}</span>
+                            </div>
+                        )}
+                        {question.masterDataUpdatedAt && (
+                            <div className="flex items-center gap-1">
+                                <span className="opacity-60 uppercase tracking-wide">Last Updated:</span>
+                                <span className="text-slate-500 font-semibold">{new Date(question.masterDataUpdatedAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}</span>
+                            </div>
+                        )}
+                        {question.masterFieldNo && masterFields.find(f => f.fieldNo === question.masterFieldNo)?.attachmentCount ? (
+                            <FieldAttachmentIndicator count={masterFields.find(f => f.fieldNo === question.masterFieldNo)?.attachmentCount} />
+                        ) : null}
+                    </div>
+                ) : null
+            )}
+        </div>
+    );
+
+    if (viewMode === "flow") {
+        return (
+            <Card className={cn(
+                "group transition-all shadow-sm overflow-hidden",
+                "border border-slate-200 hover:border-slate-300 hover:shadow-md",
+                "focus-within:border-slate-300 focus-within:shadow-md",
+                isPinned ? "!border-green-400 ring-2 ring-green-50 z-10 scale-[1.01]" : "",
+                isMapped ? "bg-white" : "bg-slate-50/50 border-dashed"
+            )}>
+                <CardContent className="p-0">
+                    {/* Row 1: 50% Left Context / 50% Right Mapping Grid */}
+                    <div className={cn(
+                        "grid grid-cols-1 md:grid-cols-2 gap-4 p-4 border-b border-slate-100 items-start transition-colors",
+                        isPinned ? "bg-green-50/30" : "bg-slate-50/30"
+                    )}>
+                        {/* Left 50%: Context & Metadata */}
+                        <div className="space-y-2">
+                            <div className="flex items-center gap-2 text-xs font-medium text-slate-600">
+                                <span className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wide">
+                                    <Building2 className="h-3 w-3 text-slate-400" />
+                                    {question.engagementOrgName || "Unknown Relationship"}
+                                </span>
+                                <span className="text-slate-300">·</span>
+                                <span className="flex items-center gap-1.5 truncate" title={question.questionnaireName}>
+                                    <FileText className="h-3 w-3 text-slate-400" />
+                                    {question.questionnaireName}
+                                </span>
+                            </div>
+
+                            <div className="pt-0.5 flex items-center gap-2">
+                                {isMapped ? (
+                                    <>
+                                        <Badge variant="secondary" className="bg-green-50 text-green-700 border-green-100 gap-1 px-1.5 py-0">
+                                            <CheckCircle2 className="h-3 w-3" />
+                                            {isPinned ? "Just Mapped" : "Mapped"}
+                                        </Badge>
+                                        {customFieldId && !isRenaming && (
+                                            <button
+                                                className="p-0.5 rounded text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                                                onClick={(e) => { e.stopPropagation(); handleRenameStart(); }}
+                                                title="Rename custom field"
+                                            >
+                                                <Pencil className="h-3 w-3" />
+                                            </button>
+                                        )}
+                                    </>
+                                ) : (
+                                    <Badge variant="secondary" className="bg-amber-50 text-amber-700 border-amber-100 gap-1 px-1.5 py-0">
+                                        <AlertCircle className="h-3 w-3" />
+                                        Unmapped
+                                    </Badge>
+                                )}
+                            </div>
+
+                            {isRenaming && (
+                                <div className="pt-1 flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                                    <Input
+                                        value={renameValue}
+                                        onChange={(e) => setRenameValue(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') handleRenameSave();
+                                            if (e.key === 'Escape') setIsRenaming(false);
+                                        }}
+                                        className="h-7 text-xs flex-1"
+                                        autoFocus
+                                        disabled={isRenameSaving}
+                                    />
+                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-green-600" onClick={handleRenameSave} disabled={isRenameSaving}>
+                                        {isRenameSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                                    </Button>
+                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400" onClick={() => setIsRenaming(false)}>
+                                        <X className="h-3 w-3" />
+                                    </Button>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Right 50%: Master Data Mapping Controls */}
+                        <div className="flex flex-col justify-center gap-2">
+                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide flex items-center justify-between gap-2">
+                                <span>Master Data Mapping</span>
+                                <span className={cn(
+                                    "text-[9px] px-1.5 py-0.5 rounded tracking-normal font-semibold",
+                                    question.status === 'RELEASED' ? "bg-slate-200 text-slate-700" :
+                                        question.status === 'SHARED' ? "bg-indigo-100 text-indigo-700" :
+                                            question.status === 'APPROVED' ? "bg-emerald-100 text-emerald-700" :
+                                                question.status === 'DRAFT' ? "bg-amber-100 text-amber-700" :
+                                                    "bg-slate-100 text-slate-500"
+                                )}>
+                                    {isMapped ? question.status : 'UNMAPPED'}
+                                </span>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                                <div className="flex-1">
+                                    <SuperFieldSelector
+                                        value={
+                                            question.masterFieldNo
+                                                ? `master:${question.masterFieldNo}${question.masterFieldProjectionPath ? `:${question.masterFieldProjectionPath}` : ''}`
+                                                : question.masterQuestionGroupId
+                                                    ? `group:${question.masterQuestionGroupId}`
+                                                    : (question as any).customFieldDefinitionId
+                                                        ? `custom:${(question as any).customFieldDefinitionId}`
+                                                        : null
+                                        }
+                                        onSelect={(val, type, label) => {
+                                            if (type === 'clear') onMap("UNMAP");
+                                            else if (type === 'create') onMap("CREATE_NEW");
+                                            else if (type === 'master') onMap(val);
+                                            else if (type === 'group') onMap(`GROUP_${val}`);
+                                            else if (type === 'custom') onMap(`CUSTOM_${val}`);
+                                        }}
+                                        masterFields={masterFields}
+                                        masterGroups={masterGroups}
+                                        customFields={customFields}
+                                        questionText={question.text}
+                                        disabled={disabled || question.status === 'RELEASED'}
+                                    />
+                                </div>
+
+                                {isMapped && question.status !== 'RELEASED' && (
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-9 w-9 text-slate-400 hover:text-red-500 hover:bg-red-50 shrink-0"
+                                        onClick={() => onMap("UNMAP")}
+                                        disabled={disabled}
+                                        title="Unmap field"
+                                    >
+                                        <Unlink className="h-4 w-4" />
+                                    </Button>
+                                )}
+                            </div>
+
+                            {/* Lifecycle Actions */}
+                            {isMapped && (
+                                <div className="pt-1 border-t border-slate-200/50">
+                                    {question.status === 'RELEASED' ? (
+                                        <div className="flex items-center gap-2 p-1.5 bg-slate-100/50 rounded border border-slate-200/50 text-[11px] text-slate-600">
+                                            <Lock className="h-3 w-3 shrink-0 text-slate-900" />
+                                            <span>Locked {question.releasedAt ? `on ${new Date(question.releasedAt).toLocaleDateString()}` : ''}</span>
+                                        </div>
+                                    ) : (
+                                        <div className="flex items-center gap-2">
+                                            {question.status === 'DRAFT' && (
+                                                <Button size="sm" variant="default" className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 w-full shadow-sm" onClick={handleApprove} disabled={isActionPending}>
+                                                    <Check className="h-3 w-3 mr-1" /> Approve Mapped Response
+                                                </Button>
+                                            )}
+                                            {question.status === 'APPROVED' && (
+                                                <Button size="sm" variant="outline" className="h-7 text-xs text-indigo-600 border-indigo-200 flex-1 shadow-sm" onClick={(e) => handleShare(e, true)} disabled={isActionPending}>
+                                                    <Share2 className="h-3 w-3 mr-1" /> Share
+                                                </Button>
+                                            )}
+                                            {question.status === 'SHARED' && (
+                                                <Button size="sm" variant="outline" className="h-7 text-xs text-slate-600 flex-1 shadow-sm border-slate-200" onClick={(e) => handleShare(e, false)} disabled={isActionPending}>
+                                                    Unshare
+                                                </Button>
+                                            )}
+                                            {(question.status === 'APPROVED' || question.status === 'SHARED') && (
+                                                <Button size="sm" variant="secondary" className="h-7 text-xs bg-slate-900 text-white hover:bg-slate-800 flex-1 shadow-sm" onClick={handleRelease} disabled={isActionPending}>
+                                                    <Lock className="h-3 w-3 mr-1" /> Release
+                                                </Button>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Row 2: 100% Full-Width Q&A Section */}
+                    <div className="p-4 space-y-3">
+                        <div className="flex items-start gap-2">
+                            <span className="text-slate-400 font-bold text-sm shrink-0 mt-0.5">Q:</span>
+                            <h4 className="text-sm font-medium text-slate-900 leading-snug">
+                                {question.text}
+                            </h4>
+                        </div>
+
+                        {renderAnswerContent()}
+                    </div>
+                </CardContent>
+            </Card>
+        );
+    }
+
     return (
         <Card className={cn(
             "group transition-all shadow-sm overflow-hidden",
@@ -846,206 +1278,7 @@ function QuestionCard({
                             </h4>
                         </div>
 
-                        <div className="flex flex-col gap-1.5 pt-2 border-t border-slate-50">
-                            <div className="flex items-start gap-2">
-                                <span className="text-indigo-400 font-bold text-sm shrink-0 mt-0.5">A:</span>
-
-                                {isEditing ? (
-                                    <div className="flex items-center gap-2 w-full">
-                                        <Input
-                                            value={editValue}
-                                            onChange={(e) => setEditValue(e.target.value)}
-                                            onKeyDown={(e) => {
-                                                if (e.key === 'Enter') handleSaveEdit();
-                                                if (e.key === 'Escape') handleCancelEdit();
-                                            }}
-                                            className="text-sm h-9 flex-1"
-                                            autoFocus
-                                            disabled={isSaving}
-                                            placeholder="Enter value..."
-                                        />
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-8 w-8 text-green-600 hover:bg-green-50 shrink-0"
-                                            onClick={handleSaveEdit}
-                                            disabled={isSaving}
-                                        >
-                                            <Check className="h-4 w-4" />
-                                        </Button>
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-8 w-8 text-slate-400 hover:bg-slate-100 shrink-0"
-                                            onClick={handleCancelEdit}
-                                            disabled={isSaving}
-                                        >
-                                            <X className="h-4 w-4" />
-                                        </Button>
-                                    </div>
-                                ) : (
-                                    <div className="text-sm text-slate-700 bg-slate-50/50 px-2 py-1.5 rounded border border-slate-100/50 w-full font-medium relative flex items-center">
-                                        <span className="flex-1">
-                                            {question.masterQuestionGroupId && (question as any).masterDataGroupFields?.length > 0 ? (
-                                                /* ── Group answer: per-field vertical list ── */
-                                                <GroupAnswerRenderer
-                                                    groupLabel=""
-                                                    fields={(question as any).masterDataGroupFields as GroupFieldData[]}
-                                                    raNameLookup={raNameLookup}
-                                                    displayStyle={question.masterDataGroupDisplayStyle}
-                                                    className="py-0.5"
-                                                />
-                                            ) : question.canonicalDisplayModel ? (
-                                                <div className="py-0.5">
-                                                    {/* TODO: This limit (currently 10) might be made configurable one day. */}
-                                                    <FieldValueRenderer field={question.canonicalDisplayModel} itemLimit={10} />
-                                                    {question.canonicalDisplayModel.attachments && question.canonicalDisplayModel.attachments.length > 0 && (
-                                                        <div className="mt-1">
-                                                            <FieldAttachments 
-                                                                clientLEId="read-only"
-                                                                fieldNo={question.canonicalDisplayModel.fieldNo} 
-                                                                attachments={question.canonicalDisplayModel.attachments} 
-                                                                mode="read-only" 
-                                                                isEditable={false} 
-                                                            />
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            ) : question.masterDataValue != null && question.masterDataValue !== '' ? (
-                                                Array.isArray(question.masterDataValue) ? (
-                                                    <ul className="list-disc pl-4 space-y-1 m-0 text-slate-800">
-                                                        {question.masterDataValue.slice(0, 10).map((val: any, i: any) => (
-                                                            <li key={i} className="marker:text-slate-800">
-                                                                {formatAnswerValue(val)}
-                                                            </li>
-                                                        ))}
-                                                    </ul>
-                                                ) : typeof question.masterDataValue === 'object' && !isPartyValue(question.masterDataValue) && !isAddressValue(question.masterDataValue) && !('ccAddressId' in (question.masterDataValue as any)) && !('ccPartyId' in (question.masterDataValue as any)) ? (
-                                                    <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]">
-                                                        {Object.entries(question.masterDataValue).map(([fNo, val]) => (
-                                                            <div key={fNo} className="flex flex-col">
-                                                                <span className="text-slate-400 font-bold uppercase tracking-tighter text-[9px]">Field {fNo}</span>
-                                                                <span className="text-slate-700 font-semibold truncate">
-                                                                    {Array.isArray(val) ? val.map(formatPartyLabel).join(', ') : formatPartyLabel(val)}
-                                                                </span>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                ) : (
-                                                    formatAnswerValue(question.masterDataValue)
-                                                )
-                                            ) : isMapped
-                                                ? <span className="italic text-slate-400">No value yet — click ✏️ to add</span>
-                                                : <span className="italic text-slate-300">Map a master field to enable answers</span>
-                                            }
-                                        </span>
-
-                                        <div className={cn(
-                                            "flex items-center gap-1 ml-2 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity",
-                                            question.masterDataGroupDisplayStyle === 'COMPACT' && "absolute top-2 right-2 bg-white/90 p-1 rounded shadow-sm border border-slate-100 ml-0"
-                                        )}>
-                                            {isGroupAnswer ? (
-                                                /* Group answers: icons non-functional — direct user to Master Data tab */
-                                                <a
-                                                    href={`/app/le/${leId}/master`}
-                                                    target="_blank"
-                                                    rel="noreferrer"
-                                                    title="Manage composite groups in Master Data tab"
-                                                    className="p-1 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
-                                                >
-                                                    <ExternalLink className="h-3.5 w-3.5" />
-                                                </a>
-                                            ) : isComplexValue || isProjectedValue ? (
-                                                /* Complex/Projected values: prevent inline edit -> Master Data tab */
-                                                <>
-                                                    <button
-                                                        disabled
-                                                        title={isProjectedValue ? "Projected values can't be edited inline — use the Master Data tab" : "Complex mapped answers must be edited in Master Data"}
-                                                        className="p-1 rounded text-slate-200 cursor-not-allowed"
-                                                    >
-                                                        <Pencil className="h-3.5 w-3.5" />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => {
-                                                            const fNo = question.masterFieldNo || 0;
-                                                            const customId = (question as any).customFieldDefinitionId;
-                                                            onInspect(fNo, question.text, customId);
-                                                        }}
-                                                        title="View history & details"
-                                                        className="p-1 rounded text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
-                                                    >
-                                                        <PanelLeftOpen className="h-3.5 w-3.5" />
-                                                    </button>
-                                                    <a
-                                                        href={`/app/le/${leId}/master`}
-                                                        title="Complex mapped answers must be edited in Master Data"
-                                                        className="p-1 rounded text-slate-300 hover:text-indigo-500 hover:bg-indigo-50 transition-colors"
-                                                    >
-                                                        <ExternalLink className="h-3.5 w-3.5" />
-                                                    </a>
-                                                </>
-                                            ) : (
-                                                /* Single-field scalar answers: existing behaviour unchanged */
-                                                <>
-                                                    <button
-                                                        onClick={handleStartEdit}
-                                                        disabled={!isMapped || question.status === 'RELEASED'}
-                                                        title={question.status === 'RELEASED' ? "Cannot edit released questions" : isMapped ? "Edit value" : "Map a field first"}
-                                                        className={cn(
-                                                            "p-1 rounded transition-colors",
-                                                            (isMapped && question.status !== 'RELEASED')
-                                                                ? "text-indigo-500 hover:bg-indigo-50 hover:text-indigo-700"
-                                                                : "text-slate-300 cursor-not-allowed"
-                                                        )}
-                                                    >
-                                                        <Pencil className="h-3.5 w-3.5" />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => {
-                                                            const fNo = question.masterFieldNo || 0;
-                                                            const customId = (question as any).customFieldDefinitionId;
-                                                            onInspect(fNo, question.text, customId);
-                                                        }}
-                                                        title="View history & details"
-                                                        className="p-1 rounded text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
-                                                    >
-                                                        <PanelLeftOpen className="h-3.5 w-3.5" />
-                                                    </button>
-                                                </>
-                                            )}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                            {!isEditing && !isGroupAnswer && (
-                                question.canonicalDisplayModel?.source ? (
-                                    <div className="flex items-center gap-3 pl-6 mt-1 text-[10px] font-medium">
-                                        <FieldSourceBadge source={question.canonicalDisplayModel.source} showLastValidated={true} variant="span" />
-                                        {question.masterFieldNo && masterFields.find(f => f.fieldNo === question.masterFieldNo)?.attachmentCount ? (
-                                            <FieldAttachmentIndicator count={masterFields.find(f => f.fieldNo === question.masterFieldNo)?.attachmentCount} />
-                                        ) : null}
-                                    </div>
-                                ) : (question.masterDataSource || question.masterDataUpdatedAt) ? (
-                                    <div className="flex items-center gap-3 pl-6 text-[10px] text-slate-400 font-medium">
-                                        {question.masterDataSource && (
-                                            <div className="flex items-center gap-1 bg-slate-100/50 px-1.5 py-0.5 rounded border border-slate-200/50">
-                                                <span className="opacity-60 uppercase tracking-wide">Source:</span>
-                                                <span className="text-slate-600 font-bold uppercase">{question.masterDataSource}</span>
-                                            </div>
-                                        )}
-                                        {question.masterDataUpdatedAt && (
-                                            <div className="flex items-center gap-1">
-                                                <span className="opacity-60 uppercase tracking-wide">Last Updated:</span>
-                                                <span className="text-slate-500 font-semibold">{new Date(question.masterDataUpdatedAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}</span>
-                                            </div>
-                                        )}
-                                        {question.masterFieldNo && masterFields.find(f => f.fieldNo === question.masterFieldNo)?.attachmentCount ? (
-                                            <FieldAttachmentIndicator count={masterFields.find(f => f.fieldNo === question.masterFieldNo)?.attachmentCount} />
-                                        ) : null}
-                                    </div>
-                                ) : null
-                            )}
-                        </div>
+                        {renderAnswerContent()}
                     </div>
 
                     {/* Right Side: Mapping Controls */}
