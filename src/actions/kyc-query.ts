@@ -917,6 +917,12 @@ export async function getFieldDetail(
                     } else {
                         // Empty collection — still emit a row so order is preserved;
                         // GroupAnswerRenderer hides isSynced:false rows
+                        const displayState = KycStateService.calculateDisplayState({
+                            hasValue: false,
+                            hasApplicableMapping: evalResult.hasApplicableMapping,
+                            hasApplicableEvaluationAttempt: evalResult.hasApplicableEvaluationAttempt,
+                            defaultText: def.defaultResponse ?? undefined
+                        });
                         const subRawSource = evalResult.evaluatedSourceBadge ? {
                             type: evalResult.evaluatedSourceBadge,
                             reference: null,

@@ -633,7 +633,7 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                                                 defaultResponse={data?.defaultResponse}
                                                 mappingStats={data?.mappingStats}
                                                 canonicalDisplayModel={data?.canonicalDisplayModel}
-                                                sourceCheckedAt={data?.sourceCheckedAt}
+                                                sourceCheckedAt={(data as any)?.sourceCheckedAt}
                                                 onClick={() => setSelectedField({ fieldNo: field.fieldNo, name: field.fieldName, mappingStats: data?.mappingStats })}
                                             />
                                         );
@@ -684,7 +684,7 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                                             defaultResponse={data?.defaultResponse}
                                             mappingStats={data?.mappingStats}
                                             canonicalDisplayModel={data?.canonicalDisplayModel}
-                                            sourceCheckedAt={data?.sourceCheckedAt}
+                                            sourceCheckedAt={(data as any)?.sourceCheckedAt}
                                             onClick={() => setSelectedField({ fieldNo: field.fieldNo, name: field.fieldName, mappingStats: data?.mappingStats })}
                                         />
                                     );
@@ -733,7 +733,7 @@ function MasterFieldDisplay({ label, fieldNo, value, formattedDisplayValue, sour
     formattedDisplayValue?: string,
     source?: ProvenanceSource,
     sourceReference?: string,
-    sourceCheckedAt?: Date | string,
+    sourceCheckedAt?: Date | string | null,
     /** Entity-specific GLEIF RA code — passed to SourceBadge for RA sources only. */
     registrationAuthorityId?: string,
     onClick?: () => void,
