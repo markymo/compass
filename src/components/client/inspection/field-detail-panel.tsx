@@ -2079,21 +2079,18 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                             )}
                                                                             {(!data?.displayState || data?.displayState === 'UNMAPPED_NO_RESPONSE' || data?.displayState === 'MAPPED_NOT_CHECKED') && 'No response recorded'}
                                                                         </div>
-                                                                        {data?.displayState === 'CHECKED_NO_DATA' && data?.current?.source && (
+                                                                        {data?.displayState === 'CHECKED_NO_DATA' && (data?.canonicalDisplayModel?.source || data?.current?.source) && (
                                                                             <div className="mt-2 flex items-center gap-2">
                                                                                 <FieldSourceBadge 
-                                                                                    legacySourceType={data.current.source} 
+                                                                                    source={data?.canonicalDisplayModel?.source}
+                                                                                    showLastValidated={true}
+                                                                                    legacySourceType={data.current?.source} 
                                                                                     legacyRaId={registrationAuthorityId} 
                                                                                     legacyRaName={(registrationAuthorityId ? raNameMap[registrationAuthorityId] : undefined) || 'Registration Authority'}
                                                                                     variant="span"
                                                                                     className="uppercase tracking-wider"
                                                                                     wrapperClassName="flex items-center gap-1.5"
                                                                                 />
-                                                                                {data?.current?.timestamp && (
-                                                                                    <span className="text-xs text-slate-400">
-                                                                                        (Refreshed {String(new Date(data.current.timestamp).toISOString()).substring(0, 10)})
-                                                                                    </span>
-                                                                                )}
                                                                             </div>
                                                                         )}
                                                                         {!isLocked && (data?.displayState === 'DEFAULT_RESPONSE' || data?.displayState === 'CHECKED_NO_DATA') && (

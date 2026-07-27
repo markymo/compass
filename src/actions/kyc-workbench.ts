@@ -274,6 +274,21 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
                             defaultText: def.defaultResponse ?? undefined
                         });
 
+                        const evaluatedRawSource = (!hydratedVal.source && evalResult.evaluatedSourceBadge) ? {
+                            type: evalResult.evaluatedSourceBadge,
+                            reference: null,
+                            sourceCheckedAt: evalResult.evaluatedSourceTimestamp,
+                            timestamp: null,
+                            userName: null
+                        } : null;
+
+                        const rawSourceToUse = hydratedVal.source ? {
+                            type: hydratedVal.source as any,
+                            reference: hydratedVal.sourceReference,
+                            timestamp: hydratedVal.updatedAt ?? null,
+                            sourceCheckedAt: hydratedVal.sourceCheckedAt ?? null
+                        } : evaluatedRawSource;
+
                         const metadata = {
                             fieldNo,
                             label: def.fieldName ? `F${fieldNo} ${def.fieldName}` : `F${fieldNo}`,
@@ -283,7 +298,8 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
                             profileConfig: def.profileConfig,
                             isMultiValue: isMulti,
                             codeSystem,
-                            attachments: hydratedVal.attachments
+                            attachments: hydratedVal.attachments,
+                            rawSource: rawSourceToUse
                         };
 
                         const canonicalDisplayModel = hydratedVal ? (
@@ -291,7 +307,7 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
                                 ? resolveFieldCollectionForDisplay(hydratedVal.value, metadata)
                                 : resolveFieldForDisplay(
                                     hydratedVal.value,
-                                    hydratedVal.source ? { type: hydratedVal.source as any, reference: hydratedVal.sourceReference, timestamp: hydratedVal.updatedAt ?? null, sourceCheckedAt: hydratedVal.sourceCheckedAt ?? null } : null,
+                                    rawSourceToUse,
                                     metadata
                                 )
                         ) : undefined;
@@ -334,6 +350,26 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
                             defaultText: def?.defaultResponse ?? undefined
                         });
 
+                        const evaluatedRawSource = (!fv.source && evalResult.evaluatedSourceBadge) ? {
+                            type: evalResult.evaluatedSourceBadge,
+                            reference: null,
+                            sourceCheckedAt: evalResult.evaluatedSourceTimestamp,
+                            timestamp: null,
+                            userName: null
+                        } : null;
+
+                        const rawSourceToUse = fv.source ? {
+                            type: fv.source as any,
+                            reference: fv.sourceReference,
+                            timestamp: fv.updatedAt ?? null,
+                            sourceCheckedAt: fv.sourceCheckedAt ?? null
+                        } : evaluatedRawSource;
+
+                        if (!fv.source && evalResult.evaluatedSourceBadge && displayState === 'CHECKED_NO_DATA') {
+                            q.masterDataSource = evalResult.evaluatedSourceBadge;
+                            q.masterDataUpdatedAt = evalResult.evaluatedSourceTimestamp;
+                        }
+
                         const metadata = {
                             fieldNo: q.masterFieldNo,
                             label: def?.fieldName || '',
@@ -342,14 +378,15 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
                             appDataType: def?.appDataType || 'JSON',
                             isMultiValue: isMulti,
                             codeSystem,
-                            attachments: fv.attachments
+                            attachments: fv.attachments,
+                            rawSource: rawSourceToUse
                         };
 
                         q.canonicalDisplayModel = (isMulti && Array.isArray(fv.value))
                             ? resolveFieldCollectionForDisplay(fv.value, metadata)
                             : resolveFieldForDisplay(
                                 fv.value,
-                                fv.source ? { type: fv.source as any, reference: fv.sourceReference, timestamp: fv.updatedAt ?? null, sourceCheckedAt: fv.sourceCheckedAt ?? null } : null,
+                                rawSourceToUse,
                                 metadata
                             );
                     }

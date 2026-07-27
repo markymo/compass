@@ -23,6 +23,7 @@ export interface FieldInterpreterMetadata {
     attachments?: import('./field-display-model').ResolvedAttachment[];
     allowAttachments?: boolean;
     clientLEId?: string;
+    rawSource?: RawFieldSource | null;
 }
 
 export interface RawFieldSource {
@@ -44,7 +45,7 @@ export function resolveFieldCollectionForDisplay(
     metadata: FieldInterpreterMetadata
 ): FieldDisplayModel {
     if (!items || items.length === 0) {
-        return resolveFieldForDisplay([], null, metadata);
+        return resolveFieldForDisplay([], metadata.rawSource || null, metadata);
     }
 
     const state = resolveState(metadata.displayState, items);

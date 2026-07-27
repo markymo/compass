@@ -235,14 +235,13 @@ export async function resolveExportAnswer(
                 attachmentFilenames: attachmentFilenames.length > 0 ? attachmentFilenames : undefined
             };
         } else {
-            // Check Master Record empty state logic
-            const fieldDetail = await getFieldDetail(entityId, question.masterFieldNo, "CLIENT_LE");
-            
+            // Check Master Record empty state logic using already resolved fieldDetail
             if (fieldDetail.displayState === 'CHECKED_NO_DATA' || fieldDetail.current?.value?.explicitNone === true) {
-                let sourceLabel: string | undefined = fieldDetail.current?.source ? getSourceDisplayName(fieldDetail.current.source, fieldDetail.current.sourceReference) : undefined;
+                let sourceLabel: string | undefined = fieldDetail.canonicalDisplayModel?.source?.label || (fieldDetail.current?.source ? getSourceDisplayName(fieldDetail.current.source, fieldDetail.current.sourceReference) : undefined);
+                let sourceTimestamp = fieldDetail.canonicalDisplayModel?.source?.lastValidatedAt ? new Date(fieldDetail.canonicalDisplayModel.source.lastValidatedAt) : (fieldDetail.current?.sourceCheckedAt || fieldDetail.current?.timestamp || null);
                 let sourceCategory: 'REGISTRY' | 'USER' | 'DEFAULT' = 'REGISTRY';
                 
-                if (fieldDetail.current?.source === 'USER_INPUT') {
+                if (fieldDetail.canonicalDisplayModel?.source?.type === 'USER_INPUT' || fieldDetail.current?.source === 'USER_INPUT') {
                     sourceCategory = 'USER';
                 }
 
@@ -251,7 +250,7 @@ export async function resolveExportAnswer(
                     rawValue: null,
                     answerState: "EMPTY_CHECKED",
                     sourceLabel: sourceLabel || undefined,
-                    sourceTimestamp: fieldDetail.current?.timestamp || null,
+                    sourceTimestamp: sourceTimestamp || null,
                     sourceCategory: isReleased ? 'USER' : sourceCategory
                 };
             } else if (fieldDetail.displayState === 'DEFAULT_RESPONSE' && fieldDetail.defaultResponse) {
