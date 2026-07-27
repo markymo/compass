@@ -923,6 +923,13 @@ export async function getFieldDetail(
                             hasApplicableEvaluationAttempt: evalResult.hasApplicableEvaluationAttempt,
                             defaultText: def.defaultResponse ?? undefined
                         });
+                        const subRawSource = evalResult.evaluatedSourceBadge ? {
+                            type: evalResult.evaluatedSourceBadge,
+                            reference: null,
+                            sourceCheckedAt: evalResult.evaluatedSourceTimestamp,
+                            timestamp: null,
+                            userName: null
+                        } : null;
                         groupFields.push({
                             fieldNo: item.fieldNo,
                             fieldName: def.fieldName,
@@ -932,7 +939,7 @@ export async function getFieldDetail(
                             hydrated: { value: null, source: null, isSynced: false },
                             canonicalDisplayModel: resolveFieldForDisplay(
                                 null,
-                                null,
+                                subRawSource,
                                 {
                                     fieldNo: item.fieldNo,
                                     label: def.fieldName,
@@ -943,7 +950,8 @@ export async function getFieldDetail(
                                     isMultiValue: def.isMultiValue,
                                     codeSystem,
                                     allowAttachments: def.allowAttachments,
-                                    attachments: mappedAttachments
+                                    attachments: mappedAttachments,
+                                    rawSource: subRawSource
                                 }
                             ),
                         });
@@ -997,6 +1005,13 @@ export async function getFieldDetail(
                             hasApplicableEvaluationAttempt: evalResult.hasApplicableEvaluationAttempt,
                             defaultText: def.defaultResponse ?? undefined
                         });
+                        const subRawSource = evalResult.evaluatedSourceBadge ? {
+                            type: evalResult.evaluatedSourceBadge,
+                            reference: null,
+                            sourceCheckedAt: evalResult.evaluatedSourceTimestamp,
+                            timestamp: null,
+                            userName: null
+                        } : null;
                         groupFields.push({
                             fieldNo: item.fieldNo,
                             fieldName: def.fieldName,
@@ -1006,7 +1021,7 @@ export async function getFieldDetail(
                             hydrated: { value: null, source: null, isSynced: false },
                             canonicalDisplayModel: resolveFieldForDisplay(
                                 null,
-                                null,
+                                subRawSource,
                                 {
                                     fieldNo: item.fieldNo,
                                     label: def.fieldName,
@@ -1017,7 +1032,8 @@ export async function getFieldDetail(
                                     isMultiValue: def.isMultiValue,
                                     codeSystem,
                                     allowAttachments: def.allowAttachments,
-                                    attachments: mappedAttachments
+                                    attachments: mappedAttachments,
+                                    rawSource: subRawSource
                                 }
                             ),
                         });
@@ -1678,6 +1694,18 @@ export async function getFieldDetail(
                 timestamp: result.current.timestamp,
                 sourceCheckedAt: result.current.sourceCheckedAt
             } : null,
+            metadataForDisplay
+        );
+    } else {
+        const evalSource = evalResult.evaluatedSourceBadge ? {
+            type: evalResult.evaluatedSourceBadge as any,
+            reference: null,
+            sourceCheckedAt: evalResult.evaluatedSourceTimestamp,
+            timestamp: null
+        } : null;
+        (result as any).canonicalDisplayModel = resolveFieldForDisplay(
+            null,
+            evalSource,
             metadataForDisplay
         );
     }

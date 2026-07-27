@@ -780,7 +780,8 @@ export async function getFullMasterData(clientLEId: string) {
                         })(),
                         allowAttachments: def.allowAttachments,
                         attachments: resolvedAttachments.get(def.fieldNo) || [],
-                        clientLEId
+                        clientLEId,
+                        rawSource
                     }
                 ) : resolveFieldForDisplay(
                     valueToSet,

@@ -179,12 +179,16 @@ NOTE: This export pack includes Questionnaire PDFs and Original Native Evidence.
                     compactText: question.compactText,
                     sectionId: question.sourceSectionId,
                     answer: resolvedAnswer.displayValue,
+                    displayContext: resolvedAnswer.displayContext,
                     sourceLabel: resolvedAnswer.sourceLabel,
                     sourceTimestamp: resolvedAnswer.sourceTimestamp ? new Date(resolvedAnswer.sourceTimestamp).toISOString() : null,
                     sourceCategory: resolvedAnswer.sourceCategory,
                     answerState: resolvedAnswer.answerState,
                     notes: question.comments.map((c: any) => `[${c.user?.name || 'User'}]: ${c.text}`).join("\n"),
-                    evidencePaths
+                    evidencePaths,
+                    groupFields: resolvedAnswer.groupFields,
+                    groupDisplayStyle: resolvedAnswer.groupDisplayStyle,
+                    attachmentFilenames: resolvedAnswer.attachmentFilenames
                 };
             }));
 

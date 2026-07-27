@@ -17,7 +17,7 @@ export interface FieldSourceBadgeProps {
     legacySourceReference?: string;
     legacyRaId?: string;
     legacyRaName?: string;
-    legacyTimestamp?: string;
+    legacyTimestamp?: string | Date | null;
 
     // Optional feature flags
     showLastValidated?: boolean;
@@ -70,7 +70,7 @@ export function FieldSourceBadge({
         }
         
         raId = legacyRaId;
-        timestampStr = legacyTimestamp;
+        timestampStr = legacyTimestamp ? (legacyTimestamp instanceof Date ? legacyTimestamp.toISOString() : legacyTimestamp) : undefined;
 
         if (legacySourceType === 'USER_INPUT') colorKey = 'USER';
         else if (legacySourceType === 'GLEIF') colorKey = 'GLEIF';

@@ -16,7 +16,7 @@ import { generateObject } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
 import { z } from 'zod';
 import { ensureQuestionNotReferenceSnapshot } from "./questionnaire";
-import { resolveFieldForDisplay, resolveFieldCollectionForDisplay } from "@/lib/master-data/field-interpreter";
+import { resolveFieldForDisplay, resolveFieldCollectionForDisplay, resolveFieldDisplayContext } from "@/lib/master-data/field-interpreter";
 
 export interface Workbench4Data {
     questions: ConsoleQuestion[];
@@ -76,8 +76,8 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
         : [[], []] as [any[], any[]];
         
     // Build fieldDefMap from already-loaded allFields
-    const fieldDefMap = new Map<number, { fieldNo: number; fieldName: string; appDataType: string; isMultiValue: boolean; profileConfig?: any; defaultResponse?: string | null }>(
-        allFields.map((f: any) => [f.fieldNo, { fieldNo: f.fieldNo, fieldName: f.fieldName ?? '', appDataType: f.appDataType, isMultiValue: f.isMultiValue, profileConfig: f.profileConfig, defaultResponse: f.defaultResponse }])
+    const fieldDefMap = new Map<number, { fieldNo: number; fieldName: string; appDataType: string; isMultiValue: boolean; profileConfig?: any; defaultResponse?: string | null; displayContext?: string | null; displayContextEnabled?: boolean }>(
+        allFields.map((f: any) => [f.fieldNo, { fieldNo: f.fieldNo, fieldName: f.fieldName ?? '', appDataType: f.appDataType, isMultiValue: f.isMultiValue, profileConfig: f.profileConfig, defaultResponse: f.defaultResponse, displayContext: f.displayContext, displayContextEnabled: f.displayContextEnabled }])
     );
 
     // Build groupFieldMap from already-loaded allGroupsWithItems
@@ -274,6 +274,21 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
                             defaultText: def.defaultResponse ?? undefined
                         });
 
+                        const evaluatedRawSource = (!hydratedVal.source && evalResult.evaluatedSourceBadge) ? {
+                            type: evalResult.evaluatedSourceBadge,
+                            reference: null,
+                            sourceCheckedAt: evalResult.evaluatedSourceTimestamp,
+                            timestamp: null,
+                            userName: null
+                        } : null;
+
+                        const rawSourceToUse = hydratedVal.source ? {
+                            type: hydratedVal.source as any,
+                            reference: hydratedVal.sourceReference,
+                            timestamp: hydratedVal.updatedAt ?? null,
+                            sourceCheckedAt: hydratedVal.sourceCheckedAt ?? null
+                        } : evaluatedRawSource;
+
                         const metadata = {
                             fieldNo,
                             label: def.fieldName ? `F${fieldNo} ${def.fieldName}` : `F${fieldNo}`,
@@ -283,7 +298,9 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
                             profileConfig: def.profileConfig,
                             isMultiValue: isMulti,
                             codeSystem,
-                            attachments: hydratedVal.attachments
+                            attachments: hydratedVal.attachments,
+                            rawSource: rawSourceToUse,
+                            displayContext: resolveFieldDisplayContext(def),
                         };
 
                         const canonicalDisplayModel = hydratedVal ? (
@@ -291,7 +308,7 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
                                 ? resolveFieldCollectionForDisplay(hydratedVal.value, metadata)
                                 : resolveFieldForDisplay(
                                     hydratedVal.value,
-                                    hydratedVal.source ? { type: hydratedVal.source as any, reference: hydratedVal.sourceReference, timestamp: hydratedVal.updatedAt ?? null, sourceCheckedAt: hydratedVal.sourceCheckedAt ?? null } : null,
+                                    rawSourceToUse,
                                     metadata
                                 )
                         ) : undefined;
@@ -334,6 +351,26 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
                             defaultText: def?.defaultResponse ?? undefined
                         });
 
+                        const evaluatedRawSource = (!fv.source && evalResult.evaluatedSourceBadge) ? {
+                            type: evalResult.evaluatedSourceBadge,
+                            reference: null,
+                            sourceCheckedAt: evalResult.evaluatedSourceTimestamp,
+                            timestamp: null,
+                            userName: null
+                        } : null;
+
+                        const rawSourceToUse = fv.source ? {
+                            type: fv.source as any,
+                            reference: fv.sourceReference,
+                            timestamp: fv.updatedAt ?? null,
+                            sourceCheckedAt: fv.sourceCheckedAt ?? null
+                        } : evaluatedRawSource;
+
+                        if (!fv.source && evalResult.evaluatedSourceBadge && displayState === 'CHECKED_NO_DATA') {
+                            q.masterDataSource = evalResult.evaluatedSourceBadge;
+                            q.masterDataUpdatedAt = evalResult.evaluatedSourceTimestamp;
+                        }
+
                         const metadata = {
                             fieldNo: q.masterFieldNo,
                             label: def?.fieldName || '',
@@ -342,14 +379,16 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
                             appDataType: def?.appDataType || 'JSON',
                             isMultiValue: isMulti,
                             codeSystem,
-                            attachments: fv.attachments
+                            attachments: fv.attachments,
+                            rawSource: rawSourceToUse,
+                            displayContext: resolveFieldDisplayContext(def),
                         };
 
                         q.canonicalDisplayModel = (isMulti && Array.isArray(fv.value))
                             ? resolveFieldCollectionForDisplay(fv.value, metadata)
                             : resolveFieldForDisplay(
                                 fv.value,
-                                fv.source ? { type: fv.source as any, reference: fv.sourceReference, timestamp: fv.updatedAt ?? null, sourceCheckedAt: fv.sourceCheckedAt ?? null } : null,
+                                rawSourceToUse,
                                 metadata
                             );
                     }

@@ -70,6 +70,8 @@ async function buildSchemaDefinition(): Promise<Record<string, any>> {
             fmsbRef: f.fmsbRef ?? null,
             description: f.description ?? null,
             notes: f.notes ?? null,
+            displayContext: f.displayContext ?? null,
+            displayContextEnabled: f.displayContextEnabled ?? false,
             category: f.masterDataCategory
                 ? { key: f.masterDataCategory.key, displayName: f.masterDataCategory.displayName }
                 : null,

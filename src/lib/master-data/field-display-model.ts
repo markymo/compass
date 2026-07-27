@@ -27,6 +27,9 @@ export interface FieldDisplayModel {
     attachments: ResolvedAttachment[];
     allowAttachments: boolean;
     clientLEId?: string;
+    /** Admin-configured explanation rendered alongside answers in Question Bank and PDF only.
+     *  Set by the field interpreter when displayContextEnabled is true and state is POPULATED. */
+    displayContext?: string;
 }
 
 export type AttachmentProvenance = 

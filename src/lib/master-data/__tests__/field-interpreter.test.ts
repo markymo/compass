@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { resolveFieldForDisplay, FieldInterpreterMetadata } from '../field-interpreter';
+import { resolveFieldForDisplay, resolveFieldCollectionForDisplay, FieldInterpreterMetadata } from '../field-interpreter';
 import { getPartyDisplayProjection } from '../party-value';
 import { toExportText } from '@/lib/export/toExportText';
 
@@ -388,4 +388,43 @@ describe('field-interpreter', () => {
             expect(exportText).toBe('John Smith\nDirector (Appointed 2020-01-01)');
         });
     });
+
+    describe('empty collection & CHECKED_NO_DATA provenance', () => {
+        it('preserves rawSource and lastValidatedAt for empty collections when metadata.rawSource is supplied', () => {
+            const rawSource = {
+                type: 'GLEIF',
+                sourceCheckedAt: '2026-07-25T10:00:00.000Z'
+            };
+            const meta: FieldInterpreterMetadata = {
+                fieldNo: 10,
+                label: 'Empty Collection Field',
+                displayState: 'CHECKED_NO_DATA',
+                isMultiValue: true,
+                rawSource
+            };
+
+            const model = resolveFieldCollectionForDisplay([], meta);
+            expect(model.state).toBe('NO_DATA');
+            expect(model.value).toEqual({ kind: 'empty' });
+            expect(model.source).toBeDefined();
+            expect(model.source?.type).toBe('GLEIF');
+            expect(model.source?.label).toBe('GLEIF');
+            expect(model.source?.lastValidatedAt).toBe('2026-07-25T10:00:00.000Z');
+        });
+
+        it('does not populate source for UNMAPPED or null rawSource empty collections', () => {
+            const meta: FieldInterpreterMetadata = {
+                fieldNo: 10,
+                label: 'Unmapped Collection',
+                displayState: 'UNMAPPED_NO_RESPONSE',
+                isMultiValue: true,
+                rawSource: null
+            };
+
+            const model = resolveFieldCollectionForDisplay([], meta);
+            expect(model.state).toBe('UNMAPPED');
+            expect(model.source).toBeNull();
+        });
+    });
 });
+

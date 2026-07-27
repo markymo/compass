@@ -633,6 +633,7 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                                                 defaultResponse={data?.defaultResponse}
                                                 mappingStats={data?.mappingStats}
                                                 canonicalDisplayModel={data?.canonicalDisplayModel}
+                                                sourceCheckedAt={(data as any)?.sourceCheckedAt}
                                                 onClick={() => setSelectedField({ fieldNo: field.fieldNo, name: field.fieldName, mappingStats: data?.mappingStats })}
                                             />
                                         );
@@ -683,6 +684,7 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                                             defaultResponse={data?.defaultResponse}
                                             mappingStats={data?.mappingStats}
                                             canonicalDisplayModel={data?.canonicalDisplayModel}
+                                            sourceCheckedAt={(data as any)?.sourceCheckedAt}
                                             onClick={() => setSelectedField({ fieldNo: field.fieldNo, name: field.fieldName, mappingStats: data?.mappingStats })}
                                         />
                                     );
@@ -724,13 +726,14 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
     );
 }
 
-function MasterFieldDisplay({ label, fieldNo, value, formattedDisplayValue, source, sourceReference, registrationAuthorityId, onClick, description, isCustom, groups = [], displayState, defaultResponse, mappingStats, fieldDef, canonicalDisplayModel }: {
+function MasterFieldDisplay({ label, fieldNo, value, formattedDisplayValue, source, sourceReference, sourceCheckedAt, registrationAuthorityId, onClick, description, isCustom, groups = [], displayState, defaultResponse, mappingStats, fieldDef, canonicalDisplayModel }: {
     label: string,
     fieldNo: number,
     value: any,
     formattedDisplayValue?: string,
     source?: ProvenanceSource,
     sourceReference?: string,
+    sourceCheckedAt?: Date | string | null,
     /** Entity-specific GLEIF RA code — passed to SourceBadge for RA sources only. */
     registrationAuthorityId?: string,
     onClick?: () => void,
@@ -847,7 +850,7 @@ function MasterFieldDisplay({ label, fieldNo, value, formattedDisplayValue, sour
                             </div>
                             <div className="flex items-center gap-2">
                                 {(resolvedState === "HAS_VALUE" || resolvedState === "MAPPED_NOT_CHECKED" || resolvedState === "CHECKED_NO_DATA") && (canonicalDisplayModel?.source || source) && (
-                                    <FieldSourceBadge source={canonicalDisplayModel?.source} showLastValidated={true} legacySourceType={source} legacySourceReference={sourceReference} legacyRaId={registrationAuthorityId} />
+                                    <FieldSourceBadge source={canonicalDisplayModel?.source} showLastValidated={true} legacySourceType={source} legacySourceReference={sourceReference} legacyTimestamp={sourceCheckedAt} legacyRaId={registrationAuthorityId} />
                                 )}
                                 {onClick && (
                                     <TooltipProvider delayDuration={150}>
@@ -971,7 +974,7 @@ function MasterFieldDisplay({ label, fieldNo, value, formattedDisplayValue, sour
                         </div>
                         {(resolvedState === "HAS_VALUE" || resolvedState === "MAPPED_NOT_CHECKED" || resolvedState === "CHECKED_NO_DATA") && (canonicalDisplayModel?.source || source) && (
                             <div className="flex items-center gap-2 shrink-0 ml-4">
-                                <FieldSourceBadge source={canonicalDisplayModel?.source} showLastValidated={true} legacySourceType={source} legacySourceReference={sourceReference} legacyRaId={registrationAuthorityId} />
+                                <FieldSourceBadge source={canonicalDisplayModel?.source} showLastValidated={true} legacySourceType={source} legacySourceReference={sourceReference} legacyTimestamp={sourceCheckedAt} legacyRaId={registrationAuthorityId} />
                             </div>
                         )}
                         {onClick && (

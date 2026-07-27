@@ -88,7 +88,9 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
         optionSetId: field?.optionSetId || "none",
         appDataType: field?.appDataType || "TEXT",
         profileConfig: field?.profileConfig || null,
-        allowAttachments: field?.allowAttachments || false
+        allowAttachments: field?.allowAttachments || false,
+        displayContext: field?.displayContext || "",
+        displayContextEnabled: field?.displayContextEnabled || false
     });
 
     const [isProfileSectionOpen, setIsProfileSectionOpen] = useState(false);
@@ -117,6 +119,8 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                 appDataType:     field.appDataType || "TEXT",
                 profileConfig:   field.profileConfig || null,
                 allowAttachments: field.allowAttachments || false,
+                displayContext:  field.displayContext || "",
+                displayContextEnabled: field.displayContextEnabled || false,
             });
 
             if (field.appDataType === 'PARTY') {
@@ -331,9 +335,23 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
         setLoading(true);
         try {
             const domainsArray = formData.domain ? formData.domain.split(",").map((d: string) => d.trim()).filter(Boolean) : [];
+            const trimmedContext = formData.displayContext ? formData.displayContext.trim() : "";
+            if (formData.displayContextEnabled && !trimmedContext) {
+                toast.error("Display context text is required when the setting is enabled.");
+                setLoading(false);
+                return;
+            }
+            if (trimmedContext.length > 120) {
+                toast.error("Display context must be 120 characters or fewer.");
+                setLoading(false);
+                return;
+            }
+
             const payload: any = { 
                 ...formData, 
-                domain: domainsArray
+                domain: domainsArray,
+                displayContext: trimmedContext || null,
+                displayContextEnabled: formData.displayContextEnabled
             };
             if (payload.optionSetId === "none" || payload.appDataType !== APP_DATA_TYPES.SELECT) {
                 payload.optionSetId = null;
@@ -1003,6 +1021,46 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                                         onChange={(e) => setFormData({ ...formData, defaultResponse: e.target.value })}
                                         className="min-h-[80px] bg-slate-50 border-slate-200 resize-y"
                                     />
+                                )}
+                            </div>
+                            
+                            {/* Answer Display Context Section */}
+                            <div className="grid gap-3 pt-3 border-t border-slate-100">
+                                <Label className="text-xs font-semibold text-slate-700 flex items-center justify-between">
+                                    <span>Answer display context</span>
+                                    <span className="text-[10px] text-slate-400 font-normal">{formData.displayContext.length}/120</span>
+                                </Label>
+                                <div className="flex items-center space-x-2">
+                                    <Checkbox
+                                        id="displayContextEnabled"
+                                        checked={formData.displayContextEnabled}
+                                        onCheckedChange={(checked) => setFormData({ ...formData, displayContextEnabled: !!checked })}
+                                    />
+                                    <Label htmlFor="displayContextEnabled" className="text-xs font-medium cursor-pointer text-slate-700">
+                                        Show with answers in Question Bank and PDF
+                                    </Label>
+                                </div>
+                                <div className="grid gap-1.5">
+                                    <Label htmlFor="displayContext" className="text-xs text-slate-500">Display context</Label>
+                                    <Input
+                                        id="displayContext"
+                                        placeholder="e.g. Direct parent with more than 50% ownership"
+                                        maxLength={120}
+                                        value={formData.displayContext}
+                                        onChange={(e) => setFormData({ ...formData, displayContext: e.target.value })}
+                                        className="bg-white text-xs"
+                                    />
+                                    <p className="text-[11px] text-slate-500 leading-snug">
+                                        Adds a short explanation alongside answers supplied by this field. It is shown in Question Bank and questionnaire PDF exports only. The text must describe every value in this field. It does not become part of the stored answer.
+                                    </p>
+                                </div>
+
+                                {formData.displayContext.trim() && (
+                                    <div className="mt-1 p-2.5 bg-slate-50 border border-slate-200 rounded-md">
+                                        <span className="text-[9px] uppercase font-bold tracking-wider text-slate-400 block mb-1">Preview</span>
+                                        <div className="font-semibold text-xs text-slate-800">EXAMPLE ANSWER</div>
+                                        <div className="text-xs text-slate-500 italic mt-0.5">{formData.displayContext.trim()}</div>
+                                    </div>
                                 )}
                             </div>
                         </div>

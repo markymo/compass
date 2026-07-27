@@ -23,6 +23,22 @@ export interface FieldInterpreterMetadata {
     attachments?: import('./field-display-model').ResolvedAttachment[];
     allowAttachments?: boolean;
     clientLEId?: string;
+    rawSource?: RawFieldSource | null;
+    /** Admin-configured display context resolved via resolveFieldDisplayContext(). */
+    displayContext?: string;
+}
+
+/**
+ * Resolves display context from a Master Field definition.
+ * Returns the trimmed context string if enabled and non-empty, otherwise undefined.
+ * Central helper — call this instead of inlining the check.
+ */
+export function resolveFieldDisplayContext(
+    def: { displayContext?: string | null; displayContextEnabled?: boolean } | null | undefined
+): string | undefined {
+    if (!def?.displayContextEnabled) return undefined;
+    const trimmed = def.displayContext?.trim();
+    return trimmed || undefined;
 }
 
 export interface RawFieldSource {
@@ -44,7 +60,7 @@ export function resolveFieldCollectionForDisplay(
     metadata: FieldInterpreterMetadata
 ): FieldDisplayModel {
     if (!items || items.length === 0) {
-        return resolveFieldForDisplay([], null, metadata);
+        return resolveFieldForDisplay([], metadata.rawSource || null, metadata);
     }
 
     const state = resolveState(metadata.displayState, items);
@@ -124,6 +140,7 @@ export function resolveFieldCollectionForDisplay(
         attachments: metadata.attachments || [],
         allowAttachments: metadata.allowAttachments ?? false,
         clientLEId: metadata.clientLEId,
+        displayContext: state === 'POPULATED' ? metadata.displayContext : undefined,
     };
 }
 
@@ -160,6 +177,7 @@ export function resolveFieldForDisplay(
         attachments: metadata.attachments || [],
         allowAttachments: metadata.allowAttachments ?? false,
         clientLEId: metadata.clientLEId,
+        displayContext: state === 'POPULATED' ? metadata.displayContext : undefined,
     };
 }
 

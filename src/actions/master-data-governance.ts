@@ -76,6 +76,8 @@ export async function updateMasterField(
         optionSetId?: string | null;
         profileConfig?: any;
         allowAttachments?: boolean;
+        displayContext?: string | null;
+        displayContextEnabled?: boolean;
     }
 ) {
     try {
@@ -85,6 +87,17 @@ export async function updateMasterField(
         // Sanitize: empty string means "no category", which must be `null` in DB to avoid FK violation
         if (finalData.categoryId !== undefined) {
             finalData.categoryId = finalData.categoryId?.trim() || null;
+        }
+
+        // ── Display context validation ─────────────────────────────────────
+        if (finalData.displayContext !== undefined && finalData.displayContext !== null) {
+            finalData.displayContext = finalData.displayContext.trim() || null;
+        }
+        if (finalData.displayContext && finalData.displayContext.length > 120) {
+            return { success: false, error: 'Display context must be 120 characters or fewer.' };
+        }
+        if (finalData.displayContextEnabled && !finalData.displayContext?.trim()) {
+            return { success: false, error: 'Display context text is required when the setting is enabled.' };
         }
 
         if (data.newCategoryName?.trim()) {
@@ -159,6 +172,8 @@ export async function createMasterField(data: {
     isMultiValue?: boolean;
     optionSetId?: string | null;
     allowAttachments?: boolean;
+    displayContext?: string | null;
+    displayContextEnabled?: boolean;
 }) {
     try {
         // Sanitize: empty strings from form selects must be treated as absent.
@@ -166,6 +181,15 @@ export async function createMasterField(data: {
         // on master_field_definitions_categoryId_fkey.
         const sanitizedCategoryId  = data.categoryId?.trim()       || undefined;
         const sanitizedNewCategory = data.newCategoryName?.trim()   || undefined;
+
+        // ── Display context validation ─────────────────────────────────────
+        const trimmedDisplayContext = data.displayContext?.trim() || null;
+        if (trimmedDisplayContext && trimmedDisplayContext.length > 120) {
+            return { success: false, error: 'Display context must be 120 characters or fewer.' };
+        }
+        if (data.displayContextEnabled && !trimmedDisplayContext) {
+            return { success: false, error: 'Display context text is required when the setting is enabled.' };
+        }
 
         let finalCategoryId = sanitizedCategoryId;
 
@@ -216,6 +240,8 @@ export async function createMasterField(data: {
                 isMultiValue: data.isMultiValue || false,
                 optionSetId: data.optionSetId || undefined,
                 allowAttachments: data.allowAttachments || false,
+                displayContext: trimmedDisplayContext,
+                displayContextEnabled: data.displayContextEnabled || false,
             }
         });
         invalidateDefinitionCache();
