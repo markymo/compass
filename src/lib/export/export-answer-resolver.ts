@@ -13,6 +13,7 @@ export type ExportGroupField = {
     sourceLabel?: string;
     sourceTimestamp?: string | null;
     attachmentFilenames?: string[];
+    displayContext?: string;
 };
 
 export interface ExportAnswerResult {
@@ -27,10 +28,11 @@ export interface ExportAnswerResult {
     groupFields?: ExportGroupField[];
     groupDisplayStyle?: GroupDisplayStyle;
     attachmentFilenames?: string[];
+    displayContext?: string;
 }
 
 import { toExportText } from "@/lib/export/toExportText";
-import { resolveFieldForDisplay, resolveFieldCollectionForDisplay, RawFieldSource, FieldInterpreterMetadata } from "@/lib/master-data/field-interpreter";
+import { resolveFieldForDisplay, resolveFieldCollectionForDisplay, RawFieldSource, FieldInterpreterMetadata, resolveFieldDisplayContext } from "@/lib/master-data/field-interpreter";
 import { FieldDisplayModel } from "@/lib/master-data/field-display-model";
 import { getMasterFieldGroup, getMasterFieldDefinition } from "@/services/masterData/definitionService";
 import { resolveMasterDataBatch } from "@/actions/kyc-query";
@@ -168,13 +170,20 @@ export async function resolveExportAnswer(
         }
 
         if (primaryDerived && derivedValueToDisplay !== null && derivedValueToDisplay !== undefined && derivedValueToDisplay !== "" && (!Array.isArray(derivedValueToDisplay) || derivedValueToDisplay.length > 0)) {
+            let masterFieldDef: any = null;
+            try {
+                masterFieldDef = await getMasterFieldDefinition(question.masterFieldNo);
+            } catch (e) {
+                masterFieldDef = null;
+            }
             const meta = {
                 fieldNo: question.masterFieldNo,
                 label: "Export Field", // Not used by toExportText, but required by metadata
                 displayState: "HAS_VALUE" as any,
                 appDataType: fieldDetail.dataType,
                 profileConfig: fieldDetail.profileConfig,
-                isMultiValue: fieldDetail.isRepeating
+                isMultiValue: fieldDetail.isRepeating,
+                displayContext: resolveFieldDisplayContext(masterFieldDef)
             };
 
             const primarySource: RawFieldSource = {
@@ -232,7 +241,8 @@ export async function resolveExportAnswer(
                 sourceTimestamp,
                 sourceUserName,
                 sourceCategory,
-                attachmentFilenames: attachmentFilenames.length > 0 ? attachmentFilenames : undefined
+                attachmentFilenames: attachmentFilenames.length > 0 ? attachmentFilenames : undefined,
+                displayContext: displayModel.displayContext
             };
         } else {
             // Check Master Record empty state logic using already resolved fieldDetail
@@ -308,13 +318,7 @@ export async function resolveExportAnswer(
             for (const item of group.items) {
                 const def = await getMasterFieldDefinition(item.fieldNo);
                 if (def) {
-                    fieldDefMap.set(def.fieldNo, {
-                        fieldNo: def.fieldNo,
-                        fieldName: def.fieldName,
-                        appDataType: def.appDataType,
-                        isMultiValue: def.isMultiValue,
-                        profileConfig: def.profileConfig
-                    });
+                    fieldDefMap.set(def.fieldNo, def);
                 }
             }
 
@@ -352,6 +356,7 @@ export async function resolveExportAnswer(
                 let sourceLabel: string | undefined = undefined;
                 let sourceTimestamp: string | null = null;
                 let attachmentFilenames: string[] = [];
+                let displayContext: string | undefined = undefined;
 
                 if (hv && hv.value !== null && hv.value !== undefined && hv.value !== "") {
                     const attachments = attachmentsMap.get(item.fieldNo) || [];
@@ -365,7 +370,8 @@ export async function resolveExportAnswer(
                         displayState: "HAS_VALUE" as const,
                         appDataType: def.appDataType,
                         profileConfig: def.profileConfig,
-                        isMultiValue: def.isMultiValue
+                        isMultiValue: def.isMultiValue,
+                        displayContext: resolveFieldDisplayContext(def)
                     };
 
                     const primarySource: RawFieldSource | null = hv.source ? {
@@ -383,6 +389,7 @@ export async function resolveExportAnswer(
                     });
 
                     displayValue = resolvedText;
+                    displayContext = displayModel.displayContext;
                     sourceLabel = displayModel.source?.label || (hv.source ? getSourceDisplayName(hv.source, hv.sourceReference || undefined) : undefined);
                     const rawTimestamp = displayModel.source?.lastValidatedAt || displayModel.source?.timestamp || hv.updatedAt || null;
                     sourceTimestamp = rawTimestamp ? (rawTimestamp instanceof Date ? rawTimestamp.toISOString() : new Date(rawTimestamp).toISOString()) : null;
@@ -396,7 +403,8 @@ export async function resolveExportAnswer(
                         order: item.order,
                         sourceLabel,
                         sourceTimestamp,
-                        attachmentFilenames: attachmentFilenames.length > 0 ? attachmentFilenames : undefined
+                        attachmentFilenames: attachmentFilenames.length > 0 ? attachmentFilenames : undefined,
+                        displayContext
                     });
                 }
             }

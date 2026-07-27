@@ -46,7 +46,8 @@ import {
     Share2,
     ExternalLink,
     LayoutGrid,
-    Rows
+    Rows,
+    TableProperties
 } from "lucide-react";
 import { useSearchParams, usePathname, useRouter } from "next/navigation";
 import { FieldDetailPanel } from "../inspection/field-detail-panel";
@@ -57,6 +58,7 @@ import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { usePreferences } from "@/components/providers/user-preferences-provider";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 interface Props {
     leId: string;
@@ -150,11 +152,11 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
     const [pinnedIds, setPinnedIds] = useState<Set<string>>(new Set());
 
     const urlView = searchParams.get("view");
-    const viewMode = ((urlView === "flow" || urlView === "classic")
+    const viewMode = ((urlView === "flow" || urlView === "classic" || urlView === "compact")
         ? urlView
-        : (preferences as any)?.workbenchCardView || "classic") as "classic" | "flow";
+        : (preferences as any)?.workbenchCardView || "classic") as "classic" | "flow" | "compact";
 
-    const handleViewChange = (mode: "classic" | "flow") => {
+    const handleViewChange = (mode: "classic" | "flow" | "compact") => {
         updateUrl({ view: mode });
         updatePreference("workbenchCardView", mode);
     };
@@ -474,56 +476,133 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
                         <Rows className="h-3.5 w-3.5" />
                         Flow
                     </Button>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        className={cn(
+                            "h-7 px-2.5 text-xs font-medium gap-1.5 transition-all",
+                            viewMode === "compact"
+                                ? "bg-white text-slate-900 shadow-sm border border-slate-200/80 font-semibold"
+                                : "text-slate-500 hover:text-slate-800"
+                        )}
+                        onClick={() => handleViewChange("compact")}
+                    >
+                        <TableProperties className="h-3.5 w-3.5" />
+                        Compact
+                    </Button>
                 </div>
             </div>
 
             {/* Question List */}
-            <div className="space-y-3">
-                {filteredQuestions.map((q: any) => (
-                    <QuestionCard
-                        key={q.id}
-                        question={q}
-                        leId={leId}
-                        masterFields={data.masterFields}
-                        masterGroups={data.masterGroups}
-                        customFields={data.customFields}
-                        raNameLookup={data.raNameLookup}
-                        onMap={(val) => handleMap(q.id, val)}
-                        onInspect={(fieldNo, name, customFieldId) => {
-                            setSelectedInspectionField({ fieldNo, name, customFieldId });
-                        }}
-                        onInlineEdit={(val, src, date) => {
-                            handleFieldUpdate(
-                                q.masterFieldNo || 0,
-                                (q as any).customFieldDefinitionId,
-                                val, src, date
-                            );
-                        }}
-                        onStatusChange={(newStatus) => {
-                            setData(prev => ({
-                                ...prev,
-                                questions: prev.questions.map((quest: any) =>
-                                    quest.id === q.id ? { ...quest, status: newStatus } as any : quest
-                                )
-                            }));
-                        }}
-                        onRenameCustomField={async (cfId, newLabel) => {
-                            const res = await renameCustomField(cfId, newLabel);
-                            if (res.success) {
+            {viewMode === "compact" ? (
+                <Card className="shadow-sm border border-slate-200 overflow-visible bg-white">
+                    <Table>
+                        <TableHeader className="bg-slate-100/90 border-b border-slate-200">
+                            <TableRow className="hover:bg-transparent">
+                                <TableHead className="w-[130px] text-[10px] font-bold uppercase tracking-wider text-slate-500 py-2.5 px-3">Status & Actions</TableHead>
+                                <TableHead className="w-[180px] text-[10px] font-bold uppercase tracking-wider text-slate-500 py-2.5 px-3">Relationship & Doc</TableHead>
+                                <TableHead className="min-w-[250px] text-[10px] font-bold uppercase tracking-wider text-slate-500 py-2.5 px-3">Question (Q)</TableHead>
+                                <TableHead className="w-[260px] text-[10px] font-bold uppercase tracking-wider text-slate-500 py-2.5 px-3">Master Data Mapping</TableHead>
+                                <TableHead className="min-w-[280px] text-[10px] font-bold uppercase tracking-wider text-slate-500 py-2.5 px-3">Answer Value & Details (A)</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody className="divide-y divide-slate-100">
+                            {filteredQuestions.map((q: any) => (
+                                <QuestionTableRow
+                                    key={q.id}
+                                    question={q}
+                                    leId={leId}
+                                    masterFields={data.masterFields}
+                                    masterGroups={data.masterGroups}
+                                    customFields={data.customFields}
+                                    raNameLookup={data.raNameLookup}
+                                    onMap={(val) => handleMap(q.id, val)}
+                                    onInspect={(fieldNo, name, customFieldId) => {
+                                        setSelectedInspectionField({ fieldNo, name, customFieldId });
+                                    }}
+                                    onInlineEdit={(val, src, date) => {
+                                        handleFieldUpdate(
+                                            q.masterFieldNo || 0,
+                                            (q as any).customFieldDefinitionId,
+                                            val, src, date
+                                        );
+                                    }}
+                                    onStatusChange={(newStatus) => {
+                                        setData(prev => ({
+                                            ...prev,
+                                            questions: prev.questions.map((quest: any) =>
+                                                quest.id === q.id ? { ...quest, status: newStatus } as any : quest
+                                            )
+                                        }));
+                                    }}
+                                    onRenameCustomField={async (cfId, newLabel) => {
+                                        const res = await renameCustomField(cfId, newLabel);
+                                        if (res.success) {
+                                            setData(prev => ({
+                                                ...prev,
+                                                customFields: prev.customFields.map((f: any) =>
+                                                    f.id === cfId ? { ...f, label: newLabel } : f
+                                                )
+                                            }));
+                                        }
+                                        return res;
+                                    }}
+                                    disabled={isPending}
+                                    isPinned={pinnedIds.has(q.id)}
+                                />
+                            ))}
+                        </TableBody>
+                    </Table>
+                </Card>
+            ) : (
+                <div className="space-y-3">
+                    {filteredQuestions.map((q: any) => (
+                        <QuestionCard
+                            key={q.id}
+                            question={q}
+                            leId={leId}
+                            masterFields={data.masterFields}
+                            masterGroups={data.masterGroups}
+                            customFields={data.customFields}
+                            raNameLookup={data.raNameLookup}
+                            onMap={(val) => handleMap(q.id, val)}
+                            onInspect={(fieldNo, name, customFieldId) => {
+                                setSelectedInspectionField({ fieldNo, name, customFieldId });
+                            }}
+                            onInlineEdit={(val, src, date) => {
+                                handleFieldUpdate(
+                                    q.masterFieldNo || 0,
+                                    (q as any).customFieldDefinitionId,
+                                    val, src, date
+                                );
+                            }}
+                            onStatusChange={(newStatus) => {
                                 setData(prev => ({
                                     ...prev,
-                                    customFields: prev.customFields.map((f: any) =>
-                                        f.id === cfId ? { ...f, label: newLabel } : f
+                                    questions: prev.questions.map((quest: any) =>
+                                        quest.id === q.id ? { ...quest, status: newStatus } as any : quest
                                     )
                                 }));
-                            }
-                            return res;
-                        }}
-                        disabled={isPending}
-                        isPinned={pinnedIds.has(q.id)}
-                        viewMode={viewMode}
-                    />
-                ))}
+                            }}
+                            onRenameCustomField={async (cfId, newLabel) => {
+                                const res = await renameCustomField(cfId, newLabel);
+                                if (res.success) {
+                                    setData(prev => ({
+                                        ...prev,
+                                        customFields: prev.customFields.map((f: any) =>
+                                            f.id === cfId ? { ...f, label: newLabel } : f
+                                        )
+                                    }));
+                                }
+                                return res;
+                            }}
+                            disabled={isPending}
+                            isPinned={pinnedIds.has(q.id)}
+                            viewMode={viewMode as "classic" | "flow"}
+                        />
+                    ))}
+                </div>
+            )}
 
                 {filteredQuestions.length === 0 && (
                     <div className="py-20 text-center bg-white rounded-xl border border-dashed border-slate-300">
@@ -532,7 +611,6 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
                         <p className="text-slate-500 mt-1">Try adjusting your filters or search terms.</p>
                     </div>
                 )}
-            </div>
 
             <FieldDetailPanel
                 open={!!selectedInspectionField}
@@ -979,6 +1057,13 @@ function QuestionCard({
                     </div>
                 )}
             </div>
+            {!isEditing && !isGroupAnswer && question.canonicalDisplayModel?.displayContext && (
+                <div className="pl-6 mt-0.5">
+                    <span className="text-[10px] text-slate-500 italic leading-tight">
+                        {question.canonicalDisplayModel.displayContext}
+                    </span>
+                </div>
+            )}
             {!isEditing && !isGroupAnswer && (
                 question.canonicalDisplayModel?.source ? (
                     <div className="flex items-center gap-3 pl-6 mt-1 text-[10px] font-medium">
@@ -1374,5 +1459,415 @@ function QuestionCard({
                 </div>
             </CardContent>
         </Card>
+    );
+}
+
+function QuestionTableRow({
+    question,
+    leId,
+    masterFields,
+    masterGroups,
+    customFields,
+    raNameLookup,
+    onMap,
+    onInspect,
+    onInlineEdit,
+    onRenameCustomField,
+    onStatusChange,
+    disabled,
+    isPinned
+}: {
+    question: ConsoleQuestion;
+    leId: string;
+    masterFields: Array<{ fieldNo: number; label: string; attachmentCount?: number }>;
+    masterGroups: Array<{ key: string; label: string }>;
+    customFields: Array<{ id: string; label: string }>;
+    raNameLookup: Record<string, string>;
+    onMap: (val: string) => void;
+    onInspect: (fieldNo: number, name: string, customFieldId?: string) => void;
+    onInlineEdit: (newValue: any, newSource: string, newUpdatedAt: Date) => void;
+    onRenameCustomField: (customFieldId: string, newLabel: string) => Promise<{ success: boolean; error?: string }>;
+    onStatusChange: (newStatus: string) => void;
+    disabled?: boolean;
+    isPinned?: boolean;
+}) {
+    const isMapped = !!(question.masterFieldNo || question.masterQuestionGroupId || (question as any).customFieldDefinitionId);
+    const isGroupAnswer = !!(question.masterQuestionGroupId && (question as any).masterDataGroupFields?.length > 0);
+    const isProjectedValue = !!question.masterFieldProjectionPath;
+    const isComplexValue = typeof question.masterDataValue === 'object' && question.masterDataValue !== null && !isProjectedValue;
+    const [isEditing, setIsEditing] = useState(false);
+    const [editValue, setEditValue] = useState("");
+    const [isSaving, setIsSaving] = useState(false);
+
+    // Inline rename for custom field label
+    const [isRenaming, setIsRenaming] = useState(false);
+    const [renameValue, setRenameValue] = useState("");
+    const [isRenameSaving, setIsRenameSaving] = useState(false);
+    const customFieldId = (question as any).customFieldDefinitionId as string | undefined;
+
+    const [isActionPending, setIsActionPending] = useState(false);
+
+    const handleApprove = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setIsActionPending(true);
+        const res = await approveQuestionMapping(question.id);
+        if (res.success) {
+            toast.success("Mapping Approved");
+            onStatusChange('APPROVED');
+        } else {
+            toast.error(res.error || "Approval failed");
+        }
+        setIsActionPending(false);
+    };
+
+    const handleShare = async (e: React.MouseEvent, isShared: boolean) => {
+        e.stopPropagation();
+        setIsActionPending(true);
+        const res = await shareQuestion(question.id, isShared);
+        if (res.success) {
+            toast.success(isShared ? "Question Shared" : "Question Unshared");
+            onStatusChange(isShared ? 'SHARED' : 'APPROVED');
+        } else {
+            toast.error(res.error || "Sharing failed");
+        }
+        setIsActionPending(false);
+    };
+
+    const handleRelease = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setIsActionPending(true);
+        const res = await releaseQuestion(question.id);
+        if (res.success) {
+            toast.success("Question Released");
+            onStatusChange('RELEASED');
+        } else {
+            toast.error(res.error || "Release failed");
+        }
+        setIsActionPending(false);
+    };
+
+    let currentMappingLabel = "Unmapped";
+
+    if (question.masterFieldNo) {
+        currentMappingLabel = masterFields.find((f: any) => f.fieldNo === question.masterFieldNo)?.label || `Field ${question.masterFieldNo}`;
+        if (question.masterFieldProjectionPath) {
+             const projLabels: Record<string, string> = {
+                 'locality': 'Locality',
+                 'region': 'Region',
+                 'postalCode': 'Postal Code',
+                 'countryCode': 'Country Code',
+                 'addressLines[0]': 'Address Line 1',
+                 'addressLines[1]': 'Address Line 2'
+             };
+             currentMappingLabel += ` · ${projLabels[question.masterFieldProjectionPath] || question.masterFieldProjectionPath}`;
+        }
+    } else if (customFieldId) {
+        currentMappingLabel = customFields.find((f: any) => f.id === customFieldId)?.label || "Custom Field";
+    }
+
+    const handleRenameStart = () => {
+        setRenameValue(currentMappingLabel);
+        setIsRenaming(true);
+    };
+
+    const handleRenameSave = async () => {
+        if (!customFieldId || !renameValue.trim()) return;
+        setIsRenameSaving(true);
+        const res = await onRenameCustomField(customFieldId, renameValue.trim());
+        if (res.success) {
+            toast.success("Field renamed");
+            setIsRenaming(false);
+        } else {
+            toast.error(res.error || "Rename failed");
+        }
+        setIsRenameSaving(false);
+    };
+
+    const handleStartEdit = () => {
+        if (!isMapped) return;
+        const currentVal = question.masterDataValue != null ? String(question.masterDataValue) : "";
+        setEditValue(currentVal);
+        setIsEditing(true);
+    };
+
+    const handleCancelEdit = () => {
+        setIsEditing(false);
+        setEditValue("");
+    };
+
+    const handleSaveEdit = async () => {
+        if (!isMapped || isSaving) return;
+        setIsSaving(true);
+        try {
+            const { updateFieldManually } = await import("@/actions/kyc-manual-update");
+            const fieldNo = question.masterFieldNo || 0;
+            const res = await updateFieldManually(leId, fieldNo, editValue, "Inline edit");
+            if (res.success) {
+                onInlineEdit(editValue, "USER_INPUT", new Date());
+                toast.success("Value updated");
+            } else {
+                toast.error(res.message || "Update failed");
+            }
+        } catch (err) {
+            toast.error("Update failed");
+        } finally {
+            setIsSaving(false);
+            setIsEditing(false);
+        }
+    };
+
+    return (
+        <TableRow className={cn(
+            "hover:bg-slate-50/80 transition-colors group text-xs",
+            isPinned ? "bg-green-50/30 font-medium" : isMapped ? "bg-white" : "bg-slate-50/30"
+        )}>
+            {/* Cell 1: Status & Actions */}
+            <TableCell className="py-2.5 px-3 align-top">
+                <div className="flex flex-col gap-1.5">
+                    <span className={cn(
+                        "text-[9px] px-1.5 py-0.5 rounded tracking-normal font-semibold inline-block w-fit",
+                        question.status === 'RELEASED' ? "bg-slate-200 text-slate-700" :
+                            question.status === 'SHARED' ? "bg-indigo-100 text-indigo-700" :
+                                question.status === 'APPROVED' ? "bg-emerald-100 text-emerald-700" :
+                                    question.status === 'DRAFT' ? "bg-amber-100 text-amber-700" :
+                                        "bg-slate-100 text-slate-500"
+                    )}>
+                        {isMapped ? question.status : 'UNMAPPED'}
+                    </span>
+
+                    {isMapped && (
+                        <div>
+                            {question.status === 'RELEASED' ? (
+                                <span className="text-[10px] text-slate-400 flex items-center gap-1">
+                                    <Lock className="h-3 w-3" /> Locked
+                                </span>
+                            ) : (
+                                <div className="flex items-center gap-1">
+                                    {question.status === 'DRAFT' && (
+                                        <Button size="sm" variant="default" className="h-6 px-2 text-[10px] bg-emerald-600 hover:bg-emerald-700 shadow-none" onClick={handleApprove} disabled={isActionPending}>
+                                            <Check className="h-2.5 w-2.5 mr-0.5" /> Approve
+                                        </Button>
+                                    )}
+                                    {question.status === 'APPROVED' && (
+                                        <Button size="sm" variant="outline" className="h-6 px-2 text-[10px] text-indigo-600 border-indigo-200 shadow-none" onClick={(e) => handleShare(e, true)} disabled={isActionPending}>
+                                            <Share2 className="h-2.5 w-2.5 mr-0.5" /> Share
+                                        </Button>
+                                    )}
+                                    {question.status === 'SHARED' && (
+                                        <Button size="sm" variant="outline" className="h-6 px-2 text-[10px] text-slate-600 shadow-none" onClick={(e) => handleShare(e, false)} disabled={isActionPending}>
+                                            Unshare
+                                        </Button>
+                                    )}
+                                    {(question.status === 'APPROVED' || question.status === 'SHARED') && (
+                                        <Button size="sm" variant="secondary" className="h-6 px-2 text-[10px] bg-slate-900 text-white hover:bg-slate-800 shadow-none" onClick={handleRelease} disabled={isActionPending}>
+                                            <Lock className="h-2.5 w-2.5 mr-0.5" /> Release
+                                        </Button>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+            </TableCell>
+
+            {/* Cell 2: Relationship & Questionnaire */}
+            <TableCell className="py-2.5 px-3 align-top">
+                <div className="space-y-1">
+                    <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wide truncate max-w-[160px]" title={question.engagementOrgName || "Unknown Relationship"}>
+                        <Building2 className="h-3 w-3 shrink-0" />
+                        <span className="truncate">{question.engagementOrgName || "Unknown Relationship"}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-xs text-slate-600 truncate max-w-[160px]" title={question.questionnaireName}>
+                        <FileText className="h-3 w-3 shrink-0 text-slate-400" />
+                        <span className="truncate">{question.questionnaireName}</span>
+                    </div>
+                    {customFieldId && (
+                        <div className="pt-0.5">
+                            {isRenaming ? (
+                                <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                                    <Input
+                                        value={renameValue}
+                                        onChange={(e) => setRenameValue(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') handleRenameSave();
+                                            if (e.key === 'Escape') setIsRenaming(false);
+                                        }}
+                                        className="h-6 text-[10px] flex-1 px-1.5"
+                                        autoFocus
+                                        disabled={isRenameSaving}
+                                    />
+                                    <Button variant="ghost" size="icon" className="h-5 w-5 text-green-600" onClick={handleRenameSave} disabled={isRenameSaving}>
+                                        <Check className="h-3 w-3" />
+                                    </Button>
+                                </div>
+                            ) : (
+                                <button
+                                    className="text-[10px] text-indigo-600 hover:underline flex items-center gap-1"
+                                    onClick={(e) => { e.stopPropagation(); handleRenameStart(); }}
+                                >
+                                    <Pencil className="h-2.5 w-2.5" /> Rename
+                                </button>
+                            )}
+                        </div>
+                    )}
+                </div>
+            </TableCell>
+
+            {/* Cell 3: Question */}
+            <TableCell className="py-2.5 px-3 align-top">
+                <div className="flex items-start gap-1.5 max-w-[320px]">
+                    <span className="text-slate-400 font-bold text-xs shrink-0">Q:</span>
+                    <span className="text-xs font-medium text-slate-900 leading-snug">
+                        {question.text}
+                    </span>
+                </div>
+            </TableCell>
+
+            {/* Cell 4: Master Data Mapping */}
+            <TableCell className="py-2.5 px-3 align-top">
+                <div className="flex items-center gap-1.5 w-[240px]">
+                    <div className="flex-1">
+                        <SuperFieldSelector
+                            value={
+                                question.masterFieldNo
+                                    ? `master:${question.masterFieldNo}${question.masterFieldProjectionPath ? `:${question.masterFieldProjectionPath}` : ''}`
+                                    : question.masterQuestionGroupId
+                                        ? `group:${question.masterQuestionGroupId}`
+                                        : (question as any).customFieldDefinitionId
+                                            ? `custom:${(question as any).customFieldDefinitionId}`
+                                            : null
+                            }
+                            onSelect={(val, type, label) => {
+                                if (type === 'clear') onMap("UNMAP");
+                                else if (type === 'create') onMap("CREATE_NEW");
+                                else if (type === 'master') onMap(val);
+                                else if (type === 'group') onMap(`GROUP_${val}`);
+                                else if (type === 'custom') onMap(`CUSTOM_${val}`);
+                            }}
+                            masterFields={masterFields}
+                            masterGroups={masterGroups}
+                            customFields={customFields}
+                            questionText={question.text}
+                            disabled={disabled || question.status === 'RELEASED'}
+                        />
+                    </div>
+
+                    {isMapped && question.status !== 'RELEASED' && (
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-slate-400 hover:text-red-500 hover:bg-red-50 shrink-0"
+                            onClick={() => onMap("UNMAP")}
+                            disabled={disabled}
+                            title="Unmap field"
+                        >
+                            <Unlink className="h-3.5 w-3.5" />
+                        </Button>
+                    )}
+                </div>
+            </TableCell>
+
+            {/* Cell 5: Answer Value & Details */}
+            <TableCell className="py-2.5 px-3 align-top">
+                <div className="space-y-1.5">
+                    <div className="flex items-start gap-1.5">
+                        <span className="text-indigo-400 font-bold text-xs shrink-0">A:</span>
+                        {isEditing ? (
+                            <div className="flex items-center gap-1 w-full">
+                                <Input
+                                    value={editValue}
+                                    onChange={(e) => setEditValue(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') handleSaveEdit();
+                                        if (e.key === 'Escape') handleCancelEdit();
+                                    }}
+                                    className="text-xs h-7 flex-1"
+                                    autoFocus
+                                    disabled={isSaving}
+                                    placeholder="Enter value..."
+                                />
+                                <Button variant="ghost" size="icon" className="h-6 w-6 text-green-600" onClick={handleSaveEdit} disabled={isSaving}>
+                                    <Check className="h-3 w-3" />
+                                </Button>
+                                <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400" onClick={handleCancelEdit} disabled={isSaving}>
+                                    <X className="h-3 w-3" />
+                                </Button>
+                            </div>
+                        ) : (
+                            <div className="text-xs text-slate-700 bg-slate-50/60 px-2 py-1 rounded border border-slate-100/80 font-medium flex items-center gap-2 w-full">
+                                <span className="flex-1 truncate">
+                                    {question.masterQuestionGroupId && (question as any).masterDataGroupFields?.length > 0 ? (
+                                        <GroupAnswerRenderer
+                                            groupLabel=""
+                                            fields={(question as any).masterDataGroupFields as GroupFieldData[]}
+                                            raNameLookup={raNameLookup}
+                                            displayStyle={question.masterDataGroupDisplayStyle}
+                                            className="py-0"
+                                        />
+                                    ) : question.canonicalDisplayModel ? (
+                                        <FieldValueRenderer field={question.canonicalDisplayModel} itemLimit={5} />
+                                    ) : question.masterDataValue != null && question.masterDataValue !== '' ? (
+                                        Array.isArray(question.masterDataValue) ? (
+                                            question.masterDataValue.map((v: any) => formatAnswerValue(v)).join(", ")
+                                        ) : typeof question.masterDataValue === 'object' ? (
+                                            formatPartyLabel(question.masterDataValue)
+                                        ) : (
+                                            formatAnswerValue(question.masterDataValue)
+                                        )
+                                    ) : isMapped
+                                        ? <span className="italic text-slate-400">No value yet</span>
+                                        : <span className="italic text-slate-300">Map a field to enable answers</span>
+                                    }
+                                </span>
+
+                                <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    {!isGroupAnswer && !isComplexValue && !isProjectedValue && (
+                                        <button
+                                            onClick={handleStartEdit}
+                                            disabled={!isMapped || question.status === 'RELEASED'}
+                                            title="Edit value"
+                                            className="p-1 rounded text-indigo-500 hover:bg-indigo-50"
+                                        >
+                                            <Pencil className="h-3 w-3" />
+                                        </button>
+                                    )}
+                                    <button
+                                        onClick={() => {
+                                            const fNo = question.masterFieldNo || 0;
+                                            const customId = (question as any).customFieldDefinitionId;
+                                            onInspect(fNo, question.text, customId);
+                                        }}
+                                        title="View history & details"
+                                        className="p-1 rounded text-slate-400 hover:bg-slate-100 text-slate-700"
+                                    >
+                                        <PanelLeftOpen className="h-3 w-3" />
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {!isEditing && !isGroupAnswer && (
+                        question.canonicalDisplayModel?.source ? (
+                            <div className="flex items-center gap-2 pl-4 text-[10px]">
+                                <FieldSourceBadge source={question.canonicalDisplayModel.source} showLastValidated={false} variant="span" />
+                                {question.masterFieldNo && masterFields.find(f => f.fieldNo === question.masterFieldNo)?.attachmentCount ? (
+                                    <FieldAttachmentIndicator count={masterFields.find(f => f.fieldNo === question.masterFieldNo)?.attachmentCount} />
+                                ) : null}
+                            </div>
+                        ) : (question.masterDataSource || question.masterDataUpdatedAt) ? (
+                            <div className="flex items-center gap-2 pl-4 text-[10px] text-slate-400">
+                                {question.masterDataSource && (
+                                    <span className="font-semibold text-slate-500 uppercase">{question.masterDataSource}</span>
+                                )}
+                                {question.masterDataUpdatedAt && (
+                                    <span>· {new Date(question.masterDataUpdatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
+                                )}
+                            </div>
+                        ) : null
+                    )}
+                </div>
+            </TableCell>
+        </TableRow>
     );
 }

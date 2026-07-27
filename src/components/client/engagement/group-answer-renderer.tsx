@@ -112,6 +112,13 @@ function GroupFieldRow({
                         </div>
                     )}
                 </div>
+                {!dimmed && field.canonicalDisplayModel?.displayContext && (
+                    <div className="col-span-3 -mt-1 pb-1">
+                        <span className="text-[9px] text-slate-500 italic leading-tight">
+                            {field.canonicalDisplayModel.displayContext}
+                        </span>
+                    </div>
+                )}
                 {!dimmed && field.canonicalDisplayModel?.attachments && field.canonicalDisplayModel.attachments.length > 0 && (
                     <div className="col-span-3 mt-1 pb-1">
                         <FieldAttachments 
@@ -155,6 +162,13 @@ function GroupFieldRow({
             )}>
                 {renderValue()}
             </div>
+            {!dimmed && field.canonicalDisplayModel?.displayContext && (
+                <div className="mt-0.5">
+                    <span className={cn("text-slate-500 italic leading-tight", isCompact ? "text-[9px]" : "text-[10px]")}>
+                        {field.canonicalDisplayModel.displayContext}
+                    </span>
+                </div>
+            )}
             {!isCompact && !dimmed && field.canonicalDisplayModel?.source && (
                 <div className="flex items-center gap-2 mt-1">
                     <FieldSourceBadge source={field.canonicalDisplayModel.source} variant="span" showLastValidated={true} />

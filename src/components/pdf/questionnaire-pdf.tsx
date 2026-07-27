@@ -402,6 +402,8 @@ export interface QuestionnairePDFProps {
         status: string;
         question: string;
         answer: string;
+        displayContext?: string;
+        answerState?: string;
         sourceLabel?: string;
         sourceTimestamp?: string;
         notes?: string;
@@ -410,6 +412,7 @@ export interface QuestionnairePDFProps {
             fieldNo: number;
             label: string;
             displayValue: string;
+            displayContext?: string;
             order: number;
             sourceLabel?: string;
             sourceTimestamp?: string | null;
@@ -532,6 +535,9 @@ export const QuestionnairePDF = ({ data, title, exportMetadata }: QuestionnaireP
                                         <View key={idx} style={styles.groupItemCompact} wrap={false}>
                                             <Text style={styles.groupLabelCompact}>{f.label}</Text>
                                             <Text style={styles.groupValueCompact}>{f.displayValue}</Text>
+                                            {f.displayContext && (
+                                                <Text style={{ fontSize: 7, color: '#64748b', fontStyle: 'italic', marginTop: 1 }}>{f.displayContext}</Text>
+                                            )}
                                             <GroupFieldSourceBadge sourceLabel={f.sourceLabel} sourceTimestamp={f.sourceTimestamp} timezone={exportMetadata?.timezone} style={{ alignSelf: 'flex-start', marginTop: 2 }} />
                                             {f.attachmentFilenames && f.attachmentFilenames.length > 0 && (
                                                 <View>
@@ -555,7 +561,12 @@ export const QuestionnairePDF = ({ data, title, exportMetadata }: QuestionnaireP
                                         <View key={idx} style={{ flexDirection: 'column' }} wrap={false}>
                                             <View style={styles.groupRowGrid}>
                                                 <View style={styles.groupCol1}><Text style={styles.groupTextGridLabel}>{f.label}</Text></View>
-                                                <View style={styles.groupCol2}><Text style={styles.groupTextGridValue}>{f.displayValue}</Text></View>
+                                                <View style={styles.groupCol2}>
+                                                    <Text style={styles.groupTextGridValue}>{f.displayValue}</Text>
+                                                    {f.displayContext && (
+                                                        <Text style={{ fontSize: 7, color: '#64748b', fontStyle: 'italic', marginTop: 1 }}>{f.displayContext}</Text>
+                                                    )}
+                                                </View>
                                                 <View style={styles.groupCol3}>
                                                     <GroupFieldSourceBadge sourceLabel={f.sourceLabel} sourceTimestamp={f.sourceTimestamp} timezone={exportMetadata?.timezone} />
                                                 </View>
@@ -580,6 +591,9 @@ export const QuestionnairePDF = ({ data, title, exportMetadata }: QuestionnaireP
                                         <View key={idx} style={styles.groupRowList} wrap={false}>
                                             <Text style={styles.groupLabelList}>{f.label}</Text>
                                             <Text style={styles.groupValueList}>{f.displayValue}</Text>
+                                            {f.displayContext && (
+                                                <Text style={{ fontSize: 7, color: '#64748b', fontStyle: 'italic', marginTop: 1 }}>{f.displayContext}</Text>
+                                            )}
                                             <GroupFieldSourceBadge sourceLabel={f.sourceLabel} sourceTimestamp={f.sourceTimestamp} timezone={exportMetadata?.timezone} style={{ alignSelf: 'flex-start', marginTop: 2 }} />
                                             {f.attachmentFilenames && f.attachmentFilenames.length > 0 && (
                                                 <View>
@@ -596,6 +610,11 @@ export const QuestionnairePDF = ({ data, title, exportMetadata }: QuestionnaireP
                         ) : (
                             <View>
                                 <Text style={styles.answer}>Answer: {item.answer || "No response recorded"}</Text>
+                                {item.displayContext && item.answerState === 'HAS_VALUE' && (
+                                    <Text style={{ fontSize: 8, color: '#64748b', fontStyle: 'italic', marginTop: 2, marginBottom: 2 }}>
+                                        {item.displayContext}
+                                    </Text>
+                                )}
                                 {item.attachmentFilenames && item.attachmentFilenames.length > 0 && (
                                     <View>
                                         <Text style={styles.attachmentsHeader}>Attachments</Text>

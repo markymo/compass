@@ -54,6 +54,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
                 compactText: question.compactText,
                 sectionId: question.sourceSectionId,
                 answer: resolvedAnswer.displayValue,
+                displayContext: resolvedAnswer.displayContext,
                 sourceLabel: resolvedAnswer.sourceLabel,
                 sourceTimestamp: resolvedAnswer.sourceTimestamp ? new Date(resolvedAnswer.sourceTimestamp).toISOString() : null,
                 sourceCategory: resolvedAnswer.sourceCategory,
