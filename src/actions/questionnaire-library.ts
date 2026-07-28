@@ -114,7 +114,7 @@ export async function searchAvailableQuestionnaires(query: string, engagementId?
 
         // Shape response to match existing UI expectations.
         // fiOrg is always a non-null object; legacy snapshots with ownerOrgId=null
-        // fall back to 'Coparity' so the dialog renderer never sees null.name.
+        // fall back to 'OnPro' so the dialog renderer never sees null.name.
         const data = filtered.slice(0, 20).map(s => ({
             id: s.id,
             name: s.name,
@@ -122,7 +122,7 @@ export async function searchAvailableQuestionnaires(query: string, engagementId?
             updatedAt: s.updatedAt,
             fiOrg: {
                 id: s.ownerOrgId ?? "",
-                name: s.ownerOrgName ?? "Coparity",
+                name: s.ownerOrgName ?? "OnPro",
                 logoUrl: null,
             },
         }));

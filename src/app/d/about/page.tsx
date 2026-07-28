@@ -1,4 +1,6 @@
 
+import { BRAND } from "@/config/brand";
+
 export default function ExperimentalAboutPage() {
     return (
         <div className="flex flex-col pt-20">
@@ -27,11 +29,6 @@ export default function ExperimentalAboutPage() {
                         {/* Image */}
                         <div className="lg:col-span-4 relative group">
                             <div className="absolute -inset-1 bg-gradient-to-tr from-teal-500/20 to-transparent opacity-75 blur-sm group-hover:opacity-100 transition duration-700"></div>
-                            {/* Use existing image but stylized with CSS filter if needed, OR the user might want us to gen one for him too later. For now use existing path but carefully.
-                                 Wait, the user said "build a similar style image as there already is for rob". 
-                                 This implies existing Rob image is the benchmark. I will use the path I found: /images/rob_stylized_orange.png
-                                 But for this dark theme, orange might clash. I'll use a grayscale filter in CSS to match the 'vibe'.
-                             */}
                             <img
                                 src="/images/rob_stylized_orange.png"
                                 alt="Rob Dornton-Duff"
@@ -46,13 +43,13 @@ export default function ExperimentalAboutPage() {
 
                             <div className="space-y-6 text-slate-400 text-lg leading-relaxed max-w-3xl">
                                 <p>
-                                    Rob brings over 20 years of experience in derivatives markets to Compass, with a specialized focus on infrastructure, structured trade, and export finance.
+                                    Rob brings over 20 years of experience in derivatives markets to {BRAND.name}, with a specialized focus on infrastructure, structured trade, and export finance.
                                 </p>
                                 <p>
                                     Before establishing Riskbridge in 2017, Rob was a Managing Director at <strong className="text-white">Chatham Financial</strong>, where he founded and led the Global Infrastructure and Project Finance Advisory Team. Previously, as a Director at <strong className="text-white">Barclays Capital</strong>, he led derivatives coverage for the Infrastructure and PFI/PPP sectors.
                                 </p>
                                 <p>
-                                    He has overseen hedging processes for more than <strong className="text-white">£40bn</strong> of infrastructure debt issuance. It is this deep operational experience that drives the Compass mission: to eliminate the administrative overhead that burdens modern capital markets.
+                                    He has overseen hedging processes for more than <strong className="text-white">£40bn</strong> of infrastructure debt issuance. It is this deep operational experience that drives the {BRAND.name} mission: to eliminate the administrative overhead that burdens modern capital markets.
                                 </p>
                             </div>
                         </div>
@@ -62,16 +59,9 @@ export default function ExperimentalAboutPage() {
 
                     {/* Mark Lissaman */}
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-24 items-start">
-                        {/* Text (Alternating Layout? No, keep consistent for authority) -> Actually Alpha Group often alternates. Let's keep consistent for now for clean list view. */}
-
                         {/* Image */}
                         <div className="lg:col-span-4 relative group">
                             <div className="absolute -inset-1 bg-gradient-to-tl from-teal-500/20 to-transparent opacity-75 blur-sm group-hover:opacity-100 transition duration-700"></div>
-                            {/* Embedding the generated image via Data URI would be huge. 
-                                Better to copy the artifact to public folder first. 
-                                I will DO THAT in a separate tool call. 
-                                For now, I will point to a placeholder path that I will fill immediately.
-                            */}
                             <img
                                 src="/images/mark_lissaman_bw.png"
                                 alt="Mark Lissaman"
@@ -86,13 +76,13 @@ export default function ExperimentalAboutPage() {
 
                             <div className="space-y-6 text-slate-400 text-lg leading-relaxed max-w-3xl">
                                 <p>
-                                    Mark combines deep technical expertise with a strategic vision for financial infrastructure. As a veteran of complex systems architecture, he oversees the engineering philosophy that makes Compass secure, scalable, and intuitive.
+                                    Mark combines deep technical expertise with a strategic vision for financial infrastructure. As a veteran of complex systems architecture, he oversees the engineering philosophy that makes {BRAND.name} secure, scalable, and intuitive.
                                 </p>
                                 <p>
                                     With a background spanning enterprise software and fintech innovation, Mark identified the critical data disconnects in traditional banking workflows. His focus is on building "sovereign identity" architectures—systems where clients retain absolute control over their data while facilitating seamless institutional access.
                                 </p>
                                 <p>
-                                    He leads the product and engineering teams at Compass, ensuring that every line of code serves the dual mandate of <strong className="text-white">uncompromising security</strong> and <strong className="text-white">radical efficiency</strong>.
+                                    He leads the product and engineering teams at {BRAND.name}, ensuring that every line of code serves the dual mandate of <strong className="text-white">uncompromising security</strong> and <strong className="text-white">radical efficiency</strong>.
                                 </p>
                             </div>
                         </div>

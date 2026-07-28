@@ -1,6 +1,26 @@
+import type { Metadata } from "next";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { Mail, MapPin } from "lucide-react";
+import { BRAND } from "@/config/brand";
+
+export const metadata: Metadata = {
+    title: `Contact Us | ${BRAND.name}`,
+    description: `Get in touch with the ${BRAND.name} team for inquiries, partnerships, and demonstrations.`,
+    openGraph: {
+        title: `Contact Us | ${BRAND.name}`,
+        description: `Get in touch with the ${BRAND.name} team for inquiries, partnerships, and demonstrations.`,
+        url: `${BRAND.website}/contact`,
+        siteName: BRAND.name,
+        locale: "en_GB",
+        type: "website",
+    },
+    twitter: {
+        card: "summary_large_image",
+        title: `Contact Us | ${BRAND.name}`,
+        description: `Get in touch with the ${BRAND.name} team for inquiries, partnerships, and demonstrations.`,
+    },
+};
 
 export default function Contact() {
     return (
@@ -13,7 +33,7 @@ export default function Contact() {
                             Contact Us
                         </h1>
                         <p className="text-xl text-slate-600 mb-12">
-                            Interested in learning more about Compass? We'd love to hear from you.
+                            Interested in learning more about {BRAND.name}? We&apos;d love to hear from you.
                         </p>
 
                         <div className="grid gap-8">

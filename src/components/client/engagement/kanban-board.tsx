@@ -14,7 +14,7 @@ const MOCK_TASKS: QuestionTask[] = [
     { id: '1', questionnaireId: 'mock', question: "What is the full legal name of the entity?", answer: "Robs TestCo Limited", status: 'RELEASED', assignee: { name: 'Alex', type: 'USER' } },
     { id: '2', questionnaireId: 'mock', question: "Provide the primary business address.", answer: "123 London Wall, EC2Y 5JA", status: 'SHARED', assignee: { name: 'Bank', type: 'BANK' } },
     { id: '3', questionnaireId: 'mock', question: "List all beneficial owners >25%.", status: 'APPROVED', assignee: { name: 'Alex', type: 'USER' }, commentCount: 2, hasFlag: true },
-    { id: '4', questionnaireId: 'mock', question: "Upload Certificate of Incorporation.", status: 'DRAFT', assignee: { name: 'Compass AI', type: 'AI' } },
+    { id: '4', questionnaireId: 'mock', question: "Upload Certificate of Incorporation.", status: 'DRAFT', assignee: { name: 'OnPro AI', type: 'AI' } },
     { id: '5', questionnaireId: 'mock', question: "Confirm tax residency jurisdiction.", status: 'DRAFT', assignee: { name: 'Bob', type: 'USER' }, commentCount: 5 },
     { id: '6', questionnaireId: 'mock', question: "Is the entity listed on a regulated exchange?", answer: "No", status: 'DRAFT' },
     { id: '7', questionnaireId: 'mock', question: "Provide date of incorporation.", answer: "2023-01-01", status: 'SHARED' },

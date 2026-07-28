@@ -1,5 +1,24 @@
+import type { Metadata } from "next";
 import React from "react";
 import { BRAND } from "@/config/brand";
+
+export const metadata: Metadata = {
+    title: `Terms of Use | ${BRAND.name}`,
+    description: `Read the ${BRAND.name} terms of use governing access to our website and services.`,
+    openGraph: {
+        title: `Terms of Use | ${BRAND.name}`,
+        description: `Read the ${BRAND.name} terms of use governing access to our website and services.`,
+        url: `${BRAND.website}/terms`,
+        siteName: BRAND.name,
+        locale: "en_GB",
+        type: "website",
+    },
+    twitter: {
+        card: "summary_large_image",
+        title: `Terms of Use | ${BRAND.name}`,
+        description: `Read the ${BRAND.name} terms of use governing access to our website and services.`,
+    },
+};
 
 export default function TermsPage() {
     return (

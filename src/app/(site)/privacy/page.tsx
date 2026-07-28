@@ -1,6 +1,25 @@
+import type { Metadata } from "next";
 import React from "react";
 import Link from "next/link";
 import { BRAND } from "@/config/brand";
+
+export const metadata: Metadata = {
+    title: `Privacy Policy | ${BRAND.name}`,
+    description: `Read the ${BRAND.name} privacy policy detailing how we collect, use, and store personal information.`,
+    openGraph: {
+        title: `Privacy Policy | ${BRAND.name}`,
+        description: `Read the ${BRAND.name} privacy policy detailing how we collect, use, and store personal information.`,
+        url: `${BRAND.website}/privacy`,
+        siteName: BRAND.name,
+        locale: "en_GB",
+        type: "website",
+    },
+    twitter: {
+        card: "summary_large_image",
+        title: `Privacy Policy | ${BRAND.name}`,
+        description: `Read the ${BRAND.name} privacy policy detailing how we collect, use, and store personal information.`,
+    },
+};
 
 export default function PrivacyPage() {
     return (

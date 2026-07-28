@@ -95,7 +95,7 @@ export function InviteSupplierDialog({ open, onOpenChange, engagementId, orgName
                             <Label htmlFor="message">Personal Message (Optional)</Label>
                             <Textarea
                                 id="message"
-                                placeholder="I am inviting you to collaborate via CoParity"
+                                placeholder="I am inviting you to collaborate via OnPro"
                                 value={message}
                                 onChange={(e) => setMessage(e.target.value)}
                             />

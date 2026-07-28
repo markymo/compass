@@ -5,7 +5,20 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
     title: `Why "${BRAND.name}"? | ${BRAND.name}`,
-    description: "The story behind our name.",
+    description: "The story behind our name: Onboarding Professionally with a single source of truth for company data.",
+    openGraph: {
+        title: `Why "${BRAND.name}"? | ${BRAND.name}`,
+        description: "The story behind our name: Onboarding Professionally with a single source of truth for company data.",
+        url: `${BRAND.website}/why-onpro`,
+        siteName: BRAND.name,
+        locale: "en_GB",
+        type: "website",
+    },
+    twitter: {
+        card: "summary_large_image",
+        title: `Why "${BRAND.name}"? | ${BRAND.name}`,
+        description: "The story behind our name: Onboarding Professionally with a single source of truth for company data.",
+    },
 };
 
 export default function WhyOnPro() {

@@ -294,7 +294,7 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
         } catch (e) {
             toast.error("An unexpected error occurred while refreshing the registry.");
         } finally {
-            setIsRefreshingRegistry(false);
+setIsRefreshingRegistry(false);
         }
     };
 
@@ -302,75 +302,79 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
         <div className="space-y-8">
             {/* External Sources — compact full-width bar at the top */}
             <div className="rounded-xl border border-slate-200 bg-white shadow-sm p-4">
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between flex-wrap gap-4">
-                    <div>
-                        <h2 className="text-base font-semibold text-slate-800">External Sources</h2>
+                <div className="mb-3">
+                    <h2 className="text-base font-semibold text-slate-800">External Sources</h2>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* GLEIF Source */}
+                    <div className="flex items-center justify-between gap-3 p-3 rounded-lg border border-slate-100 bg-slate-50/50">
+                        <div className="flex items-center gap-3 min-w-0">
+                            <div className="h-10 w-10 rounded-lg bg-orange-50 flex items-center justify-center shrink-0 overflow-hidden border border-orange-200/80 p-1">
+                                <img 
+                                    src="https://www.gleif.org/assets/build/img/logo/gleif-logo-new.svg" 
+                                    alt="GLEIF Logo" 
+                                    className="h-6 w-auto object-contain"
+                                />
+                            </div>
+                            <div className="min-w-0">
+                                <div className="font-medium text-sm text-slate-800 truncate" title="Global LEI Index (GLEIF)">
+                                    Global LEI Index (GLEIF)
+                                </div>
+                                <div className="text-xs text-slate-500 truncate">
+                                    {lastRefreshed
+                                        ? <>Last synced: <span className="font-medium text-slate-700">{formatSystemDateTime(lastRefreshed, (session?.user as any)?.timezone || 'UTC')}</span></>
+                                        : "Never synced"}
+                                </div>
+                            </div>
+                        </div>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleRefreshGleif}
+                            disabled={isRefreshing}
+                            className="shrink-0"
+                        >
+                            <RefreshCcw className={cn("mr-2 h-4 w-4", isRefreshing && "animate-spin")} />
+                            {isRefreshing ? "Checking..." : "Check for Updates"}
+                        </Button>
                     </div>
 
-                    <div className="flex flex-col md:flex-row gap-6">
-                        {/* GLEIF Source */}
-                        <div className="flex items-center gap-4">
-                            <div className="flex items-center gap-3">
-                                <div className="h-9 w-9 rounded-full bg-orange-100 flex items-center justify-center shrink-0 overflow-hidden border border-orange-200">
-                                    <img 
-                                        src="https://www.gleif.org/assets/build/img/logo/gleif-logo-new.svg" 
-                                        alt="GLEIF Logo" 
-                                        className="h-4 w-auto scale-150"
-                                    />
+                    {/* National Registry Source */}
+                    {nationalRegistryData && (
+                        <div className="flex items-center justify-between gap-3 p-3 rounded-lg border border-slate-100 bg-slate-50/50">
+                            <div className="flex items-center gap-3 min-w-0">
+                                <div className="h-10 w-10 rounded-lg bg-emerald-50 flex items-center justify-center shrink-0 border border-emerald-100 dark:border-emerald-900/50 p-1">
+                                    {nationalRegistryData.authorityName.includes("Companies House") ? (
+                                        <img src="/images/Companies_House.png" alt="Companies House" className="h-7 w-auto object-contain scale-125" />
+                                    ) : (
+                                        <Building2 className="h-5 w-5 text-emerald-600" />
+                                    )}
                                 </div>
-                                <div>
-                                    <div className="font-medium text-sm">Global LEI Index (GLEIF)</div>
-                                    <div className="text-xs text-slate-500">
-                                        {lastRefreshed
-                                            ? <>Last synced: <span className="font-medium text-slate-700">{formatSystemDateTime(lastRefreshed, (session?.user as any)?.timezone || 'UTC')}</span></>
+                                <div className="min-w-0">
+                                    <div className="font-medium text-sm text-slate-800 truncate" title={`${nationalRegistryData.authorityName} - ${nationalRegistryData.localRegistrationNumber}`}>
+                                        {nationalRegistryData.authorityName} - {nationalRegistryData.localRegistrationNumber}
+                                    </div>
+                                    <div className="text-xs text-slate-500 truncate">
+                                        {nationalRegistryData.lastSyncSucceededAt
+                                            ? <>Last synced: <span className="font-medium text-slate-700">{formatSystemDateTime(nationalRegistryData.lastSyncSucceededAt, (session?.user as any)?.timezone || 'UTC')}</span></>
                                             : "Never synced"}
+                                        {nationalRegistryData.lastSyncStatus === "FAILED" && <span className="ml-2 text-red-500 font-medium">Sync Failed</span>}
                                     </div>
                                 </div>
                             </div>
                             <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={handleRefreshGleif}
-                                disabled={isRefreshing}
+                                onClick={handleRefreshRegistry}
+                                disabled={isRefreshingRegistry}
+                                className="shrink-0"
                             >
-                                <RefreshCcw className={cn("mr-2 h-4 w-4", isRefreshing && "animate-spin")} />
-                                {isRefreshing ? "Checking..." : "Check for Updates"}
+                                <RefreshCcw className={cn("mr-2 h-4 w-4", isRefreshingRegistry && "animate-spin")} />
+                                {isRefreshingRegistry ? "Checking..." : "Check for Updates"}
                             </Button>
                         </div>
-
-                        {/* National Registry Source */}
-                        {nationalRegistryData && (
-                            <div className="flex items-center gap-4 lg:border-l lg:pl-6 border-slate-200">
-                                <div className="flex items-center gap-3">
-                                    <div className="h-9 w-9 rounded-full bg-emerald-50 flex items-center justify-center shrink-0 border border-emerald-100 dark:border-emerald-900/50">
-                                        {nationalRegistryData.authorityName.includes("Companies House") ? (
-                                            <img src="/images/Companies_House.png" alt="Companies House" className="h-4 w-auto scale-110" />
-                                        ) : (
-                                            <Building2 className="h-4 w-4 text-emerald-600" />
-                                        )}
-                                    </div>
-                                    <div>
-                                        <div className="font-medium text-sm">{nationalRegistryData.authorityName} - {nationalRegistryData.localRegistrationNumber}</div>
-                                        <div className="text-xs text-slate-500">
-                                            {nationalRegistryData.lastSyncSucceededAt
-                                                ? <>Last synced: <span className="font-medium text-slate-700">{formatSystemDateTime(nationalRegistryData.lastSyncSucceededAt, (session?.user as any)?.timezone || 'UTC')}</span></>
-                                                : "Never synced"}
-                                            {nationalRegistryData.lastSyncStatus === "FAILED" && <span className="ml-2 text-red-500 font-medium">Sync Failed</span>}
-                                        </div>
-                                    </div>
-                                </div>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={handleRefreshRegistry}
-                                    disabled={isRefreshingRegistry}
-                                >
-                                    <RefreshCcw className={cn("mr-2 h-4 w-4", isRefreshingRegistry && "animate-spin")} />
-                                    {isRefreshingRegistry ? "Checking..." : "Check for Updates"}
-                                </Button>
-                            </div>
-                        )}
-                    </div>
+                    )}
                 </div>
 
                 {/* Proposals Panel — ephemeral flash notification, auto-collapses after 6s */}

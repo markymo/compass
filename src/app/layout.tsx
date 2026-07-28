@@ -25,8 +25,25 @@ const inter = Inter({
 import { BRAND } from "@/config/brand";
 
 export const metadata: Metadata = {
-  title: `${BRAND.name} | Sovereign Identity for Finance`,
+  metadataBase: new URL(BRAND.website),
+  title: {
+    default: `${BRAND.name} | Sovereign Identity for Finance`,
+    template: `%s | ${BRAND.name}`,
+  },
   description: "The single source of truth for corporate debt finance onboarding.",
+  openGraph: {
+    title: `${BRAND.name} | Sovereign Identity for Finance`,
+    description: "The single source of truth for corporate debt finance onboarding.",
+    url: BRAND.website,
+    siteName: BRAND.name,
+    locale: "en_GB",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `${BRAND.name} | Sovereign Identity for Finance`,
+    description: "The single source of truth for corporate debt finance onboarding.",
+  },
 };
 
 export default function RootLayout({

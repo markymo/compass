@@ -78,7 +78,7 @@ export default function SuperAdminPage() {
         <div className="space-y-8 p-8 max-w-6xl mx-auto">
             <div>
                 <h1 className="text-3xl font-bold tracking-tight">System Administration</h1>
-                <p className="text-muted-foreground">Manage the compass platform.</p>
+                <p className="text-muted-foreground">Manage the OnPro platform.</p>
             </div>
 
             {/* STATS */}

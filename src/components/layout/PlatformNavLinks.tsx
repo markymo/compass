@@ -29,7 +29,7 @@ export function PlatformNavLinks({ orgTypes = [] }: PlatformNavLinksProps) {
                         : "text-slate-500 hover:text-slate-900 hover:bg-slate-50"
                 )}
             >
-                My Compass
+                My OnPro
             </Link>
 
             {orgTypes.includes("SYSTEM") && (
