@@ -6,7 +6,7 @@ function run(cmd) {
     execSync(cmd, { stdio: "inherit" });
 }
 
-function runWithRetry(cmd, maxRetries = 3) {
+function runWithRetry(cmd, maxRetries = 4, retryDelayMs = 10000) {
     let attempts = 0;
     while (attempts < maxRetries) {
         try {
@@ -17,10 +17,14 @@ function runWithRetry(cmd, maxRetries = 3) {
             attempts++;
             if (attempts >= maxRetries) {
                 console.error(`\nCommand failed after ${maxRetries} attempts: ${cmd}`);
+                console.error(`\n[Neon Database Connection Troubleshooting]`);
+                console.error(`If error P1001 (Can't reach database server) persists:`);
+                console.error(`1. Check Neon Console to ensure the compute endpoint is active.`);
+                console.error(`2. Ensure DIRECT_URL and DATABASE_URL in Vercel contain '?sslmode=require&connect_timeout=30'.`);
                 throw e;
             }
-            console.log(`\nCommand failed. Retrying in 5 seconds to bypass database cold-starts...`);
-            execSync("node -e 'setTimeout(()=>{}, 5000)'"); // cross-platform sleep
+            console.log(`\nCommand failed. Retrying in ${retryDelayMs / 1000} seconds to allow serverless DB cold-start wake up...`);
+            execSync(`node -e "setTimeout(() => {}, ${retryDelayMs})"`);
         }
     }
 }
@@ -42,12 +46,12 @@ run("npx prisma generate");
 if (vercelEnv === "preview") {
     console.log("Running Preview migrations (migrate deploy)…");
     try {
-        runWithRetry("npx prisma migrate deploy", 3);
+        runWithRetry("npx prisma migrate deploy", 4, 10000);
     } catch (error) {
         console.log("Migration failed. Attempting to resolve known failed migration 20260717200000_remove_legacy_documents...");
         try {
             run("npx prisma migrate resolve --rolled-back 20260717200000_remove_legacy_documents");
-            runWithRetry("npx prisma migrate deploy", 1);
+            runWithRetry("npx prisma migrate deploy", 2, 10000);
         } catch (resolveError) {
             throw error; // throw original error
         }
@@ -64,11 +68,10 @@ if (vercelEnv === "preview") {
 if (vercelEnv === "production") {
     if (process.env.ALLOW_PROD_MIGRATIONS === "true") {
         console.log("Running Production migrations (migrate deploy)...");
-        runWithRetry("npx prisma migrate deploy", 3);
+        runWithRetry("npx prisma migrate deploy", 4, 10000);
     } else {
         console.log("Skipping Production migrations (ALLOW_PROD_MIGRATIONS != true).");
     }
-
 
     // Conditional Seeding
     if (process.env.SEED_PROD === "true") {
@@ -79,5 +82,3 @@ if (vercelEnv === "production") {
 
 // Build Next
 run("npx next build");
-
-// Trigger redeploy
