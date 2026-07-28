@@ -21,7 +21,7 @@ import { toExportText } from "@/lib/export/toExportText";
 import { resolveFieldForDisplay, resolveFieldCollectionForDisplay } from "@/lib/master-data/field-interpreter";
 import { compareAndLogShadowRender } from "@/lib/master-data/shadow-logger";
 import { FieldDisplayModel } from "@/lib/master-data/field-display-model";
-
+import * as Sentry from "@sentry/nextjs";
 import { ensureNotReferenceSnapshot } from "./questionnaire";
 async function ensureAuthorization(action: Action, context: { partyId?: string, clientLEId?: string, engagementId?: string }) {
     const identity = await getIdentity();
@@ -628,28 +628,32 @@ export async function getFullMasterData(clientLEId: string) {
 
         // Batch-resolve all fields in 2 DB queries instead of 2×N sequential round-trips.
         // resolveAllFields: 1× fieldClaim.findMany (all fields) + 1× sourceFieldMapping.findMany
-        const resolved = await KycStateService.resolveAllFields(
-            { subjectLeId, clientLEId: clientLE.id },
-            allFields.map(d => {
-                const cfg = getComplexFieldConfig(d.fieldNo);
-                return {
-                    fieldNo: d.fieldNo,
-                    isMultiValue: d.isMultiValue,
-                    // Pass collectionId for multi-value fields so legacy
-                    // plain-text claims (collectionId=NULL) are excluded from resolution.
-                    collectionId: d.isMultiValue
-                        ? (cfg?.kind === 'STRUCTURED_COLLECTION' ? cfg.collectionId : undefined)
-                        : undefined,
-                };
-            }),
-            ownerScopeId || undefined
+        const resolved = await Sentry.startSpan(
+            { name: "master.resolveAllFields", op: "function.data" },
+            async () => KycStateService.resolveAllFields(
+                { subjectLeId, clientLEId: clientLE.id },
+                allFields.map(d => {
+                    const cfg = getComplexFieldConfig(d.fieldNo);
+                    return {
+                        fieldNo: d.fieldNo,
+                        isMultiValue: d.isMultiValue,
+                        collectionId: d.isMultiValue
+                            ? (cfg?.kind === 'STRUCTURED_COLLECTION' ? cfg.collectionId : undefined)
+                            : undefined,
+                    };
+                }),
+                ownerScopeId || undefined
+            )
         );
 
         const fieldsWithAttachments = allFields.filter(f => f.allowAttachments).map(f => f.fieldNo);
-        const resolvedAttachments = await resolveAmalgamatedAttachments(
-            { subjectLeId, clientLEId: clientLE.id },
-            fieldsWithAttachments,
-            resolved
+        const resolvedAttachments = await Sentry.startSpan(
+            { name: "master.resolveAttachments", op: "function.data" },
+            async () => resolveAmalgamatedAttachments(
+                { subjectLeId, clientLEId: clientLE.id },
+                fieldsWithAttachments,
+                resolved
+            )
         );
 
         const ccPartyIds = new Set<string>();
@@ -663,9 +667,12 @@ export async function getFullMasterData(clientLEId: string) {
 
         const partyMap = new Map<string, any>();
         if (ccPartyIds.size > 0) {
-            const parties = await prisma.cCParty.findMany({
-                where: { id: { in: Array.from(ccPartyIds) } }
-            });
+            const parties = await Sentry.startSpan(
+                { name: "master.resolveParties", op: "function.data" },
+                async () => prisma.cCParty.findMany({
+                    where: { id: { in: Array.from(ccPartyIds) } }
+                })
+            );
             for (const p of parties) {
                 partyMap.set(p.id, p);
             }
@@ -675,7 +682,6 @@ export async function getFullMasterData(clientLEId: string) {
             if (v?.ccPartyId) {
                 const party = partyMap.get(v.ccPartyId);
                 if (party?.data) {
-                    // Inject _resolvedData so uniform formatting works later if needed
                     v._resolvedData = v._resolvedData || {};
                     v._resolvedData.ccParty = party;
                     return party.data;
@@ -696,170 +702,214 @@ export async function getFullMasterData(clientLEId: string) {
                 claimValuesFlat.push(val.value);
             }
         }
-        await enrichAddressReferences(claimValuesFlat);
+        await Sentry.startSpan(
+            { name: "master.resolveAddresses", op: "function.data" },
+            async () => enrichAddressReferences(claimValuesFlat)
+        );
 
-        for (const def of allFields) {
-            const val = resolved.get(def.fieldNo);
-            let valueToSet: any = null;
-            let sourceToSet: string | undefined = undefined;
-            let sourceRefToSet: string | undefined = undefined;
-            let timestampToSet: Date | undefined = undefined;
-            let sourceCheckedAtToSet: Date | undefined = undefined;
+        // Diagnostic Span: master.interpreterLoop
+        await Sentry.startSpan(
+            { name: "master.interpreterLoop", op: "function.loop" },
+            async (loopSpan) => {
+                let claimsCount = 0;
+                let displayModelsCount = 0;
+                let stateCheckMs = 0;
+                let modelConstructMs = 0;
+                let toExportTextMs = 0;
 
-            if (val !== null && val !== undefined) {
-                if (Array.isArray(val)) {
-                    if (val.length > 0) {
-                        // Preserve the full collection envelope shape exactly as resolveMasterDataBatch does
-                        valueToSet = val.map((c: any) => ({
-                            value: resolvePartyRef(c.value),
-                            source: c.sourceType ? {
-                                type: c.sourceType,
-                                reference: c.sourceReference || null,
-                                timestamp: c.assertedAt || null,
-                                sourceCheckedAt: c.sourceCheckedAt || null
-                            } : undefined,
-                            instanceId: c.instanceId
-                        }));
-                        // Field-level source is handled natively by resolveFieldCollectionForDisplay, but we track
-                        // the primary source type for badge evaluation fallbacks
-                        sourceToSet = val[0].isScoped ? 'USER_INPUT' : (val[0].evidenceProvider || val[0].sourceType || 'MASTER_RECORD');
+                for (const def of allFields) {
+                    const val = resolved.get(def.fieldNo);
+                    let valueToSet: any = null;
+                    let sourceToSet: string | undefined = undefined;
+                    let sourceRefToSet: string | undefined = undefined;
+                    let timestampToSet: Date | undefined = undefined;
+                    let sourceCheckedAtToSet: Date | undefined = undefined;
+
+                    if (val !== null && val !== undefined) {
+                        if (Array.isArray(val)) {
+                            claimsCount += val.length;
+                            if (val.length > 0) {
+                                valueToSet = val.map((c: any) => ({
+                                    value: resolvePartyRef(c.value),
+                                    source: c.sourceType ? {
+                                        type: c.sourceType,
+                                        reference: c.sourceReference || null,
+                                        timestamp: c.assertedAt || null,
+                                        sourceCheckedAt: c.sourceCheckedAt || null
+                                    } : undefined,
+                                    instanceId: c.instanceId
+                                }));
+                                sourceToSet = val[0].isScoped ? 'USER_INPUT' : (val[0].evidenceProvider || val[0].sourceType || 'MASTER_RECORD');
+                            }
+                        } else {
+                            claimsCount += 1;
+                            valueToSet = resolvePartyRef(val.value);
+                            sourceToSet = val.isScoped ? 'USER_INPUT' : (val.evidenceProvider || val.sourceType || 'MASTER_RECORD');
+                            sourceRefToSet = val.sourceReference ?? undefined;
+                            timestampToSet = val.assertedAt || undefined;
+                            sourceCheckedAtToSet = val.sourceCheckedAt || undefined;
+                        }
                     }
-                } else {
-                    valueToSet = resolvePartyRef(val.value);
-                    sourceToSet = val.isScoped ? 'USER_INPUT' : (val.evidenceProvider || val.sourceType || 'MASTER_RECORD');
-                    sourceRefToSet = val.sourceReference ?? undefined;
-                    timestampToSet = val.assertedAt || undefined;
-                    sourceCheckedAtToSet = val.sourceCheckedAt || undefined;
-                }
-            }
 
-            const interpreterState = def.isMultiValue 
-                ? resolveFieldCollectionForDisplay(valueToSet || [], { isMultiValue: true } as any).state
-                : resolveFieldForDisplay(valueToSet, null, { isMultiValue: false } as any).state;
-            const hasValue = interpreterState === 'POPULATED' || interpreterState === 'EXPLICIT_NONE';
-            const mappingsForField = allMappings.filter((m: any) => m.targetFieldNo === def.fieldNo);
-            const evalResult = KycStateService.evaluateSyncAttempt(clientLE, mappingsForField);
-            
-            const displayState = KycStateService.calculateDisplayState({
-                hasValue,
-                hasApplicableMapping: evalResult.hasApplicableMapping,
-                hasApplicableEvaluationAttempt: evalResult.hasApplicableEvaluationAttempt,
-                defaultText: def.defaultResponse ?? undefined
-            });
+                    // Sub-measurement: second/state-check interpreter invocation
+                    const t0 = performance.now();
+                    const interpreterState = def.isMultiValue 
+                        ? resolveFieldCollectionForDisplay(valueToSet || [], { isMultiValue: true } as any).state
+                        : resolveFieldForDisplay(valueToSet, null, { isMultiValue: false } as any).state;
+                    const t1 = performance.now();
+                    stateCheckMs += (t1 - t0);
 
-            if (!hasValue && evalResult.evaluatedSourceBadge) {
-                sourceToSet = evalResult.evaluatedSourceBadge;
-                if (evalResult.evaluatedSourceTimestamp) {
-                    sourceCheckedAtToSet = sourceCheckedAtToSet || evalResult.evaluatedSourceTimestamp;
-                }
-            }
+                    const hasValue = interpreterState === 'POPULATED' || interpreterState === 'EXPLICIT_NONE';
+                    const mappingsForField = allMappings.filter((m: any) => m.targetFieldNo === def.fieldNo);
+                    const evalResult = KycStateService.evaluateSyncAttempt(clientLE, mappingsForField);
+                    
+                    const displayState = KycStateService.calculateDisplayState({
+                        hasValue,
+                        hasApplicableMapping: evalResult.hasApplicableMapping,
+                        hasApplicableEvaluationAttempt: evalResult.hasApplicableEvaluationAttempt,
+                        defaultText: def.defaultResponse ?? undefined
+                    });
 
-            const rawSource = sourceToSet ? {
-                type: sourceToSet,
-                reference: sourceRefToSet,
-                timestamp: timestampToSet || null,
-                sourceCheckedAt: sourceCheckedAtToSet || null,
-                userName: null
-            } : null;
+                    if (!hasValue && evalResult.evaluatedSourceBadge) {
+                        sourceToSet = evalResult.evaluatedSourceBadge;
+                        if (evalResult.evaluatedSourceTimestamp) {
+                            sourceCheckedAtToSet = sourceCheckedAtToSet || evalResult.evaluatedSourceTimestamp;
+                        }
+                    }
 
-            const displayModel = def.isMultiValue ? 
-                resolveFieldCollectionForDisplay(
-                    valueToSet || [],
-                    {
-                        fieldNo: def.fieldNo,
-                        label: def.fieldName,
-                        defaultText: def.defaultResponse || undefined,
+                    const rawSource = sourceToSet ? {
+                        type: sourceToSet,
+                        reference: sourceRefToSet,
+                        timestamp: timestampToSet || null,
+                        sourceCheckedAt: sourceCheckedAtToSet || null,
+                        userName: null
+                    } : null;
+
+                    // Sub-measurement: FieldDisplayModel construction
+                    const t2 = performance.now();
+                    const displayModel = def.isMultiValue ? 
+                        resolveFieldCollectionForDisplay(
+                            valueToSet || [],
+                            {
+                                fieldNo: def.fieldNo,
+                                label: def.fieldName,
+                                defaultText: def.defaultResponse || undefined,
+                                displayState,
+                                isEditable: true,
+                                isMultiValue: true,
+                                appDataType: def.appDataType,
+                                profileConfig: def.profileConfig as { displayMask?: string[] } | undefined,
+                                codeSystem: (() => {
+                                    const cfg = getComplexFieldConfig(def.fieldNo);
+                                    return cfg?.kind === 'STRUCTURED_COLLECTION' ? (cfg as any).codeSystem : undefined;
+                                })(),
+                                allowAttachments: def.allowAttachments,
+                                attachments: resolvedAttachments.get(def.fieldNo) || [],
+                                clientLEId,
+                                rawSource
+                            }
+                        ) : resolveFieldForDisplay(
+                            valueToSet,
+                            rawSource,
+                            {
+                                fieldNo: def.fieldNo,
+                                label: def.fieldName,
+                                defaultText: def.defaultResponse || undefined,
+                                displayState,
+                                isEditable: true,
+                                isMultiValue: false,
+                                appDataType: def.appDataType,
+                                profileConfig: def.profileConfig as { displayMask?: string[] } | undefined,
+                                codeSystem: (() => {
+                                    const cfg = getComplexFieldConfig(def.fieldNo);
+                                    return cfg?.kind === 'STRUCTURED_COLLECTION' ? (cfg as any).codeSystem : undefined;
+                                })(),
+                                allowAttachments: def.allowAttachments,
+                                attachments: resolvedAttachments.get(def.fieldNo) || [],
+                                clientLEId
+                            }
+                        );
+                    const t3 = performance.now();
+                    modelConstructMs += (t3 - t2);
+                    displayModelsCount += 1;
+
+                    // Sub-measurement: master.toExportText
+                    const t4 = performance.now();
+                    const oldFormattedDisplayValue = toExportText(displayModel);
+                    const t5 = performance.now();
+                    toExportTextMs += (t5 - t4);
+
+                    flattened[def.fieldNo] = {
+                        value: valueToSet,
+                        formattedDisplayValue: oldFormattedDisplayValue,
+                        source: sourceToSet,
+                        sourceReference: sourceRefToSet,
                         displayState,
-                        isEditable: true,
-                        isMultiValue: true,
-                        appDataType: def.appDataType,
-                        profileConfig: def.profileConfig as { displayMask?: string[] } | undefined,
-                        codeSystem: (() => {
-                            const cfg = getComplexFieldConfig(def.fieldNo);
-                            return cfg?.kind === 'STRUCTURED_COLLECTION' ? (cfg as any).codeSystem : undefined;
-                        })(),
-                        allowAttachments: def.allowAttachments,
-                        attachments: resolvedAttachments.get(def.fieldNo) || [],
-                        clientLEId,
-                        rawSource
-                    }
-                ) : resolveFieldForDisplay(
-                    valueToSet,
-                    rawSource,
-                    {
-                        fieldNo: def.fieldNo,
-                        label: def.fieldName,
-                        defaultText: def.defaultResponse || undefined,
-                        displayState,
-                        isEditable: true,
-                        isMultiValue: false,
-                        appDataType: def.appDataType,
-                        profileConfig: def.profileConfig as { displayMask?: string[] } | undefined,
-                        codeSystem: (() => {
-                            const cfg = getComplexFieldConfig(def.fieldNo);
-                            return cfg?.kind === 'STRUCTURED_COLLECTION' ? (cfg as any).codeSystem : undefined;
-                        })(),
-                        allowAttachments: def.allowAttachments,
-                        attachments: resolvedAttachments.get(def.fieldNo) || [],
-                        clientLEId
-                    }
-                );
+                        defaultResponse: def.defaultResponse ?? undefined,
+                        mappingStats: mappingStatsMap.get(def.fieldNo) || { questions: 0, questionnaires: 0, suppliers: 0 },
+                        canonicalDisplayModel: displayModel
+                    };
+                }
 
-            const oldFormattedDisplayValue = toExportText(displayModel);
+                let totalAttachmentsCount = 0;
+                for (const atts of Array.from(resolvedAttachments.values())) {
+                    totalAttachmentsCount += atts.length;
+                }
 
-            flattened[def.fieldNo] = {
-                value: valueToSet,
-                formattedDisplayValue: oldFormattedDisplayValue,
-                source: sourceToSet,
-                sourceReference: sourceRefToSet,
-                displayState,
-                defaultResponse: def.defaultResponse ?? undefined,
-                mappingStats: mappingStatsMap.get(def.fieldNo) || { questions: 0, questionnaires: 0, suppliers: 0 },
-                canonicalDisplayModel: displayModel
-            };
-        }
+                loopSpan?.setAttribute("masterFields.count", allFields.length);
+                loopSpan?.setAttribute("claims.count", claimsCount);
+                loopSpan?.setAttribute("displayModels.count", displayModelsCount);
+                loopSpan?.setAttribute("parties.count", partyMap.size);
+                loopSpan?.setAttribute("attachments.count", totalAttachmentsCount);
+                loopSpan?.setAttribute("interpreterLoop.stateCheckMs", Math.round(stateCheckMs * 100) / 100);
+                loopSpan?.setAttribute("interpreterLoop.modelConstructMs", Math.round(modelConstructMs * 100) / 100);
+                loopSpan?.setAttribute("interpreterLoop.toExportTextMs", Math.round(toExportTextMs * 100) / 100);
+            }
+        );
+
     }
 
     // 3. Custom Data
-    const customData = (clientLE.customData as Record<string, any>) || {};
-    let customDefinitions: any[] = [];
+    const { customData, customDefinitions } = await Sentry.startSpan(
+        { name: "master.customData", op: "function.data" },
+        async (customSpan) => {
+            const rawCustomData = (clientLE.customData as Record<string, any>) || {};
+            let rawCustomDefs: any[] = [];
 
-    // Strategy: Fetch definitions from:
-    // A. The Client LE's Owner (The "Host")
-    // B. The Current User's FI (The "Viewer/Editor")
-    // C. Any field IDs already present in customData (Data Integrity)
+            const owner = await prisma.clientLEOwner.findFirst({
+                where: { clientLEId, endAt: null },
+                orderBy: { startAt: 'asc' }
+            });
 
-    const owner = await prisma.clientLEOwner.findFirst({
-        where: { clientLEId, endAt: null },
-        orderBy: { startAt: 'asc' }
-    });
+            const userFI = await getUserFIOrg();
 
-    const userFI = await getUserFIOrg();
+            const targetOrgIds = new Set<string>();
+            if (owner) targetOrgIds.add(owner.partyId);
+            if (userFI) targetOrgIds.add(userFI.id);
 
-    // Collect Org IDs to fetch
-    const targetOrgIds = new Set<string>();
-    if (owner) targetOrgIds.add(owner.partyId);
-    if (userFI) targetOrgIds.add(userFI.id);
+            const targetDefIds = new Set<string>();
+            Object.keys(rawCustomData).forEach((key: any) => {
+                if (key.length > 20) targetDefIds.add(key);
+            });
 
-    // Collect Field IDs from the Data itself (The "Stored at LE Level" truth)
-    const targetDefIds = new Set<string>();
-    Object.keys(customData).forEach((key: any) => {
-        // Simple uuid check or length check to avoid junk
-        if (key.length > 20) targetDefIds.add(key);
-    });
+            if (targetOrgIds.size > 0 || targetDefIds.size > 0) {
+                rawCustomDefs = await prisma.customFieldDefinition.findMany({
+                    where: {
+                        OR: [
+                            { orgId: { in: Array.from(targetOrgIds) } },
+                            { id: { in: Array.from(targetDefIds) } }
+                        ],
+                        isDeleted: false
+                    },
+                    orderBy: { label: 'asc' }
+                });
+            }
 
-    if (targetOrgIds.size > 0 || targetDefIds.size > 0) {
-        customDefinitions = await prisma.customFieldDefinition.findMany({
-            where: {
-                OR: [
-                    { orgId: { in: Array.from(targetOrgIds) } },
-                    { id: { in: Array.from(targetDefIds) } }
-                ],
-                isDeleted: false
-            },
-            orderBy: { label: 'asc' }
-        });
-    }
+            customSpan?.setAttribute("customFields.count", rawCustomDefs.length);
+
+            return { customData: rawCustomData, customDefinitions: rawCustomDefs };
+        }
+    );
 
     // IF `customData` has keys that we missed (e.g. from previous owners), we could fetch them here.
     // For now, let's stick to active contexts.
