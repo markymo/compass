@@ -93,7 +93,7 @@ export default async function AdminDashboardPage() {
                     System Administration
                 </h1>
                 <p className="text-lg text-slate-600 dark:text-slate-400 max-w-2xl">
-                    Manage the Compass platform core configuration and tenants.
+                    Manage the OnPro platform core configuration and tenants.
                 </p>
             </div>
 

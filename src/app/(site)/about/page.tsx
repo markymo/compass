@@ -1,10 +1,48 @@
+import type { Metadata } from "next";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { BRAND } from "@/config/brand";
 
+export const metadata: Metadata = {
+    title: `About ${BRAND.name} | Sovereign Identity for Finance`,
+    description: `${BRAND.name} is the first client-centric onboarding system, born from a simple observation: Complexity in capital markets is often artificial.`,
+    openGraph: {
+        title: `About ${BRAND.name} | Sovereign Identity for Finance`,
+        description: `${BRAND.name} is the first client-centric onboarding system, born from a simple observation: Complexity in capital markets is often artificial.`,
+        url: `${BRAND.website}/about`,
+        siteName: BRAND.name,
+        locale: "en_GB",
+        type: "website",
+    },
+    twitter: {
+        card: "summary_large_image",
+        title: `About ${BRAND.name} | Sovereign Identity for Finance`,
+        description: `${BRAND.name} is the first client-centric onboarding system, born from a simple observation: Complexity in capital markets is often artificial.`,
+    },
+};
+
+const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "AboutPage",
+    "name": `About ${BRAND.name}`,
+    "url": `${BRAND.website}/about`,
+    "description": `${BRAND.name} is the first client-centric onboarding system, streamlining corporate entity data and onboarding for capital markets.`,
+    "publisher": {
+        "@type": "Organization",
+        "name": BRAND.name,
+        "legalName": BRAND.legalName,
+        "url": BRAND.website,
+        "email": BRAND.email,
+    },
+};
+
 export default function About() {
     return (
         <div className="flex min-h-screen flex-col bg-white">
+            <script
+                type="application/ld+json"
+                dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+            />
             <Navbar />
             <main className="flex-1 pt-32 pb-16">
                 <div className="container mx-auto px-4 md:px-6">

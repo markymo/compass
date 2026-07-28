@@ -89,9 +89,9 @@ export async function inviteSupplier(
         const inviteLink = `${process.env.NEXT_PUBLIC_APP_URL}/invite/${token}`;
 
         const emailHtml = await render(SupplierInviteEmail({
-            inviterName: 'Compass User', // TODO: Get real name
-            inviterEmail: identity.email || 'noreply@compass.com',
-            orgName: "Compass Workspace",
+            inviterName: 'OnPro User', // TODO: Get real name
+            inviterEmail: identity.email || 'noreply@onpro.tech',
+            orgName: "OnPro Workspace",
             leName: engagement.clientLE.name,
             role: role,
             message: message,
@@ -100,7 +100,7 @@ export async function inviteSupplier(
 
         const resend = new Resend(process.env.RESEND_API_KEY);
         await resend.emails.send({
-            from: 'Compass <onboarding@resend.dev>', // Use resend.dev for testing unless verified domain
+            from: 'OnPro <onboarding@resend.dev>', // Use resend.dev for testing unless verified domain
             to: email,
             subject: `Invitation to collaborate on ${engagement.clientLE.name}`,
             html: emailHtml

@@ -216,7 +216,7 @@ export function AddQuestionnaireDialog({ open, onOpenChange, onAdd, engagementId
                                     >
                                         <div>
                                             <h4 className="font-medium text-slate-900 group-hover:text-indigo-700">{q.name}</h4>
-                                            <p className="text-xs text-slate-500">{q.fiOrg?.name ?? "Coparity"}</p>
+                                            <p className="text-xs text-slate-500">{q.fiOrg?.name ?? "OnPro"}</p>
                                         </div>
                                         <Button size="sm" variant="ghost" className="opacity-0 group-hover:opacity-100">Select</Button>
                                     </div>

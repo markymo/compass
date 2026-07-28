@@ -57,7 +57,7 @@ export function RecentlyLearned({ items = [] }: { items?: LearnedItem[] }) {
                         <div className="space-y-1">
                             <p className="text-xs font-medium text-indigo-900">Waiting to learn...</p>
                             <p className="text-[10px] text-indigo-600/70 leading-relaxed px-4">
-                                Answer questionnaires or upload documents. Compass will auto-detect and save verification facts here.
+                                Answer questionnaires or upload documents. OnPro will auto-detect and save verification facts here.
                             </p>
                         </div>
                     </div>

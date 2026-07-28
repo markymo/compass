@@ -36,7 +36,7 @@ export const SupplierInviteEmail = ({
     return (
         <Html>
             <Head />
-            <Preview>Join {orgName} on Compass to collaborate on {leName}</Preview>
+            <Preview>Join {orgName} on OnPro to collaborate on {leName}</Preview>
             <Tailwind>
                 <Body className="bg-white my-auto mx-auto font-sans">
                     <Container className="border border-solid border-[#eaeaea] rounded my-[40px] mx-auto p-[20px] max-w-[465px]">
@@ -47,7 +47,7 @@ export const SupplierInviteEmail = ({
                             Hello,
                         </Text>
                         <Text className="text-black text-[14px] leading-[24px]">
-                            <strong>{inviterName}</strong> ({inviterEmail}) has invited you to join the <strong>{orgName}</strong> workspace on Compass.
+                            <strong>{inviterName}</strong> ({inviterEmail}) has invited you to join the <strong>{orgName}</strong> workspace on OnPro.
                         </Text>
                         <Text className="text-black text-[14px] leading-[24px]">
                             They are requesting your input for the following entity:

@@ -125,7 +125,7 @@ export async function bootstrapSystemOrg() {
     if (!sysOrg) {
         return await prisma.organization.create({
             data: {
-                name: "Compass System Admin",
+                name: "OnPro System Admin",
                 types: ["SYSTEM"]
             }
         });
