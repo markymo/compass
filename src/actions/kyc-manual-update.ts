@@ -9,6 +9,8 @@ import { getMasterFieldDefinition, listAllMasterFields } from "@/services/master
 import { getComplexFieldConfig } from "@/lib/master-data/complex-field-config";
 import { SourceType } from "@prisma/client";
 
+import * as Sentry from "@sentry/nextjs";
+
 // KycWriteService is deprecated in favor of FieldClaimService
 
 /**
@@ -23,8 +25,19 @@ export async function updateFieldManually(
     rowId?: string,
     entityType: 'LEGAL_ENTITY' | 'CLIENT_LE' = 'CLIENT_LE'
 ): Promise<{ success: boolean; message?: string; claimId?: string }> {
-    try {
-        const identity = await getIdentity();
+    return await Sentry.startSpan(
+        {
+            name: "probe.field_claim.save",
+            op: "function.kyc_update",
+            attributes: {
+                "probe.name": "field_claim.save",
+                "probe.type": "standard_write",
+                "field.no": fieldNo,
+            },
+        },
+        async () => {
+            try {
+                const identity = await getIdentity();
         const userId = identity?.userId;
 
         if (!userId) {
@@ -108,6 +121,8 @@ export async function updateFieldManually(
         console.error("updateFieldManually error:", error);
         return { success: false, message: error.message };
     }
+        }
+    );
 }
 
 /**

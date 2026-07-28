@@ -13,10 +13,21 @@ import { ManifestPDF } from "@/components/pdf/manifest-pdf";
 import { QuestionnairePDF } from "@/components/pdf/questionnaire-pdf";
 import { resolveExportAnswer } from "@/lib/export/export-answer-resolver";
 import { KycStateService } from "@/lib/kyc/KycStateService";
+import * as Sentry from "@sentry/nextjs";
 
 export async function POST(req: NextRequest) {
-    try {
-        const body = await req.json();
+    return await Sentry.startSpan(
+        {
+            name: "probe.output_pack.generate",
+            op: "http.server.output_pack",
+            attributes: {
+                "probe.name": "output_pack.generate",
+                "probe.type": "heavier_workflow",
+            },
+        },
+        async () => {
+            try {
+                const body = await req.json();
         const { engagementId, questionnaireIds = [], documentIds = [] } = body;
 
         if (!engagementId) {
@@ -282,4 +293,6 @@ NOTE: This export pack includes Questionnaire PDFs and Original Native Evidence.
         console.error("Output Pack ZIP Error:", error);
         return NextResponse.json({ error: error.message || "Failed to generate Output Pack" }, { status: 500 });
     }
+        }
+    );
 }

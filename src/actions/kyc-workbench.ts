@@ -36,8 +36,20 @@ export interface Workbench4Data {
  * - All available master fields (standard + custom)
  * - Unique relationships and questionnaires for filtering
  */
+import * as Sentry from "@sentry/nextjs";
+
 export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
-    const questions = await getConsoleQuestions(leId, true);
+    return await Sentry.startSpan(
+        {
+            name: "probe.workbench4.load",
+            op: "function.workbench",
+            attributes: {
+                "probe.name": "workbench4.load",
+                "probe.type": "read_heavy",
+            },
+        },
+        async () => {
+            const questions = await getConsoleQuestions(leId, true);
 
     // 1. Get standard Master Fields & Groups (with sub-field items for batch resolver)
     const [allFields, allGroupsWithItems, raNameLookup] = await Promise.all([
@@ -414,6 +426,8 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
         ownerOrgId,
         raNameLookup,
     };
+        }
+    );
 }
 
 /**
