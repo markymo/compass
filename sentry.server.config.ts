@@ -2,7 +2,8 @@ import * as Sentry from "@sentry/nextjs";
 
 function getTracesSampleRate(): number {
   const env = process.env.APP_ENV || process.env.NEXT_PUBLIC_APP_ENV || process.env.NODE_ENV;
-  if (env === "production") return 0.1; // Production server: 10%
+  // TEMPORARY DIAGNOSTIC OVERRIDE (Investigation): Production server rate boosted from 0.1 to 1.0
+  if (env === "production") return 1.0; // Production server: 100% (TEMPORARY - Restore to 0.1 after investigation)
   if (env === "staging") return 1.0;    // Staging: 100%
   if (env === "preview") return 0.5;    // Preview: 50%
   return 1.0;                           // Local / Development: 100%
