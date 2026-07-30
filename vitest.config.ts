@@ -4,12 +4,14 @@ import path from 'path'
 export default defineConfig({
     test: {
         pool: 'threads',
-        alias: {
-            '@': path.resolve(__dirname, './src'),
+        server: {
+            deps: {
+                inline: ['next-auth'],
+            },
         },
+        alias: [
+            { find: '@', replacement: path.resolve(__dirname, './src') },
+            { find: /^next\/server$/, replacement: path.resolve(__dirname, './node_modules/next/server.js') },
+        ],
     },
 })
-
-
-
-
