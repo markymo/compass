@@ -5,7 +5,6 @@ import { getIdentity } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { parsePath, resolvePathString, PathParseError } from "@/services/kyc/normalization/pathResolver";
 import { SourceType, MappingTransformType, MasterFieldDefinition, SourceFieldMapping } from "@prisma/client";
-import { captureMomentumObservation } from "./momentum";
 
 // ── Types ──────────────────────────────────────────────────────────────
 
@@ -265,14 +264,6 @@ export async function upsertSourceMapping(input: UpsertMappingInput) {
         // ── Revalidate ──
         revalidatePath("/app/admin/master-data/manager");
         revalidatePath("/app/admin/master-data/mappings");
-
-        // Step 10: Automated Observation Capture (Awaited for reliability in serverless)
-        try {
-            await captureMomentumObservation();
-        } catch (err) {
-            console.error("[upsertSourceMapping] Momentum capture failed:", err);
-        }
-
         return { success: true, mapping, warnings };
     } catch (error: any) {
         console.error("upsertSourceMapping error:", error);
@@ -350,14 +341,6 @@ export async function deleteSourceMapping(id: string) {
         // ── Revalidate ──
         revalidatePath("/app/admin/master-data/manager");
         revalidatePath("/app/admin/master-data/mappings");
-
-        // Step 10: Automated Observation Capture (Awaited for reliability in serverless)
-        try {
-            await captureMomentumObservation();
-        } catch (err) {
-            console.error("[deleteSourceMapping] Momentum capture failed:", err);
-        }
-
         return { success: true };
     } catch (error: any) {
         console.error("deleteSourceMapping error:", error);

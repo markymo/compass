@@ -22,7 +22,6 @@ interface NavItem {
 
 const adminNavItems: NavItem[] = [
     { title: "Pulse", href: "/app/admin/pulse", icon: Activity },
-    { title: "Momentum", href: "/app/admin/momentum", icon: Zap },
     { title: "Organizations", href: "/app/admin/organizations", icon: Building2 },
     { title: "Users", href: "/app/admin/users", icon: Users },
     { title: "Questionnaires", href: "/app/admin/questionnaires", icon: FileText },
@@ -49,7 +48,6 @@ const adminNavItems: NavItem[] = [
 ];
 
 const rddShortcutItems: NavItem[] = [
-    { title: "Momentum", href: "/app/admin/momentum", icon: Zap },
     { title: "Data Manager", href: "/app/admin/master-data/manager", icon: LayoutDashboard },
     { title: "Field Glossary", href: "/app/admin/master-data/fields", icon: ListTree },
     { title: "Source Field Mappings", href: "/app/admin/master-data/source-mappings-v2", icon: GitBranch },
