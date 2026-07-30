@@ -23,6 +23,9 @@ const inter = Inter({
 });
 
 import { BRAND } from "@/config/brand";
+import { isNonProductionEnv } from "@/lib/env";
+
+const isNonProd = isNonProductionEnv();
 
 export const metadata: Metadata = {
   metadataBase: new URL(BRAND.website),
@@ -31,6 +34,22 @@ export const metadata: Metadata = {
     template: `%s | ${BRAND.name}`,
   },
   description: "The single source of truth for corporate debt finance onboarding.",
+  robots: isNonProd
+    ? {
+        index: false,
+        follow: false,
+        noarchive: true,
+        nocache: true,
+        googleBot: {
+          index: false,
+          follow: false,
+          noimageindex: true,
+        },
+      }
+    : {
+        index: true,
+        follow: true,
+      },
   openGraph: {
     title: `${BRAND.name} | Sovereign Identity for Finance`,
     description: "The single source of truth for corporate debt finance onboarding.",

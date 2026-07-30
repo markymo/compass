@@ -12,9 +12,6 @@ vi.mock('@/lib/auth', () => ({
 vi.mock('@/actions/admin', () => ({
     isSystemAdmin: vi.fn().mockResolvedValue(true),
 }));
-vi.mock('@/actions/momentum', () => ({
-    captureMomentumObservation: vi.fn().mockResolvedValue(undefined),
-}));
 vi.mock('@/services/masterData/definitionService', () => ({
     invalidateDefinitionCache: vi.fn(),
 }));
