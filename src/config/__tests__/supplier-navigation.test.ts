@@ -1,19 +1,26 @@
 import { describe, it, expect } from "vitest";
-import { getFIPortalTabs } from "../navigation-tabs";
+import { getFIPortalTabs, getLegalEntityTabs } from "../navigation-tabs";
 import { isNavItemActive } from "@/components/layout/HeaderNavList";
 
 describe("Supplier Navigation & Route Migration", () => {
     const orgId = "test-supplier-123";
     const tabs = getFIPortalTabs(orgId);
 
-    it("1. Supplier navigation contains Relationships, Questions & Answers, Admin, Teams", () => {
+    it("1. Supplier navigation contains Client Relationships, Questions & Answers, Admin, Teams", () => {
         const labels = tabs.map((t) => t.label);
         expect(labels).toEqual([
-            "Relationships",
+            "Client Relationships",
             "Questions & Answers",
             "Admin",
             "Teams",
         ]);
+    });
+
+    it("1b. Client-side navigation label remains Relationships", () => {
+        const leTabs = getLegalEntityTabs("test-le-123");
+        const relTab = leTabs.find((t) => t.href.endsWith("/relationships"));
+        expect(relTab).toBeDefined();
+        expect(relTab?.label).toBe("Relationships");
     });
 
     it("2. Settings tab is absent", () => {
@@ -26,7 +33,7 @@ describe("Supplier Navigation & Route Migration", () => {
         const teamsTab = tabs.find((t) => t.label === "Teams")!;
         expect(teamsTab?.alignRight).toBe(true);
 
-        const relTab = tabs.find((t) => t.label === "Relationships")!;
+        const relTab = tabs.find((t) => t.label === "Client Relationships")!;
         const qaTab = tabs.find((t) => t.label === "Questions & Answers")!;
         const adminTab = tabs.find((t) => t.label === "Admin")!;
 
@@ -35,8 +42,8 @@ describe("Supplier Navigation & Route Migration", () => {
         expect(adminTab?.alignRight).toBeFalsy();
     });
 
-    it("4. Active navigation: Root route highlights Relationships", () => {
-        const relTab = tabs.find((t) => t.label === "Relationships")!;
+    it("4. Active navigation: Root route highlights Client Relationships", () => {
+        const relTab = tabs.find((t) => t.label === "Client Relationships")!;
         const qaTab = tabs.find((t) => t.label === "Questions & Answers")!;
 
         expect(isNavItemActive(relTab, `/app/s/${orgId}`)).toBe(true);
@@ -44,8 +51,8 @@ describe("Supplier Navigation & Route Migration", () => {
         expect(isNavItemActive(qaTab, `/app/s/${orgId}`)).toBe(false);
     });
 
-    it("4 & 8. Active navigation: Relationship detail and workbench deep links keep Relationships active", () => {
-        const relTab = tabs.find((t) => t.label === "Relationships")!;
+    it("4 & 8. Active navigation: Relationship detail and workbench deep links keep Client Relationships active", () => {
+        const relTab = tabs.find((t) => t.label === "Client Relationships")!;
         const qaTab = tabs.find((t) => t.label === "Questions & Answers")!;
         const adminTab = tabs.find((t) => t.label === "Admin")!;
 
@@ -61,7 +68,7 @@ describe("Supplier Navigation & Route Migration", () => {
 
     it("4 & 8. Active navigation: Admin questionnaire detail deep links keep Admin active", () => {
         const adminTab = tabs.find((t) => t.label === "Admin")!;
-        const relTab = tabs.find((t) => t.label === "Relationships")!;
+        const relTab = tabs.find((t) => t.label === "Client Relationships")!;
 
         const qDetailPath = `/app/s/${orgId}/questionnaires/q-12345`;
 
@@ -71,7 +78,7 @@ describe("Supplier Navigation & Route Migration", () => {
 
     it("4. Active navigation: Questions & Answers route", () => {
         const qaTab = tabs.find((t) => t.label === "Questions & Answers")!;
-        const relTab = tabs.find((t) => t.label === "Relationships")!;
+        const relTab = tabs.find((t) => t.label === "Client Relationships")!;
 
         const questionsPath = `/app/s/${orgId}/questions`;
 
@@ -81,7 +88,7 @@ describe("Supplier Navigation & Route Migration", () => {
 
     it("4. Active navigation: Teams route", () => {
         const teamsTab = tabs.find((t) => t.label === "Teams")!;
-        const relTab = tabs.find((t) => t.label === "Relationships")!;
+        const relTab = tabs.find((t) => t.label === "Client Relationships")!;
 
         const teamPath = `/app/s/${orgId}/team`;
 
@@ -90,7 +97,7 @@ describe("Supplier Navigation & Route Migration", () => {
     });
 
     it("5 & 6. Legacy query strings: hrefs point to new clean paths instead of ?tab= query params", () => {
-        const relTab = tabs.find((t) => t.label === "Relationships")!;
+        const relTab = tabs.find((t) => t.label === "Client Relationships")!;
         const qaTab = tabs.find((t) => t.label === "Questions & Answers")!;
         const adminTab = tabs.find((t) => t.label === "Admin")!;
         const teamsTab = tabs.find((t) => t.label === "Teams")!;

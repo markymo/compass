@@ -87,6 +87,14 @@ export function SupplierQuestionsWorkbench({ orgId, data }: SupplierQuestionsWor
     const [catFilter, setCatFilter] = useState(searchParams.get("cat") || "ALL");
     const [statusFilter, setStatusFilter] = useState(searchParams.get("status") || "ALL");
 
+    useEffect(() => {
+        setSearch(searchParams.get("s") || "");
+        setRelFilter(searchParams.get("rel") || "ALL");
+        setQFilter(searchParams.get("q") || "ALL");
+        setCatFilter(searchParams.get("cat") || "ALL");
+        setStatusFilter(searchParams.get("status") || "ALL");
+    }, [searchParams]);
+
     // Saved Preference with URL Override
     const savedPrefView = (preferences?.supplierQuestionsView as ViewMode) || "classic";
     const urlViewParam = searchParams.get("view") as ViewMode | null;

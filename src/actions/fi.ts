@@ -1072,12 +1072,25 @@ export interface SupplierRelationshipQuestionnaireSummary {
     latestSharedOrReleasedAt: Date | string | null;
 }
 
-export interface SupplierRelationshipSummary {
+export interface SupplierRelationshipQuestionnaireSummary {
     id: string;
-    supplierOrgId: string;
+    questionnaireId: string;
+    name: string;
+    version: string | null;
+    referenceCode: string | null;
+    questionCounts: {
+        total: number;
+        notShared: number;
+        shared: number;
+        released: number;
+    };
+    latestSharedOrReleasedAt: Date | string | null;
+}
+
+export interface SupplierClientLERelationshipSummary {
+    relationshipId: string;
     clientLEId: string;
     clientLEName: string;
-    clientOrganizationName: string | null;
     status: string | null;
     questionCounts: {
         total: number;
@@ -1088,7 +1101,20 @@ export interface SupplierRelationshipSummary {
     questionnaires: SupplierRelationshipQuestionnaireSummary[];
 }
 
-export async function getSupplierRelationshipsSummary(fiOrgId: string): Promise<SupplierRelationshipSummary[]> {
+export interface SupplierClientRelationshipGroup {
+    clientOrganizationId: string;
+    clientOrganizationName: string;
+    questionCounts: {
+        total: number;
+        notShared: number;
+        shared: number;
+        released: number;
+    };
+    questionnaireCount: number;
+    legalEntities: SupplierClientLERelationshipSummary[];
+}
+
+export async function getSupplierRelationshipsSummary(fiOrgId: string): Promise<SupplierClientRelationshipGroup[]> {
     const identity = await getIdentity();
     if (!identity?.userId) return [];
     const { userId } = identity;
@@ -1122,7 +1148,7 @@ export async function getSupplierRelationshipsSummary(fiOrgId: string): Promise<
                     }
                 }
             },
-            questionnaires: {
+            questionnaireInstances: {
                 where: { isDeleted: false },
                 include: {
                     questions: {
@@ -1139,13 +1165,23 @@ export async function getSupplierRelationshipsSummary(fiOrgId: string): Promise<
         orderBy: { clientLE: { name: "asc" } }
     });
 
-    return engagements.map((eng: any) => {
+    const clientGroupMap = new Map<string, {
+        clientOrganizationId: string;
+        clientOrganizationName: string;
+        legalEntities: SupplierClientLERelationshipSummary[];
+    }>();
+
+    engagements.forEach((eng: any) => {
+        const ownerParty = eng.clientLE?.owners?.[0]?.party;
+        const clientOrgId = ownerParty?.id || `unassigned-${eng.clientLEId}`;
+        const clientOrgName = ownerParty?.name || eng.clientLE?.name || "Independent Client Legal Entities";
+
         let engTotal = 0;
         let engNotShared = 0;
         let engShared = 0;
         let engReleased = 0;
 
-        const qSummaries: SupplierRelationshipQuestionnaireSummary[] = (eng.questionnaires || []).map((q: any) => {
+        const qSummaries: SupplierRelationshipQuestionnaireSummary[] = (eng.questionnaireInstances || []).map((q: any) => {
             let qTotal = 0;
             let qNotShared = 0;
             let qShared = 0;
@@ -1167,7 +1203,6 @@ export async function getSupplierRelationshipsSummary(fiOrgId: string): Promise<
                         latestTimestamp = dt;
                     }
                 } else {
-                    // DRAFT & APPROVED combine into Awaiting Client
                     qNotShared++;
                 }
             });
@@ -1195,12 +1230,10 @@ export async function getSupplierRelationshipsSummary(fiOrgId: string): Promise<
             };
         });
 
-        return {
-            id: eng.id,
-            supplierOrgId: eng.fiOrgId,
+        const leSummary: SupplierClientLERelationshipSummary = {
+            relationshipId: eng.id,
             clientLEId: eng.clientLEId,
             clientLEName: eng.clientLE?.name || "Unknown ClientLE",
-            clientOrganizationName: eng.clientLE?.owners?.[0]?.party?.name || null,
             status: eng.status || "Active",
             questionCounts: {
                 total: engTotal,
@@ -1210,5 +1243,49 @@ export async function getSupplierRelationshipsSummary(fiOrgId: string): Promise<
             },
             questionnaires: qSummaries
         };
+
+        if (!clientGroupMap.has(clientOrgId)) {
+            clientGroupMap.set(clientOrgId, {
+                clientOrganizationId: clientOrgId,
+                clientOrganizationName: clientOrgName,
+                legalEntities: []
+            });
+        }
+        clientGroupMap.get(clientOrgId)!.legalEntities.push(leSummary);
     });
+
+    const groups: SupplierClientRelationshipGroup[] = Array.from(clientGroupMap.values()).map((grp) => {
+        let grpTotal = 0;
+        let grpNotShared = 0;
+        let grpShared = 0;
+        let grpReleased = 0;
+        let grpQuestionnaireCount = 0;
+
+        grp.legalEntities.forEach((le) => {
+            grpTotal += le.questionCounts.total;
+            grpNotShared += le.questionCounts.notShared;
+            grpShared += le.questionCounts.shared;
+            grpReleased += le.questionCounts.released;
+            grpQuestionnaireCount += le.questionnaires.length;
+        });
+
+        grp.legalEntities.sort((a, b) => a.clientLEName.localeCompare(b.clientLEName));
+
+        return {
+            clientOrganizationId: grp.clientOrganizationId,
+            clientOrganizationName: grp.clientOrganizationName,
+            questionCounts: {
+                total: grpTotal,
+                notShared: grpNotShared,
+                shared: grpShared,
+                released: grpReleased
+            },
+            questionnaireCount: grpQuestionnaireCount,
+            legalEntities: grp.legalEntities
+        };
+    });
+
+    groups.sort((a, b) => a.clientOrganizationName.localeCompare(b.clientOrganizationName));
+
+    return groups;
 }

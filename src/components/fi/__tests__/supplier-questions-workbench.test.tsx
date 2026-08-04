@@ -156,4 +156,19 @@ describe("SupplierQuestionsWorkbench Component Structure & Safety", () => {
         expect(comp.shareQuestion).toBeUndefined();
         expect(comp.releaseQuestion).toBeUndefined();
     });
+
+    it("7, 8, 9. Restores rel and q filter values to isolate questions for selected ClientLE and Questionnaire", () => {
+        const relFilterVal = "Ørsted Wind";
+        const qFilterVal = "KYC Overview";
+
+        const filtered = mockData.questions.filter((q) => {
+            const matchesLE = relFilterVal === "ALL" || q.clientLEName === relFilterVal;
+            const matchesQ = qFilterVal === "ALL" || q.questionnaireName === qFilterVal;
+            return matchesLE && matchesQ;
+        });
+
+        expect(filtered).toHaveLength(2);
+        expect(filtered.map(q => q.id)).toEqual(["q-not-shared-1", "q-shared-1"]);
+        expect(filtered.find(q => q.id === "q-released-1")).toBeUndefined();
+    });
 });

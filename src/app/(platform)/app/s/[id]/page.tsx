@@ -57,7 +57,7 @@ export default async function FIDashboard({
                     { label: "Home", href: "/app", iconName: "home" },
                     { label: org.name, iconName: "landmark" }
                 ]}
-                title="Relationships"
+                title="Client Relationships"
                 typeLabel="Financial Institution"
                 secondaryNav={<HeaderNavList items={fiTabs} />}
             />

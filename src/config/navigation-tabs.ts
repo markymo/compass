@@ -110,7 +110,7 @@ export const getFIPortalTabs = (orgId: string): NavItem[] => {
 
     return [
         {
-            label: "Relationships",
+            label: "Client Relationships",
             href: baseUrl,
             iconName: "building-2",
         },
