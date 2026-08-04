@@ -334,44 +334,152 @@ export async function getFIEngagements(fiOrgId?: string): Promise<ApplicationEng
 // 2.b Get Questions for Dashboard (Kanban Items)
 import { listAllMasterFields, listAllMasterGroups } from "@/services/masterData/definitionService";
 
+export type SupplierAnswerVisibility = "NOT_SHARED" | "SHARED" | "RELEASED";
+
+export interface SupplierVisibleDocument {
+    id: string;
+    fileName: string;
+    fileType: string | null;
+    fileSize: number | null;
+    uploadedAt: Date | string;
+}
+
+export interface SupplierVisibleProvenance {
+    source: string | null;
+    timestamp: Date | string | null;
+    releaseProvenance?: any | null;
+}
+
+export interface SupplierQuestionView {
+    id: string;
+    supplierOrgId: string;
+    relationshipId: string;
+    clientLEId: string;
+    clientLEName: string;
+    clientOrganizationName: string | null;
+
+    questionnaireId: string;
+    questionnaireName: string;
+    questionnaireVersion: string | null;
+
+    sectionId: string | null;
+    sectionName: string | null;
+    questionNumber: string | null;
+    order: number | null;
+
+    questionText: string;
+    guidance: string | null;
+    isRequired: boolean | null;
+
+    category: string;
+
+    answerVisibility: SupplierAnswerVisibility;
+
+    answer: any | null;
+    provenance: SupplierVisibleProvenance | null;
+    documents: SupplierVisibleDocument[];
+
+    sharedAt: Date | string | null;
+    releasedAt: Date | string | null;
+
+    // Backwards compatibility for existing UI
+    text: string;
+    leName: string;
+}
+
 export interface FIWorkbenchData {
-    questions: any[];
+    questions: SupplierQuestionView[];
     les: string[];
     questionnaires: string[];
     categories: string[];
+    counts: {
+        total: number;
+        notShared: number;
+        shared: number;
+        released: number;
+    };
 }
 
 export async function getFIWorkbenchData(fiOrgId: string): Promise<FIWorkbenchData> {
+    const emptyResult: FIWorkbenchData = {
+        questions: [],
+        les: [],
+        questionnaires: [],
+        categories: [],
+        counts: { total: 0, notShared: 0, shared: 0, released: 0 }
+    };
+
     const identity = await getIdentity();
-    if (!identity?.userId) return { questions: [], les: [], questionnaires: [], categories: [] };
+    if (!identity?.userId) return emptyResult;
     const { userId } = identity;
 
-    // Verify access
-    const membership = await prisma.membership.findFirst({
-        where: { userId, organizationId: fiOrgId, organization: { types: { has: "FI" } } }
+    // 1. Verify access to Supplier Org or specific Relationships
+    const orgMembership = await prisma.membership.findFirst({
+        where: {
+            userId,
+            organizationId: fiOrgId,
+            organization: { types: { has: "FI" } }
+        }
     });
-    if (!membership) return { questions: [], les: [], questionnaires: [], categories: [] };
 
+    const engagementMemberships = await prisma.membership.findMany({
+        where: { userId, fiEngagementId: { not: null } },
+        select: { fiEngagementId: true }
+    });
+    const allowedEngagementIds = engagementMemberships.map((m: any) => m.fiEngagementId).filter(Boolean) as string[];
+
+    if (!orgMembership && allowedEngagementIds.length === 0) {
+        return emptyResult;
+    }
+
+    const engagementFilter: any = {
+        fiOrgId: fiOrgId,
+        isDeleted: false,
+        clientLE: { isDeleted: false },
+        ...(orgMembership ? {} : { id: { in: allowedEngagementIds } })
+    };
+
+    // 2. Fetch all questions for questionnaires attached to active Supplier Relationships
     const questionsRaw = await prisma.question.findMany({
         where: {
             questionnaire: {
                 fiOrgId: fiOrgId,
-                isDeleted: false
-            },
-            status: { in: ["SHARED", "RELEASED"] }
+                isDeleted: false,
+                fiEngagementId: { not: null },
+                fiEngagement: engagementFilter
+            }
         },
         include: {
+            documents: {
+                select: {
+                    id: true,
+                    name: true,
+                    mimeType: true,
+                    sizeBytes: true,
+                    createdAt: true
+                }
+            },
             questionnaire: {
                 include: {
                     fiEngagement: {
-                        include: { clientLE: true }
+                        include: {
+                            clientLE: {
+                                include: {
+                                    owners: {
+                                        where: { endAt: null },
+                                        include: { party: { select: { name: true } } }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
         },
-        orderBy: { updatedAt: 'desc' }
+        orderBy: { order: 'asc' }
     });
 
+    // 3. Resolve Master Data Categories
     const [allFields, allGroups] = await Promise.all([
         listAllMasterFields(),
         listAllMasterGroups()
@@ -380,46 +488,317 @@ export async function getFIWorkbenchData(fiOrgId: string): Promise<FIWorkbenchDa
     const fieldCategoryMap = new Map(allFields.map((f: any) => [f.fieldNo, f.category]));
     const groupCategoryMap = new Map(allGroups.map((g: any) => [g.key, g.category]));
 
-    const questions = questionsRaw.map((q: any) => {
+    let notSharedCount = 0;
+    let sharedCount = 0;
+    let releasedCount = 0;
+
+    // 4. Transform & Strictly Redact Server-Side
+    const questions: SupplierQuestionView[] = questionsRaw.map((q: any) => {
         let category = "Uncategorized";
         if (q.masterFieldNo) category = fieldCategoryMap.get(q.masterFieldNo) || "Uncategorized";
         else if (q.masterQuestionGroupId) category = groupCategoryMap.get(q.masterQuestionGroupId) || "Uncategorized";
         else if (q.customFieldDefinitionId) category = "Custom";
 
+        const engagement = q.questionnaire.fiEngagement;
+        const clientLE = engagement?.clientLE;
+        const clientOrgName = clientLE?.owners?.[0]?.party?.name || null;
+
+        let answerVisibility: SupplierAnswerVisibility = "NOT_SHARED";
+        let answer: any | null = null;
+        let provenance: SupplierVisibleProvenance | null = null;
+        let documents: SupplierVisibleDocument[] = [];
+        let sharedAt: Date | string | null = null;
+        let releasedAt: Date | string | null = null;
+
+        if (q.status === "RELEASED") {
+            answerVisibility = "RELEASED";
+            releasedCount++;
+            answer = q.answer ?? null;
+            sharedAt = q.sharedAt ?? null;
+            releasedAt = q.releasedAt ?? null;
+            provenance = {
+                source: q.releaseProvenance?.provenanceDisplay?.source || q.releaseProvenance?.sourceLabel || "Formal Release",
+                timestamp: q.releasedAt || q.updatedAt,
+                releaseProvenance: q.releaseProvenance || null
+            };
+            documents = (q.documents || []).map((d: any) => ({
+                id: d.id,
+                fileName: d.name,
+                fileType: d.mimeType || null,
+                fileSize: d.sizeBytes ? Number(d.sizeBytes) : null,
+                uploadedAt: d.createdAt
+            }));
+        } else if (q.status === "SHARED") {
+            answerVisibility = "SHARED";
+            sharedCount++;
+            answer = q.answer ?? null;
+            sharedAt = q.sharedAt ?? null;
+            provenance = {
+                source: "Provisional Shared",
+                timestamp: q.sharedAt || q.updatedAt
+            };
+            documents = (q.documents || []).map((d: any) => ({
+                id: d.id,
+                fileName: d.name,
+                fileType: d.mimeType || null,
+                fileSize: d.sizeBytes ? Number(d.sizeBytes) : null,
+                uploadedAt: d.createdAt
+            }));
+        } else {
+            // DRAFT and APPROVED questions are strictly REDACTED server-side.
+            answerVisibility = "NOT_SHARED";
+            notSharedCount++;
+            // answer, provenance, and documents remain null / []
+            // Client's internal status ('DRAFT' vs 'APPROVED') is NOT exposed anywhere.
+        }
+
         return {
-            ...q,
+            id: q.id,
+            supplierOrgId: fiOrgId,
+            relationshipId: engagement?.id || "",
+            clientLEId: clientLE?.id || "",
+            clientLEName: clientLE?.name || "Unknown",
+            clientOrganizationName: clientOrgName,
+
+            questionnaireId: q.questionnaire.id,
+            questionnaireName: q.questionnaire.name,
+            questionnaireVersion: (q.questionnaire as any).referenceCode || null,
+
+            sectionId: q.sourceSectionId || null,
+            sectionName: null,
+            questionNumber: q.masterFieldNo ? String(q.masterFieldNo) : null,
+            order: q.order ?? null,
+
+            questionText: q.text,
+            guidance: null,
+            isRequired: null,
+
             category,
-            leName: q.questionnaire.fiEngagement?.clientLE.name || "Unknown",
-            questionnaireName: q.questionnaire.name
+
+            answerVisibility,
+            answer,
+            provenance,
+            documents,
+
+            sharedAt,
+            releasedAt,
+
+            // Backwards compatibility fields
+            text: q.text,
+            leName: clientLE?.name || "Unknown"
+        };
+    });
+
+    const parsedQuestions = JSON.parse(JSON.stringify(questions));
+
+    return {
+        questions: parsedQuestions,
+        les: Array.from(new Set(questions.map((q) => q.clientLEName))).sort(),
+        questionnaires: Array.from(new Set(questions.map((q) => q.questionnaireName))).sort(),
+        categories: Array.from(new Set(questions.map((q) => q.category))).sort(),
+        counts: {
+            total: questions.length,
+            notShared: notSharedCount,
+            shared: sharedCount,
+            released: releasedCount
+        }
+    };
+}
+
+export interface SupplierTeamMemberAccessScope {
+    kind: "SUPPLIER" | "RELATIONSHIPS";
+    relationships?: {
+        id: string;
+        clientLEName: string;
+    }[];
+}
+
+export interface SupplierTeamMemberSummary {
+    userId: string;
+    name: string | null;
+    email: string;
+    role: string;
+    roleLabel: string;
+    accessScope: SupplierTeamMemberAccessScope;
+    joinedAt: Date | string | null;
+}
+
+export interface SupplierPendingInvitationSummary {
+    id: string;
+    email: string;
+    role: string;
+    roleLabel: string;
+    accessScope: string;
+    invitedAt: Date | string;
+    expiresAt: Date | string | null;
+}
+
+export interface SupplierTeamSummary {
+    members: SupplierTeamMemberSummary[];
+    pendingInvitations: SupplierPendingInvitationSummary[];
+}
+
+function formatSupplierRoleLabel(role: string): string {
+    switch (role) {
+        case "SUPPLIER_ADMIN":
+        case "ORG_ADMIN":
+            return "Supplier Admin";
+        case "ORG_MEMBER":
+            return "Supplier Member";
+        case "RELATIONSHIP_ADMIN":
+            return "Relationship Admin";
+        case "RELATIONSHIP_USER":
+            return "Relationship User";
+        default:
+            return role.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+    }
+}
+
+export async function getSupplierTeamMembers(fiOrgId: string): Promise<SupplierTeamSummary> {
+    const identity = await getIdentity();
+    if (!identity?.userId) return { members: [], pendingInvitations: [] };
+    const { userId } = identity;
+
+    // Check user permissions / tenant membership for fiOrgId
+    const userMemberships = await prisma.membership.findMany({
+        where: { userId },
+        include: { fiEngagement: { select: { fiOrgId: true } } }
+    });
+
+    type UserMemRec = typeof userMemberships[number];
+    const isSystemAdmin = userMemberships.some((m: UserMemRec) => m.role === "SYSTEM_ADMIN");
+    const isSupplierMember = userMemberships.some(
+        (m: UserMemRec) => m.organizationId === fiOrgId || m.fiEngagement?.fiOrgId === fiOrgId
+    );
+
+    if (!isSystemAdmin && !isSupplierMember) {
+        return { members: [], pendingInvitations: [] };
+    }
+
+    // Fetch active memberships for this Supplier organization
+    const rawMemberships = await prisma.membership.findMany({
+        where: {
+            OR: [
+                { organizationId: fiOrgId },
+                { fiEngagement: { fiOrgId, isDeleted: false } }
+            ]
+        },
+        include: {
+            user: {
+                select: { id: true, name: true, email: true }
+            },
+            fiEngagement: {
+                select: {
+                    id: true,
+                    clientLE: { select: { name: true } }
+                }
+            }
+        },
+        orderBy: { createdAt: "asc" }
+    });
+
+    // Group memberships by user
+    const memberMap = new Map<string, SupplierTeamMemberSummary>();
+
+    rawMemberships.forEach((m: any) => {
+        if (!m.user) return;
+        const uId = m.user.id;
+        const existing = memberMap.get(uId);
+
+        const isSupplierWide = m.organizationId === fiOrgId;
+        const roleLabel = formatSupplierRoleLabel(m.role);
+
+        if (!existing) {
+            const accessScope: SupplierTeamMemberAccessScope = isSupplierWide
+                ? { kind: "SUPPLIER" }
+                : {
+                      kind: "RELATIONSHIPS",
+                      relationships: m.fiEngagement
+                          ? [{ id: m.fiEngagement.id, clientLEName: m.fiEngagement.clientLE?.name || "Unknown ClientLE" }]
+                          : []
+                  };
+
+            memberMap.set(uId, {
+                userId: uId,
+                name: m.user.name || null,
+                email: m.user.email || "No Email",
+                role: m.role,
+                roleLabel,
+                accessScope,
+                joinedAt: m.createdAt ? m.createdAt.toISOString() : null
+            });
+        } else {
+            // Upgrade access scope to SUPPLIER if supplier-wide membership exists
+            if (isSupplierWide) {
+                existing.accessScope = { kind: "SUPPLIER" };
+                if (m.role === "SUPPLIER_ADMIN" || m.role === "ORG_ADMIN") {
+                    existing.role = m.role;
+                    existing.roleLabel = roleLabel;
+                }
+            } else if (existing.accessScope.kind === "RELATIONSHIPS" && m.fiEngagement) {
+                const rels = existing.accessScope.relationships || [];
+                if (!rels.some((r) => r.id === m.fiEngagement.id)) {
+                    rels.push({
+                        id: m.fiEngagement.id,
+                        clientLEName: m.fiEngagement.clientLE?.name || "Unknown ClientLE"
+                    });
+                }
+            }
+        }
+    });
+
+    // Fetch pending invitations for this Supplier organization or its Relationships
+    const pendingInvites = await prisma.invitation.findMany({
+        where: {
+            usedAt: null,
+            revokedAt: null,
+            expiresAt: { gt: new Date() },
+            OR: [
+                { organizationId: fiOrgId },
+                { fiEngagement: { fiOrgId, isDeleted: false } }
+            ]
+        },
+        include: {
+            fiEngagement: {
+                select: { clientLE: { select: { name: true } } }
+            }
+        },
+        orderBy: { createdAt: "desc" }
+    });
+
+    const pendingSummaries: SupplierPendingInvitationSummary[] = pendingInvites.map((inv: any) => {
+        const isOrgWide = inv.organizationId === fiOrgId;
+        const scopeStr = isOrgWide
+            ? "All Relationships"
+            : inv.fiEngagement?.clientLE?.name
+            ? inv.fiEngagement.clientLE.name
+            : "Relationship Access";
+
+        return {
+            id: inv.id,
+            email: inv.sentToEmail,
+            role: inv.role,
+            roleLabel: formatSupplierRoleLabel(inv.role),
+            accessScope: scopeStr,
+            invitedAt: inv.createdAt ? inv.createdAt.toISOString() : new Date().toISOString(),
+            expiresAt: inv.expiresAt ? inv.expiresAt.toISOString() : null
         };
     });
 
     return {
-        questions: JSON.parse(JSON.stringify(questions)),
-        les: Array.from(new Set(questions.map((q: any) => q.leName))).sort() as string[],
-        questionnaires: Array.from(new Set(questions.map((q: any) => q.questionnaireName))).sort() as string[],
-        categories: Array.from(new Set(questions.map((q: any) => q.category))).sort() as string[]
+        members: Array.from(memberMap.values()),
+        pendingInvitations: pendingSummaries
     };
 }
 
 export async function getFITeamMembers(fiOrgId: string) {
-    const identity = await getIdentity();
-    if (!identity?.userId) return [];
-
-    const members = await prisma.membership.findMany({
-        where: { organizationId: fiOrgId },
-        include: {
-            user: true
-        },
-        orderBy: { role: 'asc' }
-    });
-
-    return members.map((m: any) => ({
-        id: m.user?.id || 'unknown',
-        name: m.user?.name || 'Unknown User',
-        email: m.user?.email || 'No Email',
+    const summary = await getSupplierTeamMembers(fiOrgId);
+    return summary.members.map((m) => ({
+        id: m.userId,
+        name: m.name || "Unknown User",
+        email: m.email,
         role: m.role,
-        image: m.user?.image
+        image: null
     }));
 }
 
@@ -675,4 +1054,161 @@ export async function archiveEngagement(id: string) {
     } catch (e) {
         return { success: false, error: "Failed to archive engagement" };
     }
+}
+
+// 7. Supplier Relationships Expandable Summary Action & DTOs
+export interface SupplierRelationshipQuestionnaireSummary {
+    id: string;
+    questionnaireId: string;
+    name: string;
+    version: string | null;
+    referenceCode: string | null;
+    questionCounts: {
+        total: number;
+        notShared: number;
+        shared: number;
+        released: number;
+    };
+    latestSharedOrReleasedAt: Date | string | null;
+}
+
+export interface SupplierRelationshipSummary {
+    id: string;
+    supplierOrgId: string;
+    clientLEId: string;
+    clientLEName: string;
+    clientOrganizationName: string | null;
+    status: string | null;
+    questionCounts: {
+        total: number;
+        notShared: number;
+        shared: number;
+        released: number;
+    };
+    questionnaires: SupplierRelationshipQuestionnaireSummary[];
+}
+
+export async function getSupplierRelationshipsSummary(fiOrgId: string): Promise<SupplierRelationshipSummary[]> {
+    const identity = await getIdentity();
+    if (!identity?.userId) return [];
+    const { userId } = identity;
+
+    const memberships = await prisma.membership.findMany({
+        where: { userId },
+        select: { organizationId: true, fiEngagementId: true }
+    });
+
+    type MembershipRec = typeof memberships[number];
+    const hasOrgAccess = memberships.some((m: MembershipRec) => m.organizationId === fiOrgId);
+    const userEngagementIds = memberships.map((m: MembershipRec) => m.fiEngagementId).filter(Boolean) as string[];
+
+    if (!hasOrgAccess && userEngagementIds.length === 0) {
+        return [];
+    }
+
+    const engagements = await prisma.fIEngagement.findMany({
+        where: {
+            fiOrgId,
+            isDeleted: false,
+            clientLE: { isDeleted: false },
+            ...(!hasOrgAccess ? { id: { in: userEngagementIds } } : {})
+        },
+        include: {
+            clientLE: {
+                include: {
+                    owners: {
+                        where: { endAt: null },
+                        include: { party: true }
+                    }
+                }
+            },
+            questionnaires: {
+                where: { isDeleted: false },
+                include: {
+                    questions: {
+                        select: {
+                            id: true,
+                            status: true,
+                            sharedAt: true,
+                            releasedAt: true
+                        }
+                    }
+                }
+            }
+        },
+        orderBy: { clientLE: { name: "asc" } }
+    });
+
+    return engagements.map((eng: any) => {
+        let engTotal = 0;
+        let engNotShared = 0;
+        let engShared = 0;
+        let engReleased = 0;
+
+        const qSummaries: SupplierRelationshipQuestionnaireSummary[] = (eng.questionnaires || []).map((q: any) => {
+            let qTotal = 0;
+            let qNotShared = 0;
+            let qShared = 0;
+            let qReleased = 0;
+            let latestTimestamp: Date | null = null;
+
+            (q.questions || []).forEach((quest: any) => {
+                qTotal++;
+                if (quest.status === "SHARED") {
+                    qShared++;
+                    const dt = quest.sharedAt ? new Date(quest.sharedAt) : null;
+                    if (dt && (!latestTimestamp || dt > latestTimestamp)) {
+                        latestTimestamp = dt;
+                    }
+                } else if (quest.status === "RELEASED") {
+                    qReleased++;
+                    const dt = quest.releasedAt ? new Date(quest.releasedAt) : null;
+                    if (dt && (!latestTimestamp || dt > latestTimestamp)) {
+                        latestTimestamp = dt;
+                    }
+                } else {
+                    // DRAFT & APPROVED combine into Awaiting Client
+                    qNotShared++;
+                }
+            });
+
+            engTotal += qTotal;
+            engNotShared += qNotShared;
+            engShared += qShared;
+            engReleased += qReleased;
+
+            const latestIso: string | null = latestTimestamp ? (latestTimestamp as Date).toISOString() : null;
+
+            return {
+                id: q.id,
+                questionnaireId: q.id,
+                name: q.name,
+                version: q.version || null,
+                referenceCode: q.code || q.referenceCode || null,
+                questionCounts: {
+                    total: qTotal,
+                    notShared: qNotShared,
+                    shared: qShared,
+                    released: qReleased
+                },
+                latestSharedOrReleasedAt: latestIso
+            };
+        });
+
+        return {
+            id: eng.id,
+            supplierOrgId: eng.fiOrgId,
+            clientLEId: eng.clientLEId,
+            clientLEName: eng.clientLE?.name || "Unknown ClientLE",
+            clientOrganizationName: eng.clientLE?.owners?.[0]?.party?.name || null,
+            status: eng.status || "Active",
+            questionCounts: {
+                total: engTotal,
+                notShared: engNotShared,
+                shared: engShared,
+                released: engReleased
+            },
+            questionnaires: qSummaries
+        };
+    });
 }

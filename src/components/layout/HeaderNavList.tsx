@@ -5,13 +5,36 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { LucideIcon } from "lucide-react";
 import React from "react";
+import { getBreadcrumbIcon } from "@/lib/breadcrumb-icon-map";
 
 export interface NavItem {
     label: string;
     href: string;
     icon?: LucideIcon;
-    isActive: (pathname: string) => boolean;
+    iconName?: string;
+    isActive?: (pathname: string) => boolean;
     alignRight?: boolean;
+}
+
+export function isNavItemActive(item: NavItem, pathname: string): boolean {
+    if (item.isActive) {
+        return item.isActive(pathname);
+    }
+    const cleanPath = pathname.split('?')[0].replace(/\/$/, '') || '/';
+    const cleanHref = item.href.split('?')[0].replace(/\/$/, '') || '/';
+
+    if (cleanPath === cleanHref) return true;
+
+    const isSupplierRoot = /^\/app\/s\/[^\/]+$/.test(cleanHref);
+    if (isSupplierRoot && cleanPath.startsWith(`${cleanHref}/engagements`)) {
+        return true;
+    }
+
+    if (!isSupplierRoot && cleanHref !== '/' && cleanPath.startsWith(cleanHref)) {
+        return true;
+    }
+
+    return false;
 }
 
 interface HeaderNavListProps {
@@ -32,8 +55,8 @@ export function HeaderNavList({ items }: HeaderNavListProps) {
                 aria-label="Secondary Navigation"
             >
                 {items.map((item) => {
-                    const active = item.isActive(fullPath);
-                    const Icon = item.icon;
+                    const active = isNavItemActive(item, fullPath);
+                    const Icon = item.icon || (item.iconName ? getBreadcrumbIcon(item.iconName) : undefined);
                     return (
                         <Link
                             key={item.label}
@@ -58,7 +81,7 @@ export function HeaderNavList({ items }: HeaderNavListProps) {
                     );
                 })}
             </nav>
-            
+
             {/* Fade background to indicate scroll availability on mobile */}
             <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white dark:from-zinc-950 to-transparent pointer-events-none md:hidden" />
         </div>

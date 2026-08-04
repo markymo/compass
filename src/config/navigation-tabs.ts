@@ -13,6 +13,7 @@ import {
     PackageCheck,
     Settings2,
     Settings,
+    Building2,
     Link as LinkIcon
 } from "lucide-react";
 import { NavItem } from "@/components/layout/HeaderNavList";
@@ -106,37 +107,28 @@ export const getRelationshipTabs = (leId: string, engagementId: string): NavItem
 
 export const getFIPortalTabs = (orgId: string): NavItem[] => {
     const baseUrl = `/app/s/${orgId}`;
-    
-    const matchesTab = (path: string, tabValue: string | null) => {
-        const url = new URL(path, 'http://localhost');
-        const tab = url.searchParams.get('tab');
-        return tab === tabValue || (tabValue === null && !tab);
-    };
 
     return [
         {
-            label: "Overview",
-            href: `${baseUrl}?tab=overview`,
-            icon: LayoutDashboard,
-            isActive: (path) => matchesTab(path, "overview") || matchesTab(path, null)
+            label: "Relationships",
+            href: baseUrl,
+            iconName: "building-2",
         },
         {
-            label: "Workbench",
-            href: `${baseUrl}?tab=workbench`,
-            icon: KanbanSquare,
-            isActive: (path) => matchesTab(path, "workbench")
+            label: "Questions & Answers",
+            href: `${baseUrl}/questions`,
+            iconName: "file-text",
         },
         {
-            label: "Questionnaires",
-            href: `${baseUrl}?tab=questionnaires`,
-            icon: FileText,
-            isActive: (path) => matchesTab(path, "questionnaires")
+            label: "Admin",
+            href: `${baseUrl}/questionnaires`,
+            iconName: "settings",
         },
         {
-            label: "Team",
-            href: `${baseUrl}?tab=team`,
-            icon: Users,
-            isActive: (path) => matchesTab(path, "team")
+            label: "Teams",
+            href: `${baseUrl}/team`,
+            iconName: "users",
+            alignRight: true
         }
     ];
 };

@@ -1,114 +1,60 @@
-import { getFIQuestionnaires, getFIOganization } from "@/actions/fi";
-import { UploadQuestionnaireDialog } from "@/components/fi/upload-questionnaire-dialog";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
-import { FileText, Clock, CheckCircle, ArrowRight } from "lucide-react";
-import { isSystemAdmin } from "@/actions/security";
-import Link from "next/link";
-import { QuestionnaireActions } from "@/components/fi/questionnaire-actions";
-import { can, Action } from "@/lib/auth/permissions";
-import { getIdentity } from "@/lib/auth";
-import prisma from "@/lib/prisma";
+import { getFIOganization } from "@/actions/fi";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Settings } from "lucide-react";
+import { notFound } from "next/navigation";
+import { FIDashboardHeader } from "@/components/fi/fi-dashboard-header";
+import { SetPageBreadcrumbs } from "@/context/breadcrumb-context";
+import { HeaderNavList } from "@/components/layout/HeaderNavList";
+import { getFIPortalTabs } from "@/config/navigation-tabs";
 
-export default async function FIQuestionnairesPage() {
-    const questionnaires = await getFIQuestionnaires();
-    const org = await getFIOganization();
-    const sysAdmin = await isSystemAdmin();
-    const identity = await getIdentity();
-    
-    let isAdmin = sysAdmin;
-    if (!isAdmin && identity && org) {
-        const user = { id: identity.userId, memberships: await prisma.membership.findMany({ where: { userId: identity.userId } }) };
-        isAdmin = await can(user, Action.QUESTIONNAIRE_UPDATE, { partyId: org.id }, prisma);
-    }
+export default async function FIAdminPage({ params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
+
+    const org = await getFIOganization(id);
+    if (!org) return notFound();
+
+    const fiTabs = getFIPortalTabs(org.id);
 
     return (
-        <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Questionnaires</h1>
-                    <p className="text-muted-foreground">Manage your uploaded forms and check mapping status.</p>
-                </div>
-                <UploadQuestionnaireDialog isAdmin={isAdmin} />
-            </div>
+        <div className="flex flex-col min-h-screen bg-slate-50/30">
+            <SetPageBreadcrumbs
+                items={[
+                    { label: "Home", href: "/app", iconName: "home" },
+                    { label: org.name, href: `/app/s/${id}`, iconName: "landmark" },
+                    { label: "Admin", iconName: "settings" }
+                ]}
+                title="Admin"
+                typeLabel="Financial Institution"
+                secondaryNav={<HeaderNavList items={fiTabs} />}
+            />
 
-            <Card>
-                <CardHeader>
-                    <CardTitle>Uploaded Forms</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Name</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead>Mapping Status</TableHead>
-                                <TableHead className="text-right">Actions</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {questionnaires.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
-                                        No questionnaires uploaded yet.
-                                    </TableCell>
-                                </TableRow>
-                            ) : (
-                                questionnaires.map((q: any) => (
-                                    <TableRow key={q.id}>
-                                        <TableCell className="font-medium">
-                                            <div className="flex items-center gap-2">
-                                                <FileText className="h-4 w-4 text-blue-500" />
-                                                {q.name}
-                                            </div>
-                                            <div className="text-xs text-muted-foreground ml-6">{q.fileName}</div>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Badge variant={q.status === "ACTIVE" ? "default" : "secondary"}>
-                                                {q.status}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="flex items-center gap-2">
-                                                {q.mappings ? (
-                                                    <>
-                                                        <CheckCircle className="h-4 w-4 text-green-500" />
-                                                        <span className="text-sm">Mapped</span>
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <Clock className="h-4 w-4 text-amber-500" />
-                                                        <span className="text-sm">Pending Mapping</span>
-                                                    </>
-                                                )}
-                                            </div>
-                                        </TableCell>
-                                        <TableCell className="text-right">
-                                            <div className="flex justify-end gap-2">
-                                                {isAdmin && (
-                                                    <>
-                                                        <Link href={`/app/admin/questionnaires/${q.id}`}>
-                                                            <Button size="sm" variant="ghost">
-                                                                Manage <ArrowRight className="ml-2 h-4 w-4" />
-                                                            </Button>
-                                                        </Link>
-                                                        <QuestionnaireActions id={q.id} name={q.name} />
-                                                    </>
-                                                )}
-                                                <span className="text-xs text-muted-foreground flex items-center px-3">
-                                                    {new Date(q.createdAt).toLocaleDateString()}
-                                                </span>
-                                            </div>
-                                        </TableCell>
-                                    </TableRow>
-                                ))
-                            )}
-                        </TableBody>
-                    </Table>
-                </CardContent>
-            </Card>
+            <FIDashboardHeader org={org} />
+
+            <div className="max-w-7xl mx-auto w-full p-8 space-y-6">
+                <Card className="border-slate-200 shadow-sm bg-white overflow-hidden">
+                    <CardHeader className="p-8 pb-6 border-b border-slate-100">
+                        <div className="flex items-center gap-3">
+                            <div className="h-10 w-10 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-600 shrink-0">
+                                <Settings className="h-5 w-5" />
+                            </div>
+                            <div>
+                                <CardTitle className="text-xl font-bold text-slate-900">Admin</CardTitle>
+                                <CardDescription className="text-xs text-slate-500 font-medium mt-0.5">
+                                    Supplier administration and configuration tools.
+                                </CardDescription>
+                            </div>
+                        </div>
+                    </CardHeader>
+                    <CardContent className="p-8 space-y-3">
+                        <p className="text-sm font-semibold text-slate-800">
+                            Supplier administration will be available here in a future release.
+                        </p>
+                        <p className="text-xs text-slate-500 font-medium leading-relaxed">
+                            Questionnaire templates and mappings are currently managed by OnPro administrators.
+                        </p>
+                    </CardContent>
+                </Card>
+            </div>
         </div>
     );
 }

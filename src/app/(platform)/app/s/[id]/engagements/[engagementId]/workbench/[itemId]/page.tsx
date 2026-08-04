@@ -19,6 +19,11 @@ export default async function WorkbenchPage({ params }: { params: Promise<{ id: 
 
     if (!engagement || !questionnaire) return notFound();
 
+    // Verify relationship & tenant alignment (prevent mismatched IDs or cross-tenant access)
+    if (engagement.fiOrgId !== id || questionnaire.fiEngagementId !== engagementId) {
+        return notFound();
+    }
+
     // Mode Switching: If it has questions (Instance), show Q&A Mode. Else show Extraction Mode.
     if (questionnaire.questions && questionnaire.questions.length > 0) {
         return (

@@ -11,7 +11,10 @@ import {
     Users, 
     BookOpen, 
     CreditCard,
-    Lock
+    Lock,
+    HelpCircle,
+    Settings,
+    FileText
 } from "lucide-react";
 
 export const BREADCRUMB_ICON_MAP: Record<string, LucideIcon> = {
@@ -26,7 +29,10 @@ export const BREADCRUMB_ICON_MAP: Record<string, LucideIcon> = {
     "users": Users,
     "book-open": BookOpen,
     "credit-card": CreditCard,
-    "lock": Lock
+    "lock": Lock,
+    "help-circle": HelpCircle,
+    "settings": Settings,
+    "file-text": FileText
 };
 
 export function getBreadcrumbIcon(iconName?: string): LucideIcon | undefined {
