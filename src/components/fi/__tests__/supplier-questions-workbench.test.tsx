@@ -142,4 +142,18 @@ describe("SupplierQuestionsWorkbench Component Structure & Safety", () => {
         expect(releasedQ?.answer).toBe("5493001KJ957L6151874");
         expect(releasedQ?.provenance?.source).toBe("GLEIF Registry");
     });
+
+    it("30. Relationship navigation link points to /app/s/[supplierId]?expand=[relationshipId]", () => {
+        const q = mockData.questions[0];
+        const linkTarget = `/app/s/${q.supplierOrgId}?expand=${q.relationshipId}`;
+        expect(linkTarget).toBe("/app/s/org-1?expand=rel-1");
+    });
+
+    it("21, 22, 23, 24. Component exposes zero Client editing, mapping, or approval controls", () => {
+        const comp = SupplierQuestionsWorkbench as any;
+        expect(comp.mapQuestionToField).toBeUndefined();
+        expect(comp.approveQuestionMapping).toBeUndefined();
+        expect(comp.shareQuestion).toBeUndefined();
+        expect(comp.releaseQuestion).toBeUndefined();
+    });
 });

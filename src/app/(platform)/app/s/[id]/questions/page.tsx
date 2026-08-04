@@ -36,7 +36,7 @@ export default async function FIQuestionsPage({ params }: { params: Promise<{ id
 
             <FIDashboardHeader org={org} />
 
-            <div className="max-w-7xl mx-auto w-full p-8">
+            <div className="w-full p-8">
                 <SupplierQuestionsWorkbench orgId={org.id} data={workbenchData} />
             </div>
         </div>
