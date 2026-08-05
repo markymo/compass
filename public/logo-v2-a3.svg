@@ -7,15 +7,15 @@
     </defs>
 
     <g transform="translate(10, 5)">
-        <!-- Mirrored Arc (White O-Ring for dark bg) -->
-        <path d="M 28 48 A 38 38 0 1 0 62 27" fill="none" stroke="#ffffff" stroke-width="11" stroke-linecap="round" />
+        <!-- Navy 300-degree Ring Arc -->
+        <path d="M 40 45 A 38 38 0 1 0 92 45" fill="none" stroke="#1d2b3a" stroke-width="11" stroke-linecap="round" />
         
-        <!-- Power Stem (Orange Vertical P-Spine) -->
-        <line x1="60" y1="20" x2="60" y2="76" stroke="#f97316" stroke-width="12" stroke-linecap="round" />
+        <!-- Center-Out 45-degree Power Pulse (Orange Line) -->
+        <line x1="60" y1="65" x2="94" y2="31" stroke="#f97316" stroke-width="12" stroke-linecap="round" />
     </g>
 
     <!-- Text "OnPro" -->
     <text x="145" y="98" class="logo-text">
-        <tspan fill="#f97316">On</tspan><tspan fill="#ffffff">Pro</tspan>
+        <tspan fill="#f97316">On</tspan><tspan fill="#1d2b3a">Pro</tspan>
     </text>
 </svg>

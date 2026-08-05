@@ -7,11 +7,13 @@
     </defs>
 
     <g transform="translate(10, 5)">
-        <!-- Mirrored Arc (White O-Ring for dark bg) -->
-        <path d="M 28 48 A 38 38 0 1 0 62 27" fill="none" stroke="#ffffff" stroke-width="11" stroke-linecap="round" />
+        <!-- Outer Ring (White for dark backgrounds) -->
+        <circle cx="60" cy="60" r="48" fill="none" stroke="#ffffff" stroke-width="10" />
         
-        <!-- Power Stem (Orange Vertical P-Spine) -->
-        <line x1="60" y1="20" x2="60" y2="76" stroke="#f97316" stroke-width="12" stroke-linecap="round" />
+        <!-- Orange P Mark -->
+        <path d="M 47,30 L 61,30 L 61,114 L 47,114 Z 
+                 M 61,30 C 85,30 98,42 98,58 C 98,74 85,86 61,86 L 61,72 C 77,72 84,66 84,58 C 84,50 77,44 61,44 Z" 
+              fill="#f97316" />
     </g>
 
     <!-- Text "OnPro" -->

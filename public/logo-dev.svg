@@ -3,18 +3,19 @@
         <style>
             @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@800&amp;display=swap');
             .logo-text { font-family: 'Montserrat', sans-serif; font-weight: 800; font-size: 76px; letter-spacing: -2px; }
-            .box-bg { fill: #000000; }
-            .box { fill: none; stroke: #16a34a; stroke-width: 11; stroke-miterlimit: 10; }
-            .tick { fill: none; stroke: #16a34a; stroke-width: 14; stroke-linecap: butt; stroke-linejoin: miter; }
         </style>
     </defs>
 
-    <!-- Box Border -->
-    <polyline class="box" points="80,20 20,20 20,105 105,105 105,65" />
-    <!-- Tick -->
-    <polyline class="tick" points="40,65 65,90 100,20" />
-    <!-- Text -->
-    <text x="130" y="98" class="logo-text">
-        <tspan fill="#16a34a">On</tspan><tspan fill="#000000">Pro</tspan>
+    <g transform="translate(10, 5)">
+        <!-- Mirrored Arc (Navy O-Ring) -->
+        <path d="M 28 48 A 38 38 0 1 0 62 27" fill="none" stroke="#1d2b3a" stroke-width="11" stroke-linecap="round" />
+        
+        <!-- Power Stem (Dev Green Vertical P-Spine) -->
+        <line x1="60" y1="20" x2="60" y2="76" stroke="#16a34a" stroke-width="12" stroke-linecap="round" />
+    </g>
+
+    <!-- Text "OnPro" -->
+    <text x="145" y="98" class="logo-text">
+        <tspan fill="#16a34a">On</tspan><tspan fill="#1d2b3a">Pro</tspan>
     </text>
 </svg>

@@ -7,7 +7,7 @@
     </defs>
 
     <g transform="translate(10, 5)">
-        <!-- Mirrored Arc (White O-Ring for dark bg) -->
+        <!-- Mirrored Arc (White O-Ring with Upper-Left Gap for dark bg) -->
         <path d="M 28 48 A 38 38 0 1 0 62 27" fill="none" stroke="#ffffff" stroke-width="11" stroke-linecap="round" />
         
         <!-- Power Stem (Orange Vertical P-Spine) -->
