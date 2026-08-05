@@ -7,11 +7,11 @@
     </defs>
 
     <g transform="translate(10, 5)">
-        <!-- Mirrored Arc (White O-Ring for dark bg) -->
-        <path d="M 28 48 A 38 38 0 1 0 62 27" fill="none" stroke="#ffffff" stroke-width="11" stroke-linecap="round" />
+        <!-- White Arch for dark bg -->
+        <path d="M 30 100 L 30 52 C 30 32, 65 32, 65 52 L 65 100" fill="none" stroke="#ffffff" stroke-width="11" stroke-linecap="round" />
         
-        <!-- Power Stem (Orange Vertical P-Spine) -->
-        <line x1="60" y1="20" x2="60" y2="76" stroke="#f97316" stroke-width="12" stroke-linecap="round" />
+        <!-- Orange Forward Arch -->
+        <path d="M 65 72 C 65 48, 98 48, 98 72 L 98 100" fill="none" stroke="#f97316" stroke-width="11" stroke-linecap="round" />
     </g>
 
     <!-- Text "OnPro" -->

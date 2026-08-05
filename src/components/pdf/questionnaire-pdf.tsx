@@ -1,5 +1,5 @@
 import React from "react";
-import { Document, Page, Text, View, StyleSheet, Image, Svg, Path, Polyline } from "@react-pdf/renderer";
+import { Document, Page, Text, View, StyleSheet, Image, Svg, Path, Line, Polyline } from "@react-pdf/renderer";
 import { formatSystemDateTime, formatBusinessDate } from "@/lib/date-utils";
 
 // --- Icons ---
@@ -24,17 +24,17 @@ const FactoryIcon = () => (
     </Svg>
 );
 
-const GlobeIcon = () => (
+const UserIcon = () => (
     <Svg viewBox="0 0 24 24" width={12} height={12} fill="none">
-        <Path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z M2 12h20 M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" stroke="#64748b" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+        <Path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2 M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" stroke="#64748b" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
 );
 
 const OnProLogo = () => (
     <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-        <Svg viewBox="0 0 120 120" width={28} height={28} style={{ marginRight: 6 }}>
-            <Polyline points="80,20 20,20 20,105 105,105 105,65" fill="none" stroke="#f97316" strokeWidth={11} />
-            <Polyline points="40,65 65,90 100,20" fill="none" stroke="#f97316" strokeWidth={14} />
+        <Svg viewBox="0 0 130 130" width={28} height={28} style={{ marginRight: 6 }}>
+            <Path d="M 28 48 A 38 38 0 1 0 62 27" stroke="#1d2b3a" strokeWidth={11} strokeLinecap="round" />
+            <Line x1={60} y1={20} x2={60} y2={76} stroke="#f97316" strokeWidth={12} strokeLinecap="round" />
         </Svg>
         <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
             <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#f97316', letterSpacing: -1 }}>On</Text>

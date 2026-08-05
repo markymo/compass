@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 130 130">
+    <g transform="translate(5, 5)">
+        <!-- Outer Ring -->
+        <circle cx="60" cy="60" r="48" fill="none" stroke="#1d2b3a" stroke-width="10" />
+        
+        <!-- Orange P Mark -->
+        <path d="M 47,30 L 61,30 L 61,114 L 47,114 Z 
+                 M 61,30 C 85,30 98,42 98,58 C 98,74 85,86 61,86 L 61,72 C 77,72 84,66 84,58 C 84,50 77,44 61,44 Z" 
+              fill="#f97316" />
+    </g>
+</svg>
